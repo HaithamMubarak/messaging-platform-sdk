@@ -1,0 +1,377 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TURN/STUN Server Test - HMDev Messaging Platform</title>
+    <link rel="stylesheet" href="../css/toast.css">
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            max-width: 900px;
+            margin: 50px auto;
+            padding: 20px;
+            background: #f5f5f5;
+        }
+        h1 {
+            color: #333;
+            text-align: center;
+        }
+        .container {
+            background: white;
+            padding: 30px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        .config-section {
+            background: #f8f9fa;
+            padding: 15px;
+            border-radius: 5px;
+            margin: 20px 0;
+        }
+        .config-section label {
+            display: block;
+            margin: 10px 0 5px;
+            font-weight: bold;
+            color: #555;
+        }
+        .config-section input {
+            width: 100%;
+            padding: 8px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            box-sizing: border-box;
+        }
+        button {
+            background: #007bff;
+            color: white;
+            border: none;
+            padding: 12px 30px;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 16px;
+            margin: 10px 5px;
+        }
+        button:hover {
+            background: #0056b3;
+        }
+        button:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+        }
+        .results {
+            margin-top: 20px;
+            padding: 15px;
+            background: #f8f9fa;
+            border-radius: 5px;
+            max-height: 400px;
+            overflow-y: auto;
+        }
+        .result-item {
+            padding: 8px;
+            margin: 5px 0;
+            border-radius: 4px;
+            font-family: monospace;
+            font-size: 14px;
+        }
+        .success {
+            background: #d4edda;
+            color: #155724;
+            border-left: 4px solid #28a745;
+        }
+        .error {
+            background: #f8d7da;
+            color: #721c24;
+            border-left: 4px solid #dc3545;
+        }
+        .info {
+            background: #d1ecf1;
+            color: #0c5460;
+            border-left: 4px solid #17a2b8;
+        }
+        .warning {
+            background: #fff3cd;
+            color: #856404;
+            border-left: 4px solid #ffc107;
+        }
+        .spinner {
+            border: 3px solid #f3f3f3;
+            border-top: 3px solid #007bff;
+            border-radius: 50%;
+            width: 30px;
+            height: 30px;
+            animation: spin 1s linear infinite;
+            display: inline-block;
+            margin-left: 10px;
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        .stats {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+            margin: 20px 0;
+        }
+        .stat-box {
+            background: #e9ecef;
+            padding: 15px;
+            border-radius: 5px;
+            text-align: center;
+        }
+        .stat-number {
+            font-size: 24px;
+            font-weight: bold;
+            color: #007bff;
+        }
+        .stat-label {
+            font-size: 12px;
+            color: #666;
+            margin-top: 5px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🌐 TURN/STUN Server Test</h1>
+        <p style="text-align: center; color: #666;">
+            Test your coturn server configuration for WebRTC connectivity
+        </p>
+
+        <div style="background: #fff3cd; border: 1px solid #ffc107; border-radius: 5px; padding: 15px; margin: 20px 0;">
+            <strong>💡 Testing from VPN:</strong><br>
+            You can run this test from any machine, including one connected to a corporate VPN!<br>
+            <ul style="margin: 10px 0; padding-left: 20px;">
+                <li><strong>Open Network:</strong> Should see STUN + TURN UDP/TCP + TURNS TLS</li>
+                <li><strong>Corporate VPN:</strong> May only see TURNS TLS (port 5349) - that's expected!</li>
+                <li><strong>Success on VPN:</strong> If you see "✅ TURNS TLS WORKING!" then VPN users can connect!</li>
+            </ul>
+        </div>
+
+        <div class="config-section">
+            <h3>Configuration</h3>
+
+            <label>STUN Server:</label>
+            <input type="text" id="stunServer" value="stun:hmdevonline.com:3478" placeholder="stun:server:port">
+
+            <label>TURN Server (UDP/TCP):</label>
+            <input type="text" id="turnServer" value="turn:hmdevonline.com:3478" placeholder="turn:server:port">
+
+            <label>TURN Server (TCP only) - Add ?transport=tcp:</label>
+            <input type="text" id="turnTcpServer" value="turn:hmdevonline.com:3478?transport=tcp" placeholder="turn:server:port?transport=tcp">
+
+            <label>TURNS Server (TLS) - Port 5349 (Standard):</label>
+            <input type="text" id="turnsServer" value="turns:hmdevonline.com:5349" placeholder="turns:server:port">
+
+            <label>TURNS Server (TLS) - Port 80 (Alternative for strict VPN):</label>
+            <input type="text" id="turnsServer80" value="turns:hmdevonline.com:80" placeholder="turns:server:80">
+
+            <label>Username:</label>
+            <input type="text" id="username" value="webrtc" placeholder="username">
+
+            <label>Password:</label>
+            <input type="password" id="password" value="" placeholder="TURN password">
+        </div>
+
+        <div style="text-align: center;">
+            <button onclick="testServers()" id="testBtn">🧪 Test Servers</button>
+            <button onclick="clearResults()">🗑️ Clear Results</button>
+        </div>
+
+        <div class="stats" id="stats" style="display: none;">
+            <div class="stat-box">
+                <div class="stat-number" id="totalCandidates">0</div>
+                <div class="stat-label">Total Candidates</div>
+            </div>
+            <div class="stat-box">
+                <div class="stat-number" id="sreflexCandidates">0</div>
+                <div class="stat-label">Server Reflexive (STUN)</div>
+            </div>
+            <div class="stat-box">
+                <div class="stat-number" id="relayCandidates">0</div>
+                <div class="stat-label">Relay (TURN)</div>
+            </div>
+            <div class="stat-box">
+                <div class="stat-number" id="relayTlsCandidates">0</div>
+                <div class="stat-label">Relay TLS (TURNS)</div>
+            </div>
+            <div class="stat-box">
+                <div class="stat-number" id="hostCandidates">0</div>
+                <div class="stat-label">Host (Local)</div>
+            </div>
+        </div>
+
+        <div class="results" id="results"></div>
+    </div>
+
+    <script>
+        let pc = null;
+        let stats = {
+            total: 0,
+            host: 0,
+            srflx: 0,
+            relay: 0,
+            relayTls: 0
+        };
+
+        function log(message, type = 'info') {
+            const results = document.getElementById('results');
+            const item = document.createElement('div');
+            item.className = `result-item ${type}`;
+            item.textContent = `[${new Date().toLocaleTimeString()}] ${message}`;
+            results.appendChild(item);
+            results.scrollTop = results.scrollHeight;
+        }
+
+        function updateStats() {
+            document.getElementById('stats').style.display = 'grid';
+            document.getElementById('totalCandidates').textContent = stats.total;
+            document.getElementById('sreflexCandidates').textContent = stats.srflx;
+            document.getElementById('relayCandidates').textContent = stats.relay;
+            document.getElementById('relayTlsCandidates').textContent = stats.relayTls;
+            document.getElementById('hostCandidates').textContent = stats.host;
+        }
+
+        function clearResults() {
+            document.getElementById('results').innerHTML = '';
+            document.getElementById('stats').style.display = 'none';
+            stats = { total: 0, host: 0, srflx: 0, relay: 0, relayTls: 0 };
+            if (pc) {
+                pc.close();
+                pc = null;
+            }
+        }
+
+        async function testServers() {
+            clearResults();
+
+            const stunServer = document.getElementById('stunServer').value;
+            const turnServer = document.getElementById('turnServer').value;
+            const turnTcpServer = document.getElementById('turnTcpServer').value;
+            const turnsServer = document.getElementById('turnsServer').value;
+            const turnsServer80 = document.getElementById('turnsServer80').value;
+            const username = document.getElementById('username').value;
+            const password = document.getElementById('password').value;
+
+            const testBtn = document.getElementById('testBtn');
+            testBtn.disabled = true;
+            testBtn.innerHTML = '⏳ Testing... <span class="spinner"></span>';
+
+            log('Starting TURN/STUN server test...', 'info');
+
+            try {
+                // Create RTCPeerConnection with ICE servers
+                const iceServers = [
+                    { urls: stunServer }
+                ];
+
+                // Add TURN server if credentials provided
+                if (username && password) {
+                    iceServers.push({
+                        urls: [turnServer, turnTcpServer, turnsServer, turnsServer80],
+                        username: username,
+                        credential: password
+                    });
+                    log('Testing with TURN/TURNS authentication', 'info');
+                } else {
+                    log('⚠️ No credentials - testing STUN only', 'warning');
+                }
+
+                const config = { iceServers };
+
+                log(`Configuration: ${JSON.stringify(config, null, 2)}`, 'info');
+
+                pc = new RTCPeerConnection(config);
+
+                // Listen for ICE candidates
+                pc.onicecandidate = (event) => {
+                    if (event.candidate) {
+                        const candidate = event.candidate;
+                        stats.total++;
+
+                        // Parse candidate type and protocol
+                        const type = candidate.type;
+                        const protocol = candidate.protocol;
+                        const relatedPort = candidate.relatedPort;
+                        let message = `Found ${type} candidate (${protocol}): ${candidate.candidate}`;
+                        let logType = 'info';
+
+                        if (type === 'host') {
+                            stats.host++;
+                            logType = 'info';
+                        } else if (type === 'srflx') {
+                            stats.srflx++;
+                            message += ' ✅ STUN WORKING!';
+                            logType = 'success';
+                        } else if (type === 'relay') {
+                            // Detect if it's TLS relay (usually TCP on port 5349)
+                            if (protocol === 'tcp' || relatedPort === 5349 || candidate.candidate.includes(':5349')) {
+                                stats.relayTls++;
+                                message += ' ✅ TURNS TLS WORKING!';
+                                logType = 'success';
+                            } else {
+                                stats.relay++;
+                                message += ' ✅ TURN UDP/TCP WORKING!';
+                                logType = 'success';
+                            }
+                        }
+
+                        log(message, logType);
+                        updateStats();
+                    } else {
+                        log('ICE gathering completed', 'info');
+
+                        // Evaluate results
+                        setTimeout(() => {
+                            if (stats.srflx === 0) {
+                                log('⚠️ WARNING: No STUN candidates found. STUN server may not be working.', 'warning');
+                            }
+                            if (stats.relay === 0 && stats.relayTls === 0) {
+                                log('⚠️ WARNING: No TURN/TURNS candidates found. TURN server may not be working or credentials are invalid.', 'warning');
+                            }
+                            if (stats.relayTls > 0) {
+                                log('✅ SUCCESS: TURNS (TLS) is working! Great for corporate VPN!', 'success');
+                            }
+                            if (stats.srflx > 0 && (stats.relay > 0 || stats.relayTls > 0)) {
+                                log('✅ SUCCESS: Both STUN and TURN servers are working correctly!', 'success');
+                            }
+
+                            testBtn.disabled = false;
+                            testBtn.innerHTML = '🧪 Test Servers';
+                        }, 1000);
+                    }
+                };
+
+                pc.onicegatheringstatechange = () => {
+                    log(`ICE gathering state: ${pc.iceGatheringState}`, 'info');
+                };
+
+                pc.oniceconnectionstatechange = () => {
+                    log(`ICE connection state: ${pc.iceConnectionState}`, 'info');
+                };
+
+                // Create a dummy data channel to trigger ICE gathering
+                pc.createDataChannel('test');
+
+                // Create offer to start ICE gathering
+                const offer = await pc.createOffer();
+                await pc.setLocalDescription(offer);
+
+                log('ICE gathering started...', 'info');
+
+            } catch (error) {
+                log(`❌ ERROR: ${error.message}`, 'error');
+                testBtn.disabled = false;
+                testBtn.innerHTML = '🧪 Test Servers';
+            }
+        }
+
+        // Auto-test on load if in development
+        window.addEventListener('load', () => {
+            log('Page loaded. Click "Test Servers" to begin.', 'info');
+        });
+    </script>
+</body>
+</html>
+

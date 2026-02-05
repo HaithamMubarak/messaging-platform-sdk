@@ -1,0 +1,763 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Admin Dashboard - Messaging Platform</title>
+    <link rel="stylesheet" href="../css/toast.css">
+    <link rel="stylesheet" href="css/admin.css">
+</head>
+<body>
+    <div class="dashboard">
+        <!-- Sidebar -->
+        <aside class="sidebar">
+            <div class="sidebar-header">
+                <h2>📊 Admin Panel</h2>
+            </div>
+            <nav class="sidebar-nav">
+                <a href="#" class="nav-item active" data-section="overview">
+                    <span class="icon">🏠</span> Overview
+                </a>
+                <a href="#" class="nav-item" data-section="requests">
+                    <span class="icon">📬</span> API Requests <span id="pendingBadge" class="pending-badge" style="display:none">0</span>
+                </a>
+                <a href="#" class="nav-item" data-section="developers">
+                    <span class="icon">👥</span> Developers
+                </a>
+                <a href="#" class="nav-item" data-section="plans">
+                    <span class="icon">📋</span> Plans
+                </a>
+                <a href="#" class="nav-item" data-section="create">
+                    <span class="icon">➕</span> Create Developer
+                </a>
+            </nav>
+            <div class="sidebar-footer">
+                <button id="logoutBtn" class="btn btn-secondary">
+                    <span class="icon">🚪</span> Logout
+                </button>
+            </div>
+        </aside>
+
+        <!-- Main Content -->
+        <main class="main-content">
+            <header class="content-header">
+                <h1 id="pageTitle">Dashboard Overview</h1>
+                <div class="user-info">
+                    <span id="adminEmail">admin@example.com</span>
+                </div>
+            </header>
+
+            <!-- Overview Section -->
+            <section id="overviewSection" class="section active">
+                <div class="stats-grid">
+                    <div class="stat-card">
+                        <div class="stat-icon">👥</div>
+                        <div class="stat-info">
+                            <h3 id="statDevelopers">-</h3>
+                            <p>Total Developers</p>
+                        </div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-icon">✅</div>
+                        <div class="stat-info">
+                            <h3 id="statActive">-</h3>
+                            <p>Active Developers</p>
+                        </div>
+                    </div>
+                    <div class="stat-card highlight" onclick="navigateToSection('requests')" style="cursor:pointer">
+                        <div class="stat-icon">📬</div>
+                        <div class="stat-info">
+                            <h3 id="statPendingRequests">-</h3>
+                            <p>Pending Requests</p>
+                        </div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-icon">📡</div>
+                        <div class="stat-info">
+                            <h3 id="statChannels">-</h3>
+                            <p>Total Channels</p>
+                        </div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-icon">📋</div>
+                        <div class="stat-info">
+                            <h3 id="statPlans">-</h3>
+                            <p>Available Plans</p>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="recent-section">
+                    <h2>Recent Developers</h2>
+                    <div id="recentDevelopers" class="recent-list">
+                        <p class="loading">Loading...</p>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Developers Section -->
+            <section id="developersSection" class="section">
+                <div class="section-header">
+                    <h2>All Developers</h2>
+                    <div class="search-box">
+                        <input type="text" id="developerSearch" placeholder="Search by email...">
+                    </div>
+                </div>
+
+                <div class="table-container">
+                    <table class="data-table">
+                        <thead>
+                            <tr>
+                                <th>ID</th>
+                                <th>Email</th>
+                                <th>Name</th>
+                                <th>Plan</th>
+                                <th>Channels</th>
+                                <th>Quota Used</th>
+                                <th>Status</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="developersTableBody">
+                            <tr><td colspan="8" class="loading">Loading...</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+
+                <div class="pagination">
+                    <button id="prevPage" class="btn btn-small" disabled>← Previous</button>
+                    <span id="pageInfo">Page 1 of 1</span>
+                    <button id="nextPage" class="btn btn-small" disabled>Next →</button>
+                </div>
+            </section>
+
+            <!-- API Requests Section -->
+            <section id="requestsSection" class="section">
+                <div class="section-header">
+                    <h2>API Key Requests</h2>
+                    <div class="filter-controls">
+                        <select id="requestStatusFilter">
+                            <option value="">All Statuses</option>
+                            <option value="PENDING" selected>Pending</option>
+                            <option value="APPROVED">Approved</option>
+                            <option value="REJECTED">Rejected</option>
+                        </select>
+                        <button class="btn btn-small" onclick="loadApiRequests(0)">🔄 Refresh</button>
+                    </div>
+                </div>
+
+                <div class="table-container">
+                    <table class="data-table">
+                        <thead>
+                            <tr>
+                                <th>ID</th>
+                                <th>Email</th>
+                                <th>Name</th>
+                                <th>Company</th>
+                                <th>Reason</th>
+                                <th>Status</th>
+                                <th>Requested</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="requestsTableBody">
+                            <tr><td colspan="8" class="loading">Loading...</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+
+                <div class="pagination">
+                    <button id="prevRequestPage" class="btn btn-small" disabled>← Previous</button>
+                    <span id="requestPageInfo">Page 1 of 1</span>
+                    <button id="nextRequestPage" class="btn btn-small" disabled>Next →</button>
+                </div>
+            </section>
+
+            <!-- Plans Section -->
+            <section id="plansSection" class="section">
+                <h2>Available Plans</h2>
+                <div id="plansGrid" class="plans-grid">
+                    <p class="loading">Loading...</p>
+                </div>
+            </section>
+
+            <!-- Create Developer Section -->
+            <section id="createSection" class="section">
+                <h2>Create New Developer Account</h2>
+                <form id="createDeveloperForm" class="create-form">
+                    <div class="form-group">
+                        <label for="newEmail">Email Address *</label>
+                        <input type="email" id="newEmail" name="email" required
+                               placeholder="developer@example.com">
+                    </div>
+
+                    <div class="form-group">
+                        <label for="newName">Name (optional)</label>
+                        <input type="text" id="newName" name="name"
+                               placeholder="Auto-generated from email if empty">
+                    </div>
+
+                    <div class="form-group">
+                        <label for="newPlan">Select Plan *</label>
+                        <select id="newPlan" name="planId" required>
+                            <option value="">Loading plans...</option>
+                        </select>
+                    </div>
+
+                    <div class="form-group checkbox-group">
+                        <label>
+                            <input type="checkbox" id="sendEmail" name="sendEmail">
+                            Send API key via email (email service must be configured)
+                        </label>
+                    </div>
+
+                    <button type="submit" class="btn btn-primary" id="createBtn">
+                        Create Developer Account
+                    </button>
+
+                    <div id="createResult" class="result-message" style="display: none;"></div>
+                </form>
+            </section>
+
+            <!-- Developer Detail Modal -->
+            <div id="developerModal" class="modal" style="display: none;">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h2>Developer Details</h2>
+                        <button class="close-btn" onclick="closeModal()">&times;</button>
+                    </div>
+                    <div class="modal-body" id="developerModalBody">
+                        <!-- Filled dynamically -->
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <script src="../js/api-config.js"></script>
+    <script src="js/admin.js"></script>
+    <script>
+        // Check authentication
+        if (!AdminAPI.isLoggedIn()) {
+            window.location.href = 'index.html';
+        }
+
+        // Initialize dashboard
+        let currentPage = 0;
+        const pageSize = 10;
+        let totalPages = 1;
+        let allDevelopers = [];
+        let allPlans = [];
+
+        // Set admin email
+        const adminInfo = AdminAPI.getAdminInfo();
+        if (adminInfo) {
+            document.getElementById('adminEmail').textContent = adminInfo.email;
+        }
+
+        // Navigation
+        document.querySelectorAll('.nav-item').forEach(item => {
+            item.addEventListener('click', (e) => {
+                e.preventDefault();
+                const section = item.dataset.section;
+
+                // Update active nav
+                document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+                item.classList.add('active');
+
+                // Update sections
+                document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
+                document.getElementById(section + 'Section').classList.add('active');
+
+                // Update title
+                const titles = {
+                    overview: 'Dashboard Overview',
+                    requests: 'API Key Requests',
+                    developers: 'Developer Management',
+                    plans: 'Subscription Plans',
+                    create: 'Create Developer Account'
+                };
+                document.getElementById('pageTitle').textContent = titles[section] || 'Dashboard';
+
+                // Load section-specific data
+                if (section === 'requests') {
+                    loadApiRequests(0);
+                }
+            });
+        });
+
+        // Logout
+        document.getElementById('logoutBtn').addEventListener('click', async () => {
+            await AdminAPI.logout();
+            window.location.href = 'index.html';
+        });
+
+        // Load stats
+        async function loadStats() {
+            try {
+                const stats = await AdminAPI.getStats();
+                document.getElementById('statDevelopers').textContent = stats.totalDevelopers || 0;
+                document.getElementById('statActive').textContent = stats.activeDevelopers || 0;
+                document.getElementById('statChannels').textContent = stats.totalChannels || 0;
+                document.getElementById('statPlans').textContent = stats.totalPlans || 0;
+
+                // Load pending requests count
+                loadPendingRequestCount();
+            } catch (error) {
+                console.error('Failed to load stats:', error);
+            }
+        }
+
+        // Load pending request count for badge and stat card
+        async function loadPendingRequestCount() {
+            try {
+                const result = await AdminAPI.getPendingRequestCount();
+                const count = result.pendingCount || 0;
+
+                // Update stat card
+                document.getElementById('statPendingRequests').textContent = count;
+
+                // Update sidebar badge
+                const badge = document.getElementById('pendingBadge');
+                if (count > 0) {
+                    badge.textContent = count;
+                    badge.style.display = 'inline-block';
+                } else {
+                    badge.style.display = 'none';
+                }
+            } catch (error) {
+                console.error('Failed to load pending count:', error);
+            }
+        }
+
+        // Navigate to section programmatically
+        function navigateToSection(section) {
+            const navItem = document.querySelector(`.nav-item[data-section="${section}"]`);
+            if (navItem) {
+                navItem.click();
+            }
+        }
+
+        // Load developers
+        async function loadDevelopers(page = 0) {
+            try {
+                const result = await AdminAPI.getDevelopers(page, pageSize);
+                allDevelopers = result.developers || [];
+                totalPages = result.totalPages || 1;
+                currentPage = page;
+
+                renderDevelopersTable(allDevelopers);
+                updatePagination();
+
+                // Update recent developers
+                renderRecentDevelopers(allDevelopers.slice(0, 5));
+            } catch (error) {
+                console.error('Failed to load developers:', error);
+                document.getElementById('developersTableBody').innerHTML =
+                    '<tr><td colspan="8" class="error">Failed to load developers</td></tr>';
+            }
+        }
+
+        function renderDevelopersTable(developers) {
+            const tbody = document.getElementById('developersTableBody');
+
+            if (!developers || developers.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="8" class="empty">No developers found</td></tr>';
+                return;
+            }
+
+            tbody.innerHTML = developers.map(dev => `
+                <tr>
+                    <td>${dev.id}</td>
+                    <td>${dev.email}</td>
+                    <td>${dev.name || '-'}</td>
+                    <td><span class="badge">${dev.plan?.name || 'No Plan'}</span></td>
+                    <td>${dev.channelCount || 0}</td>
+                    <td>
+                        <div class="quota-bar">
+                            <div class="quota-fill" style="width: ${Math.min(100, (dev.quotaUsed / dev.quotaLimit) * 100)}%"></div>
+                        </div>
+                        <small>${(dev.quotaUsed || 0).toFixed(1)} / ${dev.quotaLimit || 0}</small>
+                    </td>
+                    <td>
+                        <span class="status-badge ${dev.active ? 'active' : 'inactive'}">
+                            ${dev.active ? 'Active' : 'Inactive'}
+                        </span>
+                    </td>
+                    <td>
+                        <button class="btn btn-small" onclick="viewDeveloper(${dev.id})">View</button>
+                    </td>
+                </tr>
+            `).join('');
+        }
+
+        function renderRecentDevelopers(developers) {
+            const container = document.getElementById('recentDevelopers');
+
+            if (!developers || developers.length === 0) {
+                container.innerHTML = '<p class="empty">No developers yet</p>';
+                return;
+            }
+
+            container.innerHTML = developers.map(dev => `
+                <div class="recent-item">
+                    <div class="recent-info">
+                        <strong>${dev.email}</strong>
+                        <span class="badge">${dev.plan?.name || 'No Plan'}</span>
+                    </div>
+                    <span class="recent-date">${new Date(dev.createdAt).toLocaleDateString()}</span>
+                </div>
+            `).join('');
+        }
+
+        function updatePagination() {
+            document.getElementById('pageInfo').textContent = `Page ${currentPage + 1} of ${totalPages}`;
+            document.getElementById('prevPage').disabled = currentPage <= 0;
+            document.getElementById('nextPage').disabled = currentPage >= totalPages - 1;
+        }
+
+        document.getElementById('prevPage').addEventListener('click', () => {
+            if (currentPage > 0) loadDevelopers(currentPage - 1);
+        });
+
+        document.getElementById('nextPage').addEventListener('click', () => {
+            if (currentPage < totalPages - 1) loadDevelopers(currentPage + 1);
+        });
+
+        // Search
+        document.getElementById('developerSearch').addEventListener('input', (e) => {
+            const query = e.target.value.toLowerCase();
+            const filtered = allDevelopers.filter(d =>
+                d.email.toLowerCase().includes(query) ||
+                (d.name && d.name.toLowerCase().includes(query))
+            );
+            renderDevelopersTable(filtered);
+        });
+
+        // Load plans
+        async function loadPlans() {
+            try {
+                const result = await AdminAPI.getPlans();
+                allPlans = result.plans || [];
+                renderPlansGrid(allPlans);
+                populatePlanSelect(allPlans);
+            } catch (error) {
+                console.error('Failed to load plans:', error);
+            }
+        }
+
+        function renderPlansGrid(plans) {
+            const container = document.getElementById('plansGrid');
+
+            if (!plans || plans.length === 0) {
+                container.innerHTML = '<p class="empty">No plans configured</p>';
+                return;
+            }
+
+            container.innerHTML = plans.map(plan => `
+                <div class="plan-card ${plan.isDefault ? 'default' : ''}">
+                    <h3>${plan.name} ${plan.isDefault ? '⭐' : ''}</h3>
+                    <p class="plan-desc">${plan.description || ''}</p>
+                    <div class="plan-details">
+                        <div class="plan-stat">
+                            <strong>${plan.channelUnits}</strong>
+                            <span>Channel Units</span>
+                        </div>
+                        <div class="plan-stat">
+                            <strong>${plan.bandwidthPerMinute}</strong>
+                            <span>Bandwidth/min</span>
+                        </div>
+                    </div>
+                    <div class="plan-capabilities">
+                        ${(plan.capabilities || []).map(c => `<span class="cap-badge">${c}</span>`).join('')}
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        function populatePlanSelect(plans) {
+            const select = document.getElementById('newPlan');
+            select.innerHTML = '<option value="">Select a plan...</option>' +
+                plans.map(p => `<option value="${p.id}">${p.name}${p.isDefault ? ' (Default)' : ''}</option>`).join('');
+        }
+
+        // Create developer form
+        document.getElementById('createDeveloperForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+
+            const form = e.target;
+            const resultDiv = document.getElementById('createResult');
+            const createBtn = document.getElementById('createBtn');
+
+            const data = {
+                email: form.email.value,
+                name: form.name.value || null,
+                planId: parseInt(form.planId.value),
+                sendEmail: form.sendEmail.checked
+            };
+
+            createBtn.disabled = true;
+            createBtn.textContent = 'Creating...';
+            resultDiv.style.display = 'none';
+
+            try {
+                const result = await AdminAPI.createDeveloper(data);
+
+                if (result.success) {
+                    resultDiv.className = 'result-message success';
+                    let message = `✅ Developer created successfully! Email: ${result.developer.email}`;
+                    if (result.apiKey) {
+                        message += `<br><br><strong>API Key (save this!):</strong><br><code>${result.apiKey}</code>`;
+                    }
+                    if (result.emailSent) {
+                        message += '<br><br>📧 API key sent via email.';
+                    }
+                    resultDiv.innerHTML = message;
+                    form.reset();
+                    loadDevelopers(0); // Refresh list
+                    loadStats(); // Refresh stats
+                } else {
+                    throw new Error(result.error || 'Failed to create developer');
+                }
+            } catch (error) {
+                resultDiv.className = 'result-message error';
+                resultDiv.textContent = '❌ ' + (error.message || 'Failed to create developer');
+            }
+
+            resultDiv.style.display = 'block';
+            createBtn.disabled = false;
+            createBtn.textContent = 'Create Developer Account';
+        });
+
+        // View developer details
+        async function viewDeveloper(id) {
+            try {
+                const dev = await AdminAPI.getDeveloper(id);
+                const modal = document.getElementById('developerModal');
+                const body = document.getElementById('developerModalBody');
+
+                body.innerHTML = `
+                    <div class="detail-grid">
+                        <div class="detail-item">
+                            <label>ID:</label>
+                            <span>${dev.id}</span>
+                        </div>
+                        <div class="detail-item">
+                            <label>Email:</label>
+                            <span>${dev.email}</span>
+                        </div>
+                        <div class="detail-item">
+                            <label>Name:</label>
+                            <span>${dev.name || '-'}</span>
+                        </div>
+                        <div class="detail-item">
+                            <label>Company:</label>
+                            <span>${dev.company || '-'}</span>
+                        </div>
+                        <div class="detail-item">
+                            <label>Plan:</label>
+                            <span>${dev.plan?.name || 'No Plan'}</span>
+                        </div>
+                        <div class="detail-item">
+                            <label>Channels:</label>
+                            <span>${dev.channelCount || 0}</span>
+                        </div>
+                        <div class="detail-item">
+                            <label>Quota:</label>
+                            <span>${(dev.quotaUsed || 0).toFixed(2)} / ${dev.quotaLimit || 0}</span>
+                        </div>
+                        <div class="detail-item">
+                            <label>Status:</label>
+                            <span class="status-badge ${dev.active ? 'active' : 'inactive'}">${dev.active ? 'Active' : 'Inactive'}</span>
+                        </div>
+                        <div class="detail-item">
+                            <label>Created:</label>
+                            <span>${new Date(dev.createdAt).toLocaleString()}</span>
+                        </div>
+                        <div class="detail-item">
+                            <label>Updated:</label>
+                            <span>${new Date(dev.updatedAt).toLocaleString()}</span>
+                        </div>
+                    </div>
+
+                    <div class="plan-update-section">
+                        <h4>Update Plan</h4>
+                        <select id="updatePlanSelect">
+                            ${allPlans.map(p => `<option value="${p.id}" ${dev.plan?.id === p.id ? 'selected' : ''}>${p.name}</option>`).join('')}
+                        </select>
+                        <button class="btn btn-primary" onclick="updateDeveloperPlan(${dev.id})">Update Plan</button>
+                    </div>
+                `;
+
+                modal.style.display = 'flex';
+            } catch (error) {
+                alert('Failed to load developer details: ' + error.message);
+            }
+        }
+
+        async function updateDeveloperPlan(developerId) {
+            const planId = parseInt(document.getElementById('updatePlanSelect').value);
+            try {
+                await AdminAPI.updateDeveloperPlan(developerId, planId);
+                alert('Plan updated successfully!');
+                closeModal();
+                loadDevelopers(currentPage);
+            } catch (error) {
+                alert('Failed to update plan: ' + error.message);
+            }
+        }
+
+        function closeModal() {
+            document.getElementById('developerModal').style.display = 'none';
+        }
+
+        // Close modal on outside click
+        document.getElementById('developerModal').addEventListener('click', (e) => {
+            if (e.target.id === 'developerModal') closeModal();
+        });
+
+        // ============================================================
+        // API REQUESTS MANAGEMENT
+        // ============================================================
+        let requestCurrentPage = 0;
+        let requestTotalPages = 1;
+        const requestPageSize = 10;
+
+        async function loadApiRequests(page = 0) {
+            const statusFilter = document.getElementById('requestStatusFilter').value;
+            try {
+                const result = await AdminAPI.getApiRequests(page, requestPageSize, statusFilter || null);
+                requestCurrentPage = page;
+                requestTotalPages = result.totalPages || 1;
+
+                renderRequestsTable(result.requests || []);
+                updateRequestPagination();
+
+                // Also update pending count
+                loadPendingRequestCount();
+            } catch (error) {
+                console.error('Failed to load API requests:', error);
+                document.getElementById('requestsTableBody').innerHTML =
+                    '<tr><td colspan="8" class="error">Failed to load requests</td></tr>';
+            }
+        }
+
+        function renderRequestsTable(requests) {
+            const tbody = document.getElementById('requestsTableBody');
+
+            if (!requests || requests.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="8" class="empty">No requests found</td></tr>';
+                return;
+            }
+
+            tbody.innerHTML = requests.map(req => {
+                const statusClass = req.status === 'PENDING' ? 'pending' :
+                                   req.status === 'APPROVED' ? 'active' : 'inactive';
+                const isPending = req.status === 'PENDING';
+
+                return `
+                <tr>
+                    <td>${req.id}</td>
+                    <td>${req.email}</td>
+                    <td>${req.name || '-'}</td>
+                    <td>${req.company || '-'}</td>
+                    <td class="reason-cell" title="${req.reason || ''}">${truncate(req.reason, 30) || '-'}</td>
+                    <td>
+                        <span class="status-badge ${statusClass}">${req.status}</span>
+                    </td>
+                    <td>${formatDate(req.requestedAt)}</td>
+                    <td>
+                        ${isPending ? `
+                            <button class="btn btn-small btn-success" onclick="approveRequest(${req.id})">✓ Approve</button>
+                            <button class="btn btn-small btn-danger" onclick="rejectRequest(${req.id})">✗ Reject</button>
+                        ` : `
+                            <span class="small muted">Processed ${formatDate(req.processedAt)}</span>
+                        `}
+                    </td>
+                </tr>
+            `}).join('');
+        }
+
+        function updateRequestPagination() {
+            document.getElementById('requestPageInfo').textContent =
+                `Page ${requestCurrentPage + 1} of ${requestTotalPages}`;
+            document.getElementById('prevRequestPage').disabled = requestCurrentPage <= 0;
+            document.getElementById('nextRequestPage').disabled = requestCurrentPage >= requestTotalPages - 1;
+        }
+
+        document.getElementById('prevRequestPage').addEventListener('click', () => {
+            if (requestCurrentPage > 0) loadApiRequests(requestCurrentPage - 1);
+        });
+
+        document.getElementById('nextRequestPage').addEventListener('click', () => {
+            if (requestCurrentPage < requestTotalPages - 1) loadApiRequests(requestCurrentPage + 1);
+        });
+
+        document.getElementById('requestStatusFilter').addEventListener('change', () => {
+            loadApiRequests(0);
+        });
+
+        async function approveRequest(requestId) {
+            if (!confirm('Approve this API key request? This will create a developer account and send credentials via email.')) {
+                return;
+            }
+
+            try {
+                const result = await AdminAPI.approveApiRequest(requestId);
+
+                let message = '✅ Request approved successfully!';
+                if (result.developer) {
+                    message += `\n\nDeveloper created: ${result.developer.email}`;
+                }
+                if (result.emailSent) {
+                    message += '\n\n📧 Credentials sent via email.';
+                } else if (result.apiKey) {
+                    message += `\n\n⚠️ Email not sent. Please share credentials manually:`;
+                    message += `\nAPI Key: ${result.apiKey}`;
+                    message += `\nTemp Password: ${result.tempPassword}`;
+                }
+
+                alert(message);
+                loadApiRequests(requestCurrentPage);
+                loadStats();
+            } catch (error) {
+                alert('❌ Failed to approve request: ' + error.message);
+            }
+        }
+
+        async function rejectRequest(requestId) {
+            const reason = prompt('Enter rejection reason (optional):');
+
+            if (reason === null) {
+                return; // User cancelled
+            }
+
+            try {
+                await AdminAPI.rejectApiRequest(requestId, reason || null);
+                alert('Request rejected.');
+                loadApiRequests(requestCurrentPage);
+                loadPendingRequestCount();
+            } catch (error) {
+                alert('❌ Failed to reject request: ' + error.message);
+            }
+        }
+
+        // Utility functions
+        function truncate(str, maxLen) {
+            if (!str) return '';
+            return str.length > maxLen ? str.substring(0, maxLen) + '...' : str;
+        }
+
+        function formatDate(dateStr) {
+            if (!dateStr) return '-';
+            return new Date(dateStr).toLocaleDateString();
+        }
+
+        // Initial load
+        loadStats();
+        loadDevelopers();
+        loadPlans();
+    </script>
+</body>
+</html>
+

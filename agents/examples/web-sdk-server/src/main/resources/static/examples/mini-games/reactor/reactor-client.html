@@ -1,0 +1,150 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>4-Player Reactor - Reaction Speed Game</title>
+    <link rel="stylesheet" href="../../../css/toast.css">
+    <link rel="stylesheet" href="reactor-styles.css">
+    <link rel="stylesheet" href="../../../css/share-modal.css">
+    <link rel="stylesheet" href="../../../css/connection-modal.css">
+</head>
+<body>
+<!-- Connection Modal will be loaded dynamically by connection-modal.js -->
+
+<!-- Game Container -->
+<div id="gameContainer" class="hidden">
+    <!-- Top Bar -->
+    <div class="top-bar">
+        <div class="game-info">
+            <h1>⚡ 4-Player Reactor</h1>
+            <span id="roomName" class="room-badge"></span>
+        </div>
+
+        <div class="game-status">
+            <span id="roundInfo">Round: 0/0</span>
+            <span id="timeRemaining">Time: --</span>
+        </div>
+
+        <div class="connection-status">
+            <span id="playerCount">Players: 0</span>
+            <span id="connectionIndicator" class="indicator disconnected">●</span>
+        </div>
+
+        <button id="shareBtn" class="share-btn" style="display:none;">🔗 Share</button>
+    </div>
+
+    <!-- Game Arena -->
+    <div class="game-arena">
+        <!-- Zone 1: Blue (Top-Left) - hidden until player joins -->
+        <div class="reaction-zone zone-blue hidden" data-zone="0" id="zone-0" onclick="handleZoneClick(0)">
+            <div class="zone-content">
+                <div class="zone-light" id="light-0"></div>
+                <div class="zone-player" id="player-0"></div>
+                <div class="zone-score" id="score-0">0</div>
+            </div>
+        </div>
+
+        <!-- Zone 2: Red (Top-Right) - hidden until player joins -->
+        <div class="reaction-zone zone-red hidden" data-zone="1" id="zone-1" onclick="handleZoneClick(1)">
+            <div class="zone-content">
+                <div class="zone-light" id="light-1"></div>
+                <div class="zone-player" id="player-1"></div>
+                <div class="zone-score" id="score-1">0</div>
+            </div>
+        </div>
+
+        <!-- Zone 3: Green (Bottom-Left) - hidden until player joins -->
+        <div class="reaction-zone zone-green hidden" data-zone="2" id="zone-2" onclick="handleZoneClick(2)">
+            <div class="zone-content">
+                <div class="zone-light" id="light-2"></div>
+                <div class="zone-player" id="player-2"></div>
+                <div class="zone-score" id="score-2">0</div>
+            </div>
+        </div>
+
+        <!-- Zone 4: Yellow (Bottom-Right) - hidden until player joins -->
+        <div class="reaction-zone zone-yellow hidden" data-zone="3" id="zone-3" onclick="handleZoneClick(3)">
+            <div class="zone-content">
+                <div class="zone-light" id="light-3"></div>
+                <div class="zone-player" id="player-3"></div>
+                <div class="zone-score" id="score-3">0</div>
+            </div>
+        </div>
+
+        <!-- Center Control Panel -->
+        <div class="control-panel">
+            <div class="stage-display">
+                <span id="currentStageDisplay">⚡ Classic Mode</span>
+                <button id="stageSelectBtn" class="btn-stage-select hidden">Change Stage</button>
+            </div>
+            <div id="stageInfo" class="stage-info">Basic reaction speed test. Click when your zone lights up!</div>
+            <div id="gameMessage" class="game-message">Waiting for players...</div>
+            <button id="startButton" onclick="startGame()" class="btn-start hidden">Start Game</button>
+        </div>
+
+        <!-- Target Color Display (for Color Match mode) -->
+        <div id="targetColorDisplay" class="target-color-display hidden"></div>
+    </div>
+
+    <!-- Scoreboard -->
+    <div class="scoreboard-panel">
+        <h3>🏆 Leaderboard</h3>
+        <div id="leaderboard"></div>
+
+        <div class="stats-panel">
+            <h4>Game Stats</h4>
+            <div id="gameStats">
+                <div class="stat-row">
+                    <span>Avg Reaction:</span>
+                    <span id="avgReaction">-- ms</span>
+                </div>
+                <div class="stat-row">
+                    <span>Fastest Hit:</span>
+                    <span id="fastestHit">-- ms</span>
+                </div>
+                <div class="stat-row">
+                    <span>Total Rounds:</span>
+                    <span id="totalRounds">0</span>
+                </div>
+            </div>
+        </div>
+
+        <button onclick="disconnect()" class="btn-danger btn-small">Leave Game</button>
+    </div>
+</div>
+
+<!-- Stage Selection Modal -->
+<div id="stageModal" class="modal hidden">
+    <div class="modal-content stage-modal-content">
+        <h2>🎮 Select Stage</h2>
+        <p>Choose a game mode to play</p>
+        <div id="stageList" class="stage-list">
+            <!-- Stages will be populated by JS -->
+        </div>
+        <button onclick="closeStageModal()" class="btn-secondary">Cancel</button>
+    </div>
+</div>
+
+<!-- Toast Notifications -->
+<div id="toastContainer" class="toast-container"></div>
+
+<!-- Scripts -->
+<!-- Load SDK Scripts from generated folder (copied at build time) -->
+<script src="../../../js/config-loader.js"></script>
+<script src="../../../js/lib/qrcode.min.js"></script>
+<script src="../../../generated-web-agent-js/js/web-agent.libs.js"></script>
+<script src="../../../generated-web-agent-js/js/web-agent.js"></script>
+<script src="../../../generated-web-agent-js/js/web-agent.webrtc.js"></script>
+
+<!-- Load Demo-Specific Scripts -->
+<script src="../../../js/share-modal.js"></script>
+<script src="../../../js/common-utils.js"></script>
+<script src="../../../js/connection-modal.js"></script>
+<script src="../../../js/AgentInteractionBase.js"></script>
+
+<!-- Game Script -->
+<script src="reactor-client.js"></script>
+</body>
+</html>
+

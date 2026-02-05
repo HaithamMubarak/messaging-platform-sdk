@@ -1,0 +1,513 @@
+/* Connection modal styles for mini-games (separate from share-modal) */
+.connection-modal {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(3, 6, 23, 0.6);
+    backdrop-filter: blur(4px);
+    align-items: center;
+    justify-content: center;
+    transition: all 0.3s ease;
+    z-index: 100000;
+}
+
+.connection-modal.active {
+    display: flex;
+}
+
+/* Collapsed state */
+.connection-modal.collapsed {
+    background: transparent;
+    backdrop-filter: none;
+    align-items: flex-start;
+    padding-top: 20px;
+}
+
+.connection-modal.collapsed .modal-content {
+    display: none;
+}
+
+/* Collapsed header (shown when modal is collapsed) */
+.connection-modal .collapsed-header {
+    display: none;
+    position: fixed;
+    top: 20px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: white;
+    border: 1px solid #e5e7eb;
+    border-radius: 12px;
+    padding: 12px 16px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+    cursor: pointer;
+    z-index: 100001;
+    min-width: 400px;
+    max-width: calc(100% - 32px);
+    transition: all 0.2s ease;
+}
+
+.connection-modal.collapsed .collapsed-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+}
+
+.connection-modal .collapsed-header:hover {
+    box-shadow: 0 6px 16px rgba(0, 0, 0, 0.15);
+}
+
+.connection-modal .ch-left {
+    flex: 1;
+    min-width: 0;
+}
+
+.connection-modal .ch-title {
+    font-size: 14px;
+    font-weight: 600;
+    color: #1f2937;
+    margin-bottom: 2px;
+}
+
+.connection-modal .ch-sub {
+    font-size: 12px;
+    color: #6b7280;
+}
+
+.connection-modal .quick-connect {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+}
+
+.connection-modal .quick-connect input {
+    padding: 6px 10px;
+    border: 1px solid #d1d5db;
+    border-radius: 6px;
+    font-size: 13px;
+    width: 120px;
+    color: #111827;
+    background: #ffffff;
+}
+
+.connection-modal .quick-connect input::placeholder {
+    color: #9ca3af;
+    opacity: 1;
+}
+
+.connection-modal .quick-connect button {
+    padding: 6px 10px;
+    font-size: 13px;
+    white-space: nowrap;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    background: linear-gradient(135deg, #6965db 0%, #7c3aed 100%);
+    color: white;
+    border: none;
+    border-radius: 6px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.connection-modal .quick-connect button:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 4px 8px rgba(105, 101, 219, 0.3);
+}
+
+.connection-modal .quick-connect button svg {
+    display: block;
+}
+
+.connection-modal .modal-toggle-btn {
+    background: transparent;
+    border: none;
+    color: #6b7280;
+    font-size: 18px;
+    cursor: pointer;
+    padding: 4px 8px;
+    transition: all 0.2s ease;
+}
+
+.connection-modal .modal-toggle-btn:hover {
+    color: #1f2937;
+    background: #f3f4f6;
+    border-radius: 6px;
+}
+
+/* Full modal content */
+.connection-modal .modal-content {
+    background: white;
+    color: #051225;
+    width: 420px;
+    max-width: calc(100% - 32px);
+    border-radius: 12px;
+    z-index: 100002;
+    box-shadow: 0 10px 30px rgba(2, 6, 23, 0.2);
+    padding: 24px;
+    animation: modalSlideIn 0.3s ease;
+}
+
+@keyframes modalSlideIn {
+    from {
+        opacity: 0;
+        transform: translateY(-20px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.connection-modal .modal-header-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 16px;
+}
+
+.connection-modal .modal-content h2 {
+    margin: 0;
+    font-size: 20px;
+    color: #1f2937;
+}
+
+/* Info note for channel/password explanation */
+.connection-modal .connection-info-note {
+    background: linear-gradient(135deg, #f0f9ff 0%, #e0f2fe 100%);
+    border: 1px solid #bae6fd;
+    border-radius: 8px;
+    padding: 12px 14px;
+    margin-bottom: 8px;
+}
+
+.connection-modal .connection-info-note p {
+    margin: 0;
+    font-size: 13px;
+    line-height: 1.5;
+    color: #0369a1;
+}
+
+.connection-modal .connection-info-note strong {
+    color: #0c4a6e;
+}
+
+/* Ensure all text in modal is visible */
+.connection-modal .modal-content,
+.connection-modal .modal-title,
+.connection-modal .modal-subtitle,
+.connection-modal .form-label,
+.connection-modal label {
+    color: #1f2937;
+}
+
+.connection-modal form {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.connection-modal input[type="text"],
+.connection-modal input[type="password"] {
+    width: 100%;
+    padding: 10px 12px;
+    border: 1px solid #d1d5db;
+    border-radius: 8px;
+    font-size: 14px;
+    color: #111827;
+    background: #ffffff;
+    transition: border-color 0.2s ease;
+}
+
+.connection-modal input[type="text"]::placeholder,
+.connection-modal input[type="password"]::placeholder {
+    color: #9ca3af;
+    opacity: 1;
+}
+
+.connection-modal input[type="text"]:focus,
+.connection-modal input[type="password"]:focus {
+    outline: none;
+    border-color: #6965db;
+    box-shadow: 0 0 0 3px rgba(105, 101, 219, 0.1);
+}
+
+.connection-modal input[type="text"]:read-only,
+.connection-modal input[type="password"]:read-only {
+    background: #f3f4f6;
+    cursor: not-allowed;
+}
+
+/* Password input wrapper */
+.connection-modal .password-input-wrapper {
+    position: relative;
+    display: flex;
+    align-items: center;
+}
+
+.connection-modal .password-input-wrapper input {
+    padding-right: 40px;
+}
+
+.connection-modal .password-toggle-btn {
+    position: absolute;
+    right: 8px;
+    background: transparent;
+    border: none;
+    cursor: pointer;
+    font-size: 16px;
+    padding: 4px 8px;
+    color: #6b7280;
+    transition: color 0.2s ease;
+}
+
+.connection-modal .password-toggle-btn:hover {
+    color: #1f2937;
+}
+
+.connection-modal .modal-buttons {
+    display: flex;
+    justify-content: flex-end;
+    gap: 8px;
+    margin-top: 8px;
+}
+
+.connection-modal .modal-buttons button {
+    padding: 10px 16px;
+    border-radius: 8px;
+    border: none;
+    cursor: pointer;
+    font-size: 14px;
+    font-weight: 500;
+    transition: all 0.2s ease;
+}
+
+.connection-modal .btn-primary {
+    background: #6965db;
+    color: white;
+}
+
+.connection-modal .btn-primary:hover {
+    background: #5753c6;
+}
+
+.connection-modal .ghost {
+    background: transparent;
+    color: #6b7280;
+    border: 1px solid #d1d5db;
+}
+
+.connection-modal .ghost:hover {
+    background: #f3f4f6;
+    color: #1f2937;
+}
+
+.connection-modal .error-message {
+    display: none;
+    padding: 10px 12px;
+    background: #fef2f2;
+    color: #dc2626;
+    border-radius: 8px;
+    font-size: 13px;
+    margin-top: 8px;
+    border: 1px solid #fecaca;
+}
+
+.connection-modal .sr-only {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border: 0;
+}
+
+/* Ensure the connection status dot is visible (not clipped) in mini-games */
+.header, .status, .status-bar {
+    overflow: visible !important;
+}
+
+.connection-status, .status-dot {
+    display: inline-block;
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+    background: #4CAF50;
+    box-shadow: 0 0 0 6px rgba(76,175,80,0.12);
+    position: relative;
+    z-index: 100003;
+    vertical-align: middle;
+}
+
+.connection-status.offline, .status-dot.offline {
+    background: #bbb;
+    box-shadow: 0 0 0 6px rgba(0,0,0,0.06);
+}
+
+/* Tooltip text shown on hover for connection status */
+.connection-status::after {
+    content: attr(data-status);
+    position: absolute;
+    left: calc(100% + 10px);
+    top: 50%;
+    transform: translateY(-50%);
+    background: rgba(11,18,32,0.95);
+    color: #e6eef8;
+    padding: 6px 8px;
+    border-radius: 6px;
+    font-size: 12px;
+    white-space: nowrap;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.12s ease-in-out, transform 0.12s ease-in-out;
+    transform-origin: left center;
+}
+.connection-status:hover::after {
+    opacity: 1;
+    transform: translateY(-50%) translateX(0);
+}
+
+/* Mobile responsive */
+@media (max-width: 600px) {
+    .connection-modal .collapsed-header {
+        min-width: auto;
+        width: calc(100% - 32px);
+        flex-wrap: wrap;
+    }
+
+    .connection-modal .quick-connect {
+        width: 100%;
+        margin-top: 8px;
+    }
+
+    .connection-modal .quick-connect input {
+        flex: 1;
+    }
+
+    .connection-modal .modal-content {
+        width: calc(100% - 32px);
+    }
+}
+
+/* ============================================
+   Additional Utility Styles
+   ============================================ */
+
+/* Connection Modal hidden state */
+.connection-modal.hidden,
+#connectionModal.hidden {
+    display: none !important;
+}
+
+/* Form group */
+.form-group {
+    margin-bottom: 16px;
+}
+
+.form-label {
+    display: block;
+    font-size: 13px;
+    font-weight: 600;
+    color: #1f2937;
+    margin-bottom: 4px;
+}
+
+/* Disconnect button */
+.disconnect-btn,
+button[id*="disconnect"],
+.btn-danger {
+    padding: 8px 16px;
+    background: transparent;
+    color: #ef4444;
+    border: 1px solid #ef4444;
+    border-radius: 8px;
+    font-size: 13px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.disconnect-btn:hover,
+button[id*="disconnect"]:hover,
+.btn-danger:hover {
+    background: rgba(239, 68, 68, 0.1);
+    border-color: #ef4444;
+}
+
+/* Connect button - consolidated styles */
+.connection-modal .connect-btn,
+.connection-modal button[id*="connect"],
+.connection-modal button[id*="Connect"],
+.connection-modal .btn-primary,
+.connection-modal #connectBtn,
+.connection-modal #quickConnectBtn,
+#connectBtn,
+#quickConnectBtn {
+    background: #6965db;
+    color: #ffffff;
+    border: none;
+    border-radius: 8px;
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    width: 100%;
+    padding: 12px 24px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+
+.connection-modal .connect-btn:hover,
+.connection-modal button[id*="connect"]:hover,
+.connection-modal button[id*="Connect"]:hover,
+.connection-modal .btn-primary:hover,
+.connection-modal #connectBtn:hover,
+.connection-modal #quickConnectBtn:hover,
+#connectBtn:hover,
+#quickConnectBtn:hover {
+    background: #5753c6;
+    transform: translateY(-1px);
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.15);
+}
+
+.connection-modal .connect-btn:active,
+.connection-modal button[id*="connect"]:active,
+.connection-modal button[id*="Connect"]:active,
+.connection-modal .btn-primary:active,
+#connectBtn:active,
+#quickConnectBtn:active {
+    transform: translateY(0);
+}
+
+.connection-modal .connect-btn:disabled,
+.connection-modal button[id*="connect"]:disabled,
+.connection-modal button[id*="Connect"]:disabled,
+.connection-modal #connectBtn:disabled,
+.connection-modal #quickConnectBtn:disabled,
+#connectBtn:disabled,
+#quickConnectBtn:disabled {
+    background: #d1d5db;
+    color: #6b7280;
+    cursor: not-allowed;
+    transform: none;
+    opacity: 0.6;
+}
+
+/* Portrait orientation specific */
+@media (orientation: portrait) and (max-width: 768px) {
+    .connection-modal {
+        align-items: flex-start;
+        padding-top: 5vh;
+    }
+
+    .connection-modal .modal-content {
+        max-height: 60vh;
+        overflow-y: auto;
+    }
+}

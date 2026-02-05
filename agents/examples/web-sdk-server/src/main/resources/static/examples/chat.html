@@ -1,0 +1,2522 @@
+
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="utf-8"/>
+    <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=5,user-scalable=yes"/>
+    <title>Messaging Platform — Web Agent Chat</title>
+
+    <link rel="stylesheet" href="../css/common.css"/>
+    <link rel="stylesheet" href="../css/icons.css"/>
+    <link rel="stylesheet" href="../css/share-modal.css"/>
+
+    <style>
+        /* Adopted modern admin chat style for web-agent page (keeps IDs for compatibility) */
+        /* --- form layout improvements --- */
+        .form-row { gap: 8px; margin-top: 14px; }
+        .form-row:first-child { margin-top: 0; }
+        /* Keep labels consistent and aligned above inputs */
+        .form-row > label { display:block; margin:0 0 6px 0; font-size:13px; color:var(--muted); }
+
+        /* Make all form controls align and fill available width */
+        .form-row input[type=text], .form-row input[type=password], .form-row select, .form-row textarea {
+            width:100%;
+            height:40px;
+            padding:8px 10px;
+            border-radius:8px;
+            border:1px solid rgba(255,255,255,0.06);
+            background: rgba(255,255,255,0.02);
+            color: #e6eef8;
+            font-size:13px;
+        }
+
+        /* textarea should be a bit taller */
+        textarea#agentmsg { height:72px; padding:10px 12px; }
+
+        /* Make the select slightly more compact while visually matching inputs */
+        #channelMode { width:160px; height:36px; padding:6px 8px; appearance:none; -moz-appearance:none; -webkit-appearance:none; background: rgba(255,255,255,0.02); border:1px solid rgba(255,255,255,0.06); color:#e6eef8; border-radius:8px; }
+        /* Ensure the dropdown options use the dark panel background so text is visible on all platforms */
+        #channelMode option { background: var(--panel); color: #e6eef8; }
+
+        /* When channelMode is next to other controls, keep spacing reasonable */
+        .form-row > div[style] { display:flex; align-items:center; gap:8px; }
+
+        /* Control buttons sizing & alignment */
+        .controls {
+            display: flex;
+            gap: 8px;
+            flex-wrap: wrap; /* allow buttons to wrap instead of overflowing */
+            align-items: center;
+            margin-top: 16px;
+        }
+        .controls .btn { min-width:72px; padding:10px 12px; text-align:center; box-sizing: border-box; }
+        .controls .btn.primary { font-weight:600; }
+        /* On narrow screens make buttons more compact */
+        @media (max-width: 420px) {
+            .controls .btn { min-width:56px; padding:8px 10px; font-size:13px; }
+        }
+
+        /* Small helper text alignment */
+        .small { margin-top:6px; }
+
+        /* Channel ID row spacing */
+        #channel-id-row { margin-top: 12px; }
+
+        /* Channel header tweaks: make elements vertically centered */
+        .header-right { align-items:center; }
+        .channel-id { min-width:120px; text-align:center }
+
+        /* Agent badge: add number badge spacing */
+        #agent-count { font-weight:700; min-width:20px; display:inline-block; text-align:center }
+        /* Center agents count and badge in the connected sidebar */
+        .agents-summary { font-size:13px; display:flex; align-items:center; gap:8px; justify-content:center; }
+        .agents-summary .agents-center { display:flex; flex-direction:column; align-items:center; line-height:1 }
+        #agent-badge { margin-left:0; padding:6px; display:inline-flex; align-items:center; justify-content:center }
+
+        /* subtle hover affordances for inputs/buttons */
+        .btn:hover { filter:brightness(1.03); }
+        input[type=text]:focus, input[type=password]:focus, select:focus, textarea:focus { outline: none; box-shadow: 0 0 0 3px rgba(79,70,229,0.06); border-color: rgba(79,70,229,0.6); }
+
+        /* Animations - similar to index.html */
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+
+        @keyframes fadeInDown {
+            from { opacity: 0; transform: translateY(-20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        @keyframes fadeInUp {
+            from { opacity: 0; transform: translateY(20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        @keyframes slideInRight {
+            from { opacity: 0; transform: translateX(20px); }
+            to { opacity: 1; transform: translateX(0); }
+        }
+
+        @keyframes slideInLeft {
+            from { opacity: 0; transform: translateX(-20px); }
+            to { opacity: 1; transform: translateX(0); }
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+
+        @keyframes pop {
+            0% { transform: scale(0.95); opacity: 0; }
+            50% { transform: scale(1.05); }
+            100% { transform: scale(1); opacity: 1; }
+        }
+
+        /* Apply animations to elements */
+        .sidebar {
+            animation: fadeInLeft 0.5s ease-out;
+        }
+
+        @keyframes fadeInLeft {
+            from { opacity: 0; transform: translateX(-30px); }
+            to { opacity: 1; transform: translateX(0); }
+        }
+
+        .chat-panel {
+            animation: fadeInUp 0.5s ease-out 0.1s both;
+        }
+
+        .chat-header {
+            animation: fadeInDown 0.5s ease-out 0.2s both;
+        }
+
+        .composer {
+            animation: fadeInUp 0.5s ease-out 0.3s both;
+        }
+
+        /* Event notifications panel */
+        .events-panel {
+            background: rgba(255, 255, 255, 0.02);
+            border: 1px solid rgba(255, 255, 255, 0.05);
+            border-radius: 10px;
+            margin-bottom: 12px;
+            overflow: hidden;
+            transition: all 0.3s ease;
+        }
+
+        .events-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 10px 14px;
+            cursor: pointer;
+            user-select: none;
+            transition: background 0.2s ease;
+        }
+
+        .events-header:hover {
+            background: rgba(255, 255, 255, 0.03);
+        }
+
+        .events-title {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 13px;
+            font-weight: 600;
+            color: var(--muted);
+        }
+
+        .events-badge {
+            background: linear-gradient(90deg, var(--accent), var(--accent-2));
+            color: white;
+            padding: 2px 8px;
+            border-radius: 12px;
+            font-size: 11px;
+            font-weight: 700;
+            min-width: 20px;
+            text-align: center;
+        }
+
+        .events-toggle {
+            background: transparent;
+            border: none;
+            color: var(--muted);
+            cursor: pointer;
+            padding: 4px;
+            display: flex;
+            align-items: center;
+            transition: transform 0.3s ease;
+        }
+
+        .events-toggle.collapsed {
+            transform: rotate(-90deg);
+        }
+
+        .events-list {
+            max-height: 200px;
+            overflow-y: auto;
+            transition: max-height 0.3s ease, opacity 0.3s ease;
+        }
+
+        .events-list.hidden {
+            max-height: 0;
+            opacity: 0;
+            overflow: hidden;
+        }
+
+        .event-item {
+            padding: 8px 14px;
+            border-top: 1px solid rgba(255, 255, 255, 0.03);
+            font-size: 12px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            animation: slideInRight 0.3s ease-out;
+        }
+
+        .event-icon {
+            width: 6px;
+            height: 6px;
+            border-radius: 50%;
+            flex-shrink: 0;
+        }
+
+        .event-icon.connected {
+            background: #10b981;
+            animation: pulse 2s ease-in-out infinite;
+        }
+
+        .event-icon.disconnected {
+            background: #f87171;
+        }
+
+        .event-time {
+            color: var(--muted);
+            font-size: 11px;
+            margin-left: auto;
+        }
+
+        /* Icon button styles */
+        .icon-btn-small {
+            background: transparent;
+            border: 0;
+            color: var(--muted);
+            cursor: pointer;
+            padding: 6px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 6px;
+            transition: all 0.2s ease;
+        }
+
+        .icon-btn-small:hover {
+            background: rgba(255, 255, 255, 0.06);
+            color: var(--text);
+            transform: scale(1.1);
+        }
+
+        .icon-btn-small svg {
+            width: 16px;
+            height: 16px;
+        }
+
+
+
+        :root {
+            --bg: #0f1724;
+            --panel: #0b1220;
+            --muted: #94a3b8;
+            --accent: #4f46e5;
+            --accent-2: #06b6d4;
+            --bubble: #081226;
+            --me: #0b2033
+        }
+
+        * {
+            box-sizing: border-box
+        }
+
+        html, body {
+            height: 100%;
+            margin: 0;
+            font-family: Inter, system-ui, -apple-system, Segoe UI, Roboto, 'Helvetica Neue', Arial;
+            color: #e6eef8;
+            background: linear-gradient(180deg, #071225 0%, #071b2b 100%)
+        }
+
+        .app-shell {
+            display: flex;
+            min-height: 100vh;
+            gap: 18px;
+            padding: 18px
+        }
+
+        /* Desktop: fixed height layout */
+        @media (min-width: 901px) {
+            .app-shell {
+                height: 100vh;
+                overflow: hidden;
+            }
+        }
+
+        /* Left: connection panel */
+        .sidebar {
+            width: 320px;
+            background: rgba(255, 255, 255, 0.03);
+            border-radius: 12px;
+            padding: 18px;
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+            transition: all 0.3s ease;
+        }
+
+        /* Collapsible sidebar states */
+        .sidebar-connection-form {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+
+        .sidebar-connected-info {
+            display: none;
+            flex-direction: column;
+            gap: 12px;
+            padding: 12px;
+            background: rgba(16, 185, 129, 0.1);
+            border: 1px solid rgba(16, 185, 129, 0.2);
+            border-radius: 10px;
+        }
+
+        .sidebar.connected .sidebar-connection-form {
+            display: none;
+        }
+
+        .sidebar.connected .sidebar-connected-info {
+            display: flex;
+        }
+
+        .connected-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            padding: 6px 12px;
+            background: linear-gradient(90deg, #10b981, #06b6d4);
+            color: white;
+            border-radius: 8px;
+            font-size: 13px;
+            font-weight: 600;
+        }
+
+        .connected-badge:before {
+            content: "";
+            width: 8px;
+            height: 8px;
+            background: white;
+            border-radius: 50%;
+            animation: pulse 2s ease-in-out infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+
+        .sidebar-toggle {
+            cursor: pointer;
+            color: var(--accent-2);
+            font-size: 13px;
+            text-decoration: underline;
+            background: none;
+            border: none;
+            padding: 8px 0;
+        }
+
+        .brand {
+            display: flex;
+            align-items: center;
+            gap: 12px
+        }
+
+        .brand img {
+            height: 36px
+        }
+
+        .brand .title {
+            font-weight: 700
+        }
+
+        .form-row {
+            display: flex;
+            flex-direction: column;
+            gap: 6px
+        }
+
+        label {
+            font-size: 13px;
+            color: var(--muted)
+        }
+
+        input[type=text], input[type=password] {
+            padding: 10px 14px;
+            border-radius: 10px;
+            border: 0;
+            cursor: text;
+            height: 40px;
+            color: #e6eef8;
+            background: rgba(255, 255, 255, 0.02);
+        }
+
+        .small {
+            font-size: 12px;
+            color: var(--muted)
+        }
+
+
+        .btn {
+            padding: 10px 14px;
+            border-radius: 10px;
+            border: 0;
+            cursor: pointer
+        }
+
+        /* Improve visual affordance for disabled buttons */
+        .btn:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+            filter: grayscale(20%);
+        }
+
+        .btn.primary {
+            background: linear-gradient(90deg, var(--accent), var(--accent-2));
+            color: #fff
+        }
+
+        .btn.ghost {
+            background: transparent;
+            color: var(--muted);
+            border: 1px solid rgba(255, 255, 255, 0.03)
+        }
+
+        /* Right: chat */
+        .chat-panel {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            gap: 12px
+        }
+
+        .chat-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 12px 18px;
+            background: rgba(255, 255, 255, 0.02);
+            border-radius: 12px
+        }
+
+        .channel-name {
+            font-weight: 700
+        }
+
+        .channel-description {
+            font-size: 13px;
+            color: var(--muted)
+        }
+
+        .header-right {
+            display: flex;
+            align-items: center;
+            gap: 8px
+        }
+
+        .channel-id {
+            background: rgba(255, 255, 255, 0.03);
+            padding: 6px 10px;
+            border-radius: 8px;
+            font-weight: 600
+        }
+
+        .icon-btn {
+            background: transparent;
+            border: 0;
+            color: var(--muted);
+            cursor: pointer
+        }
+
+        .chat-body {
+            flex: 1;
+            overflow: auto;
+            padding: 18px;
+            background: linear-gradient(180deg, rgba(255, 255, 255, 0.01), transparent);
+            border-radius: 12px;
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+            position: relative; /* added so floating bubble can be positioned inside */
+        }
+
+        .messages {
+            display: flex;
+            flex-direction: column;
+            gap: 12px
+        }
+
+        .msg-row {
+            display: flex;
+            gap: 12px;
+            align-items: flex-end
+        }
+
+        .msg-left {
+            justify-content: flex-start
+        }
+
+        .msg-right {
+            justify-content: flex-end
+        }
+
+        .avatar {
+            width: 44px;
+            height: 44px;
+            border-radius: 10px;
+            background: rgba(255, 255, 255, 0.02);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 700
+        }
+
+        .bubble { /*max-width:65%;*/
+            padding: 12px 14px;
+            border-radius: 12px;
+            background: linear-gradient(180deg, #081225, #082036);
+            color: #dbeafe;
+            word-break: break-word;
+            overflow-wrap: anywhere;
+            white-space: pre-wrap
+        }
+
+        .bubble.me {
+            background: linear-gradient(90deg, var(--accent), var(--accent-2));
+            color: #071225
+        }
+
+        .meta {
+            margin-top: 6px;
+            font-size: 12px;
+            color: var(--muted);
+        }
+
+
+        .composer {
+            display: flex;
+            gap: 12px;
+            align-items: stretch;
+            margin-top: 8px
+        }
+
+        .composer-left {
+            width: 320px
+        }
+
+        .api-key {
+            width: 100%;
+            padding: 10px;
+            border-radius: 10px;
+            border: 0;
+            background: transparent;
+            color: #e6eef8
+        }
+
+        .composer-middle {
+            flex: 1
+        }
+
+        textarea#agentmsg {
+            width: 100%;
+            height: 56px;
+            padding: 10px;
+            border-radius: 10px;
+            border: 0;
+            background: rgba(255, 255, 255, 0.02);
+            color: #dbeafe
+        }
+
+        .sr-only {
+            position: absolute;
+            width: 1px;
+            height: 1px;
+            padding: 0;
+            margin: -1px;
+            overflow: hidden;
+            clip: rect(0, 0, 0, 0);
+            white-space: nowrap;
+            border: 0
+        }
+
+        /* New messages floating bubble */
+        .new-messages-bubble {
+            position: absolute;
+            right: 22px;
+            bottom: 86px; /* above composer area (chat-body padding + composer height) */
+            display: none;
+            align-items: center;
+            gap: 8px;
+            background: linear-gradient(90deg, var(--accent), var(--accent-2));
+            color: #071225;
+            padding: 8px 12px;
+            border-radius: 999px;
+            cursor: pointer;
+            box-shadow: 0 6px 18px rgba(4,6,23,0.6);
+            z-index: 30;
+            font-weight: 700;
+            font-size: 13px;
+        }
+
+
+
+        /* Enhanced tablet responsiveness */
+        @media (max-width: 900px) {
+            .app-shell {
+                flex-direction: column;
+                padding: 12px;
+                gap: 12px;
+                min-height: 100vh;
+                height: auto;
+            }
+
+            .sidebar {
+                width: 100%;
+                padding: 14px;
+                flex-shrink: 0;
+            }
+
+            /* Compact sidebar when connected on mobile */
+            .sidebar.connected {
+                padding: 10px 14px;
+            }
+
+            .sidebar.connected .brand {
+                display: none;
+            }
+
+            .sidebar-connected-info {
+                padding: 8px;
+            }
+
+            .chat-panel {
+                flex: 1;
+                min-height: 400px;
+            }
+
+            .composer-left {
+                display: none;
+            }
+
+            .chat-header {
+                flex-direction: column;
+                align-items: stretch;
+                gap: 10px;
+                padding: 10px 14px;
+                flex-shrink: 0;
+            }
+
+            .header-right {
+                flex-wrap: wrap;
+                justify-content: space-between;
+            }
+
+            .channel-id {
+                min-width: auto;
+                flex: 1;
+            }
+
+            .chat-body {
+                min-height: 350px;
+                max-height: 600px;
+                overflow-y: auto;
+                -webkit-overflow-scrolling: touch;
+            }
+
+            .composer {
+                flex-direction: column;
+                gap: 10px;
+                flex-shrink: 0;
+            }
+
+            .composer-right {
+                display: flex;
+                justify-content: space-between;
+                align-items: center;
+            }
+        }
+
+        /* Enhanced mobile responsiveness */
+        @media (max-width: 640px) {
+            html, body {
+                height: auto;
+                min-height: 100vh;
+            }
+
+            .app-shell {
+                padding: 8px;
+                gap: 10px;
+                min-height: 100vh;
+                height: auto;
+                overflow: visible;
+            }
+
+            .sidebar {
+                padding: 12px;
+                gap: 10px;
+                max-height: none;
+                overflow-y: visible;
+                flex-shrink: 0;
+            }
+
+            .brand img {
+                height: 28px;
+            }
+
+            .brand .title {
+                font-size: 15px;
+            }
+
+            .chat-panel {
+                flex: 1;
+                min-height: 400px;
+                display: flex;
+                flex-direction: column;
+            }
+
+            .chat-header {
+                padding: 8px 12px;
+                flex-direction: column;
+                gap: 8px;
+                flex-shrink: 0;
+            }
+
+            .header-right {
+                flex-direction: column;
+                align-items: stretch;
+                gap: 8px;
+                font-size: 13px;
+            }
+
+            .channel-id {
+                text-align: left;
+                padding: 8px 10px;
+                word-break: break-all;
+            }
+
+            .webrtc-note {
+                padding: 6px 10px;
+                font-size: 12px;
+            }
+
+            .chat-body {
+                padding: 12px;
+                flex: 1;
+                min-height: 300px;
+                max-height: 500px;
+                overflow-y: auto;
+                -webkit-overflow-scrolling: touch;
+            }
+
+            .msg-row {
+                gap: 8px;
+            }
+
+            .avatar {
+                width: 36px;
+                height: 36px;
+                font-size: 14px;
+            }
+
+            .bubble {
+                padding: 10px 12px;
+                font-size: 14px;
+                max-width: 85%;
+            }
+
+            .composer {
+                padding: 0;
+                gap: 8px;
+            }
+
+            .composer-right {
+                flex-direction: column;
+                align-items: stretch;
+            }
+
+            .composer-right > div {
+                flex-direction: column;
+                align-items: stretch;
+                gap: 8px;
+            }
+
+            .composer-right label {
+                flex-direction: row;
+                justify-content: center;
+            }
+
+            #submitmsg {
+                width: 100%;
+                padding: 12px;
+                justify-content: center;
+            }
+
+            textarea#agentmsg {
+                height: 60px;
+                font-size: 14px;
+            }
+
+            .form-row input[type=text],
+            .form-row input[type=password],
+            .form-row select,
+            .form-row textarea {
+                font-size: 14px;
+            }
+
+            .controls {
+                flex-direction: row;
+            }
+
+            .controls .btn {
+                flex: 1;
+                min-width: 0;
+            }
+
+            /* Modal adjustments for mobile */
+            .agents-modal {
+                width: calc(100% - 24px);
+                max-height: 80vh;
+                overflow-y: auto;
+            }
+
+            .agents-modal .agents-list {
+                max-height: 200px;
+            }
+
+            /* New messages bubble positioning */
+            .new-messages-bubble {
+                bottom: 76px;
+                right: 12px;
+                font-size: 12px;
+                padding: 6px 10px;
+            }
+
+            /* Better form layout on mobile */
+            .form-row > div[style] {
+                flex-direction: column;
+                align-items: stretch;
+            }
+
+            #channelMode {
+                width: 100%;
+            }
+        }
+
+        /* Small mobile devices */
+        @media (max-width: 420px) {
+            .app-shell {
+                padding: 4px;
+                gap: 8px;
+                min-height: 100vh;
+            }
+
+            .sidebar {
+                padding: 10px;
+                border-radius: 10px;
+            }
+
+            .chat-panel {
+                gap: 8px;
+                min-height: 350px;
+            }
+
+            .chat-header,
+            .chat-body {
+                border-radius: 10px;
+            }
+
+            .chat-body {
+                min-height: 250px;
+                max-height: 450px;
+            }
+
+            .brand .title {
+                font-size: 14px;
+            }
+
+            .bubble {
+                max-width: 90%;
+                font-size: 13px;
+            }
+
+
+            textarea#agentmsg {
+                height: 56px;
+            }
+
+            .btn {
+                padding: 10px 12px;
+                font-size: 13px;
+            }
+
+            .channel-id {
+                font-size: 12px;
+            }
+
+            .header-right {
+                font-size: 12px;
+            }
+        }
+
+
+        /* Landscape mobile optimization */
+        @media (max-width: 900px) and (orientation: landscape) {
+            .app-shell {
+                flex-direction: row;
+                height: 100vh;
+                overflow: hidden;
+            }
+
+            .sidebar {
+                width: 280px;
+                max-height: calc(100vh - 16px);
+                overflow-y: auto;
+                flex-shrink: 0;
+            }
+
+            .chat-panel {
+                flex: 1;
+                min-height: 0;
+                display: flex;
+                flex-direction: column;
+                overflow: hidden;
+            }
+
+            .chat-body {
+                flex: 1;
+                min-height: 0;
+                max-height: none;
+                overflow-y: auto;
+            }
+
+            .composer {
+                flex-shrink: 0;
+            }
+        }
+
+        /* Touch-friendly improvements */
+        @media (hover: none) and (pointer: coarse) {
+            .btn,
+            .icon-btn,
+            input,
+            textarea,
+            select {
+                min-height: 44px;
+            }
+
+            .icon-btn svg {
+                width: 24px;
+                height: 24px;
+            }
+
+            /* Prevent zoom on input focus for iOS */
+            input[type=text],
+            input[type=password],
+            select,
+            textarea {
+                font-size: 16px;
+            }
+        }
+
+        /* Modal styles moved to share-modal.css */
+
+
+        /* Minor field styling for API key */
+        .minor-field {
+            background: rgba(255, 255, 255, 0.02) !important;
+            border: 1px solid rgba(255, 255, 255, 0.05) !important;
+            font-size: 12px !important;
+            padding: 8px 12px !important;
+            color: var(--muted) !important;
+            font-family: 'Courier New', monospace;
+            height: 36px !important;
+        }
+
+        .minor-field:focus {
+            border-color: rgba(79, 70, 229, 0.3) !important;
+            background: rgba(255, 255, 255, 0.03) !important;
+        }
+
+        .minor-field-label {
+            font-size: 11px !important;
+            color: rgba(148, 163, 184, 0.7) !important;
+            font-weight: 500 !important;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        /* Connected agents modal styles */
+        .agents-overlay {
+            display: none;
+            position: fixed;
+            inset: 0;
+            background: rgba(3,6,23,0.6);
+            z-index: 60;
+            backdrop-filter: blur(4px);
+        }
+        .agents-modal {
+            display: none;
+            position: fixed;
+            left: 50%;
+            top: 50%;
+            transform: translate(-50%, -50%);
+            background: linear-gradient(180deg, rgba(11,18,32,0.98), rgba(6,12,20,0.98));
+            border: 1px solid rgba(255,255,255,0.04);
+            color: #e6eef8;
+            width: 420px;
+            max-width: calc(100% - 32px);
+            border-radius: 12px;
+            padding: 14px;
+            z-index: 70;
+            box-shadow: 0 10px 30px rgba(2,6,23,0.6);
+            animation: pop .12s ease-out;
+        }
+        .agents-modal .header {
+            display:flex;align-items:center;gap:12px;justify-content:space-between;margin-bottom:8px
+        }
+        .agents-modal .title { font-weight:700; font-size:15px }
+        .agents-modal .sub { font-size:12px;color:var(--muted) }
+        .agents-modal .agents-list { display:flex;flex-direction:column;gap:8px;max-height:280px;overflow:auto;padding:6px 2px }
+        .agents-modal .agent-item { display:flex;align-items:center;gap:10px;padding:8px;border-radius:8px;background:linear-gradient(180deg, rgba(255,255,255,0.01), transparent) }
+        .agents-modal .agent-avatar { width:40px;height:40px;border-radius:8px;background:linear-gradient(90deg,var(--accent),var(--accent-2));display:flex;align-items:center;justify-content:center;font-weight:700;color:#071225 }
+        .agents-modal .agent-name { font-weight:600 }
+        .agents-modal .agent-meta { font-size:12px;color:var(--muted) }
+        .agents-modal .agent-actions { margin-left:auto;display:flex;gap:8px }
+        .agents-modal .footer { display:flex;gap:8px;justify-content:space-between;margin-top:12px }
+        .agents-modal .close-btn { background:transparent;border:0;color:var(--muted);cursor:pointer;padding:6px;border-radius:8px }
+        .agents-modal .copy-btn { padding:8px 10px;border-radius:8px;border:0;background:rgba(255,255,255,0.03);color:var(--muted);cursor:pointer }
+        .agents-modal .empty { text-align:center;color:var(--muted);padding:18px 6px }
+        @keyframes pop { from { transform: translate(-50%, -54%) scale(.99); opacity:0 } to { transform: translate(-50%, -50%) scale(1); opacity:1 } }
+
+    </style>
+
+    <!-- Load configuration from backend (secure API key management) -->
+    <script src="../js/config-loader.js"></script>
+    <script src="../js/lib/qrcode.min.js"></script>
+    <script src="../generated-web-agent-js/js/web-agent.libs.js"></script>
+    <script src="../generated-web-agent-js/js/web-agent.js"></script>
+    <script src="../generated-web-agent-js/js/web-agent.webrtc.js"></script>
+    <script src="../js/common-utils.js"></script>
+    <script src="../js/share-modal.js"></script>
+</head>
+<body>
+<!-- inline SVG sprite (inlined for compatibility and single-request) -->
+<svg xmlns="http://www.w3.org/2000/svg" style="display:none">
+    <symbol id="icon-clipboard" viewBox="0 0 24 24">
+        <path fill="currentColor"
+              d="M16 4h-1.5a1 1 0 0 1-1-1h-5a1 1 0 0 1-1 1H8a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h8a2 2 0 0 0 2-2V6a2 2 0 0 0-2-2zM12 5.5a1.5 1.5 0 1 1 0 3 1.5 1.5 0 0 1 0-3z"/>
+    </symbol>
+    <symbol id="icon-send" viewBox="0 0 24 24">
+        <path fill="currentColor" d="M2 21l21-9L2 3v7l15 2-15 2v7z"/>
+    </symbol>
+    <symbol id="icon-copy" viewBox="0 0 24 24">
+        <path fill="currentColor"
+              d="M16 1H4c-1.1 0-2 .9-2 2v12h2V3h12V1zm3 4H8c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h11c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2zm0 16H8V7h11v14z"/>
+    </symbol>
+    <symbol id="icon-debug" viewBox="0 0 24 24">
+        <path fill="currentColor"
+              d="M12 2L3 7v6c0 5 3.8 9.7 9 11 5.2-1.3 9-6 9-11V7l-9-5zM11 14H8v-2h3v2zm5 0h-3v-2h3v2zM8 10H5V8h3v2z"/>
+    </symbol>
+    <!-- Camera icon for WebRTC example note -->
+    <symbol id="icon-camera" viewBox="0 0 24 24">
+        <path fill="currentColor" d="M12 7a5 5 0 100 10 5 5 0 000-10zm7-3h-2.2l-1.6-2H8.8L7.2 4H5a2 2 0 00-2 2v11a2 2 0 002 2h14a2 2 0 002-2V6a2 2 0 00-2-2zM12 15.5A3.5 3.5 0 1112 8.5a3.5 3.5 0 010 7z"/>
+    </symbol>
+</svg>
+
+<div class="app-shell">
+    <aside class="sidebar">
+        <div class="brand">
+            <img src="../images/arrow-right.png" alt="logo"/>
+            <div class="title">Messaging Platform</div>
+        </div>
+
+        <!-- Connected state: show minimal info -->
+        <div class="sidebar-connected-info">
+            <div class="connected-badge">
+                <span>Connected</span>
+            </div>
+            <div style="display:flex;flex-direction:column;gap:8px;">
+                <div style="font-size:13px;">
+                    <span style="color:var(--muted);">Agent:</span>
+                    <span style="font-weight:600;color:#e6eef8;" id="connected-agent-name">-</span>
+                </div>
+                <!-- Replaced channel id with a compact agents summary (agent-live, agent-count, and agent-badge)
+                     The page header already shows the channel id + copy button, so keep agents controls here. -->
+                <div style="font-size:13px;display:flex;align-items:center;gap:8px;justify-content:center;">
+                    <span id="agent-live" style="display:inline-block;width:8px;height:8px;border-radius:50%;background:#6b7280;transition:background-color .2s ease"></span>
+                    <div style="display:flex;flex-direction:column;align-items:center;line-height:1">
+                        <span style="color:var(--muted);font-size:12px;">Agents</span>
+                        <span id="agent-count" style="font-weight:700;color:#e6eef8;font-size:14px;min-width:28px;text-align:center;">—</span>
+                    </div>
+                    <button id="agent-badge" title="Show connected agents" class="icon-btn-small" aria-label="Show connected agents" style="margin-left:0;padding:6px;">
+                        <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z"/>
+                        </svg>
+                    </button>
+                </div>
+            </div>
+            <div style="display:flex;gap:8px;">
+                <button id="share-channel" class="btn" style="flex:1;padding:8px;font-size:12px;background: linear-gradient(135deg, #10b981 0%, #059669 100%);">
+                    <svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z"/>
+                    </svg>
+                    Share
+                </button>
+                <button id="disconnect-quick" class="btn ghost" style="flex:1;padding:8px;font-size:12px;">Disconnect</button>
+            </div>
+        </div>
+
+        <!-- Connection form: shown by default, hidden when connected -->
+        <div class="sidebar-connection-form">
+
+            <!-- API Key Scope Note -->
+            <div style="background: rgba(59, 130, 246, 0.1); border: 1px solid rgba(59, 130, 246, 0.3); border-radius: 8px; padding: 10px 12px; margin-bottom: 16px; font-size: 12px; color: #93c5fd;">
+                <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 4px;">
+                    <svg width="16" height="16" fill="currentColor" viewBox="0 0 20 20">
+                        <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clip-rule="evenodd"/>
+                    </svg>
+                    <strong style="color: #60a5fa;">Public API Key Scope</strong>
+                </div>
+                <div style="color: #bfdbfe; line-height: 1.4;">
+                    This demo uses a public API key with limited read/write access. For production, use authenticated API keys with proper access control.
+                </div>
+            </div>
+
+            <div class="sidebar-details" id="sidebar-details">
+                <div class="form-row">
+                    <!-- Mode selector: choose whether to connect with Channel ID or Channel name/password -->
+                    <div style="display:flex;gap:8px;align-items:center">
+                        <label for="channelMode">Mode</label>
+
+                        <select id="channelMode" aria-label="Connect using" title="Connect using">
+                            <option value="params">Name / Password</option>
+                            <option value="id">Channel ID</option>
+                        </select>
+                        <div style="flex:1"></div>
+                    </div>
+                </div>
+
+
+                <div  class="form-row" id="channel-name-row" >
+                    <label for="channelName">Channel name</label>
+                    <input id="channelName" type="text" placeholder="channel name" value="default"/>
+                </div>
+
+                <div class="form-row" id="channel-password-row">
+                    <label for="channelPassword">Channel password</label>
+                    <input id="channelPassword" type="password" placeholder="channel password" value="default"/>
+                </div>
+
+                <div class="form-row">
+                    <div id="channel-id-row">
+                        <input id="channelId" type="text" placeholder="channel id"/>
+                        <div class="small">Use existing channel ID to connect instantly.</div>
+                    </div>
+
+                </div>
+
+                <div class="form-row">
+                    <label for="agentName">Your name (Optional)</label>
+                    <input id="agentName" type="text" placeholder="Leave empty to auto-generate"/>
+                    <div class="small">💡 Leave empty to generate a unique name automatically</div>
+                </div>
+
+                <div class="controls">
+                    <button id="start" class="btn primary">Connect</button>
+                    <button id="close" class="btn ghost" disabled>Disconnect</button>
+                </div>
+
+                <div style="margin-top:auto;font-size:12px;color:var(--muted);">
+                    <!--<strong>Note</strong>: This UI uses only key IDs (no secret) for simplified connections. -->
+                </div>
+            </div><!-- end sidebar-details -->
+        </div><!-- end sidebar-connection-form -->
+    </aside>
+
+
+    <main class="chat-panel">
+        <header class="chat-header">
+            <div style="flex:1">
+                <div style="display:flex;align-items:center;justify-content:space-between;">
+                    <div style="display:flex;align-items:center;gap:8px;">
+                        <div style="font-size:13px;color:var(--muted);">Channel:</div>
+                        <div id="channel-text" class="channel-id" title="Click to copy" style="cursor:pointer;">—</div>
+                        <button id="copyChannelId" title="Copy channel id" class="icon-btn-small" aria-label="Copy channel id">
+                            <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"/>
+                            </svg>
+                        </button>
+                    </div>
+
+                    <div style="display:flex;align-items:center;gap:12px;">
+                        <!-- Agents summary moved to the sidebar connected details to avoid duplicating channel info -->
+                        <div style="display:flex;align-items:center;gap:8px;font-size:12px;color:var(--muted);">
+                            <!-- kept small spacer to preserve header layout -->
+                        </div>
+
+                        <button id="clear" title="Clear messages" class="icon-btn-small" aria-label="Clear messages">
+                            <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/>
+                            </svg>
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </header>
+
+        <!-- Events Panel -->
+        <div class="events-panel" id="events-panel">
+            <div class="events-header" id="events-header">
+                <div class="events-title">
+                    <svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                    </svg>
+                    <span>Events</span>
+                    <span class="events-badge" id="events-count">0</span>
+                </div>
+                <button class="events-toggle" id="events-toggle" aria-label="Toggle events">
+                    <svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
+                    </svg>
+                </button>
+            </div>
+            <div class="events-list" id="events-list">
+                <!-- Events will be added here dynamically -->
+            </div>
+        </div>
+
+        <section class="chat-body">
+            <div id="app-container" class="messages">
+                <!-- Messages will be added here dynamically -->
+            </div>
+
+            <!-- new messages bubble (created once, managed by JS) -->
+            <div id="newMessagesBubble" class="new-messages-bubble" title="Jump to latest messages" aria-hidden="true">
+                <svg width="14" height="14" style="vertical-align:middle;color:inherit;filter:brightness(0) saturate(100%) invert(100%) sepia(0%);">
+                    <use href="#icon-send"></use>
+                </svg>
+                <span id="newMessagesCount">New</span>
+            </div>
+        </section>
+
+        <div class="composer">
+            <div class="composer-left" style="display: none">
+            </div>
+            <div class="composer-middle">
+                <label for="agentmsg" class="sr-only">Message</label>
+                <textarea id="agentmsg" placeholder="Type your message"></textarea>
+            </div>
+            <div class="composer-right">
+                <div style="display:flex;align-items:center;gap:8px">
+                    <label for="enterToSend" style="display:flex;align-items:center;gap:8px;font-size:13px;color:var(--muted);">
+                        <input id="enterToSend" type="checkbox" style="width:16px;height:16px;" title="Press Enter to send message (Shift+Enter for newline)"/>
+                        Enter to send
+                    </label>
+                    <button id="submitmsg" class="btn primary" aria-label="Send message">
+                        <svg width="16" height="16" style="vertical-align:middle;margin-right:8px">
+                            <use href="#icon-send"></use>
+                        </svg>
+                        Send
+                    </button>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <!-- Connected agents modal (hidden by default) -->
+    <div id="agents-overlay" class="agents-overlay" aria-hidden="true">
+        <div id="agents-modal" class="agents-modal" role="dialog" aria-labelledby="agentsModalTitle" aria-describedby="agentsModalDesc">
+            <div class="header">
+                <div>
+                    <div id="agentsModalTitle" class="title">Connected Agents</div>
+                    <div id="agentsModalDesc" class="sub">Total: <span id="agents-title-count">0</span></div>
+                </div>
+                <button class="close-btn" aria-label="Close modal">
+                    <svg width="18" height="18" style="vertical-align:middle">
+                        <use href="#icon-clipboard"></use>
+                    </svg>
+                </button>
+            </div>
+            <div id="agents-list" class="agents-list">
+                <!-- Agent items will be populated by JS -->
+            </div>
+            <div class="footer">
+                <button class="btn ghost close-btn" aria-label="Close modal">Close</button>
+                <button class="btn primary copy-btn" aria-label="Copy agent list">Copy List</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Password request modal (styled) -->
+    <div id="password-request-overlay" class="agents-overlay" aria-hidden="true" style="display:none;">
+        <div id="password-request-modal" class="agents-modal" role="dialog" aria-labelledby="passwordRequestTitle" aria-describedby="passwordRequestDesc" style="width:480px;">
+            <div class="header">
+                <div>
+                    <div id="passwordRequestTitle" class="title">Password Request</div>
+                    <div id="passwordRequestDesc" class="sub">An agent is requesting the channel password</div>
+                </div>
+                <button class="close-btn" aria-label="Close password dialog">×</button>
+            </div>
+            <div style="padding:8px 6px;">
+                <div style="margin-bottom:8px;">
+                    <strong>Requester:</strong> <span id="pr-requester-name">Unknown</span>
+                </div>
+                <div style="margin-bottom:8px;">
+                    <strong>Your agent:</strong> <span id="pr-your-agent">web-agent</span>
+                </div>
+                <div style="margin-bottom:8px;">
+                    <strong>Public key fingerprint:</strong>
+                    <div id="pr-fingerprint" style="font-family:monospace;margin-top:6px;color:var(--muted);"></div>
+                </div>
+                <div style="margin-top:8px;color:var(--muted);font-size:13px">Allow this agent to receive the channel name and password? This will send encrypted credentials to the requester.</div>
+            </div>
+            <div class="footer" style="margin-top:12px;">
+                <div style="display:flex;gap:8px;justify-content:flex-end;width:100%">
+                    <button id="pr-deny" class="btn ghost close-btn">No</button>
+                    <button id="pr-allow" class="btn primary">Yes</button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+
+    (function () {
+        // extract API response from event
+        window.getApiResponse = function(ev){
+            return ev.response;
+        }
+
+        // Check for hash param and auto-fill/connect - now using ShareModal component
+        function checkHashParamAndConnect() {
+            ShareModal.processSharedLink(function(auth, agentName) {
+                // Fill form fields
+                const chNameEl = document.getElementById('channelName');
+                const chPassEl = document.getElementById('channelPassword');
+                const agentEl = document.getElementById('agentName');
+                const modeEl = document.getElementById('channelMode');
+
+                if (chNameEl) chNameEl.value = auth.c;
+                if (chPassEl) chPassEl.value = auth.p;
+                // API key is NOT set from auth - it's fetched from backend /api/channels/api-access
+                if (agentEl) {
+                    agentEl.value = agentName || generateRandomAgentName();
+                }
+                if (modeEl) modeEl.value = 'params';
+
+                // Update UI to show name/password fields
+                try {
+                    updateChannelModeUI('params');
+                } catch (e) {
+                    console.warn('updateChannelModeUI not yet available');
+                }
+
+                // Auto-connect after a short delay
+                setTimeout(() => {
+                    addEvent('Auto-connecting from shared link...', 'connected');
+                    const connectBtn = document.getElementById('start');
+                    if (connectBtn && !connectBtn.disabled) {
+                        connectBtn.click();
+                    }
+                }, 500);
+            });
+        }
+
+        // Share link processing functions now in share-modal.js
+
+        // Keep local helper for compatibility
+        function getActiveAgentsFromChannel() {
+            if (!window.channel || !window.channel._connectedAgentsMap) {
+                return [];
+            }
+            return Object.keys(window.channel._connectedAgentsMap || {});
+        }
+
+
+        // load last channel params (channelName, channelPassword, channelId, agentName, sessionId)
+        try {
+            const lastChannelName = localStorage.getItem('lastChannelName');
+            const lastChannelPassword = localStorage.getItem('lastChannelPassword');
+            const lastChannelId = localStorage.getItem('lastChannelId');
+            const lastAgentName = localStorage.getItem('lastAgentName');
+            // populate inputs if present and inputs are empty
+            const chNameEl = document.getElementById('channelName');
+            const chPassEl = document.getElementById('channelPassword');
+            const chIdEl = document.getElementById('channelId');
+            const agentEl = document.getElementById('agentName');
+            if (chNameEl && lastChannelName) chNameEl.value = lastChannelName;
+            if (chPassEl && lastChannelPassword) chPassEl.value = lastChannelPassword;
+            if (chIdEl && lastChannelId) chIdEl.value = lastChannelId;
+            if (agentEl && lastAgentName ) agentEl.value = lastAgentName;
+
+            // Channel mode (params | id) UI handling
+            function updateChannelModeUI(mode) {
+                try {
+                    const nameRow = document.getElementById('channel-name-row');
+                    const passRow = document.getElementById('channel-password-row');
+                    const idRow = document.getElementById('channel-id-row');
+                    if (!nameRow || !passRow || !idRow) return;
+                    if (mode === 'id') {
+                        nameRow.style.display = 'none';
+                        passRow.style.display = 'none';
+                        idRow.style.display = 'block';
+                    } else {
+                        nameRow.style.display = 'block';
+                        passRow.style.display = 'block';
+                        idRow.style.display = 'none';
+                    }
+                    try { localStorage.setItem('lastChannelMode', mode); } catch(e){}
+                } catch (e) { console.warn('updateChannelModeUI', e); }
+            }
+
+            const modeSelect = document.getElementById('channelMode');
+            try {
+                // determine initial mode: prefer stored, else use channelId presence
+                const storedMode = localStorage.getItem('lastChannelMode');
+                const initialMode = storedMode || (lastChannelId ? 'id' : 'params');
+                if (modeSelect) {
+                    modeSelect.value = initialMode;
+                    modeSelect.addEventListener('change', function () { updateChannelModeUI(this.value); });
+                }
+                updateChannelModeUI(initialMode);
+            } catch (e) { console.warn('init channel mode', e); }
+
+        } catch (e) { console.warn(e); }
+
+        // toast
+        window.showToast = function (msg, type = 'info') {
+            let container = document.getElementById('toast-container');
+            if (!container) {
+                container = document.createElement('div');
+                container.id = 'toast-container';
+                Object.assign(container.style, {
+                    position: 'fixed',
+                    right: '18px',
+                    bottom: '18px',
+                    zIndex: 9999
+                });
+                document.body.appendChild(container);
+            }
+            const el = document.createElement('div');
+            el.textContent = msg;
+            el.style.background = type === 'error' ? '#e74c3c' : type === 'success' ? '#2ecc71' : '#0177c7';
+            el.style.color = '#fff';
+            el.style.padding = '10px 14px';
+            el.style.borderRadius = '8px';
+            el.style.marginTop = '8px';
+            el.style.transition = 'opacity 0.4s ease';
+            container.appendChild(el);
+            setTimeout(() => {
+                el.style.opacity = '0';
+                setTimeout(() => el.remove(), 400);
+            }, 3500);
+        };
+
+        // safe element getters
+        function $(id) { return document.getElementById(id); }
+
+
+        // copy channel id
+        function copyChannelId() {
+            const el = $('channel-text');
+            const v = (el?.textContent || '').trim();
+            if (!v || v === '—') return showToast('No channel id', 'error');
+            navigator.clipboard.writeText(v)
+                .then(() => showToast('Channel id copied', 'success'))
+                .catch(() => showToast('Copy failed', 'error'));
+        }
+
+        if ($('copyChannelId')) $('copyChannelId').addEventListener('click', copyChannelId);
+        if ($('channel-text')) $('channel-text').addEventListener('click', copyChannelId);
+        // Initially disable the copy button and clear channel text until connected
+        try {
+            const copyBtn = document.getElementById('copyChannelId');
+            const chEl = document.getElementById('channel-text');
+            if (copyBtn) { copyBtn.disabled = true; copyBtn.title = 'Copy channel id (disabled until connected)'; }
+            if (chEl) chEl.textContent = '';
+        } catch (e) { console.warn('init copy button state', e); }
+
+        // helper for channel updates
+        window.updateChannelDisplay = function (e) {
+            try {
+                const apiResp = e?.response?.data || window.lastApiResponse || null;
+                let cid = apiResp?.channelId || localStorage.lastChannelIdentifier || window.channel?.channelId || '—';
+                $('channel-text').textContent = cid;
+            } catch (err) {
+                console.warn('updateChannelDisplay error', err);
+            }
+        };
+
+        // message rendering helper
+        function formatTime(d) {
+            const dt = d instanceof Date ? d : new Date(d);
+            return dt.toLocaleTimeString([], {hour: '2-digit', minute: '2-digit'});
+        }
+
+        function setAgentCount(n) {
+            // Accepts a number or an array of agents
+            try {
+                let count = 0;
+                if (Array.isArray(n)) count = n.length;
+                else if (typeof n === 'number') count = n;
+                else if (n && typeof n === 'object' && typeof n.length === 'number') count = n.length;
+                const countEl = $('agent-count');
+                const live = $('agent-live');
+                const display = (typeof count === 'number' && count >= 0) ? count : '-';
+                if (countEl) countEl.textContent = display;
+                if (live) live.style.background = (count > 0) ? '#10b981' : '#6b7280';
+            } catch (e) { console.warn('setAgentCount', e); }
+        }
+
+        // If the agents modal is open, refresh its contents
+        function refreshAgentsModalIfOpen() {
+            try {
+                const modal = document.getElementById('agents-modal');
+                if (!modal) return;
+                if (modal.style.display !== 'block') return;
+                const agents = getConnectedAgentsList();
+                showAgentsModal(agents);
+            } catch (e) { console.warn('refreshAgentsModalIfOpen', e); }
+        }
+
+        function appendMessage(name, message, isMe, timestamp, opts) {
+            const container = document.querySelector('.chat-body');
+            console.log('container=', container)
+            if (!container) return;
+            opts = opts || {forceScroll: true};
+            const time = new Date(timestamp);
+            const row = document.createElement('div');
+            row.className = 'msg-row ' + (isMe ? 'msg-right' : 'msg-left');
+            // Mark welcome/system message so it can be removed after first connection
+            try {
+                if (opts && opts.welcome) {
+                    row.id = 'welcome-message';
+                    row.classList.add('system-welcome');
+                }
+            } catch (e) { /* no-op */ }
+            const avatar = document.createElement('div');
+            avatar.className = 'avatar';
+            avatar.textContent = (name || 'U').substring(0, 1).toUpperCase();
+            // show full agent name on hover
+            avatar.title = name || '';
+            const col = document.createElement('div');
+            const bubble = document.createElement('div');
+            bubble.className = 'bubble ' + (isMe ? 'me' : '');
+            bubble.textContent = message;
+            const meta = document.createElement('div');
+            meta.className = 'meta';
+            meta.textContent = formatTime(time) + ' — ' + new Date(time).toLocaleDateString();
+            col.append(bubble, meta);
+            if (isMe) row.append(col, avatar); else row.append(avatar, col);
+            container.appendChild(row);
+
+            // scroll behavior: auto-scroll when the sender is "me" OR if the user is currently scrolled to the bottom.
+            const shouldForce = !!opts.forceScroll;
+            if (shouldForce || isMe || isScrolledToBottom(container)) {
+                console.log('forceScroll....');
+                container.scrollTop = container.scrollHeight;
+                hideNewMessagesBubble();
+            } else {
+                // user has scrolled up — show the new messages bubble and increment count
+                incrementNewMessagesCount();
+            }
+        }
+
+        // System notification (centered) for agent online/offline
+        // type: 'info' (default), 'success' (green), 'error' (red)
+        function appendSystemNotification(text, type = 'info'){
+            try{
+                const container = $('app-container'); if(!container) return;
+                const el = document.createElement('div'); el.className = 'system-notice';
+                // include timestamp for the event
+                const now = new Date();
+                const timeSpan = document.createElement('span');
+                timeSpan.style.fontSize = '11px';
+                timeSpan.style.color = '#94a3b8';
+                timeSpan.style.marginRight = '8px';
+                timeSpan.textContent = '[' + now.toLocaleTimeString([], {hour: '2-digit', minute: '2-digit'}) + ' ' + now.toLocaleDateString() + ']';
+                const txt = document.createElement('span'); txt.textContent = text;
+                el.appendChild(timeSpan);
+                el.appendChild(txt);
+                // style by type (inline to avoid touching global CSS)
+                try{
+                    if(type === 'success'){
+                        el.style.color = '#10b981'; // green text
+                        el.style.background = 'rgba(16,185,129,0.04)';
+                        el.style.border = '1px solid rgba(16,185,129,0.08)';
+                        el.style.padding = '8px 10px';
+                        el.style.borderRadius = '8px';
+                    } else if(type === 'error'){
+                        el.style.color = '#f87171';
+                        el.style.background = 'rgba(248,113,113,0.04)';
+                        el.style.border = '1px solid rgba(248,113,113,0.08)';
+                        el.style.padding = '8px 10px';
+                        el.style.borderRadius = '8px';
+                    } else {
+                        el.style.color = '#9aa9be';
+                        el.style.padding = '6px 0';
+                    }
+                }catch(e){}
+                container.appendChild(el);
+
+                // Only auto-scroll to bottom if the user is already at the bottom; otherwise show new messages indicator
+                try {
+                    if (isScrolledToBottom(container)) {
+                        container.scrollTop = container.scrollHeight;
+                        hideNewMessagesBubble();
+                    } else {
+                        incrementNewMessagesCount();
+                    }
+                } catch (e) { console.warn('appendSystemNotification scroll', e); }
+            }catch(e){ console.warn('appendSystemNotification', e); }
+        }
+
+        // Events management
+        let eventsCount = 0;
+        const MAX_EVENTS = 50;
+
+        function addEvent(message, type = 'info') {
+            try {
+                const eventsList = document.getElementById('events-list');
+                const eventsCountEl = document.getElementById('events-count');
+                if (!eventsList) return;
+
+                const eventItem = document.createElement('div');
+                eventItem.className = 'event-item';
+
+                const icon = document.createElement('span');
+                icon.className = 'event-icon ' + type;
+
+                const text = document.createElement('span');
+                text.textContent = message;
+                text.style.flex = '1';
+                text.style.color = 'var(--text)';
+
+                const time = document.createElement('span');
+                time.className = 'event-time';
+                const now = new Date();
+                const hours = now.getHours();
+                const minutes = now.getMinutes().toString().padStart(2, '0');
+                const ampm = hours >= 12 ? 'PM' : 'AM';
+                const hour12 = hours % 12 || 12;
+                const month = (now.getMonth() + 1).toString().padStart(2, '0');
+                const day = now.getDate().toString().padStart(2, '0');
+                const year = now.getFullYear();
+                time.textContent = `[${hour12}:${minutes} ${ampm} ${month}/${day}/${year}]`;
+
+                eventItem.appendChild(icon);
+                eventItem.appendChild(text);
+                eventItem.appendChild(time);
+
+                eventsList.insertBefore(eventItem, eventsList.firstChild);
+
+                eventsCount++;
+                if (eventsCountEl) eventsCountEl.textContent = eventsCount;
+
+                // Remove old events if too many
+                while (eventsList.children.length > MAX_EVENTS) {
+                    eventsList.removeChild(eventsList.lastChild);
+                }
+
+                // Show events panel if hidden
+                const eventsListEl = document.getElementById('events-list');
+                if (eventsListEl && eventsListEl.classList.contains('hidden')) {
+                    // Don't auto-expand, just update the count
+                }
+            } catch ( e) {
+                console.warn('addEvent error', e);
+            }
+        }
+
+        // Toggle events panel
+        if (document.getElementById('events-header')) {
+            document.getElementById('events-header').addEventListener('click', function() {
+                const eventsList = document.getElementById('events-list');
+                const toggle = document.getElementById('events-toggle');
+                if (eventsList && toggle) {
+                    eventsList.classList.toggle('hidden');
+                    toggle.classList.toggle('collapsed');
+                }
+            });
+        }
+
+
+        // Sidebar collapse/expand helpers
+        function collapseSidebarOnMobile() {
+            const sidebar = document.querySelector('.sidebar');
+            if (!sidebar) return;
+
+            // Update connected info
+            const agentNameEl = document.getElementById('connected-agent-name');
+            const channelIdEl = document.getElementById('connected-channel-id');
+            const agentName = document.getElementById('agentName')?.value || 'Unknown';
+            const channelId = window.channel?.channelId || document.getElementById('channel-text')?.textContent || '-';
+
+            if (agentNameEl) agentNameEl.textContent = agentName;
+            if (channelIdEl) channelIdEl.textContent = channelId;
+
+            // Add connected class to sidebar
+            sidebar.classList.add('connected');
+        }
+
+        function expandSidebar() {
+            const sidebar = document.querySelector('.sidebar');
+            if (!sidebar) return;
+            sidebar.classList.remove('connected');
+        }
+
+        // Event listeners for share and disconnect buttons
+        if ($('share-channel')) {
+            $('share-channel').addEventListener('click', async function() {
+                try {
+                    const chNameEl = document.getElementById('channelName');
+                    const chPassEl = document.getElementById('channelPassword');
+
+                    const channelName = chNameEl?.value?.trim();
+                    const channelPassword = chPassEl?.value?.trim();
+
+                    if (!channelName || !channelPassword) {
+                        showToast('Missing channel details for sharing', 'error');
+                        return;
+                    }
+
+                    // Fetch fresh temporary API key for sharing using config-loader
+                    console.log('Requesting fresh temporary API key for sharing...');
+                    let apiKey;
+                    try {
+                        // Use multi-use key with 60s TTL for sharing (allows multiple people to use it)
+                        const config = await window.fetchAppConfig(60, false);
+                        if (!config.apiKey) {
+                            throw new Error('No API key in response');
+                        }
+                        apiKey = config.apiKey;
+                        console.log('Fresh temporary API key obtained for sharing (multi-use, 60s TTL)');
+                    } catch (err) {
+                        console.error('Failed to get temporary API key for sharing:', err);
+                        showToast('Failed to get API key from server: ' + err.message, 'error');
+                        return;
+                    }
+
+                    // Use ShareModal component
+                    ShareModal.show(channelName, channelPassword, apiKey);
+                } catch (e) {
+                    console.error('Share error:', e);
+                    showToast('Failed to open share dialog', 'error');
+                }
+            });
+        }
+
+        // Share modal functionality now in share-modal.js
+
+        if ($('disconnect-quick')) {
+            $('disconnect-quick').addEventListener('click', function() {
+                try {
+                    if (window.channel && typeof window.channel.disconnect === 'function') {
+                        window.channel.disconnect();
+                    }
+                } catch(e) {
+                    console.warn('Quick disconnect error', e);
+                }
+            });
+        }
+
+        // safe event listeners
+        const msgEl = $('agentmsg');
+        const sendBtn = $('submitmsg');
+        const enterToSendChk = $('enterToSend');
+
+        // persist Enter-to-send preference in localStorage (off by default)
+        try {
+            const storedEnterPref = localStorage.getItem('enterToSend');
+            if (enterToSendChk) {
+                enterToSendChk.checked = (storedEnterPref === '1');
+                enterToSendChk.addEventListener('change', function () {
+                    try {
+                        if (this.checked) localStorage.setItem('enterToSend', '1'); else localStorage.removeItem('enterToSend');
+                    } catch (e) { /* no-op */ }
+                });
+            }
+        } catch (e) { /* ignore storage errors */ }
+
+        // Ensure send button is disabled by default until a channel is connected
+        if (sendBtn) sendBtn.disabled = true;
+
+        // Keyboard handling: when Enter-to-send is enabled, Enter sends message, Shift+Enter inserts newline
+        if (msgEl) {
+            msgEl.addEventListener('keydown', function (e) {
+                try {
+                    const chk = enterToSendChk || document.getElementById('enterToSend');
+                    const enabled = !!(chk && chk.checked) || (localStorage.getItem && localStorage.getItem('enterToSend') === '1');
+                    if (!enabled) return; // nothing to do when feature is off
+                    if (e.key === 'Enter' && !e.shiftKey && !e.ctrlKey && !e.altKey && !e.metaKey) {
+                        e.preventDefault();
+                        // trigger send if send button is enabled
+                        if (sendBtn && !sendBtn.disabled) {
+                            sendBtn.click();
+                        }
+                    }
+                } catch (err) { console.warn('enterToSend keydown', err); }
+            });
+        }
+
+        if (sendBtn) {
+            sendBtn.addEventListener('click', function () {
+                const txt = msgEl?.value?.trim();
+                if (!txt) return;
+                if (window.channel?.sendMessage) {
+                    // Send through channel. Do NOT append locally here; the server will broadcast
+                    // and the message will be appended when received through the channel message event.
+                    window.channel.sendMessage(txt, res => {
+                        if (res?.status === 'success') {
+                            msgEl.value = '';
+                        } else {
+                            showToast('Send failed', 'error');
+                        }
+                    });
+                } else {
+                    // No channel library available: clear the input but do not append locally.
+                    msgEl.value = '';
+                    showToast('Local send not supported - offline', 'error');
+                }
+            });
+        }
+
+        // NEW: helpers for new messages bubble and scroll detection
+        let __newMessagesCount = 0;
+        const _containerEl = $('app-container');
+        const _bubbleEl = $('newMessagesBubble');
+        const _bubbleCountEl = $('newMessagesCount');
+
+        function isScrolledToBottom(el, threshold = 60) {
+            if (!el) return true;
+            try {
+                return (el.scrollHeight - (el.scrollTop + el.clientHeight)) <= threshold;
+            } catch (e) { return true; }
+        }
+
+        function showNewMessagesBubble() {
+            if (!_bubbleEl) return;
+            _bubbleEl.style.display = 'inline-flex';
+            _bubbleEl.setAttribute('aria-hidden', 'false');
+        }
+        function hideNewMessagesBubble() {
+            if (!_bubbleEl) return;
+            _bubbleEl.style.display = 'none';
+            _bubbleEl.setAttribute('aria-hidden', 'true');
+            __newMessagesCount = 0;
+            if (_bubbleCountEl) _bubbleCountEl.textContent = 'New';
+        }
+        function incrementNewMessagesCount() {
+            __newMessagesCount = (__newMessagesCount || 0) + 1;
+            if (_bubbleCountEl) {
+                _bubbleCountEl.textContent = (__newMessagesCount === 1) ? '1 new' : (__newMessagesCount + ' new');
+            }
+            showNewMessagesBubble();
+        }
+
+        // Bubble click -> scroll to bottom and hide
+        if (_bubbleEl) {
+            _bubbleEl.addEventListener('click', function () {
+                try {
+                    if (_containerEl) {
+                        _containerEl.scrollTop = _containerEl.scrollHeight;
+                        hideNewMessagesBubble();
+                    }
+                } catch (e) { console.warn('new bubble click', e); }
+            });
+        }
+
+        // When the user manually scrolls to bottom, hide the bubble
+        if (_containerEl) {
+            _containerEl.addEventListener('scroll', function () {
+                try {
+                    if (isScrolledToBottom(_containerEl)) hideNewMessagesBubble();
+                } catch (e) { console.warn('container scroll', e); }
+            });
+        }
+
+        // AgentConnection integration: Connect / Disconnect / Clear logic
+        // Manage UI state for buttons and spinner
+        function setButtonsConnected(connected) {
+            try {
+                const startBtn = $('start');
+                const closeBtn = $('close');
+                if (!startBtn || !closeBtn) return;
+                if (connected) {
+                    // Connected: disable Start and style it as ghost; highlight Disconnect as primary
+                    startBtn.disabled = true;
+                    try { startBtn.classList.remove('primary'); } catch(e){}
+                    try { startBtn.classList.add('ghost'); } catch(e){}
+                    // change text/icon
+                    try { startBtn.dataset.orig = startBtn.dataset.orig || startBtn.innerHTML; } catch (e) {}
+                    try { startBtn.innerHTML = '✔ Connected'; } catch (e) {}
+
+                    // On mobile: collapse sidebar to show connected info only
+                    try { collapseSidebarOnMobile(); } catch(e) { console.warn('collapseSidebarOnMobile', e); }
+
+
+                    closeBtn.disabled = false;
+                    try { closeBtn.classList.remove('ghost'); } catch(e){}
+                    try { closeBtn.classList.add('primary'); } catch(e){}
+                    try { closeBtn.innerHTML = '⏻ Disconnect'; } catch(e){}
+                    // enable copy button when connected
+                    try { const copyBtn = document.getElementById('copyChannelId'); if(copyBtn) copyBtn.disabled = false; } catch(e){}
+                } else {
+                    // Disconnected: enable Start and restore primary background; make Disconnect ghost and disabled
+                    startBtn.disabled = false;
+                    try { startBtn.classList.remove('ghost'); } catch(e){}
+                    try { startBtn.classList.add('primary'); } catch(e){}
+                    try { startBtn.innerHTML = '▶ Connect'; } catch(e){}
+
+                    closeBtn.disabled = true;
+                    try { closeBtn.classList.remove('primary'); } catch(e){}
+                    try { closeBtn.classList.add('ghost'); } catch(e){}
+                    try { closeBtn.innerHTML = 'Disconnect'; } catch(e){}
+
+
+                    // On mobile: expand sidebar to show connection form
+                    try { expandSidebar(); } catch(e) { console.warn('expandSidebar', e); }
+                    // Clear channel id display when disconnected
+                    try { const chEl = document.getElementById('channel-text'); if (chEl) chEl.textContent = ''; } catch(e){}
+                    // disable copy button when disconnected
+                    try { const copyBtn = document.getElementById('copyChannelId'); if(copyBtn) copyBtn.disabled = true; } catch(e){}
+                }
+                // Enable or disable the send button depending on connection state
+                try {
+                    const send = $('submitmsg');
+                    if (send) send.disabled = !connected;
+                } catch (e) { console.warn('toggle send button', e); }
+                // always ensure connecting spinner is stopped when button state changes
+                try{
+                    // restore original button text if we set it when starting connection
+                    if(startBtn.dataset && startBtn.dataset.orig && !connected){ startBtn.innerHTML = startBtn.dataset.orig; delete startBtn.dataset.orig; }
+                }catch(e){}
+                // make channel-related inputs read-only/disabled while connected
+                try { setChannelFieldsReadOnly(connected); } catch(e) { console.warn('setChannelFieldsReadOnly', e); }
+            } catch (e) { console.warn(e); }
+        }
+
+        // Toggle readOnly/disabled on channel input fields while connected
+        function setChannelFieldsReadOnly(readonly) {
+            try {
+                const ids = ['channelMode','channelName','channelPassword','channelId','agentName'];
+                ids.forEach(id => {
+                    const el = document.getElementById(id);
+                    if (!el) return;
+                    // Try to set readOnly first (works for inputs/textareas). If it throws or isn't supported, disable as a fallback.
+                    try {
+                        el.readOnly = !!readonly;
+                    } catch (e) {
+                        try { el.disabled = !!readonly; } catch (_) {}
+                    }
+                });
+            } catch (e) { console.warn('setChannelFieldsReadOnly failed', e); }
+        }
+
+        // Show/hide connecting spinner and temporarily change start button text
+        function setConnecting(on) {
+            try {
+                const startBtn = $('start');
+                if (!startBtn) return;
+                if (on) {
+                    try { startBtn.dataset.orig = startBtn.dataset.orig || startBtn.innerHTML; } catch (e) {}
+                    startBtn.disabled = true;
+                    startBtn.innerHTML = '<span class="spinner" style="display:inline-block;width:14px;height:14px;border:2px solid rgba(255,255,255,0.2);border-top-color:#fff;border-radius:50%;margin-right:8px;vertical-align:middle;animation:spin 0.8s linear infinite"></span>Connecting...';
+                } else {
+                    try {
+                        if (startBtn.dataset && startBtn.dataset.orig) {
+                            startBtn.innerHTML = startBtn.dataset.orig;
+                            delete startBtn.dataset.orig;
+                        } else {
+                            startBtn.innerHTML = startBtn.innerHTML.replace(/<span class="spinner"[\s\S]*?<\/span>/, '').replace(/Connecting\.{3}/i, '').trim();
+                            if (!startBtn.innerHTML) startBtn.innerHTML = 'Connect';
+                        }
+                    } catch (e) {
+                        try { startBtn.innerHTML = 'Connect'; } catch (e) {}
+                    }
+                    // leave enabled/disabled state to setButtonsConnected
+                }
+            } catch (e) { console.warn('setConnecting failed', e); }
+        }
+
+        // Replace simple alert with a rich modal popup showing connected agents
+        function getConnectedAgentsList() {
+            try {
+                const ch = window.channel || {};
+                // window.channel.connectedAgents might be many shapes: array, CSV string, object-map
+                if (Array.isArray(ch.connectedAgents)) return ch.connectedAgents.slice();
+                if (typeof ch.connectedAgents === 'string') return ch.connectedAgents.split(',').map(s => s.trim()).filter(Boolean);
+                if (ch._connectedAgentsMap && typeof ch._connectedAgentsMap === 'object') {
+                    return Object.keys(ch._connectedAgentsMap).map(k => {
+                        const info = ch._connectedAgentsMap[k];
+                        return (info && (info.name || info.agentName)) ? (info.name || info.agentName) : k;
+                    });
+                }
+                if (Array.isArray(ch._connectedAgents)) return ch._connectedAgents.slice();
+                // fallback to channel.connectedAgents when it's a non-array iterable
+                if (ch.connectedAgents && typeof ch.connectedAgents === 'object') return Object.values(ch.connectedAgents).map(v => (typeof v === 'string' ? v : (v && (v.name || v.agentName)) || '') ).filter(Boolean);
+                return [];
+            } catch (e) {
+                console.warn('getConnectedAgentsList', e);
+                return [];
+            }
+        }
+
+        function showAgentsModal(list) {
+            try {
+                const overlay = document.getElementById('agents-overlay');
+                const modal = document.getElementById('agents-modal');
+                const listEl = document.getElementById('agents-list');
+                const titleCount = document.getElementById('agents-title-count');
+                if (!overlay || !modal || !listEl) return;
+                listEl.innerHTML = '';
+                const agents = Array.isArray(list) ? list : [];
+                titleCount.textContent = agents.length;
+                if (!agents.length) {
+                    const empty = document.createElement('div'); empty.className = 'empty'; empty.textContent = 'No connected agents';
+                    listEl.appendChild(empty);
+                } else {
+                    agents.forEach(a => {
+                        const name = String(a || 'Unknown');
+                        const item = document.createElement('div'); item.className = 'agent-item';
+                        const avatar = document.createElement('div'); avatar.className = 'agent-avatar'; avatar.textContent = (name || 'U').charAt(0).toUpperCase();
+                        const meta = document.createElement('div'); meta.style.display = 'flex'; meta.style.flexDirection = 'column';
+                        const nm = document.createElement('div'); nm.className = 'agent-name'; nm.textContent = name;
+                        const m2 = document.createElement('div'); m2.className = 'agent-meta'; m2.textContent = 'online';
+                        meta.appendChild(nm); meta.appendChild(m2);
+                        item.appendChild(avatar); item.appendChild(meta);
+                        listEl.appendChild(item);
+                    });
+                }
+                overlay.style.display = 'block';
+                overlay.setAttribute('aria-hidden', 'false');
+                modal.style.display = 'block';
+                modal.setAttribute('aria-hidden', 'false');
+                // focus the modal for accessibility
+                modal.setAttribute('tabindex', '-1');
+                modal.focus();
+            } catch (e) { console.warn('showAgentsModal', e); }
+        }
+
+        function hideAgentsModal() {
+            try {
+                const overlay = document.getElementById('agents-overlay');
+                const modal = document.getElementById('agents-modal');
+                if (overlay) { overlay.style.display = 'none'; overlay.setAttribute('aria-hidden', 'true'); }
+                if (modal) { modal.style.display = 'none'; modal.setAttribute('aria-hidden', 'true'); try { modal.removeAttribute('tabindex'); } catch(e){} }
+            } catch (e) { console.warn('hideAgentsModal', e); }
+        }
+
+        // copy agent list to clipboard
+        function copyAgentsToClipboard() {
+            try {
+                const list = getConnectedAgentsList();
+                const txt = list.join('\n') || '';
+                if (!txt) { showToast('No agents to copy', 'error'); return; }
+                navigator.clipboard.writeText(txt).then(() => showToast('Agent list copied', 'success')).catch(() => showToast('Copy failed', 'error'));
+            } catch (e) { console.warn('copyAgentsToClipboard', e); showToast('Copy failed', 'error'); }
+        }
+
+        // show modal when clicking the badge
+        $('agent-badge')?.addEventListener('click', function (ev) {
+            ev && ev.stopPropagation && ev.stopPropagation();
+            try {
+                const agents = getConnectedAgentsList();
+                showAgentsModal(agents);
+            } catch (e) { console.warn('agent-badge click', e); }
+        });
+
+        // overlay and modal close wiring
+        // Close modal when clicking overlay background
+        document.getElementById('agents-overlay')?.addEventListener('click', function (e) {
+            try { if (e.target === this) hideAgentsModal(); } catch(e){}
+        });
+
+        // Wire up modal close buttons
+        (function wireModalButtons(){
+            try {
+                const modal = document.getElementById('agents-modal');
+                if (!modal) return;
+                modal.addEventListener('click', function (e) {
+                    const close = e.target.closest && e.target.closest('.close-btn');
+                    if (close) { e.stopPropagation(); hideAgentsModal(); return; }
+                    const copy = e.target.closest && e.target.closest('.copy-btn');
+                    if (copy) { e.stopPropagation(); copyAgentsToClipboard(); return; }
+                });
+                // also close on Escape key
+                document.addEventListener('keydown', function (e) { if (e.key === 'Escape') hideAgentsModal(); });
+            } catch (e) { console.warn('wireModalButtons', e); }
+        })();
+
+        // expose copy function to the modal button via delegation
+        // (legacy) kept for compatibility; modern wiring above handles copy/close actions
+        document.getElementById('agents-modal')?.addEventListener('click', function (e) {
+            const el = e.target && e.target.closest && e.target.closest('.copy-btn');
+            if (el) {
+                copyAgentsToClipboard();
+                e.stopPropagation();
+            }
+        });
+
+        // Connect timeout handle (cleared when connect succeeds)
+        let __connectTimeout = null;
+        // Note: polling removed. Agent list is updated from channel.connectedAgents and connect/disconnect events.
+
+        // message listener helper
+        function attachChannelMessageListener() {
+            try {
+                if (!window.channel || typeof window.channel.addEventListener !== 'function') return;
+                // avoid double attaching by setting a flag
+                if (window.channel.__webAgentListenersAttached) return;
+                window.channel.__webAgentListenersAttached = true;
+
+                window.channel.addEventListener('message', function (ev) {
+                    try {
+                        const res = getApiResponse(ev) || null;
+                        console.debug('web-agent message event', res, ev);
+                        // if server responded with an error (e.g. invalid api key) stop connecting UI
+                        if(res && String(res.status).toLowerCase() === 'error'){
+                            const msg = res.statusMessage || (res.data && (res.data.message || res.data.statusMessage)) || 'Server error';
+                            // show both a toast and a visible system notice in the chat pane
+                            showToast(msg, 'error');
+                            try{ appendSystemNotification(msg, 'error'); }catch(e){}
+                            try{ setConnecting(false); }catch(e){}
+                            try{ setButtonsConnected(false); }catch(e){}
+                            // If channel exists, disconnect it to clean up
+                            try{ if(window.channel && typeof window.channel.disconnect === 'function') window.channel.disconnect(); }catch(e){}
+                            return;
+                        }
+                        const items = Array.isArray(res?.data) ? res.data : Array.isArray(res) ? res : [];
+                        items.forEach(it => {
+                            if (!it) return;
+                            // detect agent connect/disconnect events (be permissive about field names)
+                            const evType = it.type || it.event || it.action || (it.data && it.data.type) || null;
+                            const agentName = (it.agentName || it.name || it.from || (it.data && it.data.agentName) || '').trim();
+
+                            if(it.date > window.channel.connectTime && evType){
+                                const t = String(evType).toLowerCase();
+                                // Ignore system events
+                                if(it.systemEvent) {
+                                    return;
+                                }
+                                if(t === 'connect'){
+                                    addEvent('Agent ' + (agentName || 'Unknown') + ' connected', 'connected');
+                                    setAgentCount(getConnectedAgentsFromChannel());
+                                    return;
+                                }
+                                if(t === 'disconnect'){
+                                    addEvent('Agent ' + (agentName || 'Unknown') + ' disconnected', 'disconnected');
+                                    setAgentCount(getConnectedAgentsFromChannel());
+                                    return;
+                                }
+                            }
+
+                            if (it.type === 'chat-text')
+                            {
+                                // Ignore system events
+                                if(it.systemEvent) {
+                                    return;
+                                }
+                                const isMe = window.channel && window.channel.agentName && it.from === window.channel.agentName;
+                                const messageText = it.encrypted ? '🔒 Encrypted: content' : (it.content || '(None)');
+                                appendMessage(it.from || agentName || 'Unknown', messageText, isMe, it.date || Date.now());
+                            }
+                        });
+                    } catch (e) { console.warn('message handler', e); }
+                });
+
+                window.channel.addEventListener('connect', function (ev) {
+                    const resp = getApiResponse(ev) || null;
+                    console.debug('web-agent connect event', resp, ev);
+
+                    // Add event to events panel
+                    const connectedAgentName = window.channel?.agentName || document.getElementById('agentName')?.value || 'You';
+                    addEvent('Connected to channel as ' + connectedAgentName, 'connected');
+
+                    // handle server-side errors returned on connect
+                    if(resp && String(resp.status).toLowerCase() === 'error'){
+                        const msg = resp.statusMessage || resp.data || 'Connect error';
+                        showToast(msg, 'error');
+                        try{ addEvent('Connection failed: ' + msg, 'disconnected'); }catch(e){}
+                        try{ setConnecting(false); }catch(e){}
+                        try{ setButtonsConnected(false); }catch(e){}
+                        return;
+                    }
+                    // if connect succeeded but server included a statusMessage, log it as an event
+                    if(resp && String(resp.status).toLowerCase() === 'success' && resp.statusMessage){
+                        try{ addEvent(resp.statusMessage, 'connected'); }catch(e){}
+                    }
+                    window.lastApiResponse = resp;
+                    // stop spinner on successful connect
+                    setConnecting(false);
+                    if(__connectTimeout){ clearTimeout(__connectTimeout); __connectTimeout = null; }
+
+                    // save sessionId from server response (if present) so next connect can reuse it
+                    const sid = resp?.data?.sessionId || resp?.sessionId || null;
+                    if (sid) {
+                        try { localStorage.setItem('lastSessionId', sid); } catch(e) {}
+                    }
+
+                    const chName = document.getElementById('channelName')?.value?.trim() || '';
+                    const chPass = document.getElementById('channelPassword')?.value?.trim() || '';
+                    const chId = document.getElementById('channelId')?.value?.trim() || '';
+                    const agent = document.getElementById('agentName')?.value?.trim() || '';
+                    localStorage.setItem('lastChannelName', chName);
+                    localStorage.setItem('lastChannelPassword', chPass);
+                    localStorage.setItem('lastChannelId', chId);
+                    localStorage.setItem('lastAgentName', agent);
+
+                    setButtonsConnected(true);
+                    // Remove the initial welcome system message after the first successful connection
+                    try {
+                        const welcomeEl = document.getElementById('welcome-message');
+                        if (welcomeEl) welcomeEl.remove();
+                    } catch (e) { /* no-op */ }
+                    // sync agent list/count from runtime channel object (authoritative)
+                    setAgentCount(getConnectedAgentsFromChannel());
+                    try { refreshAgentsModalIfOpen(); } catch(e){}
+                    updateChannelDisplay(ev);
+                    // Show toast notification
+                    showToast('Connected', 'success');
+                });
+
+                window.channel.addEventListener('disconnect', function (ev) {
+                    // Add event to events panel
+                    const disconnectedAgentName = window.channel?.agentName || document.getElementById('agentName')?.value || 'You';
+                    addEvent('Disconnected from channel (' + disconnectedAgentName + ')', 'disconnected');
+
+                    setButtonsConnected(false);
+                    showToast('Disconnected', 'info');
+                    // reset agent count on disconnect
+                    setAgentCount(0);
+                    try { refreshAgentsModalIfOpen(); } catch(e){}
+                });
+
+            } catch (e) { console.warn('attachChannelMessageListener failed', e); }
+        }
+
+        // Connect / Disconnect actions
+        async function doConnect() {
+            const startBtn = $('start');
+            setConnecting(true);
+            try {
+                let apiKey;
+                try {
+                    const config = await window.fetchAppConfig(300, false);
+                    if (!config.apiKey) {
+                        throw new Error('No API key in response');
+                    }
+                    apiKey = config.apiKey;
+                    console.log('Fresh temporary API key obtained');
+                } catch (err) {
+                    console.error('Failed to get temporary API key:', err);
+                    showToast('Failed to get API key from server: ' + err.message, 'error');
+                    setConnecting(false);
+                    return;
+                }
+
+                const mode = (document.getElementById('channelMode')?.value || 'params');
+                const channelId = ($('channelId')?.value || '').trim();
+                const channelName = ($('channelName')?.value || '').trim();
+                const channelPassword = ($('channelPassword')?.value || '').trim();
+                const agentNameEl = $('agentName');
+                let agentName = (agentNameEl?.value || '').trim();
+
+                // Auto-generate agent name if empty
+                if (!agentName) {
+                    agentName = 'chat-' + generateRandomAgentName();
+                    console.log('Generated agent name:', agentName);
+                }
+
+                // Populate the input field with the actual agent name being used
+                try { if (agentNameEl) agentNameEl.value = agentName; } catch(e){}
+
+
+                if (typeof AgentConnection !== 'function') {
+                    showToast('Client library AgentConnection not available', 'error');
+                    setConnecting(false);
+                    return;
+                }
+
+                // disconnect previous
+                try { if (window.channel && typeof window.channel.disconnect === 'function') window.channel.disconnect(); } catch (e) { console.warn(e); }
+
+                const ch = new AgentConnection();
+                window.channel = ch;
+                // Store apiKey in channel for later use (e.g., share button)
+                ch.apiKey = apiKey;
+                ch.agentName = agentName;
+
+                attachChannelMessageListener();
+
+                // When another agent requests the channel password, prompt the web user with a styled modal.
+                // The Channel implementation accepts either a boolean or a Promise<boolean> from onPasswordRequest.
+                function computePubkeyFingerprint(pem) {
+                    if (!pem || !window.crypto || !window.crypto.subtle) return Promise.resolve('(no fingerprint)');
+                    const b64 = pem.replace(/-----BEGIN PUBLIC KEY-----/g, '').replace(/-----END PUBLIC KEY-----/g, '').replace(/\s+/g, '');
+                    const raw = Uint8Array.from(atob(b64), c => c.charCodeAt(0));
+                    return window.crypto.subtle.digest('SHA-256', raw.buffer).then(hashBuf => {
+                        const hash = Array.from(new Uint8Array(hashBuf)).map(b => b.toString(16).padStart(2, '0')).join('');
+                        const short = hash.slice(0, 32);
+                        return short.match(/.{1,4}/g).join(':');
+                    });
+                }
+
+                function showPasswordRequestModal(requesterName, requesterPubKeyPem) {
+                    return new Promise(async function(resolve) {
+                        const overlay = document.getElementById('password-request-overlay');
+                        const modal = document.getElementById('password-request-modal');
+                        const reqNameEl = document.getElementById('pr-requester-name');
+                        const yourAgentEl = document.getElementById('pr-your-agent');
+                        const fpEl = document.getElementById('pr-fingerprint');
+                        const btnAllow = document.getElementById('pr-allow');
+                        const btnDeny = document.getElementById('pr-deny');
+                        const closeBtns = modal.querySelectorAll('.close-btn');
+
+                        if (!overlay || !modal || !btnAllow || !btnDeny) {
+                            const allow = confirm('Agent "' + (requesterName || 'Unknown') + '" requests the channel password. Allow?');
+                            resolve(!!allow);
+                            return;
+                        }
+
+                        // If we can, fetch richer info about the requester to display friendly name
+                        reqNameEl.textContent = requesterName;
+                        yourAgentEl.textContent = (window.channel && window.channel.agentName) ? window.channel.agentName : (document.getElementById('agentName')?.value || 'web-agent');
+                        fpEl.textContent = 'Computing fingerprint...';
+                        fpEl.textContent = await computePubkeyFingerprint(requesterPubKeyPem).catch(() => '(fingerprint error)');
+
+                        function cleanup() {
+                            overlay.style.display = 'none';
+                            overlay.setAttribute('aria-hidden', 'true');
+                            modal.style.display = 'none';
+                            modal.setAttribute('aria-hidden', 'true');
+                            btnAllow.removeEventListener('click', onAllow);
+                            btnDeny.removeEventListener('click', onDeny);
+                            closeBtns.forEach(b => b.removeEventListener('click', onDeny));
+                            overlay.removeEventListener('click', overlayHandler);
+                            document.removeEventListener('keydown', keydownHandler);
+                        }
+
+                        function onAllow(ev) { ev && ev.stopPropagation && ev.stopPropagation(); cleanup(); resolve(true); }
+                        function onDeny(ev) { ev && ev.stopPropagation && ev.stopPropagation(); cleanup(); resolve(false); }
+                        function overlayHandler(e) { if (e.target === overlay) onDeny(e); }
+                        function keydownHandler(e) { if (e.key === 'Escape') onDeny(e); }
+
+                        btnAllow.addEventListener('click', onAllow);
+                        btnDeny.addEventListener('click', onDeny);
+                        closeBtns.forEach(b => b.addEventListener('click', onDeny));
+                        overlay.addEventListener('click', overlayHandler);
+                        document.addEventListener('keydown', keydownHandler);
+
+                        overlay.style.display = 'block';
+                        overlay.setAttribute('aria-hidden', 'false');
+                        modal.style.display = 'block';
+                        modal.setAttribute('aria-hidden', 'false');
+                        btnAllow.focus();
+                    });
+                }
+
+                ch.onPasswordRequest = async function(channelId, requesterAgentName, requesterPubKeyPem) {
+                    console.log('---- Password request received from agent:', requesterAgentName, 'on channel:', channelId, 'requesterPubKeyPem:', requesterPubKeyPem);
+                    const allowed = await showPasswordRequestModal(requesterAgentName, requesterPubKeyPem);
+                    const fp = await computePubkeyFingerprint(requesterPubKeyPem).catch(() => '(n/a)');
+                    const verb = allowed ? 'allowed' : 'denied';
+                    appendSystemNotification('Password request from ' + (requesterAgentName || 'Unknown') + ' was ' + verb + '. Fingerprint: ' + fp, allowed ? 'success' : 'info');
+                    return !!allowed;
+                };
+
+                const cfg = {
+                    api: 'https://hmdevonline.com/messaging-platform/api/v1/messaging-service',
+                    apiKey: apiKey,
+                    apiKeyScope: 'public',
+                    user: agentName,
+                    autoReceive: true
+                };
+                // Respect selected mode: when 'id' is selected use channelId, otherwise use name/password
+                if (mode === 'id') {
+                    if (!channelId) {
+                        showToast('Channel ID is required when connecting by ID', 'error');
+                        setConnecting(false);
+                        return;
+                    }
+                    cfg.channelId = channelId;
+                } else {
+                    if (!channelName) {
+                        showToast('Channel name is required', 'error');
+                        setConnecting(false);
+                        return;
+                    }
+                    cfg.channelName = channelName;
+                    cfg.channelPassword = channelPassword;
+                }
+
+                // include stored sessionId if available
+                try {
+                    const storedSession = localStorage.getItem('lastSessionId');
+                    if (storedSession) cfg.sessionId = storedSession;
+                } catch (e) { console.warn('read sessionId', e); }
+
+                try {
+                    // persist selected mode so UI restores it next time
+                    try { localStorage.setItem('lastChannelMode', mode); } catch(e) {}
+                    ch.connect(cfg);
+                    // start a connect timeout to avoid stuck spinner if no response
+                    try{ if(__connectTimeout) clearTimeout(__connectTimeout); }catch(e){}
+                    __connectTimeout = setTimeout(function(){
+                        showToast('Connect timeout', 'error');
+                        setConnecting(false);
+                        setButtonsConnected(false);
+                        if(window.channel && typeof window.channel.disconnect === 'function') window.channel.disconnect();
+                    }, 15000);
+                } catch (err) {
+                    console.error('ch.connect threw', err);
+                    showToast('Connect failed: ' + (err?.message || err), 'error');
+                    setConnecting(false);
+                }
+
+            } catch (err) {
+                console.error('doConnect error', err);
+                showToast('Connect error: ' + (err?.message || err), 'error');
+                setConnecting(false);
+            }
+        }
+
+        function doDisconnect() {
+            try {
+                if (window.channel && typeof window.channel.disconnect === 'function') {
+                    window.channel.disconnect();
+                }
+            } catch (e) { console.warn(e); }
+
+            // Don't clear agent name - let user keep it or clear it manually
+            // Agent name will only be generated if field is empty on next connect
+
+            setButtonsConnected(false);
+            setAgentCount(0);
+        }
+
+        // Clear messages
+        function doClear() {
+            if (!confirm('Clear all messages from the chat window?')) return;
+            const container = document.querySelector('.chat-body');
+            if(container) container.innerHTML = '';
+            showToast('Messages cleared', 'success');
+        }
+
+        // Robustly extract connected agent names from runtime channel
+        function getConnectedAgentsFromChannel() {
+            return Object.keys(window.channel._connectedAgentsMap || []);
+        }
+
+        // Wire up Connect / Disconnect / Clear buttons (minimal: single property checks)
+        try {
+            if ($('start')) $('start').addEventListener('click', doConnect);
+            if ($('close')) $('close').addEventListener('click', doDisconnect);
+            if ($('clear')) $('clear').addEventListener('click', doClear);
+        } catch (e) { console.warn('button wiring failed', e); }
+
+        // initial dummy message (system notice)
+        // Mark this message as a welcome so it can be removed automatically after first connect
+        appendMessage('System', 'Welcome to the Messaging Platform web agent interface. Please connect to a channel to begin.', false, Date.now(), { welcome: true });
+
+        // No client-side default API key. The frontend loads secure config from the backend
+        // via /api/app/config using js/config-loader.js (auto-loaded above). This avoids embedding keys in JS.
+
+        // Initialize ShareModal component
+        ShareModal.init();
+
+        // Check for shared link hash param and auto-connect
+        setTimeout(() => {
+            checkHashParamAndConnect();
+        }, 100);
+
+        // Ensure cleanup runs on page close
+        // NOTE: Using BOTH 'unload' and 'pagehide' for maximum compatibility:
+        // - 'unload': Works on desktop browsers
+        // - 'pagehide': More reliable on mobile browsers and handles bfcache
+        // - Both only fire when page actually closes (not during warning dialog)
+        window.addEventListener('unload', cleanupBeforeUnload);
+        window.addEventListener('pagehide', cleanupBeforeUnload);
+
+        // Cleanup on page unload
+        function cleanupBeforeUnload() {
+            // Ask the channel to send a beacon-style disconnect if available. This is best-effort during unload.
+            try {
+                if (window.channel && typeof window.channel.disconnect === 'function') {
+                    try {
+                        window.channel.disconnect({ useBeacon: true });
+                        console.log('Requested channel disconnect with beacon');
+                    } catch (err) {
+                        console.warn('Error while calling channel.disconnect({useBeacon:true}) during unload:', err);
+                    }
+                }
+            } catch (e) {
+                console.warn('Error attempting beacon disconnect during unload:', e);
+            }
+        }
+
+    })();
+</script>
+</body>
+</html>

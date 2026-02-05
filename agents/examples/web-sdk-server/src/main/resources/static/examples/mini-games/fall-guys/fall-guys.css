@@ -1,0 +1,623 @@
+/* ============================================
+   Mini Fall Guys - Styles
+   ============================================ */
+
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+body {
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    overflow: hidden;
+    background: #1a1a2e;
+    color: white;
+}
+
+/* ============================================
+   Game Container
+   ============================================ */
+
+.game-container {
+    width: 100vw;
+    height: 100vh;
+    position: relative;
+    overflow: hidden;
+}
+
+.game-container canvas {
+    display: block;
+    width: 100%;
+    height: 100%;
+}
+
+/* ============================================
+   Share Button
+   ============================================ */
+
+.share-btn {
+    position: fixed;
+    top: 20px;
+    right: 20px;
+    z-index: 50000;
+    padding: 12px 24px;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    border: none;
+    border-radius: 12px;
+    cursor: pointer;
+    font-size: 16px;
+    font-weight: bold;
+    box-shadow: 0 4px 15px rgba(102, 126, 234, 0.4);
+    transition: all 0.3s ease;
+}
+
+.share-btn:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 20px rgba(102, 126, 234, 0.6);
+}
+
+/* ============================================
+   Connection Status
+   ============================================ */
+
+.connection-status {
+    position: fixed;
+    top: 20px;
+    left: 20px;
+    z-index: 50000;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 16px;
+    background: rgba(0, 0, 0, 0.6);
+    border-radius: 20px;
+    font-size: 14px;
+}
+
+.status-dot {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    background: #ef4444;
+    animation: pulse 2s infinite;
+}
+
+.status-dot.connected {
+    background: #22c55e;
+}
+
+@keyframes pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.5; }
+}
+
+/* ============================================
+   Game UI Overlay
+   ============================================ */
+
+.game-ui {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    pointer-events: none;
+    z-index: 100;
+}
+
+.race-position {
+    position: absolute;
+    top: 80px;
+    left: 20px;
+    background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+    padding: 15px 25px;
+    border-radius: 15px;
+    text-align: center;
+    box-shadow: 0 4px 15px rgba(240, 147, 251, 0.4);
+}
+
+.race-position #positionNumber {
+    display: block;
+    font-size: 32px;
+    font-weight: bold;
+}
+
+.race-position .position-label {
+    font-size: 14px;
+    opacity: 0.9;
+}
+
+.timer-display {
+    position: absolute;
+    top: 80px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: rgba(0, 0, 0, 0.7);
+    padding: 10px 30px;
+    border-radius: 10px;
+    font-size: 28px;
+    font-weight: bold;
+    font-family: 'Courier New', monospace;
+}
+
+.player-count {
+    position: absolute;
+    top: 80px;
+    right: 20px;
+    background: rgba(0, 0, 0, 0.6);
+    padding: 10px 20px;
+    border-radius: 10px;
+    font-size: 16px;
+}
+
+/* ============================================
+   Waiting Room
+   ============================================ */
+
+.waiting-room {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(26, 26, 46, 0.95);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 200;
+}
+
+.waiting-room.hidden {
+    display: none;
+}
+
+.waiting-content {
+    text-align: center;
+    max-width: 500px;
+    padding: 40px;
+}
+
+.waiting-content h1 {
+    font-size: 48px;
+    margin-bottom: 10px;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+}
+
+.waiting-content .subtitle {
+    font-size: 18px;
+    color: #888;
+    margin-bottom: 30px;
+}
+
+.player-list-container {
+    background: rgba(255, 255, 255, 0.05);
+    border-radius: 15px;
+    padding: 20px;
+    margin-bottom: 30px;
+}
+
+.player-list-container h3 {
+    margin-bottom: 15px;
+    font-size: 16px;
+    color: #aaa;
+}
+
+.player-list {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    justify-content: center;
+    min-height: 60px;
+}
+
+.player-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 16px;
+    background: rgba(255, 255, 255, 0.1);
+    border-radius: 20px;
+    font-size: 14px;
+}
+
+.player-item .player-color {
+    width: 20px;
+    height: 20px;
+    border-radius: 50%;
+    border: 2px solid rgba(255, 255, 255, 0.3);
+}
+
+.player-item.ready {
+    background: rgba(34, 197, 94, 0.3);
+    border: 1px solid #22c55e;
+}
+
+.player-item.host::after {
+    content: '👑';
+    margin-left: 5px;
+}
+
+.waiting-actions {
+    display: flex;
+    gap: 15px;
+    justify-content: center;
+    margin-bottom: 20px;
+}
+
+.btn-ready {
+    padding: 15px 40px;
+    font-size: 18px;
+    font-weight: bold;
+    border: none;
+    border-radius: 10px;
+    cursor: pointer;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    transition: all 0.3s ease;
+}
+
+.btn-ready:hover {
+    transform: scale(1.05);
+}
+
+.btn-ready.ready {
+    background: linear-gradient(135deg, #22c55e 0%, #16a34a 100%);
+}
+
+.btn-start {
+    padding: 15px 40px;
+    font-size: 18px;
+    font-weight: bold;
+    border: none;
+    border-radius: 10px;
+    cursor: pointer;
+    background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+    color: white;
+    transition: all 0.3s ease;
+}
+
+.btn-start:hover {
+    transform: scale(1.05);
+}
+
+.btn-start:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+    transform: none;
+}
+
+.waiting-tip {
+    color: #666;
+    font-size: 14px;
+}
+
+.controls-info {
+    background: rgba(255, 255, 255, 0.05);
+    border-radius: 15px;
+    padding: 20px;
+    margin-top: 20px;
+}
+
+.controls-info h3 {
+    margin-bottom: 15px;
+    font-size: 16px;
+    color: #aaa;
+}
+
+.controls-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 10px;
+    text-align: left;
+}
+
+.control-item {
+    font-size: 14px;
+    color: #ccc;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.control-item .key {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    padding: 4px 10px;
+    border-radius: 5px;
+    font-weight: bold;
+    font-size: 12px;
+    min-width: 30px;
+    text-align: center;
+    display: inline-block;
+}
+
+/* ============================================
+   Finish Overlay
+   ============================================ */
+
+.finish-overlay {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(26, 26, 46, 0.95);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 300;
+}
+
+.finish-overlay.hidden {
+    display: none;
+}
+
+.finish-content {
+    text-align: center;
+    padding: 40px;
+}
+
+.finish-content h1 {
+    font-size: 48px;
+    margin-bottom: 30px;
+}
+
+.finish-results {
+    background: rgba(255, 255, 255, 0.05);
+    border-radius: 15px;
+    padding: 20px;
+    margin-bottom: 30px;
+    min-width: 300px;
+}
+
+.finish-result-item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 15px 20px;
+    margin: 10px 0;
+    background: rgba(255, 255, 255, 0.05);
+    border-radius: 10px;
+}
+
+.finish-result-item.winner {
+    background: linear-gradient(135deg, rgba(255, 215, 0, 0.3) 0%, rgba(255, 193, 7, 0.3) 100%);
+    border: 1px solid #ffd700;
+}
+
+.finish-result-item .position {
+    font-size: 24px;
+    font-weight: bold;
+    width: 50px;
+}
+
+.finish-result-item .player-name {
+    flex: 1;
+    text-align: left;
+    margin-left: 15px;
+}
+
+.finish-result-item .time {
+    font-family: 'Courier New', monospace;
+    color: #888;
+}
+
+.btn-play-again {
+    padding: 15px 40px;
+    font-size: 18px;
+    font-weight: bold;
+    border: none;
+    border-radius: 10px;
+    cursor: pointer;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    transition: all 0.3s ease;
+}
+
+.btn-play-again:hover {
+    transform: scale(1.05);
+}
+
+/* ============================================
+   Mobile Controls
+   ============================================ */
+
+.mobile-controls {
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    height: 200px;
+    pointer-events: auto;
+    display: flex;
+    justify-content: space-between;
+    padding: 20px;
+    z-index: 150;
+}
+
+.mobile-controls.hidden {
+    display: none;
+}
+
+.joystick-area {
+    width: 150px;
+    height: 150px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.joystick-base {
+    width: 120px;
+    height: 120px;
+    background: rgba(255, 255, 255, 0.2);
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border: 3px solid rgba(255, 255, 255, 0.3);
+}
+
+.joystick-stick {
+    width: 50px;
+    height: 50px;
+    background: rgba(255, 255, 255, 0.8);
+    border-radius: 50%;
+    transition: transform 0.1s ease;
+}
+
+.action-buttons {
+    display: flex;
+    flex-direction: column;
+    gap: 15px;
+}
+
+.action-btn {
+    width: 80px;
+    height: 80px;
+    border-radius: 50%;
+    border: 3px solid rgba(255, 255, 255, 0.5);
+    font-size: 14px;
+    font-weight: bold;
+    color: white;
+    cursor: pointer;
+    transition: all 0.1s ease;
+}
+
+.action-btn:active {
+    transform: scale(0.9);
+}
+
+.jump-btn {
+    background: rgba(34, 197, 94, 0.6);
+}
+
+.kick-btn {
+    background: rgba(239, 68, 68, 0.6);
+}
+
+/* ============================================
+   Utility Classes
+   ============================================ */
+
+.hidden {
+    display: none !important;
+}
+
+/* host-only elements are controlled via JS - start hidden */
+.host-only {
+    display: none;
+}
+
+/* ============================================
+   Responsive Design
+   ============================================ */
+
+@media (max-width: 768px) {
+    .share-btn {
+        top: 10px;
+        right: 10px;
+        padding: 10px 16px;
+        font-size: 14px;
+    }
+
+    .connection-status {
+        top: 10px;
+        left: 10px;
+        padding: 6px 12px;
+        font-size: 12px;
+    }
+
+    .waiting-content h1 {
+        font-size: 32px;
+    }
+
+    .waiting-content {
+        padding: 20px;
+    }
+
+    .race-position {
+        top: 60px;
+        left: 10px;
+        padding: 10px 15px;
+    }
+
+    .race-position #positionNumber {
+        font-size: 24px;
+    }
+
+    .timer-display {
+        top: 60px;
+        font-size: 20px;
+        padding: 8px 20px;
+    }
+
+    .player-count {
+        top: 60px;
+        right: 10px;
+        font-size: 14px;
+        padding: 8px 15px;
+    }
+
+    .mobile-controls {
+        display: flex;
+    }
+}
+
+@media (min-width: 769px) {
+    .mobile-controls {
+        display: none !important;
+    }
+}
+
+/* ============================================
+   Animations
+   ============================================ */
+
+@keyframes bounce {
+    0%, 100% { transform: translateY(0); }
+    50% { transform: translateY(-10px); }
+}
+
+@keyframes shake {
+    0%, 100% { transform: translateX(0); }
+    25% { transform: translateX(-5px); }
+    75% { transform: translateX(5px); }
+}
+
+.shake {
+    animation: shake 0.3s ease;
+}
+
+/* ============================================
+   Toast Notifications (if not provided by BaseGame)
+   ============================================ */
+
+.game-toast {
+    position: fixed;
+    bottom: 100px;
+    left: 50%;
+    transform: translateX(-50%);
+    padding: 12px 24px;
+    background: rgba(0, 0, 0, 0.8);
+    color: white;
+    border-radius: 8px;
+    font-size: 16px;
+    z-index: 10000;
+    animation: fadeInUp 0.3s ease;
+}
+
+@keyframes fadeInUp {
+    from {
+        opacity: 0;
+        transform: translate(-50%, 20px);
+    }
+    to {
+        opacity: 1;
+        transform: translate(-50%, 0);
+    }
+}

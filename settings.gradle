@@ -1,0 +1,14 @@
+rootProject.name = "messaging-platform-sdk"  
+
+// Include common modules
+include("messaging-common")
+
+// Include SDK agent projects
+include("agents:web-agent-js")        // JavaScript SDK (standalone)
+include("agents:java-agent")
+include("agents:python-agent")
+
+// Include example projects
+include("agents:examples:java-agent-chat")
+include("agents:examples:web-sdk-server")  // Web SDK server: SDK docs, demos, examples, mini-games
+

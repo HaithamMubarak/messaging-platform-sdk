@@ -1,0 +1,135 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Mini Fall Guys - Multiplayer Obstacle Race</title>
+
+    <!-- Common Styles -->
+    <link rel="stylesheet" href="../../../css/toast.css">
+    <link rel="stylesheet" href="../../../css/connection-modal.css">
+    <link rel="stylesheet" href="../../../css/share-modal.css">
+
+    <!-- Game Styles -->
+    <link rel="stylesheet" href="fall-guys.css">
+
+    <!-- Three.js -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+
+    <!-- Cannon.js Physics Engine (global CANNON variable) -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/cannon.js/0.6.2/cannon.min.js"></script>
+</head>
+<body>
+    <!-- Share Button (hidden until connected) -->
+    <button id="shareBtn" class="share-btn" onclick="fallGuysGame?.openShareModal()" style="display: none;">
+        📤 Share
+    </button>
+
+    <!-- Connection Status -->
+    <div id="connectionStatus" class="connection-status">
+        <span id="statusDot" class="status-dot"></span>
+        <span id="statusText">Disconnected</span>
+    </div>
+
+    <!-- Game Container -->
+    <div id="gameContainer" class="game-container">
+        <!-- Three.js Canvas will be inserted here -->
+
+        <!-- Game UI Overlay -->
+        <div id="gameUI" class="game-ui">
+            <!-- Race Position -->
+            <div id="racePosition" class="race-position hidden">
+                <span id="positionNumber">1st</span>
+                <span class="position-label">Place</span>
+            </div>
+
+            <!-- Timer -->
+            <div id="timerDisplay" class="timer-display hidden">
+                <span id="timerValue">0:00</span>
+            </div>
+
+            <!-- Player Count -->
+            <div id="playerCount" class="player-count">
+                <span id="playerCountValue">0</span> Players
+            </div>
+        </div>
+
+        <!-- Waiting Room Overlay (hidden until connected) -->
+        <div id="waitingRoom" class="waiting-room hidden">
+            <div class="waiting-content">
+                <h1>🏃 Mini Fall Guys</h1>
+                <p class="subtitle">Multiplayer Obstacle Race</p>
+
+                <div class="player-list-container">
+                    <h3>Players in Lobby</h3>
+                    <div id="playerList" class="player-list">
+                        <!-- Players will be added here -->
+                    </div>
+                </div>
+
+                <div class="waiting-actions">
+                    <button id="startBtn" class="btn-start host-only" onclick="fallGuysGame?.hostStartGame()">
+                        Start Race!
+                    </button>
+                </div>
+
+                <div class="controls-info">
+                    <h3>🎮 Controls</h3>
+                    <div class="controls-grid">
+                        <div class="control-item"><span class="key">W</span> or <span class="key">↑</span> Forward</div>
+                        <div class="control-item"><span class="key">S</span> or <span class="key">↓</span> Backward</div>
+                        <div class="control-item"><span class="key">A</span> or <span class="key">←</span> Left</div>
+                        <div class="control-item"><span class="key">D</span> or <span class="key">→</span> Right</div>
+                        <div class="control-item"><span class="key">SPACE</span> Jump</div>
+                        <div class="control-item"><span class="key">SHIFT</span> Kick players!</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Finish Overlay -->
+        <div id="finishOverlay" class="finish-overlay hidden">
+            <div class="finish-content">
+                <h1 id="finishTitle">🏆 Race Complete!</h1>
+                <div id="finishResults" class="finish-results">
+                    <!-- Results will be added here -->
+                </div>
+                <button id="playAgainBtn" class="btn-play-again host-only" onclick="fallGuysGame?.hostRestartGame()">
+                    Play Again
+                </button>
+            </div>
+        </div>
+
+        <!-- Controls Guide (Mobile) -->
+        <div id="mobileControls" class="mobile-controls hidden">
+            <div class="joystick-area" id="joystickArea">
+                <div class="joystick-base">
+                    <div class="joystick-stick" id="joystickStick"></div>
+                </div>
+            </div>
+            <div class="action-buttons">
+                <button id="jumpBtn" class="action-btn jump-btn">JUMP</button>
+                <button id="kickBtn" class="action-btn kick-btn">KICK</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Share Modal Container -->
+    <div id="shareModalContainer"></div>
+
+    <!-- Scripts -->
+    <script src="../../../js/config-loader.js"></script>
+    <script src="../../../js/lib/qrcode.min.js"></script>
+    <script src="../../../generated-web-agent-js/js/web-agent.libs.js"></script>
+    <script src="../../../generated-web-agent-js/js/web-agent.js"></script>
+    <script src="../../../generated-web-agent-js/js/web-agent.webrtc.js"></script>
+
+    <script src="../../../js/share-modal.js"></script>
+    <script src="../../../js/common-utils.js"></script>
+    <script src="../../../js/connection-modal.js"></script>
+    <script src="../../../js/AgentInteractionBase.js"></script>
+
+    <script src="map-data.js"></script>
+    <script src="fall-guys.js"></script>
+</body>
+</html>

@@ -1,0 +1,1192 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>🔑 Test Your API Key - Messaging Platform SDK</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
+            background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
+            min-height: 100vh;
+            color: #e2e8f0;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        header {
+            text-align: center;
+            margin-bottom: 30px;
+        }
+
+        header h1 {
+            font-size: 2rem;
+            margin-bottom: 10px;
+            background: linear-gradient(135deg, #60a5fa 0%, #a78bfa 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        header p {
+            color: #94a3b8;
+            font-size: 1rem;
+        }
+
+        /* API Key Input Section */
+        .api-key-section {
+            background: rgba(30, 41, 59, 0.8);
+            border-radius: 16px;
+            padding: 24px;
+            margin-bottom: 24px;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .api-key-section h2 {
+            font-size: 1.1rem;
+            margin-bottom: 16px;
+            color: #f1f5f9;
+        }
+
+        .input-group {
+            display: flex;
+            gap: 12px;
+            flex-wrap: wrap;
+        }
+
+        .input-group input {
+            flex: 1;
+            min-width: 200px;
+            padding: 12px 16px;
+            border-radius: 8px;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            background: rgba(15, 23, 42, 0.8);
+            color: #e2e8f0;
+            font-size: 14px;
+            font-family: 'Monaco', 'Menlo', monospace;
+        }
+
+        .input-group input:focus {
+            outline: none;
+            border-color: #60a5fa;
+            box-shadow: 0 0 0 3px rgba(96, 165, 250, 0.2);
+        }
+
+        .input-group input::placeholder {
+            color: #64748b;
+        }
+
+        /* API Key Input with Toggle */
+        .api-key-wrapper {
+            flex: 1;
+            min-width: 200px;
+            position: relative;
+            display: flex;
+            align-items: center;
+        }
+
+        .api-key-wrapper input {
+            width: 100%;
+            padding-right: 45px;
+        }
+
+        .toggle-visibility {
+            position: absolute;
+            right: 12px;
+            background: none;
+            border: none;
+            color: #64748b;
+            cursor: pointer;
+            padding: 4px;
+            font-size: 18px;
+            transition: color 0.2s;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .toggle-visibility:hover {
+            color: #60a5fa;
+        }
+
+        .toggle-visibility .eye-icon {
+            width: 20px;
+            height: 20px;
+        }
+
+        .btn {
+            padding: 12px 24px;
+            border-radius: 8px;
+            border: none;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, #3b82f6 0%, #6366f1 100%);
+            color: white;
+        }
+
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(59, 130, 246, 0.4);
+        }
+
+        .btn-primary:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .btn-success {
+            background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+            color: white;
+        }
+
+        .btn-success:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(16, 185, 129, 0.4);
+        }
+
+        .btn-danger {
+            background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
+            color: white;
+        }
+
+        .btn-danger:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(239, 68, 68, 0.4);
+        }
+
+        /* Status Badge */
+        .status-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 6px 12px;
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: 600;
+        }
+
+        .status-disconnected {
+            background: rgba(239, 68, 68, 0.2);
+            color: #fca5a5;
+            border: 1px solid rgba(239, 68, 68, 0.3);
+        }
+
+        .status-connecting {
+            background: rgba(245, 158, 11, 0.2);
+            color: #fcd34d;
+            border: 1px solid rgba(245, 158, 11, 0.3);
+        }
+
+        .status-connected {
+            background: rgba(16, 185, 129, 0.2);
+            color: #6ee7b7;
+            border: 1px solid rgba(16, 185, 129, 0.3);
+        }
+
+        /* Agents Grid */
+        .agents-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 24px;
+        }
+
+        @media (max-width: 768px) {
+            .agents-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        .agent-card {
+            background: rgba(30, 41, 59, 0.8);
+            border-radius: 16px;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            overflow: hidden;
+        }
+
+        .agent-header {
+            padding: 16px 20px;
+            background: linear-gradient(135deg, rgba(59, 130, 246, 0.2) 0%, rgba(99, 102, 241, 0.2) 100%);
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .agent-card:nth-child(2) .agent-header {
+            background: linear-gradient(135deg, rgba(16, 185, 129, 0.2) 0%, rgba(5, 150, 105, 0.2) 100%);
+        }
+
+        .agent-header h3 {
+            font-size: 1rem;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .agent-body {
+            padding: 20px;
+        }
+
+        /* Message Log */
+        .message-log {
+            background: rgba(15, 23, 42, 0.8);
+            border-radius: 8px;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            height: 200px;
+            overflow-y: auto;
+            padding: 12px;
+            margin-bottom: 16px;
+            font-family: 'Monaco', 'Menlo', monospace;
+            font-size: 12px;
+        }
+
+        .message-log:empty::before {
+            content: 'Messages will appear here...';
+            color: #64748b;
+            font-style: italic;
+        }
+
+        .log-entry {
+            padding: 6px 10px;
+            margin-bottom: 6px;
+            border-radius: 6px;
+            animation: fadeIn 0.3s ease;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(-5px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .log-sent {
+            background: rgba(59, 130, 246, 0.2);
+            border-left: 3px solid #3b82f6;
+        }
+
+        .log-received {
+            background: rgba(16, 185, 129, 0.2);
+            border-left: 3px solid #10b981;
+        }
+
+        .log-system {
+            background: rgba(107, 114, 128, 0.2);
+            border-left: 3px solid #6b7280;
+            color: #94a3b8;
+        }
+
+        .log-error {
+            background: rgba(239, 68, 68, 0.2);
+            border-left: 3px solid #ef4444;
+            color: #fca5a5;
+        }
+
+        .log-time {
+            color: #64748b;
+            font-size: 10px;
+            margin-right: 8px;
+        }
+
+        /* Actions */
+        .agent-actions {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+
+        .agent-actions .btn {
+            flex: 1;
+            min-width: 120px;
+            justify-content: center;
+        }
+
+        /* Instructions */
+        .instructions {
+            background: rgba(30, 41, 59, 0.8);
+            border-radius: 16px;
+            padding: 24px;
+            margin-top: 24px;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .instructions h2 {
+            font-size: 1.1rem;
+            margin-bottom: 16px;
+            color: #f1f5f9;
+        }
+
+        .instructions ol {
+            margin-left: 20px;
+            color: #94a3b8;
+        }
+
+        .instructions li {
+            margin-bottom: 8px;
+            line-height: 1.6;
+        }
+
+        .instructions code {
+            background: rgba(15, 23, 42, 0.8);
+            padding: 2px 6px;
+            border-radius: 4px;
+            font-family: 'Monaco', 'Menlo', monospace;
+            font-size: 12px;
+            color: #60a5fa;
+        }
+
+        /* Message Input Fields */
+        .message-input {
+            width: 100%;
+            padding: 10px 14px;
+            border-radius: 8px;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            background: rgba(15, 23, 42, 0.8);
+            color: #e2e8f0;
+            font-size: 14px;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            transition: all 0.2s ease;
+        }
+
+        .message-input:focus {
+            outline: none;
+            border-color: #60a5fa;
+            box-shadow: 0 0 0 3px rgba(96, 165, 250, 0.2);
+            background: rgba(15, 23, 42, 0.95);
+        }
+
+        .message-input::placeholder {
+            color: #64748b;
+        }
+
+        .message-input:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        /* Code Reference Section */
+        .code-section {
+            background: rgba(30, 41, 59, 0.8);
+            border-radius: 16px;
+            padding: 32px;
+            margin-top: 24px;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .code-section h2 {
+            font-size: 1.5rem;
+            margin-bottom: 12px;
+            text-align: center;
+            background: linear-gradient(135deg, #60a5fa 0%, #a78bfa 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        .code-block {
+            background: rgba(15, 23, 42, 0.95);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 12px;
+            padding: 20px;
+            margin-bottom: 20px;
+            position: relative;
+            overflow-x: auto;
+        }
+
+        .code-block h3 {
+            font-size: 1rem;
+            margin-bottom: 16px;
+            color: #60a5fa;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .code-block pre {
+            margin: 0;
+            font-family: 'Monaco', 'Menlo', 'Courier New', monospace;
+            font-size: 13px;
+            line-height: 1.6;
+            color: #e2e8f0;
+            overflow-x: auto;
+        }
+
+        .code-block code {
+            color: #e2e8f0;
+        }
+
+        .copy-btn {
+            position: absolute;
+            top: 16px;
+            right: 16px;
+            padding: 6px 12px;
+            background: rgba(79, 70, 229, 0.2);
+            border: 1px solid rgba(79, 70, 229, 0.4);
+            border-radius: 6px;
+            color: #a5b4fc;
+            cursor: pointer;
+            font-size: 11px;
+            font-weight: 600;
+            transition: all 0.2s ease;
+            text-transform: uppercase;
+        }
+
+        .copy-btn:hover {
+            background: rgba(79, 70, 229, 0.4);
+            color: white;
+        }
+
+        .copy-btn.copied {
+            background: rgba(16, 185, 129, 0.3);
+            border-color: rgba(16, 185, 129, 0.5);
+            color: #6ee7b7;
+        }
+
+        /* Back Link */
+        .back-link {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            color: #94a3b8;
+            text-decoration: none;
+            margin-bottom: 20px;
+            font-size: 14px;
+            transition: color 0.2s;
+        }
+
+        .back-link:hover {
+            color: #60a5fa;
+        }
+
+        /* Loading Spinner */
+        .spinner {
+            width: 16px;
+            height: 16px;
+            border: 2px solid rgba(255, 255, 255, 0.3);
+            border-top-color: white;
+            border-radius: 50%;
+            animation: spin 0.8s linear infinite;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        /* Results Banner */
+        .results-banner {
+            padding: 16px 20px;
+            border-radius: 12px;
+            margin-top: 24px;
+            display: none;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .results-banner.success {
+            display: flex;
+            background: rgba(16, 185, 129, 0.2);
+            border: 1px solid rgba(16, 185, 129, 0.3);
+        }
+
+        .results-banner.error {
+            display: flex;
+            background: rgba(239, 68, 68, 0.2);
+            border: 1px solid rgba(239, 68, 68, 0.3);
+        }
+
+        .results-banner .icon {
+            font-size: 24px;
+        }
+
+        .results-banner .message {
+            flex: 1;
+        }
+
+        .results-banner .message h4 {
+            font-size: 14px;
+            margin-bottom: 4px;
+        }
+
+        .results-banner .message p {
+            font-size: 12px;
+            color: #94a3b8;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <a href="../../index.html" class="back-link">← Back to SDK Home</a>
+
+        <header>
+            <h1>🔑 Test Your API Key</h1>
+            <p>Quickly verify your API key works by testing real-time messaging between two agents</p>
+        </header>
+
+        <!-- API Key Input -->
+        <section class="api-key-section">
+            <h2>1️⃣ Enter Your API Key</h2>
+            <div class="input-group">
+                <div class="api-key-wrapper">
+                    <input type="password" id="apiKeyInput" placeholder="Enter your API key (e.g., dev-api-key-12345)" />
+                    <button type="button" class="toggle-visibility" onclick="toggleApiKeyVisibility()" title="Show/Hide API Key">
+                        <svg class="eye-icon" id="eyeIcon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <!-- Eye open icon (default) -->
+                            <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
+                            <circle cx="12" cy="12" r="3"></circle>
+                        </svg>
+                    </button>
+                </div>
+                <button class="btn btn-primary" id="connectBtn" onclick="connectAgents()">
+                    <span>🔌 Connect Both Agents</span>
+                </button>
+                <button class="btn btn-danger" id="disconnectBtn" onclick="disconnectAgents()" style="display: none;">
+                    <span>⏹️ Disconnect</span>
+                </button>
+            </div>
+        </section>
+
+        <!-- Agents Grid -->
+        <section class="agents-grid">
+            <!-- Agent 1 -->
+            <div class="agent-card">
+                <div class="agent-header">
+                    <h3>🔵 Agent 1 (Alice)</h3>
+                    <span class="status-badge status-disconnected" id="agent1Status">
+                        <span class="dot">●</span> Disconnected
+                    </span>
+                </div>
+                <div class="agent-body">
+                    <div class="message-log" id="agent1Log"></div>
+                    <div style="margin-bottom: 12px;">
+                        <input type="text" id="agent1Input" class="message-input" placeholder="Type your message here..."
+                               onkeypress="if(event.key==='Enter' && !document.getElementById('sendBtn1').disabled) sendFromAgent1()" />
+                    </div>
+                    <div style="margin-bottom: 12px;">
+                        <label style="display: flex; align-items: center; gap: 8px; color: #94a3b8; font-size: 13px; cursor: pointer;">
+                            <input type="checkbox" id="agent1Ephemeral" checked style="width: 16px; height: 16px; cursor: pointer;" />
+                            <span>⚡ Send as ephemeral (not stored in DB)</span>
+                        </label>
+                    </div>
+                    <div class="agent-actions">
+                        <button class="btn btn-primary" onclick="sendFromAgent1()" id="sendBtn1" disabled>
+                            📤 Send Message
+                        </button>
+                        <button class="btn btn-success" onclick="clearLog('agent1Log')">
+                            🗑️ Clear Log
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Agent 2 -->
+            <div class="agent-card">
+                <div class="agent-header">
+                    <h3>🟢 Agent 2 (Bob)</h3>
+                    <span class="status-badge status-disconnected" id="agent2Status">
+                        <span class="dot">●</span> Disconnected
+                    </span>
+                </div>
+                <div class="agent-body">
+                    <div class="message-log" id="agent2Log"></div>
+                    <div style="margin-bottom: 12px;">
+                        <input type="text" id="agent2Input" class="message-input" placeholder="Type your message here..."
+                               onkeypress="if(event.key==='Enter' && !document.getElementById('sendBtn2').disabled) sendFromAgent2()" />
+                    </div>
+                    <div style="margin-bottom: 12px;">
+                        <label style="display: flex; align-items: center; gap: 8px; color: #94a3b8; font-size: 13px; cursor: pointer;">
+                            <input type="checkbox" id="agent2Ephemeral" checked style="width: 16px; height: 16px; cursor: pointer;" />
+                            <span>⚡ Send as ephemeral (not stored in DB)</span>
+                        </label>
+                    </div>
+                    <div class="agent-actions">
+                        <button class="btn btn-primary" onclick="sendFromAgent2()" id="sendBtn2" disabled>
+                            📤 Send Message
+                        </button>
+                        <button class="btn btn-success" onclick="clearLog('agent2Log')">
+                            🗑️ Clear Log
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Results Banner -->
+        <div class="results-banner" id="resultsBanner">
+            <span class="icon" id="resultsIcon">✅</span>
+            <div class="message">
+                <h4 id="resultsTitle">API Key Working!</h4>
+                <p id="resultsText">Both agents connected and can exchange messages successfully.</p>
+            </div>
+        </div>
+
+        <!-- Instructions -->
+        <section class="instructions">
+            <h2>📋 How It Works</h2>
+            <ol>
+                <li>Enter your <code>API Key</code> in the input field above</li>
+                <li>Click <strong>"Connect Both Agents"</strong> to establish connections</li>
+                <li>Once connected, click <strong>"Send Message"</strong> from either agent</li>
+                <li>Watch the message appear in the other agent's log</li>
+                <li>If messages are exchanged successfully, your API key is working! ✅</li>
+            </ol>
+            <p style="margin-top: 16px; color: #64748b; font-size: 13px;">
+                💡 <strong>Tip:</strong> Both agents join a test channel called <code>api-key-test-channel</code>
+                with password <code>test123</code>. This is for testing purposes only.
+            </p>
+            <p style="margin-top: 12px; color: #64748b; font-size: 13px;">
+                ⚡ <strong>Ephemeral Messages:</strong> By default, messages are sent as ephemeral (not stored in DB).
+                Uncheck the checkbox to send regular messages that are stored.
+            </p>
+        </section>
+
+        <!-- Code Reference Section -->
+        <section class="code-section">
+            <h2>💻 Code Reference - How This Works</h2>
+            <p style="text-align: center; color: #94a3b8; margin-bottom: 24px; font-size: 14px;">
+                Below is the actual source code used in this page. Copy and adapt for your own projects.
+            </p>
+
+            <!-- Connection Setup -->
+            <div class="code-block">
+                <h3>1️⃣ Create and Connect Agent</h3>
+                <button class="copy-btn" onclick="copyCode(this, 'code1')">Copy</button>
+                <pre id="code1"><code>// Create new agent instance
+const agent = new AgentConnection();
+
+// Set up message listener BEFORE connecting
+agent.addEventListener('message', (ev) => {
+    const messages = ev.response?.data || [];  // Array of messages
+    messages.forEach(msg => {
+        if (msg && msg.type === 'chat-text') {
+            console.log(`Received: ${msg.content} from ${msg.from}`);
+        }
+    });
+});
+
+// Connect to the messaging service
+await new Promise((resolve, reject) => {
+    const timeout = setTimeout(() => reject(new Error('Timeout')), 10000);
+
+    agent.addEventListener('connect', (ev) => {
+        clearTimeout(timeout);
+        const resp = ev.response || {};
+        if (resp.status === 'error') {
+            reject(new Error(resp.statusMessage || 'Failed'));
+        } else {
+            resolve();
+        }
+    });
+
+    agent.connect({
+        api: 'https://hmdevonline.com/messaging-platform/api/v1/messaging-service',
+        apiKey: 'YOUR_API_KEY_HERE',
+        channelName: 'my-test-channel',
+        channelPassword: 'my-password',
+        agentName: 'MyAgent-' + Date.now(),
+        autoReceive: true  // Automatically receive messages
+    });
+});</code></pre>
+            </div>
+
+            <!-- Send Regular Message -->
+            <div class="code-block">
+                <h3>2️⃣ Send Regular Message (Stored in DB)</h3>
+                <button class="copy-btn" onclick="copyCode(this, 'code2')">Copy</button>
+                <pre id="code2"><code>// Send a regular message (stored in database)
+agent.sendMessage({
+    content: 'Hello, World!',
+    type: 'chat-text',
+    ephemeral: false  // false = stored in DB
+});</code></pre>
+            </div>
+
+            <!-- Send Ephemeral Message -->
+            <div class="code-block">
+                <h3>3️⃣ Send Ephemeral Message (NOT Stored in DB)</h3>
+                <button class="copy-btn" onclick="copyCode(this, 'code3')">Copy</button>
+                <pre id="code3"><code>// Send an ephemeral message (NOT stored in database)
+agent.sendMessage({
+    content: 'Temporary message',
+    type: 'chat-text',
+    ephemeral: true  // true = NOT stored, real-time only
+});
+
+// Use case: WebRTC signaling, temporary status updates, etc.</code></pre>
+            </div>
+
+            <!-- Disconnect -->
+            <div class="code-block">
+                <h3>4️⃣ Disconnect Agent</h3>
+                <button class="copy-btn" onclick="copyCode(this, 'code4')">Copy</button>
+                <pre id="code4"><code>// Disconnect when done
+agent.disconnect();
+
+// Or on page unload (only disconnects when page actually closes)
+window.addEventListener('unload', () => {
+    if (agent) agent.disconnect();
+});</code></pre>
+            </div>
+
+            <!-- Complete Example -->
+            <div class="code-block">
+                <h3>5️⃣ Complete Example</h3>
+                <button class="copy-btn" onclick="copyCode(this, 'code5')">Copy</button>
+                <pre id="code5"><code>// Complete working example
+async function testMessaging() {
+    // 1. Create agent
+    const agent = new AgentConnection();
+
+    // 2. Setup message handler
+    agent.addEventListener('message', (ev) => {
+        const messages = ev.response?.data || [];
+        messages.forEach(msg => {
+            if (msg.type === 'chat-text') {
+                console.log(`📩 ${msg.from}: ${msg.content}`);
+            }
+        });
+    });
+
+    // 3. Connect
+    await new Promise((resolve, reject) => {
+        const timeout = setTimeout(() => reject(new Error('Timeout')), 10000);
+        agent.addEventListener('connect', (ev) => {
+            clearTimeout(timeout);
+            ev.response?.status === 'error' ? reject(ev.response) : resolve();
+        });
+        agent.connect({
+            api: 'https://hmdevonline.com/messaging-platform/api/v1/messaging-service',
+            apiKey: 'YOUR_API_KEY',
+            channelName: 'test-' + Date.now(),
+            channelPassword: 'test123',
+            agentName: 'TestAgent',
+            autoReceive: true
+        });
+    });
+
+    console.log('✅ Connected!');
+
+    // 4. Send messages
+    agent.sendMessage({
+        content: 'Hello!',
+        type: 'chat-text',
+        ephemeral: true  // Default: ephemeral (not stored)
+    });
+
+    // 5. Cleanup (only disconnects when page actually closes)
+    window.addEventListener('unload', () => agent.disconnect());
+}
+
+// Run it
+testMessaging().catch(console.error);</code></pre>
+            </div>
+        </section>
+    </div>
+
+    <!-- SDK Scripts -->
+    <script src="../../generated-web-agent-js/js/web-agent.libs.js"></script>
+    <script src="../../generated-web-agent-js/js/web-agent.js"></script>
+
+    <script>
+        // ============================================
+        // CONFIGURATION
+        // ============================================
+        const TEST_CHANNEL = 'api-key-test-' + Math.random().toString(36).substring(7);
+        const TEST_PASSWORD = 'test123';
+        const AGENT1_NAME = 'Alice-' + Math.random().toString(36).substring(7);
+        const AGENT2_NAME = 'Bob-' + Math.random().toString(36).substring(7);
+
+        // Use production API URL
+        const API_URL = 'https://hmdevonline.com/messaging-platform/api/v1/messaging-service';
+
+        // ============================================
+        // STATE
+        // ============================================
+        let agent1 = null;
+        let agent2 = null;
+        let messageCount = 0;
+        let apiKeyVisible = false;
+
+        // ============================================
+        // API KEY VISIBILITY TOGGLE
+        // ============================================
+        function toggleApiKeyVisibility() {
+            const input = document.getElementById('apiKeyInput');
+            const eyeIcon = document.getElementById('eyeIcon');
+
+            apiKeyVisible = !apiKeyVisible;
+
+            if (apiKeyVisible) {
+                input.type = 'text';
+                // Eye with slash (hidden)
+                eyeIcon.innerHTML = `
+                    <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"></path>
+                    <line x1="1" y1="1" x2="23" y2="23"></line>
+                `;
+            } else {
+                input.type = 'password';
+                // Eye open (visible)
+                eyeIcon.innerHTML = `
+                    <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
+                    <circle cx="12" cy="12" r="3"></circle>
+                `;
+            }
+        }
+
+        // ============================================
+        // LOGGING HELPERS
+        // ============================================
+        function getTime() {
+            return new Date().toLocaleTimeString('en-US', { hour12: false });
+        }
+
+        function addLog(logId, type, message) {
+            const log = document.getElementById(logId);
+            const entry = document.createElement('div');
+            entry.className = `log-entry log-${type}`;
+            entry.innerHTML = `<span class="log-time">[${getTime()}]</span> ${message}`;
+            log.appendChild(entry);
+            log.scrollTop = log.scrollHeight;
+        }
+
+        function clearLog(logId) {
+            document.getElementById(logId).innerHTML = '';
+        }
+
+        // ============================================
+        // STATUS HELPERS
+        // ============================================
+        function updateStatus(agentNum, status) {
+            const el = document.getElementById(`agent${agentNum}Status`);
+            el.className = `status-badge status-${status}`;
+
+            const statusText = {
+                'disconnected': '● Disconnected',
+                'connecting': '● Connecting...',
+                'connected': '● Connected'
+            };
+
+            el.innerHTML = `<span class="dot">${status === 'connecting' ? '◌' : '●'}</span> ${statusText[status].split(' ')[1]}`;
+        }
+
+        function showResults(success, title, text) {
+            const banner = document.getElementById('resultsBanner');
+            const icon = document.getElementById('resultsIcon');
+            const titleEl = document.getElementById('resultsTitle');
+            const textEl = document.getElementById('resultsText');
+
+            banner.className = `results-banner ${success ? 'success' : 'error'}`;
+            icon.textContent = success ? '✅' : '❌';
+            titleEl.textContent = title;
+            textEl.textContent = text;
+        }
+
+        // ============================================
+        // AGENT CONNECTION
+        // ============================================
+        async function connectAgents() {
+            const apiKey = document.getElementById('apiKeyInput').value.trim();
+
+            if (!apiKey) {
+                alert('Please enter your API key');
+                return;
+            }
+
+            // Update UI
+            document.getElementById('connectBtn').disabled = true;
+            document.getElementById('connectBtn').innerHTML = '<div class="spinner"></div> Connecting...';
+            document.getElementById('resultsBanner').className = 'results-banner';
+
+            try {
+                // Connect Agent 1
+                addLog('agent1Log', 'system', `Connecting as ${AGENT1_NAME}...`);
+                updateStatus(1, 'connecting');
+
+                agent1 = new AgentConnection();
+
+                // Set up message listener for Agent 1
+                agent1.addEventListener('message', (ev) => {
+                    const messages = ev.response?.data || [];
+                    messages.forEach(msg => {
+                        if (msg && msg.from !== AGENT1_NAME && msg.type === 'chat-text') {
+                            const content = msg.content || '';
+                            addLog('agent1Log', 'received', `📩 From ${msg.from}: ${content}`);
+                            checkTestSuccess();
+                        }
+                    });
+                });
+
+                await new Promise((resolve, reject) => {
+                    const timeout = setTimeout(() => reject(new Error('Connection timeout')), 10000);
+
+                    agent1.addEventListener('connect', (ev) => {
+                        clearTimeout(timeout);
+                        const resp = ev.response || {};
+                        if (resp.status === 'error') {
+                            reject(new Error(resp.statusMessage || resp.data || 'Connection failed'));
+                        } else {
+                            resolve();
+                        }
+                    });
+
+                    agent1.connect({
+                        api: API_URL,
+                        apiKey: apiKey,
+                        channelName: TEST_CHANNEL,
+                        channelPassword: TEST_PASSWORD,
+                        agentName: AGENT1_NAME,
+                        autoReceive: true
+                    });
+                });
+
+                addLog('agent1Log', 'system', `✅ Connected to channel: ${TEST_CHANNEL}`);
+                updateStatus(1, 'connected');
+
+                // Connect Agent 2
+                addLog('agent2Log', 'system', `Connecting as ${AGENT2_NAME}...`);
+                updateStatus(2, 'connecting');
+
+                agent2 = new AgentConnection();
+
+                // Set up message listener for Agent 2
+                agent2.addEventListener('message', (ev) => {
+                    const messages = ev.response?.data || [];
+                    messages.forEach(msg => {
+                        if (msg && msg.from !== AGENT2_NAME && msg.type === 'chat-text') {
+                            const content = msg.content || '';
+                            addLog('agent2Log', 'received', `📩 From ${msg.from}: ${content}`);
+                            checkTestSuccess();
+                        }
+                    });
+                });
+
+                await new Promise((resolve, reject) => {
+                    const timeout = setTimeout(() => reject(new Error('Connection timeout')), 10000);
+
+                    agent2.addEventListener('connect', (ev) => {
+                        clearTimeout(timeout);
+                        const resp = ev.response || {};
+                        if (resp.status === 'error') {
+                            reject(new Error(resp.statusMessage || resp.data || 'Connection failed'));
+                        } else {
+                            resolve();
+                        }
+                    });
+
+                    agent2.connect({
+                        api: API_URL,
+                        apiKey: apiKey,
+                        channelName: TEST_CHANNEL,
+                        channelPassword: TEST_PASSWORD,
+                        agentName: AGENT2_NAME,
+                        autoReceive: true
+                    });
+                });
+
+                addLog('agent2Log', 'system', `✅ Connected to channel: ${TEST_CHANNEL}`);
+                updateStatus(2, 'connected');
+
+                // Enable send buttons
+                document.getElementById('sendBtn1').disabled = false;
+                document.getElementById('sendBtn2').disabled = false;
+
+                // Update UI
+                document.getElementById('connectBtn').style.display = 'none';
+                document.getElementById('disconnectBtn').style.display = 'inline-flex';
+
+                addLog('agent1Log', 'system', '🎉 Ready to send messages!');
+                addLog('agent2Log', 'system', '🎉 Ready to send messages!');
+
+            } catch (error) {
+                console.error('Connection error:', error);
+                addLog('agent1Log', 'error', `❌ Error: ${error.message}`);
+                addLog('agent2Log', 'error', `❌ Error: ${error.message}`);
+                updateStatus(1, 'disconnected');
+                updateStatus(2, 'disconnected');
+
+                showResults(false, 'Connection Failed', error.message || 'Failed to connect. Check your API key and try again.');
+
+                document.getElementById('connectBtn').disabled = false;
+                document.getElementById('connectBtn').innerHTML = '<span>🔌 Connect Both Agents</span>';
+            }
+        }
+
+        function disconnectAgents() {
+            if (agent1) {
+                agent1.disconnect();
+                agent1 = null;
+                addLog('agent1Log', 'system', '🔌 Disconnected');
+            }
+            if (agent2) {
+                agent2.disconnect();
+                agent2 = null;
+                addLog('agent2Log', 'system', '🔌 Disconnected');
+            }
+
+            updateStatus(1, 'disconnected');
+            updateStatus(2, 'disconnected');
+
+            document.getElementById('sendBtn1').disabled = true;
+            document.getElementById('sendBtn2').disabled = true;
+            document.getElementById('connectBtn').style.display = 'inline-flex';
+            document.getElementById('connectBtn').disabled = false;
+            document.getElementById('connectBtn').innerHTML = '<span>🔌 Connect Both Agents</span>';
+            document.getElementById('disconnectBtn').style.display = 'none';
+            document.getElementById('resultsBanner').className = 'results-banner';
+            messageCount = 0;
+        }
+
+        // ============================================
+        // SEND MESSAGES
+        // ============================================
+        function sendFromAgent1() {
+            if (!agent1) return;
+
+            const input = document.getElementById('agent1Input');
+            const customMsg = input.value.trim();
+            const isEphemeral = document.getElementById('agent1Ephemeral').checked;
+
+            if (!customMsg) {
+                // Default message if input is empty
+                messageCount++;
+                const msg = `Hello from Alice! (Message #${messageCount})`;
+                agent1.sendMessage({
+                    content: msg,
+                    type: 'chat-text',
+                    ephemeral: isEphemeral
+                });
+                const ephemeralTag = isEphemeral ? ' ⚡[ephemeral]' : '';
+                addLog('agent1Log', 'sent', `📤 Sent: ${msg}${ephemeralTag}`);
+            } else {
+                // Use custom message
+                agent1.sendMessage({
+                    content: customMsg,
+                    type: 'chat-text',
+                    ephemeral: isEphemeral
+                });
+                const ephemeralTag = isEphemeral ? ' ⚡[ephemeral]' : '';
+                addLog('agent1Log', 'sent', `📤 Sent: ${customMsg}${ephemeralTag}`);
+                input.value = ''; // Clear input after sending
+            }
+        }
+
+        function sendFromAgent2() {
+            if (!agent2) return;
+
+            const input = document.getElementById('agent2Input');
+            const customMsg = input.value.trim();
+            const isEphemeral = document.getElementById('agent2Ephemeral').checked;
+
+            if (!customMsg) {
+                // Default message if input is empty
+                messageCount++;
+                const msg = `Hello from Bob! (Message #${messageCount})`;
+                agent2.sendMessage({
+                    content: msg,
+                    type: 'chat-text',
+                    ephemeral: isEphemeral
+                });
+                const ephemeralTag = isEphemeral ? ' ⚡[ephemeral]' : '';
+                addLog('agent2Log', 'sent', `📤 Sent: ${msg}${ephemeralTag}`);
+            } else {
+                // Use custom message
+                agent2.sendMessage({
+                    content: customMsg,
+                    type: 'chat-text',
+                    ephemeral: isEphemeral
+                });
+                const ephemeralTag = isEphemeral ? ' ⚡[ephemeral]' : '';
+                addLog('agent2Log', 'sent', `📤 Sent: ${customMsg}${ephemeralTag}`);
+                input.value = ''; // Clear input after sending
+            }
+        }
+
+        // ============================================
+        // TEST SUCCESS CHECK
+        // ============================================
+        function checkTestSuccess() {
+            // If we received a message, the API key is working!
+            showResults(true, 'API Key Working! 🎉', 'Both agents connected and can exchange messages successfully.');
+        }
+
+        // ============================================
+        // CLEANUP ON PAGE UNLOAD
+        // ============================================
+        // NOTE: Using BOTH 'unload' and 'pagehide' for maximum compatibility:
+        // - 'unload': Works on desktop browsers
+        // - 'pagehide': More reliable on mobile browsers and handles bfcache
+        // - Both only fire when page actually closes (not during warning dialog)
+        const cleanupHandler = () => {
+            console.log('[TestAPIKey] Page unloading - disconnecting agents...');
+            if (agent1) {
+                try {
+                    agent1.disconnect();
+                    console.log('[TestAPIKey] Agent 1 disconnected');
+                } catch (e) {
+                    console.error('[TestAPIKey] Error disconnecting Agent 1:', e);
+                }
+            }
+            if (agent2) {
+                try {
+                    agent2.disconnect();
+                    console.log('[TestAPIKey] Agent 2 disconnected');
+                } catch (e) {
+                    console.error('[TestAPIKey] Error disconnecting Agent 2:', e);
+                }
+            }
+        };
+
+        window.addEventListener('unload', cleanupHandler);
+        window.addEventListener('pagehide', cleanupHandler);
+
+        // Also handle page visibility changes (tab switching)
+        document.addEventListener('visibilitychange', () => {
+            if (document.hidden) {
+                console.log('[TestAPIKey] Page hidden - connections maintained');
+            } else {
+                console.log('[TestAPIKey] Page visible');
+            }
+        });
+
+        // ============================================
+        // COPY CODE FUNCTION
+        // ============================================
+        function copyCode(button, codeId) {
+            const code = document.getElementById(codeId);
+            const text = code.textContent;
+
+            navigator.clipboard.writeText(text).then(() => {
+                // Change button text and style
+                const originalText = button.textContent;
+                button.textContent = '✓ Copied!';
+                button.classList.add('copied');
+
+                // Reset after 2 seconds
+                setTimeout(() => {
+                    button.textContent = originalText;
+                    button.classList.remove('copied');
+                }, 2000);
+            }).catch(err => {
+                console.error('Failed to copy:', err);
+                alert('Failed to copy code');
+            });
+        }
+    </script>
+</body>
+</html>

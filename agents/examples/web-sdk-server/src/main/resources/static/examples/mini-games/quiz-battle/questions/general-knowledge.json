@@ -1,0 +1,205 @@
+{
+  "category": "General Knowledge",
+  "questions": [
+    {
+      "question": "What is the capital of France?",
+      "correctAnswer": "Paris",
+      "wrongAnswers": ["London", "Berlin", "Madrid"]
+    },
+    {
+      "question": "Which planet is known as the Red Planet?",
+      "correctAnswer": "Mars",
+      "wrongAnswers": ["Venus", "Jupiter", "Saturn"]
+    },
+    {
+      "question": "What is the largest ocean on Earth?",
+      "correctAnswer": "Pacific Ocean",
+      "wrongAnswers": ["Atlantic Ocean", "Indian Ocean", "Arctic Ocean"]
+    },
+    {
+      "question": "Who painted the Mona Lisa?",
+      "correctAnswer": "Leonardo da Vinci",
+      "wrongAnswers": ["Pablo Picasso", "Vincent van Gogh", "Michelangelo"]
+    },
+    {
+      "question": "What is the smallest country in the world?",
+      "correctAnswer": "Vatican City",
+      "wrongAnswers": ["Monaco", "San Marino", "Liechtenstein"]
+    },
+    {
+      "question": "How many continents are there?",
+      "correctAnswer": "7",
+      "wrongAnswers": ["5", "6", "8"]
+    },
+    {
+      "question": "What is the speed of light?",
+      "correctAnswer": "299,792 km/s",
+      "wrongAnswers": ["150,000 km/s", "500,000 km/s", "1,000,000 km/s"]
+    },
+    {
+      "question": "Which element has the chemical symbol 'O'?",
+      "correctAnswer": "Oxygen",
+      "wrongAnswers": ["Gold", "Osmium", "Oganesson"]
+    },
+    {
+      "question": "What year did World War II end?",
+      "correctAnswer": "1945",
+      "wrongAnswers": ["1944", "1946", "1943"]
+    },
+    {
+      "question": "What is the tallest mountain in the world?",
+      "correctAnswer": "Mount Everest",
+      "wrongAnswers": ["K2", "Kangchenjunga", "Lhotse"]
+    },
+    {
+      "question": "Which country has the most population?",
+      "correctAnswer": "India",
+      "wrongAnswers": ["China", "USA", "Indonesia"]
+    },
+    {
+      "question": "What is the currency of Japan?",
+      "correctAnswer": "Yen",
+      "wrongAnswers": ["Won", "Yuan", "Rupee"]
+    },
+    {
+      "question": "How many sides does a hexagon have?",
+      "correctAnswer": "6",
+      "wrongAnswers": ["5", "7", "8"]
+    },
+    {
+      "question": "What is the boiling point of water?",
+      "correctAnswer": "100°C",
+      "wrongAnswers": ["90°C", "110°C", "120°C"]
+    },
+    {
+      "question": "Who wrote 'Romeo and Juliet'?",
+      "correctAnswer": "William Shakespeare",
+      "wrongAnswers": ["Charles Dickens", "Jane Austen", "Mark Twain"]
+    },
+    {
+      "question": "What is the largest mammal?",
+      "correctAnswer": "Blue Whale",
+      "wrongAnswers": ["African Elephant", "Giraffe", "Polar Bear"]
+    },
+    {
+      "question": "How many hours are in a day?",
+      "correctAnswer": "24",
+      "wrongAnswers": ["12", "48", "36"]
+    },
+    {
+      "question": "What is the capital of Japan?",
+      "correctAnswer": "Tokyo",
+      "wrongAnswers": ["Osaka", "Kyoto", "Hiroshima"]
+    },
+    {
+      "question": "Which gas do plants absorb from the atmosphere?",
+      "correctAnswer": "Carbon Dioxide",
+      "wrongAnswers": ["Oxygen", "Nitrogen", "Helium"]
+    },
+    {
+      "question": "What is the square root of 144?",
+      "correctAnswer": "12",
+      "wrongAnswers": ["10", "14", "16"]
+    },
+    {
+      "question": "How many bones are in the human body?",
+      "correctAnswer": "206",
+      "wrongAnswers": ["198", "214", "220"]
+    },
+    {
+      "question": "What is the freezing point of water in Fahrenheit?",
+      "correctAnswer": "32°F",
+      "wrongAnswers": ["0°F", "100°F", "212°F"]
+    },
+    {
+      "question": "Who invented the telephone?",
+      "correctAnswer": "Alexander Graham Bell",
+      "wrongAnswers": ["Thomas Edison", "Nikola Tesla", "Benjamin Franklin"]
+    },
+    {
+      "question": "What is the chemical formula for water?",
+      "correctAnswer": "H2O",
+      "wrongAnswers": ["CO2", "O2", "H2SO4"]
+    },
+    {
+      "question": "How many degrees are in a circle?",
+      "correctAnswer": "360",
+      "wrongAnswers": ["180", "270", "90"]
+    },
+    {
+      "question": "What is the longest river in the world?",
+      "correctAnswer": "Nile River",
+      "wrongAnswers": ["Amazon River", "Yangtze River", "Mississippi River"]
+    },
+    {
+      "question": "Which planet is closest to the Sun?",
+      "correctAnswer": "Mercury",
+      "wrongAnswers": ["Venus", "Earth", "Mars"]
+    },
+    {
+      "question": "What is the main ingredient in guacamole?",
+      "correctAnswer": "Avocado",
+      "wrongAnswers": ["Tomato", "Pepper", "Onion"]
+    },
+    {
+      "question": "How many strings does a standard guitar have?",
+      "correctAnswer": "6",
+      "wrongAnswers": ["4", "5", "7"]
+    },
+    {
+      "question": "What is the capital of Australia?",
+      "correctAnswer": "Canberra",
+      "wrongAnswers": ["Sydney", "Melbourne", "Brisbane"]
+    },
+    {
+      "question": "What color is a ruby?",
+      "correctAnswer": "Red",
+      "wrongAnswers": ["Blue", "Green", "Yellow"]
+    },
+    {
+      "question": "How many teeth does an adult human have?",
+      "correctAnswer": "32",
+      "wrongAnswers": ["28", "30", "36"]
+    },
+    {
+      "question": "What is the hardest natural substance on Earth?",
+      "correctAnswer": "Diamond",
+      "wrongAnswers": ["Gold", "Iron", "Platinum"]
+    },
+    {
+      "question": "How many minutes are in an hour?",
+      "correctAnswer": "60",
+      "wrongAnswers": ["50", "70", "100"]
+    },
+    {
+      "question": "What is the national animal of China?",
+      "correctAnswer": "Giant Panda",
+      "wrongAnswers": ["Dragon", "Tiger", "Elephant"]
+    },
+    {
+      "question": "Which organ pumps blood through the body?",
+      "correctAnswer": "Heart",
+      "wrongAnswers": ["Liver", "Kidney", "Lung"]
+    },
+    {
+      "question": "What is the speed of sound?",
+      "correctAnswer": "343 m/s",
+      "wrongAnswers": ["250 m/s", "500 m/s", "1000 m/s"]
+    },
+    {
+      "question": "How many planets are in our solar system?",
+      "correctAnswer": "8",
+      "wrongAnswers": ["7", "9", "10"]
+    },
+    {
+      "question": "What is the largest desert in the world?",
+      "correctAnswer": "Antarctic Desert",
+      "wrongAnswers": ["Sahara Desert", "Arabian Desert", "Gobi Desert"]
+    },
+    {
+      "question": "Which programming language is known for web development?",
+      "correctAnswer": "JavaScript",
+      "wrongAnswers": ["Python", "C++", "Assembly"]
+    }
+  ]
+}

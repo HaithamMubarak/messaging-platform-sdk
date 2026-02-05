@@ -1,0 +1,148 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>File Structure - Web Agent JS</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        body {
+            font-family: 'Monaco', 'Courier New', monospace;
+            background: #1e1e1e;
+            color: #d4d4d4;
+            padding: 40px;
+            line-height: 1.8;
+        }
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+            background: #252526;
+            padding: 40px;
+            border-radius: 10px;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.5);
+        }
+        h1 {
+            color: #4ec9b0;
+            margin-bottom: 30px;
+            font-size: 28px;
+        }
+        .tree {
+            font-size: 14px;
+        }
+        .folder {
+            color: #dcdcaa;
+            font-weight: bold;
+        }
+        .file {
+            color: #9cdcfe;
+        }
+        .size {
+            color: #608b4e;
+            margin-left: 10px;
+        }
+        .description {
+            color: #6a9955;
+            font-style: italic;
+        }
+        .indent { padding-left: 20px; }
+        .icon {
+            color: #569cd6;
+            margin-right: 5px;
+        }
+        a {
+            color: #4ec9b0;
+            text-decoration: none;
+        }
+        a:hover {
+            text-decoration: underline;
+        }
+        .back-link {
+            margin-bottom: 20px;
+            display: inline-block;
+            background: #0e639c;
+            padding: 8px 16px;
+            border-radius: 5px;
+            color: white;
+        }
+        .back-link:hover {
+            background: #1177bb;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <a href="index.html" class="back-link">← Back to Documentation</a>
+
+        <h1>📁 Web Agent JS - File Structure</h1>
+
+        <div class="tree">
+<span class="folder">web-agent-js/</span>
+<div class="indent">
+<span class="file">├── <a href="index.html">index.html</a></span> <span class="description">// Visual documentation</span>
+<span class="file">├── README.md</span> <span class="description">// Text documentation</span>
+<span class="file">├── package.json</span> <span class="description">// npm package metadata</span>
+<span class="file">├── build.gradle</span> <span class="description">// Gradle build config</span>
+<span class="file">├── CHANGELOG.md</span> <span class="description">// Version history</span>
+<span class="file">├── .gitignore</span> <span class="description">// Git ignore rules</span>
+<span class="file">│</span>
+<span class="folder">├── js/</span> <span class="description">// Core SDK JavaScript files</span>
+<div class="indent">
+<span class="file">│   ├── web-agent.js</span> <span class="size">(86 KB)</span> <span class="description">// Main SDK - AgentConnection</span>
+<span class="file">│   ├── web-agent.webrtc.js</span> <span class="size">(28 KB)</span> <span class="description">// WebRTC P2P helper</span>
+<span class="file">│   ├── web-agent.libs.js</span> <span class="size">(149 KB)</span> <span class="description">// Crypto libraries</span>
+<span class="file">│   ├── config-loader.js</span> <span class="size">(3.4 KB)</span> <span class="description">// Config management</span>
+<span class="file">│   ├── mini-game-utils.js</span> <span class="size">(31 KB)</span> <span class="description">// Game utilities</span>
+<span class="file">│   └── share-modal.js</span> <span class="size">(34 KB)</span> <span class="description">// Sharing UI</span>
+</div>
+<span class="file">│</span>
+<span class="folder">├── css/</span> <span class="description">// Stylesheets</span>
+<div class="indent">
+<span class="file">│   ├── common.css</span> <span class="size">(2.5 KB)</span> <span class="description">// Base styles</span>
+<span class="file">│   ├── icons.css</span> <span class="size">(713 B)</span> <span class="description">// Icon styles</span>
+<span class="file">│   ├── mini-games-connection.css</span> <span class="size">(6.8 KB)</span> <span class="description">// Connection modal</span>
+<span class="file">│   └── share-modal.css</span> <span class="size">(2.5 KB)</span> <span class="description">// Share modal</span>
+</div>
+<span class="file">│</span>
+<span class="folder">├── lib/</span> <span class="description">// Third-party libraries</span>
+<div class="indent">
+<span class="file">│   └── qrcode.min.js</span> <span class="size">(20 KB)</span> <span class="description">// QR code generation</span>
+</div>
+<span class="file">│</span>
+<span class="folder">└── examples/</span> <span class="description">// Code examples</span>
+<div class="indent">
+<span class="file">    ├── basic-connection.html</span> <span class="description">// Simple connection example</span>
+<span class="file">    ├── webrtc-example.html</span> <span class="description">// WebRTC P2P example</span>
+<span class="file">    └── game-template.html</span> <span class="description">// Game starter template</span>
+</div>
+</div>
+        </div>
+
+        <div style="margin-top: 40px; padding: 20px; background: #1e1e1e; border-radius: 5px;">
+            <h2 style="color: #4ec9b0; margin-bottom: 15px;">📊 Statistics</h2>
+            <div style="color: #d4d4d4;">
+                <div>📁 Total Directories: <strong style="color: #4ec9b0;">4</strong></div>
+                <div>📄 Total Files: <strong style="color: #4ec9b0;">17</strong></div>
+                <div>💾 Total Size: <strong style="color: #4ec9b0;">~332 KB</strong></div>
+                <div>💻 Lines of Code: <strong style="color: #4ec9b0;">~10,000+</strong></div>
+            </div>
+        </div>
+
+        <div style="margin-top: 30px; padding: 20px; background: #1e1e1e; border-radius: 5px;">
+            <h2 style="color: #4ec9b0; margin-bottom: 15px;">🎯 File Categories</h2>
+            <div style="color: #d4d4d4; line-height: 2;">
+                <div><strong style="color: #dcdcaa;">Main SDK (3 files):</strong> web-agent.js, web-agent.webrtc.js, web-agent.libs.js</div>
+                <div><strong style="color: #dcdcaa;">Utilities (3 files):</strong> config-loader.js, mini-game-utils.js, share-modal.js</div>
+                <div><strong style="color: #dcdcaa;">Styles (4 files):</strong> common.css, icons.css, mini-games-connection.css, share-modal.css</div>
+                <div><strong style="color: #dcdcaa;">Libraries (1 file):</strong> qrcode.min.js</div>
+                <div><strong style="color: #dcdcaa;">Documentation (3 files):</strong> index.html, README.md, CHANGELOG.md</div>
+                <div><strong style="color: #dcdcaa;">Config (3 files):</strong> package.json, build.gradle, .gitignore</div>
+            </div>
+        </div>
+    </div>
+</body>
+</html>
+

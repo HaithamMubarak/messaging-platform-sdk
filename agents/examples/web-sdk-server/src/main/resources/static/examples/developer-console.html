@@ -1,0 +1,1377 @@
+﻿﻿<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+                    <h1>Developer Console</h1>
+    <link rel="stylesheet" href="../css/common.css"/>
+    <style>
+        :root {
+            --bg: #0f1724;
+            --panel: #0b1220;
+            --panel-hover: #12192a;
+            --muted: #94a3b8;
+            --accent: #4f46e5;
+            --accent-2: #06b6d4;
+            --text: #e6eef8;
+            --success: #10b981;
+            --warning: #f59e0b;
+            --error: #ef4444;
+            --border: rgba(255, 255, 255, 0.06);
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        html {
+            min-height: 100vh;
+            background: linear-gradient(180deg, #071225 0%, #071b2b 100%);
+        }
+
+        body {
+            font-family: Inter, system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(180deg, #071225 0%, #071b2b 100%);
+            background-attachment: fixed;
+            color: var(--text);
+            min-height: 100vh;
+        }
+
+        .app-container {
+            display: flex;
+            flex-direction: column;
+            min-height: 100vh;
+        }
+
+        /* Header */
+        .header {
+            background: linear-gradient(135deg, var(--accent), var(--accent-2));
+            padding: 24px 32px;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+        }
+
+        .header-content {
+            max-width: 1400px;
+            margin: 0 auto;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 20px;
+        }
+
+        .header-title {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .header-title h1 {
+            font-size: 28px;
+            font-weight: 700;
+            color: white;
+        }
+
+        .header-icon {
+            font-size: 32px;
+        }
+
+        .back-btn {
+            background: rgba(255, 255, 255, 0.2);
+            color: white;
+            border: 1px solid rgba(255, 255, 255, 0.3);
+            padding: 10px 20px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 600;
+            text-decoration: none;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            transition: all 0.2s;
+        }
+
+        .back-btn:hover {
+            background: rgba(255, 255, 255, 0.3);
+            transform: translateY(-2px);
+        }
+
+        /* Main Content */
+        .main-content {
+            flex: 1;
+            max-width: 1400px;
+            width: 100%;
+            margin: 0 auto;
+            padding: 32px;
+            background: transparent;
+            min-height: calc(100vh - 100px);
+        }
+
+        #consoleContent {
+            min-height: 60vh;
+            padding-bottom: 50px;
+        }
+
+        /* API Key Section */
+        .api-key-section {
+            background: rgba(255, 255, 255, 0.03);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 24px;
+            margin-bottom: 32px;
+        }
+
+        .api-key-section.authenticated {
+            background: linear-gradient(135deg, rgba(16, 185, 129, 0.1), rgba(6, 182, 212, 0.1));
+            border-color: var(--success);
+        }
+
+        .api-key-header {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            margin-bottom: 16px;
+        }
+
+        .api-key-header h2 {
+            font-size: 20px;
+            font-weight: 600;
+        }
+
+        .api-key-status {
+            padding: 4px 12px;
+            border-radius: 12px;
+            font-size: 12px;
+            font-weight: 600;
+            text-transform: uppercase;
+        }
+
+        .api-key-status.connected {
+            background: var(--success);
+            color: white;
+        }
+
+        .api-key-status.disconnected {
+            background: var(--error);
+            color: white;
+        }
+
+        .api-key-form {
+            display: flex;
+            gap: 12px;
+            align-items: flex-end;
+        }
+
+        .form-group {
+            flex: 1;
+        }
+
+        .form-group label {
+            display: block;
+            margin-bottom: 8px;
+            color: var(--muted);
+            font-size: 14px;
+            font-weight: 600;
+        }
+
+        .form-group input {
+            width: 100%;
+            padding: 12px 16px;
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            color: var(--text);
+            font-size: 14px;
+            font-family: 'Courier New', monospace;
+        }
+
+        .form-group input:focus {
+            outline: none;
+            border-color: var(--accent);
+            box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.1);
+        }
+
+        .btn {
+            padding: 12px 24px;
+            border: none;
+            border-radius: 8px;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, var(--accent), var(--accent-2));
+            color: white;
+        }
+
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 20px rgba(79, 70, 229, 0.3);
+        }
+
+        .btn-secondary {
+            background: rgba(255, 255, 255, 0.05);
+            color: var(--text);
+            border: 1px solid var(--border);
+        }
+
+        .btn-secondary:hover {
+            background: rgba(255, 255, 255, 0.1);
+        }
+
+        .btn-danger {
+            background: var(--error);
+            color: white;
+        }
+
+        .btn-danger:hover {
+            background: #dc2626;
+        }
+
+        .btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        /* Dashboard Grid */
+        .dashboard-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 24px;
+            margin-bottom: 32px;
+        }
+
+        .stat-card {
+            background: rgba(255, 255, 255, 0.03);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 24px;
+            transition: all 0.3s;
+        }
+
+        .stat-card:hover {
+            transform: translateY(-4px);
+            border-color: var(--accent);
+            box-shadow: 0 8px 24px rgba(79, 70, 229, 0.2);
+        }
+
+        .stat-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 16px;
+        }
+
+        .stat-title {
+            color: var(--muted);
+            font-size: 14px;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .stat-icon {
+            font-size: 24px;
+        }
+
+        .stat-value {
+            font-size: 36px;
+            font-weight: 700;
+            background: linear-gradient(135deg, var(--accent), var(--accent-2));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        .stat-label {
+            color: var(--muted);
+            font-size: 12px;
+            margin-top: 8px;
+        }
+
+        /* Action Panels */
+        .action-panel {
+            background: rgba(255, 255, 255, 0.03);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 24px;
+            margin-bottom: 24px;
+            position: relative;
+            z-index: 1;
+        }
+
+        .action-panel h3 {
+            font-size: 18px;
+            font-weight: 600;
+            margin-bottom: 16px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .action-toolbar {
+            display: flex;
+            gap: 12px;
+            margin-bottom: 16px;
+            flex-wrap: wrap;
+        }
+
+        /* Table */
+        .data-table {
+            width: 100%;
+            background: rgba(255, 255, 255, 0.02);
+            border-radius: 8px;
+            overflow-x: auto;
+            overflow-y: visible;
+            border: 1px solid var(--border);
+        }
+
+        .data-table table {
+            width: 100%;
+            min-width: 900px;
+            border-collapse: collapse;
+        }
+
+        .data-table thead {
+            background: rgba(255, 255, 255, 0.05);
+        }
+
+        .data-table th {
+            padding: 12px 16px;
+            text-align: left;
+            font-size: 12px;
+            font-weight: 600;
+            text-transform: uppercase;
+            color: var(--muted);
+            letter-spacing: 0.5px;
+        }
+
+        .data-table td {
+            padding: 16px;
+            border-top: 1px solid var(--border);
+            font-size: 14px;
+        }
+
+        .data-table tbody tr {
+            transition: background 0.2s;
+        }
+
+        .data-table tbody tr:hover {
+            background: rgba(255, 255, 255, 0.05);
+        }
+
+        .data-table .actions {
+            display: flex;
+            gap: 8px;
+        }
+
+        .icon-btn {
+            padding: 6px 12px;
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            color: var(--text);
+            cursor: pointer;
+            font-size: 12px;
+            transition: all 0.2s;
+        }
+
+        .icon-btn:hover {
+            background: rgba(255, 255, 255, 0.1);
+            transform: scale(1.05);
+        }
+
+        .icon-btn.danger:hover {
+            background: var(--error);
+            color: white;
+            border-color: var(--error);
+        }
+
+        .badge {
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 11px;
+            font-weight: 600;
+            text-transform: uppercase;
+        }
+
+        .badge-success {
+            background: rgba(16, 185, 129, 0.2);
+            color: var(--success);
+        }
+
+        .badge-warning {
+            background: rgba(245, 158, 11, 0.2);
+            color: var(--warning);
+        }
+
+        .badge-info {
+            background: rgba(6, 182, 212, 0.2);
+            color: var(--accent-2);
+        }
+
+        /* Loading */
+        .loading {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 40px;
+            color: var(--muted);
+        }
+
+        .spinner {
+            display: inline-block;
+            width: 20px;
+            height: 20px;
+            border: 3px solid rgba(255, 255, 255, 0.1);
+            border-top-color: var(--accent);
+            border-radius: 50%;
+            animation: spin 0.8s linear infinite;
+            margin-right: 10px;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        .empty-state {
+            text-align: center;
+            padding: 60px 20px;
+            color: var(--muted);
+        }
+
+        .empty-state-icon {
+            font-size: 64px;
+            margin-bottom: 16px;
+            opacity: 0.5;
+        }
+
+        /* Broadcast Panel */
+        .broadcast-panel {
+            display: grid;
+            grid-template-columns: 2fr 1fr;
+            gap: 16px;
+        }
+
+        .broadcast-panel textarea {
+            width: 100%;
+            min-height: 120px;
+            padding: 12px 16px;
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            color: var(--text);
+            font-size: 14px;
+            font-family: inherit;
+            resize: vertical;
+        }
+
+        .broadcast-panel textarea:focus {
+            outline: none;
+            border-color: var(--accent);
+        }
+
+        .broadcast-info {
+            background: rgba(6, 182, 212, 0.1);
+            border: 1px solid rgba(6, 182, 212, 0.3);
+            border-radius: 8px;
+            padding: 16px;
+            font-size: 13px;
+            line-height: 1.6;
+        }
+
+        .broadcast-info h4 {
+            font-size: 14px;
+            margin-bottom: 8px;
+            color: var(--accent-2);
+        }
+
+        /* Toast Notifications */
+        .toast {
+            position: fixed;
+            bottom: 24px;
+            right: 24px;
+            background: var(--panel);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 16px 20px;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            min-width: 300px;
+            animation: slideIn 0.3s ease;
+            z-index: 1000;
+        }
+
+        .toast.success { border-left: 4px solid var(--success); }
+        .toast.error { border-left: 4px solid var(--error); }
+        .toast.warning { border-left: 4px solid var(--warning); }
+
+        @keyframes slideIn {
+            from { transform: translateX(400px); opacity: 0; }
+            to { transform: translateX(0); opacity: 1; }
+        }
+
+        .code-block {
+            background: rgba(0, 0, 0, 0.3);
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            padding: 12px;
+            font-family: 'Courier New', monospace;
+            font-size: 13px;
+            overflow-x: auto;
+            margin-top: 8px;
+        }
+
+        @media (max-width: 768px) {
+            .main-content {
+                padding: 16px;
+            }
+
+            .dashboard-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .broadcast-panel {
+                grid-template-columns: 1fr;
+            }
+
+            .api-key-form {
+                flex-direction: column;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="app-container">
+        <header class="header">
+            <div class="header-content">
+                <div class="header-title">
+                    <span class="header-icon">⚡</span>
+                    <h1>Developer Console</h1>
+                </div>
+                <a href="../index.html" class="back-btn">
+                    ← Back to Home
+                </a>
+            </div>
+        </header>
+
+        <main class="main-content">
+            <!-- API Key Authentication -->
+            <div class="api-key-section" id="apiKeySection">
+                <div class="api-key-header">
+                    <h2>🔑 API Authentication</h2>
+                    <span class="api-key-status disconnected" id="authStatus">Not Authenticated</span>
+                </div>
+                <div class="api-key-form">
+                    <div class="form-group" style="flex: 2;">
+                        <label for="apiUrl">API Base URL</label>
+                        <input type="text" id="apiUrl" placeholder="https://example.com/messaging-platform/api/v1/messaging-service"
+                               value="https://hmdevonline.com/messaging-platform/api/v1/messaging-service">
+                    </div>
+                    <div class="form-group" style="flex: 2;">
+                        <label for="apiKey">API Key</label>
+                        <input type="password" id="apiKey" placeholder="Enter your API key...">
+                    </div>
+                    <button class="btn btn-primary" id="connectBtn" onclick="authenticate()">
+                        🔓 Connect
+                    </button>
+                </div>
+            </div>
+
+            <!-- Dashboard Stats -->
+            <div class="dashboard-grid" id="dashboardStats" style="display: none;">
+                <div class="stat-card">
+                    <div class="stat-header">
+                        <span class="stat-title">Total Channels</span>
+                        <span class="stat-icon">📁</span>
+                    </div>
+                    <div class="stat-value" id="totalChannels">0</div>
+                    <div class="stat-label">Active channels in the system</div>
+                </div>
+
+                <div class="stat-card">
+                    <div class="stat-header">
+                        <span class="stat-title">Total Messages</span>
+                        <span class="stat-icon">💬</span>
+                    </div>
+                    <div class="stat-value" id="totalMessages">0</div>
+                    <div class="stat-label">Messages across all channels</div>
+                </div>
+
+                <div class="stat-card">
+                    <div class="stat-header">
+                        <span class="stat-title">Active Sessions</span>
+                        <span class="stat-icon">👥</span>
+                    </div>
+                    <div class="stat-value" id="activeSessions">0</div>
+                    <div class="stat-label">Currently connected agents</div>
+                </div>
+            </div>
+
+            <!-- Main Console (hidden until authenticated) -->
+            <div id="consoleContent" style="display: none;">
+                <!-- Broadcast Message -->
+                <div class="action-panel">
+                    <h3>📢 Broadcast Message</h3>
+                    <div class="broadcast-panel">
+                        <div>
+                            <label style="display: block; margin-bottom: 8px; color: var(--muted); font-weight: 600;">Message Content</label>
+                            <textarea id="broadcastMessage" placeholder="Enter your broadcast message here... (unencrypted)"></textarea>
+                            <div style="margin-top: 12px; display: flex; gap: 12px;">
+                                <div class="form-group" style="flex: 1;">
+                                    <label for="broadcastChannel">Target Channel ID</label>
+                                    <input type="text" id="broadcastChannel" placeholder="Enter channel ID or leave empty for all">
+                                </div>
+                                <button class="btn btn-primary" onclick="broadcastMessage()" style="align-self: flex-end;">
+                                    📡 Send Broadcast
+                                </button>
+                            </div>
+                        </div>
+                        <div class="broadcast-info">
+                            <h4>ℹ️ Broadcast Information</h4>
+                            <p><strong>Note:</strong> Messages are sent unencrypted and will be delivered to all active sessions in the specified channel (or all channels if empty).</p>
+                            <p style="margin-top: 8px;"><strong>Use cases:</strong></p>
+                            <ul style="margin-left: 20px; margin-top: 4px;">
+                                <li>System announcements</li>
+                                <li>Maintenance notifications</li>
+                                <li>Global alerts</li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Recover Messages from Kafka -->
+                <div class="action-panel">
+                    <h3>🔄 Recover Messages from Kafka</h3>
+                    <div class="broadcast-panel">
+                        <div>
+                            <div class="form-group">
+                                <label for="recoverChannelId">Channel ID</label>
+                                <input type="text" id="recoverChannelId" placeholder="Enter channel ID to recover messages from">
+                            </div>
+                            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-top: 12px;">
+                                <div class="form-group">
+                                    <label for="recoverFromOffset">From Offset</label>
+                                    <input type="number" id="recoverFromOffset" placeholder="0" value="0">
+                                </div>
+                                <div class="form-group">
+                                    <label for="recoverMaxMessages">Max Messages</label>
+                                    <input type="number" id="recoverMaxMessages" placeholder="20" value="20" max="100">
+                                </div>
+                            </div>
+                            <button class="btn btn-primary" onclick="recoverMessages()" style="margin-top: 12px;">
+                                🔄 Recover Messages
+                            </button>
+                        </div>
+                        <div class="broadcast-info">
+                            <h4>ℹ️ Message Recovery</h4>
+                            <p><strong>Purpose:</strong> Retrieve historical messages from Kafka that were sent before the channel was deleted or recreated.</p>
+                            <p style="margin-top: 8px;"><strong>How it works:</strong></p>
+                            <ul style="margin-left: 20px; margin-top: 4px;">
+                                <li>Recovery starts from offset 0</li>
+                                <li>Stops at original channel offset</li>
+                                <li>20 messages per chunk (pagination)</li>
+                                <li>Click "Load More" for next chunk</li>
+                            </ul>
+                            <p style="margin-top: 8px;"><strong>Use cases:</strong></p>
+                            <ul style="margin-left: 20px; margin-top: 4px;">
+                                <li>Audit trail recovery</li>
+                                <li>Data migration</li>
+                                <li>Historical analysis</li>
+                                <li>Debugging</li>
+                            </ul>
+                            <p style="margin-top: 8px; color: var(--warning);"><strong>Note:</strong> Messages are available based on Kafka retention policy (typically 7 days).</p>
+                        </div>
+                    </div>
+                    <div id="recoveredMessages" style="display: none; margin-top: 16px;">
+                        <h4 style="margin-bottom: 12px; color: var(--accent-2);">Recovered Messages</h4>
+                        <div id="recoveredMessagesContent"></div>
+                    </div>
+                </div>
+
+                <!-- Temporary API Keys -->
+                <div class="action-panel">
+                    <h3>🔑 Temporary API Keys</h3>
+                    <div class="broadcast-panel">
+                        <div>
+                            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
+                                <div class="form-group">
+                                    <label for="tempKeyTtl">TTL (seconds)</label>
+                                    <input type="number" id="tempKeyTtl" placeholder="15" value="15" min="1">
+                                    <small style="color: var(--muted); font-size: 11px; display: block; margin-top: 4px;">
+                                        Default: 15s. Server enforces maximum limit.
+                                    </small>
+                                </div>
+                                <div class="form-group">
+                                    <label for="tempKeySingleUse">Usage Type</label>
+                                    <select id="tempKeySingleUse" style="width: 100%; padding: 12px 16px; background: rgba(255, 255, 255, 0.05); border: 1px solid var(--border); border-radius: 8px; color: var(--text); font-size: 14px;">
+                                        <option value="false">Multi-use (within TTL)</option>
+                                        <option value="true">Single-use only</option>
+                                    </select>
+                                </div>
+                            </div>
+                            <button class="btn btn-primary" onclick="createTemporaryKey()" style="margin-top: 12px;">
+                                🔑 Create Temporary Key
+                            </button>
+                        </div>
+                        <div class="broadcast-info">
+                            <h4>ℹ️ Temporary Keys</h4>
+                            <p><strong>Purpose:</strong> Create short-lived API keys for secure client distribution without exposing your real API key.</p>
+                            <p style="margin-top: 8px;"><strong>Use cases:</strong></p>
+                            <ul style="margin-left: 20px; margin-top: 4px;">
+                                <li>Web applications (JavaScript)</li>
+                                <li>Mobile apps (prevent extraction)</li>
+                                <li>IoT device provisioning</li>
+                                <li>Third-party integrations</li>
+                            </ul>
+                            <p style="margin-top: 8px;"><strong>Security:</strong> Keys expire automatically. Single-use keys become invalid after first use.</p>
+                        </div>
+                    </div>
+                    <div id="tempKeyResult" style="display: none; margin-top: 16px;">
+                        <h4 style="margin-bottom: 12px; color: var(--accent-2);">Generated Temporary Key</h4>
+                        <div id="tempKeyResultContent"></div>
+                    </div>
+                </div>
+
+                <!-- Channels Management -->
+                <div class="action-panel">
+                    <h3>📋 Channels Management</h3>
+                    <div class="action-toolbar">
+                        <button class="btn btn-primary" onclick="loadChannels()">
+                            🔄 Refresh Channels
+                        </button>
+                        <button class="btn btn-secondary" onclick="exportChannels()">
+                            💾 Export Data
+                        </button>
+                    </div>
+                    <div id="channelsTable">
+                        <div class="loading">
+                            <div class="spinner"></div>
+                            Loading channels...
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Channel Details Panel -->
+                <div class="action-panel" id="channelDetailsPanel" style="display: none;">
+                    <h3>🔍 Channel Details</h3>
+                    <div id="channelDetails"></div>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <!-- Toast Container -->
+    <div id="toastContainer"></div>
+
+    <!-- Load SDK Scripts -->
+    <script src="../js/config-loader.js"></script>
+    <script src="../js/lib/qrcode.min.js"></script>
+    <script src="../generated-web-agent-js/js/web-agent.libs.js"></script>
+    <script src="../generated-web-agent-js/js/web-agent.js"></script>
+    <script>
+        let apiBaseUrl = '';
+        let apiKey = '';
+        let isAuthenticated = false;
+
+        // Toast Notification
+        function showToast(message, type = 'success') {
+            const container = document.getElementById('toastContainer');
+            const toast = document.createElement('div');
+            toast.className = `toast ${type}`;
+
+            const icon = type === 'success' ? '✓' : type === 'error' ? '✗' : 'ℹ';
+            toast.innerHTML = `
+                <span style="font-size: 20px;">${icon}</span>
+                <span>${message}</span>
+            `;
+
+            container.appendChild(toast);
+
+            setTimeout(() => {
+                toast.style.animation = 'slideIn 0.3s ease reverse';
+                setTimeout(() => toast.remove(), 300);
+            }, 3000);
+        }
+
+        // API Request Helper
+        async function apiRequest(endpoint, method = 'GET', body = null) {
+            const url = `${apiBaseUrl}/${endpoint}`;
+            const options = {
+                method,
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-API-Key': apiKey
+                }
+            };
+
+            if (body) {
+                options.body = JSON.stringify(body);
+            }
+
+            try {
+                const response = await fetch(url, options);
+                const data = await response.json();
+
+                if (!response.ok) {
+                    throw new Error(data.message || data.statusMessage || 'Request failed');
+                }
+
+                return data;
+            } catch (error) {
+                console.error('API Request Error:', error);
+                throw error;
+            }
+        }
+
+        // Authenticate
+        async function authenticate() {
+            const urlInput = document.getElementById('apiUrl');
+            const keyInput = document.getElementById('apiKey');
+            const connectBtn = document.getElementById('connectBtn');
+
+            apiBaseUrl = urlInput.value.trim();
+            apiKey = keyInput.value.trim();
+
+            if (!apiBaseUrl || !apiKey) {
+                showToast('Please enter both API URL and API Key', 'error');
+                return;
+            }
+
+            connectBtn.disabled = true;
+            connectBtn.innerHTML = '<div class="spinner"></div> Connecting...';
+
+            try {
+                // Test the API key by fetching channels
+                const response = await apiRequest('channels');
+
+                if (response.status === 'success') {
+                    isAuthenticated = true;
+
+                    // Update UI
+                    document.getElementById('apiKeySection').classList.add('authenticated');
+                    document.getElementById('authStatus').textContent = 'Connected';
+                    document.getElementById('authStatus').className = 'api-key-status connected';
+                    document.getElementById('dashboardStats').style.display = 'grid';
+                    document.getElementById('consoleContent').style.display = 'block';
+
+                    // Disable inputs
+                    urlInput.disabled = true;
+                    keyInput.disabled = true;
+                    connectBtn.innerHTML = '✓ Connected';
+                    connectBtn.classList.remove('btn-primary');
+                    connectBtn.classList.add('btn-secondary');
+
+                    showToast('Successfully authenticated!', 'success');
+
+                    // Load initial data
+                    loadDashboard();
+                    loadChannels();
+                } else {
+                    throw new Error('Authentication failed');
+                }
+            } catch (error) {
+                showToast('Authentication failed: ' + error.message, 'error');
+                connectBtn.disabled = false;
+                connectBtn.innerHTML = '🔓 Connect';
+            }
+        }
+
+        // Load Dashboard Stats
+        async function loadDashboard() {
+            try {
+                const channelsData = await apiRequest('channels');
+
+                if (channelsData.status === 'success' && channelsData.data) {
+                    const channels = channelsData.data;
+                    document.getElementById('totalChannels').textContent = channels.length;
+
+                    // Calculate total messages and sessions
+                    let totalMessages = 0;
+                    let activeSessions = 0;
+
+                    for (const channel of channels) {
+                        totalMessages += channel.messageCount || 0;
+                        // Use activeAgents count from DTO
+                        activeSessions += (channel.activeAgents || 0);
+                    }
+
+                    document.getElementById('totalMessages').textContent = totalMessages.toLocaleString();
+                    document.getElementById('activeSessions').textContent = activeSessions;
+                }
+            } catch (error) {
+                console.error('Dashboard load error:', error);
+            }
+        }
+
+        // Load Channels
+        async function loadChannels() {
+            const container = document.getElementById('channelsTable');
+            container.innerHTML = '<div class="loading"><div class="spinner"></div> Loading channels...</div>';
+
+            try {
+                const response = await apiRequest('channels');
+
+                if (response.status === 'success' && response.data) {
+                    const channels = response.data;
+
+                    if (channels.length === 0) {
+                        container.innerHTML = `
+                            <div class="empty-state">
+                                <div class="empty-state-icon">📭</div>
+                                <p>No channels found</p>
+                            </div>
+                        `;
+                        return;
+                    }
+
+                    container.innerHTML = `
+                        <div class="data-table">
+                            <table>
+                                <thead>
+                                    <tr>
+                                        <th>Channel ID</th>
+                                        <th>Name</th>
+                                        <th>Created</th>
+                                        <th>Messages</th>
+                                        <th>Active Agents</th>
+                                        <th>Status</th>
+                                        <th>Actions</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    ${channels.map(channel => `
+                                        <tr>
+                                            <td><code style="font-family: 'Courier New', monospace; font-size: 12px;">${channel.channelId || channel.id}</code></td>
+                                            <td>${channel.channelName || channel.name || 'N/A'}</td>
+                                            <td>${channel.createdAt ? new Date(channel.createdAt).toLocaleDateString() : 'N/A'}</td>
+                                            <td><span class="badge badge-info">${channel.messageCount || 0}</span></td>
+                                            <td><span class="badge badge-success">${channel.activeAgents || 0}</span></td>
+                                            <td><span class="badge ${channel.active || channel.isActive ? 'badge-success' : 'badge-warning'}">${channel.active || channel.isActive ? 'Active' : 'Inactive'}</span></td>
+                                            <td class="actions">
+                                                <button class="icon-btn" onclick="viewChannelDetails('${channel.channelId || channel.id}')" title="View Details">
+                                                    👁️ View
+                                                </button>
+                                                <button class="icon-btn danger" onclick="deleteChannel('${channel.channelId || channel.id}')" title="Delete Channel">
+                                                    🗑️ Delete
+                                                </button>
+                                            </td>
+                                        </tr>
+                                    `).join('')}
+                                </tbody>
+                            </table>
+                        </div>
+                    `;
+                }
+            } catch (error) {
+                container.innerHTML = `
+                    <div class="empty-state">
+                        <div class="empty-state-icon">⚠️</div>
+                        <p>Error loading channels: ${error.message}</p>
+                        <button class="btn btn-primary" onclick="loadChannels()" style="margin-top: 16px;">
+                            🔄 Retry
+                        </button>
+                    </div>
+                `;
+                showToast('Failed to load channels: ' + error.message, 'error');
+            }
+        }
+
+        // View Channel Details
+        async function viewChannelDetails(channelId) {
+            const panel = document.getElementById('channelDetailsPanel');
+            const container = document.getElementById('channelDetails');
+
+            panel.style.display = 'block';
+            container.innerHTML = '<div class="loading"><div class="spinner"></div> Loading channel details...</div>';
+
+            try {
+                // Get channel info
+                const channelInfo = await apiRequest(`channels/${channelId}`);
+
+                // Get agents in channel
+                let agentsHtml = '<p style="color: var(--muted);">No active agents</p>';
+                try {
+                    const agentsData = await apiRequest(`channels/${channelId}/agents`);
+                    if (agentsData.data && agentsData.data.length > 0) {
+                        agentsHtml = `
+                            <div class="data-table" style="margin-top: 12px;">
+                                <table>
+                                    <thead>
+                                        <tr>
+                                            <th>Agent Name</th>
+                                            <th>Session ID</th>
+                                            <th>Connected At</th>
+                                            <th>Status</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        ${agentsData.data.map(agent => `
+                                            <tr>
+                                                <td>${agent.agentName || 'Unknown'}</td>
+                                                <td><code style="font-size: 11px;">${agent.sessionId || 'N/A'}</code></td>
+                                                <td>${agent.connectedAt ? new Date(agent.connectedAt).toLocaleString() : 'N/A'}</td>
+                                                <td><span class="badge badge-success">Active</span></td>
+                                            </tr>
+                                        `).join('')}
+                                    </tbody>
+                                </table>
+                            </div>
+                        `;
+                    }
+                } catch (e) {
+                    console.error('Error loading agents:', e);
+                }
+
+                container.innerHTML = `
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 24px;">
+                        <div>
+                            <h4 style="margin-bottom: 12px; color: var(--accent-2);">Channel Information</h4>
+                            <div class="code-block">
+                                <div style="margin-bottom: 8px;"><strong>Channel ID:</strong> ${channelId}</div>
+                                <div style="margin-bottom: 8px;"><strong>Name:</strong> ${channelInfo.data?.channelName || 'N/A'}</div>
+                                <div style="margin-bottom: 8px;"><strong>Created:</strong> ${channelInfo.data?.createdAt ? new Date(channelInfo.data.createdAt).toLocaleString() : 'N/A'}</div>
+                                <div style="margin-bottom: 8px;"><strong>Message Count:</strong> ${channelInfo.data?.messageCount || 0}</div>
+                                <div><strong>Active Agents:</strong> ${channelInfo.data?.activeAgents || 0}</div>
+                            </div>
+                        </div>
+                        <div>
+                            <h4 style="margin-bottom: 12px; color: var(--accent-2);">Connected Agents</h4>
+                            ${agentsHtml}
+                        </div>
+                    </div>
+                    <button class="btn btn-secondary" onclick="document.getElementById('channelDetailsPanel').style.display='none'" style="margin-top: 16px;">
+                        Close
+                    </button>
+                `;
+            } catch (error) {
+                container.innerHTML = `
+                    <div class="empty-state">
+                        <p style="color: var(--error);">Error loading channel details: ${error.message}</p>
+                    </div>
+                `;
+            }
+        }
+
+        // Delete Channel
+        async function deleteChannel(channelId) {
+            if (!confirm(`Are you sure you want to delete channel ${channelId}?\n\nThis action cannot be undone.`)) {
+                return;
+            }
+
+            try {
+                await apiRequest(`channels/${channelId}`, 'DELETE');
+                showToast('Channel deleted successfully', 'success');
+                loadChannels();
+                loadDashboard();
+            } catch (error) {
+                showToast('Failed to delete channel: ' + error.message, 'error');
+            }
+        }
+
+        // Broadcast Message
+        async function broadcastMessage() {
+            const message = document.getElementById('broadcastMessage').value.trim();
+            const channelId = document.getElementById('broadcastChannel').value.trim();
+
+            if (!message) {
+                showToast('Please enter a message to broadcast', 'error');
+                return;
+            }
+
+            if (!confirm(`Send broadcast message${channelId ? ` to channel ${channelId}` : ' to ALL channels'}?\n\nMessage will be unencrypted.`)) {
+                return;
+            }
+
+            try {
+                const payload = {
+                    message: message,
+                    channelId: channelId || null,
+                    encrypted: false,
+                    timestamp: Date.now()
+                };
+
+                await apiRequest('broadcast', 'POST', payload);
+                showToast('Broadcast sent successfully!', 'success');
+                document.getElementById('broadcastMessage').value = '';
+            } catch (error) {
+                showToast('Broadcast failed: ' + error.message, 'error');
+            }
+        }
+
+        // Recover Messages from Kafka
+        async function recoverMessages() {
+            const channelId = document.getElementById('recoverChannelId').value.trim();
+            const fromOffset = parseInt(document.getElementById('recoverFromOffset').value) || 0;
+            const maxMessages = parseInt(document.getElementById('recoverMaxMessages').value) || 100;
+
+            if (!channelId) {
+                showToast('Please enter a channel ID', 'error');
+                return;
+            }
+
+            if (maxMessages > 100) {
+                showToast('Maximum 100 messages per request', 'error');
+                return;
+            }
+
+            const container = document.getElementById('recoveredMessages');
+            const content = document.getElementById('recoveredMessagesContent');
+
+            content.innerHTML = '<div class="loading"><div class="spinner"></div> Recovering messages from Kafka...</div>';
+            container.style.display = 'block';
+
+            try {
+                const payload = {
+                    channelId: channelId,
+                    fromOffset: fromOffset,
+                    maxMessages: maxMessages
+                };
+
+                const response = await apiRequest('recover-messages', 'POST', payload);
+
+                if (response.status === 'success' && response.data) {
+                    const data = response.data;
+                    const messages = data.messages || [];
+
+                    if (messages.length === 0) {
+                        content.innerHTML = `
+                            <div class="empty-state">
+                                <div class="empty-state-icon">📭</div>
+                                <p>No messages found at offset ${fromOffset}</p>
+                            </div>
+                        `;
+                        showToast('No messages recovered', 'warning');
+                        return;
+                    }
+
+                    // Display recovered messages
+                    content.innerHTML = `
+                        <div style="background: rgba(16, 185, 129, 0.1); border: 1px solid rgba(16, 185, 129, 0.3); border-radius: 8px; padding: 12px; margin-bottom: 16px;">
+                            <strong>✓ Recovered ${data.messagesRecovered} message(s)</strong><br>
+                            <span style="font-size: 13px; color: var(--muted);">
+                                Offset range: ${data.fromOffset} ?� ${data.toOffset}
+                                ${data.hasMore ? ' (more messages available)' : ' (end reached)'}
+                            </span>
+                        </div>
+                        <div class="data-table">
+                            <table>
+                                <thead>
+                                    <tr>
+                                        <th>Offset</th>
+                                        <th>From</th>
+                                        <th>To</th>
+                                        <th>Type</th>
+                                        <th>Content</th>
+                                        <th>Date</th>
+                                        <th>Encrypted</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    ${messages.map(msg => `
+                                        <tr>
+                                            <td><code style="font-size: 11px;">${msg.localOffset || 'N/A'}</code></td>
+                                            <td>${msg.from || 'N/A'}</td>
+                                            <td>${msg.to || 'N/A'}</td>
+                                            <td><span class="badge badge-info">${msg.type || 'N/A'}</span></td>
+                                            <td style="max-width: 300px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;" title="${msg.content || ''}">${msg.content || 'N/A'}</td>
+                                            <td style="font-size: 12px;">${msg.date ? new Date(msg.date).toLocaleString() : 'N/A'}</td>
+                                            <td><span class="badge ${msg.encrypted ? 'badge-warning' : 'badge-success'}">${msg.encrypted ? 'Yes' : 'No'}</span></td>
+                                        </tr>
+                                    `).join('')}
+                                </tbody>
+                            </table>
+                        </div>
+                        ${data.hasMore ? `
+                            <button class="btn btn-secondary" onclick="loadMoreMessages(${data.toOffset + 1})" style="margin-top: 12px;">
+                                ⬇️ Load More Messages
+                            </button>
+                        ` : ''}
+                        <button class="btn btn-secondary" onclick="exportRecoveredMessages()" style="margin-top: 12px; margin-left: 8px;">
+                            💾 Export Messages
+                        </button>
+                    `;
+
+                    showToast(`Recovered ${messages.length} messages successfully!`, 'success');
+                }
+            } catch (error) {
+                content.innerHTML = `
+                    <div class="empty-state">
+                        <div class="empty-state-icon" style="color: var(--error);">⚠️</div>
+                        <p style="color: var(--error);">Error: ${error.message}</p>
+                    </div>
+                `;
+                showToast('Recovery failed: ' + error.message, 'error');
+            }
+        }
+
+        // Load more messages
+        function loadMoreMessages(nextOffset) {
+            document.getElementById('recoverFromOffset').value = nextOffset;
+            recoverMessages();
+        }
+
+        // Export recovered messages
+        function exportRecoveredMessages() {
+            const content = document.getElementById('recoveredMessagesContent');
+            // Extract data from the displayed table
+            showToast('Export functionality coming soon', 'warning');
+        }
+
+        // Create Temporary API Key
+        async function createTemporaryKey() {
+            const ttlSeconds = parseInt(document.getElementById('tempKeyTtl').value) || 15;
+            const singleUse = document.getElementById('tempKeySingleUse').value === 'true';
+
+            if (ttlSeconds < 1) {
+                showToast('TTL must be at least 1 second', 'error');
+                return;
+            }
+
+            const container = document.getElementById('tempKeyResult');
+            const content = document.getElementById('tempKeyResultContent');
+
+            content.innerHTML = '<div class="loading"><div class="spinner"></div> Creating temporary key...</div>';
+            container.style.display = 'block';
+
+            try {
+                const payload = {
+                    ttlSeconds: ttlSeconds,
+                    singleUse: singleUse
+                };
+
+                const response = await apiRequest('create-temporary-key', 'POST', payload);
+
+                if (response.status === 'success' && response.data) {
+                    const data = response.data;
+                    const expiresDate = new Date(data.expiresAt);
+                    const expiresIn = Math.round((data.expiresAt - Date.now()) / 1000);
+
+                    content.innerHTML = `
+                        <div style="background: rgba(16, 185, 129, 0.1); border: 1px solid rgba(16, 185, 129, 0.3); border-radius: 8px; padding: 16px; margin-bottom: 16px;">
+                            <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px;">
+                                <strong style="color: var(--success);">✓ Temporary Key Created</strong>
+                                <span class="badge badge-warning" id="keyCountdown">Expires in ${expiresIn}s</span>
+                            </div>
+                            <div style="background: rgba(0, 0, 0, 0.3); border-radius: 6px; padding: 12px; margin-bottom: 12px; word-break: break-all; font-family: 'Courier New', monospace; font-size: 13px; position: relative;">
+                                <div id="tempKeyValue">${data.temporaryKey}</div>
+                                <button onclick="copyTempKey('${data.temporaryKey}')" style="position: absolute; top: 8px; right: 8px; padding: 4px 8px; background: var(--accent); border: none; border-radius: 4px; color: white; cursor: pointer; font-size: 11px;">
+                                    📋 Copy
+                                </button>
+                            </div>
+                            <div style="font-size: 13px; color: var(--muted);">
+                                <div style="margin-bottom: 4px;"><strong>TTL:</strong> ${data.ttlSeconds} seconds</div>
+                                <div style="margin-bottom: 4px;"><strong>Usage:</strong> ${data.singleUse ? 'Single-use only' : 'Multi-use (within TTL)'}</div>
+                                <div><strong>Expires:</strong> ${expiresDate.toLocaleString()}</div>
+                            </div>
+                        </div>
+                        <div style="background: rgba(79, 70, 229, 0.1); border: 1px solid rgba(79, 70, 229, 0.3); border-radius: 8px; padding: 12px; font-size: 13px;">
+                            <strong>⚠️ Important:</strong> Copy this key now. It will expire in ${expiresIn} seconds${data.singleUse ? ' and can only be used once' : ''}.
+                        </div>
+                    `;
+
+                    // Start countdown timer
+                    let remainingSeconds = expiresIn;
+                    const countdownInterval = setInterval(() => {
+                        remainingSeconds--;
+                        const countdownEl = document.getElementById('keyCountdown');
+                        if (countdownEl) {
+                            if (remainingSeconds > 0) {
+                                countdownEl.textContent = `Expires in ${remainingSeconds}s`;
+                            } else {
+                                countdownEl.textContent = 'EXPIRED';
+                                countdownEl.className = 'badge badge-warning';
+                                countdownEl.style.background = 'var(--error)';
+                                clearInterval(countdownInterval);
+                            }
+                        } else {
+                            clearInterval(countdownInterval);
+                        }
+                    }, 1000);
+
+                    showToast('Temporary key created successfully!', 'success');
+                }
+            } catch (error) {
+                content.innerHTML = `
+                    <div class="empty-state">
+                        <div class="empty-state-icon" style="color: var(--error);">⚠️</div>
+                        <p style="color: var(--error);">Error: ${error.message}</p>
+                    </div>
+                `;
+                showToast('Failed to create temporary key: ' + error.message, 'error');
+            }
+        }
+
+        // Copy temporary key to clipboard
+        function copyTempKey(key) {
+            navigator.clipboard.writeText(key).then(() => {
+                showToast('Temporary key copied to clipboard!', 'success');
+            }).catch(() => {
+                // Fallback for older browsers
+                const textArea = document.createElement('textarea');
+                textArea.value = key;
+                document.body.appendChild(textArea);
+                textArea.select();
+                document.execCommand('copy');
+                document.body.removeChild(textArea);
+                showToast('Temporary key copied to clipboard!', 'success');
+            });
+        }
+
+        // Export Channels
+        function exportChannels() {
+            apiRequest('channels').then(response => {
+                if (response.status === 'success' && response.data) {
+                    const dataStr = JSON.stringify(response.data, null, 2);
+                    const dataBlob = new Blob([dataStr], { type: 'application/json' });
+                    const url = URL.createObjectURL(dataBlob);
+                    const link = document.createElement('a');
+                    link.href = url;
+                    link.download = `channels-export-${Date.now()}.json`;
+                    link.click();
+                    URL.revokeObjectURL(url);
+                    showToast('Channels exported successfully', 'success');
+                }
+            }).catch(error => {
+                showToast('Export failed: ' + error.message, 'error');
+            });
+        }
+
+        // Auto-load API key from localStorage
+        window.addEventListener('DOMContentLoaded', () => {
+            const savedApiKey = localStorage.getItem('devConsoleApiKey');
+            const savedApiUrl = localStorage.getItem('devConsoleApiUrl');
+
+            if (savedApiKey) {
+                document.getElementById('apiKey').value = savedApiKey;
+            }
+
+            if (savedApiUrl) {
+                document.getElementById('apiUrl').value = savedApiUrl;
+            }
+        });
+
+        // Save API key to localStorage when connecting
+        document.getElementById('apiKey').addEventListener('change', (e) => {
+            localStorage.setItem('devConsoleApiKey', e.target.value);
+        });
+
+        document.getElementById('apiUrl').addEventListener('change', (e) => {
+            localStorage.setItem('devConsoleApiUrl', e.target.value);
+        });
+
+        // Enter key to authenticate
+        document.getElementById('apiKey').addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') {
+                authenticate();
+            }
+        });
+    </script>
+</body>
+</html>
+

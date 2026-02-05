@@ -1,0 +1,391 @@
+/**
+ * Game Control Panel Styles
+ * Reusable floating collapsible control panel for mini-games
+ */
+
+.game-control-panel {
+    position: fixed;
+    z-index: 100000;
+    user-select: none;
+    -webkit-user-select: none;
+    touch-action: none;  /* Prevent default touch behaviors (scrolling) during drag */
+    /* Removed transition for smoother drag with requestAnimationFrame */
+}
+
+/* Collapsed State - Single Icon */
+.game-control-panel.collapsed {
+    width: 60px;
+    height: 60px;
+}
+
+
+.control-panel-icon {
+    width: 60px;
+    height: 60px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, rgba(79, 70, 229, 0.9) 0%, rgba(99, 102, 241, 0.9) 100%);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    font-size: 28px;
+    cursor: grab;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3), 0 0 0 2px rgba(255, 255, 255, 0.1);
+    backdrop-filter: blur(10px);
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+    position: relative;
+    touch-action: none;  /* Essential for mobile drag */
+}
+
+.icon-emoji {
+    font-size: 28px;
+}
+
+.icon-host-badge {
+    position: absolute;
+    top: -2px;
+    right: -2px;
+    width: 20px;
+    height: 20px;
+    background: linear-gradient(135deg, rgba(245, 158, 11, 0.95) 0%, rgba(251, 146, 60, 0.95) 100%);
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 12px;
+    border: 2px solid rgba(15, 23, 42, 0.9);
+    box-shadow: 0 2px 8px rgba(245, 158, 11, 0.4);
+    animation: hostBadgePulse 2s ease-in-out infinite;
+}
+
+@keyframes hostBadgePulse {
+    0%, 100% {
+        transform: scale(1);
+        box-shadow: 0 2px 8px rgba(245, 158, 11, 0.4);
+    }
+    50% {
+        transform: scale(1.1);
+        box-shadow: 0 4px 12px rgba(245, 158, 11, 0.6);
+    }
+}
+
+.control-panel-icon:hover {
+    transform: scale(1.05);
+    box-shadow: 0 6px 16px rgba(79, 70, 229, 0.5), 0 0 0 2px rgba(255, 255, 255, 0.2);
+}
+
+.control-panel-icon:active,
+.game-control-panel.dragging .control-panel-icon {
+    cursor: grabbing;
+    transform: scale(0.95);
+}
+
+/* Expanded State - Panel */
+.game-control-panel.expanded {
+    width: 280px;
+    min-height: auto;
+}
+
+.game-control-panel.collapsed .control-panel-expanded {
+    display: none;
+}
+
+.game-control-panel.expanded .control-panel-icon {
+    display: none;
+}
+
+.control-panel-expanded {
+    background: rgba(15, 23, 42, 0.95);
+    border-radius: 16px;
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4), 0 0 0 1px rgba(255, 255, 255, 0.1);
+    backdrop-filter: blur(16px);
+    overflow: hidden;
+    animation: panelSlideIn 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+@keyframes panelSlideIn {
+    from {
+        opacity: 0;
+        transform: scale(0.9) translateY(-10px);
+    }
+    to {
+        opacity: 1;
+        transform: scale(1) translateY(0);
+    }
+}
+
+/* Panel Header */
+.panel-header {
+    padding: 12px 16px;
+    background: linear-gradient(135deg, rgba(79, 70, 229, 0.2) 0%, rgba(99, 102, 241, 0.2) 100%);
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    cursor: grab;
+    touch-action: none;  /* Essential for mobile drag */
+}
+
+.panel-header:active,
+.game-control-panel.dragging .panel-header {
+    cursor: grabbing;
+}
+
+.panel-title {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-weight: 600;
+    color: #e2e8f0;
+    font-size: 14px;
+    flex: 1;
+    flex-wrap: wrap;
+}
+
+.game-icon {
+    font-size: 20px;
+}
+
+.game-name {
+    flex-shrink: 0;
+}
+
+.host-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 3px 10px;
+    background: linear-gradient(135deg, rgba(245, 158, 11, 0.4) 0%, rgba(251, 146, 60, 0.4) 100%);
+    border: 1px solid rgba(245, 158, 11, 0.6);
+    border-radius: 12px;
+    font-size: 11px;
+    color: #fbbf24;
+    font-weight: 700;
+    animation: hostBadgeGlow 2s ease-in-out infinite;
+}
+
+@keyframes hostBadgeGlow {
+    0%, 100% {
+        box-shadow: 0 0 4px rgba(245, 158, 11, 0.3);
+    }
+    50% {
+        box-shadow: 0 0 10px rgba(245, 158, 11, 0.5);
+    }
+}
+
+/* Panel Info Section */
+.panel-info {
+    padding: 10px 16px;
+    background: rgba(0, 0, 0, 0.2);
+    border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.agent-info {
+    font-size: 13px;
+    color: #e2e8f0;
+    font-weight: 500;
+    margin-bottom: 4px;
+}
+
+.agent-info:last-child {
+    margin-bottom: 0;
+}
+
+.room-info {
+    font-size: 12px;
+    color: #94a3b8;
+}
+
+.btn-collapse {
+    width: 28px;
+    height: 28px;
+    border-radius: 6px;
+    background: rgba(255, 255, 255, 0.1);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    color: #e2e8f0;
+    font-size: 18px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.2s ease;
+    line-height: 1;
+    padding: 0;
+}
+
+.btn-collapse:hover {
+    background: rgba(255, 255, 255, 0.2);
+    transform: scale(1.05);
+}
+
+.btn-collapse:active {
+    transform: scale(0.95);
+}
+
+/* Panel Body */
+.panel-body {
+    padding: 12px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+/* Panel Buttons */
+.panel-btn {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 12px 16px;
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 10px;
+    color: #e2e8f0;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    font-size: 14px;
+    font-weight: 500;
+    width: 100%;
+    text-align: left;
+}
+
+.panel-btn:hover:not(:disabled) {
+    background: rgba(79, 70, 229, 0.2);
+    border-color: rgba(79, 70, 229, 0.4);
+    transform: translateY(-1px);
+}
+
+.panel-btn:active:not(:disabled) {
+    transform: translateY(0);
+}
+
+.panel-btn:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+}
+
+.btn-icon {
+    font-size: 20px;
+    flex-shrink: 0;
+    width: 24px;
+    text-align: center;
+}
+
+.btn-label {
+    flex: 1;
+}
+
+/* Specific button colors */
+.btn-pause:not(:disabled):hover {
+    background: rgba(245, 158, 11, 0.2);
+    border-color: rgba(245, 158, 11, 0.4);
+}
+
+.btn-leave:hover {
+    background: rgba(239, 68, 68, 0.2);
+    border-color: rgba(239, 68, 68, 0.4);
+}
+
+.btn-share:hover {
+    background: rgba(34, 197, 94, 0.2);
+    border-color: rgba(34, 197, 94, 0.4);
+}
+
+/* Custom button styles - Warning (orange) */
+.panel-btn.btn-warning-style:hover:not(:disabled) {
+    background: rgba(245, 158, 11, 0.2);
+    border-color: rgba(245, 158, 11, 0.4);
+}
+
+/* Custom button styles - Primary (blue) */
+.panel-btn.btn-primary-style:hover:not(:disabled) {
+    background: rgba(59, 130, 246, 0.2);
+    border-color: rgba(59, 130, 246, 0.4);
+}
+
+/* Toast Notification */
+.control-panel-toast {
+    position: fixed;
+    top: 20px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: rgba(15, 23, 42, 0.95);
+    color: #e2e8f0;
+    padding: 12px 24px;
+    border-radius: 8px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+    backdrop-filter: blur(10px);
+    z-index: 100001;
+    font-size: 14px;
+    font-weight: 500;
+    animation: toastSlideIn 0.3s ease-out;
+}
+
+@keyframes toastSlideIn {
+    from {
+        opacity: 0;
+        transform: translateX(-50%) translateY(-20px);
+    }
+    to {
+        opacity: 1;
+        transform: translateX(-50%) translateY(0);
+    }
+}
+
+/* Dragging State */
+.game-control-panel.dragging {
+    opacity: 0.9;
+    cursor: grabbing !important;
+}
+
+/* Mobile Responsive */
+@media (max-width: 768px) {
+    .game-control-panel.collapsed {
+        width: 56px;
+        height: 56px;
+    }
+
+    .control-panel-icon {
+        width: 56px;
+        height: 56px;
+        font-size: 24px;
+    }
+
+    .game-control-panel.expanded {
+        width: 260px;
+    }
+
+    .panel-btn {
+        padding: 14px 16px;
+        font-size: 15px;
+    }
+
+    .btn-icon {
+        font-size: 22px;
+    }
+}
+
+/* Touch-friendly tap targets */
+@media (hover: none) and (pointer: coarse) {
+    .panel-btn {
+        padding: 16px 18px;
+        font-size: 16px;
+    }
+
+    .btn-collapse {
+        width: 32px;
+        height: 32px;
+    }
+}
+
+/* Keyboard focus styles */
+.panel-btn:focus-visible,
+.btn-collapse:focus-visible {
+    outline: 2px solid rgba(79, 70, 229, 0.8);
+    outline-offset: 2px;
+}
+
+/* Prevent text selection during drag */
+.game-control-panel.dragging * {
+    user-select: none;
+    -webkit-user-select: none;
+}

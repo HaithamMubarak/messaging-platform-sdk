@@ -1,0 +1,436 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Quick Share - P2P File Sharing</title>
+    <link rel="stylesheet" href="../../css/toast.css">
+    <link rel="stylesheet" href="../../css/share-modal.css">
+    <link rel="stylesheet" href="../../css/connection-modal.css">
+    <style>
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+        }
+
+        .hidden { display: none !important; }
+
+        /* Main Container */
+        #appContainer {
+            display: none;
+            max-width: 900px;
+            margin: 0 auto;
+            padding: 20px;
+            min-height: 100vh;
+        }
+
+        #appContainer.active {
+            display: block;
+        }
+
+        /* Header */
+        .app-header {
+            background: white;
+            border-radius: 16px;
+            padding: 20px;
+            margin-bottom: 20px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.1);
+        }
+
+        .header-top {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 15px;
+        }
+
+        .header-title {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .header-title h1 {
+            font-size: 1.5em;
+            color: #333;
+            margin: 0;
+        }
+
+        .status-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 6px 12px;
+            border-radius: 20px;
+            font-size: 13px;
+            font-weight: 500;
+        }
+
+        .status-badge.connected {
+            background: #e8f5e9;
+            color: #2e7d32;
+        }
+
+        .status-badge .status-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: #4caf50;
+        }
+
+        .header-actions {
+            display: flex;
+            gap: 10px;
+            align-items: center;
+        }
+
+        .room-badge {
+            background: #f0f0f0;
+            padding: 8px 14px;
+            border-radius: 8px;
+            font-family: monospace;
+            font-size: 14px;
+            color: #333;
+        }
+
+        .btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 10px 16px;
+            border: none;
+            border-radius: 8px;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+        }
+
+        .btn-secondary {
+            background: #f0f0f0;
+            color: #333;
+        }
+
+        .btn-secondary:hover {
+            background: #e0e0e0;
+        }
+
+        .btn-danger {
+            background: #ffebee;
+            color: #c62828;
+        }
+
+        .btn-danger:hover {
+            background: #ffcdd2;
+        }
+
+        /* Users Section */
+        .users-section {
+            margin-top: 15px;
+            padding-top: 15px;
+            border-top: 1px solid #eee;
+        }
+
+        .users-title {
+            font-size: 13px;
+            font-weight: 600;
+            color: #666;
+            margin-bottom: 10px;
+        }
+
+        .users-list {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+        }
+
+        .user-badge {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            background: #f5f5f5;
+            padding: 6px 12px;
+            border-radius: 20px;
+            font-size: 13px;
+        }
+
+        .user-badge.host {
+            background: #e8f5e9;
+            color: #2e7d32;
+        }
+
+        .user-badge.you {
+            background: #e3f2fd;
+            color: #1565c0;
+        }
+
+        .user-badge .peer-status {
+            width: 6px;
+            height: 6px;
+            border-radius: 50%;
+            background: #4caf50;
+        }
+
+        /* Main Card */
+        .main-card {
+            background: white;
+            border-radius: 16px;
+            padding: 24px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.1);
+        }
+
+        /* Drop Zone */
+        .drop-zone {
+            border: 3px dashed #d0d0d0;
+            border-radius: 16px;
+            padding: 50px 30px;
+            text-align: center;
+            transition: all 0.3s;
+            cursor: pointer;
+            background: #fafafa;
+        }
+
+        .drop-zone:hover,
+        .drop-zone.dragover {
+            border-color: #667eea;
+            background: #f8f9ff;
+        }
+
+        .drop-zone-icon {
+            font-size: 56px;
+            margin-bottom: 12px;
+        }
+
+        .drop-zone-text {
+            color: #555;
+            font-size: 17px;
+            font-weight: 500;
+        }
+
+        .drop-zone-hint {
+            color: #999;
+            font-size: 14px;
+            margin-top: 8px;
+        }
+
+        #fileInput { display: none; }
+
+        /* Transfers Section */
+        .section {
+            margin-top: 24px;
+        }
+
+        .section-title {
+            font-size: 14px;
+            font-weight: 600;
+            color: #555;
+            margin-bottom: 12px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .transfer-item {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+            padding: 14px;
+            background: #f8f9fa;
+            border-radius: 10px;
+            margin-bottom: 10px;
+        }
+
+        .transfer-icon {
+            font-size: 26px;
+        }
+
+        .transfer-info {
+            flex: 1;
+            min-width: 0;
+        }
+
+        .transfer-name {
+            font-weight: 600;
+            margin-bottom: 4px;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .transfer-details {
+            font-size: 12px;
+            color: #888;
+        }
+
+        .transfer-progress {
+            width: 100%;
+            height: 6px;
+            background: #e0e0e0;
+            border-radius: 3px;
+            margin-top: 8px;
+            overflow: hidden;
+        }
+
+        .transfer-progress-bar {
+            height: 100%;
+            background: linear-gradient(90deg, #667eea, #764ba2);
+            border-radius: 3px;
+            transition: width 0.3s;
+        }
+
+        .transfer-status {
+            font-size: 13px;
+            font-weight: 600;
+            min-width: 50px;
+            text-align: right;
+        }
+
+        .transfer-status.complete { color: #4caf50; }
+        .transfer-status.sending, .transfer-status.receiving { color: #2196f3; }
+        .transfer-status.error { color: #f44336; }
+
+        /* Received Files */
+        .received-item {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+            padding: 12px 14px;
+            background: #e8f5e9;
+            border-radius: 10px;
+            margin-bottom: 8px;
+        }
+
+        .download-btn {
+            padding: 8px 16px;
+            background: #4caf50;
+            color: white;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 13px;
+            font-weight: 600;
+        }
+
+        .download-btn:hover {
+            background: #43a047;
+        }
+
+        /* Footer */
+        .app-footer {
+            margin-top: 20px;
+            text-align: center;
+        }
+
+
+        /* Responsive */
+        @media (max-width: 600px) {
+            .header-top {
+                flex-direction: column;
+                align-items: flex-start;
+            }
+
+            .header-actions {
+                width: 100%;
+                justify-content: space-between;
+            }
+
+            .drop-zone {
+                padding: 30px 20px;
+            }
+
+            .drop-zone-icon {
+                font-size: 40px;
+            }
+        }
+    </style>
+</head>
+<body>
+<!-- Connection Modal (injected by connection-modal.js) -->
+
+<!-- Main App Container (hidden until connected) -->
+<div id="appContainer">
+    <!-- Header -->
+    <header class="app-header">
+        <div class="header-top">
+            <div class="header-title">
+                <h1>🔗 Quick Share</h1>
+                <span class="status-badge connected">
+                    <span class="status-dot"></span>
+                    Connected
+                </span>
+            </div>
+            <div class="header-actions">
+                <span class="room-badge" id="roomBadge">-</span>
+                <button id="shareBtn" class="btn btn-primary" style="display:none;">🔗 Share</button>
+                <button class="btn btn-danger" onclick="disconnect()">Leave</button>
+            </div>
+        </div>
+
+        <!-- Connected Users -->
+        <div class="users-section">
+            <div class="users-title">Connected Users (<span id="userCount">0</span>)</div>
+            <div class="users-list" id="usersList"></div>
+        </div>
+    </header>
+
+    <!-- Main Content -->
+    <div class="main-card">
+        <!-- Drop Zone -->
+        <div class="drop-zone" id="dropZone" onclick="document.getElementById('fileInput').click()">
+            <div class="drop-zone-icon">📁</div>
+            <div class="drop-zone-text">Drop files here or click to browse</div>
+            <div class="drop-zone-hint">Maximum file size: 100MB • Files are sent directly P2P</div>
+        </div>
+        <input type="file" id="fileInput" multiple onchange="handleFileSelect(event)">
+
+        <!-- Active Transfers -->
+        <div class="section" id="transfersSection" style="display: none;">
+            <div class="section-title">📊 Active Transfers</div>
+            <div id="transfersList"></div>
+        </div>
+
+        <!-- Received Files -->
+        <div class="section" id="receivedSection" style="display: none;">
+            <div class="section-title">📥 Received Files</div>
+            <div id="receivedList"></div>
+        </div>
+    </div>
+
+    <!-- Footer -->
+    <div class="app-footer">
+        <small style="color: rgba(255,255,255,0.7);">Files are transferred directly peer-to-peer via WebRTC • No server storage</small>
+    </div>
+</div>
+
+
+<!-- Scripts -->
+<script src="../../js/config-loader.js"></script>
+<script src="../../js/lib/qrcode.min.js"></script>
+<script src="../../generated-web-agent-js/js/web-agent.libs.js"></script>
+<script src="../../generated-web-agent-js/js/web-agent.js"></script>
+<script src="../../generated-web-agent-js/js/web-agent.webrtc.js"></script>
+<script src="../../js/share-modal.js"></script>
+<script src="../../js/common-utils.js"></script>
+<script src="../../js/connection-modal.js"></script>
+<script src="../../js/AgentInteractionBase.js"></script>
+<script src="QuickShare.js"></script>
+</body>
+</html>

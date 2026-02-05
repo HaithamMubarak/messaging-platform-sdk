@@ -1,0 +1,208 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>🤥 Find the Liar</title>
+    <link rel="stylesheet" href="../../../css/toast.css">
+    <link rel="stylesheet" href="../../../css/share-modal.css">
+    <link rel="stylesheet" href="../../../css/connection-modal.css">
+    <link rel="stylesheet" href="../../../css/GameControlPanel.css">
+    <link rel="stylesheet" href="find-the-liar.css">
+</head>
+<body>
+    <!-- Share Button -->
+    <button id="shareBtn" class="share-btn">📤 Share</button>
+
+    <!-- Disconnect Button -->
+    <button id="disconnectBtn" class="disconnect-btn" onclick="disconnect()" style="display: none;">🚪 Leave Game</button>
+
+    <!-- Header -->
+    <header class="header">
+        <h1>🤥 Find the Liar</h1>
+        <div class="header-info">
+            <span id="roundDisplay">Round -/-</span> |
+            Phase: <span id="currentPhase">WAITING</span> |
+            <span id="timerDisplay"></span>
+        </div>
+    </header>
+
+    <!-- Main Game Container -->
+    <main class="main-container">
+        <div id="gameContainer" class="game-container">
+            <!-- Dynamic content will be rendered here -->
+            <div class="waiting-screen">
+                <h2>🎮 Loading...</h2>
+                <p>Please wait...</p>
+            </div>
+        </div>
+    </main>
+
+    <!-- Players Sidebar -->
+    <aside id="playersSidebar" class="players-sidebar">
+        <h3>👥 Players</h3>
+        <div id="playersList" class="players-list"></div>
+    </aside>
+
+    <!-- Score Modal -->
+    <div id="scoreModal" class="modal hidden">
+        <div class="modal-content score-modal-content">
+            <h2>🏆 Round Results</h2>
+            <div id="scoreModalContent"></div>
+            <button id="newRoundBtn" class="btn btn-primary" onclick="liarGame.requestNewRound()">
+                🔄 New Round
+            </button>
+        </div>
+    </div>
+
+    <!-- Share Modal Container -->
+    <div id="shareModalContainer"></div>
+
+    <!-- Help Modal -->
+    <div id="helpModal" class="modal hidden">
+        <div class="modal-content help-modal-content">
+            <div class="modal-header">
+                <h2>🤥 How to Play: Find the Liar</h2>
+                <button class="modal-close" onclick="closeHelpModal()">✖</button>
+            </div>
+            <div class="modal-body help-modal-body">
+
+                <!-- Game Overview -->
+                <section class="help-section">
+                    <h3>🎯 Game Overview</h3>
+                    <p>A social deduction game where players try to identify the liar(s) among them based on their answers about a secret item.</p>
+                </section>
+
+                <!-- Setup -->
+                <section class="help-section">
+                    <h3>👥 Setup</h3>
+                    <ul>
+                        <li><strong>Players:</strong> 3-10 players</li>
+                        <li><strong>Liars:</strong> 1 liar (< 7 players) or 1-2 liars (7-10 players)</li>
+                        <li><strong>Duration:</strong> 3-5 minutes per game</li>
+                    </ul>
+                </section>
+
+                <!-- Roles -->
+                <section class="help-section">
+                    <h3>🎭 Roles & Information</h3>
+                    <div class="role-info">
+                        <div class="role-card innocent-role">
+                            <h4>✅ Non-Liar (Truthful)</h4>
+                            <p>Receives the <strong>exact item name</strong> and optional image</p>
+                            <p>Must answer honestly about the item</p>
+                        </div>
+                        <div class="role-card liar-role">
+                            <h4>🤥 Liar</h4>
+                            <p>Receives only <strong>hints</strong> (category + 2-4 clues)</p>
+                            <p>Must blend in without knowing the exact item</p>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- Game Flow -->
+                <section class="help-section">
+                    <h3>🎮 How It Works</h3>
+                    <ol class="game-flow">
+                        <li><strong>Role Assignment:</strong> Server secretly assigns roles. Liars stay the same all game!</li>
+                        <li><strong>Pre-Round:</strong> Review your item or hints</li>
+                        <li><strong>Questions:</strong> Answer 3 questions per round (text or multiple choice)</li>
+                        <li><strong>Review:</strong> See everyone's answers before voting</li>
+                        <li><strong>Vote:</strong> Vote for ONE player you suspect is the liar</li>
+                        <li><strong>Results:</strong> See who was voted for (mode dependent)</li>
+                        <li><strong>Repeat:</strong> Up to 5 rounds total</li>
+                    </ol>
+                </section>
+
+                <!-- Game Modes -->
+                <section class="help-section">
+                    <h3>🎲 Game Modes</h3>
+
+                    <div class="mode-card">
+                        <h4>⚔️ SURVIVAL Mode (Elimination)</h4>
+                        <ul>
+                            <li>If ≥50% vote for same player → <strong>eliminated</strong></li>
+                            <li>Vote results show percentages and who was eliminated</li>
+                            <li>Game ends when only 2 non-liars remain</li>
+                            <li><strong>Win:</strong> Liars survive OR non-liars eliminate all liars</li>
+                        </ul>
+                    </div>
+
+                    <div class="mode-card">
+                        <h4>🔍 INVESTIGATION Mode (No Elimination)</h4>
+                        <ul>
+                            <li>Vote reveals if liar was caught (Pass/Fail)</li>
+                            <li>Caught liar learns the item but stays in game</li>
+                            <li>Game runs for all 5 rounds</li>
+                            <li><strong>Win:</strong> Non-liars identify liar within 5 rounds OR liars survive all rounds</li>
+                        </ul>
+                    </div>
+                </section>
+
+                <!-- Win Conditions -->
+                <section class="help-section">
+                    <h3>🏆 Win Conditions</h3>
+                    <div class="win-conditions">
+                        <div class="win-card win-liars">
+                            <h4>🤥 Liars Win If:</h4>
+                            <ul>
+                                <li>They survive without being caught (Investigation)</li>
+                                <li>They survive until 2 non-liars remain (Survival)</li>
+                            </ul>
+                        </div>
+                        <div class="win-card win-truthful">
+                            <h4>✅ Non-Liars Win If:</h4>
+                            <ul>
+                                <li>They identify the liar(s) correctly (Investigation)</li>
+                                <li>They eliminate all liars (Survival)</li>
+                            </ul>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- Tips -->
+                <section class="help-section">
+                    <h3>💡 Tips</h3>
+                    <ul class="tips-list">
+                        <li><strong>For Non-Liars:</strong> Be specific but not too obvious. Watch for vague or contradictory answers.</li>
+                        <li><strong>For Liars:</strong> Use your hints wisely. Mirror others' specificity level. Don't overthink!</li>
+                        <li><strong>Voting:</strong> Look for patterns across multiple answers, not just one mistake.</li>
+                        <li><strong>Multiple Choice:</strong> "None of these" is implicit - don't select anything if all options are wrong.</li>
+                    </ul>
+                </section>
+
+                <!-- Settings -->
+                <section class="help-section">
+                    <h3>⚙️ Host Settings</h3>
+                    <ul>
+                        <li><strong>Questions per Round:</strong> 1-10 (default: 3)</li>
+                        <li><strong>Max Rounds:</strong> 1-10 (default: 5)</li>
+                        <li><strong>Game Mode:</strong> Survival or Investigation</li>
+                        <li><strong>Review Required:</strong> Force answer review before voting</li>
+                    </ul>
+                </section>
+
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-primary" onclick="closeHelpModal()">Got It! 🎮</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Scripts -->
+    <script src="../../../js/config-loader.js"></script>
+    <script src="../../../js/lib/qrcode.min.js"></script>
+    <script src="../../../generated-web-agent-js/js/web-agent.libs.js"></script>
+    <script src="../../../generated-web-agent-js/js/web-agent.js"></script>
+    <script src="../../../generated-web-agent-js/js/web-agent.webrtc.js"></script>
+
+    <script src="../../../js/share-modal.js"></script>
+    <script src="../../../js/common-utils.js"></script>
+    <script src="../../../js/connection-modal.js"></script>
+    <script src="../../../js/AgentInteractionBase.js"></script>
+    <script src="../../../js/GameControlPanel.js"></script>
+
+    <script src="items.js"></script>
+    <script src="find-the-liar.js"></script>
+</body>
+</html>

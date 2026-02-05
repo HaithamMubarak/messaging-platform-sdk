@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Race Balls Map System Self-Test</title>
+  <script src="map-system.js"></script>
+</head>
+<body>
+  <pre id="out">Running…</pre>
+  <script>
+    (async function () {
+      const out = document.getElementById('out');
+      try {
+        const cfg = await RaceMapSystem.loadRaceMapConfig({ url: 'map-default.json' });
+        const summary = {
+          schemaVersion: cfg.schemaVersion,
+          id: cfg.metadata?.id,
+          name: cfg.metadata?.name,
+          mode: cfg.metadata?.mode,
+          maxPlayers: cfg.metadata?.maxPlayers,
+          spawns: cfg.spawns?.length,
+          segments: cfg.track?.groundSegments?.length,
+          checkpoints: cfg.checkpoints?.length,
+          hasFinish: !!cfg.finishLine,
+          pickups: cfg.pickups?.length,
+        };
+        out.textContent = 'PASS\n\n' + JSON.stringify(summary, null, 2);
+      } catch (e) {
+        out.textContent = 'FAIL\n\n' + (e && e.stack ? e.stack : String(e));
+      }
+    })();
+  </script>
+</body>
+</html>

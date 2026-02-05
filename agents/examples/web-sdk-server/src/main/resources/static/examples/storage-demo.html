@@ -1,0 +1,726 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Channel Storage Demo - Web Agent</title>
+
+    <!-- Modal CSS -->
+    <link rel="stylesheet" href="../css/toast.css">
+    <link rel="stylesheet" href="../css/connection-modal.css">
+    <link rel="stylesheet" href="../css/share-modal.css">
+
+    <style>
+        :root {
+            /* Color palette matching whiteboard style */
+            --primary: #6965db;
+            --primary-dark: #5753c6;
+            --success: #10b981;
+            --danger: #ef4444;
+            --gray-50: #f9fafb;
+            --gray-100: #f3f4f6;
+            --gray-800: #1f2937;
+
+            /* Shadows */
+            --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        html, body {
+            width: 100%;
+            min-height: 100vh;
+            -webkit-font-smoothing: antialiased;
+            -moz-osx-font-smoothing: grayscale;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+            position: relative;
+            overflow-x: hidden;
+        }
+
+        /* Ensure connection modal is above everything with proper styling */
+        #connectionModal {
+            z-index: 9999 !important;
+        }
+
+        /* Make modal backdrop more prominent */
+        #connectionModal.active {
+            backdrop-filter: blur(8px);
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            position: relative;
+            z-index: 1;
+        }
+
+        h1 {
+            color: white;
+            text-align: center;
+            margin-bottom: 10px;
+            font-size: 2.5em;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
+        }
+
+        .subtitle {
+            color: rgba(255,255,255,0.9);
+            text-align: center;
+            margin-bottom: 30px;
+            font-size: 1.1em;
+        }
+
+        .card {
+            background: white;
+            border-radius: 12px;
+            padding: 25px;
+            margin-bottom: 20px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        }
+
+        .card h2 {
+            color: #667eea;
+            margin-bottom: 15px;
+            border-bottom: 2px solid #667eea;
+            padding-bottom: 10px;
+        }
+
+        .status {
+            padding: 12px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            font-weight: 500;
+            text-align: center;
+        }
+
+        .status.connecting {
+            background: #fff3cd;
+            color: #856404;
+        }
+
+        .status.connected {
+            background: #d4edda;
+            color: #155724;
+        }
+
+        .status.error {
+            background: #f8d7da;
+            color: #721c24;
+        }
+
+        .grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 20px;
+        }
+
+        .form-group {
+            margin-bottom: 15px;
+        }
+
+        label {
+            display: block;
+            font-weight: 600;
+            margin-bottom: 5px;
+            color: #333;
+        }
+
+        /* Scope form element styles to storage demo only (not connection modal) */
+        .card input,
+        .card textarea,
+        .card button {
+            width: 100%;
+            padding: 10px;
+            border: 2px solid #ddd;
+            border-radius: 6px;
+            font-size: 14px;
+            font-family: inherit;
+        }
+
+        .card textarea {
+            resize: vertical;
+            min-height: 80px;
+            font-family: 'Courier New', monospace;
+        }
+
+        .card button {
+            background: #667eea;
+            color: white;
+            border: none;
+            cursor: pointer;
+            font-weight: 600;
+            transition: all 0.3s;
+        }
+
+        .card button:hover:not(:disabled) {
+            background: #5568d3;
+            transform: translateY(-2px);
+            box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+        }
+
+        .card button:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+        }
+
+        .card .btn-secondary {
+            background: #6c757d;
+            margin-top: 10px;
+        }
+
+        .card .btn-secondary:hover:not(:disabled) {
+            background: #5a6268;
+        }
+
+        .card .btn-danger {
+            background: #dc3545;
+            margin-top: 10px;
+        }
+
+        .card .btn-danger:hover:not(:disabled) {
+            background: #c82333;
+        }
+
+        .output {
+            background: #f8f9fa;
+            border: 2px solid #dee2e6;
+            border-radius: 6px;
+            padding: 15px;
+            min-height: 150px;
+            max-height: 400px;
+            overflow-y: auto;
+            font-family: 'Courier New', monospace;
+            font-size: 12px;
+            white-space: pre-wrap;
+            word-break: break-all;
+        }
+
+        .log-entry {
+            margin-bottom: 8px;
+            padding: 8px;
+            border-radius: 4px;
+            border-left: 4px solid #667eea;
+            background: white;
+        }
+
+        .log-entry.success {
+            border-left-color: #28a745;
+            background: #d4edda;
+        }
+
+        .log-entry.error {
+            border-left-color: #dc3545;
+            background: #f8d7da;
+        }
+
+        .log-entry .timestamp {
+            color: #6c757d;
+            font-size: 11px;
+        }
+
+        .list-item {
+            background: #f8f9fa;
+            padding: 12px;
+            margin-bottom: 8px;
+            border-radius: 6px;
+            border-left: 4px solid #667eea;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .list-item .key {
+            font-weight: 600;
+            color: #667eea;
+        }
+
+        .list-item button {
+            width: auto;
+            padding: 6px 12px;
+            font-size: 12px;
+            margin-left: 10px;
+        }
+
+        .metadata {
+            font-size: 11px;
+            color: #6c757d;
+            margin-top: 4px;
+        }
+
+        .example-buttons {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+
+        .example-buttons button {
+            width: auto;
+            padding: 8px 16px;
+            font-size: 13px;
+        }
+
+        code {
+            background: #f8f9fa;
+            padding: 2px 6px;
+            border-radius: 3px;
+            font-family: 'Courier New', monospace;
+            color: #e83e8c;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>💾 Channel Storage Demo</h1>
+        <p class="subtitle">Persistent Key-Value Storage for Channels</p>
+
+
+        <!-- Storage Operations -->
+        <div class="grid">
+            <!-- PUT (Replace) -->
+            <div class="card">
+                <h2>📝 PUT - Store/Replace</h2>
+                <p style="margin-bottom: 15px; color: #666;">Replace all versions with new content</p>
+
+                <div class="form-group">
+                    <label>Key:</label>
+                    <input type="text" id="putKey" placeholder="e.g., game-settings" value="demo-data">
+                </div>
+
+                <div class="form-group">
+                    <label>Value (JSON):</label>
+                    <textarea id="putValue" placeholder='{"name": "value"}'>{"message": "Hello Storage!", "timestamp": 0}</textarea>
+                </div>
+
+                <div class="form-group">
+                    <label>Description (optional):</label>
+                    <input type="text" id="putDescription" placeholder="e.g., User settings">
+                </div>
+
+                <button onclick="storagePut()" id="putBtn">💾 PUT (Replace)</button>
+
+                <div class="example-buttons" style="margin-top: 15px;">
+                    <button onclick="exampleGameState()">🎮 Game State</button>
+                    <button onclick="exampleSettings()">⚙️ Settings</button>
+                </div>
+            </div>
+
+            <!-- GET -->
+            <div class="card">
+                <h2>📖 GET - Retrieve</h2>
+                <p style="margin-bottom: 15px; color: #666;">Get latest version by key</p>
+
+                <div class="form-group">
+                    <label>Key:</label>
+                    <input type="text" id="getKey" placeholder="e.g., game-settings" value="demo-data">
+                </div>
+
+                <button onclick="storageGet()" id="getBtn">📖 GET</button>
+
+                <div class="form-group" style="margin-top: 15px;">
+                    <label>Retrieved Data:</label>
+                    <textarea id="getOutput" readonly style="min-height: 120px;">No data retrieved yet</textarea>
+                </div>
+            </div>
+        </div>
+
+        <!-- List Operations -->
+        <div class="card">
+            <h2>📋 List Operations</h2>
+            <div class="grid">
+                <div>
+                    <button onclick="listKeys()">🔑 List All Keys</button>
+                    <button onclick="listValues()" class="btn-secondary">📊 List All Values</button>
+                </div>
+                <div id="listOutput" class="output" style="min-height: 150px;">
+                    Click a button to list stored data
+                </div>
+            </div>
+        </div>
+
+        <!-- Delete -->
+        <div class="card">
+            <h2>🗑️ Delete</h2>
+            <div class="grid">
+                <div>
+                    <div class="form-group">
+                        <label>Key to Delete:</label>
+                        <input type="text" id="deleteKey" placeholder="e.g., old-data">
+                    </div>
+                    <button onclick="storageDelete()" class="btn-danger">🗑️ Delete All Versions</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Activity Log -->
+        <div class="card">
+            <h2>📜 Activity Log</h2>
+            <button id="clearLogBtn" onclick="clearLog()" class="btn-secondary" style="width: auto; margin-bottom: 10px;">🧹 Clear Log</button>
+            <div id="log" class="output">
+                <div class="log-entry">
+                    <div class="timestamp">[System]</div>
+                    <div>Storage demo initialized. Connect to start using storage.</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Web Agent Scripts -->
+    <script src="../js/config-loader.js"></script>
+    <script src="../generated-web-agent-js/js/web-agent.libs.js"></script>
+    <script src="../generated-web-agent-js/js/web-agent.js"></script>
+    <script src="../generated-web-agent-js/js/web-agent.webrtc.js"></script>
+    <script src="../js/common-utils.js"></script>
+    <script src="../js/connection-modal.js"></script>
+
+    <script>
+        let agent = null;
+        let connected = false;
+
+        // Initialize connection modal on page load
+        document.addEventListener('DOMContentLoaded', function() {
+            disableButtons();
+            initializeConnectionModal();
+        });
+
+        function initializeConnectionModal() {
+            console.log('[Storage] Initializing connection modal...');
+
+            // Load connection modal with storage demo customization
+            window.loadConnectionModal({
+                localStoragePrefix: 'storage_',
+                channelPrefix: 'storage-',
+                title: '📦 Connect to Storage Demo',
+                collapsedTitle: '📦 Storage',
+                onConnect: function(username, channel, password) {
+                    console.log('[Storage] onConnect called:', { username, channel });
+                    connectToChannel(username, channel, password);
+                },
+                onHideModal: function() {
+                    console.log('[Storage] Modal hide callback executed');
+                }
+            });
+
+            // Ensure modal is visible after a short delay
+            setTimeout(() => {
+                const modal = document.getElementById('connectionModal');
+                if (modal) {
+                    modal.classList.add('active');
+                    console.log('[Storage] Connection modal made visible');
+                } else {
+                    console.warn('[Storage] Connection modal element not found!');
+                }
+            }, 200);
+        }
+
+        async function connectToChannel(username, channel, password) {
+            try {
+                log('🔄 Connecting to channel...', 'info');
+
+                // Get API configuration
+                const response = await window.fetchAppConfig(300, false);
+                const config = response?.data || response;
+
+                // Create agent
+                agent = new AgentConnection();
+
+                // Set up event handlers BEFORE connecting
+                agent.addEventListener('connect', function(ev) {
+                    const resp = ev.response || {};
+                    console.log('[Storage] Connect event received:', resp);
+
+                    if (resp.status === 'success') {
+                        connected = true;
+                        log(`✅ Connected as ${username} to channel: ${channel}`, 'success');
+                        enableButtons();
+
+                        // Hide connection modal - use timeout to ensure DOM is ready
+                        setTimeout(() => {
+                            if (window.ConnectionModal && typeof window.ConnectionModal.hide === 'function') {
+                                window.ConnectionModal.hide();
+                                console.log('[Storage] Connection modal hidden via ConnectionModal.hide()');
+                            } else {
+                                // Fallback: directly manipulate the modal
+                                const modal = document.getElementById('connectionModal');
+                                if (modal) {
+                                    modal.classList.remove('active');
+                                    modal.classList.add('collapsed');
+                                    console.log('[Storage] Connection modal hidden via direct manipulation');
+                                } else {
+                                    console.error('[Storage] Modal element not found!');
+                                }
+                            }
+                        }, 100);
+                    } else {
+                        log(`❌ Connection failed: ${resp.statusMessage || 'Unknown error'}`, 'error');
+                        connected = false;
+                        disableButtons();
+                    }
+                });
+
+                agent.addEventListener('error', function(ev) {
+                    log(`❌ Connection error: ${ev.error || 'Unknown error'}`, 'error');
+                    connected = false;
+                    disableButtons();
+                });
+
+                agent.addEventListener('disconnect', function() {
+                    log('⚠️ Disconnected from channel', 'error');
+                    connected = false;
+                    disableButtons();
+
+                    // Show connection modal again
+                    if (window.ConnectionModal) {
+                        window.ConnectionModal.show();
+                    }
+                });
+
+                // Connect to channel
+                agent.connect({
+                    channelName: channel,
+                    channelPassword: password,
+                    agentName: username,
+                    api: config.messagingServiceUrl || config.messagingApiUrl,
+                    apiKey: config.apiKey || config.devApiKey,
+                    autoReceive: true
+                });
+
+            } catch (error) {
+                log(`❌ Connection failed: ${error.message}`, 'error');
+                connected = false;
+                disableButtons();
+            }
+        }
+
+        function enableButtons() {
+            const buttons = document.querySelectorAll('button:not(#clearLogBtn)');
+            buttons.forEach(btn => {
+                btn.disabled = false;
+            });
+        }
+
+        function disableButtons() {
+            const buttons = document.querySelectorAll('button:not(#clearLogBtn)');
+            buttons.forEach(btn => {
+                // Don't disable buttons inside connection modal
+                if (!btn.closest('.connection-modal')) {
+                    btn.disabled = true;
+                }
+            });
+        }
+
+        function log(message, type = 'info') {
+            const logDiv = document.getElementById('log');
+            const entry = document.createElement('div');
+            entry.className = 'log-entry ' + type;
+
+            const timestamp = new Date().toLocaleTimeString();
+            entry.innerHTML = `<div class="timestamp">[${timestamp}]</div><div>${message}</div>`;
+
+            logDiv.insertBefore(entry, logDiv.firstChild);
+        }
+
+        function clearLog() {
+            document.getElementById('log').innerHTML = '';
+            log('Log cleared');
+        }
+
+        // Storage PUT
+        function storagePut() {
+            if (!agent || !connected) {
+                alert('Not connected to channel');
+                return;
+            }
+
+            const key = document.getElementById('putKey').value.trim();
+            const valueText = document.getElementById('putValue').value.trim();
+            const description = document.getElementById('putDescription').value.trim();
+
+            if (!key) {
+                alert('Key is required');
+                return;
+            }
+
+            try {
+                const value = JSON.parse(valueText);
+                value.timestamp = Date.now(); // Add timestamp
+
+                agent.storagePut({
+                    storageKey: key,
+                    content: value,
+                    encrypted: false,
+                    metadata: description ? { description } : undefined
+                }, function(response) {
+                    console.log('[Storage PUT] Response:', response);
+                    if (response.status === 'success') {
+                        log(`✅ PUT successful: ${key}`, 'success');
+                        document.getElementById('getKey').value = key;
+                    } else {
+                        log(`❌ PUT failed: ${response.statusMessage || 'Unknown error'}`, 'error');
+                    }
+                });
+            } catch (e) {
+                alert('Invalid JSON: ' + e.message);
+            }
+        }
+
+        // Storage GET
+        function storageGet() {
+            if (!agent || !connected) {
+                alert('Not connected to channel');
+                return;
+            }
+
+            const key = document.getElementById('getKey').value.trim();
+            if (!key) {
+                alert('Key is required');
+                return;
+            }
+
+            agent.storageGet({
+                storageKey: key
+            }, function(response) {
+                console.log('[Storage GET] Response:', response);
+                if (response.status === 'success') {
+                    const data = response.data;
+                    const formatted = JSON.stringify(data, null, 2);
+                    document.getElementById('getOutput').value = formatted;
+                    log(`✅ GET successful: ${key}`, 'success');
+                } else {
+                    document.getElementById('getOutput').value = 'Error: ' + (response.statusMessage || response.data || 'Unknown error');
+                    log(`❌ GET failed: ${response.statusMessage || 'Unknown error'}`, 'error');
+                }
+            });
+        }
+
+
+        // List keys
+        function listKeys() {
+            if (!agent || !connected) {
+                alert('Not connected to channel');
+                return;
+            }
+
+            agent.storageKeys(function(response) {
+                console.log('[Storage KEYS] Response:', response);
+                if (response.status === 'success') {
+                    // Handle both formats: data.keys array or data directly as array
+                    const keys = response.data?.data?.keys || [];
+
+                    log(`📋 Found ${keys.length} key(s)`, 'success');
+
+                    const output = document.getElementById('listOutput');
+                    if (keys.length === 0) {
+                        output.innerHTML = '<em>No keys found in storage</em>';
+                    } else {
+                        output.innerHTML = '';
+                        keys.forEach(key => {
+                            const item = document.createElement('div');
+                            item.className = 'list-item';
+                            item.innerHTML = `
+                                <span class="key">${key}</span>
+                                <button onclick="loadKey('${key}')">📖 Load</button>
+                            `;
+                            output.appendChild(item);
+                        });
+                    }
+                } else {
+                    log(`❌ List keys failed: ${response.statusMessage || 'Unknown error'}`, 'error');
+                }
+            });
+        }
+
+        // List values
+        function listValues() {
+            if (!agent || !connected) {
+                alert('Not connected to channel');
+                return;
+            }
+
+            agent.storageValues(function(response) {
+                console.log('[Storage VALUES] Response:', response);
+                if (response.status === 'success') {
+                    const values = response.data;
+                    log(`📊 Found ${values.length} value(s)`, 'success');
+
+                    const output = document.getElementById('listOutput');
+                    output.innerHTML = '<pre>' + JSON.stringify(values, null, 2) + '</pre>';
+                } else {
+                    log(`❌ List values failed: ${response.statusMessage || 'Unknown error'}`, 'error');
+                }
+            });
+        }
+
+        // Delete
+        function storageDelete() {
+            if (!agent || !connected) {
+                alert('Not connected to channel');
+                return;
+            }
+
+            const key = document.getElementById('deleteKey').value.trim();
+            if (!key) {
+                alert('Key is required');
+                return;
+            }
+
+            if (!confirm(`Delete all versions of "${key}"?`)) {
+                return;
+            }
+
+            agent.storageDeleteByKey(key, function(response) {
+                console.log('[Storage DELETE] Response:', response);
+                if (response.status === 'success') {
+                    log(`✅ Deleted: ${key}`, 'success');
+                    document.getElementById('deleteKey').value = '';
+                } else {
+                    log(`❌ Delete failed: ${response.statusMessage || 'Unknown error'}`, 'error');
+                }
+            });
+        }
+
+        // Helper to load a key
+        function loadKey(key) {
+            document.getElementById('getKey').value = key;
+            storageGet();
+        }
+
+        // Example data generators
+        function exampleGameState() {
+            document.getElementById('putKey').value = 'game-state';
+            document.getElementById('putValue').value = JSON.stringify({
+                level: 5,
+                lives: 3,
+                score: 2500,
+                inventory: ['sword', 'shield', 'potion'],
+                position: { x: 100, y: 200 }
+            }, null, 2);
+            document.getElementById('putDescription').value = 'Player game state';
+        }
+
+        function exampleSettings() {
+            document.getElementById('putKey').value = 'user-settings';
+            document.getElementById('putValue').value = JSON.stringify({
+                theme: 'dark',
+                notifications: true,
+                soundEnabled: true,
+                language: 'en'
+            }, null, 2);
+            document.getElementById('putDescription').value = 'User preferences';
+        }
+
+        // Setup channel cleanup on page unload using MiniGameUtils
+        if (typeof MiniGameUtils !== 'undefined' && typeof MiniGameUtils.setupCleanupOnUnload === 'function') {
+            MiniGameUtils.setupCleanupOnUnload(() => agent, 'Storage');
+        }
+    </script>
+</body>
+</html>

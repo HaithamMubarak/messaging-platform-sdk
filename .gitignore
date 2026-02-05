@@ -1,0 +1,108 @@
+# SDK .gitignore 
+ 
+# Gradle 
+.gradle/ 
+*.gradle.kts.compiled 
+gradle-app.setting 
+!gradle-wrapper.jar 
+!gradle-wrapper.properties 
+ 
+# IDE 
+.idea/ 
+.vscode/ 
+*.iml 
+*.iws 
+*.ipr 
+out/ 
+ 
+# Build output 
+/build/ 
+build/ 
+**/build/ 
+**/build/** 
+build/classes/ 
+/build/classes/ 
+**/build/classes/ 
+**/build/classes/** 
+ 
+# Agents build outputs 
+agents/build/ 
+agents/build/** 
+ 
+# Ensure sdk/libs is not ignored 
+!/libs/ 
+!/libs/** 
+ 
+# Python 
+**/__pycache__/ 
+*.py[cod] 
+*$py.class 
+*.so 
+.Python 
+env/ 
+venv/ 
+*.egg-info/ 
+dist/ 
+ 
+# Node.js 
+node_modules/ 
+# Gradle
+.gradle/
+build/
+out/
+**/build/
+gradle-app.setting
+!gradle-wrapper.jar
+.gradletasknamecache
+
+# IDE
+.idea/
+*.iml
+*.ipr
+*.iws
+.vscode/
+.classpath
+.project
+.settings/
+bin/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+logs/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Node (for web-agent)
+node_modules/
+dist/
+.cache/
+
+# Python (for python-agent)
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+
+# Java
+*.class
+*.jar
+!gradle/wrapper/*.jar
+target/
+
+# Test
+.pytest_cache/
+coverage/
+*.coverage
+
+# Environment files (sensitive - NEVER commit)
+.env
+.env.local
+.env.*.local
+*.env
+

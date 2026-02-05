@@ -1,0 +1,376 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>User Guide - Messaging Platform SDK</title>
+    <link rel="stylesheet" href="css/toast.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/github-markdown-css/5.5.0/github-markdown.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/marked@11.0.0/marked.min.js"></script>
+    <style>
+        :root {
+            --bg: #0f1724;
+            --panel: #0b1220;
+            --sidebar-bg: #070d16;
+            --muted: #94a3b8;
+            --accent: #4f46e5;
+            --text: #e6eef8;
+            --border: rgba(255, 255, 255, 0.06);
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
+            background: var(--bg);
+            color: var(--text);
+            display: flex;
+            flex-direction: column;
+            height: 100vh;
+            overflow: hidden;
+        }
+
+        .header {
+            background: var(--panel);
+            border-bottom: 1px solid var(--border);
+            padding: 16px 24px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            flex-shrink: 0;
+        }
+
+        .header h1 {
+            font-size: 20px;
+            font-weight: 600;
+            background: linear-gradient(90deg, var(--accent), #06b6d4);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .header-actions {
+            display: flex;
+            gap: 12px;
+        }
+
+        .btn {
+            padding: 8px 16px;
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            color: var(--text);
+            text-decoration: none;
+            font-size: 14px;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .btn:hover {
+            background: rgba(79, 70, 229, 0.2);
+            border-color: var(--accent);
+        }
+
+        .main-container {
+            display: flex;
+            flex: 1;
+            overflow: hidden;
+        }
+
+        .sidebar {
+            width: 280px;
+            background: var(--sidebar-bg);
+            border-right: 1px solid var(--border);
+            overflow-y: auto;
+            flex-shrink: 0;
+        }
+
+        .sidebar-section {
+            padding: 16px;
+            border-bottom: 1px solid var(--border);
+        }
+
+        .sidebar-title {
+            font-size: 12px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            color: var(--muted);
+            margin-bottom: 12px;
+            font-weight: 600;
+        }
+
+        .sidebar-link {
+            display: block;
+            padding: 8px 12px;
+            color: var(--muted);
+            text-decoration: none;
+            border-radius: 6px;
+            font-size: 14px;
+            margin-bottom: 4px;
+            transition: all 0.2s;
+        }
+
+        .sidebar-link:hover {
+            background: rgba(255, 255, 255, 0.05);
+            color: var(--text);
+        }
+
+        .sidebar-link.active {
+            background: var(--accent);
+            color: white;
+        }
+
+        .content {
+            flex: 1;
+            overflow-y: auto;
+            padding: 40px 60px;
+        }
+
+        .markdown-body {
+            background: transparent !important;
+            color: var(--text) !important;
+            max-width: 900px;
+        }
+
+        .markdown-body h1, .markdown-body h2, .markdown-body h3 {
+            color: var(--text) !important;
+            border-bottom-color: var(--border) !important;
+        }
+
+        .markdown-body code {
+            background: rgba(255, 255, 255, 0.05) !important;
+            color: #94d3f3 !important;
+        }
+
+        .markdown-body pre {
+            background: #1e293b !important;
+            border: 1px solid var(--border) !important;
+        }
+
+        .markdown-body table {
+            border-color: var(--border) !important;
+        }
+
+        .markdown-body table tr {
+            background: transparent !important;
+            border-color: var(--border) !important;
+        }
+
+        .markdown-body table tr:nth-child(2n) {
+            background: rgba(255, 255, 255, 0.02) !important;
+        }
+
+        .markdown-body a {
+            color: var(--accent) !important;
+        }
+
+        .markdown-body blockquote {
+            border-left-color: var(--accent) !important;
+            color: var(--muted) !important;
+        }
+
+        .loading {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100%;
+            font-size: 18px;
+            color: var(--muted);
+        }
+
+        @media (max-width: 768px) {
+            .sidebar {
+                width: 220px;
+            }
+            .content {
+                padding: 20px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>📚 Messaging Platform SDK - User Guide</h1>
+        <div class="header-actions">
+            <a href="/" class="btn">← Back to Home</a>
+            <a href="/examples/whiteboard/index.html" class="btn">🎨 Whiteboard</a>
+        </div>
+    </div>
+
+    <div class="main-container">
+        <nav class="sidebar" id="sidebar">
+            <!-- Static fallback navigation -->
+            <div class="sidebar-section">
+                <div class="sidebar-title">Quick Links</div>
+                <a href="/" class="sidebar-link">🏠 Home</a>
+                <a href="/examples/whiteboard/index.html" class="sidebar-link">🎨 Whiteboard Demo</a>
+                <a href="/examples/chat.html" class="sidebar-link">💬 Chat Demo</a>
+                <a href="/examples/webrtc.html" class="sidebar-link">📹 WebRTC Demo</a>
+            </div>
+            <div id="nav-loading" class="loading" style="padding: 16px; font-size: 13px;">Loading navigation...</div>
+        </nav>
+
+        <main class="content">
+            <div class="markdown-body" id="content">
+                <!-- Static fallback content - shown if JavaScript fails to load documentation -->
+                <noscript>
+                    <div style="padding: 40px;">
+                        <h1>📚 Messaging Platform SDK - User Guide</h1>
+                        <p style="margin-top: 16px; color: var(--muted);">JavaScript is required to render the full documentation.</p>
+                        <p style="margin-top: 16px; color: var(--muted);">Alternatively, view the documentation directly:</p>
+                        <ul style="margin-top: 16px; color: var(--muted);">
+                            <li><a href="USER-GUIDE.md" style="color: var(--accent);">📄 USER-GUIDE.md (Raw Markdown)</a></li>
+                            <li><a href="/" style="color: var(--accent);">🏠 Return to Home</a></li>
+                        </ul>
+                    </div>
+                </noscript>
+
+                <!-- Loading state - replaced by actual content via JS -->
+                <div id="loading-state" class="loading">
+                    <div style="text-align: center;">
+                        <div style="font-size: 32px; margin-bottom: 16px;">📖</div>
+                        <div>Loading documentation...</div>
+                        <div style="margin-top: 12px; font-size: 13px; color: var(--muted);">If this persists, <a href="USER-GUIDE.md" style="color: var(--accent);">view raw markdown</a></div>
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <script>
+        // Fetch and render the USER-GUIDE.md
+        async function loadDocumentation() {
+            try {
+                // Fetch the markdown file
+                const response = await fetch('./USER-GUIDE.md');
+                if (!response.ok) {
+                    throw new Error('Failed to load documentation');
+                }
+
+                const markdown = await response.text();
+
+                // Parse and render markdown
+                const html = marked.parse(markdown);
+                document.getElementById('content').innerHTML = html;
+
+                // Generate navigation from headings
+                generateNavigation();
+
+                // Setup smooth scrolling
+                setupSmoothScrolling();
+
+            } catch (error) {
+                console.error('Error loading documentation:', error);
+                document.getElementById('content').innerHTML = `
+                    <div style="padding: 40px; text-align: center;">
+                        <h2>📚 Documentation</h2>
+                        <p style="color: var(--muted); margin-top: 16px;">
+                            The documentation is loading from USER-GUIDE.md
+                        </p>
+                        <p style="color: var(--muted); margin-top: 16px;">
+                            <a href="USER-GUIDE.md" style="color: var(--accent);">📄 View Raw Markdown</a>
+                            &nbsp;|&nbsp;
+                            <a href="/" style="color: var(--accent);">🏠 Return Home</a>
+                        </p>
+                        <div style="margin-top: 32px; padding: 20px; background: rgba(255,255,255,0.02); border-radius: 8px; text-align: left; max-width: 600px; margin-left: auto; margin-right: auto;">
+                            <h3 style="font-size: 16px; margin-bottom: 12px;">Quick Start</h3>
+                            <p style="color: var(--muted); font-size: 14px; line-height: 1.6;">
+                                The Messaging Platform SDK enables real-time communication between web applications.
+                                Try the <a href="/examples/whiteboard/index.html" style="color: var(--accent);">Whiteboard Demo</a> to see it in action.
+                            </p>
+                        </div>
+                    </div>
+                `;
+            }
+        }
+
+        function generateNavigation() {
+            const content = document.getElementById('content');
+            const headings = content.querySelectorAll('h1, h2, h3');
+
+            if (headings.length === 0) return;
+
+            // Group headings by sections
+            const sections = new Map();
+            let currentH1 = null;
+
+            headings.forEach((heading, index) => {
+                // Add ID for anchor links
+                const id = `section-${index}`;
+                heading.id = id;
+
+                if (heading.tagName === 'H1') {
+                    currentH1 = { title: heading.textContent, id, children: [] };
+                    sections.set(currentH1, currentH1.children);
+                } else if (heading.tagName === 'H2' && currentH1) {
+                    currentH1.children.push({ title: heading.textContent, id, level: 2 });
+                }
+            });
+
+            // Build navigation HTML
+            let navHtml = '';
+            sections.forEach((children, section) => {
+                navHtml += `
+                    <div class="sidebar-section">
+                        <a href="#${section.id}" class="sidebar-link" data-section="${section.id}">
+                            ${section.title}
+                        </a>
+                        ${children.map(child => `
+                            <a href="#${child.id}" class="sidebar-link" data-section="${child.id}" style="padding-left: 24px; font-size: 13px;">
+                                ${child.title}
+                            </a>
+                        `).join('')}
+                    </div>
+                `;
+            });
+
+            document.getElementById('sidebar').innerHTML = navHtml;
+        }
+
+        function setupSmoothScrolling() {
+            const links = document.querySelectorAll('.sidebar-link');
+
+            links.forEach(link => {
+                link.addEventListener('click', (e) => {
+                    e.preventDefault();
+                    const targetId = link.getAttribute('href').substring(1);
+                    const target = document.getElementById(targetId);
+
+                    if (target) {
+                        target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+
+                        // Update active link
+                        links.forEach(l => l.classList.remove('active'));
+                        link.classList.add('active');
+                    }
+                });
+            });
+
+            // Highlight current section on scroll
+            const content = document.querySelector('.content');
+            content.addEventListener('scroll', () => {
+                const headings = document.querySelectorAll('.markdown-body h1, .markdown-body h2');
+                let current = null;
+
+                headings.forEach(heading => {
+                    const rect = heading.getBoundingClientRect();
+                    if (rect.top < 100) {
+                        current = heading.id;
+                    }
+                });
+
+                if (current) {
+                    links.forEach(l => l.classList.remove('active'));
+                    const activeLink = document.querySelector(`[data-section="${current}"]`);
+                    if (activeLink) {
+                        activeLink.classList.add('active');
+                    }
+                }
+            });
+        }
+
+        // Load documentation on page load
+        loadDocumentation();
+    </script>
+</body>
+</html>
+

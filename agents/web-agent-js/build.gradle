@@ -1,0 +1,26 @@
+// Web Agent JavaScript SDK
+// This is a non-Java project containing only JavaScript/CSS files
+
+group = 'com.hmdev.messaging'
+version = '1.0.0'
+
+// No compilation needed - this is just a collection of static JS/CSS files
+// Other projects can reference these files using Gradle copy tasks
+
+tasks.register('build') {
+    description = 'Web-agent-js has no build process - files are already ready'
+    doLast {
+        println '✅ Web-agent-js SDK is ready (no compilation needed)'
+        println '📂 JS files: js/'
+        println '📂 CSS files: css/'
+        println '📂 Libraries: lib/'
+    }
+}
+
+tasks.register('clean') {
+    description = 'Nothing to clean - source files only'
+    doLast {
+        println '✅ Web-agent-js clean complete'
+    }
+}
+

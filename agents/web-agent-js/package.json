@@ -1,0 +1,28 @@
+{
+  "name": "@messaging-platform/web-agent-js",
+  "version": "1.0.0",
+  "description": "JavaScript SDK for Messaging Platform - Real-time messaging, WebRTC, and channel management",
+  "main": "js/web-agent.js",
+  "keywords": [
+    "messaging",
+    "webrtc",
+    "real-time",
+    "chat",
+    "multiplayer",
+    "websocket"
+  ],
+  "author": "Messaging Platform Team",
+  "license": "SEE LICENSE IN LICENSE.md",
+  "files": [
+    "js/**/*.js",
+    "css/**/*.css",
+    "lib/**/*.js",
+    "README.md"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/your-org/messaging-platform-sdk.git",
+    "directory": "agents/web-agent-js"
+  }
+}
+

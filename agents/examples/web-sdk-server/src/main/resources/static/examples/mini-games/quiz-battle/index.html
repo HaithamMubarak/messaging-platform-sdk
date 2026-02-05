@@ -1,0 +1,438 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>🧠 Quiz Battle</title>
+    <link rel="stylesheet" href="../../../css/toast.css">
+    <link rel="stylesheet" href="../../../css/share-modal.css">
+    <link rel="stylesheet" href="../../../css/connection-modal.css">
+    <style>
+        :root {
+            --primary: #6a11cb;
+            --primary-dark: #5753c6;
+            --secondary: #2575fc;
+            --success: #10b981;
+            --danger: #ef4444;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        html, body {
+            width: 100%;
+            min-height: 100vh;
+            -webkit-font-smoothing: antialiased;
+            -moz-osx-font-smoothing: grayscale;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #6a11cb 0%, #2575fc 100%);
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            color: #333;
+            overflow-x: hidden;
+        }
+
+        /* Connection modal styling */
+        #connectionModal {
+            z-index: 9999 !important;
+        }
+
+        #connectionModal.active {
+            backdrop-filter: blur(8px);
+        }
+
+        .header {
+            background: rgba(255, 255, 255, 0.95);
+            padding: 20px;
+            text-align: center;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.2);
+        }
+
+        .header h1 {
+            font-size: 36px;
+            margin-bottom: 10px;
+            background: linear-gradient(135deg, #6a11cb, #2575fc);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .score-bar {
+            background: rgba(255, 255, 255, 0.9);
+            padding: 15px;
+            display: flex;
+            justify-content: space-around;
+            align-items: center;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+        }
+
+        .score-item {
+            text-align: center;
+        }
+
+        .score-label {
+            font-size: 12px;
+            color: #666;
+        }
+
+        .score-value {
+            font-size: 24px;
+            font-weight: bold;
+            color: #6a11cb;
+        }
+
+        .main-container {
+            flex: 1;
+            padding: 30px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .quiz-container {
+            background: white;
+            border-radius: 20px;
+            padding: 40px;
+            max-width: 800px;
+            width: 100%;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+        }
+
+        .question-header {
+            text-align: center;
+            margin-bottom: 30px;
+        }
+
+        .question-number {
+            font-size: 14px;
+            color: #666;
+            margin-bottom: 10px;
+        }
+
+        .question-text {
+            font-size: 24px;
+            font-weight: bold;
+            color: #333;
+            line-height: 1.4;
+        }
+
+        .timer-bar {
+            height: 8px;
+            background: #e0e0e0;
+            border-radius: 4px;
+            margin: 20px 0;
+            overflow: hidden;
+        }
+
+        .timer-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #4CAF50, #FFC107, #f44336);
+            transition: width 0.1s linear;
+        }
+
+        .answers-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 15px;
+            margin-top: 30px;
+        }
+
+        .answer-btn {
+            padding: 20px;
+            border: 3px solid #e0e0e0;
+            border-radius: 15px;
+            background: white;
+            cursor: pointer;
+            font-size: 18px;
+            transition: all 0.3s;
+            text-align: left;
+            display: flex;
+            align-items: center;
+            gap: 15px;
+        }
+
+        .answer-btn:hover {
+            border-color: #6a11cb;
+            transform: translateY(-5px);
+            box-shadow: 0 10px 20px rgba(106, 17, 203, 0.2);
+        }
+
+        .answer-letter {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            background: #6a11cb;
+            color: white;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+            font-size: 20px;
+            flex-shrink: 0;
+        }
+
+        .answer-btn.correct {
+            border-color: #4CAF50;
+            background: #e8f5e9;
+        }
+
+        .answer-btn.wrong {
+            border-color: #f44336;
+            background: #ffebee;
+        }
+
+        .answer-btn.selected {
+            border-color: #2575fc;
+            background: #e3f2fd;
+        }
+
+        .answer-btn:disabled {
+            cursor: not-allowed;
+            opacity: 0.6;
+        }
+
+        .waiting-screen {
+            text-align: center;
+            padding: 60px 20px;
+        }
+
+        .waiting-screen h2 {
+            font-size: 32px;
+            margin-bottom: 20px;
+            color: #6a11cb;
+        }
+
+        .waiting-screen button {
+            padding: 15px 40px;
+            font-size: 18px;
+            background: linear-gradient(135deg, #6a11cb, #2575fc);
+            color: white;
+            border: none;
+            border-radius: 50px;
+            cursor: pointer;
+            margin-top: 20px;
+            transition: all 0.3s;
+        }
+
+        .waiting-screen button:hover {
+            transform: scale(1.1);
+            box-shadow: 0 10px 30px rgba(106, 17, 203, 0.4);
+        }
+
+        .results-screen {
+            text-align: center;
+        }
+
+        .final-score {
+            font-size: 72px;
+            font-weight: bold;
+            background: linear-gradient(135deg, #FFD700, #FFA500);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            margin: 20px 0;
+        }
+
+        .leaderboard {
+            margin-top: 30px;
+            text-align: left;
+        }
+
+        .leaderboard-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 15px;
+            margin: 10px 0;
+            background: #f5f5f5;
+            border-radius: 10px;
+            transition: all 0.3s;
+        }
+
+        .leaderboard-item:hover {
+            transform: translateX(5px);
+        }
+
+        .leaderboard-item.rank1 {
+            background: linear-gradient(135deg, #FFD700, #FFA500);
+            color: white;
+            font-size: 20px;
+        }
+
+        .leaderboard-item.rank2 {
+            background: linear-gradient(135deg, #C0C0C0, #A9A9A9);
+            color: white;
+        }
+
+        .leaderboard-item.rank3 {
+            background: linear-gradient(135deg, #CD7F32, #8B4513);
+            color: white;
+        }
+
+        /* Waiting Room Styles */
+        .waiting-room {
+            text-align: center;
+            padding: 40px;
+        }
+
+        .waiting-room h2 {
+            font-size: 32px;
+            margin-bottom: 20px;
+            color: #6a11cb;
+        }
+
+        .waiting-room p {
+            font-size: 18px;
+            color: #666;
+            margin-bottom: 30px;
+        }
+
+        .players-list {
+            background: #f8f9fa;
+            border-radius: 12px;
+            padding: 20px;
+            margin: 20px 0;
+            max-width: 500px;
+            margin-left: auto;
+            margin-right: auto;
+        }
+
+        .players-list h3 {
+            font-size: 18px;
+            color: #333;
+            margin-bottom: 15px;
+        }
+
+        .player-item {
+            background: white;
+            padding: 12px 20px;
+            margin: 8px 0;
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+
+        .player-item.host {
+            background: linear-gradient(135deg, #6a11cb, #2575fc);
+            color: white;
+            font-weight: bold;
+        }
+
+        .start-game-btn {
+            background: linear-gradient(135deg, #10b981, #059669);
+            color: white;
+            border: none;
+            padding: 15px 40px;
+            font-size: 18px;
+            font-weight: bold;
+            border-radius: 12px;
+            cursor: pointer;
+            transition: all 0.3s;
+            margin-top: 20px;
+        }
+
+        .start-game-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(16, 185, 129, 0.4);
+        }
+
+        .start-game-btn:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .waiting-indicator {
+            font-size: 16px;
+            color: #666;
+            margin-top: 20px;
+            animation: pulse 2s infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+
+        /* Modal styles are provided by ../../css/share-modal.css - no inline modal CSS here */
+     </style>
+</head>
+<body>
+    <!-- Connection Modal will be loaded dynamically -->
+
+    <!-- Main UI -->
+    <div class="header">
+        <h1>🧠 Quiz Battle</h1>
+        <div style="display:flex;align-items:center;justify-content:center;gap:12px;">
+            <p style="margin:0;color:#666;">Answer fast, score points, win the game!</p>
+            <button id="shareBtn" style="display:none;padding:8px 16px;border-radius:8px;background:#fff;border:1px solid #ddd;cursor:pointer;">🔗 Share</button>
+        </div>
+     </div>
+
+    <div class="score-bar">
+         <div class="score-item">
+             <div class="score-label">Your Score</div>
+             <div class="score-value" id="yourScore">0</div>
+         </div>
+        <div class="score-item">
+            <div class="score-label">Question</div>
+            <div class="score-value" id="questionNum">0/10</div>
+        </div>
+        <div class="score-item">
+            <div class="score-label">Players</div>
+            <div class="score-value" id="playerCount">1</div>
+        </div>
+        <div class="score-item">
+            <div class="score-label">Time Left</div>
+            <div class="score-value" id="timeLeft">10s</div>
+        </div>
+        <!-- Export + Share buttons -->
+        <div class="score-item" style="display:flex;align-items:center;gap:8px;">
+            <button id="export-btn" style="padding:8px 10px;border-radius:8px;background:#9C27B0;color:#fff;border:none;cursor:pointer;">💾 Export</button>
+            <button id="header-share-btn" style="display:none;padding:8px 10px;border-radius:8px;background:#fff;border:1px solid #ddd;cursor:pointer;">🔗 Share</button>
+        </div>
+     </div>
+
+    <div class="main-container">
+        <div class="quiz-container" id="quizContainer">
+            <!-- Content will be dynamically inserted -->
+        </div>
+    </div>
+
+    <!-- Load SDK Scripts from generated folder (copied at build time) -->
+    <script src="../../../js/config-loader.js"></script>
+    <script src="../../../js/lib/qrcode.min.js"></script>
+    <script src="../../../generated-web-agent-js/js/web-agent.libs.js"></script>
+    <script src="../../../generated-web-agent-js/js/web-agent.js"></script>
+    <script src="../../../generated-web-agent-js/js/web-agent.webrtc.js"></script>
+
+    <!-- Load Demo-Specific Scripts from static/js -->
+    <script src="../../../js/share-modal.js"></script>
+    <script src="../../../js/common-utils.js"></script>
+    <script src="../../../js/connection-modal.js"></script>
+
+    <!-- Common Game Framework -->
+    <script src="../../../js/AgentInteractionBase.js"></script>
+
+    <!-- Question Generator -->
+    <script src="question-generator.js"></script>
+
+    <!-- Game Script -->
+    <script src="quiz-battle.js"></script>
+
+    <script>
+        // Setup channel cleanup on page unload
+        if (typeof MiniGameUtils !== 'undefined' && typeof MiniGameUtils.setupCleanupOnUnload === 'function') {
+            MiniGameUtils.setupCleanupOnUnload(() => window.quizChannel, 'Quiz Battle');
+        }
+    </script>
+</body>
+</html>
+

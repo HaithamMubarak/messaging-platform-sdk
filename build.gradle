@@ -1,0 +1,48 @@
+// filepath: c:\Users\admin\dev\messaging-platform\sdk\build.gradle
+plugins {
+    id 'base'
+}
+
+// Make sdk folder self-contained: group, version and repositories for subprojects
+allprojects {
+    group = 'com.hmdev.messaging.sdk'
+    version = '1.0.0'
+    repositories {
+        mavenCentral()
+    }
+}
+
+// Add local flatDir repository for SDK projects to pick up generated common jars
+allprojects {
+    repositories {
+        // Add sdk/libs as a flatDir repo (file-based) so SDK subprojects can declare dependencies by name
+        flatDir {
+            dirs "${rootDir}/libs"
+        }
+        // Also expose sdk/libs as a file-based maven repository so published POMs can be resolved and transitive dependencies fetched
+        maven {
+            url = uri("${rootDir}/libs")
+        }
+    }
+}
+
+// Apply Java defaults to Java subprojects only (don't force python projects)
+subprojects {
+    // Only apply Java plugin for subprojects that have Java sources
+    if (file("${projectDir}/src/main/java").exists()) {
+        apply plugin: 'java'
+        sourceCompatibility = '11'
+        targetCompatibility = '11'
+
+        tasks.withType(JavaCompile).configureEach {
+            options.encoding = 'UTF-8'
+        }
+    }
+}
+
+// Convenience: name of the messaging-common jar artifact produced by the platform build
+ext {
+    sdkCommonJarName = 'messaging-common-1.0.0'
+}
+
+// Placeholder for SDK-specific tasks (packaging, publishing)

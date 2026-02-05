@@ -1,0 +1,139 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="theme-color" content="#1a1a2e">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <title>🏒 Air Hockey - 2-4 Players</title>
+    <link rel="stylesheet" href="../../../css/toast.css">
+    <link rel="stylesheet" href="air-hockey.css">
+    <link rel="stylesheet" href="../../../css/share-modal.css">
+    <link rel="stylesheet" href="../../../css/connection-modal.css">
+    <link rel="stylesheet" href="../../../css/GameControlPanel.css">
+</head>
+<body>
+<!-- Connection Modal will be loaded dynamically -->
+
+<!-- Debug Console for iPhone Testing -->
+<div id="debugConsole" style="position: fixed; top: 0; right: 0; width: 300px; max-height: 50vh; background: rgba(0,0,0,0.9); color: #0f0; font-family: monospace; font-size: 10px; overflow-y: auto; z-index: 10000; padding: 8px; border: 1px solid #0f0; display: none;">
+    <div style="display: flex; justify-content: space-between; margin-bottom: 4px;">
+        <strong>🐛 Debug Log</strong>
+        <button onclick="document.getElementById('debugConsole').style.display='none'" style="background: #f00; color: #fff; border: none; padding: 2px 6px; cursor: pointer;">✕</button>
+    </div>
+    <div id="debugLog" style="font-size: 9px; line-height: 1.2;"></div>
+</div>
+<button onclick="const dc = document.getElementById('debugConsole'); dc.style.display = dc.style.display === 'none' ? 'block' : 'none';" style="position: fixed; top: 10px; right: 10px; z-index: 10001; background: rgba(0,255,0,0.3); color: #fff; border: 1px solid #0f0; padding: 4px 8px; font-size: 10px; cursor: pointer;display: none">🐛</button>
+
+<!-- Game Container -->
+<div id="gameContainer" class="hidden">
+    <!-- Top Bar -->
+    <div class="top-bar">
+        <div class="game-info">
+            <h1>🏒 Air Hockey</h1>
+            <span id="roomName" class="room-badge"></span>
+        </div>
+
+        <div class="score-display">
+            <div id="scoreBoard" class="score-board">
+                <!-- Scores will be populated dynamically -->
+            </div>
+        </div>
+    </div>
+
+    <!-- Game Arena -->
+    <div class="game-arena">
+        <canvas id="gameCanvas" width="1000" height="600"></canvas>
+
+        <!-- Center Control Panel (shown in lobby) -->
+        <div id="controlPanel" class="control-panel">
+            <h2 id="gameTitle">🏒 Air Hockey</h2>
+            <p id="gameSubtitle">Fast-paced multiplayer fun!</p>
+            <div id="playersList" class="players-list"></div>
+            <div id="gameMessage" class="game-message">Waiting for players...</div>
+            <div class="game-settings">
+                <label>Win Score:
+                    <select id="winScore">
+                        <option value="3">3 Goals</option>
+                        <option value="5" selected>5 Goals</option>
+                        <option value="7">7 Goals</option>
+                        <option value="10">10 Goals</option>
+                    </select>
+                </label>
+            </div>
+            <div class="game-buttons">
+                <button id="lobbyShareBtn" class="btn-share-lobby">📤 Share</button>
+                <button id="startButton" onclick="startGame()" class="btn-start hidden">Start Game</button>
+            </div>
+        </div>
+
+        <!-- Goal Animation Overlay -->
+        <div id="goalOverlay" class="goal-overlay hidden">
+            <div class="goal-text">⚽ GOAL!</div>
+            <div id="goalScorer" class="goal-scorer"></div>
+        </div>
+    </div>
+
+    <!-- Side Panel -->
+    <div class="side-panel">
+        <h3>🎮 Controls</h3>
+        <div class="controls-info">
+            <p><strong>Mouse/Touch:</strong> Move your paddle</p>
+            <p>Keep the puck out of your goal!</p>
+        </div>
+
+        <h3>🏆 Leaderboard</h3>
+        <div id="leaderboard" class="leaderboard"></div>
+
+        <div class="game-stats">
+            <h4>Game Stats</h4>
+            <div class="stat-row">
+                <span>Round:</span>
+                <span id="roundNumber">0</span>
+            </div>
+            <div class="stat-row">
+                <span>Win Score:</span>
+                <span id="winScoreDisplay">5</span>
+            </div>
+        </div>
+
+        <button id="shareBtn" class="share-btn btn-share-sidebar" style="display:none;">🔗 Share Game</button>
+
+        <!-- Host-only controls -->
+        <div id="hostControls" class="host-controls" style="display:none;">
+            <button id="resetBallBtn" class="btn-warning btn-small" onclick="resetBall()">🏒 Reset Ball</button>
+            <button id="newGameBtn" class="btn-primary btn-small" onclick="newGame()">🆕 New Game</button>
+        </div>
+    </div>
+
+    <!-- Fullscreen Toggle Button (Mobile Only) -->
+    <button id="fullscreenToggle" class="fullscreen-toggle-btn" onclick="toggleFullscreen()" style="display:none;">
+        <svg id="fullscreenIcon" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3m0 18h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3"/>
+        </svg>
+        <svg id="exitFullscreenIcon" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="display:none;">
+            <path d="M8 3v3a2 2 0 0 1-2 2H3m18 0h-3a2 2 0 0 1-2-2V3m0 18v-3a2 2 0 0 1 2-2h3M3 16h3a2 2 0 0 1 2 2v3"/>
+        </svg>
+    </button>
+</div>
+
+<!-- Toast Notifications -->
+<div id="toastContainer" class="toast-container"></div>
+
+<!-- Scripts -->
+<script src="../../../js/config-loader.js"></script>
+<script src="../../../js/lib/qrcode.min.js"></script>
+<script src="../../../generated-web-agent-js/js/web-agent.libs.js"></script>
+<script src="../../../generated-web-agent-js/js/web-agent.js"></script>
+<script src="../../../generated-web-agent-js/js/web-agent.webrtc.js"></script>
+
+<script src="../../../js/share-modal.js"></script>
+<script src="../../../js/common-utils.js"></script>
+<script src="../../../js/connection-modal.js"></script>
+<script src="../../../js/AgentInteractionBase.js"></script>
+<script src="../../../js/GameControlPanel.js"></script>
+
+<script src="air-hockey.js"></script>
+</body>
+</html>

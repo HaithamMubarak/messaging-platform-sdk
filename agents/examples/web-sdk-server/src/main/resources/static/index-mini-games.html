@@ -1,0 +1,311 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>🎮 Mini Games Portal</title>
+    <link rel="stylesheet" href="css/toast.css">
+
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .header {
+            background: rgba(255, 255, 255, 0.95);
+            padding: 30px;
+            text-align: center;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.2);
+        }
+
+        .header h1 {
+            font-size: 48px;
+            margin-bottom: 10px;
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .header p {
+            font-size: 18px;
+            color: #666;
+        }
+
+        .container {
+            flex: 1;
+            max-width: 1200px;
+            margin: 40px auto;
+            padding: 20px;
+            width: 100%;
+        }
+
+        .games-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
+            gap: 30px;
+            margin-top: 30px;
+        }
+
+        .game-card {
+            background: white;
+            border-radius: 20px;
+            padding: 30px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+            transition: all 0.3s;
+            cursor: pointer;
+        }
+
+        .game-card:hover {
+            transform: translateY(-10px);
+            box-shadow: 0 15px 40px rgba(0,0,0,0.3);
+        }
+
+        .game-icon {
+            font-size: 64px;
+            margin-bottom: 20px;
+        }
+
+        .game-title {
+            font-size: 28px;
+            font-weight: bold;
+            margin-bottom: 10px;
+            color: #333;
+        }
+
+        .game-description {
+            font-size: 16px;
+            color: #666;
+            margin-bottom: 20px;
+            line-height: 1.5;
+        }
+
+        .game-meta {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 20px;
+            font-size: 14px;
+            color: #999;
+        }
+
+        .game-meta-item {
+            display: flex;
+            align-items: center;
+            gap: 5px;
+        }
+
+        .play-button {
+            width: 100%;
+            padding: 15px;
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            color: white;
+            border: none;
+            border-radius: 50px;
+            font-size: 18px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+
+        .play-button:hover {
+            transform: scale(1.05);
+            box-shadow: 0 5px 20px rgba(102, 126, 234, 0.4);
+        }
+
+        .info-section {
+            background: rgba(255, 255, 255, 0.95);
+            border-radius: 15px;
+            padding: 30px;
+            margin-top: 40px;
+            box-shadow: 0 5px 20px rgba(0,0,0,0.1);
+        }
+
+        .info-section h2 {
+            margin-bottom: 20px;
+            color: #667eea;
+        }
+
+        .info-section ul {
+            list-style: none;
+            padding-left: 0;
+        }
+
+        .info-section li {
+            padding: 10px 0;
+            border-bottom: 1px solid #eee;
+        }
+
+        .info-section li:last-child {
+            border-bottom: none;
+        }
+
+        .status-indicator {
+            display: inline-block;
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            background: #4CAF50;
+            margin-right: 10px;
+            animation: pulse 2s infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+
+        .footer {
+            background: rgba(255, 255, 255, 0.95);
+            padding: 20px;
+            text-align: center;
+            color: #666;
+        }
+
+        @media (max-width: 768px) {
+            .games-grid {
+                grid-template-columns: 1fr;
+            }
+            .header h1 {
+                font-size: 36px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>🎮 Mini Games Portal</h1>
+        <p>Play multiplayer games powered by the Messaging Platform SDK</p>
+    </div>
+
+    <div class="container">
+        <div class="games-grid">
+
+            <!-- Quiz Battle -->
+            <div class="game-card" onclick="location.href='/examples/mini-games/quiz-battle/index.html'">
+                <div class="game-icon">🧠</div>
+                <div class="game-title">Quiz Battle</div>
+                <div class="game-description">
+                    Answer trivia questions faster than your opponents. Knowledge meets speed!
+                </div>
+                <div class="game-meta">
+                    <div class="game-meta-item">👥 2-10 players</div>
+                    <div class="game-meta-item">⏱️ 3-5 min</div>
+                    <div class="game-meta-item">⭐ Easy</div>
+                </div>
+                <button class="play-button" onclick="location.href='/examples/mini-games/quiz-battle/index.html'">Play Now</button>
+            </div>
+
+            <!-- Air Hockey -->
+            <div class="game-card" onclick="location.href='/examples/mini-games/air-hockey/index.html'">
+                <div class="game-icon">🏒</div>
+                <div class="game-title">Air Hockey</div>
+                <div class="game-description">
+                    Classic air hockey with a multiplayer twist! Control your paddle with mouse or touch. Score goals and dominate the rink!
+                </div>
+                <div class="game-meta">
+                    <div class="game-meta-item">👥 2-4 players</div>
+                    <div class="game-meta-item">⏱️ 3-5 min</div>
+                    <div class="game-meta-item">⭐ Easy</div>
+                </div>
+                <button class="play-button" onclick="location.href='/examples/mini-games/air-hockey/index.html'">Play Air Hockey</button>
+            </div>
+
+            <!-- 4-Player Reactor -->
+            <div class="game-card" onclick="location.href='/examples/mini-games/reactor/reactor-client.html'">
+                <div class="game-icon">⚡</div>
+                <div class="game-title">4-Player Reactor</div>
+                <div class="game-description">
+                    Fast-paced reaction speed game! Click your color zone as fast as possible when it lights up. 10 game modes!
+                </div>
+                <div class="game-meta">
+                    <div class="game-meta-item">👥 2-4 players</div>
+                    <div class="game-meta-item">⏱️ 2-3 min</div>
+                    <div class="game-meta-item">⭐ Easy</div>
+                </div>
+                <button class="play-button" onclick="location.href='/examples/mini-games/reactor/reactor-client.html'">Test Reactions</button>
+            </div>
+
+            <!-- Bounce Ball -->
+            <div class="game-card" onclick="location.href='/examples/mini-games/bounce-ball/bounce-ball-client.html'">
+                <div class="game-icon">🏐</div>
+                <div class="game-title">Bounce Ball</div>
+                <div class="game-description">
+                    Multiplayer physics-based ball game with 6 extensible challenges! Cooperative and competitive modes included.
+                </div>
+                <div class="game-meta">
+                    <div class="game-meta-item">👥 2-8 players</div>
+                    <div class="game-meta-item">⏱️ 3-5 min</div>
+                    <div class="game-meta-item">⭐ Easy-Hard</div>
+                </div>
+                <button class="play-button" onclick="location.href='/examples/mini-games/bounce-ball/bounce-ball-client.html'">Play Bounce Ball</button>
+            </div>
+
+            <!-- Fall Guys Race (In Progress) -->
+            <div class="game-card" style="opacity: 0.6; cursor: not-allowed; position: relative;" onclick="event.stopPropagation()">
+                <div style="position: absolute; top: 20px; right: 20px; background: #f59e0b; color: white; padding: 6px 14px; border-radius: 20px; font-size: 12px; font-weight: bold;">🚧 IN PROGRESS</div>
+                <div class="game-icon">🏃</div>
+                <div class="game-title">Fall Guys Race</div>
+                <div class="game-description">
+                    Obstacle course racing inspired by Fall Guys! Navigate through dynamic obstacles, avoid hazards, and race to victory!
+                </div>
+                <div class="game-meta">
+                    <div class="game-meta-item">👥 4-20 players</div>
+                    <div class="game-meta-item">⏱️ 5-8 min</div>
+                    <div class="game-meta-item">⭐ Medium</div>
+                </div>
+                <button class="play-button" style="background: #94a3b8; cursor: not-allowed;" disabled>Coming Soon</button>
+            </div>
+        </div>
+
+        <div class="info-section">
+            <h2>ℹ️ About These Games</h2>
+            <ul>
+                <li><span class="status-indicator"></span> All games use real-time multiplayer</li>
+                <li>🔒 Secure temporary API keys (no login required)</li>
+                <li>📱 Works on mobile and desktop</li>
+                <li>🆓 Free to play</li>
+                <li>👥 Invite friends by sharing the room name</li>
+                <li>🚀 Powered by Messaging Platform SDK</li>
+            </ul>
+        </div>
+
+        <div class="info-section">
+            <h2>🎯 How to Play</h2>
+            <ul>
+                <li>1️⃣ Click on a game card above</li>
+                <li>2️⃣ Enter your name and room details</li>
+                <li>3️⃣ Share the room name with friends</li>
+                <li>4️⃣ Start playing together!</li>
+            </ul>
+        </div>
+    </div>
+
+    <div class="footer">
+        <p>Built with ❤️ using the Messaging Platform SDK</p>
+        <p>API Health: <span id="apiStatus">Checking...</span></p>
+    </div>
+
+    <script>
+        // Check API health
+        fetch('/app/api/health')
+            .then(response => response.json())
+            .then(data => {
+                const status = data.status === 'UP' ? '✅ Online' : '❌ Offline';
+                document.getElementById('apiStatus').textContent = status;
+            })
+            .catch(() => {
+                document.getElementById('apiStatus').textContent = '❌ Offline';
+            });
+    </script>
+</body>
+</html>
+

@@ -1,0 +1,1032 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Developer Dashboard - Messaging Platform</title>
+    <link rel="stylesheet" href="../css/toast.css">
+    <link rel="stylesheet" href="css/developer.css">
+</head>
+<body>
+    <div class="dashboard">
+        <!-- Sidebar -->
+        <aside class="sidebar">
+            <div class="sidebar-header">
+                <h2>👨‍💻 Developer Portal</h2>
+            </div>
+            <nav class="sidebar-nav">
+                <a href="#" class="nav-item active" data-section="overview">
+                    <span class="icon">🏠</span> Overview
+                </a>
+                <a href="#" class="nav-item" data-section="apikeys">
+                    <span class="icon">🔑</span> API Keys
+                </a>
+                <a href="#" class="nav-item" data-section="channels">
+                    <span class="icon">📡</span> Channels
+                </a>
+                <a href="#" class="nav-item" data-section="tools">
+                    <span class="icon">🛠️</span> Dev Tools
+                </a>
+                <a href="#" class="nav-item" data-section="usage">
+                    <span class="icon">📊</span> Usage & Quota
+                </a>
+                <a href="#" class="nav-item" data-section="settings">
+                    <span class="icon">⚙️</span> Settings
+                </a>
+            </nav>
+            <div class="sidebar-footer">
+                <button id="logoutBtn" class="btn btn-secondary">
+                    <span class="icon">🚪</span> Logout
+                </button>
+            </div>
+        </aside>
+
+        <!-- Main Content -->
+        <main class="main-content">
+            <header class="content-header">
+                <h1 id="pageTitle">Dashboard Overview</h1>
+                <div class="user-info">
+                    <span id="developerEmail">developer@example.com</span>
+                    <span class="plan-badge" id="planBadge">Free</span>
+                </div>
+            </header>
+
+            <!-- Overview Section -->
+            <section id="overviewSection" class="section active">
+                <div class="stats-grid">
+                    <div class="stat-card">
+                        <div class="stat-icon">📡</div>
+                        <div class="stat-info">
+                            <h3 id="statChannels">-</h3>
+                            <p>Active Channels</p>
+                        </div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-icon">🔑</div>
+                        <div class="stat-info">
+                            <h3 id="statApiKeys">-</h3>
+                            <p>API Keys</p>
+                        </div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-icon">📈</div>
+                        <div class="stat-info">
+                            <h3 id="statQuotaUsed">-</h3>
+                            <p>Quota Used</p>
+                        </div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-icon">📋</div>
+                        <div class="stat-info">
+                            <h3 id="statPlan">-</h3>
+                            <p>Current Plan</p>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="quick-actions">
+                    <h2>Quick Actions</h2>
+                    <div class="actions-grid">
+                        <button class="action-card" onclick="showSection('apikeys')">
+                            <span class="action-icon">🔑</span>
+                            <span class="action-text">Manage API Keys</span>
+                        </button>
+                        <button class="action-card" onclick="showSection('channels')">
+                            <span class="action-icon">📡</span>
+                            <span class="action-text">View Channels</span>
+                        </button>
+                        <a href="../examples/developer-console.html" class="action-card">
+                            <span class="action-icon">🧪</span>
+                            <span class="action-text">Test Console</span>
+                        </a>
+                        <a href="/messaging-platform/api/v1/messaging-service/swagger-ui/index.html" class="action-card" target="_blank">
+                            <span class="action-icon">📚</span>
+                            <span class="action-text">API Docs</span>
+                        </a>
+                    </div>
+                </div>
+
+                <div class="recent-section">
+                    <h2>Recent Channels</h2>
+                    <div id="recentChannels" class="recent-list">
+                        <p class="loading">Loading...</p>
+                    </div>
+                </div>
+            </section>
+
+            <!-- API Keys Section -->
+            <section id="apikeysSection" class="section">
+                <div class="section-header">
+                    <h2>Your API Keys</h2>
+                </div>
+
+                <div class="alert info">
+                    <span class="alert-icon">ℹ️</span>
+                    <p>Your API key is shown partially for security. Use the copy button to copy the full key.</p>
+                </div>
+
+                <div class="alert info" style="margin-top: 12px;">
+                    <span class="alert-icon">🔑</span>
+                    <p><strong>Revoking a key:</strong> When you revoke a key, a NEW key is automatically generated to replace it. The old key stops working immediately and the new key will be displayed once.</p>
+                </div>
+
+                <div class="alert info" style="margin-top: 12px;">
+                    <span class="alert-icon">🧪</span>
+                    <p>Want to test your API key? Use our <a href="../examples/test-api-key/index.html" target="_blank" style="color: #667eea; text-decoration: underline;">API Key Testing Tool</a> to verify connectivity and permissions.</p>
+                </div>
+
+                <div class="table-container">
+                    <table class="data-table">
+                        <thead>
+                            <tr>
+                                <th>Key ID</th>
+                                <th>Name</th>
+                                <th>Plan</th>
+                                <th>Created</th>
+                                <th>Last Used</th>
+                                <th>Status</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="apiKeysTableBody">
+                            <tr><td colspan="7" class="loading">Loading...</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+
+                <div class="key-display" id="keyDisplaySection" style="display: none;">
+                    <h3>🔑 Your API Key</h3>
+                    <p class="key-warning">⚠️ This is the only time your full API key will be shown. Please save it securely.</p>
+                    <div class="key-box">
+                        <code id="fullApiKey"></code>
+                        <button class="btn btn-small" onclick="copyApiKey()">📋 Copy</button>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Channels Section -->
+            <section id="channelsSection" class="section">
+                <div class="section-header">
+                    <h2>Your Channels</h2>
+                    <div class="search-box">
+                        <input type="text" id="channelSearch" placeholder="Search channels...">
+                    </div>
+                </div>
+
+                <div class="table-container">
+                    <table class="data-table">
+                        <thead>
+                            <tr>
+                                <th>Channel ID</th>
+                                <th>Name</th>
+                                <th>Created</th>
+                                <th>Messages</th>
+                                <th>Storage</th>
+                                <th>Status</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="channelsTableBody">
+                            <tr><td colspan="7" class="loading">Loading...</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+
+                <div class="pagination">
+                    <button id="prevPageChannels" class="btn btn-small" disabled>← Previous</button>
+                    <span id="pageInfoChannels">Page 1 of 1</span>
+                    <button id="nextPageChannels" class="btn btn-small" disabled>Next →</button>
+                </div>
+            </section>
+
+            <!-- Dev Tools Section -->
+            <section id="toolsSection" class="section">
+                <h2>Developer Tools</h2>
+
+                <!-- Broadcast Message -->
+                <div class="tools-card">
+                    <h3>📢 Broadcast Message</h3>
+                    <p class="tools-description">Send a message to all agents in a specific channel or all channels.</p>
+                    <div class="tools-form">
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label for="broadcastChannel">Channel ID (optional)</label>
+                                <input type="text" id="broadcastChannel" placeholder="Leave empty for all channels">
+                            </div>
+                        </div>
+                        <div class="form-group">
+                            <label for="broadcastMessage">Message Content</label>
+                            <textarea id="broadcastMessage" placeholder="Enter your broadcast message..." rows="3"></textarea>
+                        </div>
+                        <button class="btn btn-primary" onclick="broadcastMessage()">📡 Send Broadcast</button>
+                        <div id="broadcastResult" class="result-message" style="display: none;"></div>
+                    </div>
+                </div>
+
+                <!-- Temporary API Keys -->
+                <div class="tools-card">
+                    <h3>🔑 Temporary API Keys</h3>
+                    <p class="tools-description">Create short-lived API keys for secure client distribution without exposing your real API key.</p>
+                    <div class="tools-form">
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label for="tempKeyTtl">TTL (seconds)</label>
+                                <input type="number" id="tempKeyTtl" value="15" min="1" max="3600">
+                            </div>
+                            <div class="form-group">
+                                <label for="tempKeySingleUse">Usage Type</label>
+                                <select id="tempKeySingleUse">
+                                    <option value="false">Multi-use (within TTL)</option>
+                                    <option value="true">Single-use only</option>
+                                </select>
+                            </div>
+                        </div>
+                        <button class="btn btn-primary" onclick="createTemporaryKey()">🔑 Create Temporary Key</button>
+                        <div id="tempKeyResult" class="result-message" style="display: none;"></div>
+                    </div>
+                </div>
+
+                <!-- Recover Messages from Kafka -->
+                <div class="tools-card">
+                    <h3>🔄 Recover Messages from Kafka</h3>
+                    <p class="tools-description">Retrieve historical messages from Kafka that were sent before a channel was deleted or recreated.</p>
+                    <div class="tools-form">
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label for="recoverChannelId">Channel ID</label>
+                                <input type="text" id="recoverChannelId" placeholder="Enter channel ID">
+                            </div>
+                            <div class="form-group">
+                                <label for="recoverFromOffset">From Offset</label>
+                                <input type="number" id="recoverFromOffset" value="0" min="0">
+                            </div>
+                            <div class="form-group">
+                                <label for="recoverMaxMessages">Max Messages</label>
+                                <input type="number" id="recoverMaxMessages" value="20" min="1" max="100">
+                            </div>
+                        </div>
+                        <button class="btn btn-primary" onclick="recoverMessages()">🔄 Recover Messages</button>
+                        <div id="recoverResult" class="result-message" style="display: none;"></div>
+                    </div>
+                    <div id="recoveredMessagesContainer" style="display: none; margin-top: 16px;">
+                        <h4>Recovered Messages</h4>
+                        <div id="recoveredMessagesList" class="messages-list"></div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Usage & Quota Section -->
+            <section id="usageSection" class="section">
+                <h2>Usage & Quota</h2>
+
+                <div class="usage-overview">
+                    <div class="usage-card">
+                        <h3>Channel Units</h3>
+                        <div class="usage-bar">
+                            <div class="usage-fill" id="channelUnitsBar" style="width: 0%"></div>
+                        </div>
+                        <p class="usage-text"><span id="channelUnitsUsed">0</span> / <span id="channelUnitsLimit">100</span> units</p>
+                    </div>
+
+                    <div class="usage-card">
+                        <h3>API Calls (Today)</h3>
+                        <div class="usage-bar">
+                            <div class="usage-fill" id="apiCallsBar" style="width: 0%"></div>
+                        </div>
+                        <p class="usage-text"><span id="apiCallsUsed">0</span> / <span id="apiCallsLimit">10000</span> calls</p>
+                    </div>
+
+                    <div class="usage-card">
+                        <h3>Storage</h3>
+                        <div class="usage-bar">
+                            <div class="usage-fill" id="storageBar" style="width: 0%"></div>
+                        </div>
+                        <p class="usage-text"><span id="storageUsed">0</span> MB / <span id="storageLimit">100</span> MB</p>
+                    </div>
+                </div>
+
+                <div class="plan-info">
+                    <h3>Your Plan: <span id="currentPlan">Free</span></h3>
+                    <div class="plan-features" id="planFeatures">
+                        <p class="loading">Loading plan details...</p>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Settings Section -->
+            <section id="settingsSection" class="section">
+                <h2>Account Settings</h2>
+
+                <div class="settings-card">
+                    <h3>Profile Information</h3>
+                    <form id="profileForm" class="settings-form">
+                        <div class="form-group">
+                            <label for="settingsEmail">Email</label>
+                            <input type="email" id="settingsEmail" disabled>
+                        </div>
+                        <div class="form-group">
+                            <label for="settingsName">Display Name</label>
+                            <input type="text" id="settingsName" placeholder="Your name">
+                        </div>
+                        <button type="submit" class="btn btn-primary">Save Changes</button>
+                    </form>
+                </div>
+
+                <div class="settings-card">
+                    <h3>Change Password</h3>
+                    <form id="passwordForm" class="settings-form">
+                        <div class="form-group">
+                            <label for="currentPassword">Current Password</label>
+                            <input type="password" id="currentPassword" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="newPassword">New Password</label>
+                            <input type="password" id="newPassword" required minlength="8">
+                            <span class="hint">Minimum 8 characters</span>
+                        </div>
+                        <div class="form-group">
+                            <label for="confirmPassword">Confirm New Password</label>
+                            <input type="password" id="confirmPassword" required>
+                        </div>
+                        <button type="submit" class="btn btn-primary">Change Password</button>
+                        <div id="passwordResult" class="result-message" style="display: none;"></div>
+                    </form>
+                </div>
+            </section>
+        </main>
+    </div>
+
+    <script src="../js/api-config.js"></script>
+    <script src="js/developer-api.js"></script>
+    <script>
+        // Check authentication
+        if (!DeveloperAPI.isLoggedIn()) {
+            window.location.href = 'index.html';
+        }
+
+        // Initialize dashboard
+        let channelPage = 0;
+        const channelPageSize = 10;
+        let channelTotalPages = 1;
+
+        // Set developer info
+        const profile = DeveloperAPI.getProfile();
+        if (profile) {
+            document.getElementById('developerEmail').textContent = profile.email;
+            document.getElementById('planBadge').textContent = profile.plan || 'Free';
+            document.getElementById('settingsEmail').value = profile.email;
+            document.getElementById('settingsName').value = profile.name || '';
+
+            // Check if password change required
+            if (profile.passwordChangeRequired) {
+                showPasswordChangeAlert();
+            }
+        }
+
+        // Navigation handling
+        document.querySelectorAll('.nav-item').forEach(item => {
+            item.addEventListener('click', (e) => {
+                e.preventDefault();
+                const section = item.dataset.section;
+                showSection(section);
+            });
+        });
+
+        function showSection(sectionName) {
+            // Update nav
+            document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+            document.querySelector(`[data-section="${sectionName}"]`)?.classList.add('active');
+
+            // Update sections
+            document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
+            document.getElementById(`${sectionName}Section`)?.classList.add('active');
+
+            // Update title
+            const titles = {
+                overview: 'Dashboard Overview',
+                apikeys: 'API Keys',
+                channels: 'Your Channels',
+                tools: 'Developer Tools',
+                usage: 'Usage & Quota',
+                settings: 'Account Settings'
+            };
+            document.getElementById('pageTitle').textContent = titles[sectionName] || 'Dashboard';
+
+            // Check if password change alert should be shown
+            const profile = DeveloperAPI.getProfile();
+            if (profile && profile.passwordChangeRequired) {
+                showPasswordChangeAlert();
+            }
+
+            // Load section data
+            switch(sectionName) {
+                case 'overview':
+                    loadOverview();
+                    break;
+                case 'apikeys':
+                    loadApiKeys();
+                    break;
+                case 'channels':
+                    loadChannels();
+                    break;
+                case 'usage':
+                    loadUsage();
+                    break;
+            }
+        }
+
+        // Show password change recommendation (persists until password is changed)
+        function showPasswordChangeAlert() {
+            // Check if alert is already shown
+            if (document.getElementById('passwordChangeAlert')) {
+                return;
+            }
+
+            const alert = document.createElement('div');
+            alert.id = 'passwordChangeAlert';
+            alert.className = 'alert info';
+            alert.style.marginBottom = '20px';
+            alert.innerHTML = `
+                <span class="alert-icon">💡</span>
+                <div style="flex: 1;">
+                    <strong>Recommendation:</strong> Consider changing your temporary password for better security.
+                    <a href="#" onclick="showSection('settings'); return false;">Change Password</a>
+                </div>
+                <button onclick="dismissPasswordAlert()" style="background: none; border: none; color: inherit; cursor: pointer; font-size: 18px; padding: 4px 8px;" title="Dismiss (will reappear on next visit)">✕</button>
+            `;
+            document.querySelector('.main-content').prepend(alert);
+        }
+
+        // Dismiss password alert (only temporarily for this session)
+        function dismissPasswordAlert() {
+            const alert = document.getElementById('passwordChangeAlert');
+            if (alert) {
+                alert.remove();
+            }
+        }
+
+        // Mark password as changed in profile (called after successful password change)
+        function markPasswordChanged() {
+            const profile = DeveloperAPI.getProfile();
+            if (profile) {
+                profile.passwordChangeRequired = false;
+                localStorage.setItem('developer_profile', JSON.stringify(profile));
+            }
+            // Remove the alert permanently
+            dismissPasswordAlert();
+        }
+
+        // Load overview data
+        async function loadOverview() {
+            try {
+                const stats = await DeveloperAPI.getStats();
+                document.getElementById('statChannels').textContent = stats.channelCount || 0;
+                document.getElementById('statApiKeys').textContent = stats.apiKeyCount || 1;
+                document.getElementById('statQuotaUsed').textContent = `${stats.quotaUsedPercent || 0}%`;
+                document.getElementById('statPlan').textContent = stats.plan || profile?.plan || 'Free';
+
+                // Load recent channels
+                const channels = await DeveloperAPI.getChannels(0, 5);
+                const recentDiv = document.getElementById('recentChannels');
+                if (channels.channels && channels.channels.length > 0) {
+                    recentDiv.innerHTML = channels.channels.map(ch => `
+                        <div class="recent-item">
+                            <span class="recent-icon">📡</span>
+                            <div class="recent-info">
+                                <strong>${ch.name || ch.channelId}</strong>
+                                <span class="recent-meta">Created ${formatDate(ch.createdAt)}</span>
+                            </div>
+                        </div>
+                    `).join('');
+                } else {
+                    recentDiv.innerHTML = '<p class="empty">No channels yet. Create one using the API!</p>';
+                }
+            } catch (error) {
+                console.error('Failed to load overview:', error);
+            }
+        }
+
+        // Load API keys
+        async function loadApiKeys() {
+            try {
+                const keys = await DeveloperAPI.getApiKeys();
+                const tbody = document.getElementById('apiKeysTableBody');
+
+                if (keys && keys.length > 0) {
+                    tbody.innerHTML = keys.map(key => {
+                        // Mask the key ID - show only last 8 characters
+                        const keyId = key.keyId || '';
+                        const maskedKeyId = keyId.length > 8
+                            ? '••••••••' + keyId.slice(-8)
+                            : keyId;
+
+                        return `
+                        <tr>
+                            <td><code id="key-${key.keyId}">${maskedKeyId}</code></td>
+                            <td>${key.name || 'Default'}</td>
+                            <td><span class="plan-badge small">${key.plan || 'Free'}</span></td>
+                            <td>${formatDate(key.createdAt)}</td>
+                            <td>${key.lastUsed ? formatDate(key.lastUsed) : 'Never'}</td>
+                            <td><span class="status-badge ${key.active ? 'active' : 'inactive'}">${key.active ? 'Active' : 'Revoked'}</span></td>
+                            <td>
+                                <button class="btn btn-small" onclick="toggleKeyVisibility('${key.keyId}')" title="View Key">👁️</button>
+                                <button class="btn btn-small" onclick="copyApiKeyById('${key.keyId}')" title="Copy Key">📋</button>
+                                ${key.active ? `<button class="btn btn-small btn-danger" onclick="revokeApiKey('${key.keyId}')" title="Revoke Key">🚫</button>` : ''}
+                            </td>
+                        </tr>
+                    `;
+                    }).join('');
+                } else {
+                    tbody.innerHTML = '<tr><td colspan="7" class="empty">No API keys found</td></tr>';
+                }
+            } catch (error) {
+                console.error('Failed to load API keys:', error);
+                document.getElementById('apiKeysTableBody').innerHTML =
+                    '<tr><td colspan="7" class="error">Failed to load API keys</td></tr>';
+            }
+        }
+
+        // Toggle key visibility between masked and full
+        const visibleKeys = new Set();
+
+        function toggleKeyVisibility(keyId) {
+            const keyElement = document.getElementById(`key-${keyId}`);
+            if (!keyElement) return;
+
+            if (visibleKeys.has(keyId)) {
+                // Hide the key - show masked version
+                const maskedKeyId = keyId.length > 8
+                    ? '••••••••' + keyId.slice(-8)
+                    : keyId;
+                keyElement.textContent = maskedKeyId;
+                visibleKeys.delete(keyId);
+            } else {
+                // Show the full key
+                keyElement.textContent = keyId;
+                visibleKeys.add(keyId);
+
+                // Auto-hide after 30 seconds
+                setTimeout(() => {
+                    if (visibleKeys.has(keyId)) {
+                        toggleKeyVisibility(keyId);
+                    }
+                }, 30000);
+            }
+        }
+
+        // Show API key (masked, with option to copy full from profile)
+        function showApiKey(keyId) {
+            const profile = DeveloperAPI.getProfile();
+            if (profile && profile.apiKey) {
+                document.getElementById('fullApiKey').textContent = profile.apiKey;
+                document.getElementById('keyDisplaySection').style.display = 'block';
+            } else {
+                alert('API key is only shown during initial creation. Contact admin for a new key.');
+            }
+        }
+
+        function copyApiKey() {
+            const key = document.getElementById('fullApiKey').textContent;
+            navigator.clipboard.writeText(key).then(() => {
+                alert('API key copied to clipboard!');
+            });
+        }
+
+        // Copy API key by ID (copies the full key ID)
+        function copyApiKeyById(keyId) {
+            navigator.clipboard.writeText(keyId).then(() => {
+                alert('API key copied to clipboard!');
+            }).catch(err => {
+                console.error('Failed to copy:', err);
+                alert('Failed to copy API key');
+            });
+        }
+
+        // Revoke API key
+        async function revokeApiKey(keyId) {
+            if (!confirm(`Are you sure you want to revoke this API key?\n\nKey ID: ${keyId}\n\nA NEW API key will be generated to replace it. The old key will stop working immediately.`)) {
+                return;
+            }
+
+            try {
+                const response = await DeveloperAPI.revokeApiKey(keyId);
+
+                // Show the new API key to the user
+                if (response.status === 'success' && response.newKeyId) {
+                    // Display the new key in the key display section
+                    document.getElementById('fullApiKey').textContent = response.fullKey;
+                    document.getElementById('keyDisplaySection').style.display = 'block';
+
+                    // Update profile with new key (if this is the developer's main key)
+                    const profile = DeveloperAPI.getProfile();
+                    if (profile) {
+                        profile.apiKey = response.fullKey;
+                        DeveloperAPI.setProfile(profile);
+                    }
+
+                    // Scroll to show the new key
+                    document.getElementById('keyDisplaySection').scrollIntoView({ behavior: 'smooth' });
+
+                    alert(`✓ Old API key revoked!\n\n🔑 New API key generated!\n\nKey ID: ${response.newKeyId}\n\n⚠️ IMPORTANT: Save your new key securely - it's shown below and will not be displayed again.`);
+                } else {
+                    alert('✓ API key revoked and new key generated!');
+                }
+
+                // Reload API keys list
+                loadApiKeys();
+            } catch (error) {
+                alert('✗ Failed to revoke API key: ' + error.message);
+            }
+        }
+
+        // Load channels
+        async function loadChannels() {
+            try {
+                const data = await DeveloperAPI.getChannels(channelPage, channelPageSize);
+                const tbody = document.getElementById('channelsTableBody');
+
+                if (data.channels && data.channels.length > 0) {
+                    tbody.innerHTML = data.channels.map(ch => `
+                        <tr>
+                            <td><code>${ch.channelId}</code></td>
+                            <td>${ch.name || '-'}</td>
+                            <td>${formatDate(ch.createdAt)}</td>
+                            <td>${ch.messageCount || 0}</td>
+                            <td>${formatStorage(ch.storageUsed)}</td>
+                            <td><span class="status-badge active">Active</span></td>
+                            <td>
+                                <button class="btn btn-small btn-danger" onclick="deleteChannel('${ch.channelId}')" title="Delete Channel">🗑️ Delete</button>
+                            </td>
+                        </tr>
+                    `).join('');
+
+                    // Update pagination
+                    channelTotalPages = data.totalPages || 1;
+                    document.getElementById('pageInfoChannels').textContent =
+                        `Page ${channelPage + 1} of ${channelTotalPages}`;
+                    document.getElementById('prevPageChannels').disabled = channelPage === 0;
+                    document.getElementById('nextPageChannels').disabled = channelPage >= channelTotalPages - 1;
+                } else {
+                    tbody.innerHTML = '<tr><td colspan="7" class="empty">No channels yet</td></tr>';
+                }
+            } catch (error) {
+                console.error('Failed to load channels:', error);
+                document.getElementById('channelsTableBody').innerHTML =
+                    '<tr><td colspan="7" class="error">Failed to load channels</td></tr>';
+            }
+        }
+
+        // Load usage stats
+        async function loadUsage() {
+            try {
+                const usage = await DeveloperAPI.getUsage();
+
+                // Channel units
+                const unitsPercent = Math.min(100, (usage.channelUnitsUsed / usage.channelUnitsLimit) * 100);
+                document.getElementById('channelUnitsBar').style.width = `${unitsPercent}%`;
+                document.getElementById('channelUnitsUsed').textContent = usage.channelUnitsUsed || 0;
+                document.getElementById('channelUnitsLimit').textContent = usage.channelUnitsLimit || 100;
+
+                // API calls
+                const callsPercent = Math.min(100, (usage.apiCallsToday / usage.apiCallsLimit) * 100);
+                document.getElementById('apiCallsBar').style.width = `${callsPercent}%`;
+                document.getElementById('apiCallsUsed').textContent = usage.apiCallsToday || 0;
+                document.getElementById('apiCallsLimit').textContent = usage.apiCallsLimit || 10000;
+
+                // Storage
+                const storagePercent = Math.min(100, (usage.storageMB / usage.storageLimitMB) * 100);
+                document.getElementById('storageBar').style.width = `${storagePercent}%`;
+                document.getElementById('storageUsed').textContent = usage.storageMB || 0;
+                document.getElementById('storageLimit').textContent = usage.storageLimitMB || 100;
+
+                // Plan info
+                document.getElementById('currentPlan').textContent = usage.plan || profile?.plan || 'Free';
+
+                if (usage.planFeatures) {
+                    document.getElementById('planFeatures').innerHTML = `
+                        <ul class="features-list">
+                            ${usage.planFeatures.map(f => `<li>✓ ${f}</li>`).join('')}
+                        </ul>
+                    `;
+                }
+            } catch (error) {
+                console.error('Failed to load usage:', error);
+            }
+        }
+
+        // Pagination handlers
+        document.getElementById('prevPageChannels').addEventListener('click', () => {
+            if (channelPage > 0) {
+                channelPage--;
+                loadChannels();
+            }
+        });
+
+        document.getElementById('nextPageChannels').addEventListener('click', () => {
+            if (channelPage < channelTotalPages - 1) {
+                channelPage++;
+                loadChannels();
+            }
+        });
+
+        // Channel search
+        document.getElementById('channelSearch').addEventListener('input', debounce((e) => {
+            // TODO: Implement search
+        }, 300));
+
+        // Password change form
+        document.getElementById('passwordForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+
+            const currentPassword = document.getElementById('currentPassword').value;
+            const newPassword = document.getElementById('newPassword').value;
+            const confirmPassword = document.getElementById('confirmPassword').value;
+            const resultDiv = document.getElementById('passwordResult');
+
+            if (newPassword !== confirmPassword) {
+                resultDiv.className = 'result-message error';
+                resultDiv.textContent = 'New passwords do not match';
+                resultDiv.style.display = 'block';
+                return;
+            }
+
+            try {
+                await DeveloperAPI.changePassword(currentPassword, newPassword);
+                resultDiv.className = 'result-message success';
+                resultDiv.textContent = 'Password changed successfully!';
+                resultDiv.style.display = 'block';
+                document.getElementById('passwordForm').reset();
+
+                // Update profile to remove password change required flag
+                const updatedProfile = DeveloperAPI.getProfile();
+                if (updatedProfile) {
+                    updatedProfile.passwordChangeRequired = false;
+                    DeveloperAPI.setProfile(updatedProfile);
+                }
+
+                // Permanently remove the password change alert
+                markPasswordChanged();
+            } catch (error) {
+                resultDiv.className = 'result-message error';
+                resultDiv.textContent = error.message || 'Failed to change password';
+                resultDiv.style.display = 'block';
+            }
+        });
+
+        // Logout
+        document.getElementById('logoutBtn').addEventListener('click', () => {
+            DeveloperAPI.logout();
+            window.location.href = 'index.html';
+        });
+
+        // Utility functions
+        function formatDate(dateStr) {
+            if (!dateStr) return '-';
+            const date = new Date(dateStr);
+            return date.toLocaleDateString() + ' ' + date.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
+        }
+
+        function formatStorage(bytes) {
+            if (!bytes) return '0 B';
+            const units = ['B', 'KB', 'MB', 'GB'];
+            let i = 0;
+            while (bytes >= 1024 && i < units.length - 1) {
+                bytes /= 1024;
+                i++;
+            }
+            return `${bytes.toFixed(1)} ${units[i]}`;
+        }
+
+        function debounce(func, wait) {
+            let timeout;
+            return function executedFunction(...args) {
+                const later = () => {
+                    clearTimeout(timeout);
+                    func(...args);
+                };
+                clearTimeout(timeout);
+                timeout = setTimeout(later, wait);
+            };
+        }
+
+        // ============= Dev Tools Functions =============
+
+        // Get API base URL for developer tools (broadcast, temp keys, recover)
+        // These endpoints are under /messaging-service, not /developer
+        function getApiBaseUrl() {
+            return ApiConfig.getMessagingServiceUrl();
+        }
+
+        // Get API key from profile
+        function getApiKey() {
+            const profile = DeveloperAPI.getProfile();
+            return profile?.apiKey || '';
+        }
+
+        // Broadcast Message
+        async function broadcastMessage() {
+            const channelId = document.getElementById('broadcastChannel').value.trim();
+            const message = document.getElementById('broadcastMessage').value.trim();
+            const resultDiv = document.getElementById('broadcastResult');
+
+            if (!message) {
+                resultDiv.className = 'result-message error';
+                resultDiv.textContent = 'Please enter a message to broadcast';
+                resultDiv.style.display = 'block';
+                return;
+            }
+
+            try {
+                const response = await fetch(`${getApiBaseUrl()}/broadcast`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-API-Key': getApiKey()
+                    },
+                    body: JSON.stringify({
+                        message: message,
+                        channelId: channelId || null,
+                        encrypted: false,
+                        timestamp: Date.now()
+                    })
+                });
+
+                const data = await response.json();
+
+                if (response.ok) {
+                    resultDiv.className = 'result-message success';
+                    resultDiv.textContent = '✓ Broadcast sent successfully!';
+                    document.getElementById('broadcastMessage').value = '';
+                } else {
+                    throw new Error(data.message || 'Broadcast failed');
+                }
+            } catch (error) {
+                resultDiv.className = 'result-message error';
+                resultDiv.textContent = '✗ ' + error.message;
+            }
+            resultDiv.style.display = 'block';
+        }
+
+        // Create Temporary API Key
+        async function createTemporaryKey() {
+            const ttlSeconds = parseInt(document.getElementById('tempKeyTtl').value) || 15;
+            const singleUse = document.getElementById('tempKeySingleUse').value === 'true';
+            const resultDiv = document.getElementById('tempKeyResult');
+
+            try {
+                const response = await fetch(`${getApiBaseUrl()}/channels/api-access`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-API-Key': getApiKey()
+                    },
+                    body: JSON.stringify({
+                        ttlSeconds: ttlSeconds,
+                        singleUse: singleUse
+                    })
+                });
+
+                const data = await response.json();
+
+                if (response.ok && data.status === 'success') {
+                    const keyData = data.data;
+                    const expiresDate = new Date(keyData.expiresAt);
+
+                    resultDiv.innerHTML = `
+                        <div class="temp-key-display">
+                            <strong style="color: var(--success);">✓ Temporary Key Created</strong>
+                            <code>${keyData.temporaryKey}</code>
+                            <div style="display: flex; gap: 8px; margin-top: 8px;">
+                                <button class="btn btn-small" onclick="navigator.clipboard.writeText('${keyData.temporaryKey}')">📋 Copy</button>
+                            </div>
+                            <div class="expires">
+                                <strong>TTL:</strong> ${keyData.ttlSeconds}s |
+                                <strong>Type:</strong> ${keyData.singleUse ? 'Single-use' : 'Multi-use'} |
+                                <strong>Expires:</strong> ${expiresDate.toLocaleString()}
+                            </div>
+                        </div>
+                    `;
+                    resultDiv.className = 'result-message';
+                } else {
+                    throw new Error(data.message || 'Failed to create temporary key');
+                }
+            } catch (error) {
+                resultDiv.className = 'result-message error';
+                resultDiv.textContent = '✗ ' + error.message;
+            }
+            resultDiv.style.display = 'block';
+        }
+
+        // Recover Messages from Kafka
+        async function recoverMessages() {
+            const channelId = document.getElementById('recoverChannelId').value.trim();
+            const fromOffset = parseInt(document.getElementById('recoverFromOffset').value) || 0;
+            const maxMessages = parseInt(document.getElementById('recoverMaxMessages').value) || 20;
+            const resultDiv = document.getElementById('recoverResult');
+            const container = document.getElementById('recoveredMessagesContainer');
+            const listDiv = document.getElementById('recoveredMessagesList');
+
+            if (!channelId) {
+                resultDiv.className = 'result-message error';
+                resultDiv.textContent = 'Please enter a channel ID';
+                resultDiv.style.display = 'block';
+                return;
+            }
+
+            resultDiv.className = 'result-message';
+            resultDiv.textContent = 'Recovering messages...';
+            resultDiv.style.display = 'block';
+
+            try {
+                const response = await fetch(`${getApiBaseUrl()}/recover-messages`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-API-Key': getApiKey()
+                    },
+                    body: JSON.stringify({
+                        channelId: channelId,
+                        fromOffset: fromOffset,
+                        maxMessages: maxMessages
+                    })
+                });
+
+                const data = await response.json();
+
+                if (response.ok && data.status === 'success') {
+                    const recData = data.data;
+                    const messages = recData.messages || [];
+
+                    if (messages.length === 0) {
+                        resultDiv.className = 'result-message warning';
+                        resultDiv.textContent = 'No messages found at this offset';
+                        container.style.display = 'none';
+                    } else {
+                        resultDiv.className = 'result-message success';
+                        resultDiv.textContent = `✓ Recovered ${messages.length} messages (offset ${recData.fromOffset} → ${recData.toOffset})`;
+
+                        listDiv.innerHTML = messages.map(msg => `
+                            <div class="message-item">
+                                <div class="meta">
+                                    <strong>Offset:</strong> ${msg.localOffset || 'N/A'} |
+                                    <strong>From:</strong> ${msg.from || 'N/A'} → ${msg.to || 'N/A'} |
+                                    <strong>Type:</strong> ${msg.type || 'N/A'} |
+                                    <strong>Date:</strong> ${msg.date ? new Date(msg.date).toLocaleString() : 'N/A'}
+                                </div>
+                                <div class="content">${msg.content || 'N/A'}</div>
+                            </div>
+                        `).join('');
+
+                        if (recData.hasMore) {
+                            listDiv.innerHTML += `
+                                <button class="btn btn-secondary" onclick="document.getElementById('recoverFromOffset').value=${recData.toOffset + 1}; recoverMessages();" style="margin-top: 12px;">
+                                    ⬇️ Load More Messages
+                                </button>
+                            `;
+                        }
+
+                        container.style.display = 'block';
+                    }
+                } else {
+                    throw new Error(data.message || 'Recovery failed');
+                }
+            } catch (error) {
+                resultDiv.className = 'result-message error';
+                resultDiv.textContent = '✗ ' + error.message;
+                container.style.display = 'none';
+            }
+        }
+
+        // Delete Channel
+        async function deleteChannel(channelId) {
+            if (!confirm(`Are you sure you want to delete channel "${channelId}"?\n\nThis action cannot be undone.`)) {
+                return;
+            }
+
+            try {
+                const response = await fetch(`${getApiBaseUrl()}/channels/${channelId}`, {
+                    method: 'DELETE',
+                    headers: {
+                        'X-API-Key': getApiKey()
+                    }
+                });
+
+                if (response.ok) {
+                    alert('✓ Channel deleted successfully!');
+                    // Reload channels list
+                    loadChannels();
+                } else {
+                    const data = await response.json();
+                    throw new Error(data.message || 'Failed to delete channel');
+                }
+            } catch (error) {
+                alert('✗ ' + error.message);
+            }
+        }
+
+        // Initial load
+        loadOverview();
+    </script>
+</body>
+</html>
+

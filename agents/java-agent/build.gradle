@@ -1,0 +1,55 @@
+plugins {
+    id 'java-library'
+    id 'application'
+}
+
+group = 'com.hmdev.messaging.agents'
+version = '1.0.0-SNAPSHOT'
+description = 'Project used to connect with http channel api'
+
+java {
+    sourceCompatibility = JavaVersion.VERSION_11
+    targetCompatibility = JavaVersion.VERSION_11
+}
+
+application {
+    // Service entrypoint that runs local TCP server
+    mainClass = project.findProperty("mainClass") ?: 'com.hmdev.messaging.agent.Agent'
+    applicationName = 'java-agent'
+}
+repositories {
+    mavenCentral()
+    maven { url 'https://jitpack.io' }
+}
+
+dependencies {
+
+    // messaging-common as a Gradle module dependency
+    api project(':messaging-common')
+
+    // WebRTC Java library - native WebRTC support
+    // https://github.com/devopvoid/webrtc-java
+    // Use the webrtc-java version compatible with agent code
+    implementation 'dev.onvoid.webrtc:webrtc-java:0.8.0'
+    runtimeOnly 'dev.onvoid.webrtc:webrtc-java:0.8.0:windows-x86_64'
+
+    // SLF4J binding for logging (if not already present)
+    implementation 'org.slf4j:slf4j-api:1.7.36'
+
+    // Lombok must be declared here too (Gradle does NOT propagate processors)
+    compileOnly 'org.projectlombok:lombok:1.18.34'
+    annotationProcessor 'org.projectlombok:lombok:1.18.34'
+
+    // Use testImplementation for testing libraries
+    testImplementation 'org.testng:testng:6.11'
+    testImplementation 'org.mockito:mockito-core:4.11.0'
+    testImplementation 'org.mockito:mockito-inline:4.11.0'
+}
+
+test {
+    useTestNG()
+}
+
+tasks.named("processResources") {
+    duplicatesStrategy = DuplicatesStrategy.EXCLUDE
+}

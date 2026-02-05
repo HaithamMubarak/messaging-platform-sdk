@@ -1,0 +1,175 @@
+plugins {
+    id 'java'
+    id 'org.springframework.boot' version '2.7.18'
+    id 'io.spring.dependency-management' version '1.1.6'
+    id 'java-library'  // Enable library publishing
+    id 'maven-publish'  // Enable maven publishing
+}
+
+group = 'com.hmdev.messaging'
+version = '1.0.0'
+
+// Set the base name for the JAR
+bootJar {
+    archiveBaseName = 'web-sdk-server'
+    archiveVersion = '1.0.0'
+}
+
+java {
+    sourceCompatibility = '11'
+}
+
+repositories {
+    mavenCentral()
+}
+
+dependencies {
+
+    // messaging-common as a Gradle module dependency
+    implementation project(':messaging-common')
+
+    // Spring Boot
+    implementation 'org.springframework.boot:spring-boot-starter-web'
+    implementation 'org.springframework.boot:spring-boot-starter-actuator'
+
+    // Configuration
+    implementation 'org.springframework.boot:spring-boot-configuration-processor'
+    annotationProcessor 'org.springframework.boot:spring-boot-configuration-processor'
+
+    // Lombok
+    compileOnly 'org.projectlombok:lombok:1.18.34'
+    annotationProcessor 'org.projectlombok:lombok:1.18.34'
+
+    // Testing
+    testImplementation 'org.springframework.boot:spring-boot-starter-test'
+}
+
+tasks.named('test') {
+    useJUnitPlatform()
+}
+
+// Task to copy CORE SDK resources from web-agent-js module
+// Mini-game specific files (mini-game-utils.js, share-modal.js, etc.) are now in this module's static/
+// Only create this task if web-agent-js module is available (multi-module build)
+def webAgentJsExists = findProject(':agents:web-agent-js') != null
+
+if (webAgentJsExists) {
+    tasks.register('copyWebAgentResources', Copy) {
+        description = 'Copy all SDK resources from web-agent-js module (HTML, CSS, JS)'
+        group = 'build'
+
+        def webAgentJsDir = project(':agents:web-agent-js').projectDir
+
+        // Destination: static/generated-web-agent-js folder under resources
+        into file('src/main/resources/static/generated-web-agent-js')
+
+        // Copy all JS files from js/ directory
+        from(project(':agents:web-agent-js').file('js')) {
+            include '**/*.js'
+            into 'js'
+        }
+
+        // Copy all lib files into js folder (for compatibility) - if lib directory exists
+        def libDir = project(':agents:web-agent-js').file('lib')
+        if (libDir.exists()) {
+            from(libDir) {
+                include '**/*'
+                into 'js'
+            }
+        }
+
+        // Copy all CSS files from root and subdirectories (excluding build artifacts)
+        from(webAgentJsDir) {
+            include '**/*.css'
+            exclude 'build/**'
+            exclude 'node_modules/**'
+            exclude '.gradle/**'
+            exclude 'js/**'
+            eachFile { fileCopyDetails ->
+                // Flatten CSS files into css/ folder
+                fileCopyDetails.relativePath = new RelativePath(true, 'css', fileCopyDetails.name)
+            }
+            includeEmptyDirs = false
+        }
+
+        // Copy all HTML files from root to generated root
+        from(webAgentJsDir) {
+            include '*.html'
+            exclude 'build/**'
+        }
+
+        // Always copy to ensure latest version
+        outputs.upToDateWhen { false }
+    }
+
+    // Ensure SDK resources are copied before building
+    processResources.dependsOn(tasks.named('copyWebAgentResources'))
+} else {
+    // Standalone build - SDK files should be manually placed in src/main/resources/static/generated-web-agent-js/
+    logger.warn('⚠️  Building standalone - web-agent-js module not found.')
+    logger.warn('   Make sure SDK files are in: src/main/resources/static/generated-web-agent-js/')
+
+    // Create placeholder task
+    tasks.register('copyWebAgentResources') {
+        description = 'Placeholder - web-agent-js module not available in standalone build'
+        group = 'build'
+        doLast {
+            def generatedDir = file('src/main/resources/static/generated-web-agent-js')
+            if (!generatedDir.exists() || generatedDir.list().length == 0) {
+                logger.error('❌ SDK files missing in: src/main/resources/static/generated-web-agent-js/')
+                logger.error('   Required: js/*.js, css/*.css, *.html, lib/*')
+            } else {
+                logger.info('✅ Using existing SDK files from: src/main/resources/static/generated-web-agent-js/')
+            }
+        }
+    }
+}
+
+// NOTE: Mini-games are now stored directly in src/main/resources/static/mini-games/
+// No need to copy them - they are part of this module
+
+// Mini-game specific utilities (mini-game-utils.js, share-modal.js) are also in static/js/
+// Only CORE SDK files are copied from web-agent-js via copyWebAgentResources
+
+// Clean task should remove generated files
+clean {
+    delete file('src/main/resources/static/generated-web-agent-js')
+}
+
+// Create executable jar with all web demos included
+bootJar {
+    archiveFileName = 'web-sdk-server.jar'
+    mainClass = 'com.hmdev.messaging.sdk.WebDemosApplication'
+}
+
+// Create plain jar (for use as library/dependency)
+jar {
+    enabled = true
+    archiveClassifier = 'lib'
+    // Exclude static resources from library jar (only include Java classes)
+    exclude 'static/**'
+    exclude 'templates/**'
+    exclude 'generated/**'
+}
+
+// Publish to local maven repository for services to use
+publishing {
+    publications {
+        mavenJava(MavenPublication) {
+            from components.java
+            groupId = 'com.hmdev.messaging'
+            artifactId = 'web-sdk-server'
+            version = '1.0.0'
+        }
+    }
+    repositories {
+        mavenLocal()  // Publish to ~/.m2/repository
+    }
+}
+
+// Suppress validation warnings for gradle module metadata
+tasks.withType(GenerateModuleMetadata).configureEach {
+    suppressedValidationErrors.add('enforced-platform')
+    suppressedValidationErrors.add('dependencies-without-versions')
+}
+

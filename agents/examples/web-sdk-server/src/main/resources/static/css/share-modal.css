@@ -1,0 +1,261 @@
+/* Share Modal - Reusable Component */
+
+/* Modal styles - shared by share-modal and decrypt-modal */
+.modal {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(3, 6, 23, 0.6);
+    z-index: 100000;
+    backdrop-filter: blur(4px);
+    align-items: center;
+    justify-content: center;
+}
+
+.modal-content {
+    /* Use an opaque background to ensure the modal panel is always visible */
+    background: linear-gradient(180deg, rgba(11, 18, 32, 0.98), rgba(6, 12, 20, 0.98));
+    border: 1px solid rgba(255, 255, 255, 0.04);
+    color: #e6eef8;
+    width: 420px;
+    max-width: calc(100% - 32px);
+    border-radius: 12px;
+    z-index: 100001;
+    box-shadow: 0 10px 30px rgba(2, 6, 23, 0.6);
+    animation: pop 0.12s ease-out;
+}
+
+.modal-body {
+    padding: 20px;
+}
+
+@keyframes pop {
+    from {
+        transform: scale(0.99);
+        opacity: 0;
+    }
+    to {
+        transform: scale(1);
+        opacity: 1;
+    }
+}
+
+/* Share modal specific styles */
+#share-modal .modal-content {
+    max-width: 520px;
+}
+
+#share-encryption-key-input {
+    margin-top: 16px;
+}
+
+#share-link-container {
+    margin-top: 16px;
+}
+
+#share-qr-container {
+    margin-top: 16px;
+    text-align: center;
+}
+
+#share-qr-container > div:first-child {
+    padding: 16px;
+    background: #ffffff;
+    border-radius: 8px;
+    display: inline-block;
+}
+
+#share-encryption-info {
+    margin-top: 8px;
+    padding: 8px;
+    background: rgba(79, 70, 229, 0.1);
+    border-radius: 6px;
+    font-size: 12px;
+    color: var(--muted);
+}
+
+/* Decrypt modal specific styles */
+#decrypt-modal .modal-content {
+    max-width: 420px;
+}
+
+/* Highlight readonly channel/password inputs populated by a shared link */
+.input-readonly-highlight, .readonly-highlight {
+    background: linear-gradient(90deg, rgba(102,126,234,0.06), rgba(102,126,234,0.03));
+    border: 1px dashed rgba(102,126,234,0.35);
+    padding-right: 32px; /* allow space for a lock icon if added */
+    color: #e6eef8;
+    cursor: not-allowed;
+}
+
+/* Small lock indicator (non-intrusive) using a pseudo-element on a wrapper class; inputs themselves can't show ::after reliably, so consumer pages may wrap inputs in a .readonly-wrapper */
+.readonly-wrapper {
+    position: relative;
+}
+
+/* Responsive */
+@media (max-width: 640px) {
+    .modal-content {
+        width: calc(100% - 24px);
+        max-height: 80vh;
+        overflow-y: auto;
+    }
+}
+
+/* ============================================
+   Modern Button & Input Styles
+   ============================================ */
+
+/* Modern button styles - similar to whiteboard */
+.modal button:not(.color-btn),
+.modal .btn,
+.modal .btn-primary,
+.modal .btn-danger,
+.modal .btn-success,
+#share-modal button,
+#decrypt-modal button {
+    background: #6965db;
+    color: white;
+    border: none;
+    padding: 10px 16px;
+    border-radius: 8px;
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.15s ease;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+
+.modal button:not(.color-btn):hover,
+.modal .btn:hover,
+.modal .btn-primary:hover,
+#share-modal button:hover,
+#decrypt-modal button:hover {
+    background: #5753c6;
+    transform: translateY(-1px);
+    box-shadow: 0 4px 8px rgba(105, 101, 219, 0.3);
+}
+
+.modal button:not(.color-btn):active,
+.modal .btn:active,
+.modal .btn-primary:active,
+#share-modal button:active,
+#decrypt-modal button:active {
+    transform: translateY(0);
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
+}
+
+.modal .btn-danger {
+    background: #ef4444;
+}
+
+.modal .btn-danger:hover {
+    background: #dc2626;
+    box-shadow: 0 4px 8px rgba(239, 68, 68, 0.3);
+}
+
+.modal .btn-success {
+    background: #10b981;
+}
+
+.modal .btn-success:hover {
+    background: #059669;
+    box-shadow: 0 4px 8px rgba(16, 185, 129, 0.3);
+}
+
+.modal button:disabled,
+.modal .btn:disabled {
+    background: #6b7280;
+    cursor: not-allowed;
+    transform: none;
+    opacity: 0.6;
+    box-shadow: none;
+}
+
+/* Modern input field styles */
+.modal input[type="text"],
+.modal input[type="password"],
+.modal input[type="email"],
+.modal textarea,
+#share-modal input,
+#decrypt-modal input {
+    width: 100%;
+    padding: 10px 12px;
+    border: 2px solid rgba(255, 255, 255, 0.1);
+    border-radius: 8px;
+    font-size: 14px;
+    color: #e6eef8;
+    background: rgba(255, 255, 255, 0.05);
+    transition: all 0.2s ease;
+    font-weight: 500;
+}
+
+.modal input[type="text"]::placeholder,
+.modal input[type="password"]::placeholder,
+.modal input[type="email"]::placeholder,
+.modal textarea::placeholder {
+    color: rgba(230, 238, 248, 0.5);
+    font-weight: 400;
+}
+
+.modal input[type="text"]:focus,
+.modal input[type="password"]:focus,
+.modal input[type="email"]:focus,
+.modal textarea:focus,
+#share-modal input:focus,
+#decrypt-modal input:focus {
+    outline: none;
+    border-color: #6965db;
+    box-shadow: 0 0 0 4px rgba(105, 101, 219, 0.2);
+    background: rgba(255, 255, 255, 0.08);
+}
+
+.modal input[type="text"]:read-only,
+.modal input[type="password"]:read-only,
+#share-modal input:read-only,
+#decrypt-modal input:read-only {
+    background: rgba(255, 255, 255, 0.03);
+    border-color: rgba(255, 255, 255, 0.08);
+    cursor: not-allowed;
+    color: rgba(230, 238, 248, 0.7);
+}
+
+/* Copy button styling (for share links) */
+.modal .copy-btn,
+#share-modal .copy-btn {
+    background: transparent;
+    border: 1px solid rgba(105, 101, 219, 0.5);
+    color: #6965db;
+    padding: 8px 12px;
+    font-size: 13px;
+}
+
+.modal .copy-btn:hover,
+#share-modal .copy-btn:hover {
+    background: rgba(105, 101, 219, 0.1);
+    border-color: #6965db;
+    color: #7c73e8;
+    box-shadow: 0 2px 6px rgba(105, 101, 219, 0.2);
+}
+
+/* Close button (if any) */
+.modal .close-btn,
+.modal .modal-close {
+    background: transparent;
+    color: rgba(230, 238, 248, 0.6);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    padding: 6px 12px;
+    font-size: 13px;
+}
+
+.modal .close-btn:hover,
+.modal .modal-close:hover {
+    background: rgba(255, 255, 255, 0.05);
+    color: #e6eef8;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+

@@ -1,0 +1,33 @@
+# Ignore build outputs for agent subprojects
+# (Placed in sdk/agents so these patterns apply to all agents beneath it)
+
+# Python build artifacts
+build/
+dist/
+*.egg-info/
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+
+# Node/npm artifacts
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Generated assets and build resources
+generated/
+**/generated/
+
+# IDE/editor
+.vscode/
+.idea/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Misc
+*.log
+

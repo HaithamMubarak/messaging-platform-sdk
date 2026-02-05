@@ -1,0 +1,34 @@
+plugins {
+    id 'application'
+}
+
+description = 'Java Agent Example - demonstrates chat usage via AgentConnection'
+
+repositories {
+    mavenCentral()
+    maven { url 'https://jitpack.io' }
+}
+
+dependencies {
+    // Use project dependencies with correct paths
+    implementation project(":agents:java-agent")
+
+    // messaging-common is now provided by java-agent dependency
+
+    // SLF4J for logging
+    implementation 'org.slf4j:slf4j-api:1.7.36'
+    implementation 'org.slf4j:slf4j-simple:1.7.36'
+
+    // WebRTC Java library - native WebRTC support
+    // https://github.com/devopvoid/webrtc-java
+    implementation 'dev.onvoid.webrtc:webrtc-java:0.8.0'
+    runtimeOnly 'dev.onvoid.webrtc:webrtc-java:0.8.0:windows-x86_64'
+
+    // Lombok
+    compileOnly 'org.projectlombok:lombok:1.18.34'
+    annotationProcessor 'org.projectlombok:lombok:1.18.34'
+}
+
+application {
+    mainClass = 'com.hmdev.messaging.agent.example.ExampleMain'
+}

@@ -1,0 +1,163 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="theme-color" content="#1a202c">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <title>🏎️ Race Balls - 3D Multiplayer Racing</title>
+
+    <!-- Common Styles -->
+    <link rel="stylesheet" href="../../../css/toast.css">
+    <link rel="stylesheet" href="../../../css/connection-modal.css">
+    <link rel="stylesheet" href="../../../css/share-modal.css">
+
+    <!-- Game Styles -->
+    <link rel="stylesheet" href="race-balls.css">
+
+    <!-- Three.js -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+
+    <!-- Cannon.js Physics Engine -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/cannon.js/0.6.2/cannon.min.js"></script>
+
+    <!-- Race map system (JSON loader + validation) -->
+    <script src="map-system.js"></script>
+</head>
+<body>
+    <!-- Share Button (hidden until connected) -->
+    <button id="shareBtn" class="share-btn" onclick="raceBallsGame?.openShareModal()" style="display: none;">
+        📤 Share
+    </button>
+
+    <!-- Connection Status -->
+    <div id="connectionStatus" class="connection-status">
+        <span id="statusDot" class="status-dot"></span>
+        <span id="statusText">Disconnected</span>
+    </div>
+
+    <!-- Game Container -->
+    <div id="gameContainer" class="game-container">
+        <!-- Three.js Canvas will be inserted here -->
+
+        <!-- Game UI Overlay -->
+        <div id="gameUI" class="game-ui">
+            <!-- Race Position -->
+            <div id="racePosition" class="race-position hidden">
+                <span id="positionNumber">1st</span>
+                <span class="position-label">Place</span>
+            </div>
+
+            <!-- Speed Bar (Stamina) -->
+            <div id="speedBarContainer" class="speed-bar-container hidden">
+                <div class="speed-bar-label">⚡ BOOST</div>
+                <div class="speed-bar-bg">
+                    <div id="speedBarFill" class="speed-bar-fill"></div>
+                </div>
+                <div id="speedBarStatus" class="speed-bar-status">READY</div>
+            </div>
+
+            <!-- Checkpoint Progress -->
+            <div id="checkpointProgress" class="checkpoint-progress hidden">
+                <span id="checkpointText">CP: 0/4</span>
+            </div>
+
+            <!-- Timer -->
+            <div id="timerDisplay" class="timer-display hidden">
+                <span id="timerValue">0:00</span>
+            </div>
+
+            <!-- Player Count -->
+            <div id="playerCount" class="player-count">
+                <span id="playerCountValue">0</span> Players
+            </div>
+
+            <!-- Countdown Overlay -->
+            <div id="countdownOverlay" class="countdown-overlay hidden">
+                <div id="countdownNumber" class="countdown-number">3</div>
+            </div>
+        </div>
+
+        <!-- Control Panel (shows player list like air-hockey) -->
+        <div id="controlPanel" class="control-panel hidden">
+            <h2>🏎️ Race Balls</h2>
+            <p>3D Multiplayer Racing</p>
+
+            <div id="playersList" class="players-list">
+                <!-- Players will be added here dynamically -->
+            </div>
+
+            <div id="gameMessage" class="game-message">Waiting for players...</div>
+
+            <button id="startBtn" class="btn-start" onclick="raceBallsGame?.hostStartRace()">
+                Start Race!
+            </button>
+        </div>
+
+        <!-- Waiting Room Overlay (shows controls info) -->
+        <div id="waitingRoom" class="waiting-room hidden">
+            <div class="waiting-content">
+                <div class="controls-info">
+                    <h3>🎮 Controls</h3>
+                    <div class="controls-grid">
+                        <div class="control-item"><span class="key">W</span> / <span class="key">↑</span> Forward</div>
+                        <div class="control-item"><span class="key">S</span> / <span class="key">↓</span> Backward</div>
+                        <div class="control-item"><span class="key">A</span> / <span class="key">←</span> Left</div>
+                        <div class="control-item"><span class="key">D</span> / <span class="key">→</span> Right</div>
+                        <div class="control-item"><span class="key">SPACE</span> Jump</div>
+                        <div class="control-item"><span class="key">SHIFT</span> / <span class="key">HOLD</span> Speed Boost</div>
+                    </div>
+                    <p class="mobile-hint">📱 Mobile: Touch joystick to move, tap buttons for Jump/Boost</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Finish Overlay -->
+        <div id="finishOverlay" class="finish-overlay hidden">
+            <div class="finish-content">
+                <h1 id="finishTitle">🏆 Race Complete!</h1>
+                <div id="finishResults" class="finish-results">
+                    <!-- Results will be added here -->
+                </div>
+                <button id="playAgainBtn" class="btn-play-again host-only" onclick="raceBallsGame?.hostRestartRace()">
+                    Play Again
+                </button>
+            </div>
+        </div>
+
+        <!-- Mobile Controls -->
+        <div id="mobileControls" class="mobile-controls hidden">
+            <div class="joystick-area" id="joystickArea">
+                <div class="joystick-base">
+                    <div class="joystick-stick" id="joystickStick"></div>
+                </div>
+            </div>
+            <div class="action-buttons">
+                <button id="jumpBtn" class="action-btn jump-btn">JUMP</button>
+                <button id="boostBtn" class="action-btn boost-btn">BOOST</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Share Modal Container -->
+    <div id="shareModalContainer"></div>
+
+    <!-- Toast Notifications -->
+    <div id="toastContainer" class="toast-container"></div>
+
+    <!-- Scripts -->
+    <script src="../../../js/config-loader.js"></script>
+    <script src="../../../js/lib/qrcode.min.js"></script>
+    <script src="../../../generated-web-agent-js/js/web-agent.libs.js"></script>
+    <script src="../../../generated-web-agent-js/js/web-agent.js"></script>
+    <script src="../../../generated-web-agent-js/js/web-agent.webrtc.js"></script>
+
+    <script src="../../../js/share-modal.js"></script>
+    <script src="../../../js/common-utils.js"></script>
+    <script src="../../../js/connection-modal.js"></script>
+    <script src="../../../js/AgentInteractionBase.js"></script>
+
+    <script src="race-balls.js"></script>
+</body>
+</html>

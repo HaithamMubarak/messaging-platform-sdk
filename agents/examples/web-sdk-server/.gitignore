@@ -1,0 +1,32 @@
+# Gradle
+.gradle/
+build/
+!gradle/wrapper/gradle-wrapper.jar
+
+# IDE
+.idea/
+*.iml
+*.ipr
+*.iws
+.vscode/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Generated SDK files (copied at build time)
+src/main/resources/static/generated/
+src/main/resources/static/generated-web-agent-js/
+
+# Logs
+*.log
+
+# Environment variables (contains sensitive data)
+.env
+
+# Temporary files
+*.tmp
+*.bak
+*.swp
+*~
+
