@@ -2866,9 +2866,12 @@ agent.connect({
         function handleHashNavigation() {
             const hash = window.location.hash.replace('#', '');
             const validTabs = ['demos', 'architecture', 'games', 'code', 'features', 'plans', 'roadmap'];
+
+            // Only switch tabs and scroll if there's a valid hash
             if (hash && validTabs.includes(hash)) {
                 switchTab(hash, false);
             }
+            // If no hash or invalid hash, do nothing - stay at current position
         }
 
         // Initialize on page load
