@@ -21,6 +21,16 @@
 
 ---
 
+> **📌 API Configuration Note:**  
+> The default production messaging service URL is `https://hmdevonline.com/messaging-platform/api/v1/messaging-service`.  
+> - Java and Python agents use this URL as the default if no URL is specified
+> - Web agents require explicit URL configuration in the `connect()` call  
+> - Examples in this guide may use `http://localhost:8082` to demonstrate local development
+> - For production, use: `https://hmdevonline.com/messaging-platform/api`
+> - The messaging service is a private platform service
+
+---
+
 ## Overview
 
 The Messaging Platform SDK provides client libraries for building real-time messaging applications with support for:

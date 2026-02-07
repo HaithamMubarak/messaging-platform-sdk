@@ -6,6 +6,15 @@
 
 ---
 
+> **📌 API Configuration Note:**  
+> The production messaging service URL is `https://hmdevonline.com/messaging-platform/api/v1/messaging-service`.  
+> - Web agents require explicit URL configuration in the `connect()` call via the `api` parameter
+> - Examples in this guide use `http://localhost:8082` to demonstrate local development setup
+> - For production deployments, use the production URL: `https://hmdevonline.com/messaging-platform/api`
+> - The production messaging service is a private service managed by the platform
+
+---
+
 ## 🎯 Quick Start
 
 The Web Agent enables real-time messaging and WebRTC video streaming in web browsers using pure JavaScript - no dependencies required.

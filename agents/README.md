@@ -110,7 +110,7 @@ cd agents/cpp-agent
 ./build.sh
 
 # Run example
-./build/examples/basic_chat_example http://localhost:8080 your_api_key
+./build/examples/basic_chat_example https://hmdevonline.com/messaging-platform/api/v1/messaging-service your_api_key
 ```
 
 ### Example Code
@@ -121,7 +121,7 @@ cd agents/cpp-agent
 using namespace hmdev::messaging;
 
 int main() {
-    MessagingChannelApi api("http://localhost:8080", "your_api_key");
+    MessagingChannelApi api("https://hmdevonline.com/messaging-platform/api/v1/messaging-service", "your_api_key");
     
     ConnectResponse resp = api.connect("room", "password", "player-1");
     if (resp.success) {
