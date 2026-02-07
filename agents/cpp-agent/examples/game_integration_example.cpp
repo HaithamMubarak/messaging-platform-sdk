@@ -27,7 +27,8 @@ struct GameState {
 
 int main(int argc, char* argv[]) {
     // Configuration
-    std::string apiUrl = "http://localhost:8080";
+    // Default messaging service URL (production)
+    std::string apiUrl = "https://hmdevonline.com/messaging-platform/api/v1/messaging-service";
     std::string apiKey = "your_api_key_here";
     std::string channelName = "game-room";
     std::string channelPassword = "gamepass123";

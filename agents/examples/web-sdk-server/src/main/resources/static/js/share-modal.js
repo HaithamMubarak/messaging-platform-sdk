@@ -581,10 +581,8 @@
                     onConnect(auth, agentName);
                 }
 
-                // Apply visual highlight to readonly channel/password inputs if present
-                try {
-                    this._applyReadonlyHighlight();
-                } catch (e) { /* non-fatal */ }
+                // Readonly styling disabled - all fields are editable
+                // (Previously applied visual highlight to readonly inputs)
 
                 // If MiniGameUtils is present, let it start any configured auto-connect behavior
                 try { if (window.MiniGameUtils && typeof window.MiniGameUtils._startAutoConnectIfConfigured === 'function') { window.MiniGameUtils._startAutoConnectIfConfigured(); } } catch (e) { /* ignore */ }
@@ -607,30 +605,9 @@
 
         // Add a small helper to mark readonly channel/password inputs so they're visually distinct
         _applyReadonlyHighlight: function() {
-            try {
-                const ids = ['channelInput', 'channel', 'room', 'passwordInput', 'password', 'pw'];
-                ids.forEach(id => {
-                    const el = document.getElementById(id);
-                    if (el && (el.readOnly || el.hasAttribute('readonly'))) {
-                        el.classList.add('readonly-highlight');
-                        // also add wrapper class if parent available
-                        if (el.parentElement) el.parentElement.classList.add('readonly-wrapper');
-                        el.title = el.title || 'This value was supplied by a shared link';
-
-                    }
-                });
-
-                // Generic selector: any input marked readonly that looks like channel/password
-                const inputs = Array.from(document.querySelectorAll('input[readonly], input[readonly="readonly"]'));
-                inputs.forEach(inp => {
-                    const name = (inp.id || inp.name || '').toLowerCase();
-                    if (name.includes('chan') || name.includes('room') || name.includes('channel') || name.includes('pass') || name.includes('pw')) {
-                        inp.classList.add('readonly-highlight');
-                        if (inp.parentElement) inp.parentElement.classList.add('readonly-wrapper');
-                        inp.title = inp.title || 'This value was supplied by a shared link';
-                      }
-                });
-            } catch (e) { console.warn('applyReadonlyHighlight failed', e); }
+            // Disabled - no longer apply readonly styling
+            // Users can freely edit channel/password even with shared links
+            console.log('[ShareModal] Readonly styling disabled - all fields editable');
         },
 
         /**

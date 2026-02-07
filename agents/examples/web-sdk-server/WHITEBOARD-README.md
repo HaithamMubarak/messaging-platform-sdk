@@ -25,9 +25,7 @@ A beautiful, interactive whiteboard application demonstrating the power of the M
 ### Run Locally
 
 ```bash
-# 1. Start messaging service (if not already running)
-cd messaging-platform-services
-docker-compose up
+# 1. Ensure messaging service is running at http://localhost:8080
 
 # 2. Serve the whiteboard app
 cd messaging-platform-sdk/agents/examples/realtime-whiteboard/web

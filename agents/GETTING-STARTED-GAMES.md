@@ -393,11 +393,9 @@ result = agent.pull_messages(config)
 
 ## Testing Locally
 
-### 1. Start messaging service
-```bash
-cd messaging-platform-services
-./messaging-env.sh start
-```
+### 1. Ensure messaging service is running
+
+Make sure the messaging service is available at your configured endpoint.
 
 ### 2. Change API URL in your game
 ```java

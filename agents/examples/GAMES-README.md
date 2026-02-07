@@ -67,10 +67,8 @@ Classic memory card game with multiplayer twist. Flip cards and find matches bef
 ### Prerequisites
 
 1. **Messaging service running:**
-   ```bash
-   cd messaging-platform-services
-   docker-compose up
-   ```
+   - Ensure the messaging service is available and running
+   - Default URL: http://localhost:8080
 
 2. **Web server** (any of these):
    ```bash

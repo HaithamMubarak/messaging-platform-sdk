@@ -1,14 +1,12 @@
 # C++ Agent - Messaging Platform SDK
-- [Messaging Platform Services](../../../messaging-platform-services/README.md)
-- [Web Agent](../web-agent-deprecated/README.md)
-- [Python Agent](../python-agent/README.md)
-- [Java Agent](../java-agent/README.md)
 
-## See Also
+Native C++ client library for the Messaging Platform, providing high-performance communication for games and real-time applications.
+
+## Version
 
 **1.0.0** - Initial release (December 2025)
 
-## Version
+## Resources
 
 - Examples: See `examples/` directory
 - Issues: GitHub issue tracker
@@ -96,9 +94,9 @@ The API is **not thread-safe** by default. For multi-threaded applications:
 ## Performance
 
 ```
-./examples/udp_example http://localhost:8080 your_api_key
-./examples/game_integration_example http://localhost:8080 your_api_key
-./examples/basic_chat_example http://localhost:8080 your_api_key
+./examples/basic_chat_example https://hmdevonline.com/messaging-platform/api/v1/messaging-service your_api_key
+./examples/game_integration_example https://hmdevonline.com/messaging-platform/api/v1/messaging-service your_api_key
+./examples/udp_example https://hmdevonline.com/messaging-platform/api/v1/messaging-service your_api_key
 cd build
 ```bash
 
@@ -329,8 +327,8 @@ sudo apt-get update
 - ✅ **UDP Support**: Fast, low-latency messaging for real-time updates
 - ✅ **HTTP API**: Reliable message delivery (connect, push, pull, disconnect)
 
-## Features
+## See Also
 
-Native C++ client library for the Messaging Platform, providing high-performance communication for games and real-time applications.
-
-
+- [Web Agent](../web-agent-deprecated/README.md)
+- [Python Agent](../python-agent/README.md)
+- [Java Agent](../java-agent/README.md)

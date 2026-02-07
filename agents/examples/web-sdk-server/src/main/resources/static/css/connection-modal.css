@@ -15,10 +15,8 @@
     display: flex;
 }
 
-/* Collapsed state */
+/* Collapsed state - keep overlay, just reposition content */
 .connection-modal.collapsed {
-    background: transparent;
-    backdrop-filter: none;
     align-items: flex-start;
     padding-top: 20px;
 }
@@ -27,7 +25,7 @@
     display: none;
 }
 
-/* Collapsed header (shown when modal is collapsed) */
+/* Collapsed header - always use compact layout (PC and mobile) */
 .connection-modal .collapsed-header {
     display: none;
     position: fixed;
@@ -39,22 +37,28 @@
     border-radius: 12px;
     padding: 12px 16px;
     box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
-    cursor: pointer;
     z-index: 100001;
-    min-width: 400px;
-    max-width: calc(100% - 32px);
+    width: calc(100% - 32px);
+    max-width: 500px;
     transition: all 0.2s ease;
 }
 
 .connection-modal.collapsed .collapsed-header {
     display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 12px;
+    flex-direction: column;
+    gap: 8px;
 }
 
 .connection-modal .collapsed-header:hover {
     box-shadow: 0 6px 16px rgba(0, 0, 0, 0.15);
+}
+
+/* Header row with title and toggle */
+.connection-modal .ch-header-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
 }
 
 .connection-modal .ch-left {
@@ -74,6 +78,72 @@
     color: #6b7280;
 }
 
+/* Shared link note in collapsed header */
+.connection-modal .shared-link-note {
+    display: flex;
+    width: 100%;
+    background: linear-gradient(135deg, #dbeafe 0%, #bfdbfe 100%);
+    border-left: 3px solid #3b82f6;
+    border-radius: 6px;
+    padding: 8px 10px;
+}
+
+.connection-modal .shared-link-note p {
+    margin: 0;
+    font-size: 12px;
+    color: #1e40af;
+    font-weight: 500;
+}
+
+/* Username input row (full width) */
+.connection-modal .quick-username {
+    display: flex;
+    width: 100%;
+}
+
+.connection-modal .quick-username input {
+    padding: 8px 12px;
+    border: 1px solid #d1d5db;
+    border-radius: 8px;
+    font-size: 14px;
+    width: 100%;
+    color: #111827;
+    background: #ffffff;
+}
+
+.connection-modal .quick-username input::placeholder {
+    color: #9ca3af;
+    opacity: 1;
+}
+
+/* Connect button row (full width) */
+.connection-modal .quick-connect-btn {
+    display: flex;
+    width: 100%;
+}
+
+.connection-modal .quick-connect-btn button {
+    width: 100%;
+    padding: 10px 16px;
+    font-size: 14px;
+    font-weight: 600;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    background: linear-gradient(135deg, #6965db 0%, #7c3aed 100%);
+    color: white;
+    border: none;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.connection-modal .quick-connect-btn button:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 4px 8px rgba(105, 101, 219, 0.3);
+}
+
+/* Old quick-connect styles (keep for backward compatibility) */
 .connection-modal .quick-connect {
     display: flex;
     gap: 8px;
@@ -85,7 +155,7 @@
     border: 1px solid #d1d5db;
     border-radius: 6px;
     font-size: 13px;
-    width: 120px;
+    flex: 1;
     color: #111827;
     background: #ffffff;
 }
@@ -370,22 +440,8 @@
     transform: translateY(-50%) translateX(0);
 }
 
-/* Mobile responsive */
+/* Mobile responsive - only adjust modal content width */
 @media (max-width: 600px) {
-    .connection-modal .collapsed-header {
-        min-width: auto;
-        width: calc(100% - 32px);
-        flex-wrap: wrap;
-    }
-
-    .connection-modal .quick-connect {
-        width: 100%;
-        margin-top: 8px;
-    }
-
-    .connection-modal .quick-connect input {
-        flex: 1;
-    }
 
     .connection-modal .modal-content {
         width: calc(100% - 32px);

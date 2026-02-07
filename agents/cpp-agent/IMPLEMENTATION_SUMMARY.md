@@ -213,7 +213,7 @@ sudo cmake --install build
 using namespace hmdev::messaging;
 
 int main() {
-    MessagingChannelApi api("http://localhost:8080", "your_api_key");
+    MessagingChannelApi api("https://hmdevonline.com/messaging-platform/api/v1/messaging-service", "your_api_key");
     
     ConnectResponse resp = api.connect("room", "password", "player-1");
     
@@ -236,7 +236,7 @@ int main() {
 
 ```cpp
 // High-frequency updates via UDP
-MessagingChannelApi api("http://localhost:8080", "key");
+MessagingChannelApi api("https://hmdevonline.com/messaging-platform/api/v1/messaging-service", "key");
 ConnectResponse resp = api.connect("game-room", "pass", "player-1");
 
 // Game loop
@@ -271,15 +271,13 @@ Not yet implemented. Plan:
 Run examples against live server:
 
 ```bash
-# Start messaging service
-cd messaging-platform-services
-docker-compose up
+# Ensure messaging service is running at http://localhost:8080
 
 # Run examples
 cd cpp-agent/build
-./examples/basic_chat_example http://localhost:8080 your_api_key
-./examples/game_integration_example http://localhost:8080 your_api_key
-./examples/udp_example http://localhost:8080 your_api_key
+./examples/basic_chat_example https://hmdevonline.com/messaging-platform/api/v1/messaging-service your_api_key
+./examples/game_integration_example https://hmdevonline.com/messaging-platform/api/v1/messaging-service your_api_key
+./examples/udp_example https://hmdevonline.com/messaging-platform/api/v1/messaging-service your_api_key
 ```
 
 ---

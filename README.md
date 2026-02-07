@@ -144,6 +144,13 @@ agent.connect(
 agent.send_message("Hello from Python!")
 ```
 
+> **📌 Note on API Configuration:**  
+> The default messaging service URL is `https://hmdevonline.com/messaging-platform/api/v1/messaging-service`.  
+> - Java and Python agents use this as the default if no URL is specified
+> - Web agents require explicit URL configuration in the `connect()` call
+> - For local development, you can use `http://localhost:8080` if you're running a local instance
+> - The production messaging service is a private service managed by the platform
+
 ---
 
 ## 🎮 Example Applications

@@ -156,11 +156,8 @@ class AgentInteractionBase {
 
         console.log('[AgentInteractionBase] Initializing...');
 
-        // Enable auto-connect for shared links (timed mode with 3 second countdown)
-        if (window.MiniGameUtils && typeof window.MiniGameUtils.enableAutoConnect === 'function') {
-            window.MiniGameUtils.enableAutoConnect('timed', 3000);
-            console.log('[AgentInteractionBase] Auto-connect enabled for shared links (3s countdown)');
-        }
+        // Auto-connect disabled - users must click Connect button manually
+        // (Previously enabled auto-connect for shared links)
 
         // Call subclass initialization
         if (typeof this.onInitialize === 'function') {
@@ -1680,13 +1677,13 @@ let GameInitializer = {
                     const pwEl = document.getElementById('passwordInput');
                     const userEl = document.getElementById('usernameInput');
 
-                    if (auth && chEl && pwEl) {
-                        hasSharedLink = true;
-                        chEl.value = auth.c || '';
-                        pwEl.value = auth.p || '';
-                        chEl.readOnly = true;
-                        pwEl.readOnly = true;
-                    }
+                if (auth && chEl && pwEl) {
+                    hasSharedLink = true;
+                    chEl.value = auth.c || '';
+                    pwEl.value = auth.p || '';
+                    // Allow editing - users can change channel/password if they want
+                    // Warning will be shown in the modal
+                }
 
                     // Generate or use provided agent name
                     let finalName = agentName ||
@@ -1701,29 +1698,31 @@ let GameInitializer = {
                         });
                     }
 
-                    // Show the modal
+                    // Show the modal - collapsed when auto-connect is enabled
                     const modal = document.getElementById('connectionModal');
-                    if (modal) modal.classList.add('active');
+                    if (modal) {
+                        modal.classList.add('active');
+                        
+                        // Collapse modal immediately when auto-connect is enabled
+                        if (hasSharedLink && connectCallback && typeof connectCallback === 'function') {
+                            modal.classList.add('collapsed');
+                            console.log(`[${config.gameName}] Modal collapsed for auto-connect`);
+                        }
+                    }
 
                     console.log(`[${config.gameName}] Shared link processed`, {
                         channel: auth?.c,
                         hasPassword: !!auth?.p
                     });
 
-                    // Enable auto-connect if shared link is present
+                    // Enable auto-connect if shared link is present - immediate mode (no timer)
                     if (hasSharedLink && window.MiniGameUtils) {
                         // Use the provided callback or fall back to window.connect
                         const connectCallback = config.connectCallback || window.connect;
 
-                        if (typeof connectCallback === 'function') {
-                            // Enable auto-connect with the callback
-                            if (typeof window.MiniGameUtils.enableAutoConnect === 'function') {
-                                window.MiniGameUtils.enableAutoConnect('timed', 3000, connectCallback);
-                                console.log(`[${config.gameName}] Auto-connect enabled (3s countdown)`);
-                            }
-                        } else {
-                            console.warn(`[${config.gameName}] No connect method available for auto-connect`);
-                        }
+                        // Auto-connect disabled - users must click Connect button manually
+                        // Even with shared links, waiting for user action
+                        console.log(`[${config.gameName}] Shared link detected - waiting for user to click Connect`);
                     }
                 } catch (e) {
                     console.warn(`[${config.gameName}] Share link handler failed`, e);

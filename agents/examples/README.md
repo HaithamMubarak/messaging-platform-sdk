@@ -191,14 +191,9 @@ r/place-style collaborative pixel canvas.
 
 ## 🚀 Quick Start Guide
 
-### 1. Start the Messaging Service
+### 1. Ensure Messaging Service is Running
 
-```bash
-cd messaging-platform-services
-docker-compose up
-```
-
-Service runs at: http://localhost:8080
+Make sure the messaging service is available and running.
 
 ### 2. Choose an Example
 
@@ -403,11 +398,7 @@ Popular requests get priority!
    git clone https://github.com/your-repo.git
    ```
 
-2. **Start messaging service**
-   ```bash
-   cd messaging-platform-services
-   docker-compose up
-   ```
+2. **Ensure messaging service is running**
 
 3. **Try the mini-games**
    ```bash

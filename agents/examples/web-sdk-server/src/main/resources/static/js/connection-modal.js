@@ -20,15 +20,21 @@
 <!-- Connection Modal HTML Template -->
 <div id="connectionModal" class="connection-modal active">
     <div class="collapsed-header" role="button" aria-expanded="false" tabindex="0">
-        <div class="ch-left">
-            <div class="ch-title">{{COLLAPSED_TITLE}}</div>
-            <div class="ch-sub">Channel: <span id="collapsedChannelDisplay">-</span></div>
+        <div class="ch-header-row">
+            <div class="ch-left">
+                <div class="ch-title">{{COLLAPSED_TITLE}}</div>
+            </div>
+            <button id="modalToggleBtn" class="modal-toggle-btn" aria-label="Toggle connection form">▾</button>
         </div>
-        <div class="quick-connect">
+        <div id="sharedLinkNote" class="shared-link-note" style="display: none;">
+            <p>🔗 Saved or shared channel - Enter your name to connect</p>
+        </div>
+        <div class="quick-username">
             <input id="quickUsernameInput" type="text" placeholder="Your name" aria-label="Your name" />
+        </div>
+        <div class="quick-connect-btn">
             <button id="quickConnectBtn" type="button" class="btn-primary" aria-label="Quick connect">Connect</button>
         </div>
-        <button id="modalToggleBtn" class="modal-toggle-btn" aria-label="Toggle connection form">▾</button>
     </div>
 
     <div class="modal-content">
@@ -39,6 +45,10 @@
 
         <div class="connection-info-note">
             <p><strong>💡 Tip:</strong> Channel name and password are freely chosen by you. Pick any values you like, then share them with others to connect together on the same channel.</p>
+        </div>
+
+        <div id="sharedLinkWarning" class="connection-info-note" style="display: none; background: #fff3cd; border-left: 4px solid #ffc107;">
+            <p><strong>⚠️ Shared Link Active:</strong> You're using a shared link. Changing the channel name or password will connect you to a different channel than the one shared with you.</p>
         </div>
 
         <form id="connectionForm" onsubmit="return false;">
@@ -125,6 +135,12 @@
      * @param {Object} config - Configuration object
      */
     window.initConnectionModal = function(config) {
+        // Prevent duplicate initialization
+        if (window._connectionModalInitialized) {
+            console.warn('[ConnectionModal] Already initialized, skipping duplicate initialization');
+            return;
+        }
+        window._connectionModalInitialized = true;
         const localStoragePrefix = config.localStoragePrefix || '';
         const channelPrefix = config.channelPrefix || 'channel-';
         const onConnect = config.onConnect;
@@ -157,8 +173,8 @@
 
         // Regenerate function
         function doRegenerate() {
-            if (chEl && !chEl.readOnly) chEl.value = channelPrefix + randomDigits(8);
-            if (pwEl && !pwEl.readOnly) pwEl.value = generatePassword();
+            if (chEl) chEl.value = channelPrefix + randomDigits(8);
+            if (pwEl) pwEl.value = generatePassword();
             // Don't regenerate username - keep it persistent across channels
             if (userEl && !userEl.value.trim()) {
                 const base = (window.generateRandomAgentName && typeof window.generateRandomAgentName === 'function')
@@ -242,39 +258,56 @@
         if (quickUserEl) quickUserEl.value = userEl ? userEl.value : '';
 
         // Priority 3: For channel and password - URL > localStorage > generate
-        if (chEl && !chEl.readOnly) {
+        if (chEl) {
             chEl.value = urlChannel || persisted.c || (channelPrefix + randomDigits(8));
         }
-        if (pwEl && !pwEl.readOnly) {
+        if (pwEl) {
             pwEl.value = urlPassword || persisted.p || generatePassword();
         }
 
         // Persist initial values
         persistValues(userEl ? userEl.value : '', chEl ? chEl.value : '', pwEl ? pwEl.value : '');
 
-        // Wire regenerate button - disable if auto-connect URL is detected
-        const regenBtn = document.getElementById('regenerateBtn');
-        const hasAutoConnectUrl = !!(urlChannel || urlPassword);
+        // Detect if hash auth (shared link) is present
+        const hasHashAuth = !!(urlChannel || urlPassword);
 
-        // Hide info note if auto-connect URL is detected
-        const infoNote = document.querySelector('.connection-info-note');
-        if (infoNote && hasAutoConnectUrl) {
-            infoNote.style.display = 'none';
+        // Show/hide appropriate info notes based on shared link detection
+        const defaultInfoNote = document.querySelector('.connection-info-note');
+        const sharedLinkWarning = document.getElementById('sharedLinkWarning');
+        const sharedLinkNote = document.getElementById('sharedLinkNote');
+
+        if (hasHashAuth) {
+            // Hide default tip, show shared link warning and note
+            if (defaultInfoNote) defaultInfoNote.style.display = 'none';
+            if (sharedLinkWarning) sharedLinkWarning.style.display = 'block';
+            if (sharedLinkNote) sharedLinkNote.style.display = 'flex';
+        } else {
+            // Show default tip, hide shared link warning and note
+            if (defaultInfoNote) defaultInfoNote.style.display = 'block';
+            if (sharedLinkWarning) sharedLinkWarning.style.display = 'none';
+            if (sharedLinkNote) sharedLinkNote.style.display = 'none';
         }
 
-        if (regenBtn) {
-            // Disable regenerate if channel/password came from URL (auto-connect link)
-            if (hasAutoConnectUrl) {
-                regenBtn.disabled = true;
-                regenBtn.title = 'Cannot regenerate - using shared link credentials';
-                regenBtn.style.opacity = '0.5';
-                regenBtn.style.cursor = 'not-allowed';
-            } else {
-                regenBtn.addEventListener('click', (ev) => {
-                    ev.preventDefault();
-                    doRegenerate();
-                });
+        // Collapse modal if hash auth detected (shared link) - same behavior for PC and mobile
+        if (hasHashAuth) {
+            const modal = document.getElementById('connectionModal');
+            if (modal) {
+                modal.classList.add('collapsed');
+                const header = modal.querySelector('.collapsed-header');
+                if (header) {
+                    header.setAttribute('aria-expanded', 'true');
+                }
+                console.log('[ConnectionModal] Collapsed - shared link detected');
             }
+        }
+
+        // Wire regenerate button
+        const regenBtn = document.getElementById('regenerateBtn');
+        if (regenBtn) {
+            regenBtn.addEventListener('click', (ev) => {
+                ev.preventDefault();
+                doRegenerate();
+            });
         }
 
         // Persist whenever user edits the inputs
@@ -282,15 +315,17 @@
         if (chEl) chEl.addEventListener('change', () => persistValues(userEl ? userEl.value : '', chEl.value, pwEl ? pwEl.value : ''));
         if (pwEl) pwEl.addEventListener('change', () => persistValues(userEl ? userEl.value : '', chEl ? chEl.value : '', pwEl.value));
 
-        // Update collapsed channel display
-        if (chEl) {
-            const collapsedDisplay = document.getElementById('collapsedChannelDisplay');
-            if (collapsedDisplay) {
-                collapsedDisplay.textContent = chEl.value;
-                chEl.addEventListener('input', () => {
-                    collapsedDisplay.textContent = chEl.value;
-                });
-            }
+        // Sync quick username input with main username input
+        if (userEl && quickUserEl) {
+            // Sync userEl -> quickUserEl
+            userEl.addEventListener('input', () => {
+                quickUserEl.value = userEl.value;
+            });
+            
+            // Sync quickUserEl -> userEl
+            quickUserEl.addEventListener('input', () => {
+                userEl.value = quickUserEl.value;
+            });
         }
 
         // Wire connect button

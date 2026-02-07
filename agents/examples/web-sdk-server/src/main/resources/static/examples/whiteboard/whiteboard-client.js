@@ -6167,11 +6167,8 @@ document.addEventListener('DOMContentLoaded', () => {
                     if (auth && chEl && pwEl) {
                         chEl.value = auth.c || chEl.value || '';
                         pwEl.value = auth.p || pwEl.value || '';
-                        // Make read-only instead of disabled so values can be copied and styling remains consistent
-                        chEl.readOnly = true;
-                        pwEl.readOnly = true;
-                        chEl.title = 'This channel was supplied by a shared link';
-                        pwEl.title = 'This channel was supplied by a shared link';
+                        // Allow editing - users can change channel/password if they want
+                        // Warning will be shown in the connection modal
                     }
 
                     // Agent name priority:

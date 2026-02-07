@@ -415,10 +415,8 @@
                             hasSharedLink = true;
                             chEl.value = auth.c || chEl.value || '';
                             pwEl.value = auth.p || pwEl.value || '';
-                            chEl.readOnly = true;
-                            pwEl.readOnly = true;
-                            chEl.title = 'This channel was supplied by a shared link';
-                            pwEl.title = 'This channel was supplied by a shared link';
+                            // Allow editing - users can change channel/password if they want
+                            // Warning will be shown in the connection modal
                         }
 
                         // Agent name priority: encrypted name > saved username > generate
@@ -450,15 +448,21 @@
                             });
                         }
 
-                        // Show connection modal
+                        // Show connection modal - collapsed when auto-connect is enabled
                         const modal = document.getElementById('connectionModal');
-                        if (modal) modal.classList.add('active');
-
-                        // Enable auto-connect ONLY if there's a shared link
-                        if (hasSharedLink && connectCallback && typeof connectCallback === 'function') {
-                            console.log(`[${gameName}] Shared link detected - enabling auto-connect`);
-                            this.enableAutoConnect('timed', autoConnectDelay, connectCallback);
+                        if (modal) {
+                            modal.classList.add('active');
+                            
+                            // Collapse modal immediately when auto-connect is enabled
+                            if (hasSharedLink && connectCallback && typeof connectCallback === 'function') {
+                                modal.classList.add('collapsed');
+                                console.log(`[${gameName}] Modal collapsed for auto-connect`);
+                            }
                         }
+
+                        // Auto-connect disabled - users must click Connect button manually
+                        // Even with shared links, no automatic connection happens
+                        console.log(`[${gameName}] Shared link detected - waiting for user to click Connect`);
                     } catch (e) {
                         console.warn(`[${gameName}] Share link handler failed`, e);
                     }
@@ -919,14 +923,14 @@
             try { MiniGameUtils.relocateConnectionStatus(); } catch(e){}
             try { MiniGameUtils.addDisconnectButton(); } catch(e){}
             try { MiniGameUtils.initAgentsUI(); } catch(e){}
-            try { MiniGameUtils.enableAutoConnect('timed', 3000); } catch(e){}
+            // Auto-connect disabled - removed enableAutoConnect call
             try { MiniGameUtils._startChannelMonitor(); } catch(e){}
         });
     } else {
         try { MiniGameUtils.relocateConnectionStatus(); } catch(e){}
         try { MiniGameUtils.addDisconnectButton(); } catch(e){}
         try { MiniGameUtils.initAgentsUI(); } catch(e){}
-        try { MiniGameUtils.enableAutoConnect('timed', 3000); } catch(e){}
+        // Auto-connect disabled - removed enableAutoConnect call
         try { MiniGameUtils._startChannelMonitor(); } catch(e){}
     }
 
