@@ -1,0 +1,44 @@
+feat(web-sdk): simplify connection modal and remove auto-connect
+
+Major UX improvements to connection modal:
+
+Connection Modal Changes:
+- Initially collapsed when shared/saved link detected (PC & mobile)
+- Same compact layout on all screen sizes
+- Dark overlay shown even when collapsed
+- Separate rows: title+toggle, username input, connect button
+- Blue info note: 'Saved or shared channel - Enter your name to connect'
+
+Auto-Connect Disabled:
+- Removed auto-connect timer (3-second countdown)
+- Removed cancel auto-connect logic
+- Users MUST click Connect button manually
+- Simplified code by ~150 lines
+
+Readonly Fields Removed:
+- Channel name and password now fully editable
+- Removed readonly attributes from 4 locations:
+  * AgentInteractionBase.js
+  * common-utils.js
+  * share-modal.js
+  * whiteboard-client.js
+- Disabled readonly styling functions
+- Warning note shown when editing shared link credentials
+
+Files Modified:
+- connection-modal.js: Restructured HTML, added notes, simplified logic
+- connection-modal.css: Same layout all screens, keep overlay when collapsed
+- common-utils.js: Disabled auto-connect, removed readonly
+- AgentInteractionBase.js: Removed auto-connect calls, removed readonly
+- share-modal.js: Disabled readonly highlight functions
+- whiteboard-client.js: Removed readonly from shared link handler
+
+Benefits:
+- Consistent UX across all devices
+- Users have explicit control over connection
+- All fields editable (with warnings)
+- Cleaner, simpler codebase
+- No confusing auto-connect behavior
+
+Breaking: None (backward compatible)
+
