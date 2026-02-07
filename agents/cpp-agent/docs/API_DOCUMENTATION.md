@@ -366,7 +366,7 @@ TEST(MessagingChannelApi, ConnectSuccess) {
 Test against live server:
 
 ```bash
-./build/examples/basic_chat_example http://localhost:8080 test_key
+./build/examples/basic_chat_example https://hmdevonline.com/messaging-platform/api/v1/messaging-service test_key
 ```
 
 ## Future Enhancements

@@ -239,7 +239,7 @@ vcpkg install curl openssl nlohmann-json
 #include "hmdev/messaging/api/messaging_channel_api.h"
 using namespace hmdev::messaging;
 
-MessagingChannelApi api("http://localhost:8080", "your_api_key");
+MessagingChannelApi api("https://hmdevonline.com/messaging-platform/api/v1/messaging-service", "your_api_key");
 ConnectResponse resp = api.connect("room", "password", "player-1");
 
 if (resp.success) {
@@ -261,7 +261,7 @@ if (resp.success) {
 ### 2. Game Integration
 
 ```cpp
-MessagingChannelApi api("http://localhost:8080", "key");
+MessagingChannelApi api("https://hmdevonline.com/messaging-platform/api/v1/messaging-service", "key");
 ConnectResponse resp = api.connect("game-room", "pass", "player-1");
 
 // Game loop (60 FPS)
@@ -319,23 +319,19 @@ sudo cmake --install build
 ### Run Examples
 
 ```bash
-# Start messaging service first
-cd messaging-platform-services
-docker-compose up
-
-# Run C++ examples
+# Run C++ examples with production service
 cd messaging-platform-sdk/agents/cpp-agent/build
 
-./examples/basic_chat_example http://localhost:8080 your_api_key test-room password123 player-1
-./examples/game_integration_example http://localhost:8080 your_api_key game-room gamepass player-1
-./examples/udp_example http://localhost:8080 your_api_key udp-test udppass client-1
+./examples/basic_chat_example https://hmdevonline.com/messaging-platform/api/v1/messaging-service your_api_key test-room password123 player-1
+./examples/game_integration_example https://hmdevonline.com/messaging-platform/api/v1/messaging-service your_api_key game-room gamepass player-1
+./examples/udp_example https://hmdevonline.com/messaging-platform/api/v1/messaging-service your_api_key udp-test udppass client-1
 ```
 
 ### Expected Output
 
 ```
 === Basic Chat Example ===
-API URL: http://localhost:8080
+API URL: https://hmdevonline.com/messaging-platform/api/v1/messaging-service
 Channel: test-room
 Agent: player-1
 
