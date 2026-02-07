@@ -96,9 +96,9 @@ The API is **not thread-safe** by default. For multi-threaded applications:
 ## Performance
 
 ```
-./examples/udp_example http://localhost:8080 your_api_key
-./examples/game_integration_example http://localhost:8080 your_api_key
-./examples/basic_chat_example http://localhost:8080 your_api_key
+./examples/basic_chat_example https://hmdevonline.com/messaging-platform/api/v1/messaging-service your_api_key
+./examples/game_integration_example https://hmdevonline.com/messaging-platform/api/v1/messaging-service your_api_key
+./examples/udp_example https://hmdevonline.com/messaging-platform/api/v1/messaging-service your_api_key
 cd build
 ```bash
 

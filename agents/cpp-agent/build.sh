@@ -5,7 +5,7 @@ echo "To install system-wide:"
 echo ""
 
 fi
-    echo "  ./build/examples/basic_chat_example http://localhost:8080 your_api_key"
+    echo "  ./build/examples/basic_chat_example https://hmdevonline.com/messaging-platform/api/v1/messaging-service your_api_key"
     echo "Run example:"
     echo ""
     echo "  build/examples/udp_example"

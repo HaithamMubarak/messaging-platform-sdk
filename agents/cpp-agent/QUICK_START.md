@@ -2,6 +2,12 @@
 
 Get up and running with the C++ agent in 5 minutes.
 
+> **📌 API Configuration Note:**  
+> The examples below use the production messaging service: `https://hmdevonline.com/messaging-platform/api/v1/messaging-service`  
+> - This is a private messaging service managed by the platform (not publicly exposed for general use)
+> - For local development, you can use `http://localhost:8080` if running your own local instance
+> - The examples are configured with the production URL by default
+
 ## 1. Install Dependencies
 
 ### Ubuntu/Debian
@@ -27,12 +33,12 @@ make -j$(nproc)
 ## 3. Run Basic Example
 
 ```bash
-# Start messaging service first (in another terminal)
-cd messaging-platform-services
-docker-compose up
+# Run example with production service
+./examples/basic_chat_example https://hmdevonline.com/messaging-platform/api/v1/messaging-service your_api_key test-room password123 player-1
 
-# Run example
-./examples/basic_chat_example http://localhost:8080 your_api_key test-room password123 player-1
+# Or for local development (if you have a local service running)
+# ./examples/basic_chat_example http://localhost:8080 your_api_key test-room password123 player-1
+```
 ```
 
 ## 4. Integrate into Your Project
@@ -52,7 +58,8 @@ target_link_libraries(my_game PRIVATE messaging-cpp-agent)
 using namespace hmdev::messaging;
 
 int main() {
-    MessagingChannelApi api("http://localhost:8080", "your_api_key");
+    // Production messaging service URL (or use http://localhost:8080 for local development)
+    MessagingChannelApi api("https://hmdevonline.com/messaging-platform/api/v1/messaging-service", "your_api_key");
     
     ConnectResponse resp = api.connect("my-room", "password", "player-1");
     if (resp.success) {
