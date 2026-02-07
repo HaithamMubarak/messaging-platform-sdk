@@ -271,9 +271,7 @@ Not yet implemented. Plan:
 Run examples against live server:
 
 ```bash
-# Start messaging service
-cd messaging-platform-services
-docker-compose up
+# Ensure messaging service is running at http://localhost:8080
 
 # Run examples
 cd cpp-agent/build

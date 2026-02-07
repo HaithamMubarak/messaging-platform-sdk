@@ -319,9 +319,7 @@ sudo cmake --install build
 ### Run Examples
 
 ```bash
-# Start messaging service first
-cd messaging-platform-services
-docker-compose up
+# Ensure messaging service is running at http://localhost:8080
 
 # Run C++ examples
 cd messaging-platform-sdk/agents/cpp-agent/build

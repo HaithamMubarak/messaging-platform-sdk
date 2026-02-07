@@ -27,9 +27,7 @@ make -j$(nproc)
 ## 3. Run Basic Example
 
 ```bash
-# Start messaging service first (in another terminal)
-cd messaging-platform-services
-docker-compose up
+# Ensure messaging service is running first (at http://localhost:8080)
 
 # Run example
 ./examples/basic_chat_example http://localhost:8080 your_api_key test-room password123 player-1

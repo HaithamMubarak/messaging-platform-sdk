@@ -25,9 +25,7 @@ if curl -s -f http://localhost:8080/health > /dev/null 2>&1; then
 else
     echo "❌ Messaging service not found at http://localhost:8080"
     echo ""
-    echo "Please start the messaging service first:"
-    echo "  cd messaging-platform-services"
-    echo "  docker-compose up"
+    echo "Please ensure the messaging service is running first."
     echo ""
     exit 1
 fi

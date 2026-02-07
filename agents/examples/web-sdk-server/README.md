@@ -363,24 +363,7 @@ java -jar mini-games-server.jar \
   -DMESSAGING_SERVICE_URL=https://your-server.com
 ```
 
-### Option 2: Docker
-
-```dockerfile
-FROM openjdk:11-jre-slim
-COPY build/libs/mini-games-server.jar app.jar
-EXPOSE 8090
-ENTRYPOINT ["java", "-jar", "/app.jar"]
-```
-
-```bash
-docker build -t mini-games-server .
-docker run -p 8090:8090 \
-  -e MESSAGING_API_KEY=your-key \
-  -e MESSAGING_SERVICE_URL=https://your-server.com \
-  mini-games-server
-```
-
-### Option 3: Systemd Service
+### Option 2: Systemd Service
 
 ```ini
 [Unit]
@@ -406,9 +389,7 @@ WantedBy=multi-user.target
 ### Test locally
 
 ```bash
-# Start messaging service
-cd messaging-platform-services
-docker-compose up
+# Ensure messaging service is running at http://localhost:8080
 
 # Start mini-games-server
 cd mini-games-server

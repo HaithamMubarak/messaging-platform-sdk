@@ -76,14 +76,9 @@ The messaging platform includes a Coturn Docker setup:
    cd docker
    ```
 
-2. Configure your TURN server in `coturn/turnserver.conf`
+2. Configure your TURN server (refer to your TURN server documentation)
 
-3. Start the services:
-   ```bash
-   docker-compose up -d coturn
-   ```
-
-4. Update `webrtc.properties` with your server details:
+3. Update `webrtc.properties` with your server details:
    ```properties
    ice.stun.servers=stun:your-server-ip:3478
    ice.turn.servers=turn:your-server-ip:3478

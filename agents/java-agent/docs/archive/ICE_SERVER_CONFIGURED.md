@@ -66,16 +66,7 @@ run-webrtc-example.cmd  # Windows
 
 ## Coturn Server Status
 
-Your Coturn server is configured in:
-- **Config:** `docker/coturn/turnserver.conf`
-- **Docker Compose:** `docker/docker-compose.yml`
-
-To start/check the Coturn service:
-```bash
-cd docker
-docker-compose up -d coturn
-docker-compose logs -f coturn
-```
+Ensure your Coturn TURN/STUN server is properly configured and running.
 
 ## Port Requirements
 
