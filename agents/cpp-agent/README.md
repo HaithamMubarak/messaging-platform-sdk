@@ -1,14 +1,10 @@
 # C++ Agent - Messaging Platform SDK
 
-## See Also
-
-- [Web Agent](../web-agent-deprecated/README.md)
-- [Python Agent](../python-agent/README.md)
-- [Java Agent](../java-agent/README.md)
-
-**1.0.0** - Initial release (December 2025)
+Native C++ client library for the Messaging Platform, providing high-performance communication for games and real-time applications.
 
 ## Version
+
+**1.0.0** - Initial release (December 2025)
 
 - Examples: See `examples/` directory
 - Issues: GitHub issue tracker
@@ -334,3 +330,9 @@ sudo apt-get update
 Native C++ client library for the Messaging Platform, providing high-performance communication for games and real-time applications.
 
 
+
+## See Also
+
+- [Web Agent](../web-agent-deprecated/README.md)
+- [Python Agent](../python-agent/README.md)
+- [Java Agent](../java-agent/README.md)
