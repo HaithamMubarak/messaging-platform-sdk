@@ -450,14 +450,22 @@
                             });
                         }
 
-                        // Show connection modal
+                        // Show connection modal - collapsed when auto-connect is enabled
                         const modal = document.getElementById('connectionModal');
-                        if (modal) modal.classList.add('active');
+                        if (modal) {
+                            modal.classList.add('active');
+                            
+                            // Collapse modal immediately when auto-connect is enabled
+                            if (hasSharedLink && connectCallback && typeof connectCallback === 'function') {
+                                modal.classList.add('collapsed');
+                                console.log(`[${gameName}] Modal collapsed for auto-connect`);
+                            }
+                        }
 
-                        // Enable auto-connect ONLY if there's a shared link
+                        // Enable auto-connect ONLY if there's a shared link - immediate mode (no timer)
                         if (hasSharedLink && connectCallback && typeof connectCallback === 'function') {
-                            console.log(`[${gameName}] Shared link detected - enabling auto-connect`);
-                            this.enableAutoConnect('timed', autoConnectDelay, connectCallback);
+                            console.log(`[${gameName}] Shared link detected - enabling immediate auto-connect`);
+                            this.enableAutoConnect('immediate', 0, connectCallback);
                         }
                     } catch (e) {
                         console.warn(`[${gameName}] Share link handler failed`, e);
@@ -919,14 +927,14 @@
             try { MiniGameUtils.relocateConnectionStatus(); } catch(e){}
             try { MiniGameUtils.addDisconnectButton(); } catch(e){}
             try { MiniGameUtils.initAgentsUI(); } catch(e){}
-            try { MiniGameUtils.enableAutoConnect('timed', 3000); } catch(e){}
+            try { MiniGameUtils.enableAutoConnect('immediate', 0); } catch(e){}
             try { MiniGameUtils._startChannelMonitor(); } catch(e){}
         });
     } else {
         try { MiniGameUtils.relocateConnectionStatus(); } catch(e){}
         try { MiniGameUtils.addDisconnectButton(); } catch(e){}
         try { MiniGameUtils.initAgentsUI(); } catch(e){}
-        try { MiniGameUtils.enableAutoConnect('timed', 3000); } catch(e){}
+        try { MiniGameUtils.enableAutoConnect('immediate', 0); } catch(e){}
         try { MiniGameUtils._startChannelMonitor(); } catch(e){}
     }
 

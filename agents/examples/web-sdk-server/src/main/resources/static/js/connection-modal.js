@@ -22,7 +22,10 @@
     <div class="collapsed-header" role="button" aria-expanded="false" tabindex="0">
         <div class="ch-left">
             <div class="ch-title">{{COLLAPSED_TITLE}}</div>
-            <div class="ch-sub">Channel: <span id="collapsedChannelDisplay">-</span></div>
+            <div class="ch-sub">
+                <span id="collapsedUsernameDisplay" style="display:none;">Name: <strong id="collapsedUsernameValue">-</strong> | </span>
+                Channel: <span id="collapsedChannelDisplay">-</span>
+            </div>
         </div>
         <div class="quick-connect">
             <input id="quickUsernameInput" type="text" placeholder="Your name" aria-label="Your name" />
@@ -289,6 +292,36 @@
                 collapsedDisplay.textContent = chEl.value;
                 chEl.addEventListener('input', () => {
                     collapsedDisplay.textContent = chEl.value;
+                });
+            }
+        }
+
+        // Update collapsed username display
+        if (userEl) {
+            const collapsedUsernameDisplay = document.getElementById('collapsedUsernameDisplay');
+            const collapsedUsernameValue = document.getElementById('collapsedUsernameValue');
+            
+            // Helper function to update username display
+            const updateUsernameDisplay = () => {
+                if (collapsedUsernameValue && userEl.value.trim()) {
+                    collapsedUsernameValue.textContent = userEl.value.trim();
+                    if (collapsedUsernameDisplay) {
+                        collapsedUsernameDisplay.style.display = 'inline';
+                    }
+                } else if (collapsedUsernameDisplay) {
+                    collapsedUsernameDisplay.style.display = 'none';
+                }
+            };
+            
+            // Update on input
+            updateUsernameDisplay();
+            userEl.addEventListener('input', updateUsernameDisplay);
+            
+            // Also update when quick username input changes
+            if (quickUserEl) {
+                quickUserEl.addEventListener('input', () => {
+                    if (userEl) userEl.value = quickUserEl.value;
+                    updateUsernameDisplay();
                 });
             }
         }

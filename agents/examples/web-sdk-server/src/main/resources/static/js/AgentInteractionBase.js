@@ -156,10 +156,10 @@ class AgentInteractionBase {
 
         console.log('[AgentInteractionBase] Initializing...');
 
-        // Enable auto-connect for shared links (timed mode with 3 second countdown)
+        // Enable auto-connect for shared links (immediate mode - no timer)
         if (window.MiniGameUtils && typeof window.MiniGameUtils.enableAutoConnect === 'function') {
-            window.MiniGameUtils.enableAutoConnect('timed', 3000);
-            console.log('[AgentInteractionBase] Auto-connect enabled for shared links (3s countdown)');
+            window.MiniGameUtils.enableAutoConnect('immediate', 0);
+            console.log('[AgentInteractionBase] Auto-connect enabled for shared links (immediate)');
         }
 
         // Call subclass initialization
@@ -1701,16 +1701,24 @@ let GameInitializer = {
                         });
                     }
 
-                    // Show the modal
+                    // Show the modal - collapsed when auto-connect is enabled
                     const modal = document.getElementById('connectionModal');
-                    if (modal) modal.classList.add('active');
+                    if (modal) {
+                        modal.classList.add('active');
+                        
+                        // Collapse modal immediately when auto-connect is enabled
+                        if (hasSharedLink && connectCallback && typeof connectCallback === 'function') {
+                            modal.classList.add('collapsed');
+                            console.log(`[${config.gameName}] Modal collapsed for auto-connect`);
+                        }
+                    }
 
                     console.log(`[${config.gameName}] Shared link processed`, {
                         channel: auth?.c,
                         hasPassword: !!auth?.p
                     });
 
-                    // Enable auto-connect if shared link is present
+                    // Enable auto-connect if shared link is present - immediate mode (no timer)
                     if (hasSharedLink && window.MiniGameUtils) {
                         // Use the provided callback or fall back to window.connect
                         const connectCallback = config.connectCallback || window.connect;
@@ -1718,8 +1726,8 @@ let GameInitializer = {
                         if (typeof connectCallback === 'function') {
                             // Enable auto-connect with the callback
                             if (typeof window.MiniGameUtils.enableAutoConnect === 'function') {
-                                window.MiniGameUtils.enableAutoConnect('timed', 3000, connectCallback);
-                                console.log(`[${config.gameName}] Auto-connect enabled (3s countdown)`);
+                                window.MiniGameUtils.enableAutoConnect('immediate', 0, connectCallback);
+                                console.log(`[${config.gameName}] Auto-connect enabled (immediate)`);
                             }
                         } else {
                             console.warn(`[${config.gameName}] No connect method available for auto-connect`);
