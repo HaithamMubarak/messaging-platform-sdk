@@ -19,7 +19,7 @@
     const HTML_TEMPLATE = `
 <!-- Connection Modal HTML Template -->
 <div id="connectionModal" class="connection-modal active">
-    <div class="collapsed-header" role="button" aria-expanded="false" tabindex="0">
+    <div class="collapsed-header" aria-expanded="false">
         <div class="ch-header-row">
             <div class="ch-left">
                 <div class="ch-title">{{COLLAPSED_TITLE}}</div>
@@ -29,6 +29,7 @@
         <div id="sharedLinkNote" class="shared-link-note" style="display: none;">
             <p>🔗 Saved or shared channel - Enter your name to connect</p>
         </div>
+        <label for="quickUsernameInput" class="quick-username-label">Your Name</label>
         <div class="quick-username">
             <input id="quickUsernameInput" type="text" placeholder="Your name" aria-label="Your name" />
         </div>
@@ -40,25 +41,27 @@
     <div class="modal-content">
         <div class="modal-header-row">
             <h2>{{MODAL_TITLE}}</h2>
-            <button id="modalToggleBtn2" class="modal-toggle-btn" aria-label="Toggle form">🗕</button>
-        </div>
-
-        <div class="connection-info-note">
-            <p><strong>💡 Tip:</strong> Channel name and password are freely chosen by you. Pick any values you like, then share them with others to connect together on the same channel.</p>
-        </div>
-
-        <div id="sharedLinkWarning" class="connection-info-note" style="display: none; background: #fff3cd; border-left: 4px solid #ffc107;">
-            <p><strong>⚠️ Shared Link Active:</strong> You're using a shared link. Changing the channel name or password will connect you to a different channel than the one shared with you.</p>
+            <button id="modalToggleBtn2" class="modal-toggle-btn" aria-label="Toggle form">
+                <span style="font-size: 18px; display: inline-block; line-height: 1; font-weight: bold;">▼</span>
+            </button>
         </div>
 
         <form id="connectionForm" onsubmit="return false;">
-            <label for="usernameInput" class="sr-only">Your name</label>
+            <label for="usernameInput" class="form-label-visible">Your Name</label>
             <input type="text" id="usernameInput" placeholder="Your name">
 
-            <label for="channelInput" class="sr-only">Channel name</label>
+            <div class="connection-info-note" style="margin-top: 8px;">
+                <p><strong>💡 Tip:</strong> Channel name and password are freely chosen by you. Pick any values you like, then share them with others to connect together on the same channel.</p>
+            </div>
+
+            <div id="sharedLinkWarning" class="connection-info-note" style="display: none; background: #fff3cd; border-left: 4px solid #ffc107; margin-top: 8px;">
+                <p><strong>⚠️ Shared Link Active:</strong> You're using a shared link. Changing the channel name or password will connect you to a different channel than the one shared with you.</p>
+            </div>
+
+            <label for="channelInput" class="form-label-visible">Channel Name</label>
             <input type="text" id="channelInput" placeholder="Channel name">
 
-            <label for="passwordInput" class="sr-only">Channel password</label>
+            <label for="passwordInput" class="form-label-visible">Channel Password</label>
             <div class="password-input-wrapper">
                 <input type="password" id="passwordInput" placeholder="Channel password">
                 <button type="button" id="togglePasswordBtn" class="password-toggle-btn" onclick="togglePasswordVisibility()" aria-label="Show password" title="Show password">
@@ -304,9 +307,31 @@
         // Wire regenerate button
         const regenBtn = document.getElementById('regenerateBtn');
         if (regenBtn) {
+            // Track if user has already confirmed regeneration in this session
+            let regenerateConfirmed = false;
+
             regenBtn.addEventListener('click', (ev) => {
                 ev.preventDefault();
-                doRegenerate();
+
+                // Only show confirmation dialog on first regenerate
+                if (!regenerateConfirmed) {
+                    const confirmed = confirm(
+                        '⚠️ Regenerate Channel?\n\n' +
+                        'This will:\n' +
+                        '• Connect you to a different channel\n' +
+                        '• Break any shared links you\'ve sent\n' +
+                        '• Disconnect you from current participants\n\n' +
+                        'Are you sure you want to continue?'
+                    );
+
+                    if (confirmed) {
+                        regenerateConfirmed = true; // Remember user's choice
+                        doRegenerate();
+                    }
+                } else {
+                    // User already confirmed once, no need to ask again
+                    doRegenerate();
+                }
             });
         }
 
@@ -402,18 +427,11 @@
 
         const toggleBtn = document.getElementById('modalToggleBtn');
         const toggleBtn2 = document.getElementById('modalToggleBtn2');
-        const collapsedHeader = document.querySelector('.collapsed-header');
 
+        // Only toggle when clicking the buttons, not the entire header
         if (toggleBtn) toggleBtn.addEventListener('click', toggleModal);
         if (toggleBtn2) toggleBtn2.addEventListener('click', toggleModal);
-        if (collapsedHeader) {
-            collapsedHeader.addEventListener('click', (e) => {
-                // Don't toggle if clicking on input or button
-                if (e.target.tagName !== 'INPUT' && e.target.tagName !== 'BUTTON') {
-                    toggleModal();
-                }
-            });
-        }
+        // Removed: collapsedHeader click handler - expand only via button
 
         // Public API for hiding modal after connection
         window.ConnectionModal = {

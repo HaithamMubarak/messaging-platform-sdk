@@ -2859,6 +2859,17 @@ agent.connect({
             // Update URL hash
             if (updateHash) {
                 history.pushState(null, null, '#' + tabName);
+
+                // Also scroll to nav-tabs when clicking tab links
+                setTimeout(() => {
+                    const navTabs = document.querySelector('.nav-tabs');
+                    if (navTabs) {
+                        const rect = navTabs.getBoundingClientRect();
+                        const scrollTop = window.pageYOffset || document.documentElement.scrollTop;
+                        const targetY = rect.top + scrollTop - 20;
+                        window.scrollTo({top: targetY, behavior: 'smooth'});
+                    }
+                }, 50);
             }
         }
 
@@ -2870,6 +2881,18 @@ agent.connect({
             // Only switch tabs and scroll if there's a valid hash
             if (hash && validTabs.includes(hash)) {
                 switchTab(hash, false);
+
+                // Scroll to nav-tabs area so content is visible below
+                setTimeout(() => {
+                    const navTabs = document.querySelector('.nav-tabs');
+                    if (navTabs) {
+                        // Get position and add small margin above nav tabs
+                        const rect = navTabs.getBoundingClientRect();
+                        const scrollTop = window.pageYOffset || document.documentElement.scrollTop;
+                        const targetY = rect.top + scrollTop - 20; // 20px margin above nav tabs
+                        window.scrollTo({top: targetY, behavior: 'smooth'});
+                    }
+                }, 150);
             }
             // If no hash or invalid hash, do nothing - stay at current position
         }
