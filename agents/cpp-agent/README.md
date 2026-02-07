@@ -6,6 +6,8 @@ Native C++ client library for the Messaging Platform, providing high-performance
 
 **1.0.0** - Initial release (December 2025)
 
+## Resources
+
 - Examples: See `examples/` directory
 - Issues: GitHub issue tracker
 - Documentation: See `docs/` directory
@@ -324,12 +326,6 @@ sudo apt-get update
 - ✅ **Cross-Platform**: Linux, Windows, macOS
 - ✅ **UDP Support**: Fast, low-latency messaging for real-time updates
 - ✅ **HTTP API**: Reliable message delivery (connect, push, pull, disconnect)
-
-## Features
-
-Native C++ client library for the Messaging Platform, providing high-performance communication for games and real-time applications.
-
-
 
 ## See Also
 
