@@ -128,6 +128,12 @@
      * @param {Object} config - Configuration object
      */
     window.initConnectionModal = function(config) {
+        // Prevent duplicate initialization
+        if (window._connectionModalInitialized) {
+            console.warn('[ConnectionModal] Already initialized, skipping duplicate initialization');
+            return;
+        }
+        window._connectionModalInitialized = true;
         const localStoragePrefix = config.localStoragePrefix || '';
         const channelPrefix = config.channelPrefix || 'channel-';
         const onConnect = config.onConnect;
@@ -313,11 +319,23 @@
                 }
             };
             
-            // Update on input
-            updateUsernameDisplay();
-            userEl.addEventListener('input', updateUsernameDisplay);
+            // Sync quick username input with main username input
+            const syncQuickUsername = () => {
+                if (quickUserEl && userEl) {
+                    quickUserEl.value = userEl.value;
+                }
+            };
             
-            // Also update when quick username input changes
+            // Update display on load
+            updateUsernameDisplay();
+            
+            // Sync userEl -> quickUserEl and update display
+            userEl.addEventListener('input', () => {
+                syncQuickUsername();
+                updateUsernameDisplay();
+            });
+            
+            // Sync quickUserEl -> userEl and update display
             if (quickUserEl) {
                 quickUserEl.addEventListener('input', () => {
                     if (userEl) userEl.value = quickUserEl.value;
