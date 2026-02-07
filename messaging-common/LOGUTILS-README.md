@@ -2,7 +2,7 @@
 
 **Location:** `com.hmdev.messaging.common.util.LogUtils`
 
-**Module:** `messaging-common` (in `messaging-platform-services/common/messaging-common`)
+**Module:** `messaging-common`
 
 ## Purpose
 
@@ -221,4 +221,4 @@ LogUtils is now available in:
 ---
 
 **Created:** February 1, 2026  
-**Location:** `messaging-platform-services/common/messaging-common/src/main/java/com/hmdev/messaging/common/util/LogUtils.java`
+**Location:** `messaging-common/src/main/java/com/hmdev/messaging/common/util/LogUtils.java`

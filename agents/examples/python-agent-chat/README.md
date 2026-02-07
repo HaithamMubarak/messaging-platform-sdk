@@ -36,14 +36,13 @@ run-chat.bat --channel my-channel --password mypass123
 This example supports multiple configuration methods (in order of precedence):
 
 1. **Command-line arguments** (highest priority)
-2. **`.env` file** in the services repository (`../../messaging-platform-services/.env`)
-3. **`.env` file** in the current project
-4. **Environment variables**
-5. **Built-in defaults** (lowest priority)
+2. **`.env` file** in the current project
+3. **Environment variables**
+4. **Built-in defaults** (lowest priority)
 
 ### Using .env File (Recommended)
 
-Create a `.env` file in your services repository or project root:
+Create a `.env` file in your project root:
 
 ```bash
 # Messaging Platform Configuration

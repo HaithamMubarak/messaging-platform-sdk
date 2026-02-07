@@ -1,10 +1,10 @@
 # C++ Agent - Messaging Platform SDK
-- [Messaging Platform Services](../../../messaging-platform-services/README.md)
+
+## See Also
+
 - [Web Agent](../web-agent-deprecated/README.md)
 - [Python Agent](../python-agent/README.md)
 - [Java Agent](../java-agent/README.md)
-
-## See Also
 
 **1.0.0** - Initial release (December 2025)
 
