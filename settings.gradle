@@ -11,4 +11,5 @@ include("agents:python-agent")
 // Include example projects
 include("agents:examples:java-agent-chat")
 include("agents:examples:web-sdk-server")  // Web SDK server: SDK docs, demos, examples, mini-games
+include("agents:examples:sdk-local-service")  // Local service for terminal, SSH, and local operations
 

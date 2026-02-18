@@ -19,13 +19,13 @@ import org.springframework.boot.autoconfigure.SpringBootApplication;
  * - Falls back to system properties/environment variables
  */
 @SpringBootApplication
-public class WebDemosApplication {
+public class WebSdkApplication {
 
     public static void main(String[] args) {
         // Load environment variables from .env file
         // Searches: current project → services repo → system props → env vars → built-in defaults
         EnvLoader.load("MESSAGING_API_URL", "DEFAULT_API_KEY");
 
-        SpringApplication.run(WebDemosApplication.class, args);
+        SpringApplication.run(WebSdkApplication.class, args);
     }
 }

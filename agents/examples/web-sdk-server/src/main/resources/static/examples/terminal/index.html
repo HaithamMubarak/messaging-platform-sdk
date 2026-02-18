@@ -1,0 +1,2834 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SDK Local Service - Terminal</title>
+
+    <!-- xterm.js - Local Libraries -->
+    <link rel="stylesheet" href="../../lib/xterm.css" />
+    <script src="../../lib/xterm.js"></script>
+    <script src="../../lib/xterm-addon-fit.js"></script>
+
+    <link rel="stylesheet" href="terminal.css" />
+
+    <!-- SFTP Browser Component -->
+    <link rel="stylesheet" href="sftp-browser.css" />
+
+    <!-- Config Loader -->
+    <script src="../../js/config-loader.js"></script>
+
+    <!-- Web Agent SDK for cloud connection -->
+    <script src="../../generated-web-agent-js/js/web-agent.libs.js"></script>
+    <script src="../../generated-web-agent-js/js/web-agent.js"></script>
+
+
+</head>
+<body>
+    <!-- Toast Container -->
+    <div class="toast-container" id="toastContainer"></div>
+
+    <!-- Session Context Menu (for sidebar) -->
+    <div class="context-menu" id="sessionContextMenu">
+        <div class="context-menu-item" onclick="contextMenuAction('open')">
+            <span class="icon">▶️</span> Open Connection
+        </div>
+        <div class="context-menu-item" onclick="contextMenuAction('openInNewTab')">
+            <span class="icon">➕</span> Open in New Tab
+        </div>
+        <div class="context-menu-separator"></div>
+        <div class="context-menu-item" onclick="contextMenuAction('edit')">
+            <span class="icon">✏️</span> Edit Connection
+        </div>
+        <div class="context-menu-item" onclick="contextMenuAction('duplicate')">
+            <span class="icon">📋</span> Duplicate Connection
+        </div>
+        <div class="context-menu-separator"></div>
+        <div class="context-menu-item danger" onclick="contextMenuAction('delete')">
+            <span class="icon">🗑️</span> Delete Connection
+        </div>
+    </div>
+
+    <!-- Tab Context Menu -->
+    <div class="context-menu" id="tabContextMenu">
+        <div class="context-menu-item" onclick="tabContextMenuAction('rename')">
+            <span class="icon">✏️</span> Rename Tab
+        </div>
+        <div class="context-menu-item" onclick="tabContextMenuAction('duplicate')">
+            <span class="icon">📋</span> Duplicate Tab
+        </div>
+        <div class="context-menu-separator"></div>
+        <div class="context-menu-item" onclick="tabContextMenuAction('toggleShare')" id="shareMenuItem">
+            <span class="icon">🌐</span> <span id="shareMenuText">Share Terminal</span>
+        </div>
+        <div class="context-menu-separator"></div>
+        <div class="context-menu-item" onclick="tabContextMenuAction('close')">
+            <span class="icon">✖️</span> Close Tab
+        </div>
+        <div class="context-menu-item" onclick="tabContextMenuAction('closeOthers')">
+            <span class="icon">🔄</span> Close Other Tabs
+        </div>
+        <div class="context-menu-item" onclick="tabContextMenuAction('closeToRight')">
+            <span class="icon">➡️</span> Close Tabs to Right
+        </div>
+        <div class="context-menu-item" onclick="tabContextMenuAction('closeToLeft')">
+            <span class="icon">⬅️</span> Close Tabs to Left
+        </div>
+        <div class="context-menu-separator"></div>
+        <div class="context-menu-item danger" onclick="tabContextMenuAction('closeAll')">
+            <span class="icon">🗑️</span> Close All Tabs
+        </div>
+    </div>
+
+    <!-- Menu Bar -->
+    <div class="menu-bar">
+        <div class="menu-item" onclick="showHelp()">Help</div>
+        <div class="menu-item" onclick="showAbout()">About</div>
+        <div class="menu-spacer"></div>
+        <div class="menu-status">
+            <div class="status-dot" id="mlsStatus"></div>
+            <span id="mlsStatusText">SLS: Checking...</span>
+        </div>
+    </div>
+
+    <!-- Toolbar -->
+    <div class="toolbar">
+        <button class="toolbar-btn" onclick="createLocalTerminal('cmd')" title="New CMD Terminal">
+            <span class="icon">💻</span>
+            <span class="label">CMD</span>
+        </button>
+        <button class="toolbar-btn" onclick="createLocalTerminal('bash')" title="New Bash Terminal (WSL/Git)">
+            <span class="icon">🐧</span>
+            <span class="label">Bash</span>
+        </button>
+        <button class="toolbar-btn" onclick="createLocalTerminal('powershell')" title="New PowerShell Terminal">
+            <span class="icon">⚡</span>
+            <span class="label">PowerShell</span>
+        </button>
+        <button class="toolbar-btn" onclick="showSshModal()" title="Add SSH Connection">
+            <span class="icon">🌐</span>
+            <span class="label">SSH</span>
+        </button>
+        <div class="toolbar-separator"></div>
+        <button class="toolbar-btn" onclick="toggleCloudPanel()" title="Connect to Messaging Platform Cloud" id="cloudToolbarBtn">
+            <span class="icon">☁️</span>
+            <span class="label">Cloud</span>
+        </button>
+        <div class="toolbar-separator"></div>
+        <button class="toolbar-btn" onclick="toggleSftpPanel()" title="SFTP File Browser" id="sftpToolbarBtn">
+            <span class="icon">📁</span>
+            <span class="label">SFTP</span>
+        </button>
+        <div class="toolbar-separator"></div>
+        <button class="toolbar-btn" onclick="refreshConnections()" title="Refresh Connections">
+            <span class="icon">🔄</span>
+            <span class="label">Refresh</span>
+        </button>
+        <button class="toolbar-btn" onclick="checkMlsHealth(true)" title="Check MLS Health">
+            <span class="icon">❤️</span>
+            <span class="label">Health</span>
+        </button>
+        <div class="toolbar-separator"></div>
+        <button class="toolbar-btn" onclick="closeActiveTab()" title="Close Active Tab">
+            <span class="icon">✖️</span>
+            <span class="label">Close</span>
+        </button>
+    </div>
+
+    <!-- Cloud Connection Panel (collapsible) -->
+    <div class="cloud-panel" id="cloudPanel">
+        <div class="cloud-panel-header" onclick="toggleCloudPanel()">
+            <div class="cloud-panel-title">
+                <span>☁️</span>
+                <span>Messaging Platform Cloud</span>
+            </div>
+            <div class="cloud-panel-status">
+                <div class="status-dot" id="cloudStatus"></div>
+                <span id="cloudStatusText">Disconnected</span>
+            </div>
+        </div>
+        <div class="cloud-panel-body">
+            <div class="cloud-form-row">
+                <label>Channel Name</label>
+                <input type="text" id="cloudChannelName" placeholder="my-terminal-channel" value="terminal-share">
+            </div>
+            <div class="cloud-form-row">
+                <label>Channel Password</label>
+                <input type="password" id="cloudChannelPassword" placeholder="Channel password" value="terminal123">
+            </div>
+            <div class="cloud-form-row">
+                <label>Your Agent Name</label>
+                <div class="cloud-input-group">
+                    <input type="text" id="cloudAgentName" placeholder="Auto-generated if empty">
+                    <button type="button" class="cloud-regen-btn" onclick="regenerateAgentName()" title="Regenerate agent name (only if empty)">
+                        🔄
+                    </button>
+                </div>
+            </div>
+
+            <div class="cloud-actions">
+                <button type="button" class="cloud-btn" id="cloudConnectBtn" onclick="connectToCloud()">
+                    Connect to Cloud
+                </button>
+                <button type="button" class="cloud-btn cloud-btn-secondary" id="cloudShareBtn" onclick="showShareModal()" style="display: none;">
+                    📤 Share Terminal
+                </button>
+            </div>
+
+            <div class="cloud-agents" id="cloudAgentsSection" style="display: none;">
+                <div class="cloud-agents-title">Connected Agents</div>
+                <div id="cloudAgentsList">
+                    <!-- Agents will be populated here -->
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Main Container -->
+    <div class="main-container">
+        <!-- Sidebar -->
+        <div class="sidebar">
+            <div class="sidebar-header">
+                <span>Sessions</span>
+                <button class="sidebar-header-btn" onclick="refreshConnections()" title="Refresh">🔄</button>
+            </div>
+            <div class="session-list" id="sessionList">
+                <!-- Sessions will be populated here -->
+            </div>
+        </div>
+
+        <!-- Terminal Area -->
+        <div class="terminal-area">
+            <!-- Tab Bar -->
+            <div class="tab-bar-container">
+                <button class="tab-scroll-btn" id="tabScrollLeft" onclick="scrollTabsLeft()" title="Scroll Left">
+                    ◀
+                </button>
+                <div class="tab-bar" id="tabBar">
+                    <div class="tab-add" onclick="createLocalTerminal()" title="New Tab">+</div>
+                </div>
+                <button class="tab-scroll-btn" id="tabScrollRight" onclick="scrollTabsRight()" title="Scroll Right">
+                    ▶
+                </button>
+            </div>
+
+            <!-- Terminal Panels -->
+            <div class="terminal-wrapper" id="terminalWrapper">
+                <!-- Empty state shown when no tabs -->
+                <div class="empty-state" id="emptyState">
+                    <div class="empty-state-icon">🖥️</div>
+                    <div class="empty-state-title">No Active Sessions</div>
+                    <div class="empty-state-message">
+                        Click <strong>Local</strong> to start a terminal, or select an SSH connection from the sidebar
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Shared Sessions Panel (right side) -->
+        <div class="shared-panel" id="sharedPanel">
+            <div class="shared-panel-header">
+                📡 Shared Terminals
+            </div>
+            <div class="shared-session-list" id="sharedSessionList">
+                <!-- Shared sessions from other agents will appear here -->
+                <div style="padding: 20px; text-align: center; color: var(--text-muted); font-size: 11px;">
+                    No shared terminals yet.<br>
+                    Connect to cloud to see shared sessions.
+                </div>
+            </div>
+        </div>
+
+        <!-- SFTP File Browser Panel (mount point) -->
+        <div id="sftpPanelContainer"></div>
+    </div>
+
+    <!-- Status Bar -->
+    <div class="status-bar">
+        <div class="status-item">
+            <span class="label">MLS:</span>
+            <span class="value" id="statusMls">localhost:8088</span>
+        </div>
+        <div class="status-item">
+            <span class="label">Sessions:</span>
+            <span class="value" id="statusSessions">0</span>
+        </div>
+        <div class="status-item">
+            <span class="label">Active:</span>
+            <span class="value" id="statusActive">None</span>
+        </div>
+        <div class="status-item" style="margin-left: auto;">
+            <span class="label">Cloud:</span>
+            <span class="value" id="statusCloud">Disconnected</span>
+        </div>
+    </div>
+
+    <!-- SSH Modal -->
+    <div class="modal-overlay" id="sshModalOverlay">
+        <div class="modal">
+            <div class="modal-header">
+                <div class="modal-title">➕ Add SSH Connection</div>
+                <div class="modal-close" onclick="closeSshModal()">✕</div>
+            </div>
+            <form id="sshForm" onsubmit="saveSshConnection(event)">
+                <div class="modal-body">
+                    <div class="form-group">
+                        <label>Connection Name *</label>
+                        <div class="input-group">
+                            <input type="text" id="sshName" required placeholder="e.g., Production Server">
+                            <button type="button" class="regen-btn" onclick="generateSshConnectionName()" title="Generate random connection name">
+                                🔄
+                            </button>
+                        </div>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label>Host *</label>
+                            <input type="text" id="sshHost" required placeholder="server.example.com">
+                        </div>
+                        <div class="form-group" style="max-width: 100px;">
+                            <label>Port</label>
+                            <input type="number" id="sshPort" value="22">
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label>Username *</label>
+                        <input type="text" id="sshUsername" required placeholder="admin">
+                    </div>
+                    <div class="form-group">
+                        <label>Password</label>
+                        <input type="password" id="sshPassword" placeholder="Leave empty for key auth">
+                    </div>
+                    <div class="form-group">
+                        <label>Private Key (optional)</label>
+                        <textarea id="sshPrivateKey" placeholder="-----BEGIN RSA PRIVATE KEY-----"></textarea>
+                    </div>
+                    <div class="form-group">
+                        <label>Description</label>
+                        <input type="text" id="sshDescription" placeholder="Optional description">
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" onclick="closeSshModal()">Cancel</button>
+                    <button type="submit" class="btn btn-primary">Save Connection</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Help Modal -->
+    <div class="modal-overlay" id="helpModalOverlay">
+        <div class="modal" style="width: 900px; max-width: 95vw; max-height: 90vh; overflow-y: auto;">
+            <div class="modal-header">
+                <div class="modal-title">📚 Documentation & API Reference</div>
+                <div class="modal-close" onclick="closeHelpModal()">✕</div>
+            </div>
+            <div class="modal-body" style="padding: 0;">
+
+                <!-- Tab Navigation -->
+                <div style="display: flex; border-bottom: 1px solid var(--border-color); background: var(--bg-panel);">
+                    <div class="help-tab active" onclick="switchHelpTab('quickstart')" id="tab-quickstart">
+                        🚀 Quick Start
+                    </div>
+                    <div class="help-tab" onclick="switchHelpTab('api')" id="tab-api">
+                        🔌 API Reference
+                    </div>
+                    <div class="help-tab" onclick="switchHelpTab('shortcuts')" id="tab-shortcuts">
+                        ⌨️ Shortcuts
+                    </div>
+                    <div class="help-tab" onclick="switchHelpTab('docs')" id="tab-docs">
+                        📚 References
+                    </div>
+                </div>
+
+                <!-- Quick Start Tab -->
+                <div class="help-content active" id="content-quickstart" style="padding: 24px;">
+                    <h3 style="font-size: 16px; color: var(--accent-cyan); margin-bottom: 16px;">🚀 Getting Started</h3>
+
+                    <!-- Download JAR Section - Prominent at top -->
+                    <div style="background: linear-gradient(135deg, rgba(74, 222, 128, 0.1) 0%, rgba(34, 211, 238, 0.1) 100%); padding: 20px; border-radius: 8px; border: 1px solid var(--accent-green); margin-bottom: 24px;">
+                        <h4 style="font-size: 15px; color: var(--text-primary); margin-bottom: 16px; text-align: center;">⬇️ Download SDK Local Service</h4>
+
+                        <div style="display: flex; gap: 12px; justify-content: center; flex-wrap: wrap; margin-bottom: 12px;">
+                            <a href="sdk-local-service.jar" download style="display: inline-flex; align-items: center; gap: 8px; padding: 12px 24px; background: var(--accent-green); color: #000; text-decoration: none; border-radius: 6px; font-weight: 600; font-size: 14px; transition: all 0.2s;">
+                                <span>📦</span> sdk-local-service.jar
+                            </a>
+                            <a href="application.properties" download style="display: inline-flex; align-items: center; gap: 8px; padding: 12px 20px; background: var(--accent-blue); color: #fff; text-decoration: none; border-radius: 6px; font-weight: 600; font-size: 14px; transition: all 0.2s;">
+                                <span>⚙️</span> application.properties
+                            </a>
+                        </div>
+
+                        <div style="text-align: center; font-size: 12px; color: var(--text-secondary); line-height: 1.8;">
+                            <div><strong>Requires Java 11+</strong> • Run: <code style="background: var(--bg-dark); padding: 2px 6px; border-radius: 3px;">java -jar sdk-local-service.jar</code></div>
+                            <div style="margin-top: 6px;">⚙️ Customize <strong>port, database, logging</strong> in application.properties</div>
+                        </div>
+                    </div>
+
+                    <div style="margin-bottom: 24px;">
+                        <div style="background: var(--bg-panel); padding: 16px; border-radius: 8px; border-left: 3px solid var(--accent-blue); margin-bottom: 16px;">
+                            <div style="font-size: 13px; color: var(--text-secondary);">
+                                <strong style="color: var(--accent-blue);">📋 Requirement:</strong> SDK Local Service must be running on <code style="background: var(--bg-dark); padding: 2px 6px; border-radius: 3px;">localhost:8088</code>
+                            </div>
+                        </div>
+
+                        <h4 style="font-size: 14px; color: var(--text-primary); margin-bottom: 12px;">Step 1: Start SDK Local Service</h4>
+                        <pre style="background: var(--bg-dark); padding: 12px; border-radius: 6px; font-size: 12px; color: var(--accent-green); margin-bottom: 16px; overflow-x: auto;">java -jar sdk-local-service.jar</pre>
+
+                        <h4 style="font-size: 14px; color: var(--text-primary); margin-bottom: 12px;">Step 2: Create Terminal Sessions</h4>
+                        <ul style="font-size: 13px; line-height: 2; color: var(--text-secondary); padding-left: 20px; margin-bottom: 16px;">
+                            <li>Click <strong style="color: var(--text-primary);">CMD/Bash/PowerShell</strong> to open a local terminal</li>
+                            <li>Click <strong style="color: var(--text-primary);">SSH</strong> to add a remote server connection</li>
+                            <li>Saved connections appear in the left sidebar</li>
+                            <li>Use <strong style="color: var(--text-primary);">tabs</strong> to manage multiple sessions</li>
+                        </ul>
+
+                        <h4 style="font-size: 14px; color: var(--text-primary); margin-bottom: 12px;">Features</h4>
+                        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 12px;">
+                            <div style="background: var(--bg-panel); padding: 12px; border-radius: 6px;">
+                                <div style="font-size: 16px; margin-bottom: 4px;">💻</div>
+                                <div style="font-size: 12px; font-weight: bold; color: var(--text-primary);">Local Terminals</div>
+                                <div style="font-size: 11px; color: var(--text-secondary);">CMD, Bash, PowerShell</div>
+                            </div>
+                            <div style="background: var(--bg-panel); padding: 12px; border-radius: 6px;">
+                                <div style="font-size: 16px; margin-bottom: 4px;">🌐</div>
+                                <div style="font-size: 12px; font-weight: bold; color: var(--text-primary);">SSH Connections</div>
+                                <div style="font-size: 11px; color: var(--text-secondary);">Save & manage servers</div>
+                            </div>
+                            <div style="background: var(--bg-panel); padding: 12px; border-radius: 6px;">
+                                <div style="font-size: 16px; margin-bottom: 4px;">📁</div>
+                                <div style="font-size: 12px; font-weight: bold; color: var(--text-primary);">SFTP Browser</div>
+                                <div style="font-size: 11px; color: var(--text-secondary);">File transfer & management</div>
+                            </div>
+                            <div style="background: var(--bg-panel); padding: 12px; border-radius: 6px;">
+                                <div style="font-size: 16px; margin-bottom: 4px;">☁️</div>
+                                <div style="font-size: 12px; font-weight: bold; color: var(--text-primary);">Cloud Sharing</div>
+                                <div style="font-size: 11px; color: var(--text-secondary);">Share terminals remotely</div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div style="margin-top: 24px; padding-top: 20px; border-top: 1px solid var(--border-color);">
+                        <h4 style="font-size: 14px; color: var(--text-primary); margin-bottom: 12px;">💻 Source Code & Documentation</h4>
+                        <div style="display: flex; flex-wrap: wrap; gap: 12px;">
+                            <a href="https://github.com/HaithamMubarak/messaging-platform-sdk" target="_blank" style="color: var(--accent-purple); text-decoration: none; font-size: 13px; display: inline-flex; align-items: center; gap: 6px; padding: 8px 12px; background: var(--bg-panel); border-radius: 6px; border: 1px solid var(--border-color);">
+                                <span>⭐</span> View on GitHub
+                            </a>
+                            <a href="https://github.com/HaithamMubarak/messaging-platform-sdk/blob/main/README.md" target="_blank" style="color: var(--accent-blue); text-decoration: none; font-size: 13px; display: inline-flex; align-items: center; gap: 6px; padding: 8px 12px; background: var(--bg-panel); border-radius: 6px; border: 1px solid var(--border-color);">
+                                <span>📖</span> README
+                            </a>
+                            <a href="https://github.com/HaithamMubarak/messaging-platform-sdk/blob/main/DEVELOPER-GUIDE.md" target="_blank" style="color: var(--accent-blue); text-decoration: none; font-size: 13px; display: inline-flex; align-items: center; gap: 6px; padding: 8px 12px; background: var(--bg-panel); border-radius: 6px; border: 1px solid var(--border-color);">
+                                <span>👨‍💻</span> Dev Guide
+                            </a>
+                            <a href="https://github.com/HaithamMubarak/messaging-platform-sdk/blob/main/WEB-AGENT-GUIDE.md" target="_blank" style="color: var(--accent-blue); text-decoration: none; font-size: 13px; display: inline-flex; align-items: center; gap: 6px; padding: 8px 12px; background: var(--bg-panel); border-radius: 6px; border: 1px solid var(--border-color);">
+                                <span>🌐</span> Web Guide
+                            </a>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Shortcuts Tab -->
+                <div class="help-content" id="content-shortcuts" style="padding: 24px;">
+                    <h3 style="font-size: 16px; color: var(--accent-cyan); margin-bottom: 16px;">⌨️ Keyboard Shortcuts</h3>
+
+                    <div style="margin-bottom: 20px;">
+                        <h4 style="font-size: 14px; color: var(--text-primary); margin-bottom: 12px;">Terminal Shortcuts</h4>
+                        <div style="display: grid; grid-template-columns: auto 1fr; gap: 12px; font-size: 13px;">
+                            <kbd style="background: var(--bg-panel); padding: 6px 12px; border-radius: 4px; font-family: monospace;">Ctrl+C</kbd>
+                            <span style="color: var(--text-secondary);">Interrupt current command</span>
+
+                            <kbd style="background: var(--bg-panel); padding: 6px 12px; border-radius: 4px; font-family: monospace;">Ctrl+L</kbd>
+                            <span style="color: var(--text-secondary);">Clear terminal screen</span>
+
+                            <kbd style="background: var(--bg-panel); padding: 6px 12px; border-radius: 4px; font-family: monospace;">Ctrl+D</kbd>
+                            <span style="color: var(--text-secondary);">Exit terminal (EOF)</span>
+
+                            <kbd style="background: var(--bg-panel); padding: 6px 12px; border-radius: 4px; font-family: monospace;">↑ / ↓</kbd>
+                            <span style="color: var(--text-secondary);">Navigate command history</span>
+
+                            <kbd style="background: var(--bg-panel); padding: 6px 12px; border-radius: 4px; font-family: monospace;">Tab</kbd>
+                            <span style="color: var(--text-secondary);">Auto-complete commands/paths</span>
+                        </div>
+                    </div>
+
+                    <div style="margin-bottom: 20px;">
+                        <h4 style="font-size: 14px; color: var(--text-primary); margin-bottom: 12px;">Tab Management</h4>
+                        <ul style="font-size: 13px; line-height: 2; color: var(--text-secondary); padding-left: 20px;">
+                            <li><strong style="color: var(--text-primary);">Right-click tab</strong> - Context menu (rename, duplicate, close)</li>
+                            <li><strong style="color: var(--text-primary);">Middle-click tab</strong> - Close tab</li>
+                            <li><strong style="color: var(--text-primary);">Drag tab</strong> - Reorder tabs</li>
+                        </ul>
+                    </div>
+
+                    <div>
+                        <h4 style="font-size: 14px; color: var(--text-primary); margin-bottom: 12px;">Session Actions</h4>
+                        <ul style="font-size: 13px; line-height: 2; color: var(--text-secondary); padding-left: 20px;">
+                            <li><strong style="color: var(--text-primary);">R key</strong> - Reconnect to disconnected session</li>
+                            <li><strong style="color: var(--text-primary);">Right-click connection</strong> - Edit, duplicate, or delete</li>
+                        </ul>
+                    </div>
+                </div>
+
+                <!-- API Reference Tab -->
+                <div class="help-content" id="content-api" style="padding: 24px;">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
+                        <h3 style="font-size: 16px; color: var(--accent-cyan); margin: 0;">🔌 REST API Reference</h3>
+                        <a href="http://localhost:8088/health" target="_blank" style="color: var(--accent-green); text-decoration: none; font-size: 12px; display: inline-flex; align-items: center; gap: 6px; padding: 6px 12px; background: rgba(74, 222, 128, 0.1); border-radius: 6px; border: 1px solid rgba(74, 222, 128, 0.3);">
+                            <span>🔗</span> Test API (Health Check)
+                        </a>
+                    </div>
+                    <div style="font-size: 12px; color: var(--text-secondary); margin-bottom: 20px;">
+                        Base URL: <code style="background: var(--bg-dark); padding: 2px 6px; border-radius: 3px;">http://localhost:8088</code>
+                        <span style="margin-left: 12px; color: var(--text-muted);">•</span>
+                        <span style="margin-left: 12px;">All endpoints require SLS running locally</span>
+                    </div>
+
+                    <!-- Terminal Operations -->
+                    <div class="api-section">
+                        <h4 class="api-section-title">Terminal Operations</h4>
+
+                        <div class="api-endpoint">
+                            <div class="api-method post">POST</div>
+                            <div class="api-path">/terminal/create</div>
+                            <div class="api-desc">Create a new terminal session (local or SSH)</div>
+                        </div>
+                        <pre class="api-example">{
+  "type": "local",
+  "shell": "bash"
+}
+// or for SSH:
+{
+  "type": "ssh",
+  "connectionId": 1
+}</pre>
+
+                        <div class="api-endpoint">
+                            <div class="api-method post">POST</div>
+                            <div class="api-path">/terminal/{sessionId}/input</div>
+                            <div class="api-desc">Send input to terminal</div>
+                        </div>
+                        <pre class="api-example">{ "data": "ls -la\n" }</pre>
+
+                        <div class="api-endpoint">
+                            <div class="api-method post">POST</div>
+                            <div class="api-path">/terminal/{sessionId}/resize</div>
+                            <div class="api-desc">Resize terminal window</div>
+                        </div>
+                        <pre class="api-example">{ "cols": 120, "rows": 40 }</pre>
+
+                        <div class="api-endpoint">
+                            <div class="api-method get">GET</div>
+                            <div class="api-path">/terminal/sessions</div>
+                            <div class="api-desc">Get all active sessions</div>
+                        </div>
+
+                        <div class="api-endpoint">
+                            <div class="api-method delete">DELETE</div>
+                            <div class="api-path">/terminal/{sessionId}</div>
+                            <div class="api-desc">Close terminal session</div>
+                        </div>
+
+                        <div class="api-endpoint">
+                            <div class="api-method ws">WS</div>
+                            <div class="api-path">/terminal/stream/{sessionId}</div>
+                            <div class="api-desc">WebSocket stream for real-time output</div>
+                        </div>
+                    </div>
+
+                    <!-- SSH Connection Management -->
+                    <div class="api-section">
+                        <h4 class="api-section-title">SSH Connection Management</h4>
+
+                        <div class="api-endpoint">
+                            <div class="api-method get">GET</div>
+                            <div class="api-path">/terminal/ssh-connections</div>
+                            <div class="api-desc">List all saved SSH connections</div>
+                        </div>
+
+                        <div class="api-endpoint">
+                            <div class="api-method post">POST</div>
+                            <div class="api-path">/terminal/ssh-connections</div>
+                            <div class="api-desc">Save new SSH connection</div>
+                        </div>
+                        <pre class="api-example">{
+  "name": "production-server",
+  "host": "example.com",
+  "port": 22,
+  "username": "admin",
+  "password": "***"
+}</pre>
+
+                        <div class="api-endpoint">
+                            <div class="api-method put">PUT</div>
+                            <div class="api-path">/terminal/ssh-connections/{id}</div>
+                            <div class="api-desc">Update SSH connection</div>
+                        </div>
+
+                        <div class="api-endpoint">
+                            <div class="api-method delete">DELETE</div>
+                            <div class="api-path">/terminal/ssh-connections/{id}</div>
+                            <div class="api-desc">Delete SSH connection</div>
+                        </div>
+                    </div>
+
+                    <!-- Health Check -->
+                    <div class="api-section">
+                        <h4 class="api-section-title">System</h4>
+
+                        <div class="api-endpoint">
+                            <div class="api-method get">GET</div>
+                            <div class="api-path">/health</div>
+                            <div class="api-desc">Health check endpoint</div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Documentation Tab -->
+                <div class="help-content" id="content-docs" style="padding: 24px;">
+                    <h3 style="font-size: 16px; color: var(--accent-cyan); margin-bottom: 16px;">📚 References</h3>
+
+                    <div style="margin-bottom: 20px;">
+                        <h4 style="font-size: 14px; color: var(--text-primary); margin-bottom: 12px;">SDK Local Service</h4>
+                        <div style="display: flex; flex-direction: column; gap: 10px;">
+                            <a href="sdk-local-service.jar" download style="color: var(--accent-green); text-decoration: none; font-size: 13px; display: flex; align-items: center; gap: 8px;">
+                                <span>⬇️</span> Download SDK Local Service JAR
+                            </a>
+                            <a href="http://localhost:8088/health" target="_blank" style="color: var(--accent-cyan); text-decoration: none; font-size: 13px; display: flex; align-items: center; gap: 8px;">
+                                <span>❤️</span> Health Check Endpoint
+                            </a>
+                        </div>
+                    </div>
+
+                    <div style="margin-bottom: 20px;">
+                        <h4 style="font-size: 14px; color: var(--text-primary); margin-bottom: 12px;">Messaging Platform SDK</h4>
+                        <div style="display: flex; flex-direction: column; gap: 10px;">
+                            <a href="../../index.html" target="_blank" style="color: var(--accent-blue); text-decoration: none; font-size: 13px; display: flex; align-items: center; gap: 8px;">
+                                <span>🏠</span> SDK Examples Home
+                            </a>
+                            <a href="https://github.com/HaithamMubarak/messaging-platform-sdk/blob/main/README.md" target="_blank" style="color: var(--accent-blue); text-decoration: none; font-size: 13px; display: flex; align-items: center; gap: 8px;">
+                                <span>📖</span> SDK Main Documentation (README)
+                            </a>
+                            <a href="https://github.com/HaithamMubarak/messaging-platform-sdk/blob/main/DEVELOPER-GUIDE.md" target="_blank" style="color: var(--accent-blue); text-decoration: none; font-size: 13px; display: flex; align-items: center; gap: 8px;">
+                                <span>👨‍💻</span> Developer Guide
+                            </a>
+                            <a href="https://github.com/HaithamMubarak/messaging-platform-sdk/blob/main/USER-GUIDE.md" target="_blank" style="color: var(--accent-blue); text-decoration: none; font-size: 13px; display: flex; align-items: center; gap: 8px;">
+                                <span>📘</span> User Guide
+                            </a>
+                            <a href="https://github.com/HaithamMubarak/messaging-platform-sdk/blob/main/WEB-AGENT-GUIDE.md" target="_blank" style="color: var(--accent-blue); text-decoration: none; font-size: 13px; display: flex; align-items: center; gap: 8px;">
+                                <span>🌐</span> Web Agent Guide
+                            </a>
+                        </div>
+                    </div>
+
+                    <div style="margin-bottom: 20px;">
+                        <h4 style="font-size: 14px; color: var(--text-primary); margin-bottom: 12px;">Additional Documentation</h4>
+                        <div style="display: flex; flex-direction: column; gap: 10px;">
+                            <a href="https://github.com/HaithamMubarak/messaging-platform-sdk/blob/main/ROADMAP.md" target="_blank" style="color: var(--accent-blue); text-decoration: none; font-size: 13px; display: flex; align-items: center; gap: 8px;">
+                                <span>🗺️</span> Project Roadmap
+                            </a>
+                            <a href="https://github.com/HaithamMubarak/messaging-platform-sdk/blob/main/CONTRIBUTING.md" target="_blank" style="color: var(--accent-blue); text-decoration: none; font-size: 13px; display: flex; align-items: center; gap: 8px;">
+                                <span>🤝</span> Contributing Guidelines
+                            </a>
+                            <a href="https://github.com/HaithamMubarak/messaging-platform-sdk/tree/main/agents/examples/web-sdk-server" target="_blank" style="color: var(--accent-purple); text-decoration: none; font-size: 13px; display: flex; align-items: center; gap: 8px;">
+                                <span>📂</span> Web SDK Server Source Code
+                            </a>
+                        </div>
+                    </div>
+
+                    <div style="margin-bottom: 20px;">
+                        <h4 style="font-size: 14px; color: var(--text-primary); margin-bottom: 12px;">Source Code</h4>
+                        <div style="display: flex; flex-direction: column; gap: 10px;">
+                            <a href="https://github.com/HaithamMubarak/messaging-platform-sdk" target="_blank" style="color: var(--accent-purple); text-decoration: none; font-size: 13px; display: flex; align-items: center; gap: 8px;">
+                                <span>⭐</span> GitHub Repository - SDK Source Code
+                            </a>
+                        </div>
+                    </div>
+
+                    <div style="margin-bottom: 20px;">
+                        <h4 style="font-size: 14px; color: var(--text-primary); margin-bottom: 12px;">External Resources</h4>
+                        <div style="display: flex; flex-direction: column; gap: 10px;">
+                            <a href="https://xtermjs.org/" target="_blank" style="color: var(--accent-blue); text-decoration: none; font-size: 13px; display: flex; align-items: center; gap: 8px;">
+                                <span>🔗</span> xterm.js Documentation
+                            </a>
+                            <a href="https://spring.io/projects/spring-boot" target="_blank" style="color: var(--accent-blue); text-decoration: none; font-size: 13px; display: flex; align-items: center; gap: 8px;">
+                                <span>🍃</span> Spring Boot Documentation
+                            </a>
+                        </div>
+                    </div>
+
+                    <div style="background: var(--bg-panel); padding: 16px; border-radius: 8px; border-left: 3px solid var(--accent-cyan);">
+                        <h4 style="font-size: 13px; color: var(--text-primary); margin-bottom: 8px;">💡 Need Help?</h4>
+                        <div style="font-size: 12px; color: var(--text-secondary); line-height: 1.6;">
+                            Check the status indicator in the top-right corner. If SDK Local Service is offline, make sure it's running on <code style="background: var(--bg-dark); padding: 2px 6px; border-radius: 3px;">localhost:8088</code>
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" onclick="closeHelpModal()">Close</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- SFTP Browser Component -->
+    <script src="sftp-browser.js"></script>
+
+    <script>
+        // ========================================
+        // Configuration
+        // ========================================
+        const MLS_URL = 'http://localhost:8088';
+        const MLS_WS_URL = 'ws://localhost:8088';
+
+        // ========================================
+        // State Management
+        // ========================================
+        const sessions = new Map(); // sessionId -> { terminal, ws, config, type, name, connected, shared }
+        let activeSessionId = null;
+        let tabCounter = 0;
+
+        // ========================================
+        // Cloud Connection State
+        // ========================================
+        let cloudChannel = null;
+        let cloudConnected = false;
+        let cloudAgentName = null;
+        const connectedAgents = new Map(); // agentName -> agentInfo
+        const sharedSessions = new Map();  // sessionId -> { shared: true, sharedBy: agentName }
+        const receivedShares = new Map();  // shareId -> { fromAgent, sessionName, terminal }
+
+        // ========================================
+        // Tab Persistence Functions
+        // ========================================
+
+        /**
+         * Save tab metadata to backend for persistence
+         */
+        async function saveTabMetadata(sessionId, tabName, tabIcon, tabOrder) {
+            if (!sessionId) return;
+
+            try {
+                await fetch(`${MLS_URL}/terminal/${sessionId}/metadata`, {
+                    method: 'PATCH',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        tabName: tabName,
+                        tabIcon: tabIcon,
+                        tabOrder: tabOrder,
+                        autoRestore: true
+                    })
+                });
+            } catch (e) {
+                console.warn('[TabPersistence] Failed to save metadata:', e);
+            }
+        }
+
+        /**
+         * Get tab icon for a session
+         */
+        function getTabIcon(sessionId) {
+            const tab = document.getElementById(`tab-${sessionId}`);
+            if (!tab) return '💻';
+            const iconEl = tab.querySelector('.tab-icon');
+            return iconEl ? iconEl.textContent.trim() : '💻';
+        }
+
+        /**
+         * Get tab order for a session
+         */
+        function getTabOrder(sessionId) {
+            const tabsContainer = document.getElementById('tabsContainer');
+            const allTabs = Array.from(tabsContainer.querySelectorAll('.tab'));
+            const tab = document.getElementById(`tab-${sessionId}`);
+            return tab ? allTabs.indexOf(tab) : 0;
+        }
+
+        /**
+         * Restore tabs from backend on page load
+         */
+        async function restoreSavedTabs() {
+            try {
+                const response = await fetch(`${MLS_URL}/terminal/sessions`);
+                if (!response.ok) return;
+
+                const savedSessions = await response.json();
+
+                // Filter active sessions that should be restored
+                const toRestore = savedSessions
+                    .filter(s => s.status === 'active' && s.autoRestore !== false)
+                    .sort((a, b) => (a.tabOrder || 0) - (b.tabOrder || 0));
+
+                console.log('[TabPersistence] Found', toRestore.length, 'sessions to restore');
+
+                for (const dbSession of toRestore) {
+                    await restoreTab(dbSession);
+                }
+
+                // After all tabs are restored, switch to the first one to give it focus
+                if (toRestore.length > 0) {
+                    const firstSessionId = toRestore[0].sessionId;
+                    console.log('[TabPersistence] Switching to first restored tab:', firstSessionId);
+                    // Use setTimeout to ensure all tabs are fully rendered
+                    setTimeout(() => {
+                        switchToSession(firstSessionId);
+                    }, 200);
+                }
+
+                updateEmptyState();
+                updateSessionCount();
+
+            } catch (error) {
+                console.error('[TabPersistence] Failed to restore tabs:', error);
+            }
+        }
+
+        /**
+         * Restore a single tab (unified for both local and SSH)
+         *
+         * NOTE: Tab sessions in DB are persistent and NOT auto-deleted.
+         * The backend connection may be dead, but the tab metadata persists
+         * until the user explicitly closes the tab.
+         */
+        async function restoreTab(dbSession) {
+            const sessionId = dbSession.sessionId;
+            const type = dbSession.type;
+
+            console.log('[TabRestore] Restoring tab:', sessionId, 'type:', type, 'tabName:', dbSession.tabName);
+
+            // Prepare default name and icon BEFORE any async operations
+            // This ensures we always have the saved name, even if SSH connection fetch fails
+            const name = dbSession.tabName || (type === 'local' ? `Local (${dbSession.shell || 'CMD'})` : 'SSH');
+            const icon = dbSession.tabIcon || (type === 'local' ? '💻' : '🌐');
+
+            try {
+                // Create UI first with the saved name
+                createTab(sessionId, name, icon, type);
+                createTerminalPanel(sessionId);
+
+                // Prepare session config based on type
+                let config = { type };
+                if (type === 'local') {
+                    config.shell = dbSession.shell || 'cmd';
+                } else if (type === 'ssh') {
+                    if (!dbSession.sshConnectionId) {
+                        throw new Error('No SSH connection ID for SSH session');
+                    }
+                    // Get SSH connection details (this might fail for expired connections)
+                    try {
+                        const connResponse = await fetch(`${MLS_URL}/terminal/ssh-connections/${dbSession.sshConnectionId}`);
+                        if (!connResponse.ok) {
+                            throw new Error('SSH connection not found');
+                        }
+                        const connection = await connResponse.json();
+                        config.connectionId = dbSession.sshConnectionId;
+                        config.name = connection.name;
+                        config.host = connection.host;
+                        config.port = connection.port;
+                        config.username = connection.username;
+                    } catch (sshError) {
+                        // SSH connection not found (expired or deleted)
+                        // Keep basic config, we'll show error to user later
+                        console.warn('[TabRestore] SSH connection not available:', sshError.message);
+                        config.connectionId = dbSession.sshConnectionId;
+                        config.error = sshError.message;
+                    }
+                }
+
+                // Create session object FIRST (before initTerminal)
+                // so that initTerminal can store fitAddon in the session
+                sessions.set(sessionId, {
+                    terminal: null,  // Will be set by initTerminal
+                    ws: null,
+                    config,
+                    type,
+                    name,
+                    connected: false,
+                    fitAddon: null,  // Will be set by initTerminal
+                    isShared: dbSession.isShared || false,  // ✅ Load share status
+                    source: dbSession.source || null  // ✅ Load source agent
+                });
+
+                // Initialize terminal (this will update the session with terminal and fitAddon)
+                const terminal = initTerminal(sessionId);
+
+                // Update session with terminal reference
+                const session = sessions.get(sessionId);
+                session.terminal = terminal;
+
+                // Ensure terminal is fitted properly after a delay (important for restored sessions)
+                setTimeout(() => {
+                    const currentSession = sessions.get(sessionId);
+                    if (currentSession && currentSession.fitAddon) {
+                        currentSession.fitAddon.fit();
+                        console.log('[TabRestore] Terminal fitted to container');
+                    }
+                }, 200);
+
+                // Check if backend connection is still alive
+                console.log('[TabRestore] Checking if backend connection is alive for:', sessionId);
+                const checkResponse = await fetch(`${MLS_URL}/terminal/${sessionId}`);
+
+                if (checkResponse.ok) {
+                    // ✅ Backend connection is ALIVE! Auto-reconnect WebSocket
+                    console.log('[TabRestore] Backend connection alive, auto-connecting WebSocket:', sessionId);
+                    terminal.clear();
+                    terminal.writeln(`\x1b[32m✓ Connection alive, reconnecting...\x1b[0m`);
+                    if (type === 'ssh' && config.host) {
+                        terminal.writeln(`\x1b[36mHost: ${config.username}@${config.host}:${config.port}\x1b[0m`);
+                    }
+
+                    // Auto-connect WebSocket after brief delay
+                    setTimeout(() => {
+                        connectWebSocket(sessionId);
+                    }, 100);
+                } else {
+                    // ❌ Backend connection is DEAD (session not in memory)
+                    // But tab metadata persists in DB - show reconnect overlay
+                    console.log('[TabRestore] Backend connection dead, tab persisted. Showing reconnect overlay:', sessionId);
+                    showReconnectOverlay(sessionId);
+                    terminal.clear();
+                    terminal.writeln('\x1b[36m╔══════════════════════════════════════════════╗\x1b[0m');
+                    terminal.writeln('\x1b[36m║\x1b[0m   \x1b[1;33mTab Restored from Database\x1b[0m             \x1b[36m║\x1b[0m');
+                    terminal.writeln('\x1b[36m╚══════════════════════════════════════════════╝\x1b[0m');
+                    terminal.writeln('');
+                    terminal.writeln(`\x1b[36mTab:\x1b[0m ${name}`);
+                    if (type === 'ssh' && config.host) {
+                        terminal.writeln(`\x1b[36mHost:\x1b[0m ${config.username}@${config.host}:${config.port}`);
+                    } else if (type === 'ssh' && config.error) {
+                        terminal.writeln(`\x1b[33mWarning:\x1b[0m ${config.error}`);
+                    }
+                    terminal.writeln('');
+                    terminal.writeln('\x1b[33mConnection inactive. Press \x1b[1;32mR\x1b[0m\x1b[33m to reconnect.\x1b[0m');
+                    terminal.writeln('');
+                }
+            } catch (error) {
+                console.error('[TabRestore] Failed to restore session', sessionId, ':', error);
+                // Don't delete from DB! Tab persists until user closes it
+                // Just show error in terminal
+                const session = sessions.get(sessionId);
+                const terminal = session?.terminal;
+
+                if (terminal) {
+                    terminal.clear();
+                    terminal.writeln('\x1b[31m✖ Failed to restore tab\x1b[0m');
+                    terminal.writeln('');
+                    terminal.writeln(`\x1b[33mError: ${error.message}\x1b[0m`);
+                    terminal.writeln('');
+                    terminal.writeln('\x1b[36mYou can close this tab or contact support.\x1b[0m');
+
+                    // Ensure terminal is fitted even on error
+                    setTimeout(() => {
+                        if (session && session.fitAddon) {
+                            session.fitAddon.fit();
+                            console.log('[TabRestore] Terminal fitted after error');
+                        }
+                    }, 200);
+                }
+            }
+        }
+
+        /**
+         * Update all session references when session ID changes
+         */
+        async function updateSessionReferences(oldSessionId, newSessionId) {
+            console.log('[Session] Updating references from', oldSessionId, 'to', newSessionId);
+
+            const session = sessions.get(oldSessionId);
+            if (!session) return;
+
+            // Update tab
+            const tab = document.getElementById(`tab-${oldSessionId}`);
+            if (tab) {
+                tab.id = `tab-${newSessionId}`;
+                tab.onclick = () => switchToSession(newSessionId);
+                const closeBtn = tab.querySelector('.tab-close');
+                if (closeBtn) {
+                    closeBtn.onclick = (e) => { e.stopPropagation(); closeTab(newSessionId); };
+                }
+            }
+
+            // Update panel
+            const panel = document.getElementById(`panel-${oldSessionId}`);
+            if (panel) panel.id = `panel-${newSessionId}`;
+
+            // Update terminal div
+            const termDiv = document.getElementById(`terminal-${oldSessionId}`);
+            if (termDiv) termDiv.id = `terminal-${newSessionId}`;
+
+            // Update overlays
+            const connectingDiv = document.getElementById(`connecting-${oldSessionId}`);
+            if (connectingDiv) connectingDiv.id = `connecting-${newSessionId}`;
+
+            const reconnectDiv = document.getElementById(`reconnect-${oldSessionId}`);
+            if (reconnectDiv) reconnectDiv.id = `reconnect-${newSessionId}`;
+
+            // Update sessions map
+            sessions.delete(oldSessionId);
+            sessions.set(newSessionId, session);
+
+            // Update active session if needed
+            if (activeSessionId === oldSessionId) {
+                activeSessionId = newSessionId;
+            }
+
+            // Update backend metadata with new session ID
+            try {
+                await saveTabMetadata(newSessionId, session.name, getTabIcon(newSessionId), getTabOrder(newSessionId));
+            } catch (error) {
+                console.warn('[Session] Failed to update backend metadata:', error);
+            }
+        }
+
+
+        // ========================================
+        // Toast Notifications
+        // ========================================
+        function showToast(type, title, message, duration = 4000) {
+            const container = document.getElementById('toastContainer');
+            const toast = document.createElement('div');
+            toast.className = `toast ${type}`;
+
+            const icons = { success: '✓', error: '✖', info: 'ℹ', warning: '⚠' };
+            toast.innerHTML = `
+                <div class="toast-icon">${icons[type] || 'ℹ'}</div>
+                <div class="toast-content">
+                    <div class="toast-title">${title}</div>
+                    <div class="toast-message">${message}</div>
+                </div>
+            `;
+            container.appendChild(toast);
+
+            setTimeout(() => {
+                toast.style.opacity = '0';
+                toast.style.transform = 'translateX(100%)';
+                setTimeout(() => container.removeChild(toast), 300);
+            }, duration);
+        }
+
+        // ========================================
+        // MLS Health Check
+        // ========================================
+        async function checkMlsHealth(showNotification = false) {
+            const statusDot = document.getElementById('mlsStatus');
+            const statusText = document.getElementById('mlsStatusText');
+
+            statusDot.className = 'status-dot checking';
+            statusText.textContent = 'SLS: Checking...';
+
+            try {
+                const response = await fetch(`${MLS_URL}/health`);
+                if (response.ok) {
+                    statusDot.className = 'status-dot online';
+                    statusText.textContent = 'SLS: Online';
+                    if (showNotification) {
+                        showToast('success', 'SLS Online', 'SDK Local Service is running');
+                    }
+                    return true;
+                }
+                throw new Error('Health check failed');
+            } catch (error) {
+                statusDot.className = 'status-dot offline';
+                statusText.textContent = 'SLS: Offline';
+                if (showNotification) {
+                    showToast('error', 'SLS Offline', 'Please start SDK Local Service on localhost:8088');
+                }
+                return false;
+            }
+        }
+
+        // ========================================
+        // Session List (Sidebar)
+        // ========================================
+        async function loadSshConnections() {
+            try {
+                const response = await fetch(`${MLS_URL}/terminal/ssh-connections`);
+                if (!response.ok) throw new Error('Failed to load');
+                return await response.json();
+            } catch (error) {
+                console.error('Failed to load SSH connections:', error);
+                return [];
+            }
+        }
+
+        async function refreshConnections() {
+            const container = document.getElementById('sessionList');
+            const connections = await loadSshConnections();
+
+            let html = `
+                <div class="session-group">
+                    <div class="session-group-title">Quick Actions</div>
+                    <div class="session-item" onclick="createLocalTerminal('cmd')">
+                        <div class="session-icon local">💻</div>
+                        <div class="session-details">
+                            <div class="session-name">CMD Terminal</div>
+                            <div class="session-info">Windows Command Prompt</div>
+                        </div>
+                    </div>
+                    <div class="session-item" onclick="createLocalTerminal('bash')">
+                        <div class="session-icon local" style="background: linear-gradient(135deg, #22d3ee, #059669);">🐧</div>
+                        <div class="session-details">
+                            <div class="session-name">Bash Terminal</div>
+                            <div class="session-info">WSL / Git Bash</div>
+                        </div>
+                    </div>
+                    <div class="session-item" onclick="createLocalTerminal('powershell')">
+                        <div class="session-icon local" style="background: linear-gradient(135deg, #a78bfa, #7c3aed);">⚡</div>
+                        <div class="session-details">
+                            <div class="session-name">PowerShell</div>
+                            <div class="session-info">Windows PowerShell</div>
+                        </div>
+                    </div>
+                </div>
+            `;
+
+            if (connections.length > 0) {
+                html += `
+                    <div class="session-group">
+                        <div class="session-group-title">SSH Connections (${connections.length})</div>
+                        ${connections.map(conn => `
+                            <div class="session-item"
+                                 onclick="connectToSsh(${conn.id}, '${escapeHtml(conn.name)}', '${escapeHtml(conn.host)}', ${conn.port}, '${escapeHtml(conn.username)}')"
+                                 oncontextmenu="showSessionContextMenu(event, ${conn.id}, '${escapeHtml(conn.name)}', '${escapeHtml(conn.host)}', ${conn.port}, '${escapeHtml(conn.username)}')"
+                                 id="conn-${conn.id}"
+                                 data-connection-id="${conn.id}"
+                                 data-connection-name="${escapeHtml(conn.name)}"
+                                 data-host="${escapeHtml(conn.host)}"
+                                 data-port="${conn.port}"
+                                 data-username="${escapeHtml(conn.username)}">
+                                <div class="session-icon ssh">🌐</div>
+                                <div class="session-details">
+                                    <div class="session-name">${escapeHtml(conn.name)}</div>
+                                    <div class="session-info">${escapeHtml(conn.username)}@${escapeHtml(conn.host)}:${conn.port}</div>
+                                </div>
+                            </div>
+                        `).join('')}
+                    </div>
+                `;
+            }
+
+            container.innerHTML = html;
+        }
+
+        function escapeHtml(str) {
+            if (!str) return '';
+            return str.replace(/[&<>"']/g, m => ({
+                '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
+            })[m]);
+        }
+
+        // ========================================
+        // Tab Scrolling
+        // ========================================
+        function scrollTabsLeft() {
+            const tabBar = document.getElementById('tabBar');
+            tabBar.scrollBy({ left: -200, behavior: 'smooth' });
+            setTimeout(checkTabOverflow, 300);
+        }
+
+        function scrollTabsRight() {
+            const tabBar = document.getElementById('tabBar');
+            tabBar.scrollBy({ left: 200, behavior: 'smooth' });
+            setTimeout(checkTabOverflow, 300);
+        }
+
+        function checkTabOverflow() {
+            const tabBar = document.getElementById('tabBar');
+            const leftBtn = document.getElementById('tabScrollLeft');
+            const rightBtn = document.getElementById('tabScrollRight');
+
+            const isOverflowing = tabBar.scrollWidth > tabBar.clientWidth;
+            const canScrollLeft = tabBar.scrollLeft > 0;
+            const canScrollRight = tabBar.scrollLeft < (tabBar.scrollWidth - tabBar.clientWidth - 5);
+
+            if (isOverflowing) {
+                if (canScrollLeft) leftBtn.classList.add('visible');
+                else leftBtn.classList.remove('visible');
+
+                if (canScrollRight) rightBtn.classList.add('visible');
+                else rightBtn.classList.remove('visible');
+            } else {
+                leftBtn.classList.remove('visible');
+                rightBtn.classList.remove('visible');
+            }
+        }
+
+        // ========================================
+        // Tab Management
+        // ========================================
+        function createTab(sessionId, title, icon, type) {
+            const tabBar = document.getElementById('tabBar');
+            const addBtn = tabBar.querySelector('.tab-add');
+
+            const tab = document.createElement('div');
+            tab.className = 'tab active';
+            tab.id = `tab-${sessionId}`;
+            tab.dataset.sessionId = sessionId;
+            tab.innerHTML = `
+                <span class="tab-icon">${icon}</span>
+                <span class="tab-title">${escapeHtml(title)}</span>
+                <span class="tab-close" onclick="event.stopPropagation(); closeTab('${sessionId}')">×</span>
+            `;
+            tab.onclick = () => switchToSession(sessionId);
+            tab.oncontextmenu = (e) => showTabContextMenu(e, sessionId);
+
+            tabBar.insertBefore(tab, addBtn);
+
+            // Deactivate other tabs
+            tabBar.querySelectorAll('.tab').forEach(t => {
+                if (t.id !== `tab-${sessionId}`) t.classList.remove('active');
+            });
+
+            // Set as active session and ensure it gets focus
+            activeSessionId = sessionId;
+
+            // Check for tab overflow and show/hide scroll buttons
+            setTimeout(checkTabOverflow, 100);
+        }
+
+        function updateTab(sessionId, disconnected = false) {
+            const tab = document.getElementById(`tab-${sessionId}`);
+            if (tab) {
+                if (disconnected) {
+                    tab.classList.add('disconnected');
+                } else {
+                    tab.classList.remove('disconnected');
+                }
+            }
+        }
+
+        function removeTab(sessionId) {
+            const tab = document.getElementById(`tab-${sessionId}`);
+            if (tab) {
+                tab.remove();
+                // Check tab overflow after removal
+                setTimeout(checkTabOverflow, 100);
+            }
+        }
+
+        function switchToSession(sessionId) {
+            // Update tabs
+            document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+            const tab = document.getElementById(`tab-${sessionId}`);
+            if (tab) tab.classList.add('active');
+
+            // Update terminal panels
+            document.querySelectorAll('.terminal-panel').forEach(p => p.classList.remove('active'));
+            const panel = document.getElementById(`panel-${sessionId}`);
+            if (panel) panel.classList.add('active');
+
+            activeSessionId = sessionId;
+
+            // Update status
+            const session = sessions.get(sessionId);
+            if (session) {
+                document.getElementById('statusActive').textContent = session.name;
+
+                // Focus terminal and fit
+                if (session.terminal) {
+                    setTimeout(() => {
+                        if (session.fitAddon) session.fitAddon.fit();
+                        session.terminal.focus();
+                    }, 100);
+                }
+            }
+
+            updateEmptyState();
+        }
+
+        function closeTab(sessionId) {
+            closeSession(sessionId);
+        }
+
+        function closeActiveTab() {
+            if (activeSessionId) {
+                closeSession(activeSessionId);
+            }
+        }
+
+        function updateEmptyState() {
+            const emptyState = document.getElementById('emptyState');
+            emptyState.style.display = sessions.size === 0 ? 'flex' : 'none';
+        }
+
+        function updateSessionCount() {
+            document.getElementById('statusSessions').textContent = sessions.size;
+        }
+
+        // ========================================
+        // Terminal Panel Creation
+        // ========================================
+        function createTerminalPanel(sessionId) {
+            const wrapper = document.getElementById('terminalWrapper');
+
+            const panel = document.createElement('div');
+            panel.className = 'terminal-panel active';
+            panel.id = `panel-${sessionId}`;
+            panel.innerHTML = `
+                <div class="terminal-content" id="terminal-${sessionId}"></div>
+                <div class="connecting-overlay" id="connecting-${sessionId}">
+                    <div class="connecting-spinner"></div>
+                    <div class="connecting-text">Connecting...</div>
+                    <div class="connecting-subtext">Establishing connection to remote server</div>
+                </div>
+                <div class="reconnect-overlay" id="reconnect-${sessionId}">
+                    <div class="reconnect-icon">⚠️</div>
+                    <div class="reconnect-title">Connection Lost</div>
+                    <div class="reconnect-message">The session has been disconnected.</div>
+                    <div class="reconnect-hint">
+                        <span class="reconnect-key">R</span>
+                        <span class="reconnect-hint-text">Press <strong>R</strong> to reconnect</span>
+                    </div>
+                </div>
+            `;
+
+            // Deactivate other panels
+            wrapper.querySelectorAll('.terminal-panel').forEach(p => p.classList.remove('active'));
+            wrapper.appendChild(panel);
+
+            return panel;
+        }
+
+        // ========================================
+        // Create Local Terminal
+        // ========================================
+        async function createLocalTerminal(shell = 'cmd') {
+            const healthy = await checkMlsHealth();
+            if (!healthy) {
+                showToast('error', 'SLS Unavailable', 'Please start SDK Local Service first');
+                return;
+            }
+
+            try {
+                const response = await fetch(`${MLS_URL}/terminal/create`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ type: 'local', shell })
+                });
+
+                if (!response.ok) throw new Error('Failed to create terminal');
+
+                const result = await response.json();
+
+                // Check for error in response
+                if (result.error) {
+                    throw new Error(result.error);
+                }
+
+                const sessionId = result.sessionId;
+
+                // Determine icon and name based on shell
+                let icon = '💻';
+                let shellName = shell.toUpperCase();
+                if (shell === 'bash') {
+                    icon = '🐧';
+                    shellName = 'Bash';
+                } else if (shell === 'powershell') {
+                    icon = '⚡';
+                    shellName = 'PowerShell';
+                } else {
+                    shellName = 'CMD';
+                }
+
+                const name = `Local (${shellName})`;
+
+                // Create UI
+                createTab(sessionId, name, icon, 'local');
+                createTerminalPanel(sessionId);
+
+                // Initialize terminal
+                const terminal = initTerminal(sessionId);
+
+                // Store session
+                sessions.set(sessionId, {
+                    terminal,
+                    ws: null,
+                    config: { type: 'local', shell },
+                    type: 'local',
+                    name,
+                    connected: false,
+                    isShared: false,  // ✅ Not shared by default
+                    source: null  // ✅ No source (local terminal)
+                });
+
+                // Save tab metadata for persistence
+                const tabOrder = sessions.size;
+                await saveTabMetadata(sessionId, name, icon, tabOrder);
+
+                // Connect WebSocket
+                await new Promise(resolve => setTimeout(resolve, 200));
+                connectWebSocket(sessionId);
+
+                // Switch to the new session (auto-focus)
+                switchToSession(sessionId);
+                updateEmptyState();
+                updateSessionCount();
+
+                showToast('success', 'Terminal Created', `Local ${shellName} terminal started`);
+
+            } catch (error) {
+                console.error('Failed to create terminal:', error);
+                showToast('error', 'Error', error.message);
+            }
+        }
+
+        // ========================================
+        // Connect to SSH
+        // ========================================
+        async function connectToSsh(connectionId, name, host, port, username) {
+            const healthy = await checkMlsHealth();
+            if (!healthy) {
+                showToast('error', 'SLS Unavailable', 'Please start SDK Local Service first');
+                return;
+            }
+
+            // Generate temporary session ID for UI
+            const tempSessionId = 'ssh-temp-' + Date.now();
+            const displayName = `${name} (${host})`;
+
+            // Create UI immediately with connecting loader
+            createTab(tempSessionId, displayName, '🌐', 'ssh');
+            createTerminalPanel(tempSessionId);
+
+            // Initialize terminal
+            const terminal = initTerminal(tempSessionId);
+
+            // Show connecting overlay
+            showConnectingOverlay(tempSessionId);
+
+            // Store temporary session
+            sessions.set(tempSessionId, {
+                terminal,
+                ws: null,
+                config: { type: 'ssh', connectionId, name, host, port, username },
+                type: 'ssh',
+                name: displayName,
+                connected: false,
+                isShared: false,  // ✅ Not shared by default
+                source: null  // ✅ No source (local terminal)
+            });
+
+            // Switch to the new session immediately
+            switchToSession(tempSessionId);
+            updateEmptyState();
+            updateSessionCount();
+
+            try {
+                // Now connect to backend
+                const response = await fetch(`${MLS_URL}/terminal/create`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ type: 'ssh', connectionId })
+                });
+
+                const result = await response.json();
+
+                if (result.error) {
+                    // // Remove temp session and show error
+                    closeSession(tempSessionId);
+                    showToast('error', 'Connection Failed', result.error);
+                    return;
+                }
+
+                const sessionId = result.sessionId;
+
+                // Update session ID (from temp to real)
+                const sessionData = sessions.get(tempSessionId);
+
+                // Check if session was closed while connecting (user clicked X during connection)
+                if (!sessionData) {
+                    console.warn(`[SSH] Session ${tempSessionId} was closed during connection`);
+                    // Clean up the backend session since frontend is gone
+                    fetch(`${MLS_URL}/terminal/${sessionId}`, { method: 'DELETE' }).catch(() => {});
+                    showToast('info', 'Connection Cancelled', 'Terminal was closed during connection');
+                    return;
+                }
+
+                // CRITICAL: Dispose old terminal and re-initialize with real session ID
+                // This fixes the closure issue where onData captures the wrong sessionId
+                if (sessionData.terminal) {
+                    sessionData.terminal.dispose();
+                }
+
+                sessions.delete(tempSessionId);
+
+                // Update DOM IDs FIRST
+                const tab = document.getElementById(`tab-${tempSessionId}`);
+                if (tab) {
+                    tab.id = `tab-${sessionId}`;
+                    tab.dataset.sessionId = sessionId;
+
+                    // CRITICAL: Update tab's onclick and close button to use real sessionId
+                    tab.onclick = () => switchToSession(sessionId);
+
+                    // Update close button's onclick handler
+                    const closeBtn = tab.querySelector('.tab-close');
+                    if (closeBtn) {
+                        closeBtn.onclick = (e) => {
+                            e.stopPropagation();
+                            closeSession(sessionId);  // Use real sessionId!
+                        };
+                    }
+
+                    console.log(`[SSH] Tab updated: ${tempSessionId} → ${sessionId}`);
+                }
+
+                const panel = document.getElementById(`panel-${tempSessionId}`);
+                if (panel) {
+                    panel.id = `panel-${sessionId}`;
+                    // Update inner element IDs
+                    const terminalContent = panel.querySelector(`#terminal-${tempSessionId}`);
+                    if (terminalContent) terminalContent.id = `terminal-${sessionId}`;
+                    const connectingOverlay = panel.querySelector(`#connecting-${tempSessionId}`);
+                    if (connectingOverlay) connectingOverlay.id = `connecting-${sessionId}`;
+                    const reconnectOverlay = panel.querySelector(`#reconnect-${tempSessionId}`);
+                    if (reconnectOverlay) reconnectOverlay.id = `reconnect-${sessionId}`;
+                }
+
+                // Re-initialize terminal with real session ID (fixes input handler closure)
+                const newTerminal = initTerminal(sessionId);
+                sessionData.terminal = newTerminal;
+
+                // Now store the session with the real ID
+                sessions.set(sessionId, sessionData);
+
+                // Update active session ID
+                if (activeSessionId === tempSessionId) {
+                    activeSessionId = sessionId;
+                }
+
+                console.log(`[SSH] Session ID updated: ${tempSessionId} → ${sessionId}`);
+
+                // Save tab metadata for persistence
+                const tabOrder = sessions.size;
+                await saveTabMetadata(sessionId, sessionData.name, '🌐', tabOrder);
+
+                // Connect WebSocket
+                await new Promise(resolve => setTimeout(resolve, 200));
+                connectWebSocket(sessionId);
+
+                // Hide connecting overlay after WebSocket connects
+                setTimeout(() => hideConnectingOverlay(sessionId), 500);
+
+                showToast('success', 'SSH Connected', `Connected to ${host}`);
+
+            } catch (error) {
+                console.error('[SSH] Connection error:', error);
+
+                // Check if temp session still exists (might have been closed)
+                const stillExists = sessions.has(tempSessionId);
+
+                if (stillExists) {
+                    // Session exists, show error and clean up
+                    closeSession(tempSessionId);
+                    showToast('error', 'Connection Failed', error.message || 'Failed to connect to SSH server');
+                } else {
+                    // Session was already closed, just log it
+                    console.log('[SSH] Session was closed during connection attempt');
+                }
+            }
+        }
+
+        // ========================================
+        // Initialize xterm.js Terminal
+        // ========================================
+        function initTerminal(sessionId) {
+            const terminal = new Terminal({
+                cursorBlink: true,
+                fontSize: 14,
+                fontFamily: '"Cascadia Code", "Fira Code", Consolas, monospace',
+                theme: {
+                    background: '#0a0a14',
+                    foreground: '#e0e0e0',
+                    cursor: '#4a9eff',
+                    cursorAccent: '#0a0a14',
+                    selection: 'rgba(74, 158, 255, 0.3)',
+                    black: '#1a1a2e',
+                    red: '#f87171',
+                    green: '#4ade80',
+                    yellow: '#fbbf24',
+                    blue: '#60a5fa',
+                    magenta: '#c084fc',
+                    cyan: '#22d3ee',
+                    white: '#e0e0e0',
+                    brightBlack: '#4a4a6a',
+                    brightRed: '#fca5a5',
+                    brightGreen: '#86efac',
+                    brightYellow: '#fde047',
+                    brightBlue: '#93c5fd',
+                    brightMagenta: '#d8b4fe',
+                    brightCyan: '#67e8f9',
+                    brightWhite: '#ffffff'
+                }
+            });
+
+            const fitAddon = new FitAddon.FitAddon();
+            terminal.loadAddon(fitAddon);
+            terminal.open(document.getElementById(`terminal-${sessionId}`));
+
+            // Delay fit to ensure container is rendered properly
+            setTimeout(() => {
+                fitAddon.fit();
+                // If already connected, send the size immediately
+                const sess = sessions.get(sessionId);
+                if (sess && sess.connected) {
+                    const cols = terminal.cols;
+                    const rows = terminal.rows;
+                    // Only send if dimensions are reasonable (not 80x2 or similar)
+                    if (cols > 0 && rows > 10) {
+                        console.log(`[Terminal] Initial fit complete: ${cols}x${rows}`);
+                        fetch(`${MLS_URL}/terminal/${sessionId}/resize`, {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ cols, rows })
+                        }).catch(() => {});
+                    } else {
+                        console.warn(`[Terminal] Skipping resize with invalid dimensions: ${cols}x${rows}`);
+                    }
+                }
+            }, 150); // Increased from 50ms to 150ms
+
+            // Store fitAddon for resizing
+            const session = sessions.get(sessionId);
+            if (session) session.fitAddon = fitAddon;
+
+            // Handle input
+            terminal.onData(data => {
+                // Find the session that owns this terminal (handles session ID changes)
+                let foundSessionId = null;
+                let foundSession = null;
+
+                for (const [sid, sess] of sessions.entries()) {
+                    if (sess.terminal === terminal) {
+                        foundSessionId = sid;
+                        foundSession = sess;
+                        break;
+                    }
+                }
+
+                if (!foundSession) {
+                    console.warn(`[Terminal] No session found for terminal (original sessionId: ${sessionId})`);
+                    return;
+                }
+
+                console.log(`[Terminal] Input for session: ${foundSessionId}, connected: ${foundSession.connected}, ws: ${foundSession.ws ? foundSession.ws.readyState : 'null'}`);
+
+                if (!foundSession.connected) {
+                    // Session not connected - check if user pressed 'R' or 'r' to reconnect
+                    if (data === 'R' || data === 'r') {
+                        console.log(`[Terminal] User pressed '${data}' - triggering reconnect for session: ${foundSessionId}`);
+                        reconnectSession(foundSessionId);
+                        return;
+                    }
+
+                    console.warn(`[Terminal] Session ${foundSessionId} not connected yet (press R to reconnect)`);
+                    return;
+                }
+
+                // ✅ Route through cloud if terminal has a source (receiving from remote agent)
+                if (foundSession.source) {
+                    console.log(`[Terminal] Sending input to remote source: ${foundSession.source}`);
+                    sendTerminalInputViaCloud(foundSessionId, data);
+                    return;
+                }
+
+                // ✅ Normal WebSocket routing
+                if (foundSession.ws && foundSession.ws.readyState === WebSocket.OPEN) {
+                    // Only convert \r to \r\n for local terminals (cmd/powershell)
+                    // SSH sessions handle their own line endings
+                    if (data === '\r' && foundSession.type === 'local') {
+                        foundSession.ws.send('\r\n');
+                    } else {
+                        foundSession.ws.send(data);
+                    }
+                } else {
+                    console.warn(`[Terminal] WebSocket not ready for ${foundSessionId}, state: ${foundSession.ws ? foundSession.ws.readyState : 'null'}`);
+                }
+            });
+
+            // Handle resize
+            const resizeHandler = () => {
+                if (sessions.has(sessionId)) {
+                    const sess = sessions.get(sessionId);
+                    if (sess.fitAddon) {
+                        sess.fitAddon.fit();
+                        // Notify backend of resize
+                        if (sess.connected) {
+                            fetch(`${MLS_URL}/terminal/${sessionId}/resize`, {
+                                method: 'POST',
+                                headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify({ cols: terminal.cols, rows: terminal.rows })
+                            }).catch(() => {});
+                        }
+                    }
+                }
+            };
+            window.addEventListener('resize', resizeHandler);
+
+            // Welcome message
+            terminal.writeln('\x1b[36m╔══════════════════════════════════════════════╗\x1b[0m');
+            terminal.writeln('\x1b[36m║\x1b[0m   \x1b[1;33mSDK Local Service\x1b[0m - Connecting...       \x1b[36m║\x1b[0m');
+            terminal.writeln('\x1b[36m╚══════════════════════════════════════════════╝\x1b[0m');
+            terminal.writeln('');
+
+            return terminal;
+        }
+
+        // ========================================
+        // WebSocket Connection
+        // ========================================
+        function connectWebSocket(sessionId) {
+            const session = sessions.get(sessionId);
+            if (!session) return;
+
+            const wsUrl = `${MLS_WS_URL}/terminal/stream/${sessionId}`;
+            console.log('[WS] Connecting:', wsUrl);
+
+            const ws = new WebSocket(wsUrl);
+
+            ws.onopen = () => {
+                console.log('[WS] Connected for session:', sessionId);
+                session.connected = true;
+                session.ws = ws;
+                console.log('[WS] Session state updated: connected=true, ws set');
+                hideReconnectOverlay(sessionId);
+                updateTab(sessionId, false);
+
+                // Clear welcome message and show connected
+                session.terminal.clear();
+                session.terminal.writeln('\x1b[1;32m✓ Connected\x1b[0m');
+                session.terminal.writeln('');
+
+                console.log('[WS] Terminal should now accept input for session:', sessionId);
+
+                // Send initial terminal size to backend (important for SSH!)
+                setTimeout(() => {
+                    if (session.terminal && session.connected && session.fitAddon) {
+                        // Ensure terminal is properly sized first
+                        session.fitAddon.fit();
+
+                        const cols = session.terminal.cols;
+                        const rows = session.terminal.rows;
+
+                        // Only send if dimensions are reasonable
+                        if (cols > 0 && rows > 10) {
+                            console.log(`[WS] Sending initial terminal size: ${cols}x${rows}`);
+                            fetch(`${MLS_URL}/terminal/${sessionId}/resize`, {
+                                method: 'POST',
+                                headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify({ cols, rows })
+                            }).catch(err => console.error('[Resize] Failed:', err));
+                        } else {
+                            console.warn(`[WS] Skipping resize with invalid dimensions: ${cols}x${rows}`);
+                            // Retry after a bit more time
+                            setTimeout(() => {
+                                session.fitAddon.fit();
+                                const retryRows = session.terminal.rows;
+                                if (retryRows > 10) {
+                                    fetch(`${MLS_URL}/terminal/${sessionId}/resize`, {
+                                        method: 'POST',
+                                        headers: { 'Content-Type': 'application/json' },
+                                        body: JSON.stringify({
+                                            cols: session.terminal.cols,
+                                            rows: retryRows
+                                        })
+                                    }).catch(() => {});
+                                }
+                            }, 500);
+                        }
+                    }
+                }, 200);
+
+                // Send Enter key to trigger prompt display (for restored sessions)
+                // This helps show the shell prompt when reconnecting to an alive session
+                setTimeout(() => {
+                    if (session.connected && session.ws && session.ws.readyState === WebSocket.OPEN) {
+                        console.log('[WS] Sending Enter key to trigger prompt for session:', sessionId);
+                        session.ws.send('\r');
+                    }
+                }, 400); // Send after resize completes
+            };
+
+            ws.onmessage = (event) => {
+                try {
+                    let data = event.data;
+
+                    // Filter out invalid control characters that cause xterm parsing errors
+                    // Remove DEL (127/0x7F) and other problematic control chars
+                    // Keep: printable chars, newlines (\n, \r), tabs (\t), and valid ANSI escapes (ESC = 27/0x1B)
+                    data = data.replace(/[\x7F]/g, ''); // Remove DEL character
+
+                    // Only write if we have valid data
+                    if (data.length > 0) {
+                        session.terminal.write(data);
+                    }
+
+                    // ✅ If this terminal is shared, broadcast the output to other agents via cloud
+                    if (session.isShared && cloudConnected && cloudChannel) {
+                        sendTerminalOutputViaCloud(sessionId, event.data);
+                    }
+                } catch (e) {
+                    console.warn('[Terminal] Write error:', e);
+                }
+            };
+
+            ws.onerror = (error) => {
+                console.error('[WS] Error:', error);
+            };
+
+            ws.onclose = (event) => {
+                console.log('[WS] Closed:', event.code);
+                session.connected = false;
+                session.ws = null;
+                updateTab(sessionId, true);
+                showReconnectOverlay(sessionId);
+            };
+
+            session.ws = ws;
+        }
+
+        // ========================================
+        // Reconnection
+        // ========================================
+        function showConnectingOverlay(sessionId) {
+            const overlay = document.getElementById(`connecting-${sessionId}`);
+            if (overlay) overlay.classList.add('visible');
+        }
+
+        function hideConnectingOverlay(sessionId) {
+            const overlay = document.getElementById(`connecting-${sessionId}`);
+            if (overlay) overlay.classList.remove('visible');
+        }
+
+        function showReconnectOverlay(sessionId) {
+            const overlay = document.getElementById(`reconnect-${sessionId}`);
+            if (overlay) overlay.classList.add('visible');
+
+            const session = sessions.get(sessionId);
+            if (session && session.terminal) {
+                session.terminal.writeln('');
+                session.terminal.writeln('\x1b[1;31m⚠ Connection lost\x1b[0m');
+                session.terminal.writeln('\x1b[33mPress R to reconnect...\x1b[0m');
+            }
+        }
+
+        function hideReconnectOverlay(sessionId) {
+            const overlay = document.getElementById(`reconnect-${sessionId}`);
+            if (overlay) overlay.classList.remove('visible');
+        }
+
+        async function reconnectSession(sessionId) {
+            const session = sessions.get(sessionId);
+            if (!session) return;
+
+            showToast('info', 'Reconnecting...', `Reconnecting ${session.name}`);
+            hideReconnectOverlay(sessionId);
+
+            // Close existing WebSocket if any
+            if (session.ws) {
+                session.ws.close();
+            }
+
+            try {
+                // First, check if backend session still exists
+                const checkResponse = await fetch(`${MLS_URL}/terminal/${sessionId}`);
+
+                if (checkResponse.ok) {
+                    // Session exists, just reconnect WebSocket
+                    session.terminal.clear();
+                    session.terminal.writeln('\x1b[32m✓ Session found, reconnecting...\x1b[0m');
+
+                    await new Promise(resolve => setTimeout(resolve, 100));
+                    connectWebSocket(sessionId);
+
+                    showToast('success', 'Reconnected', `${session.name} reconnected successfully`);
+                    return;
+                }
+
+                // Session doesn't exist, recreate it
+                session.terminal.clear();
+                session.terminal.writeln('\x1b[33m⟳ Recreating session...\x1b[0m');
+
+                let response;
+
+                if (session.config.type === 'local') {
+                    response = await fetch(`${MLS_URL}/terminal/create`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            type: 'local',
+                            shell: session.config.shell,
+                            sessionId: sessionId  // ✅ Preserve session ID!
+                        })
+                    });
+                } else if (session.config.type === 'ssh') {
+                    response = await fetch(`${MLS_URL}/terminal/create`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            type: 'ssh',
+                            connectionId: session.config.connectionId,
+                            sessionId: sessionId  // ✅ Preserve session ID!
+                        })
+                    });
+                }
+
+                if (!response.ok) throw new Error('Failed to recreate session');
+
+                const result = await response.json();
+
+                if (result.error) {
+                    throw new Error(result.error);
+                }
+
+                // Check if backend assigned a different session ID
+                const newSessionId = result.sessionId;
+
+                if (newSessionId !== sessionId) {
+                    // Session ID changed, update all references
+                    console.log(`[Reconnect] Session ID changed from ${sessionId} to ${newSessionId}`);
+                    await updateSessionReferences(sessionId, newSessionId);
+                    sessionId = newSessionId; // Update local variable
+                }
+
+                // Clear and show success
+                session.terminal.clear();
+                session.terminal.writeln('\x1b[1;32m✓ Session recreated!\x1b[0m');
+                session.terminal.writeln('');
+
+                // Connect WebSocket
+                await new Promise(resolve => setTimeout(resolve, 100));
+                connectWebSocket(sessionId);
+
+                showToast('success', 'Reconnected', `${session.name} reconnected successfully`);
+
+            } catch (error) {
+                console.error('[Reconnect] Failed:', error);
+                session.terminal.clear();
+                session.terminal.writeln('\x1b[31m✖ Reconnect failed\x1b[0m');
+                session.terminal.writeln(`\x1b[33m${error.message}\x1b[0m`);
+                session.terminal.writeln('\x1b[33mPress R to retry...\x1b[0m');
+                showToast('error', 'Reconnect Failed', error.message);
+                showReconnectOverlay(sessionId);
+            }
+        }
+
+        // ========================================
+        // Close Session
+        // ========================================
+        async function closeSession(sessionId) {
+            console.log(`[Close] Closing session: ${sessionId}`);
+            const session = sessions.get(sessionId);
+            if (!session) {
+                console.warn(`[Close] Session not found: ${sessionId}`);
+                return;
+            }
+
+            console.log(`[Close] Session type: ${session.type}, connected: ${session.connected}`);
+
+            try {
+                // Close WebSocket
+                if (session.ws) {
+                    console.log(`[Close] Closing WebSocket for session: ${sessionId}`);
+                    session.ws.close();
+                } else {
+                    console.log(`[Close] No WebSocket to close for session: ${sessionId}`);
+                }
+
+                // Call backend to close
+                console.log(`[Close] Calling backend DELETE /terminal/${sessionId}`);
+                const response = await fetch(`${MLS_URL}/terminal/${sessionId}`, { method: 'DELETE' });
+                console.log(`[Close] Backend response status: ${response.status}`);
+                if (response.ok) {
+                    const result = await response.json();
+                    console.log(`[Close] Backend result:`, result);
+                } else {
+                    console.warn(`[Close] Backend returned error status: ${response.status}`);
+                }
+            } catch (e) {
+                console.error('[Close] Error closing session:', e);
+            }
+
+            // Clean up terminal
+            if (session.terminal) {
+                console.log(`[Close] Disposing terminal for session: ${sessionId}`);
+                session.terminal.dispose();
+            }
+
+            // Remove UI elements
+            console.log(`[Close] Removing UI elements for session: ${sessionId}`);
+            removeTab(sessionId);
+            const panel = document.getElementById(`panel-${sessionId}`);
+            if (panel) {
+                panel.remove();
+                console.log(`[Close] Panel removed for session: ${sessionId}`);
+            } else {
+                console.warn(`[Close] Panel not found for session: ${sessionId}`);
+            }
+
+            // Remove from sessions
+            sessions.delete(sessionId);
+            console.log(`[Close] Session removed from sessions map: ${sessionId}`);
+
+            // Switch to another session if this was active
+            if (activeSessionId === sessionId) {
+                activeSessionId = null;
+                const remaining = Array.from(sessions.keys());
+                if (remaining.length > 0) {
+                    switchToSession(remaining[remaining.length - 1]);
+                    console.log(`[Close] Switched to session: ${remaining[remaining.length - 1]}`);
+                } else {
+                    document.getElementById('statusActive').textContent = 'None';
+                    console.log(`[Close] No remaining sessions`);
+                }
+            }
+
+            updateEmptyState();
+            updateSessionCount();
+        }
+
+        // ========================================
+        // Keyboard Handler for Reconnection
+        // ========================================
+        document.addEventListener('keydown', (e) => {
+            // R to reconnect (when overlay is visible and terminal not focused for input)
+            if (e.key && e.key.toLowerCase() === 'r' && activeSessionId) {
+                const session = sessions.get(activeSessionId);
+                if (session && !session.connected) {
+                    const overlay = document.getElementById(`reconnect-${activeSessionId}`);
+                    if (overlay && overlay.classList.contains('visible')) {
+                        e.preventDefault();
+                        reconnectSession(activeSessionId);
+                    }
+                }
+            }
+        });
+
+        // ========================================
+        // SSH Modal Functions
+        // ========================================
+        function generateSshConnectionName() {
+            const prefixes = ['prod', 'dev', 'staging', 'test', 'backup', 'web', 'db', 'api', 'app', 'cache'];
+            const types = ['server', 'node', 'host', 'box', 'vm', 'instance', 'machine'];
+            const randomPrefix = prefixes[Math.floor(Math.random() * prefixes.length)];
+            const randomType = types[Math.floor(Math.random() * types.length)];
+            const randomNum = Math.floor(Math.random() * 100);
+
+            const connectionName = `${randomPrefix}-${randomType}-${randomNum}`;
+            document.getElementById('sshName').value = connectionName;
+
+            return connectionName;
+        }
+
+        function showSshModal() {
+            document.getElementById('sshModalOverlay').classList.add('visible');
+            document.getElementById('sshName').focus();
+        }
+
+        function closeSshModal() {
+            document.getElementById('sshModalOverlay').classList.remove('visible');
+            const form = document.getElementById('sshForm');
+            form.reset();
+            delete form.dataset.editId;
+            // Reset modal title
+            document.querySelector('#sshModalOverlay .modal-title').textContent = '➕ Add SSH Connection';
+        }
+
+        async function saveSshConnection(e) {
+            e.preventDefault();
+
+            const form = document.getElementById('sshForm');
+            const editId = form.dataset.editId;
+            const isEdit = !!editId;
+
+            const data = {
+                name: document.getElementById('sshName').value,
+                host: document.getElementById('sshHost').value,
+                port: parseInt(document.getElementById('sshPort').value) || 22,
+                username: document.getElementById('sshUsername').value,
+                password: document.getElementById('sshPassword').value || null,
+                privateKey: document.getElementById('sshPrivateKey').value || null,
+                description: document.getElementById('sshDescription').value || null
+            };
+
+            try {
+                let response;
+                if (isEdit) {
+                    response = await fetch(`${MLS_URL}/terminal/ssh-connections/${editId}`, {
+                        method: 'PUT',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(data)
+                    });
+                } else {
+                    response = await fetch(`${MLS_URL}/terminal/ssh-connections`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(data)
+                    });
+                }
+
+                const result = await response.json();
+
+                if (result.error) {
+                    showToast('error', 'Save Failed', result.error);
+                    return;
+                }
+
+                closeSshModal();
+                refreshConnections();
+                showToast('success', isEdit ? 'Connection Updated' : 'Connection Saved',
+                         `"${data.name}" has been ${isEdit ? 'updated' : 'saved'}`);
+
+            } catch (error) {
+                console.error('Failed to save:', error);
+                showToast('error', 'Save Failed', error.message);
+            }
+        }
+
+        // ========================================
+        // Help Modal
+        // ========================================
+        window.showHelp = function() {
+            document.getElementById('helpModalOverlay').classList.add('visible');
+            // Default to quickstart tab
+            switchHelpTab('quickstart');
+        }
+
+        window.closeHelpModal = function() {
+            document.getElementById('helpModalOverlay').classList.remove('visible');
+        }
+
+        function switchHelpTab(tabName) {
+            // Remove active class from all tabs and content
+            document.querySelectorAll('.help-tab').forEach(tab => tab.classList.remove('active'));
+            document.querySelectorAll('.help-content').forEach(content => content.classList.remove('active'));
+
+            // Add active class to selected tab and content
+            document.getElementById('tab-' + tabName).classList.add('active');
+            document.getElementById('content-' + tabName).classList.add('active');
+        }
+
+        window.showAbout = function() {
+            const aboutInfo = `
+                <div style="text-align: center;">
+                    <h3 style="color: var(--accent-cyan); margin-bottom: 10px;">🖥️ SDK Local Service Terminal</h3>
+                    <p style="color: var(--text-secondary); margin-bottom: 8px;">Version 1.0.0</p>
+                    <p style="color: var(--text-muted); font-size: 12px; margin-bottom: 12px;">Built with xterm.js, Spring Boot & WebSocket</p>
+                    <div style="border-top: 1px solid var(--border-color); padding-top: 12px; margin-top: 12px;">
+                        <p style="color: var(--text-secondary); font-size: 12px;">Part of Messaging Platform SDK</p>
+                        <p style="color: var(--text-muted); font-size: 11px; margin-top: 4px;">© 2026 - Open Source Project</p>
+                    </div>
+                </div>
+            `;
+            showToast('info', 'About', aboutInfo, 6000);
+        }
+
+        // ========================================
+        // Modal Click Outside to Close
+        // ========================================
+        document.getElementById('sshModalOverlay').addEventListener('click', (e) => {
+            if (e.target.id === 'sshModalOverlay') closeSshModal();
+        });
+
+        document.getElementById('helpModalOverlay').addEventListener('click', (e) => {
+            if (e.target.id === 'helpModalOverlay') closeHelpModal();
+        });
+
+        // ========================================
+        // Context Menu State
+        // ========================================
+        let contextMenuTarget = null; // Stores info about clicked item
+
+        // ========================================
+        // Session Context Menu (SSH connections)
+        // ========================================
+        function showSessionContextMenu(e, connectionId, name, host, port, username) {
+            e.preventDefault();
+            e.stopPropagation();
+
+            contextMenuTarget = { connectionId, name, host, port, username };
+
+            const menu = document.getElementById('sessionContextMenu');
+            menu.style.left = e.clientX + 'px';
+            menu.style.top = e.clientY + 'px';
+            menu.classList.add('visible');
+
+            // Hide tab context menu if open
+            document.getElementById('tabContextMenu').classList.remove('visible');
+        }
+
+        function contextMenuAction(action) {
+            hideContextMenus();
+            if (!contextMenuTarget) return;
+
+            const { connectionId, name, host, port, username } = contextMenuTarget;
+
+            switch (action) {
+                case 'open':
+                case 'openInNewTab':
+                    connectToSsh(connectionId, name, host, port, username);
+                    break;
+                case 'edit':
+                    editSshConnection(connectionId);
+                    break;
+                case 'duplicate':
+                    duplicateSshConnection(connectionId);
+                    break;
+                case 'delete':
+                    deleteSshConnection(connectionId, name);
+                    break;
+            }
+        }
+
+        async function editSshConnection(connectionId) {
+            try {
+                const response = await fetch(`${MLS_URL}/terminal/ssh-connections/${connectionId}`);
+                if (!response.ok) throw new Error('Failed to load connection');
+
+                const conn = await response.json();
+
+                // Populate modal for editing
+                document.getElementById('sshName').value = conn.name || '';
+                document.getElementById('sshHost').value = conn.host || '';
+                document.getElementById('sshPort').value = conn.port || 22;
+                document.getElementById('sshUsername').value = conn.username || '';
+                document.getElementById('sshPassword').value = conn.password || '';
+                document.getElementById('sshPrivateKey').value = conn.privateKey || '';
+                document.getElementById('sshDescription').value = conn.description || '';
+
+                // Store connection ID for update
+                document.getElementById('sshForm').dataset.editId = connectionId;
+
+                // Update modal title
+                document.querySelector('#sshModalOverlay .modal-title').textContent = '✏️ Edit SSH Connection';
+
+                showSshModal();
+            } catch (error) {
+                showToast('error', 'Error', 'Failed to load connection details');
+            }
+        }
+
+        async function duplicateSshConnection(connectionId) {
+            try {
+                const response = await fetch(`${MLS_URL}/terminal/ssh-connections/${connectionId}`);
+                if (!response.ok) throw new Error('Failed to load connection');
+
+                const conn = await response.json();
+
+                // Populate modal with copied data
+                document.getElementById('sshName').value = (conn.name || '') + ' (Copy)';
+                document.getElementById('sshHost').value = conn.host || '';
+                document.getElementById('sshPort').value = conn.port || 22;
+                document.getElementById('sshUsername').value = conn.username || '';
+                document.getElementById('sshPassword').value = conn.password || '';
+                document.getElementById('sshPrivateKey').value = conn.privateKey || '';
+                document.getElementById('sshDescription').value = conn.description || '';
+
+                // Clear edit ID so it creates a new one
+                delete document.getElementById('sshForm').dataset.editId;
+
+                document.querySelector('#sshModalOverlay .modal-title').textContent = '➕ Add SSH Connection';
+
+                showSshModal();
+            } catch (error) {
+                showToast('error', 'Error', 'Failed to duplicate connection');
+            }
+        }
+
+        async function deleteSshConnection(connectionId, name) {
+            if (!confirm(`Delete SSH connection "${name}"?\n\nThis action cannot be undone.`)) {
+                return;
+            }
+
+            try {
+                const response = await fetch(`${MLS_URL}/terminal/ssh-connections/${connectionId}`, {
+                    method: 'DELETE'
+                });
+
+                if (!response.ok) throw new Error('Failed to delete');
+
+                refreshConnections();
+                showToast('success', 'Deleted', `"${name}" has been deleted`);
+            } catch (error) {
+                showToast('error', 'Error', 'Failed to delete connection');
+            }
+        }
+
+        // ========================================
+        // Cloud Messaging Platform Integration
+        // ========================================
+
+        /**
+         * Toggle cloud panel visibility
+         */
+        function toggleCloudPanel() {
+            const panel = document.querySelector('.cloud-panel');
+            panel.classList.toggle('open');
+        }
+
+        /**
+         * Generate random agent name
+         */
+        function generateAgentName() {
+            const adjectives = ['Swift', 'Bright', 'Noble', 'Brave', 'Wise', 'Quick', 'Bold', 'Epic'];
+            const nouns = ['Tiger', 'Eagle', 'Wolf', 'Hawk', 'Lion', 'Bear', 'Fox', 'Owl'];
+            const num = Math.floor(Math.random() * 1000);
+            const name = `${adjectives[Math.floor(Math.random() * adjectives.length)]}-${nouns[Math.floor(Math.random() * nouns.length)]}-${num}`;
+
+            // Only set if field is empty (don't override saved name)
+            const agentNameInput = document.getElementById('cloudAgentName');
+            if (!agentNameInput.value || agentNameInput.value.trim() === '') {
+                agentNameInput.value = name;
+            }
+
+            return name;
+        }
+
+        /**
+         * Regenerate agent name (only if empty or not from DB)
+         */
+        function regenerateAgentName() {
+            const agentNameInput = document.getElementById('cloudAgentName');
+
+            // Only regenerate if empty
+            if (!agentNameInput.value || agentNameInput.value.trim() === '') {
+                const newName = generateAgentName();
+                showToast('success', 'Name Generated', `New agent name: ${newName}`);
+            } else {
+                // Ask user if they want to replace existing name
+                if (confirm('Current name will be replaced. Continue?')) {
+                    agentNameInput.value = '';
+                    const newName = generateAgentName();
+                    showToast('success', 'Name Regenerated', `New agent name: ${newName}`);
+                }
+            }
+        }
+
+        /**
+         * Load cloud connection config from MLS backend
+         */
+        async function loadCloudConfig() {
+            try {
+                const response = await fetch(`${MLS_URL}/cloud/connection`);
+                if (!response.ok) {
+                    console.log('[Cloud] No saved config found');
+                    return;
+                }
+
+                const data = await response.json();
+                const config = JSON.parse(data.config || '{}');
+
+                console.log('[Cloud] Loaded config:', config);
+
+                document.getElementById('cloudChannelName').value = config.channelName || '';
+                document.getElementById('cloudChannelPassword').value = config.channelPassword || '';
+                document.getElementById('cloudAgentName').value = config.agentName || '';
+
+                // Auto-connect if was previously connected
+                if (config.isConnected) {
+                    setTimeout(() => connectToCloud(), 500);
+                }
+            } catch (error) {
+                console.error('[Cloud] Failed to load config:', error);
+            }
+        }
+
+        /**
+         * Save cloud connection config to MLS backend
+         */
+        async function saveCloudConfig(isConnected = false) {
+            try {
+                const config = {
+                    channelName: document.getElementById('cloudChannelName').value,
+                    channelPassword: document.getElementById('cloudChannelPassword').value,
+                    agentName: cloudAgentName || document.getElementById('cloudAgentName').value,
+                    isConnected: isConnected
+                };
+
+                await fetch(`${MLS_URL}/cloud/connection`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ config: JSON.stringify(config) })
+                });
+
+                console.log('[Cloud] Config saved');
+            } catch (error) {
+                console.error('[Cloud] Failed to save config:', error);
+            }
+        }
+
+        /**
+         * Connect to cloud messaging platform
+         */
+        async function connectToCloud() {
+            const channelName = document.getElementById('cloudChannelName').value;
+            const channelPassword = document.getElementById('cloudChannelPassword').value;
+            let agentName = document.getElementById('cloudAgentName').value;
+
+            if (!channelName || !channelPassword) {
+                showToast('warning', 'Missing Info', 'Please enter channel name and password');
+                return;
+            }
+
+            // Generate agent name if empty
+            if (!agentName || agentName.trim() === '') {
+                agentName = generateAgentName();
+                document.getElementById('cloudAgentName').value = agentName;
+            }
+
+            cloudAgentName = agentName;
+
+            try {
+                // Initialize cloud channel using AgentInteractionBase
+                const CloudMessaging = window.CloudMessagingPlatform;
+                if (!CloudMessaging) {
+                    throw new Error('CloudMessagingPlatform not loaded');
+                }
+
+                cloudChannel = new CloudMessaging({
+                    messagingApiUrl: CONFIG.messagingApiUrl,
+                    channelName: channelName,
+                    channelPassword: channelPassword,
+                    agentName: agentName
+                });
+
+                // Set up event handlers
+                cloudChannel.on('connected', () => {
+                    cloudConnected = true;
+                    updateCloudStatus(true);
+                    saveCloudConfig(true);
+                    showToast('success', 'Cloud Connected', `Connected as ${agentName}`);
+                    console.log('[Cloud] Connected successfully');
+                });
+
+                cloudChannel.on('disconnected', () => {
+                    cloudConnected = false;
+                    updateCloudStatus(false);
+                    saveCloudConfig(false);
+                    connectedAgents.clear();
+                    updateAgentsList();
+                    console.log('[Cloud] Disconnected');
+                });
+
+                cloudChannel.on('agent-joined', (agent) => {
+                    connectedAgents.add(agent);
+                    updateAgentsList();
+                    console.log('[Cloud] Agent joined:', agent);
+                });
+
+                cloudChannel.on('agent-left', (agent) => {
+                    connectedAgents.delete(agent);
+                    updateAgentsList();
+                    console.log('[Cloud] Agent left:', agent);
+                });
+
+                cloudChannel.on('message', (message) => {
+                    handleCloudMessage(message);
+                });
+
+                // Connect
+                await cloudChannel.connect();
+
+            } catch (error) {
+                console.error('[Cloud] Connection failed:', error);
+                showToast('error', 'Connection Failed', error.message);
+                updateCloudStatus(false);
+            }
+        }
+
+        /**
+         * Disconnect from cloud
+         */
+        async function disconnectFromCloud() {
+            if (cloudChannel) {
+                try {
+                    await cloudChannel.disconnect();
+                    cloudChannel = null;
+                    cloudConnected = false;
+                    cloudAgentName = '';
+                    connectedAgents.clear();
+                    updateCloudStatus(false);
+                    updateAgentsList();
+                    saveCloudConfig(false);
+                    showToast('info', 'Disconnected', 'Disconnected from cloud');
+                } catch (error) {
+                    console.error('[Cloud] Disconnect failed:', error);
+                }
+            }
+        }
+
+        /**
+         * Update cloud connection status UI
+         */
+        function updateCloudStatus(connected) {
+            const statusDot = document.getElementById('cloudStatus');
+            const statusText = document.getElementById('cloudStatusText');
+            const connectBtn = document.getElementById('cloudConnectBtn');
+            const shareBtn = document.getElementById('cloudShareBtn');
+
+            if (connected) {
+                statusDot.classList.add('connected');
+                statusText.textContent = 'Connected';
+                connectBtn.textContent = 'Disconnect';
+                connectBtn.onclick = disconnectFromCloud;
+                shareBtn.style.display = 'inline-block';  // ✅ Show share button
+                document.getElementById('cloudAgentsSection').style.display = 'block';
+            } else {
+                statusDot.classList.remove('connected');
+                statusText.textContent = 'Disconnected';
+                connectBtn.textContent = 'Connect to Cloud';
+                connectBtn.onclick = connectToCloud;
+                shareBtn.style.display = 'none';  // ✅ Hide share button
+                document.getElementById('cloudAgentsSection').style.display = 'none';
+            }
+        }
+
+        /**
+         * Update connected agents list
+         */
+        function updateAgentsList() {
+            const agentsList = document.getElementById('cloudAgentsList');
+            if (connectedAgents.size === 0) {
+                agentsList.innerHTML = '<div class="cloud-agent-item">No other agents connected</div>';
+                return;
+            }
+
+            agentsList.innerHTML = Array.from(connectedAgents)
+                .map(agent => `<div class="cloud-agent-item">🟢 ${agent}</div>`)
+                .join('');
+        }
+
+        /**
+         * Handle incoming cloud messages
+         */
+        function handleCloudMessage(message) {
+            console.log('[Cloud] Received message:', message.type, message);
+
+            switch (message.type) {
+                case 'terminal-input':
+                    handleRemoteTerminalInput(message);
+                    break;
+                case 'terminal-output':
+                    handleRemoteTerminalOutput(message);
+                    break;
+                default:
+                    console.log('[Cloud] Unknown message type:', message.type);
+            }
+        }
+
+        /**
+         * Handle terminal input from remote agent
+         */
+        function handleRemoteTerminalInput(message) {
+            const sessionId = message.sessionId;
+            const data = message.data;
+            const fromAgent = message.from;
+
+            console.log('[Cloud] Remote input for session:', sessionId, 'from:', fromAgent);
+
+            const session = sessions.get(sessionId);
+            if (!session) {
+                console.warn('[Cloud] Session not found:', sessionId);
+                return;
+            }
+
+            // Only process if this terminal is being shared
+            if (!session.isShared) {
+                console.warn('[Cloud] Session is not shared:', sessionId);
+                return;
+            }
+
+            // Send input to local terminal via WebSocket
+            if (session.ws && session.ws.readyState === WebSocket.OPEN) {
+                session.ws.send(data);
+            }
+        }
+
+        /**
+         * Handle terminal output from remote agent
+         */
+        function handleRemoteTerminalOutput(message) {
+            const sessionId = message.sessionId;
+            const data = message.data;
+
+            console.log('[Cloud] Remote output for session:', sessionId);
+
+            const session = sessions.get(sessionId);
+            if (!session || !session.terminal) {
+                console.warn('[Cloud] Session or terminal not found:', sessionId);
+                return;
+            }
+
+            // Only process if we're receiving from a shared terminal
+            if (!session.source) {
+                console.warn('[Cloud] Session has no source (not a remote terminal):', sessionId);
+                return;
+            }
+
+            // Write output to terminal
+            session.terminal.write(data);
+        }
+
+        /**
+         * Share a terminal session
+         */
+        async function shareTerminal(sessionId) {
+            if (!cloudConnected) {
+                showToast('warning', 'Not Connected', 'Connect to cloud first');
+                return;
+            }
+
+            try {
+                const response = await fetch(`${MLS_URL}/terminal/${sessionId}/share`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ source: cloudAgentName })
+                });
+
+                if (!response.ok) throw new Error('Failed to share terminal');
+
+                const session = sessions.get(sessionId);
+                if (session) {
+                    session.isShared = true;
+                    session.source = cloudAgentName;
+                }
+
+                showToast('success', 'Terminal Shared', 'Terminal is now shared with other agents');
+                console.log('[Cloud] Terminal shared:', sessionId);
+
+            } catch (error) {
+                console.error('[Cloud] Failed to share terminal:', error);
+                showToast('error', 'Share Failed', error.message);
+            }
+        }
+
+        /**
+         * Unshare a terminal session
+         */
+        async function unshareTerminal(sessionId) {
+            try {
+                const response = await fetch(`${MLS_URL}/terminal/${sessionId}/share`, {
+                    method: 'DELETE'
+                });
+
+                if (!response.ok) throw new Error('Failed to unshare terminal');
+
+                const session = sessions.get(sessionId);
+                if (session) {
+                    session.isShared = false;
+                    session.source = null;
+                }
+
+                showToast('success', 'Sharing Stopped', 'Terminal is no longer shared');
+                console.log('[Cloud] Terminal unshared:', sessionId);
+
+            } catch (error) {
+                console.error('[Cloud] Failed to unshare terminal:', error);
+                showToast('error', 'Unshare Failed', error.message);
+            }
+        }
+
+        /**
+         * Send terminal input via cloud (for shared terminals)
+         */
+        function sendTerminalInputViaCloud(sessionId, data) {
+            if (!cloudChannel || !cloudConnected) {
+                console.warn('[Cloud] Not connected, cannot send input');
+                return false;
+            }
+
+            cloudChannel.broadcast({
+                type: 'terminal-input',
+                sessionId: sessionId,
+                data: data,
+                from: cloudAgentName,
+                timestamp: Date.now()
+            });
+
+            console.log('[Cloud] Sent terminal input for session:', sessionId);
+            return true;
+        }
+
+        /**
+         * Send terminal output via cloud (for shared terminals)
+         */
+        function sendTerminalOutputViaCloud(sessionId, data) {
+            if (!cloudChannel || !cloudConnected) {
+                console.warn('[Cloud] Not connected, cannot send output');
+                return false;
+            }
+
+            cloudChannel.broadcast({
+                type: 'terminal-output',
+                sessionId: sessionId,
+                data: data,
+                from: cloudAgentName,
+                timestamp: Date.now()
+            });
+
+            console.log('[Cloud] Sent terminal output for session:', sessionId);
+            return true;
+        }
+
+        // ========================================
+        // Share Modal Functions
+        // ========================================
+        /**
+         * Show share modal to select which terminals to share
+         */
+        function showShareModal() {
+            if (!cloudConnected) {
+                showToast('warning', 'Not Connected', 'Connect to cloud first');
+                return;
+            }
+
+            // Build list of active terminals
+            let terminalList = [];
+            sessions.forEach((session, sessionId) => {
+                const shareStatus = session.isShared ? '✅ Shared' : '⬜ Not Shared';
+                terminalList.push(`${shareStatus} - ${session.name} (${session.type})`);
+            });
+
+            if (terminalList.length === 0) {
+                showToast('info', 'No Terminals', 'No active terminals to share');
+                return;
+            }
+
+            // For now, show toast with active session
+            if (activeSessionId) {
+                const session = sessions.get(activeSessionId);
+                if (session.isShared) {
+                    if (confirm(`Unshare "${session.name}"?`)) {
+                        unshareTerminal(activeSessionId);
+                    }
+                } else {
+                    if (confirm(`Share "${session.name}" with other agents?`)) {
+                        shareTerminal(activeSessionId);
+                    }
+                }
+            } else {
+                showToast('info', 'No Selection', 'Open a terminal first');
+            }
+        }
+
+        // ========================================
+        // SFTP Browser Integration
+        // ========================================
+        let sftpBrowser = null;
+
+        function initSftpBrowser() {
+            if (sftpBrowser) return;
+
+            sftpBrowser = new SftpBrowser({
+                mlsUrl: MLS_URL,
+                onToast: showToast
+            });
+
+            // Mount to container
+            const container = document.getElementById('sftpPanelContainer');
+            sftpBrowser.mount(container);
+        }
+
+        function toggleSftpPanel() {
+            // Initialize SFTP browser if not done
+            if (!sftpBrowser) {
+                initSftpBrowser();
+            }
+
+            // Check if there's an active SSH session
+            if (!activeSessionId) {
+                showToast('warning', 'No Session', 'Please open an SSH session first');
+                return;
+            }
+
+            const session = sessions.get(activeSessionId);
+            if (!session || session.type !== 'ssh') {
+                showToast('warning', 'SSH Required', 'SFTP is only available for SSH sessions');
+                return;
+            }
+
+            // Toggle panel
+            if (sftpBrowser.isConnected && sftpBrowser.terminalSessionId === activeSessionId) {
+                sftpBrowser.close();
+            } else {
+                // Get connection info from the session
+                const connectionInfo = {
+                    name: session.config.name || session.name,
+                    host: session.config.host,
+                    port: session.config.port,
+                    username: session.config.username
+                };
+
+                sftpBrowser.open(activeSessionId, connectionInfo);
+            }
+        }
+
+        // Auto-open SFTP when SSH session is connected (optional feature)
+        function openSftpForSession(sessionId) {
+            const session = sessions.get(sessionId);
+            if (!session || session.type !== 'ssh') return;
+
+            if (!sftpBrowser) {
+                initSftpBrowser();
+            }
+
+            const connectionInfo = {
+                name: session.config.name || session.name,
+                host: session.config.host,
+                port: session.config.port,
+                username: session.config.username
+            };
+
+            sftpBrowser.open(sessionId, connectionInfo);
+        }
+
+        // ========================================
+        // Initialize
+        // ========================================
+        window.addEventListener('load', async () => {
+            await checkMlsHealth();
+            await refreshConnections();
+
+            // ✅ Load cloud connection config from backend
+            await loadCloudConfig();
+
+            // Initialize SFTP browser
+            initSftpBrowser();
+
+            // Restore saved tabs from previous session
+            await restoreSavedTabs();
+
+            // Check tab overflow after restore
+            checkTabOverflow();
+
+            // Start health check interval
+            setInterval(() => checkMlsHealth(), 30000);
+        });
+
+        window.addEventListener('resize', () => {
+            // Check tab overflow on window resize
+            checkTabOverflow();
+        });
+
+        window.addEventListener('beforeunload', () => {
+            // Close SFTP browser
+            if (sftpBrowser && sftpBrowser.isConnected) {
+                try { sftpBrowser.close(); } catch(e) {}
+            }
+
+            // Disconnect from cloud
+            if (cloudChannel) {
+                try { cloudChannel.disconnect(); } catch(e) {}
+            }
+
+            // Close all terminal WebSocket connections
+            sessions.forEach((session, id) => {
+                if (session.ws) session.ws.close();
+            });
+        });
+    </script>
+</body>
+</html>
+
+
+
+

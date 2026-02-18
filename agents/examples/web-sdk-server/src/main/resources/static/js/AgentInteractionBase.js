@@ -6,14 +6,14 @@
  * - Real-time messaging via WebSocket
  * - Peer-to-peer data channels via WebRTC
  * - Host migration and session management
- * - Agent/player management
+ * - User/agent management
  * - Pause/resume support
  * - State synchronization
  *
  * This class is generic and can be extended for any real-time interactive application:
  * - Games (air hockey, quiz battle, reactor, fall guys, etc.)
  * - File sharing (QuickShare)
- * - Collaboration tools (whiteboard)
+ * - Collaboration tools (whiteboard, terminal sharing)
  * - Chat applications
  * - Any multi-agent real-time interaction
  *
@@ -27,8 +27,8 @@ class AgentInteractionBase {
         }
 
         this.options = {
-            storagePrefix: 'game',
-            customType: 'game',
+            storagePrefix: 'session',
+            customType: 'session',
             usePubKey: false,
             autoCreateDataChannel: true,  // Automatically create DataChannel on peer join
             useHostMode: true,             // Use host-based relay (star topology)
@@ -38,7 +38,7 @@ class AgentInteractionBase {
             relayMode: 'p2p-host',         // Default: P2P with host-based routing
             relayEnabled: false,           // Enable server relay mode (websocket/datachannel/sfu)
 
-            dataChannelName: 'game-data',
+            dataChannelName: 'peer-data',
             dataChannelOptions: {
                 ordered: false,
                 maxRetransmits: 0
@@ -75,8 +75,8 @@ class AgentInteractionBase {
         this.hostMigrationInProgress = false;  // Prevent duplicate host migration
         this.pendingHostConnections = new Set(); // Track pending connections during migration
 
-        // Game pause state (for host migration, connection issues, etc.)
-        this.gamePaused = false;
+        // Session pause state (for host migration, connection issues, etc.)
+        this.sessionPaused = false;
         this.pauseReason = null;
 
         // Pause/Resume support flag (some apps like whiteboard don't support pause)
@@ -1148,11 +1148,11 @@ class AgentInteractionBase {
     }
 
     /**
-     * Get array of all connected players including self
+     * Get array of all connected users including self
      * @returns {Array<{name: string, color: string, isHost: boolean, isSelf: boolean}>}
      */
-    getPlayerList() {
-        const players = [];
+    getUserList() {
+        const users = [];
         const connectedUsers = this.getConnectedUsers();
 
         // Determine who is host (first to join the channel)
@@ -1160,16 +1160,16 @@ class AgentInteractionBase {
         const hostName = this.isHost() ? this.username : otherUsers[0];
 
         // Add self
-        players.push({
+        users.push({
             name: this.username,
             color: this.generateUserColor(this.username),
             isHost: this.isHost(),
             isSelf: true
         });
 
-        // Add other players
+        // Add other users
         otherUsers.forEach(name => {
-            players.push({
+            users.push({
                 name: name,
                 color: this.generateUserColor(name),
                 isHost: name === hostName,
@@ -1178,33 +1178,34 @@ class AgentInteractionBase {
         });
 
         // Sort: host first, then alphabetically
-        players.sort((a, b) => {
+        users.sort((a, b) => {
             if (a.isHost && !b.isHost) return -1;
             if (!a.isHost && b.isHost) return 1;
             return a.name.localeCompare(b.name);
         });
 
-        return players;
-    }
-    /**
-     * Get total player count (including self)
-     * @returns {number}
-     */
-    getPlayerCount() {
-        return this.getPlayerList().length;
+        return users;
     }
 
     /**
-     * Check if enough players are connected to start the game
-     * @param {number} minPlayers - Minimum required players (default: 2)
+     * Get total user count (including self)
+     * @returns {number}
+     */
+    getUserCount() {
+        return this.getUserList().length;
+    }
+
+    /**
+     * Check if enough users are connected to start the session
+     * @param {number} minUsers - Minimum required users (default: 2)
      * @returns {boolean}
      */
-    hasEnoughPlayers(minPlayers = 2) {
-        return this.getPlayerCount() >= minPlayers;
+    hasEnoughUsers(minUsers = 2) {
+        return this.getUserCount() >= minUsers;
     }
 
     // ============================================
-    // LOADER METHODS (for player joining state)
+    // LOADER METHODS (for user joining state)
     // ============================================
 
     /**
@@ -1429,26 +1430,26 @@ class AgentInteractionBase {
     }
 
     // ============================================
-    // GAME PAUSE/RESUME METHODS
+    // SESSION PAUSE/RESUME METHODS
     // ============================================
 
     /**
-     * Pause the game (e.g., during host migration)
+     * Pause the session (e.g., during host migration)
      * @param {string} reason - Reason for pausing
      */
-    pauseGame(reason = 'Game paused') {
+    pauseSession(reason = 'Session paused') {
         // Check if pause/resume is supported
         if (!this.supportsPauseResume) {
             console.log(`[AgentSessionBase] Pause not supported for this application - ignoring`);
             return;
         }
 
-        if (this.gamePaused) return;
+        if (this.sessionPaused) return;
 
-        this.gamePaused = true;
+        this.sessionPaused = true;
         this.pauseReason = reason;
 
-        console.log(`[AgentSessionBase] Game paused: ${reason}`);
+        console.log(`[AgentSessionBase] Session paused: ${reason}`);
 
         // Show toast if available
         if (typeof this.showToast === 'function') {
@@ -1456,46 +1457,108 @@ class AgentInteractionBase {
         }
 
         // Notify subclass
-        if (typeof this.onGamePaused === 'function') {
-            this.onGamePaused(reason);
+        if (typeof this.onSessionPaused === 'function') {
+            this.onSessionPaused(reason);
         }
     }
 
     /**
-     * Resume the game
+     * Resume the session
      */
-    resumeGame() {
+    resumeSession() {
         // Check if pause/resume is supported
         if (!this.supportsPauseResume) {
             console.log(`[AgentSessionBase] Resume not supported for this application - ignoring`);
             return;
         }
 
-        if (!this.gamePaused) return;
+        if (!this.sessionPaused) return;
 
         const wasReason = this.pauseReason;
-        this.gamePaused = false;
+        this.sessionPaused = false;
         this.pauseReason = null;
 
-        console.log(`[AgentSessionBase] Game resumed (was: ${wasReason})`);
+        console.log(`[AgentSessionBase] Session resumed (was: ${wasReason})`);
 
         // Show toast if available
         if (typeof this.showToast === 'function') {
-            this.showToast('Game resumed!', 'success');
+            this.showToast('Session resumed!', 'success');
         }
 
         // Notify subclass
-        if (typeof this.onGameResumed === 'function') {
-            this.onGameResumed();
+        if (typeof this.onSessionResumed === 'function') {
+            this.onSessionResumed();
         }
     }
 
     /**
-     * Check if game is paused
+     * Check if session is paused
      * @returns {boolean}
      */
     isPaused() {
-        return this.gamePaused;
+        return this.sessionPaused;
+    }
+
+    // =========================================================================
+    // Backward Compatibility Aliases (for existing games)
+    // =========================================================================
+
+    /**
+     * @deprecated Use pauseSession() instead
+     */
+    pauseGame(reason) {
+        console.warn('[AgentInteractionBase] pauseGame() is deprecated, use pauseSession() instead');
+        return this.pauseSession(reason);
+    }
+
+    /**
+     * @deprecated Use resumeSession() instead
+     */
+    resumeGame() {
+        console.warn('[AgentInteractionBase] resumeGame() is deprecated, use resumeSession() instead');
+        return this.resumeSession();
+    }
+
+    /**
+     * @deprecated Use getUserList() instead
+     */
+    getPlayerList() {
+        return this.getUserList();
+    }
+
+    /**
+     * @deprecated Use getUserList() instead
+     */
+    getPeerList() {
+        return this.getUserList();
+    }
+
+    /**
+     * @deprecated Use getUserCount() instead
+     */
+    getPlayerCount() {
+        return this.getUserCount();
+    }
+
+    /**
+     * @deprecated Use getUserCount() instead
+     */
+    getPeerCount() {
+        return this.getUserCount();
+    }
+
+    /**
+     * @deprecated Use hasEnoughUsers() instead
+     */
+    hasEnoughPlayers(minPlayers) {
+        return this.hasEnoughUsers(minPlayers);
+    }
+
+    /**
+     * @deprecated Use hasEnoughUsers() instead
+     */
+    hasEnoughPeers(minPeers) {
+        return this.hasEnoughUsers(minPeers);
     }
 }
 

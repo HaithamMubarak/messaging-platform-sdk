@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Terminal Input Test</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/xterm@5.3.0/css/xterm.css" />
+    <script src="https://cdn.jsdelivr.net/npm/xterm@5.3.0/lib/xterm.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/xterm-addon-fit@0.8.0/lib/xterm-addon-fit.js"></script>
+    <style>
+        body {
+            background: #1e1e1e;
+            color: #fff;
+            font-family: monospace;
+            padding: 20px;
+        }
+        #terminal {
+            width: 800px;
+            height: 400px;
+            margin: 20px 0;
+        }
+        #log {
+            background: #000;
+            padding: 10px;
+            max-height: 200px;
+            overflow-y: auto;
+            font-size: 12px;
+        }
+        .success { color: #0f0; }
+        .error { color: #f00; }
+        .info { color: #0ff; }
+    </style>
+</head>
+<body>
+    <h1>🧪 Terminal Input Test</h1>
+    <p>This tests if xterm.js can capture keyboard input.</p>
+
+    <div id="terminal"></div>
+
+    <h2>Debug Log:</h2>
+    <div id="log"></div>
+
+    <script>
+        const log = document.getElementById('log');
+
+        function addLog(message, type = 'info') {
+            const entry = document.createElement('div');
+            entry.className = type;
+            entry.textContent = `[${new Date().toLocaleTimeString()}] ${message}`;
+            log.appendChild(entry);
+            log.scrollTop = log.scrollHeight;
+            console.log(message);
+        }
+
+        addLog('Initializing terminal...', 'info');
+
+        // Create terminal
+        const terminal = new Terminal({
+            cursorBlink: true,
+            fontSize: 14,
+            fontFamily: 'Consolas, monospace',
+        });
+
+        const fitAddon = new FitAddon.FitAddon();
+        terminal.loadAddon(fitAddon);
+        terminal.open(document.getElementById('terminal'));
+        fitAddon.fit();
+
+        addLog('✓ Terminal created', 'success');
+
+        terminal.writeln('╔═══════════════════════════════════════════╗');
+        terminal.writeln('║     Terminal Input Test - Type Here!     ║');
+        terminal.writeln('╚═══════════════════════════════════════════╝');
+        terminal.writeln('');
+        terminal.writeln('Try typing anything...');
+        terminal.writeln('Each keystroke will be logged below.');
+        terminal.writeln('');
+
+        // Test onData handler
+        terminal.onData(data => {
+            addLog(`onData triggered: "${data}" (charCode: ${data.charCodeAt(0)})`, 'success');
+
+            // Echo the character
+            terminal.write(data);
+
+            // Special handling for Enter
+            if (data === '\r' || data === '\n') {
+                terminal.write('\n');
+                addLog('Enter key pressed', 'info');
+            }
+        });
+
+        addLog('✓ onData handler registered', 'success');
+        addLog('Terminal ready! Click in the terminal and start typing.', 'info');
+
+        // Test if terminal is focused
+        document.getElementById('terminal').addEventListener('click', () => {
+            addLog('Terminal clicked (focused)', 'info');
+        });
+    </script>
+</body>
+</html>
+

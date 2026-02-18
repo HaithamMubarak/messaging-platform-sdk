@@ -106,3 +106,10 @@ coverage/
 .env.*.local
 *.env
 
+# Database files (local data - NEVER commit)
+*.mv.db
+*.trace.db
+mls-data*
+sls-data*
+**/mls-data*
+**/sls-data*

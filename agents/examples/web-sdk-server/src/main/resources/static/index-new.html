@@ -1,0 +1,454 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="Build real-time multiplayer experiences in minutes with Messaging Platform SDK. Open-source SDK for games, collaboration tools, and instant communication.">
+    <title>Messaging Platform SDK - Real-Time Communication</title>
+    <link rel="stylesheet" href="styles-new.css">
+</head>
+<body>
+    <!-- UI Version Switcher -->
+    <div class="ui-switcher">
+        <a href="index.html" class="ui-back-link" aria-label="Back to Legacy UI">← Legacy UI</a>
+    </div>
+
+    <!-- Hero Section -->
+    <header class="hero" role="banner">
+        <div class="container">
+            <div class="hero-content">
+                <div class="badges-row">
+                    <span class="badge badge-warning" aria-label="Pre-production status">
+                        <svg width="14" height="14" fill="currentColor" viewBox="0 0 20 20" aria-hidden="true">
+                            <path fill-rule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clip-rule="evenodd"/>
+                        </svg>
+                        Pre-Production
+                    </span>
+                    <span class="badge badge-success" aria-label="Open source">
+                        <svg width="14" height="14" fill="currentColor" viewBox="0 0 16 16" aria-hidden="true">
+                            <path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.012 8.012 0 0 0 16 8c0-4.42-3.58-8-8-8z"/>
+                        </svg>
+                        Open Source
+                    </span>
+                    <span class="badge badge-primary" aria-label="End-to-end encryption">
+                        <svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/>
+                        </svg>
+                        E2E Encryption
+                    </span>
+                </div>
+
+                <h1 class="hero-title">
+                    <span class="title-highlight">Messaging Platform SDK</span>
+                </h1>
+
+                <p class="hero-subtitle">
+                    Build real-time multiplayer experiences in minutes
+                </p>
+
+                <p class="hero-description">
+                    Open-source SDK for multiplayer games, collaborative whiteboards, video chat, and any app that needs instant communication between users.
+                </p>
+
+                <div class="language-badges">
+                    <span class="lang-badge">JavaScript</span>
+                    <span class="lang-badge">Java</span>
+                    <span class="lang-badge">Python</span>
+                    <span class="lang-badge">C++</span>
+                </div>
+
+                <div class="cta-group">
+                    <a href="examples/whiteboard/index.html" class="btn btn-primary" aria-label="Try live demos">
+                        <span>Explore Live Demos</span>
+                        <svg width="18" height="18" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7l5 5m0 0l-5 5m5-5H6"/>
+                        </svg>
+                    </a>
+                    <div class="btn-group-secondary">
+                        <a href="docs.html" class="btn btn-secondary" aria-label="Read documentation">
+                            <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"/>
+                            </svg>
+                            Read Docs
+                        </a>
+                        <a href="https://github.com/HaithamMubarak/messaging-platform-sdk" class="btn btn-secondary" target="_blank" rel="noopener noreferrer" aria-label="View on GitHub">
+                            <svg width="16" height="16" fill="currentColor" viewBox="0 0 16 16" aria-hidden="true">
+                                <path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.012 8.012 0 0 0 16 8c0-4.42-3.58-8-8-8z"/>
+                            </svg>
+                            View GitHub
+                        </a>
+                    </div>
+                </div>
+
+                <p class="hero-note">
+                    <svg width="16" height="16" fill="currentColor" viewBox="0 0 20 20" aria-hidden="true">
+                        <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/>
+                    </svg>
+                    No login required · Play with friends in real-time
+                </p>
+            </div>
+        </div>
+    </header>
+
+    <!-- Demos Section -->
+    <section class="section demos-section" aria-labelledby="demos-heading">
+        <div class="container">
+            <h2 id="demos-heading" class="section-title">Live Demos</h2>
+            <p class="section-subtitle">Experience the SDK in action. No installation required.</p>
+
+            <div class="demos-grid">
+                <!-- Whiteboard -->
+                <article class="demo-card demo-card-featured">
+                    <div class="demo-card-header">
+                        <div class="demo-icon">🎨</div>
+                        <span class="demo-tag demo-tag-featured">Featured</span>
+                    </div>
+                    <h3 class="demo-title">Collaborative Whiteboard</h3>
+                    <p class="demo-description">Draw together in real-time. Perfect for brainstorming, design reviews, and remote collaboration.</p>
+                    <div class="demo-tech">
+                        <span class="tech-tag">Canvas API</span>
+                        <span class="tech-tag">Multi-user</span>
+                    </div>
+                    <a href="examples/whiteboard/index.html" class="demo-link" aria-label="Try Whiteboard demo">
+                        Try It Live
+                        <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7l5 5m0 0l-5 5m5-5H6"/>
+                        </svg>
+                    </a>
+                </article>
+
+                <!-- Air Hockey -->
+                <article class="demo-card">
+                    <div class="demo-card-header">
+                        <div class="demo-icon">🏒</div>
+                        <span class="demo-tag demo-tag-game">Game</span>
+                    </div>
+                    <h3 class="demo-title">Air Hockey</h3>
+                    <p class="demo-description">Real-time multiplayer physics game. Challenge a friend to a quick match with smooth 60 FPS gameplay.</p>
+                    <div class="demo-tech">
+                        <span class="tech-tag">Physics</span>
+                        <span class="tech-tag">2-Player</span>
+                    </div>
+                    <a href="examples/mini-games/air-hockey/index.html" class="demo-link" aria-label="Try Air Hockey demo">
+                        Play Now
+                        <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7l5 5m0 0l-5 5m5-5H6"/>
+                        </svg>
+                    </a>
+                </article>
+
+                <!-- Quick Share -->
+                <article class="demo-card">
+                    <div class="demo-card-header">
+                        <div class="demo-icon">📁</div>
+                        <span class="demo-tag demo-tag-tool">Tool</span>
+                    </div>
+                    <h3 class="demo-title">Quick Share</h3>
+                    <p class="demo-description">Share files and text instantly with nearby devices. No accounts, no uploads to cloud servers.</p>
+                    <div class="demo-tech">
+                        <span class="tech-tag">File Transfer</span>
+                        <span class="tech-tag">P2P</span>
+                    </div>
+                    <a href="examples/quickshare/quickshare.html" class="demo-link" aria-label="Try Quick Share demo">
+                        Try It Live
+                        <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7l5 5m0 0l-5 5m5-5H6"/>
+                        </svg>
+                    </a>
+                </article>
+
+                <!-- Terminal -->
+                <article class="demo-card">
+                    <div class="demo-card-header">
+                        <div class="demo-icon">⌨️</div>
+                        <span class="demo-tag demo-tag-tool">Tool</span>
+                    </div>
+                    <h3 class="demo-title">Interactive Terminal</h3>
+                    <p class="demo-description">Execute commands locally or on remote servers via SSH. Supports session management, real-time output streaming, and multi-connection handling.</p>
+                    <div class="demo-tech">
+                        <span class="tech-tag">SSH</span>
+                        <span class="tech-tag">Real-time</span>
+                        <span class="tech-tag">Sessions</span>
+                    </div>
+                    <a href="examples/terminal/index.html" class="demo-link" aria-label="Try Interactive Terminal demo">
+                        Open Terminal
+                        <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7l5 5m0 0l-5 5m5-5H6"/>
+                        </svg>
+                    </a>
+                </article>
+
+                <!-- Chat Demo -->
+                <article class="demo-card">
+                    <div class="demo-card-header">
+                        <div class="demo-icon">💬</div>
+                        <span class="demo-tag">Basic</span>
+                    </div>
+                    <h3 class="demo-title">Chat Demo</h3>
+                    <p class="demo-description">Simple chat room demonstrating basic messaging patterns and event handling.</p>
+                    <div class="demo-tech">
+                        <span class="tech-tag">Messaging</span>
+                        <span class="tech-tag">Events</span>
+                    </div>
+                    <a href="examples/chat/index.html" class="demo-link" aria-label="Try Chat demo">
+                        Open Chat
+                        <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7l5 5m0 0l-5 5m5-5H6"/>
+                        </svg>
+                    </a>
+                </article>
+
+                <!-- Video Demo -->
+                <article class="demo-card">
+                    <div class="demo-card-header">
+                        <div class="demo-icon">📹</div>
+                        <span class="demo-tag demo-tag-experimental">Experimental</span>
+                    </div>
+                    <h3 class="demo-title">Video Chat</h3>
+                    <p class="demo-description">WebRTC-powered video conferencing with screen sharing and real-time communication.</p>
+                    <div class="demo-tech">
+                        <span class="tech-tag">WebRTC</span>
+                        <span class="tech-tag">Streaming</span>
+                    </div>
+                    <a href="examples/video/index.html" class="demo-link" aria-label="Try Video Chat demo">
+                        Start Call
+                        <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7l5 5m0 0l-5 5m5-5H6"/>
+                        </svg>
+                    </a>
+                </article>
+
+                <!-- Connection Tester -->
+                <article class="demo-card">
+                    <div class="demo-card-header">
+                        <div class="demo-icon">🔧</div>
+                        <span class="demo-tag demo-tag-tool">Tool</span>
+                    </div>
+                    <h3 class="demo-title">Connection Tester</h3>
+                    <p class="demo-description">Test your API keys, validate connections, and debug integration issues.</p>
+                    <div class="demo-tech">
+                        <span class="tech-tag">Debug</span>
+                        <span class="tech-tag">Testing</span>
+                    </div>
+                    <a href="examples/test-api-key/index.html" class="demo-link" aria-label="Open Connection Tester">
+                        Test Now
+                        <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7l5 5m0 0l-5 5m5-5H6"/>
+                        </svg>
+                    </a>
+                </article>
+
+                <!-- More Demos CTA -->
+                <article class="demo-card demo-card-more">
+                    <div class="demo-icon">🎮</div>
+                    <h3 class="demo-title">More Demos</h3>
+                    <p class="demo-description">Fall Guys, Race Balls, Quiz Battle, Find the Liar, Channel Storage, and more...</p>
+                    <a href="developer/index.html" class="demo-link" aria-label="View all demos in developer portal">
+                        Developer Portal
+                        <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7l5 5m0 0l-5 5m5-5H6"/>
+                        </svg>
+                    </a>
+                </article>
+            </div>
+        </div>
+    </section>
+
+    <!-- Quick Start Section -->
+    <section class="section quick-start-section" aria-labelledby="quickstart-heading">
+        <div class="container">
+            <h2 id="quickstart-heading" class="section-title">Quick Start</h2>
+            <p class="section-subtitle">Get up and running in under 5 minutes</p>
+
+            <div class="quick-start-steps">
+                <!-- Step 1 -->
+                <div class="step-card">
+                    <div class="step-number">1</div>
+                    <div class="step-content">
+                        <h3 class="step-title">Include the SDK</h3>
+                        <div class="code-block">
+                            <button class="copy-button" aria-label="Copy code to clipboard" data-copy-target="code-step1">
+                                <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"/>
+                                </svg>
+                                Copy
+                            </button>
+                            <pre id="code-step1"><code><span class="comment">&lt;!-- Add to your HTML --&gt;</span>
+<span class="tag">&lt;script</span> <span class="attr">src</span>=<span class="string">"web-agent.libs.js"</span><span class="tag">&gt;&lt;/script&gt;</span>
+<span class="tag">&lt;script</span> <span class="attr">src</span>=<span class="string">"web-agent.js"</span><span class="tag">&gt;&lt;/script&gt;</span></code></pre>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Step 2 -->
+                <div class="step-card">
+                    <div class="step-number">2</div>
+                    <div class="step-content">
+                        <h3 class="step-title">Connect to a Channel</h3>
+                        <div class="code-block">
+                            <button class="copy-button" aria-label="Copy code to clipboard" data-copy-target="code-step2">
+                                <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"/>
+                                </svg>
+                                Copy
+                            </button>
+                            <pre id="code-step2"><code><span class="keyword">const</span> agent = <span class="keyword">new</span> <span class="function">WebAgent</span>({
+  <span class="property">serverUrl</span>: <span class="string">'wss://your-server.com'</span>,
+  <span class="property">apiKey</span>: <span class="string">'your-api-key'</span>
+});
+
+<span class="keyword">await</span> agent.<span class="function">connect</span>(<span class="string">'my-channel'</span>, <span class="string">'player1'</span>);</code></pre>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Step 3 -->
+                <div class="step-card">
+                    <div class="step-number">3</div>
+                    <div class="step-content">
+                        <h3 class="step-title">Send & Receive Messages</h3>
+                        <div class="code-block">
+                            <button class="copy-button" aria-label="Copy code to clipboard" data-copy-target="code-step3">
+                                <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"/>
+                                </svg>
+                                Copy
+                            </button>
+                            <pre id="code-step3"><code><span class="comment">// Send a message</span>
+agent.<span class="function">sendMessage</span>({ <span class="property">type</span>: <span class="string">'move'</span>, <span class="property">x</span>: <span class="number">100</span>, <span class="property">y</span>: <span class="number">200</span> });
+
+<span class="comment">// Receive messages</span>
+agent.<span class="function">onMessage</span>(<span class="keyword">msg</span> => {
+  <span class="function">console</span>.<span class="function">log</span>(<span class="string">'Received:'</span>, msg);
+});</code></pre>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="quick-start-footer">
+                <a href="docs.html" class="btn btn-outline">
+                    View Full Documentation
+                    <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7l5 5m0 0l-5 5m5-5H6"/>
+                    </svg>
+                </a>
+            </div>
+        </div>
+    </section>
+
+    <!-- Architecture Section (Collapsible) -->
+    <section class="section architecture-section" aria-labelledby="architecture-heading">
+        <div class="container">
+            <h2 id="architecture-heading" class="section-title">How It Works</h2>
+            <p class="section-subtitle">Simple architecture, powerful capabilities</p>
+
+            <div class="architecture-summary">
+                <div class="arch-feature">
+                    <div class="arch-icon">🔐</div>
+                    <h3>Secure by Default</h3>
+                    <p>End-to-end encryption ensures your data stays private between clients</p>
+                </div>
+                <div class="arch-feature">
+                    <div class="arch-icon">⚡</div>
+                    <h3>Real-Time Communication</h3>
+                    <p>WebSocket-based messaging with sub-50ms latency for smooth interactions</p>
+                </div>
+                <div class="arch-feature">
+                    <div class="arch-icon">🌍</div>
+                    <h3>Cross-Platform</h3>
+                    <p>SDKs for Web, Java, Python, and C++ with consistent APIs</p>
+                </div>
+            </div>
+
+            <details class="architecture-details">
+                <summary class="architecture-toggle">
+                    <span>Show Architecture Details</span>
+                    <svg width="20" height="20" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
+                    </svg>
+                </summary>
+                <div class="architecture-content">
+                    <div class="arch-diagram">
+                        <h4>System Architecture</h4>
+                        <pre class="diagram-text"><code>
+┌─────────────┐     ┌─────────────┐     ┌─────────────┐
+│   Client A  │────▶│   Server    │◀────│   Client B  │
+│  (Browser)  │     │  (Gateway)  │     │   (Game)    │
+└─────────────┘     └─────────────┘     └─────────────┘
+      │                    │                    │
+      │    WebSocket       │    WebSocket       │
+      │   + Encryption     │   + Encryption     │
+      │                    │                    │
+      └────────────────────┴────────────────────┘
+                  Real-Time Channel
+                        </code></pre>
+                    </div>
+                    <div class="arch-features-grid">
+                        <div class="arch-feature-detail">
+                            <h4>Channel-Based</h4>
+                            <p>Clients join named channels to communicate. No complex room management required.</p>
+                        </div>
+                        <div class="arch-feature-detail">
+                            <h4>Message Types</h4>
+                            <p>Send any JSON-serializable data. Define your own message protocol.</p>
+                        </div>
+                        <div class="arch-feature-detail">
+                            <h4>Presence Tracking</h4>
+                            <p>Know when users join, leave, or disconnect from a channel.</p>
+                        </div>
+                        <div class="arch-feature-detail">
+                            <h4>WebRTC Relay</h4>
+                            <p>Optional P2P connections for video/audio with automatic fallback.</p>
+                        </div>
+                    </div>
+                </div>
+            </details>
+        </div>
+    </section>
+
+    <!-- Footer -->
+    <footer class="footer" role="contentinfo">
+        <div class="container">
+            <div class="footer-content">
+                <div class="footer-section">
+                    <h3 class="footer-title">Resources</h3>
+                    <ul class="footer-links">
+                        <li><a href="docs.html">Documentation</a></li>
+                        <li><a href="developer/index.html">Developer Portal</a></li>
+                        <li><a href="https://github.com/HaithamMubarak/messaging-platform-sdk" target="_blank" rel="noopener noreferrer">GitHub</a></li>
+                    </ul>
+                </div>
+                <div class="footer-section">
+                    <h3 class="footer-title">Examples</h3>
+                    <ul class="footer-links">
+                        <li><a href="examples/whiteboard/index.html">Whiteboard</a></li>
+                        <li><a href="examples/mini-games/air-hockey/index.html">Air Hockey</a></li>
+                        <li><a href="examples/quickshare/quickshare.html">Quick Share</a></li>
+                        <li><a href="examples/test-api-key/index.html">Connection Tester</a></li>
+                    </ul>
+                </div>
+                <div class="footer-section">
+                    <h3 class="footer-title">Community</h3>
+                    <ul class="footer-links">
+                        <li><a href="https://github.com/HaithamMubarak/messaging-platform-sdk/issues" target="_blank" rel="noopener noreferrer">Report Issues</a></li>
+                        <li><a href="https://github.com/HaithamMubarak/messaging-platform-sdk/discussions" target="_blank" rel="noopener noreferrer">Discussions</a></li>
+                    </ul>
+                </div>
+            </div>
+
+            <div class="footer-bottom">
+                <p class="footer-disclaimer">
+                    ⚠️ <strong>Pre-Production:</strong> This SDK is under active development. APIs may change between releases.
+                </p>
+                <p class="footer-copyright">
+                    Messaging Platform SDK &copy; 2026 · Open Source under MIT License
+                </p>
+            </div>
+        </div>
+    </footer>
+
+    <script src="app-new.js"></script>
+</body>
+</html>
+

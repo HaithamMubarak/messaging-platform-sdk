@@ -1,0 +1,297 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Cloud Connection Component - Example</title>
+
+    <!-- Required CSS -->
+    <link rel="stylesheet" href="../css/cloud-connection.css">
+
+    <style>
+        /* Define CSS variables for the component */
+        :root {
+            --bg-sidebar: #12121f;
+            --bg-panel: #0f0f1a;
+            --bg-tab: #1e1e3a;
+            --border-color: #2a2a4a;
+            --text-primary: #e0e0e0;
+            --text-secondary: #8888aa;
+            --text-muted: #555577;
+            --accent-blue: #4a9eff;
+            --accent-purple: #a78bfa;
+            --accent-green: #4ade80;
+            --accent-red: #f87171;
+            --accent-orange: #fb923c;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            font-family: 'Segoe UI', -apple-system, BlinkMacSystemFont, sans-serif;
+            background: linear-gradient(180deg, #071225 0%, #071b2b 100%);
+            color: var(--text-primary);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 600px;
+            margin: 0 auto;
+        }
+
+        h1 {
+            color: white;
+            margin-bottom: 20px;
+            text-align: center;
+        }
+
+        .demo-section {
+            background: rgba(255, 255, 255, 0.03);
+            border-radius: 12px;
+            padding: 20px;
+            margin-bottom: 20px;
+        }
+
+        .demo-btn {
+            padding: 10px 20px;
+            background: var(--accent-blue);
+            color: white;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 14px;
+            margin-right: 10px;
+        }
+
+        .demo-btn:hover {
+            filter: brightness(1.1);
+        }
+
+        #messageLog {
+            background: #000;
+            color: #0f0;
+            padding: 10px;
+            border-radius: 6px;
+            font-family: monospace;
+            font-size: 12px;
+            height: 200px;
+            overflow-y: auto;
+            margin-top: 10px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>☁️ Cloud Connection Component Demo</h1>
+
+        <!-- Cloud Connection Panel -->
+        <div class="cloud-panel expanded" id="cloudPanel">
+            <div class="cloud-panel-header" onclick="toggleCloudPanel()">
+                <div class="cloud-panel-title">
+                    <span>☁️</span>
+                    <span>Messaging Platform Cloud</span>
+                </div>
+                <div class="cloud-panel-status">
+                    <div class="status-dot" id="cloudStatus"></div>
+                    <span id="cloudStatusText">Disconnected</span>
+                </div>
+            </div>
+            <div class="cloud-panel-body">
+                <div class="cloud-form-row">
+                    <label>Channel Name</label>
+                    <input type="text" id="cloudChannelName" placeholder="my-channel" value="test-channel">
+                </div>
+                <div class="cloud-form-row">
+                    <label>Channel Password</label>
+                    <input type="password" id="cloudChannelPassword" placeholder="Channel password" value="test123">
+                </div>
+                <div class="cloud-form-row">
+                    <label>Your Agent Name</label>
+                    <div class="cloud-input-group">
+                        <input type="text" id="cloudAgentName" placeholder="Auto-generated if empty">
+                        <button type="button" class="cloud-regen-btn" onclick="regenerateAgentName()" title="Generate random agent name">
+                            🔄
+                        </button>
+                    </div>
+                </div>
+                <button type="button" class="cloud-btn" id="cloudConnectBtn" onclick="connectToCloud()">
+                    Connect to Cloud
+                </button>
+
+                <div class="cloud-agents" id="cloudAgentsSection" style="display: none;">
+                    <div class="cloud-agents-title">Connected Agents</div>
+                    <div id="cloudAgentsList">
+                        <!-- Agents will be populated here -->
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Demo Controls -->
+        <div class="demo-section">
+            <h3 style="margin-bottom: 10px;">Demo Controls</h3>
+            <button class="demo-btn" onclick="sendTestMessage()">Send Test Message</button>
+            <button class="demo-btn" onclick="clearLog()">Clear Log</button>
+
+            <div id="messageLog"></div>
+        </div>
+    </div>
+
+    <!-- Required Scripts -->
+    <script src="../js/config-loader.js"></script>
+    <script src="../generated-web-agent-js/js/web-agent.libs.js"></script>
+    <script src="../generated-web-agent-js/js/web-agent.js"></script>
+    <script src="../js/cloud-connection.js"></script>
+
+    <script>
+        // Initialize Cloud Connection Manager
+        let cloudManager = null;
+
+        function log(message, type = 'info') {
+            const logDiv = document.getElementById('messageLog');
+            const timestamp = new Date().toLocaleTimeString();
+            const line = document.createElement('div');
+            line.textContent = `[${timestamp}] ${message}`;
+            if (type === 'error') line.style.color = '#f00';
+            if (type === 'success') line.style.color = '#0f0';
+            if (type === 'warning') line.style.color = '#ff0';
+            logDiv.appendChild(line);
+            logDiv.scrollTop = logDiv.scrollHeight;
+        }
+
+        function clearLog() {
+            document.getElementById('messageLog').innerHTML = '';
+        }
+
+        function toggleCloudPanel() {
+            document.getElementById('cloudPanel').classList.toggle('expanded');
+        }
+
+        function regenerateAgentName() {
+            if (cloudManager) {
+                const name = cloudManager.generateAgentName();
+                document.getElementById('cloudAgentName').value = name;
+                log(`Generated agent name: ${name}`);
+            }
+        }
+
+        async function connectToCloud() {
+            const btn = document.getElementById('cloudConnectBtn');
+            const channelName = document.getElementById('cloudChannelName').value.trim();
+            const password = document.getElementById('cloudChannelPassword').value.trim();
+            const agentName = document.getElementById('cloudAgentName').value.trim();
+
+            if (!channelName || !password) {
+                log('Please enter channel name and password', 'error');
+                return;
+            }
+
+            btn.disabled = true;
+            btn.textContent = 'Connecting...';
+
+            try {
+                // Create cloud manager if not exists
+                if (!cloudManager) {
+                    cloudManager = new CloudConnectionManager({
+                        onConnect: (agentName) => {
+                            log(`Connected as ${agentName}`, 'success');
+                            btn.textContent = 'Disconnect';
+                            btn.classList.add('disconnect');
+                            btn.onclick = disconnectFromCloud;
+                            btn.disabled = false;
+
+                            // Disable form inputs
+                            document.getElementById('cloudChannelName').disabled = true;
+                            document.getElementById('cloudChannelPassword').disabled = true;
+                            document.getElementById('cloudAgentName').disabled = true;
+
+                            // Show agents section
+                            document.getElementById('cloudAgentsSection').style.display = 'block';
+                        },
+                        onDisconnect: () => {
+                            log('Disconnected from cloud', 'warning');
+                            btn.textContent = 'Connect to Cloud';
+                            btn.classList.remove('disconnect');
+                            btn.onclick = connectToCloud;
+                            btn.disabled = false;
+
+                            // Enable form inputs
+                            document.getElementById('cloudChannelName').disabled = false;
+                            document.getElementById('cloudChannelPassword').disabled = false;
+                            document.getElementById('cloudAgentName').disabled = false;
+
+                            // Hide agents section
+                            document.getElementById('cloudAgentsSection').style.display = 'none';
+                        },
+                        onAgentConnected: (agent) => {
+                            log(`Agent joined: ${agent.agentName}`, 'info');
+                        },
+                        onAgentDisconnected: (agent) => {
+                            log(`Agent left: ${agent.agentName}`, 'warning');
+                        },
+                        onMessage: (event) => {
+                            log(`Message from ${event.sourceAgent}: ${JSON.stringify(event.data)}`, 'info');
+                        },
+                        onError: (event) => {
+                            log(`Error: ${event.message || 'Unknown error'}`, 'error');
+                        }
+                    });
+                }
+
+                // Connect
+                await cloudManager.connect({
+                    channelName: channelName,
+                    channelPassword: password,
+                    agentName: agentName
+                });
+
+            } catch (error) {
+                log(`Connection failed: ${error.message}`, 'error');
+                btn.textContent = 'Connect to Cloud';
+                btn.disabled = false;
+            }
+        }
+
+        function disconnectFromCloud() {
+            if (cloudManager) {
+                cloudManager.disconnect();
+            }
+        }
+
+        function sendTestMessage() {
+            if (!cloudManager || !cloudManager.isConnected()) {
+                log('Not connected to cloud', 'error');
+                return;
+            }
+
+            const message = {
+                type: 'test',
+                text: 'Hello from cloud connection component!',
+                timestamp: Date.now()
+            };
+
+            cloudManager.broadcastMessage(message);
+            log(`Sent test message: ${message.text}`, 'success');
+        }
+
+        // Initialize
+        window.addEventListener('load', () => {
+            log('Cloud Connection Component loaded', 'success');
+            log('Fill in the form and click "Connect to Cloud"', 'info');
+        });
+
+        // Cleanup on page unload
+        window.addEventListener('beforeunload', () => {
+            if (cloudManager && cloudManager.isConnected()) {
+                cloudManager.disconnect();
+            }
+        });
+    </script>
+</body>
+</html>
+

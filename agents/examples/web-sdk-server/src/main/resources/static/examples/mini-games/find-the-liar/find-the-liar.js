@@ -15,8 +15,8 @@
  * - connect() / disconnect() - Connection management
  * - sendData() - P2P data transmission
  * - isHost() - Check if current player is host
- * - getPlayerList() / getPlayerCount() - Player management
- * - hasEnoughPlayers() - Check minimum players
+ * - getUserList() / getUserCount() - User/player management
+ * - hasEnoughUsers() - Check minimum users
  * - showToast() - Toast notifications
  * - showConnectionLoader() / hideConnectionLoader() - Loading overlay
  * - generateUserColor() - Consistent player colors
@@ -715,7 +715,7 @@ class FindTheLiarGame extends AgentInteractionBase {
 
         // Select liars ONLY on round 1 (roles persistent, but not stored on host!)
         if (this.gameState.round === 1) {
-            const players = this.getPlayerList().map(p => p.name);
+            const players = this.getPeerList().map(p => p.name);
             const activeNonEliminated = players.filter(p => !this.gameState.eliminatedPlayers.has(p));
 
             // Determine liar count based on player count
@@ -816,7 +816,7 @@ class FindTheLiarGame extends AgentInteractionBase {
     distributeRoles() {
         if (!this.isHost()) return;
 
-        const players = this.getPlayerList();
+        const players = this.getPeerList();
         const item = this.gameState.currentItem;
 
         // Only use tempLiarNames in round 1, otherwise each player remembers their role
@@ -986,7 +986,7 @@ class FindTheLiarGame extends AgentInteractionBase {
             // Check win condition for Survival mode:
             // 1. If we reached max rounds -> game ends
             // 2. If we have 3 or fewer players AND someone was just eliminated -> game ends
-            const activePlayers = this.getPlayerList().filter(p => !this.gameState.eliminatedPlayers.has(p.name));
+            const activePlayers = this.getPeerList().filter(p => !this.gameState.eliminatedPlayers.has(p.name));
 
             if (this.gameState.round >= this.gameState.maxRounds) {
                 // Max rounds reached - game ends
@@ -1737,11 +1737,11 @@ class FindTheLiarGame extends AgentInteractionBase {
      */
     getActivePlayerCount() {
         if (this.gameState.gameMode === GameMode.SURVIVAL) {
-            return this.getPlayerList().filter(p => 
+            return this.getPeerList().filter(p =>
                 !this.gameState.eliminatedPlayers.has(p.name)
             ).length;
         }
-        return this.getPlayerCount();
+        return this.getPeerCount();
     }
 
     /**
@@ -1749,7 +1749,7 @@ class FindTheLiarGame extends AgentInteractionBase {
      * @returns {boolean}
      */
     hasMinimumPlayers() {
-        return this.hasEnoughPlayers(MIN_PLAYERS);
+        return this.hasEnoughPeers(MIN_PLAYERS);
     }
 
     /**
@@ -1853,7 +1853,7 @@ class FindTheLiarGame extends AgentInteractionBase {
     }
 
     fillEmptyAnswers() {
-        const players = this.getPlayerList().map(p => p.name);
+        const players = this.getPeerList().map(p => p.name);
         players.forEach(name => {
             if (!this.gameState.currentAnswers.has(name)) {
                 this.gameState.currentAnswers.set(name, '(No answer)');
@@ -1906,7 +1906,7 @@ class FindTheLiarGame extends AgentInteractionBase {
 
         if (!listEl) return;
 
-        const players = this.getPlayerList();
+        const players = this.getPeerList();
 
         let html = players.map(player => {
             let cls = 'player-item';
@@ -2519,7 +2519,7 @@ class FindTheLiarGame extends AgentInteractionBase {
 
     showVotingScreen() {
         const container = document.getElementById('gameContainer');
-        const players = this.getPlayerList();
+        const players = this.getPeerList();
 
         const votingHtml = players.map(player => {
             const isSelf = player.name === this.username;
@@ -3019,7 +3019,7 @@ class FindTheLiarGame extends AgentInteractionBase {
         const { mode, winner, liarNames, revealedLiars, message } = data;
 
         // Build player results list
-        const playerResultsHtml = this.getPlayerList().map(player => {
+        const playerResultsHtml = this.getPeerList().map(player => {
             const isLiar = liarNames.includes(player.name);
             const isRevealed = revealedLiars && revealedLiars.includes(player.name);
 

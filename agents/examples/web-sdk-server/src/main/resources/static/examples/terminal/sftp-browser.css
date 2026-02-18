@@ -1,0 +1,587 @@
+/**
+ * SFTP File Browser Component Styles
+ * MobaXterm-style SFTP panel for SSH connections
+ */
+
+/* ========== SFTP Panel (Right Side) ========== */
+.sftp-panel {
+    width: 320px;
+    min-width: 280px;
+    max-width: 500px;
+    background: var(--bg-sidebar);
+    border-left: 1px solid var(--border-color);
+    display: none;
+    flex-direction: column;
+    resize: horizontal;
+    overflow: hidden;
+}
+
+.sftp-panel.visible {
+    display: flex;
+}
+
+/* ========== SFTP Header ========== */
+.sftp-header {
+    padding: 10px 12px;
+    background: linear-gradient(180deg, rgba(74, 158, 255, 0.1), rgba(34, 211, 238, 0.05));
+    border-bottom: 1px solid var(--border-color);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-shrink: 0;
+}
+
+.sftp-header-title {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--text-primary);
+}
+
+.sftp-header-close {
+    width: 24px;
+    height: 24px;
+    border-radius: 4px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    color: var(--text-muted);
+    transition: all 0.15s;
+}
+
+.sftp-header-close:hover {
+    background: var(--accent-red);
+    color: white;
+}
+
+/* ========== SFTP Toolbar ========== */
+.sftp-toolbar {
+    padding: 8px 10px;
+    background: var(--bg-darker);
+    border-bottom: 1px solid var(--border-color);
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px;
+    flex-shrink: 0;
+}
+
+.sftp-toolbar-btn {
+    padding: 6px 10px;
+    background: transparent;
+    border: 1px solid transparent;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 14px;
+    color: var(--text-secondary);
+    transition: all 0.15s;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+}
+
+.sftp-toolbar-btn:hover {
+    background: rgba(74, 158, 255, 0.15);
+    border-color: var(--accent-blue);
+    color: var(--text-primary);
+}
+
+.sftp-toolbar-btn:active {
+    transform: scale(0.95);
+}
+
+.sftp-toolbar-btn:disabled {
+    opacity: 0.3;
+    cursor: not-allowed;
+}
+
+.sftp-toolbar-btn .label {
+    font-size: 10px;
+}
+
+.sftp-toolbar-separator {
+    width: 1px;
+    height: 24px;
+    background: var(--border-color);
+    margin: 0 4px;
+}
+
+/* ========== Path Bar ========== */
+.sftp-path-bar {
+    padding: 8px 10px;
+    background: var(--bg-panel);
+    border-bottom: 1px solid var(--border-color);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-shrink: 0;
+}
+
+.sftp-path-bar input {
+    flex: 1;
+    padding: 6px 10px;
+    background: var(--bg-darker);
+    border: 1px solid var(--border-color);
+    border-radius: 4px;
+    color: var(--text-primary);
+    font-size: 12px;
+    font-family: 'Consolas', monospace;
+}
+
+.sftp-path-bar input:focus {
+    outline: none;
+    border-color: var(--accent-blue);
+}
+
+.sftp-path-go-btn {
+    padding: 6px 12px;
+    background: var(--accent-blue);
+    border: none;
+    border-radius: 4px;
+    color: white;
+    font-size: 12px;
+    cursor: pointer;
+    transition: all 0.15s;
+}
+
+.sftp-path-go-btn:hover {
+    filter: brightness(1.1);
+}
+
+/* ========== File List ========== */
+.sftp-file-list {
+    flex: 1;
+    overflow-y: auto;
+    background: var(--bg-panel);
+}
+
+.sftp-file-list::-webkit-scrollbar { width: 8px; }
+.sftp-file-list::-webkit-scrollbar-track { background: transparent; }
+.sftp-file-list::-webkit-scrollbar-thumb {
+    background: var(--border-color);
+    border-radius: 4px;
+}
+.sftp-file-list::-webkit-scrollbar-thumb:hover {
+    background: var(--text-muted);
+}
+
+/* ========== File Item ========== */
+.sftp-file-item {
+    display: flex;
+    align-items: center;
+    padding: 6px 10px;
+    cursor: pointer;
+    transition: all 0.1s;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.03);
+    user-select: none;
+    -webkit-user-select: none;
+    -moz-user-select: none;
+    -ms-user-select: none;
+}
+
+.sftp-file-item * {
+    user-select: none;
+    -webkit-user-select: none;
+    -moz-user-select: none;
+    -ms-user-select: none;
+    pointer-events: none;
+}
+
+.sftp-file-item:hover {
+    background: rgba(74, 158, 255, 0.1);
+}
+
+.sftp-file-item.selected {
+    background: rgba(74, 158, 255, 0.2);
+    border-color: var(--accent-blue);
+}
+
+.sftp-file-item.directory {
+    font-weight: 500;
+}
+
+.sftp-file-icon {
+    width: 24px;
+    height: 24px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 16px;
+    margin-right: 8px;
+    flex-shrink: 0;
+}
+
+.sftp-file-details {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+}
+
+.sftp-file-name {
+    font-size: 12px;
+    color: var(--text-primary);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.sftp-file-meta {
+    font-size: 10px;
+    color: var(--text-muted);
+    display: flex;
+    gap: 12px;
+}
+
+/* ========== Empty State ========== */
+.sftp-empty {
+    padding: 40px 20px;
+    text-align: center;
+    color: var(--text-muted);
+}
+
+.sftp-empty-icon {
+    font-size: 48px;
+    margin-bottom: 12px;
+    opacity: 0.5;
+}
+
+.sftp-empty-text {
+    font-size: 12px;
+}
+
+/* ========== Loading State ========== */
+.sftp-loading {
+    padding: 40px 20px;
+    text-align: center;
+}
+
+.sftp-loading-spinner {
+    width: 32px;
+    height: 32px;
+    border: 3px solid var(--border-color);
+    border-top: 3px solid var(--accent-blue);
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+    margin: 0 auto 12px;
+}
+
+.sftp-loading-text {
+    font-size: 12px;
+    color: var(--text-muted);
+}
+
+/* ========== Status Bar ========== */
+.sftp-status-bar {
+    padding: 6px 10px;
+    background: var(--bg-darker);
+    border-top: 1px solid var(--border-color);
+    font-size: 10px;
+    color: var(--text-muted);
+    display: flex;
+    justify-content: space-between;
+    flex-shrink: 0;
+}
+
+/* ========== Context Menu ========== */
+.sftp-context-menu {
+    position: fixed;
+    background: var(--bg-darker);
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    padding: 6px 0;
+    min-width: 180px;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5);
+    z-index: 10001;
+    display: none;
+}
+
+.sftp-context-menu.visible {
+    display: block;
+}
+
+.sftp-context-menu-item {
+    padding: 8px 16px;
+    font-size: 12px;
+    color: var(--text-secondary);
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    transition: all 0.15s;
+}
+
+.sftp-context-menu-item:hover {
+    background: rgba(74, 158, 255, 0.2);
+    color: var(--text-primary);
+}
+
+.sftp-context-menu-item.danger:hover {
+    background: rgba(248, 113, 113, 0.2);
+    color: var(--accent-red);
+}
+
+.sftp-context-menu-item .icon {
+    font-size: 14px;
+    width: 20px;
+    text-align: center;
+}
+
+.sftp-context-menu-separator {
+    height: 1px;
+    background: var(--border-color);
+    margin: 4px 8px;
+}
+
+/* ========== File Editor Modal ========== */
+.sftp-editor-overlay {
+    display: none;
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0, 0, 0, 0.8);
+    z-index: 10002;
+    align-items: center;
+    justify-content: center;
+}
+
+.sftp-editor-overlay.visible {
+    display: flex;
+}
+
+.sftp-editor-modal {
+    background: var(--bg-darker);
+    border: 1px solid var(--border-color);
+    border-radius: 12px;
+    width: 90vw;
+    height: 85vh;
+    max-width: 1200px;
+    display: flex;
+    flex-direction: column;
+    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.6);
+}
+
+.sftp-editor-header {
+    padding: 12px 16px;
+    border-bottom: 1px solid var(--border-color);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-shrink: 0;
+}
+
+.sftp-editor-title {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 14px;
+    font-weight: 600;
+}
+
+.sftp-editor-title-path {
+    font-size: 12px;
+    color: var(--text-muted);
+    font-weight: normal;
+    font-family: 'Consolas', monospace;
+}
+
+.sftp-editor-actions {
+    display: flex;
+    gap: 8px;
+}
+
+.sftp-editor-btn {
+    padding: 8px 16px;
+    border-radius: 6px;
+    font-size: 12px;
+    font-weight: 500;
+    cursor: pointer;
+    border: 1px solid transparent;
+    transition: all 0.15s;
+}
+
+.sftp-editor-btn.primary {
+    background: var(--accent-blue);
+    color: white;
+}
+
+.sftp-editor-btn.primary:hover {
+    filter: brightness(1.1);
+}
+
+.sftp-editor-btn.secondary {
+    background: transparent;
+    border-color: var(--border-color);
+    color: var(--text-secondary);
+}
+
+.sftp-editor-btn.secondary:hover {
+    background: rgba(255, 255, 255, 0.05);
+    color: var(--text-primary);
+}
+
+.sftp-editor-body {
+    flex: 1;
+    padding: 0;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+}
+
+.sftp-editor-textarea {
+    flex: 1;
+    width: 100%;
+    background: #0a0a14;
+    border: none;
+    color: var(--text-primary);
+    font-family: 'Cascadia Code', 'Fira Code', Consolas, monospace;
+    font-size: 13px;
+    line-height: 1.5;
+    padding: 16px;
+    resize: none;
+    outline: none;
+    tab-size: 4;
+}
+
+.sftp-editor-status {
+    padding: 8px 16px;
+    background: var(--bg-panel);
+    border-top: 1px solid var(--border-color);
+    display: flex;
+    justify-content: space-between;
+    font-size: 11px;
+    color: var(--text-muted);
+    flex-shrink: 0;
+}
+
+.sftp-editor-status .modified {
+    color: var(--accent-orange);
+}
+
+/* ========== Properties Modal ========== */
+.sftp-props-modal {
+    width: 400px;
+}
+
+.sftp-props-body {
+    padding: 16px;
+}
+
+.sftp-props-row {
+    display: flex;
+    margin-bottom: 12px;
+}
+
+.sftp-props-label {
+    width: 100px;
+    font-size: 11px;
+    color: var(--text-muted);
+    flex-shrink: 0;
+}
+
+.sftp-props-value {
+    flex: 1;
+    font-size: 12px;
+    color: var(--text-primary);
+    word-break: break-all;
+}
+
+/* ========== Rename/Create Input ========== */
+.sftp-inline-input {
+    display: none;
+    padding: 4px 8px;
+    background: var(--bg-darker);
+    border: 1px solid var(--accent-blue);
+    border-radius: 4px;
+    color: var(--text-primary);
+    font-size: 12px;
+    outline: none;
+    width: calc(100% - 50px);
+}
+
+.sftp-inline-input.visible {
+    display: block;
+}
+
+/* ========== Drag & Drop Overlay ========== */
+.sftp-drop-overlay {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(74, 158, 255, 0.2);
+    border: 3px dashed var(--accent-blue);
+    border-radius: 8px;
+    display: none;
+    align-items: center;
+    justify-content: center;
+    z-index: 100;
+    pointer-events: none;
+}
+
+.sftp-drop-overlay.visible {
+    display: flex;
+}
+
+.sftp-drop-text {
+    font-size: 16px;
+    font-weight: 600;
+    color: var(--accent-blue);
+}
+
+/* ========== Upload Progress ========== */
+.sftp-upload-progress {
+    position: absolute;
+    bottom: 40px;
+    left: 10px;
+    right: 10px;
+    background: var(--bg-darker);
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    padding: 12px;
+    display: none;
+    z-index: 50;
+}
+
+.sftp-upload-progress.visible {
+    display: block;
+}
+
+.sftp-upload-info {
+    display: flex;
+    justify-content: space-between;
+    margin-bottom: 8px;
+    font-size: 11px;
+}
+
+.sftp-upload-filename {
+    color: var(--text-primary);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 200px;
+}
+
+.sftp-upload-percent {
+    color: var(--accent-blue);
+}
+
+.sftp-upload-bar {
+    height: 4px;
+    background: var(--bg-panel);
+    border-radius: 2px;
+    overflow: hidden;
+}
+
+.sftp-upload-bar-fill {
+    height: 100%;
+    background: linear-gradient(90deg, var(--accent-blue), var(--accent-cyan));
+    transition: width 0.3s;
+    border-radius: 2px;
+}
+

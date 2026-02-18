@@ -384,8 +384,8 @@ class QuizBattleGame extends AgentInteractionBase {
         const listEl = document.getElementById('playersList');
         if (!listEl) return;
 
-        // Use BaseGame's getPlayerList method
-        const players = this.getPlayerList();
+        // Use BaseGame's getPeerList method
+        const players = this.getPeerList();
 
         let html = '';
 
@@ -426,7 +426,7 @@ class QuizBattleGame extends AgentInteractionBase {
         if (this.isHost()) {
             const startBtn = document.getElementById('startGameBtn');
             if (startBtn) {
-                startBtn.disabled = !this.hasEnoughPlayers(2);
+                startBtn.disabled = !this.hasEnoughPeers(2);
             }
         }
     }
