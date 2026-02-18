@@ -113,3 +113,10 @@ mls-data*
 sls-data*
 **/mls-data*
 **/sls-data*
+
+# JAR files (except gradle wrapper and sdk-local-service build output)
+*.jar
+!gradle/wrapper/*.jar
+!gradle-wrapper.jar
+!agents/examples/sdk-local-service/build/libs/sdk-local-service.jar
+

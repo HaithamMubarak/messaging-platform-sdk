@@ -131,40 +131,9 @@ if (webAgentJsExists) {
 // Mini-game specific utilities (mini-game-utils.js, share-modal.js) are also in static/js/
 // Only CORE SDK files are copied from web-agent-js via copyWebAgentResources
 
-// Task to copy SDK Local Service JAR and application.properties to terminal examples folder
-def sdkLocalServiceExists = findProject(':agents:examples:sdk-local-service') != null
+// Web resources are now static - no dynamic resource copying needed
+// JAR and config files are downloaded from GitHub releases instead
 
-if (sdkLocalServiceExists) {
-    tasks.register('copySdkLocalServiceJar', Copy) {
-        description = 'Copy SDK Local Service JAR and application.properties to terminal examples folder for download'
-        group = 'build'
-
-        dependsOn ':agents:examples:sdk-local-service:bootJar'
-
-        // Copy JAR file
-        from(project(':agents:examples:sdk-local-service').file('build/libs')) {
-            include 'sdk-local-service.jar'
-        }
-
-        // Copy application.properties
-        from(project(':agents:examples:sdk-local-service').file('src/main/resources')) {
-            include 'application.properties'
-        }
-
-        into file('src/main/resources/static/examples/terminal')
-
-        // Always copy to ensure latest version
-        outputs.upToDateWhen { false }
-    }
-
-    // Copy JAR during build
-    processResources.dependsOn(tasks.named('copySdkLocalServiceJar'))
-
-    // Also copy JAR when running the server (bootRun)
-    bootRun.dependsOn(tasks.named('copySdkLocalServiceJar'))
-} else {
-    logger.warn('⚠️  sdk-local-service module not found - JAR and config will not be copied to terminal folder')
-}
 
 // Clean task should remove generated files
 clean {
