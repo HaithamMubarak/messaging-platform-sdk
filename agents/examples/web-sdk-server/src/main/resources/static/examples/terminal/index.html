@@ -1301,6 +1301,39 @@
             })[m]);
         }
 
+        /**
+         * Clean terminal output from shells running through a pipe (no real PTY).
+         *
+         * Bash without a PTY produces extra leading spaces per line because tools
+         * can't detect terminal width properly.
+         *
+         * - Strips leading whitespace from each line only
+         * - NEVER modifies \r, \n, or \r\n — bash manages its own line endings
+         *
+         * Equivalent Java (TerminalStringUtils.cleanOutput):
+         *   String[] lines = output.split("(?<=\n)");
+         *   for (String line : lines) sb.append(line.stripLeading());
+         *
+         * @param {string} data  Raw output from the terminal WebSocket
+         * @param {string} shell Shell type ('bash', 'cmd', etc.)
+         * @returns {string} Cleaned output with leading whitespace stripped per line
+         */
+        function cleanOutput(data, shell) {
+            if (!data) return data;
+            // Only clean bash — cmd/powershell manage their own formatting
+            if (shell !== 'bash') return data;
+            // Normalize all line endings first
+            const normalized = data.replace(/\r\n/g, '\n').replace(/\r/g, '\n');
+            // Strip leading spaces from each line, restore CRLF for xterm.js.
+            // IMPORTANT: skip trimStart() on the FIRST segment — it may be a mid-line
+            // continuation of a previous chunk (e.g. " hi" after "echo"). Only lines
+            // that follow a \n are guaranteed to be line-starts.
+            const lines = normalized.split('\n');
+            return lines
+                .map((line, i) => i === 0 ? line : line.trimStart())
+                .join('\r\n');
+        }
+
         // ========================================
         // Tab Scrolling
         // ========================================
@@ -1946,13 +1979,8 @@
                     // Clean bash output - strip leading spaces per line
                     // Bash running through a pipe (no PTY) produces extra leading spaces
                     // because tools can't detect terminal width properly
-                    // IMPORTANT: split on \n keeping delimiter, never touch \r or \r\n
                     const shell = session.config?.shell || 'cmd';
-                    if (shell === 'bash') {
-                        data = data.split(/(?<=\n)/)
-                                   .map(line => line.trimStart())
-                                   .join('');
-                    }
+                    data = cleanOutput(data, shell);
 
                     // Only write if we have valid data
                     if (data.length > 0) {

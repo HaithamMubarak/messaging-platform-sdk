@@ -17,6 +17,9 @@ public final class TerminalStringUtils {
     // Terminal Control Characters
     // ========================================
 
+    /** Set to false to disable bash output cleaning (useful for debugging raw output) */
+    public static final boolean CLEAN_BASH_OUTPUT = false;
+
     public static final String NEWLINE_CR = "\r";
     public static final String NEWLINE_LF = "\n";
     public static final String NEWLINE_CRLF = "\r\n";
@@ -146,25 +149,48 @@ public final class TerminalStringUtils {
      * When bash runs as a pipe (not PTY), some output has extra leading spaces
      * on each line because tools can't detect the terminal width properly.
      *
+     * Only cleans bash output — cmd/powershell manage their own formatting.
+     *
      * This method:
+     * - Normalizes all line endings (\r\n, \r → \n)
      * - Strips leading whitespace from each line
-     * - Normalizes line endings (\r\n, \r → \r\n)
+     * - Restores CRLF (\r\n) for xterm.js
+     *
+     * Equivalent JS (index.html cleanOutput function):
+     *   const normalized = data.replace(/\r\n/g, '\n').replace(/\r/g, '\n');
+     *   return normalized.split('\n').map(line =&gt; line.trimStart()).join('\r\n');
      *
      * @param output Raw output from terminal
-     * @return Cleaned output
+     * @param shell  Shell type (e.g. "bash", "cmd", "powershell")
+     * @return Cleaned output with leading whitespace stripped per line (bash only)
      */
-    public static String cleanOutput(String output) {
+    public static String cleanOutput(String output, String shell) {
         if (output == null || output.isEmpty()) {
             return output;
         }
 
-        // Only strip leading whitespace per line.
-        // NEVER touch \r, \n, \r\n - bash manages its own line endings.
-        // Modifying them causes double newlines/Enter issues.
-        String[] lines = output.split("(?<=\n)"); // split after \n, keep delimiter
+        // Only clean bash — cmd/powershell manage their own formatting
+        // Set CLEAN_BASH_OUTPUT = false to disable for testing/debugging
+        if (!CLEAN_BASH_OUTPUT || !"bash".equalsIgnoreCase(shell)) {
+            return output;
+        }
+
+        // Normalize all line endings first
+        String normalized = output
+                .replace("\r\n", "\n")
+                .replace("\r", "\n");
+
+        // Strip leading spaces from each line, restore CRLF for xterm.js.
+        // IMPORTANT: skip stripLeading() on the FIRST segment — it may be a mid-line
+        // continuation of a previous chunk (e.g. " hi" after "echo"). Only lines that
+        // follow a \n are guaranteed to be line-starts.
+        String[] lines = normalized.split("\n", -1);
         StringBuilder sb = new StringBuilder();
-        for (String line : lines) {
-            sb.append(line.stripLeading());
+        for (int i = 0; i < lines.length; i++) {
+            sb.append(i == 0 ? lines[i] : lines[i].stripLeading());
+            if (i < lines.length - 1) {
+                sb.append("\r\n");
+            }
         }
         return sb.toString();
     }

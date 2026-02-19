@@ -202,6 +202,10 @@ public class TerminalWebSocketHandler extends TextWebSocketHandler {
                                  sessionId, bytesRead, totalBytes,
                                  TerminalStringUtils.escapeControlChars(output));
 
+                        // Clean bash output - strip leading spaces per line (bash only)
+                        // Matches JS: cleanOutput(data, shell) in index.html
+                        String shell = terminalService.getSessionType(sessionId);
+                        output = TerminalStringUtils.cleanOutput(output, shell);
 
                         // Broadcast immediately - auto-flush!
                         broadcast(sessionId, output);
