@@ -74,8 +74,14 @@ public class TerminalWebSocketHandler extends TextWebSocketHandler {
             StringBuilder inputBuffer = inputBuffers.computeIfAbsent(sessionId, k -> new StringBuilder());
 
             if (needsEcho) {
-                // Manual echo for Windows CMD - track buffer to handle backspace correctly
-                if (TerminalStringUtils.isBackspace(data)) {
+                // Manual echo for Windows CMD
+                if (TerminalStringUtils.isCtrlC(data)) {
+                    // Ctrl+C - interrupt running process
+                    inputBuffer.setLength(0);  // Clear input buffer
+                    broadcast(sessionId, "^C\r\n");
+                    terminalService.sendCtrlC(sessionId);
+                    return;
+                } else if (TerminalStringUtils.isBackspace(data)) {
                     // Backspace - only process if we have characters to delete
                     if (inputBuffer.length() > 0) {
                         inputBuffer.deleteCharAt(inputBuffer.length() - 1);
@@ -116,7 +122,12 @@ public class TerminalWebSocketHandler extends TextWebSocketHandler {
                 // For all other control characters, don't echo or buffer
             } else {
                 // For non-manual-echo sessions (SSH, PowerShell, Bash), just track for logging
-                if (TerminalStringUtils.isNewline(data)) {
+                if (TerminalStringUtils.isCtrlC(data)) {
+                    // Ctrl+C - interrupt running process, clear buffer
+                    inputBuffer.setLength(0);
+                    terminalService.sendCtrlC(sessionId);
+                    return;
+                } else if (TerminalStringUtils.isNewline(data)) {
                     String command = inputBuffer.toString();
                     if (!command.isEmpty()) {
                         log.info("[COMMAND] Session: {}, Command: '{}'", sessionId, command);
@@ -135,10 +146,16 @@ public class TerminalWebSocketHandler extends TextWebSocketHandler {
             terminalService.sendInput(sessionId, data);
             log.debug("[WebSocket-Input] Successfully sent to session {}", sessionId);
         } catch (Exception e) {
-            log.error("[WebSocket-Input] Failed to send input to session {}: {}", sessionId, e.getMessage(), e);
-            // Optionally send error back to client
+            String msg = e.getMessage() != null ? e.getMessage() : "";
+            // Silently ignore transient errors from Ctrl+C or broken pipe
+            if (msg.contains("pipe") || msg.contains("stream") || msg.contains("closed")
+                    || msg.contains("Failed to send input")) {
+                log.debug("[WebSocket-Input] Suppressed transient error for session {}: {}", sessionId, msg);
+                return;
+            }
+            log.error("[WebSocket-Input] Failed to send input to session {}: {}", sessionId, msg, e);
             if (session.isOpen()) {
-                session.sendMessage(new TextMessage("\r\n[Error: " + e.getMessage() + "]\r\n"));
+                session.sendMessage(new TextMessage("\r\n[Error: " + msg + "]\r\n"));
             }
         }
     }
@@ -184,6 +201,7 @@ public class TerminalWebSocketHandler extends TextWebSocketHandler {
                         log.debug("[Stream-{}] Read {} bytes (total: {}): {}",
                                  sessionId, bytesRead, totalBytes,
                                  TerminalStringUtils.escapeControlChars(output));
+
 
                         // Broadcast immediately - auto-flush!
                         broadcast(sessionId, output);

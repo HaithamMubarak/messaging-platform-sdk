@@ -23,6 +23,7 @@ public final class TerminalStringUtils {
     public static final String BACKSPACE = "\b";
     public static final String BACKSPACE_DEL = "\u007F";
     public static final String TAB = "\t";
+    public static final String CTRL_C = "\u0003";
     public static final String ANSI_CLEAR_SCREEN = "\u001b[2J\u001b[H";
 
     // ========================================
@@ -56,6 +57,16 @@ public final class TerminalStringUtils {
             str.equals(BACKSPACE) ||
             str.equals(BACKSPACE_DEL)
         );
+    }
+
+    /**
+     * Check if string is Ctrl+C (interrupt signal).
+     *
+     * @param str String to check
+     * @return true if string is Ctrl+C
+     */
+    public static boolean isCtrlC(String str) {
+        return CTRL_C.equals(str);
     }
 
     /**
@@ -126,8 +137,37 @@ public final class TerminalStringUtils {
     }
 
     // ========================================
-    // Terminal Command Helpers
+    // Output Cleaning
     // ========================================
+
+    /**
+     * Clean terminal output from shells running through ProcessBuilder (no real PTY).
+     *
+     * When bash runs as a pipe (not PTY), some output has extra leading spaces
+     * on each line because tools can't detect the terminal width properly.
+     *
+     * This method:
+     * - Strips leading whitespace from each line
+     * - Normalizes line endings (\r\n, \r → \r\n)
+     *
+     * @param output Raw output from terminal
+     * @return Cleaned output
+     */
+    public static String cleanOutput(String output) {
+        if (output == null || output.isEmpty()) {
+            return output;
+        }
+
+        // Only strip leading whitespace per line.
+        // NEVER touch \r, \n, \r\n - bash manages its own line endings.
+        // Modifying them causes double newlines/Enter issues.
+        String[] lines = output.split("(?<=\n)"); // split after \n, keep delimiter
+        StringBuilder sb = new StringBuilder();
+        for (String line : lines) {
+            sb.append(line.stripLeading());
+        }
+        return sb.toString();
+    }
 
     /**
      * Check if command is a clear screen command.

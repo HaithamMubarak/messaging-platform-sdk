@@ -1818,9 +1818,10 @@
 
                 // ✅ Normal WebSocket routing
                 if (foundSession.ws && foundSession.ws.readyState === WebSocket.OPEN) {
-                    // Only convert \r to \r\n for local terminals (cmd/powershell)
-                    // SSH sessions handle their own line endings
-                    if (data === '\r' && foundSession.type === 'local') {
+                    // CMD and PowerShell need \r\n for Enter
+                    // Bash manages its own line endings - send plain \r only
+                    const shell = foundSession.config?.shell || 'cmd';
+                    if (data === '\r' && (shell === 'cmd' || shell === 'powershell')) {
                         foundSession.ws.send('\r\n');
                     } else {
                         foundSession.ws.send(data);
@@ -1941,6 +1942,17 @@
                     // Remove DEL (127/0x7F) and other problematic control chars
                     // Keep: printable chars, newlines (\n, \r), tabs (\t), and valid ANSI escapes (ESC = 27/0x1B)
                     data = data.replace(/[\x7F]/g, ''); // Remove DEL character
+
+                    // Clean bash output - strip leading spaces per line
+                    // Bash running through a pipe (no PTY) produces extra leading spaces
+                    // because tools can't detect terminal width properly
+                    // IMPORTANT: split on \n keeping delimiter, never touch \r or \r\n
+                    const shell = session.config?.shell || 'cmd';
+                    if (shell === 'bash') {
+                        data = data.split(/(?<=\n)/)
+                                   .map(line => line.trimStart())
+                                   .join('');
+                    }
 
                     // Only write if we have valid data
                     if (data.length > 0) {

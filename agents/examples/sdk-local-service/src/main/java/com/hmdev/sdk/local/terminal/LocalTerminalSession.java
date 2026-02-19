@@ -189,14 +189,29 @@ public class LocalTerminalSession implements ITerminalSession {
     public void sendInput(String data) {
         try {
             OutputStream out = process.getOutputStream();
-
             out.write(data.getBytes(StandardCharsets.UTF_8));
             out.flush();
-
             log.debug("[LocalTerminal-{}] Sent input: {} bytes", sessionId, data.length());
         } catch (IOException e) {
-            log.error("[LocalTerminal-{}] Failed to send input: {}", sessionId, e.getMessage());
+            // Broken pipe can happen briefly after Ctrl+C - log warn, don't throw
+            log.warn("[LocalTerminal-{}] Failed to send input (process may be restarting): {}", sessionId, e.getMessage());
             throw new RuntimeException("Failed to send input", e);
+        }
+    }
+
+    @Override
+    public void sendCtrlC() {
+        try {
+            // Send raw ETX byte (0x03) - interrupt signal
+            // Works for bash natively
+            // For CMD: interrupts the currently running child command
+            OutputStream out = process.getOutputStream();
+            out.write(0x03);
+            out.write('\r');  // Follow with Enter so CMD shows new prompt
+            out.flush();
+            log.debug("[LocalTerminal-{}] Sent Ctrl+C (0x03)", sessionId);
+        } catch (IOException e) {
+            log.warn("[LocalTerminal-{}] Failed to send Ctrl+C: {}", sessionId, e.getMessage());
         }
     }
 

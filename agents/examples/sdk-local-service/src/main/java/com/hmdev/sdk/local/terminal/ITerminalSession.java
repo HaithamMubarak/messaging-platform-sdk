@@ -10,6 +10,14 @@ public interface ITerminalSession {
 
     void sendInput(String data);
 
+    /**
+     * Send Ctrl+C interrupt signal to the terminal process.
+     * Default implementation sends raw \u0003 byte - override for OS-specific behavior.
+     */
+    default void sendCtrlC() {
+        sendInput("\u0003");
+    }
+
     void onResize(int cols, int rows);
 
     boolean close();

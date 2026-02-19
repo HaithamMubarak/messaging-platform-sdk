@@ -22,9 +22,12 @@ import java.util.concurrent.ConcurrentHashMap;
 @RequiredArgsConstructor
 public class TerminalService {
 
-    // Unified session storage using ITerminalSession interface  
+    // Unified session storage using ITerminalSession interface
     private final Map<String, ITerminalSession> sessions = new ConcurrentHashMap<>();
-    
+
+    // Track shell type per session for output cleaning decisions
+    private final Map<String, String> sessionShells = new ConcurrentHashMap<>();
+
     // Repository dependencies
     private final TerminalSessionRepository sessionRepository;
     private final SshConnectionRepository sshConnectionRepository;
@@ -45,7 +48,8 @@ public class TerminalService {
         }
 
         sessions.put(sessionId, session);
-        
+        sessionShells.put(sessionId, shell);  // Track shell type for output cleaning
+
         // Save to database
         TerminalSession dbSession = new TerminalSession();
         dbSession.setSessionId(sessionId);
@@ -236,6 +240,24 @@ public class TerminalService {
     }
 
     /**
+     * Get the shell type for a session (cmd, powershell, bash, ssh, etc.)
+     */
+    public String getSessionType(String sessionId) {
+        return sessionShells.get(sessionId);
+    }
+
+    /**
+     * Send Ctrl+C interrupt to terminal session.
+     */
+    public void sendCtrlC(String sessionId) {
+        ITerminalSession session = sessions.get(sessionId);
+        if (session != null) {
+            session.sendCtrlC();
+            log.info("[TerminalService] Sent Ctrl+C to session: {}", sessionId);
+        }
+    }
+
+    /**
      * Get the echo response for a given input (for manual echo sessions)
      * This simulates terminal echo behavior
      *
@@ -278,6 +300,7 @@ public class TerminalService {
         log.info("[TerminalService] Closing session: {}", sessionId);
 
         ITerminalSession session = sessions.remove(sessionId);
+        sessionShells.remove(sessionId);  // Clean up shell type tracking
         if (session != null) {
             log.info("[TerminalService] Found session {}, type: {}", sessionId, session.getClass().getSimpleName());
             boolean closed = session.close();
