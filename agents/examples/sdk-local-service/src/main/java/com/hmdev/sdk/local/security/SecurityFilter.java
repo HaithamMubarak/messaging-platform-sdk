@@ -103,7 +103,7 @@ public class SecurityFilter extends OncePerRequestFilter {
      * Check if endpoint is public (doesn't require token)
      */
     private boolean isPublicEndpoint(String path) {
-        return securityProperties.getPublicEndpoints().stream()
+        return SecurityProperties.PUBLIC_ENDPOINTS.stream()
                 .anyMatch(path::startsWith);
     }
 
@@ -111,7 +111,7 @@ public class SecurityFilter extends OncePerRequestFilter {
      * Check if request is for static resource
      */
     private boolean isStaticResource(String path) {
-        return securityProperties.getStaticExtensions().stream()
+        return SecurityProperties.STATIC_EXTENSIONS.stream()
                 .anyMatch(path::endsWith);
     }
 

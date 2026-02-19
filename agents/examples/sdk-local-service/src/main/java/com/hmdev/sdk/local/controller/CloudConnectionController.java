@@ -12,12 +12,13 @@ import java.util.Map;
 /**
  * Cloud connection management endpoint
  * Stores/retrieves cloud messaging platform credentials
+ *
+ * CORS handled by global CorsConfig (uses SecurityProperties.allowedOrigins)
  */
 @RestController
 @RequestMapping("/cloud")
 @RequiredArgsConstructor
 @Slf4j
-@CrossOrigin(origins = "*")
 public class CloudConnectionController {
 
     private static final String CLOUD_CONNECTION_KEY = "cloud_connection";

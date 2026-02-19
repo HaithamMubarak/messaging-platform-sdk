@@ -11,13 +11,45 @@ import java.util.List;
 /**
  * Configuration properties for SDK Local Service security.
  *
- * All security settings can be configured via application.properties
+ * Security settings configured via application.properties.
+ * Public endpoints and static extensions are defined as constants (rarely change).
  */
 @Configuration
 @ConfigurationProperties(prefix = "sls.security")
 @Getter
 @Setter
 public class SecurityProperties {
+
+    /**
+     * Public endpoints that don't require token authentication.
+     *
+     * These are application constants - NOT configurable via properties.
+     * They define the core public API surface and rarely change.
+     */
+    public static final List<String> PUBLIC_ENDPOINTS = Arrays.asList(
+        "/health",            // Health check
+        "/auth/token",        // Token generation
+        "/auth/status",       // Security status
+        "/auth/validate",     // Token validation
+        "/favicon.ico",       // Favicon
+        "/",                  // Root
+        "/index.html",        // Index page
+        "/terminal/stream",   // WebSocket streaming (sessionId auth)
+        "/cloud/connection"   // Cloud configuration
+    );
+
+    /**
+     * Static resource file extensions that don't require authentication.
+     *
+     * These are application constants - NOT configurable via properties.
+     * They define what file types are served as static content.
+     */
+    public static final List<String> STATIC_EXTENSIONS = Arrays.asList(
+        ".html", ".css", ".js", ".json",
+        ".png", ".jpg", ".jpeg", ".gif", ".svg", ".ico",
+        ".woff", ".woff2", ".ttf", ".eot",
+        ".map", ".txt", ".md"
+    );
 
     /**
      * Enable/disable security (token validation)
@@ -28,42 +60,17 @@ public class SecurityProperties {
 
     /**
      * Allowed origins for CORS and origin validation
-     * Comma-separated list
-     * Example: https://hmdevonline.com,http://localhost,http://127.0.0.1
+     * Specific origins only - no wildcards
+     * Configured via application.properties: sls.security.allowed-origins
      */
     private List<String> allowedOrigins = Arrays.asList(
         "https://hmdevonline.com",
-        "http://localhost",
-        "http://127.0.0.1"
+        "http://localhost:8084",
+        "http://127.0.0.1:8084",
+        "http://localhost:3000",
+        "http://127.0.0.1:3000"
     );
 
-    /**
-     * Public endpoints that don't require token authentication
-     * These are accessible without X-SLS-Token header
-     *
-     * Note: H2 console is NOT included - it has its own security
-     */
-    private List<String> publicEndpoints = Arrays.asList(
-        "/health",
-        "/auth/token",
-        "/auth/status",
-        "/auth/validate",
-        "/favicon.ico",
-        "/",
-        "/index.html",
-        "/terminal/stream" // WebSocket endpoint (sessionId provides access control)
-    );
-
-    /**
-     * Static resource file extensions
-     * These are served without token validation
-     */
-    private List<String> staticExtensions = Arrays.asList(
-        ".html", ".css", ".js", ".json",
-        ".png", ".jpg", ".jpeg", ".gif", ".svg", ".ico",
-        ".woff", ".woff2", ".ttf", ".eot",
-        ".map", ".txt", ".md"
-    );
 
     /**
      * Token header name

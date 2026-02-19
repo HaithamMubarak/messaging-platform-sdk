@@ -23,11 +23,16 @@ import org.springframework.web.socket.config.annotation.WebSocketHandlerRegistry
 public class WebSocketConfig implements WebSocketConfigurer {
 
     private final TerminalWebSocketHandler terminalWebSocketHandler;
+    private final SecurityProperties securityProperties;
 
     @Override
     public void registerWebSocketHandlers(WebSocketHandlerRegistry registry) {
+        // Use same allowed origins as REST API - no wildcards
+        String[] allowedOrigins = securityProperties.getAllowedOrigins()
+                .toArray(new String[0]);
+
         registry.addHandler(terminalWebSocketHandler, "/terminal/stream/*")
-                .setAllowedOrigins("*"); // CORS - safe because localhost-only
+                .setAllowedOrigins(allowedOrigins);
     }
 }
 

@@ -28,23 +28,16 @@ public class CorsConfig {
         return new WebMvcConfigurer() {
             @Override
             public void addCorsMappings(CorsRegistry registry) {
-                // Get allowed origins from SecurityProperties
-                String[] originPatterns = securityProperties.getAllowedOrigins().stream()
-                        .map(origin -> {
-                            // Convert simple origins to patterns that support ports
-                            if (origin.contains("localhost") || origin.contains("127.0.0.1")) {
-                                // Allow any port for localhost
-                                return origin.replaceAll(":\\d+$", ":*");
-                            }
-                            return origin;
-                        })
-                        .toArray(String[]::new);
+                // Get allowed origins directly from SecurityProperties
+                // No transformation - use exact origins from configuration
+                String[] originPatterns = securityProperties.getAllowedOrigins()
+                        .toArray(new String[0]);
 
                 // Get token header name from SecurityProperties
                 String tokenHeader = securityProperties.getTokenHeader();
 
                 registry.addMapping("/**")
-                        // Use configured origin patterns
+                        // Use exact origin patterns from configuration
                         .allowedOriginPatterns(originPatterns)
                         // Only allow necessary HTTP methods
                         .allowedMethods("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS")

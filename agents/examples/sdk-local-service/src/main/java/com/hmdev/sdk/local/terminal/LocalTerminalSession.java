@@ -67,6 +67,7 @@ public class LocalTerminalSession implements ITerminalSession {
         pb.directory(new File(System.getProperty("user.home")));
         pb.redirectErrorStream(true);  // Merge stderr into stdout
 
+
         this.process = pb.start();
 
         // Initialize Windows CMD only (not PowerShell or Bash)

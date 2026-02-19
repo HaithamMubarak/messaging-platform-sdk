@@ -23,7 +23,7 @@ public class HealthController {
     public ResponseEntity<Map<String, Object>> health() {
         Map<String, Object> health = new HashMap<>();
         health.put("status", "UP");
-        health.put("service", "Messaging Local Service");
+        health.put("service", "SDK Local Service");
         health.put("version", "1.0.0");
         health.put("startTime", startTime.toString());
         health.put("uptime", getUptime());
