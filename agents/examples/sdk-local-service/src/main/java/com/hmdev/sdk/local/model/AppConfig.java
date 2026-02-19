@@ -14,10 +14,10 @@ import java.time.LocalDateTime;
 public class AppConfig {
 
     @Id
-    @Column(name = "config_key")
+    @Column(name = "config_key", nullable = false)
     private String key;
 
-    @Column(name = "config_value", columnDefinition = "TEXT")
+    @Column(name = "config_value", columnDefinition = "VARCHAR(10000)")
     private String value; // JSON string
 
     @Column(name = "created_at")

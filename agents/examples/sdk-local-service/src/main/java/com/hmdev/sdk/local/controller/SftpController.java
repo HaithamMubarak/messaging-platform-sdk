@@ -1,6 +1,6 @@
 package com.hmdev.sdk.local.controller;
 
-import com.hmdev.sdk.local.service.SftpService;
+import com.hmdev.sdk.local.terminal.SftpService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.core.io.InputStreamResource;

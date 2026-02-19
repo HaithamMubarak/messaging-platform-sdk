@@ -1,19 +1,23 @@
 # SDK Local Service (SLS)
 
 **Version:** 1.0.0  
-**Port:** 8088 (default)  
-**Database:** H2 (sls-data.mv.db)
+**Port:** 8088 (localhost only - 127.0.0.1)  
+**Database:** H2 (sls-data.mv.db)  
+**Security:** ✅ Token-based authentication enabled
 
 ---
 
 ## 🎯 What is SDK Local Service?
 
-**SDK Local Service (SLS)** is a general-purpose local service for the Messaging Platform SDK that provides:
+**SDK Local Service (SLS)** is a **secure** general-purpose local service for the Messaging Platform SDK that provides:
 - ✅ Execute terminal commands (local or SSH)
 - ✅ Session management with H2 database persistence
 - ✅ SSH connection management (saved connections)
 - ✅ Interactive terminal via WebSocket
 - ✅ REST API for all operations
+- 🔒 **Token-based security** for all API endpoints
+- 🔒 **Localhost-only binding** (127.0.0.1) - no external access
+- 🔒 **Origin validation** to prevent CSRF attacks
 
 ---
 
@@ -39,8 +43,50 @@ Or:
 
 ### 3. Access
 
-- **Service:** http://localhost:8088
-- **Web UI:** http://localhost:8090/examples/terminal/ (from web-sdk-server)
+- **Terminal UI:** http://localhost:8088
+- **Health Check:** http://localhost:8088/health
+
+### 4. Get Security Token
+
+**IMPORTANT:** All API endpoints (except public ones) require a security token.
+
+Request a token:
+```bash
+curl -X POST http://localhost:8088/auth/token
+```
+
+Response:
+```json
+{
+  "token": "your-secure-token-here",
+  "expiresIn": 24,
+  "message": "Token generated successfully. Include this token in 'X-SLS-Token' header for all requests."
+}
+```
+
+Use token in requests:
+```bash
+curl -H "X-SLS-Token: your-token-here" http://localhost:8088/terminal/create
+```
+
+---
+
+## 🔒 Security Features
+
+SLS implements **production-ready security** measures:
+
+| Feature | Status | Description |
+|---------|--------|-------------|
+| Localhost-only binding | ✅ Enabled | Service only accessible from 127.0.0.1 |
+| Token authentication | ✅ Enabled | All API endpoints require valid token |
+| Strict CORS | ✅ Enabled | Only trusted origins allowed |
+| Origin validation | ✅ Enabled | Prevents CSRF attacks |
+| Token expiry | ✅ Enabled | Tokens auto-expire after 24 hours |
+| Secure token generation | ✅ Enabled | 48-byte cryptographically secure random tokens |
+| Request logging | ✅ Enabled | All security events logged |
+| H2 Console | ❌ Disabled | Disabled by default for security |
+
+**See:** [SECURITY-IMPLEMENTATION.md](./SECURITY-IMPLEMENTATION.md) for complete security documentation.
 
 ---
 

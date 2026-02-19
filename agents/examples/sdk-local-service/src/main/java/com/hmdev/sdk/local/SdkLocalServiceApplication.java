@@ -23,12 +23,19 @@ public class SdkLocalServiceApplication {
     @EventListener(ApplicationReadyEvent.class)
     public void onReady() {
         String port = environment.getProperty("server.port", "8088");
-        log.info("╔══════════════════════════════════════════════════╗");
-        log.info("║  SDK Local Service (SLS) v1.0.0                  ║");
-        log.info("║  Port: {}                                        ║", port);
-        log.info("║  Status: Ready                                   ║");
-        log.info("║  Database: H2 (sls-data.mv.db)                   ║");
-        log.info("╚══════════════════════════════════════════════════╝");
+        String address = environment.getProperty("server.address", "127.0.0.1");
+
+        log.info("╔══════════════════════════════════════════════════════════╗");
+        log.info("║  SDK Local Service (SLS) v1.0.0                          ║");
+        log.info("║  Address: {}:{}                                      ║", address, port);
+        log.info("║  Status: Ready ✓                                         ║");
+        log.info("║  Database: H2 (sls-data.mv.db)                           ║");
+        log.info("║  Security: ENABLED (Token required)                      ║");
+        log.info("║                                                          ║");
+        log.info("║  🔐 Get Token: POST http://{}:{}/auth/token  ║", address, port);
+        log.info("║  💚 Health: http://{}:{}/health                  ║", address, port);
+        log.info("║  🌐 Terminal: http://{}:{}                       ║", address, port);
+        log.info("╚══════════════════════════════════════════════════════════╝");
     }
 }
 

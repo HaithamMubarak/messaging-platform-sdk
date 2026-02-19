@@ -82,6 +82,7 @@
 
     <!-- Menu Bar -->
     <div class="menu-bar">
+        <div class="menu-item" onclick="showSettings()">Settings</div>
         <div class="menu-item" onclick="showHelp()">Help</div>
         <div class="menu-item" onclick="showAbout()">About</div>
         <div class="menu-spacer"></div>
@@ -260,6 +261,53 @@
         <div class="status-item" style="margin-left: auto;">
             <span class="label">Cloud:</span>
             <span class="value" id="statusCloud">Disconnected</span>
+        </div>
+    </div>
+
+    <!-- Settings Modal -->
+    <div class="modal-overlay" id="settingsModalOverlay">
+        <div class="modal" style="width: 500px;">
+            <div class="modal-header">
+                <div class="modal-title">⚙️ Settings</div>
+                <div class="modal-close" onclick="closeSettingsModal()">✕</div>
+            </div>
+            <div class="modal-body">
+                <div class="form-group">
+                    <label>SDK Local Service Port</label>
+                    <div style="display: flex; gap: 10px; align-items: center;">
+                        <input type="number" id="slsPortInput" min="1024" max="65535"
+                               style="flex: 1; padding: 8px; border: 1px solid var(--border-color);
+                                      border-radius: 4px; background: var(--bg-input); color: var(--text-primary);">
+                        <button type="button" class="btn btn-secondary"
+                                onclick="resetSlsPort()"
+                                style="padding: 8px 16px;">
+                            Reset to Default
+                        </button>
+                    </div>
+                    <small style="color: var(--text-secondary); display: block; margin-top: 5px;">
+                        Default: 8088. Change this if SLS is running on a different port.
+                    </small>
+                </div>
+
+                <div style="margin-top: 20px; padding: 12px; background: var(--bg-panel);
+                            border-left: 3px solid var(--accent-blue); border-radius: 4px;">
+                    <div style="font-weight: 500; margin-bottom: 5px;">ℹ️ Current Configuration</div>
+                    <div style="color: var(--text-secondary); font-size: 13px;">
+                        <div>HTTP URL: <code style="color: var(--accent-green);">http://localhost:<span id="currentPortDisplay"></span></code></div>
+                        <div>WebSocket URL: <code style="color: var(--accent-green);">ws://localhost:<span id="currentWsPortDisplay"></span></code></div>
+                    </div>
+                </div>
+
+                <div style="margin-top: 15px; padding: 10px; background: var(--bg-sidebar);
+                            border-radius: 4px; font-size: 13px; color: var(--text-secondary);">
+                    ⚠️ <strong>Note:</strong> Changing the port will clear the current security token.
+                    You'll need to reconnect to the new service instance.
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" onclick="closeSettingsModal()">Cancel</button>
+                <button type="button" class="btn btn-primary" onclick="saveSlsPortSettings()">Apply & Reconnect</button>
+            </div>
         </div>
     </div>
 
@@ -678,8 +726,143 @@
         // ========================================
         // Configuration
         // ========================================
-        const MLS_URL = 'http://localhost:8088';
-        const MLS_WS_URL = 'ws://localhost:8088';
+        // SDK Local Service Configuration
+        // ========================================
+        const DEFAULT_SLS_PORT = 8088;
+        let SLS_PORT = parseInt(localStorage.getItem('sls-port') || DEFAULT_SLS_PORT);
+        let MLS_URL = `http://localhost:${SLS_PORT}`;
+        let MLS_WS_URL = `ws://localhost:${SLS_PORT}`;
+
+        /**
+         * Update SLS port configuration
+         */
+        function updateSlsPort(port) {
+            SLS_PORT = port;
+            MLS_URL = `http://localhost:${SLS_PORT}`;
+            MLS_WS_URL = `ws://localhost:${SLS_PORT}`;
+            localStorage.setItem('sls-port', port.toString());
+            console.log(`✅ SLS port updated to: ${port}`);
+        }
+
+        // ========================================
+        // Security Token Management
+        // ========================================
+        let slsSecurityToken = null;
+
+        /**
+         * Request security token from SLS
+         */
+        async function requestSlsToken() {
+            try {
+                const response = await fetch(`${MLS_URL}/auth/token`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        origin: window.location.origin,
+                        expiryHours: 24
+                    })
+                });
+
+                if (!response.ok) {
+                    throw new Error(`Failed to get token: ${response.status}`);
+                }
+
+                const data = await response.json();
+                slsSecurityToken = data.token;
+
+                // Store in localStorage for page refresh
+                localStorage.setItem('sls-token', slsSecurityToken);
+                localStorage.setItem('sls-token-timestamp', Date.now().toString());
+
+                console.log('✅ SLS security token obtained');
+                return slsSecurityToken;
+            } catch (error) {
+                console.error('❌ Failed to get SLS token:', error);
+                showToast('Failed to authenticate with SDK Local Service', 'error');
+                throw error;
+            }
+        }
+
+        /**
+         * Get security token (from memory or localStorage)
+         */
+        function getSlsToken() {
+            if (slsSecurityToken) {
+                return slsSecurityToken;
+            }
+
+            // Try to restore from localStorage
+            const storedToken = localStorage.getItem('sls-token');
+            const timestamp = localStorage.getItem('sls-token-timestamp');
+
+            if (storedToken && timestamp) {
+                const age = Date.now() - parseInt(timestamp);
+                const maxAge = 23 * 60 * 60 * 1000; // 23 hours (refresh before 24h expiry)
+
+                if (age < maxAge) {
+                    slsSecurityToken = storedToken;
+                    return slsSecurityToken;
+                }
+            }
+
+            return null;
+        }
+
+        /**
+         * Get headers with security token
+         */
+        function getSlsHeaders(additionalHeaders = {}) {
+            const token = getSlsToken();
+            return {
+                'X-SLS-Token': token,
+                ...additionalHeaders
+            };
+        }
+
+        /**
+         * Fetch with automatic token handling
+         */
+        async function slsFetch(url, options = {}) {
+            let token = getSlsToken();
+
+            // Request new token if we don't have one
+            if (!token) {
+                token = await requestSlsToken();
+            }
+
+            // Add token to headers
+            const headers = {
+                'X-SLS-Token': token,
+                ...(options.headers || {})
+            };
+
+            try {
+                const response = await fetch(url, {
+                    ...options,
+                    headers
+                });
+
+                // If 401, token might be expired - try refreshing once
+                if (response.status === 401) {
+                    console.log('Token expired, refreshing...');
+                    token = await requestSlsToken();
+
+                    // Retry with new token
+                    return await fetch(url, {
+                        ...options,
+                        headers: {
+                            'X-SLS-Token': token,
+                            ...(options.headers || {})
+                        }
+                    });
+                }
+
+                return response;
+            } catch (error) {
+                console.error('SLS fetch error:', error);
+                throw error;
+            }
+        }
 
         // ========================================
         // State Management
@@ -749,7 +932,7 @@
          */
         async function restoreSavedTabs() {
             try {
-                const response = await fetch(`${MLS_URL}/terminal/sessions`);
+                const response = await slsFetch(`${MLS_URL}/terminal/sessions`);
                 if (!response.ok) return;
 
                 const savedSessions = await response.json();
@@ -1007,7 +1190,7 @@
         }
 
         // ========================================
-        // MLS Health Check
+        // SLS Health Check
         // ========================================
         async function checkMlsHealth(showNotification = false) {
             const statusDot = document.getElementById('mlsStatus');
@@ -1017,12 +1200,13 @@
             statusText.textContent = 'SLS: Checking...';
 
             try {
+                // Health endpoint is public, but we use slsFetch for consistency
                 const response = await fetch(`${MLS_URL}/health`);
                 if (response.ok) {
                     statusDot.className = 'status-dot online';
                     statusText.textContent = 'SLS: Online';
                     if (showNotification) {
-                        showToast('success', 'SLS Online', 'SDK Local Service is running');
+                        showToast('SLS Online - SDK Local Service is running', 'success');
                     }
                     return true;
                 }
@@ -1042,7 +1226,7 @@
         // ========================================
         async function loadSshConnections() {
             try {
-                const response = await fetch(`${MLS_URL}/terminal/ssh-connections`);
+                const response = await slsFetch(`${MLS_URL}/terminal/ssh-connections`);
                 if (!response.ok) throw new Error('Failed to load');
                 return await response.json();
             } catch (error) {
@@ -1295,12 +1479,12 @@
         async function createLocalTerminal(shell = 'cmd') {
             const healthy = await checkMlsHealth();
             if (!healthy) {
-                showToast('error', 'SLS Unavailable', 'Please start SDK Local Service first');
+                showToast('SLS Unavailable - Please start SDK Local Service first', 'error');
                 return;
             }
 
             try {
-                const response = await fetch(`${MLS_URL}/terminal/create`, {
+                const response = await slsFetch(`${MLS_URL}/terminal/create`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ type: 'local', shell })
@@ -1937,7 +2121,7 @@
 
                 // Call backend to close
                 console.log(`[Close] Calling backend DELETE /terminal/${sessionId}`);
-                const response = await fetch(`${MLS_URL}/terminal/${sessionId}`, { method: 'DELETE' });
+                const response = await slsFetch(`${MLS_URL}/terminal/${sessionId}`, { method: 'DELETE' });
                 console.log(`[Close] Backend response status: ${response.status}`);
                 if (response.ok) {
                     const result = await response.json();
@@ -2088,6 +2272,70 @@
         // ========================================
         // Help Modal
         // ========================================
+        // ========================================
+        // Settings Modal Functions
+        // ========================================
+        window.showSettings = function() {
+            // Populate current port value
+            document.getElementById('slsPortInput').value = SLS_PORT;
+            document.getElementById('currentPortDisplay').textContent = SLS_PORT;
+            document.getElementById('currentWsPortDisplay').textContent = SLS_PORT;
+
+            document.getElementById('settingsModalOverlay').classList.add('visible');
+        }
+
+        window.closeSettingsModal = function() {
+            document.getElementById('settingsModalOverlay').classList.remove('visible');
+        }
+
+        window.resetSlsPort = function() {
+            document.getElementById('slsPortInput').value = DEFAULT_SLS_PORT;
+        }
+
+        window.saveSlsPortSettings = async function() {
+            const newPort = parseInt(document.getElementById('slsPortInput').value);
+
+            // Validate port
+            if (isNaN(newPort) || newPort < 1024 || newPort > 65535) {
+                showToast('Invalid port number. Please use a port between 1024 and 65535.', 'error');
+                return;
+            }
+
+            // Check if port actually changed
+            if (newPort === SLS_PORT) {
+                closeSettingsModal();
+                return;
+            }
+
+            // Update port configuration
+            updateSlsPort(newPort);
+
+            // Clear old token (new service instance might have different tokens)
+            slsSecurityToken = null;
+            localStorage.removeItem('sls-token');
+            localStorage.removeItem('sls-token-timestamp');
+
+            // Close modal
+            closeSettingsModal();
+
+            // Show reconnecting message
+            showToast(`Connecting to SLS on port ${newPort}...`, 'info');
+
+            // Try to connect with new port
+            try {
+                await requestSlsToken();
+                await checkMlsHealth(true);
+                await refreshConnections();
+                showToast(`Successfully connected to SLS on port ${newPort}`, 'success');
+            } catch (error) {
+                showToast(`Failed to connect to SLS on port ${newPort}. Please check if the service is running.`, 'error');
+                console.error('Failed to connect with new port:', error);
+            }
+        }
+
+        // ========================================
+        // Help Modal Functions
+        // ========================================
         window.showHelp = function() {
             document.getElementById('helpModalOverlay').classList.add('visible');
             // Default to quickstart tab
@@ -2126,6 +2374,10 @@
         // ========================================
         // Modal Click Outside to Close
         // ========================================
+        document.getElementById('settingsModalOverlay').addEventListener('click', (e) => {
+            if (e.target.id === 'settingsModalOverlay') closeSettingsModal();
+        });
+
         document.getElementById('sshModalOverlay').addEventListener('click', (e) => {
             if (e.target.id === 'sshModalOverlay') closeSshModal();
         });
@@ -2182,7 +2434,7 @@
 
         async function editSshConnection(connectionId) {
             try {
-                const response = await fetch(`${MLS_URL}/terminal/ssh-connections/${connectionId}`);
+                const response = await slsFetch(`${MLS_URL}/terminal/ssh-connections/${connectionId}`);
                 if (!response.ok) throw new Error('Failed to load connection');
 
                 const conn = await response.json();
@@ -2210,7 +2462,7 @@
 
         async function duplicateSshConnection(connectionId) {
             try {
-                const response = await fetch(`${MLS_URL}/terminal/ssh-connections/${connectionId}`);
+                const response = await slsFetch(`${MLS_URL}/terminal/ssh-connections/${connectionId}`);
                 if (!response.ok) throw new Error('Failed to load connection');
 
                 const conn = await response.json();
@@ -2241,7 +2493,7 @@
             }
 
             try {
-                const response = await fetch(`${MLS_URL}/terminal/ssh-connections/${connectionId}`, {
+                const response = await slsFetch(`${MLS_URL}/terminal/ssh-connections/${connectionId}`, {
                     method: 'DELETE'
                 });
 
@@ -2309,7 +2561,7 @@
          */
         async function loadCloudConfig() {
             try {
-                const response = await fetch(`${MLS_URL}/cloud/connection`);
+                const response = await slsFetch(`${MLS_URL}/cloud/connection`);
                 if (!response.ok) {
                     console.log('[Cloud] No saved config found');
                     return;
@@ -2786,6 +3038,17 @@
         // Initialize
         // ========================================
         window.addEventListener('load', async () => {
+            // 🔐 Request SLS security token first
+            try {
+                await requestSlsToken();
+                console.log('✅ SLS authentication successful');
+            } catch (error) {
+                console.error('❌ Failed to authenticate with SLS:', error);
+                showToast('Failed to authenticate with SDK Local Service. Please ensure it is running.', 'error');
+                return; // Don't proceed if we can't authenticate
+            }
+
+            // Now proceed with normal initialization
             await checkMlsHealth();
             await refreshConnections();
 
@@ -2803,6 +3066,13 @@
 
             // Start health check interval
             setInterval(() => checkMlsHealth(), 30000);
+
+            // Refresh token every 23 hours (before 24h expiry)
+            setInterval(() => {
+                requestSlsToken().catch(err => {
+                    console.error('Failed to refresh SLS token:', err);
+                });
+            }, 23 * 60 * 60 * 1000);
         });
 
         window.addEventListener('resize', () => {

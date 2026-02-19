@@ -2,7 +2,8 @@ package com.hmdev.sdk.local.controller;
 
 import com.hmdev.sdk.local.model.SshConnection;
 import com.hmdev.sdk.local.model.TerminalSession;
-import com.hmdev.sdk.local.service.TerminalService;
+import com.hmdev.sdk.local.terminal.TerminalService;
+import com.hmdev.sdk.local.terminal.util.TerminalStringUtils;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;
@@ -96,10 +97,9 @@ public class TerminalController {
                                        @RequestBody Map<String, String> request) {
         String data = request.get("data");
 
-        log.info("[Input] Session: {}, Data: {} (bytes: {})",
+        log.info("[Input] Session: {}, Data: {}",
                  sessionId,
-                 data.replace("\r", "\\r").replace("\n", "\\n"),
-                 data.length());
+                 TerminalStringUtils.formatForLogging(data));
 
         if (!terminalService.isSessionActive(sessionId)) {
             log.warn("[Input] Session {} not active", sessionId);
