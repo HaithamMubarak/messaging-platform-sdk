@@ -66,8 +66,8 @@
                 keyInput.value = this._generateUniqueAgentName();
             }
 
-            // Show modal (use flex for centering)
-            modal.style.display = 'flex';
+            // Show modal (use active class for centering)
+            modal.classList.add('active');
             modal.setAttribute('aria-hidden', 'false');
 
             // Public link handler
@@ -226,7 +226,7 @@
             const encryptedBtn = document.getElementById('share-encrypted-btn');
 
             if (modal) {
-                modal.style.display = 'none';
+                modal.classList.remove('active');
                 modal.setAttribute('aria-hidden', 'true');
             }
 

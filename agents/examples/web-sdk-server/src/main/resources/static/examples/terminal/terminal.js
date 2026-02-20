@@ -307,11 +307,11 @@ function createTerminalDataSender(type, params) {
  *   owner: String|null              // null = my terminal, "AgentName" = remote
  * }
  */
+const sessions = new Map();
 let activeSessionId = null;
-let tabCounter = 0;
 
 // ========================================
-// Terminal Sharing State (AgentInteractionBase pattern)
+// SECTION 5: CLOUD SHARING STATE
 // ========================================
 let terminalSharing = null;    // TerminalSharing instance (like air-hockey airHockeyGame)
 let cloudConnected = false;
@@ -819,6 +819,7 @@ function createTab(sessionId, title, icon, type) {
     tab.innerHTML = `
         <span class="tab-icon">${icon}</span>
         <span class="tab-title">${escapeHtml(title)}</span>
+        <span class="tab-shared-badge" style="display: none;">📡</span>
         <span class="tab-close" onclick="event.stopPropagation(); closeTab('${sessionId}')">×</span>
     `;
     tab.onclick = () => switchToSession(sessionId);
@@ -845,6 +846,27 @@ function updateTab(sessionId, disconnected = false) {
             tab.classList.add('disconnected');
         } else {
             tab.classList.remove('disconnected');
+        }
+    }
+}
+
+/**
+ * Update tab shared indicator badge
+ */
+function updateTabSharedIndicator(sessionId, isShared) {
+    const tab = document.getElementById(`tab-${sessionId}`);
+    if (tab) {
+        // Toggle the shared class for visual indicator (icon)
+        if (isShared) {
+            tab.classList.add('shared');
+        } else {
+            tab.classList.remove('shared');
+        }
+
+        // Also update badge if exists
+        const badge = tab.querySelector('.tab-shared-badge');
+        if (badge) {
+            badge.style.display = isShared ? 'inline' : 'none';
         }
     }
 }
@@ -1839,20 +1861,6 @@ window.showAbout = function() {
     showToast('info', 'About', aboutInfo, 6000);
 }
 
-// ========================================
-// Modal Click Outside to Close
-// ========================================
-document.getElementById('settingsModalOverlay').addEventListener('click', (e) => {
-    if (e.target.id === 'settingsModalOverlay') closeSettingsModal();
-});
-
-document.getElementById('sshModalOverlay').addEventListener('click', (e) => {
-    if (e.target.id === 'sshModalOverlay') closeSshModal();
-});
-
-document.getElementById('helpModalOverlay').addEventListener('click', (e) => {
-    if (e.target.id === 'helpModalOverlay') closeHelpModal();
-});
 
 // ========================================
 // Context Menu State
@@ -1920,9 +1928,22 @@ function showTabContextMenu(e, sessionId) {
 
     // Update Share menu item label based on current share state
     const session = sessions.get(sessionId);
+    const shareMenuItem = document.getElementById('shareMenuItem');
     const shareText = document.getElementById('shareMenuText');
+
     if (shareText) {
-        shareText.textContent = session && session.isShared ? 'Unshare Terminal' : 'Share Terminal';
+        shareText.textContent = session && session.isShared ? 'Unshare Session' : 'Share Session';
+    }
+
+    // Disable share option if not connected to cloud
+    if (shareMenuItem) {
+        if (!cloudConnected || !terminalSharing) {
+            shareMenuItem.classList.add('disabled');
+            shareMenuItem.title = 'Connect to cloud messaging first';
+        } else {
+            shareMenuItem.classList.remove('disabled');
+            shareMenuItem.title = '';
+        }
     }
 
     // Position and show the menu (keep it on screen)
@@ -1940,7 +1961,17 @@ function tabContextMenuAction(action) {
     const sessionId = tabContextMenuTarget;
     if (!sessionId) return;
 
+    // Check if the action is disabled (e.g., share when not connected)
+    if (action === 'toggleShare') {
+        const shareMenuItem = document.getElementById('shareMenuItem');
+        if (shareMenuItem && shareMenuItem.classList.contains('disabled')) {
+            showToast('warning', 'Not Connected', 'Connect to cloud messaging first to share terminals');
+            return;
+        }
+    }
+
     switch (action) {
+        // ...existing code...
         case 'rename': {
             const session = sessions.get(sessionId);
             const current = session ? session.name : sessionId;
@@ -1965,6 +1996,12 @@ function tabContextMenuAction(action) {
             break;
         }
         case 'toggleShare': {
+            // Check if cloud connected before allowing share/unshare
+            if (!cloudConnected || !terminalSharing) {
+                showToast('warning', 'Not Connected', 'Connect to cloud messaging first to share terminals');
+                return;
+            }
+
             const session = sessions.get(sessionId);
             if (!session) break;
             if (session.isShared) {
@@ -2089,23 +2126,366 @@ async function deleteSshConnection(connectionId, name) {
 /**
  * Toggle cloud panel visibility
  */
+// ========================================
+// Share Modal & Auth URL Functions
+// ========================================
+
+/**
+ * Check for auth URL parameters (shared link) and auto-connect
+ */
+async function checkForAuthUrl() {
+    const hash = window.location.hash;
+    if (!hash || hash.length < 10) return;
+
+    console.log('[Terminal] Checking for shared link in URL');
+
+    try {
+        // Remove # and split by # to get auth and optional channel name
+        const parts = hash.substring(1).split('#');
+        const authEncoded = parts[0];
+
+        if (!authEncoded) return;
+
+        // Decode the auth
+        let decoded;
+        if (typeof ChannelAuthUtils !== 'undefined' && ChannelAuthUtils.decode) {
+            decoded = ChannelAuthUtils.decode(authEncoded);
+        } else if (typeof decodeChannelAuth === 'function') {
+            decoded = decodeChannelAuth(authEncoded);
+        } else {
+            console.error('[Terminal] No decode function available');
+            return;
+        }
+
+        if (!decoded || !decoded.channelName || !decoded.channelPassword) {
+            console.warn('[Terminal] Invalid auth URL');
+            return;
+        }
+
+        console.log('[Terminal] Valid shared link found');
+
+        // Prompt for agent name with a nice dialog
+        const agentName = await promptForAgentName(decoded.channelName);
+
+        if (!agentName) {
+            console.log('[Terminal] User cancelled agent name prompt');
+            return;
+        }
+
+        // Fill in the connection form
+        document.getElementById('cloudChannelName').value = decoded.channelName;
+        document.getElementById('cloudChannelPassword').value = decoded.channelPassword;
+        document.getElementById('cloudAgentName').value = agentName;
+
+        // Auto-connect
+        showToast('info', 'Connecting...', `Connecting to shared terminal as ${agentName}`);
+        setTimeout(() => {
+            connectToCloud();
+        }, 500);
+
+    } catch (error) {
+        console.error('[Terminal] Failed to process auth URL:', error);
+    }
+}
+
+/**
+ * Prompt user for agent name with a beautiful dialog
+ */
+function promptForAgentName(channelName) {
+    return new Promise((resolve) => {
+        // Create modal overlay
+        const overlay = document.createElement('div');
+        overlay.style.cssText = `
+            position: fixed;
+            inset: 0;
+            background: rgba(0, 0, 0, 0.85);
+            backdrop-filter: blur(12px);
+            z-index: 100000;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            animation: fadeIn 0.2s ease-out;
+        `;
+
+        const dialog = document.createElement('div');
+        dialog.style.cssText = `
+            background: linear-gradient(135deg, var(--bg-panel) 0%, var(--bg-darker) 100%);
+            border: 1px solid var(--accent-blue);
+            border-radius: 16px;
+            padding: 32px;
+            max-width: 480px;
+            width: calc(100% - 32px);
+            box-shadow: 0 20px 80px rgba(0, 0, 0, 0.6), 0 0 0 1px rgba(74, 158, 255, 0.1);
+            animation: slideUp 0.3s ease-out;
+        `;
+
+        const iconStyle = 'font-size: 48px; text-align: center; margin-bottom: 16px; animation: bounce 1s ease-in-out;';
+
+        dialog.innerHTML = `
+            <style>
+                @keyframes fadeIn {
+                    from { opacity: 0; }
+                    to { opacity: 1; }
+                }
+                @keyframes slideUp {
+                    from { transform: translateY(20px); opacity: 0; }
+                    to { transform: translateY(0); opacity: 1; }
+                }
+                @keyframes bounce {
+                    0%, 100% { transform: translateY(0); }
+                    50% { transform: translateY(-10px); }
+                }
+            </style>
+            <div style="${iconStyle}">🚀</div>
+            <h2 style="margin: 0 0 16px 0; font-size: 24px; color: var(--text-primary); text-align: center; font-weight: 700;">
+                Join Shared Channel
+            </h2>
+            <p style="margin: 0 0 24px 0; font-size: 14px; color: var(--text-secondary); line-height: 1.7; text-align: center;">
+                You're joining <strong style="color: var(--accent-cyan); font-weight: 600;">${channelName}</strong>
+                <br>
+                <span style="font-size: 13px; opacity: 0.8;">Enter your agent name or skip to use terminal offline</span>
+            </p>
+            <div style="margin-bottom: 24px;">
+                <label style="display: block; margin-bottom: 8px; font-size: 13px; color: var(--text-secondary); font-weight: 500;">
+                    Your Agent Name
+                </label>
+                <input type="text" id="agent-name-input" placeholder="e.g., Swift-Tiger-1234" 
+                       style="width: 100%; padding: 14px; border: 2px solid var(--border-color); 
+                              border-radius: 8px; background: var(--bg-darker); color: var(--text-primary); 
+                              font-size: 15px; box-sizing: border-box; transition: all 0.2s;
+                              font-family: 'Consolas', 'Monaco', monospace;"
+                       onfocus="this.style.borderColor='var(--accent-blue)'; this.style.boxShadow='0 0 0 3px rgba(74, 158, 255, 0.1)';"
+                       onblur="this.style.borderColor='var(--border-color)'; this.style.boxShadow='none';">
+                <div style="margin-top: 8px; font-size: 12px; color: var(--text-muted);">
+                    💡 A unique name has been generated for you
+                </div>
+            </div>
+            <div style="display: flex; gap: 12px; justify-content: stretch;">
+                <button id="agent-name-skip" style="flex: 1; padding: 12px 20px; border: 2px solid var(--border-color); 
+                                                      border-radius: 8px; background: transparent; 
+                                                      color: var(--text-secondary); cursor: pointer; font-size: 14px;
+                                                      font-weight: 600; transition: all 0.2s;"
+                        onmouseover="this.style.background='var(--bg-darker)'; this.style.borderColor='var(--accent-blue)';"
+                        onmouseout="this.style.background='transparent'; this.style.borderColor='var(--border-color)';">
+                    ⏭️ Skip
+                </button>
+                <button id="agent-name-confirm" style="flex: 2; padding: 12px 24px; border: none; border-radius: 8px; 
+                                                        background: linear-gradient(135deg, var(--accent-blue), var(--accent-purple)); 
+                                                        color: white; cursor: pointer; font-size: 14px; font-weight: 700;
+                                                        box-shadow: 0 4px 12px rgba(74, 158, 255, 0.3); transition: all 0.2s;"
+                        onmouseover="this.style.transform='translateY(-2px)'; this.style.boxShadow='0 6px 20px rgba(74, 158, 255, 0.4)';"
+                        onmouseout="this.style.transform='translateY(0)'; this.style.boxShadow='0 4px 12px rgba(74, 158, 255, 0.3)';">
+                    🔗 Connect
+                </button>
+            </div>
+        `;
+
+        overlay.appendChild(dialog);
+        document.body.appendChild(overlay);
+
+        const input = dialog.querySelector('#agent-name-input');
+        const confirmBtn = dialog.querySelector('#agent-name-confirm');
+        const skipBtn = dialog.querySelector('#agent-name-skip');
+
+        // Generate unique default name (guaranteed unique with timestamp)
+        const defaultName = generateAgentName();
+        input.value = defaultName;
+        input.select();
+        input.focus();
+
+        const cleanup = () => {
+            overlay.style.animation = 'fadeOut 0.2s ease-out';
+            setTimeout(() => {
+                if (document.body.contains(overlay)) {
+                    document.body.removeChild(overlay);
+                }
+            }, 200);
+            // Clear the hash to avoid re-triggering
+            window.history.replaceState(null, '', window.location.pathname + window.location.search);
+        };
+
+        const confirm = () => {
+            const name = input.value.trim();
+            if (name) {
+                cleanup();
+                resolve(name);
+            } else {
+                input.focus();
+                input.style.borderColor = 'var(--accent-red)';
+                showToast('warning', 'Name Required', 'Please enter your agent name');
+                setTimeout(() => {
+                    input.style.borderColor = 'var(--border-color)';
+                }, 2000);
+            }
+        };
+
+        const skip = () => {
+            cleanup();
+            resolve(null);
+            showToast('info', '⏭️ Skipped', 'You can connect to cloud manually later');
+        };
+
+        confirmBtn.onclick = confirm;
+        skipBtn.onclick = skip;
+
+        // Prevent closing by clicking outside (intentional)
+        overlay.onclick = (e) => {
+            if (e.target === overlay) {
+                // Shake animation to indicate it can't be closed
+                dialog.style.animation = 'shake 0.5s';
+                setTimeout(() => {
+                    dialog.style.animation = 'slideUp 0.3s ease-out';
+                }, 500);
+            }
+        };
+
+        input.onkeydown = (e) => {
+            if (e.key === 'Enter') confirm();
+            if (e.key === 'Escape') skip();
+        };
+
+        // Add shake animation
+        const style = document.createElement('style');
+        style.textContent = `
+            @keyframes shake {
+                0%, 100% { transform: translateX(0); }
+                25% { transform: translateX(-10px); }
+                75% { transform: translateX(10px); }
+            }
+            @keyframes fadeOut {
+                from { opacity: 1; }
+                to { opacity: 0; }
+            }
+        `;
+        document.head.appendChild(style);
+    });
+}
+
+/**
+ * Toggle share/unshare for the currently active session
+ */
+function toggleShareActiveSession() {
+    if (!cloudConnected || !terminalSharing) {
+        showToast('warning', 'Not Connected', 'Connect to cloud first to share sessions');
+        return;
+    }
+
+    // Get active session
+    const activeTab = document.querySelector('.tab.active');
+    if (!activeTab) {
+        showToast('warning', 'No Active Session', 'Please select a terminal session first');
+        return;
+    }
+
+    const sessionId = activeTab.dataset.sessionId;
+    const session = sessions.get(sessionId);
+
+    if (!session) {
+        showToast('error', 'Session Not Found', 'Active session not found');
+        return;
+    }
+
+    // Toggle share state
+    if (session.isShared) {
+        unshareTerminal(sessionId);
+    } else {
+        shareTerminal(sessionId);
+    }
+
+    // Update button text
+    updateShareButton();
+}
+
+/**
+ * Update the share button text based on active session state
+ */
+function updateShareButton() {
+    const shareBtn = document.getElementById('cloudShareSessionBtn');
+    if (!shareBtn) return;
+
+    // Get active session
+    const activeTab = document.querySelector('.tab.active');
+    if (!activeTab) {
+        shareBtn.textContent = '📤 Share Session';
+        shareBtn.disabled = true;
+        shareBtn.title = 'No active session';
+        return;
+    }
+
+    const sessionId = activeTab.dataset.sessionId;
+    const session = sessions.get(sessionId);
+
+    if (!session) {
+        shareBtn.textContent = '📤 Share Session';
+        shareBtn.disabled = true;
+        shareBtn.title = 'Session not found';
+        return;
+    }
+
+    // Update button based on share state
+    if (session.isShared) {
+        shareBtn.textContent = '🛑 Unshare Session';
+        shareBtn.disabled = false;
+        shareBtn.title = 'Stop sharing this session';
+    } else {
+        shareBtn.textContent = '📤 Share Session';
+        shareBtn.disabled = false;
+        shareBtn.title = 'Share this session with connected agents';
+    }
+}
+
+/**
+ * Show share modal for sharing channel connection (invite link)
+ */
+function showShareModal() {
+    if (!cloudConnected || !terminalSharing) {
+        showToast('warning', 'Not Connected', 'Connect to cloud first to share terminals');
+        return;
+    }
+
+    // Get current connection details
+    const channelName = document.getElementById('cloudChannelName').value;
+    const channelPassword = document.getElementById('cloudChannelPassword').value;
+
+    if (!channelName || !channelPassword) {
+        showToast('error', 'No Connection', 'No active cloud connection found');
+        return;
+    }
+
+    // Show the share modal
+    if (typeof ShareModal !== 'undefined' && ShareModal.show) {
+        ShareModal.show(channelName, channelPassword, '');
+        console.log('[Terminal] Share modal shown');
+    } else {
+        showToast('error', 'Share Unavailable', 'Share modal not loaded');
+    }
+}
+
+// ========================================
+// Cloud Panel Functions
+// ========================================
+
 function toggleCloudPanel() {
     const panel = document.getElementById('cloudPanel');
     panel.classList.toggle('expanded');
 }
 
 /**
- * Generate random agent name
+ * Generate random agent name (guaranteed unique with timestamp)
  */
 function generateAgentName() {
-    const adjectives = ['Swift', 'Bright', 'Noble', 'Brave', 'Wise', 'Quick', 'Bold', 'Epic'];
-    const nouns = ['Tiger', 'Eagle', 'Wolf', 'Hawk', 'Lion', 'Bear', 'Fox', 'Owl'];
-    const num = Math.floor(Math.random() * 1000);
-    const name = `${adjectives[Math.floor(Math.random() * adjectives.length)]}-${nouns[Math.floor(Math.random() * nouns.length)]}-${num}`;
+    const adjectives = ['Swift', 'Bright', 'Noble', 'Brave', 'Wise', 'Quick', 'Bold', 'Epic', 'Smart', 'Cool'];
+    const nouns = ['Tiger', 'Eagle', 'Wolf', 'Hawk', 'Lion', 'Bear', 'Fox', 'Owl', 'Dragon', 'Phoenix'];
+
+    // Use timestamp for guaranteed uniqueness
+    const timestamp = Date.now() % 10000; // Last 4 digits
+    const adj = adjectives[Math.floor(Math.random() * adjectives.length)];
+    const noun = nouns[Math.floor(Math.random() * nouns.length)];
+    const name = `${adj}-${noun}-${timestamp}`;
 
     // Only set if field is empty (don't override saved name)
     const agentNameInput = document.getElementById('cloudAgentName');
-    if (!agentNameInput.value || agentNameInput.value.trim() === '') {
+    if (agentNameInput && (!agentNameInput.value || agentNameInput.value.trim() === '')) {
         agentNameInput.value = name;
     }
 
@@ -2221,7 +2601,8 @@ async function connectToCloud() {
             // Create a view-only terminal session for this shared session
             createSharedTerminalSession(sessionId, sessionInfo, sourceAgent);
 
-            updateAgentsList(); // Refresh agents list to show shared sessions
+            updateAgentsList(); // Refresh agents list
+            updateSharedTerminalsList(); // Refresh shared terminals list
         };
 
         // Called when a remote agent unshares a session
@@ -2235,6 +2616,7 @@ async function connectToCloud() {
             }
 
             updateAgentsList(); // Refresh agents list
+            updateSharedTerminalsList(); // Refresh shared terminals list
         };
 
         // Called when receiving terminal output from a shared session
@@ -2264,6 +2646,28 @@ async function connectToCloud() {
             }
         };
 
+        // Listen for agent connection events to update agents list
+        terminalSharing.onPlayerJoining = (event) => {
+            console.log('[Terminal] Agent joining:', event.agentName);
+            showToast('info', '👋 Agent Joining', `${event.agentName} is connecting...`);
+            updateAgentsList(); // Update list immediately
+            updateSharedTerminalsList();
+        };
+
+        terminalSharing.onPlayerJoin = (event) => {
+            console.log('[Terminal] Agent joined:', event.agentName);
+            showToast('success', '✅ Agent Joined', `${event.agentName} connected`);
+            updateAgentsList(); // Update list when fully connected
+            updateSharedTerminalsList();
+        };
+
+        terminalSharing.onPlayerLeave = (event) => {
+            console.log('[Terminal] Agent left:', event.agentName);
+            showToast('info', '👋 Agent Left', `${event.agentName} disconnected`);
+            updateAgentsList(); // Update list when agent leaves
+            updateSharedTerminalsList();
+        };
+
         await terminalSharing.connect({
             username: agentName,
             channelName: channelName,
@@ -2273,20 +2677,39 @@ async function connectToCloud() {
         cloudConnected = true;
         cloudAgentName = agentName;
 
-        connectBtn.textContent = 'Disconnect';
-        connectBtn.classList.add('disconnect');
-        connectBtn.disabled = false;
-        connectBtn.onclick = disconnectFromCloud;
+        connectBtn.textContent = 'Connected to Cloud';
+        connectBtn.classList.add('active');
+        connectBtn.disabled = true;
+        connectBtn.title = `Connected as ${agentName}`;
 
-        document.getElementById('cloudShareBtn').style.display = 'inline-block';
+        // Show the horizontal action buttons
+        document.getElementById('cloudActionsRow').style.display = 'flex';
         document.getElementById('cloudAgentsSection').style.display = 'block';
         document.getElementById('cloudChannelName').disabled = true;
         document.getElementById('cloudChannelPassword').disabled = true;
         document.getElementById('cloudAgentName').disabled = true;
-        document.getElementById('cloudStatus').className = 'status-dot online';
-        document.getElementById('cloudStatusText').textContent = 'Connected';
+
+        // Update status display
+        const statusDot = document.getElementById('cloudStatus');
+        const statusText = document.getElementById('cloudStatusText');
+        if (statusDot) {
+            statusDot.className = 'status-dot online';
+            console.log('[Cloud] Status dot updated to online');
+        }
+        if (statusText) {
+            statusText.textContent = 'Connected';
+            console.log('[Cloud] Status text updated to Connected');
+        }
+
+        // Highlight cloud button and show agent name on hover
+        const cloudBtn = document.getElementById('cloudToolbarBtn');
+        if (cloudBtn) {
+            cloudBtn.classList.add('active');
+            cloudBtn.title = `Connected as ${agentName}`;
+        }
 
         updateAgentsList();
+        updateSharedTerminalsList();
         saveCloudConfig(true);
         showToast('success', 'Cloud Connected', `Connected as ${agentName}`);
         console.log('[Terminal] Connected as:', agentName);
@@ -2311,11 +2734,11 @@ function disconnectFromCloud() {
 
     const connectBtn = document.getElementById('cloudConnectBtn');
     connectBtn.textContent = 'Connect to Cloud';
-    connectBtn.classList.remove('disconnect');
+    connectBtn.classList.remove('disconnect', 'active');
     connectBtn.disabled = false;
-    connectBtn.onclick = connectToCloud;
+    connectBtn.title = 'Connect to Messaging Platform Cloud';
 
-    document.getElementById('cloudShareBtn').style.display = 'none';
+    document.getElementById('cloudActionsRow').style.display = 'none';
     document.getElementById('cloudAgentsSection').style.display = 'none';
     document.getElementById('cloudChannelName').disabled = false;
     document.getElementById('cloudChannelPassword').disabled = false;
@@ -2323,7 +2746,15 @@ function disconnectFromCloud() {
     document.getElementById('cloudStatus').className = 'status-dot offline';
     document.getElementById('cloudStatusText').textContent = 'Disconnected';
 
+    // Remove highlight from cloud button and reset tooltip
+    const cloudBtn = document.getElementById('cloudToolbarBtn');
+    if (cloudBtn) {
+        cloudBtn.classList.remove('active');
+        cloudBtn.title = 'Connect to Messaging Platform Cloud';
+    }
+
     updateAgentsList();
+    updateSharedTerminalsList();
     saveCloudConfig(false);
     showToast('info', 'Disconnected', 'Disconnected from cloud');
 }
@@ -2338,43 +2769,80 @@ function updateAgentsList() {
     }
 
     const agents = terminalSharing.getConnectedUsers();
-    const sharedSessions = terminalSharing.getSharedSessions();
 
-    if (agents.length === 0 && sharedSessions.length === 0) {
+    console.log('[AgentsList] Connected agents:', agents);
+    console.log('[AgentsList] My agent name:', cloudAgentName);
+
+    if (agents.length === 0) {
         agentsList.innerHTML = '<div class="cloud-agent-item">No other agents connected</div>';
         return;
     }
 
     let html = '';
 
-    // Show connected agents
-    agents.forEach(agent => {
-        if (agent.agentName !== cloudAgentName) {
+    // Show connected agents only (agents is array of strings)
+    agents.forEach(agentName => {
+        // Don't show yourself in the list
+        if (agentName !== cloudAgentName) {
             html += `<div class="cloud-agent-item">
                 <div class="cloud-agent-dot"></div>
-                <span>${agent.agentName}</span>
+                <span>${agentName}</span>
             </div>`;
         }
     });
+
+    agentsList.innerHTML = html || '<div class="cloud-agent-item">No other agents connected</div>';
+}
+
+/**
+ * Update the shared terminals list (right panel)
+ */
+function updateSharedTerminalsList() {
+    const sharedList = document.getElementById('sharedSessionList');
+    if (!sharedList) return;
+
+    if (!terminalSharing || !cloudConnected) {
+        sharedList.innerHTML = `<div style="padding: 20px; text-align: center; color: var(--text-muted); font-size: 11px;">
+            No shared terminals yet.<br>
+            Connect to cloud to see shared sessions.
+        </div>`;
+        return;
+    }
+
+    const sharedSessions = terminalSharing.getSharedSessions();
+
+    console.log('[SharedTerminals] Shared sessions:', sharedSessions);
+
+    if (sharedSessions.length === 0) {
+        sharedList.innerHTML = `<div style="padding: 20px; text-align: center; color: var(--text-muted); font-size: 11px;">
+            No shared terminals yet.<br>
+            Right-click a tab and select "Share Session" to share.
+        </div>`;
+        return;
+    }
+
+    let html = '';
 
     // Show shared sessions (clickable to view)
     sharedSessions.forEach(session => {
         const isOurs = session.owner === cloudAgentName;
         const icon = session.shell === 'bash' ? '🐧' : session.shell === 'powershell' ? '⚡' : '💻';
         const ownerLabel = isOurs ? ' (You)' : ` (${session.owner})`;
-        const clickable = !isOurs ? 'cursor: pointer; hover: opacity: 0.8;' : '';
+        const clickable = !isOurs ? 'cursor: pointer;' : '';
+        const hoverStyle = !isOurs ? 'transition: opacity 0.2s;' : '';
         const title = !isOurs ? 'Click to view this shared terminal' : 'Your shared terminal';
 
         html += `<div class="cloud-agent-item"
-            style="${clickable}"
+            style="${clickable} ${hoverStyle}"
             title="${title}"
-            ${!isOurs ? `onclick="viewSharedTerminal('${session.sessionId}', '${session.owner}')"` : ''}>
+            ${!isOurs ? `onclick="viewSharedTerminal('${session.sessionId}', '${session.owner}')"` : ''}
+            ${!isOurs ? `onmouseover="this.style.opacity='0.7'" onmouseout="this.style.opacity='1'"` : ''}>
             <div class="cloud-agent-dot" style="background: var(--accent-cyan);"></div>
             <span>${icon} ${session.name}${ownerLabel}</span>
         </div>`;
     });
 
-    agentsList.innerHTML = html || '<div class="cloud-agent-item">No other agents connected</div>';
+    sharedList.innerHTML = html;
 }
 
 /**
@@ -2444,12 +2912,19 @@ function createSharedTerminalSession(sessionId, sessionInfo, ownerAgent) {
 }
 
 function shareTerminal(sessionId) {
+    console.log('[ShareTerminal] Called with sessionId:', sessionId);
+    console.log('[ShareTerminal] cloudConnected:', cloudConnected);
+    console.log('[ShareTerminal] terminalSharing:', terminalSharing);
+
     if (!cloudConnected || !terminalSharing) {
-        showToast('warning', 'Not Connected', 'Connect to cloud first to share terminals');
+        showToast('warning', 'Not Connected', 'Connect to cloud messaging first to share terminals');
+        console.warn('[ShareTerminal] Not connected to cloud or terminalSharing is null');
         return;
     }
 
     const session = sessions.get(sessionId);
+    console.log('[ShareTerminal] Session found:', session);
+
     if (!session) {
         console.error('[Terminal] Cannot share - session not found:', sessionId);
         return;
@@ -2459,6 +2934,8 @@ function shareTerminal(sessionId) {
     session.isShared = true;
     session.owner = null;  // null = I'm the owner of this local session
 
+    console.log('[ShareTerminal] Calling terminalSharing.shareSession...');
+
     // Share via TerminalSharing
     const success = terminalSharing.shareSession(sessionId, {
         name: session.name,
@@ -2466,8 +2943,12 @@ function shareTerminal(sessionId) {
         type: session.type
     });
 
+    console.log('[ShareTerminal] Share result:', success);
+
     if (success) {
+        updateTabSharedIndicator(sessionId, true);  // Show shared badge
         updateAgentsList(); // Refresh agents list
+        updateSharedTerminalsList(); // Refresh shared terminals list
         showToast('success', '📤 Terminal Shared', `"${session.name}" is now shared with all agents`);
         console.log('[Terminal] Shared session:', sessionId, session.name);
     } else {
@@ -2492,8 +2973,10 @@ function unshareTerminal(sessionId) {
     if (terminalSharing) {
         terminalSharing.unshareSession(sessionId);
         updateAgentsList(); // Refresh agents list
+        updateSharedTerminalsList(); // Refresh shared terminals list
     }
 
+    updateTabSharedIndicator(sessionId, false);  // Hide shared badge
     showToast('success', '🛑 Sharing Stopped', `"${session.name}" is no longer shared`);
     console.log('[Terminal] Unshared session:', sessionId);
 }
@@ -2521,43 +3004,6 @@ function sendTerminalInputViaCloud(sessionId, data) {
 // ========================================
 // Share Modal Functions
 // ========================================
-/**
- * Show share modal to select which terminals to share
- */
-function showShareModal() {
-    if (!cloudConnected) {
-        showToast('warning', 'Not Connected', 'Connect to cloud first');
-        return;
-    }
-
-    // Build list of active terminals
-    let terminalList = [];
-    sessions.forEach((session, sessionId) => {
-        const shareStatus = session.isShared ? '✅ Shared' : '⬜ Not Shared';
-        terminalList.push(`${shareStatus} - ${session.name} (${session.type})`);
-    });
-
-    if (terminalList.length === 0) {
-        showToast('info', 'No Terminals', 'No active terminals to share');
-        return;
-    }
-
-    // For now, show toast with active session
-    if (activeSessionId) {
-        const session = sessions.get(activeSessionId);
-        if (session.isShared) {
-            if (confirm(`Unshare "${session.name}"?`)) {
-                unshareTerminal(activeSessionId);
-            }
-        } else {
-            if (confirm(`Share "${session.name}" with other agents?`)) {
-                shareTerminal(activeSessionId);
-            }
-        }
-    } else {
-        showToast('info', 'No Selection', 'Open a terminal first');
-    }
-}
 
 // ========================================
 // SFTP Browser Integration
@@ -2644,12 +3090,34 @@ window.addEventListener('load', async () => {
         return; // Don't proceed if we can't authenticate
     }
 
+    // Setup modal click-outside-to-close listeners (must be after DOM is loaded)
+    document.getElementById('settingsModalOverlay')?.addEventListener('click', (e) => {
+        if (e.target.id === 'settingsModalOverlay') closeSettingsModal();
+    });
+
+    document.getElementById('sshModalOverlay')?.addEventListener('click', (e) => {
+        if (e.target.id === 'sshModalOverlay') closeSshModal();
+    });
+
+    document.getElementById('helpModalOverlay')?.addEventListener('click', (e) => {
+        if (e.target.id === 'helpModalOverlay') closeHelpModal();
+    });
+
     // Now proceed with normal initialization
     await checkMlsHealth();
     await refreshConnections();
 
     // ✅ Load cloud connection config from backend
     await loadCloudConfig();
+
+    // Initialize share modal
+    if (typeof ShareModal !== 'undefined') {
+        ShareModal.init();
+        console.log('[Terminal] Share modal initialized');
+    }
+
+    // Check for auth URL parameters (shared link)
+    await checkForAuthUrl();
 
     // Initialize SFTP browser
     initSftpBrowser();

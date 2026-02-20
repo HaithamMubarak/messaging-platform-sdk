@@ -357,12 +357,6 @@ class TerminalSharing extends AgentInteractionBase {
         return `${randomAdj}-${randomNoun}-${randomNum}`;
     }
 
-    /**
-     * Get list of connected users (agents)
-     */
-    getConnectedUsers() {
-        return this.getAgents();
-    }
 
     /**
      * Override onStart - called when connection is established

@@ -15,8 +15,23 @@
     <!-- SFTP Browser Component -->
     <link rel="stylesheet" href="sftp-browser.css"/>
 
+    <!-- Toast notifications -->
+    <link rel="stylesheet" href="../../css/toast.css"/>
+
+    <!-- Share Modal -->
+    <link rel="stylesheet" href="../../css/share-modal.css"/>
+
     <!-- Cloud Connection Component -->
     <link rel="stylesheet" href="../../css/cloud-connection.css"/>
+
+    <!-- Common utilities (needed before share-modal) -->
+    <script src="../../js/common-utils.js"></script>
+
+    <!-- QR Code library (needed before share-modal) -->
+    <script src="../../lib/qrcode.min.js"></script>
+
+    <!-- Share Modal -->
+    <script src="../../js/share-modal.js"></script>
 
     <!-- Config Loader -->
     <script src="../../js/config-loader.js"></script>
@@ -68,7 +83,7 @@
         </div>
         <div class="context-menu-separator"></div>
         <div class="context-menu-item" onclick="tabContextMenuAction('toggleShare')" id="shareMenuItem">
-            <span class="icon">🌐</span> <span id="shareMenuText">Share Terminal</span>
+            <span class="icon">🌐</span> <span id="shareMenuText">Share Session</span>
         </div>
         <div class="context-menu-separator"></div>
         <div class="context-menu-item" onclick="tabContextMenuAction('close')">
@@ -182,10 +197,14 @@
                 <button type="button" class="cloud-btn" id="cloudConnectBtn" onclick="connectToCloud()">
                     Connect to Cloud
                 </button>
-                <button type="button" class="cloud-btn cloud-btn-secondary" id="cloudShareBtn" onclick="showShareModal()"
-                        style="display: none;">
-                    📤 Share Terminal
-                </button>
+                <div class="cloud-actions-row" id="cloudActionsRow" style="display: none; gap: 8px; margin-top: 8px;">
+                    <button type="button" class="cloud-btn cloud-btn-small cloud-btn-secondary" id="cloudShareChannelBtn" onclick="showShareModal()" style="flex: 1;">
+                        🔗 Share Channel
+                    </button>
+                    <button type="button" class="cloud-btn cloud-btn-small disconnect" id="cloudDisconnectBtn" onclick="disconnectFromCloud()" style="flex: 1;">
+                        Disconnect
+                    </button>
+                </div>
             </div>
 
             <div class="cloud-agents" id="cloudAgentsSection" style="display: none;">
@@ -797,6 +816,68 @@
             </div>
             <div class="modal-footer">
                 <button class="btn btn-secondary" onclick="closeHelpModal()">Close</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Share Modal -->
+    <div id="share-modal" class="modal">
+        <div class="modal-content">
+            <div class="modal-body">
+                <h2 style="margin-bottom: 20px; font-size: 20px;">📤 Share Channel Connection</h2>
+
+                <div style="display: flex; gap: 12px; margin-bottom: 20px;">
+                    <button id="share-public-btn" class="btn btn-primary" style="flex: 1;">
+                        📢 Public Link
+                    </button>
+                    <button id="share-encrypted-btn" class="btn btn-secondary" style="flex: 1;">
+                        🔒 Encrypted Link
+                    </button>
+                </div>
+
+                <div id="share-encryption-key-input" style="display: none; margin-bottom: 16px;">
+                    <label style="display: block; margin-bottom: 8px; font-size: 14px;">Encryption Key (Agent Name):</label>
+                    <input type="text" id="share-key-input" placeholder="Enter agent name as encryption key"
+                           style="width: 100%; padding: 10px; border: 1px solid var(--border-color); border-radius: 6px;
+                                  background: var(--bg-darker); color: var(--text-primary); font-size: 14px;">
+                    <button id="share-generate-encrypted-btn" class="btn btn-primary" style="width: 100%; margin-top: 12px;">
+                        Generate Encrypted Link
+                    </button>
+                </div>
+
+                <div id="share-link-container" style="display: none;">
+                    <label id="share-link-label" style="display: block; margin-bottom: 8px; font-size: 14px; font-weight: 600;">
+                        📋 Share Link
+                    </label>
+                    <div style="display: flex; gap: 8px;">
+                        <input type="text" id="share-link-output" readonly
+                               style="flex: 1; padding: 10px; border: 1px solid var(--border-color); border-radius: 6px;
+                                      background: var(--bg-darker); color: var(--text-primary); font-size: 13px;">
+                        <button id="share-copy-btn" class="btn btn-primary">📋 Copy</button>
+                    </div>
+                    <button id="share-qr-btn" class="btn btn-secondary" style="width: 100%; margin-top: 12px;">
+                        📱 Show QR Code
+                    </button>
+                    <div id="share-qr-container" style="display: none; margin-top: 16px; text-align: center;">
+                        <div id="share-qr-code"></div>
+                    </div>
+                </div>
+
+                <div id="share-encryption-info" style="display: none; margin-top: 16px; padding: 12px;
+                                                         background: rgba(34, 197, 94, 0.1); border-radius: 6px;
+                                                         border-left: 3px solid var(--accent-green);">
+                    <div style="font-size: 13px; margin-bottom: 8px;">
+                        🔐 <strong>Encryption Key:</strong> <code id="share-key-display" style="background: var(--bg-darker);
+                        padding: 2px 6px; border-radius: 3px;"></code>
+                    </div>
+                    <div style="font-size: 12px; color: var(--text-secondary);">
+                        Share this key securely with others to decrypt the link.
+                    </div>
+                </div>
+
+                <div style="margin-top: 20px; display: flex; justify-content: flex-end;">
+                    <button id="share-close" class="btn btn-secondary">Close</button>
+                </div>
             </div>
         </div>
     </div>

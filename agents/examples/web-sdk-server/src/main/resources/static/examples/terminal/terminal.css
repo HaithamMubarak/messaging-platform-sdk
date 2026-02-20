@@ -134,6 +134,20 @@ body {
     border-color: var(--accent-blue);
 }
 
+.toolbar-btn.active {
+    background: rgba(34, 197, 94, 0.15);
+    border-color: var(--accent-green);
+    box-shadow: 0 0 8px rgba(34, 197, 94, 0.3);
+}
+
+.toolbar-btn.active:hover {
+    background: rgba(34, 197, 94, 0.25);
+}
+
+.toolbar-btn.active .label {
+    color: var(--accent-green);
+}
+
 .toolbar-btn:active {
     transform: scale(0.95);
 }
@@ -454,6 +468,18 @@ body {
 .tab-close:hover {
     background: var(--accent-red);
     color: white;
+}
+
+.tab-shared-badge {
+    font-size: 12px;
+    margin-left: 4px;
+    opacity: 0.8;
+    animation: pulse 2s ease-in-out infinite;
+}
+
+@keyframes pulse {
+    0%, 100% { opacity: 0.8; }
+    50% { opacity: 1; }
 }
 
 .tab-add {
@@ -1061,6 +1087,17 @@ body {
     color: var(--text-primary);
 }
 
+.context-menu-item.disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+    /* Don't use pointer-events: none - we want tooltips to show! */
+}
+
+.context-menu-item.disabled:hover {
+    background: transparent !important;
+    color: var(--text-secondary) !important;
+}
+
 .context-menu-item.danger:hover {
     background: rgba(248, 113, 113, 0.2);
     color: var(--accent-red);
@@ -1224,6 +1261,25 @@ body {
     background: linear-gradient(90deg, var(--accent-red), var(--accent-orange));
 }
 
+.cloud-btn.cloud-btn-secondary {
+    background: linear-gradient(90deg, var(--accent-cyan), var(--accent-blue));
+}
+
+.cloud-btn-small {
+    padding: 8px 12px;
+    font-size: 11px;
+}
+
+.cloud-actions-row {
+    display: flex;
+    gap: 8px;
+}
+
+.cloud-btn.active {
+    background: linear-gradient(90deg, var(--accent-green), var(--accent-cyan));
+    box-shadow: 0 0 0 2px rgba(34, 197, 94, 0.3);
+}
+
 .cloud-agents {
     margin-top: 12px;
     padding-top: 12px;
@@ -1268,6 +1324,11 @@ body {
     padding-left: 24px;
     border: 1px solid var(--accent-purple);
     background: linear-gradient(90deg, rgba(167, 139, 250, 0.1), transparent);
+}
+
+/* Hide the shell icon when shared (only show the 🌐 icon) */
+.tab.shared .tab-icon {
+    display: none;
 }
 
 .tab.received-share::before {
@@ -1363,3 +1424,46 @@ body {
     font-size: 10px;
     color: var(--text-muted);
 }
+
+/* ========== Button Styles for Share Modal ========== */
+.btn {
+    padding: 10px 16px;
+    border: none;
+    border-radius: 6px;
+    font-size: 14px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.15s;
+    outline: none;
+}
+
+.btn-primary {
+    background: var(--accent-blue);
+    color: white;
+}
+
+.btn-primary:hover {
+    background: #4a86ff;
+    transform: translateY(-1px);
+    box-shadow: 0 4px 8px rgba(74, 158, 255, 0.3);
+}
+
+.btn-primary:active {
+    transform: translateY(0);
+}
+
+.btn-secondary {
+    background: var(--bg-darker);
+    color: var(--text-primary);
+    border: 1px solid var(--border-color);
+}
+
+.btn-secondary:hover {
+    background: var(--bg-panel);
+    border-color: var(--accent-blue);
+}
+
+.btn-secondary:active {
+    transform: scale(0.98);
+}
+
