@@ -146,11 +146,15 @@
     <script src="../js/config-loader.js"></script>
     <script src="../generated-web-agent-js/js/web-agent.libs.js"></script>
     <script src="../generated-web-agent-js/js/web-agent.js"></script>
-    <script src="../js/cloud-connection.js"></script>
+    <script src="../js/AgentInteractionBase.js"></script>
+    <script src="terminal/terminal-sharing.js"></script>  <!-- TerminalSharing (single class) -->
+    <script src="../js/cloud-connection.js"></script>     <!-- CloudConnectionUI -->
 
     <script>
-        // Initialize Cloud Connection Manager
-        let cloudManager = null;
+        // Cloud interaction instance (data logic - like air-hockey game)
+        let cloudInteraction = null;
+        let cloudConnected = false;
+        let cloudAgentName = null;
 
         function log(message, type = 'info') {
             const logDiv = document.getElementById('messageLog');
@@ -169,102 +173,86 @@
         }
 
         function toggleCloudPanel() {
-            document.getElementById('cloudPanel').classList.toggle('expanded');
+            CloudConnectionUI.togglePanel();
         }
 
         function regenerateAgentName() {
-            if (cloudManager) {
-                const name = cloudManager.generateAgentName();
-                document.getElementById('cloudAgentName').value = name;
-                log(`Generated agent name: ${name}`);
-            }
+            const name = CloudConnectionUI.generateAgentName();
+            CloudConnectionUI.setAgentName(name);
+            log(`Generated agent name: ${name}`);
         }
 
         async function connectToCloud() {
-            const btn = document.getElementById('cloudConnectBtn');
-            const channelName = document.getElementById('cloudChannelName').value.trim();
-            const password = document.getElementById('cloudChannelPassword').value.trim();
-            const agentName = document.getElementById('cloudAgentName').value.trim();
+            const config = CloudConnectionUI.getConnectionConfig();
 
-            if (!channelName || !password) {
+            if (!config.channelName || !config.channelPassword) {
                 log('Please enter channel name and password', 'error');
                 return;
             }
 
-            btn.disabled = true;
-            btn.textContent = 'Connecting...';
+            // Auto-generate agent name if empty
+            if (!config.agentName) {
+                config.agentName = CloudConnectionUI.generateAgentName();
+                CloudConnectionUI.setAgentName(config.agentName);
+            }
+
+            CloudConnectionUI.showConnecting();
 
             try {
-                // Create cloud manager if not exists
-                if (!cloudManager) {
-                    cloudManager = new CloudConnectionManager({
-                        onConnect: (agentName) => {
-                            log(`Connected as ${agentName}`, 'success');
-                            btn.textContent = 'Disconnect';
-                            btn.classList.add('disconnect');
-                            btn.onclick = disconnectFromCloud;
-                            btn.disabled = false;
+                // Create TerminalSharing instance (data layer - single class)
+                cloudInteraction = new TerminalSharing();
 
-                            // Disable form inputs
-                            document.getElementById('cloudChannelName').disabled = true;
-                            document.getElementById('cloudChannelPassword').disabled = true;
-                            document.getElementById('cloudAgentName').disabled = true;
-
-                            // Show agents section
-                            document.getElementById('cloudAgentsSection').style.display = 'block';
-                        },
-                        onDisconnect: () => {
-                            log('Disconnected from cloud', 'warning');
-                            btn.textContent = 'Connect to Cloud';
-                            btn.classList.remove('disconnect');
-                            btn.onclick = connectToCloud;
-                            btn.disabled = false;
-
-                            // Enable form inputs
-                            document.getElementById('cloudChannelName').disabled = false;
-                            document.getElementById('cloudChannelPassword').disabled = false;
-                            document.getElementById('cloudAgentName').disabled = false;
-
-                            // Hide agents section
-                            document.getElementById('cloudAgentsSection').style.display = 'none';
-                        },
-                        onAgentConnected: (agent) => {
-                            log(`Agent joined: ${agent.agentName}`, 'info');
-                        },
-                        onAgentDisconnected: (agent) => {
-                            log(`Agent left: ${agent.agentName}`, 'warning');
-                        },
-                        onMessage: (event) => {
-                            log(`Message from ${event.sourceAgent}: ${JSON.stringify(event.data)}`, 'info');
-                        },
-                        onError: (event) => {
-                            log(`Error: ${event.message || 'Unknown error'}`, 'error');
-                        }
-                    });
-                }
+                // Set up message handler
+                cloudInteraction.onMessageReceived = (message, sourceAgent) => {
+                    log(`Message from ${sourceAgent}: ${JSON.stringify(message)}`, 'info');
+                };
 
                 // Connect
-                await cloudManager.connect({
-                    channelName: channelName,
-                    channelPassword: password,
-                    agentName: agentName
+                await cloudInteraction.connect({
+                    username: config.agentName,
+                    channelName: config.channelName,
+                    channelPassword: config.channelPassword
                 });
+
+                // Connection successful
+                cloudConnected = true;
+                cloudAgentName = config.agentName;
+
+                CloudConnectionUI.showConnected(config.agentName);
+                log(`Connected as ${config.agentName}`, 'success');
+
+                // Start polling agents for UI updates
+                pollAgents();
 
             } catch (error) {
                 log(`Connection failed: ${error.message}`, 'error');
-                btn.textContent = 'Connect to Cloud';
-                btn.disabled = false;
+                CloudConnectionUI.showDisconnected();
+                cloudInteraction = null;
+                cloudConnected = false;
             }
+        }
+
+        function pollAgents() {
+            if (!cloudConnected || !cloudInteraction) return;
+            const agents = cloudInteraction.getAgents();
+            CloudConnectionUI.updateAgentsList(agents, cloudAgentName);
+            setTimeout(pollAgents, 2000);
         }
 
         function disconnectFromCloud() {
-            if (cloudManager) {
-                cloudManager.disconnect();
+            if (cloudInteraction) {
+                cloudInteraction.disconnect();
             }
+            cloudInteraction = null;
+            cloudConnected = false;
+            cloudAgentName = null;
+
+            CloudConnectionUI.showDisconnected();
+            log('Disconnected from cloud', 'warning');
         }
 
         function sendTestMessage() {
-            if (!cloudManager || !cloudManager.isConnected()) {
+            if (!cloudConnected || !cloudInteraction) {
                 log('Not connected to cloud', 'error');
                 return;
             }
@@ -275,20 +263,33 @@
                 timestamp: Date.now()
             };
 
-            cloudManager.broadcastMessage(message);
+            cloudInteraction.sendData(message);
             log(`Sent test message: ${message.text}`, 'success');
         }
 
-        // Initialize
+        // Initialize UI
         window.addEventListener('load', () => {
+            CloudConnectionUI.init({
+                panelId: 'cloudPanel',
+                statusDotId: 'cloudStatus',
+                statusTextId: 'cloudStatusText',
+                agentListId: 'cloudAgentsList',
+                connectBtnId: 'cloudConnectBtn',
+                channelNameId: 'cloudChannelName',
+                channelPasswordId: 'cloudChannelPassword',
+                agentNameId: 'cloudAgentName',
+                onConnect: connectToCloud,
+                onDisconnect: disconnectFromCloud
+            });
+
             log('Cloud Connection Component loaded', 'success');
             log('Fill in the form and click "Connect to Cloud"', 'info');
         });
 
         // Cleanup on page unload
         window.addEventListener('beforeunload', () => {
-            if (cloudManager && cloudManager.isConnected()) {
-                cloudManager.disconnect();
+            if (cloudInteraction && cloudConnected) {
+                cloudInteraction.disconnect();
             }
         });
     </script>
