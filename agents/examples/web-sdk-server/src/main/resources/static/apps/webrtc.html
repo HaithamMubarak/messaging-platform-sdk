@@ -1971,21 +1971,10 @@
 
     // Cleanup on page unload
     function cleanupBeforeUnload() {
-        // Ask the channel to send a beacon-style disconnect if available. This is best-effort during unload.
-        try {
-            if (channel && typeof channel.disconnect === 'function') {
-                try {
-                    channel.disconnect({ useBeacon: true });
-                    log('Requested channel disconnect with beacon', 'info');
-                } catch (err) {
-                    console.warn('Error while calling channel.disconnect({useBeacon:true}) during unload:', err);
-                }
-            }
-        } catch (e) {
-            console.warn('Error attempting beacon disconnect during unload:', e);
-        }
+        // NOTE: Channel disconnect is handled automatically by web-agent.js with beacon API
+        // No need to manually call channel.disconnect() here!
 
-         // Stop any active streams and camera
+         // Stop any active streams and camera (app-specific cleanup)
          if (currentStreamId) {
              stopVideoStream();
          }

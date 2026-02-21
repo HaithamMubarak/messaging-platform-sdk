@@ -41,21 +41,21 @@ public class TerminalController {
      * }
      */
     @PostMapping("/create")
-    public ResponseEntity<?> createTerminal(@RequestBody Map<String, Object> request) {
-        // Allow optional sessionId in request (for session restore)
-        String sessionId = request.containsKey("sessionId") ?
-            (String) request.get("sessionId") : UUID.randomUUID().toString();
+    public ResponseEntity<?> createTerminal(@RequestBody Map<String, Object> terminalCreateRequest) {
+        // Allow optional sessionId in terminalCreateRequest (for session restore)
+        String sessionId = terminalCreateRequest.containsKey("sessionId") ?
+            (String) terminalCreateRequest.get("sessionId") : UUID.randomUUID().toString();
 
-        String type = (String) request.getOrDefault("type", "local");
+        String type = (String) terminalCreateRequest.getOrDefault("type", "local");
 
         try {
             if ("ssh".equalsIgnoreCase(type)) {
                 // SSH terminal creation
-                Long connectionId = request.containsKey("connectionId") ?
-                    ((Number)request.get("connectionId")).longValue() : null;
-                String connectionName = (String)request.get("connectionName");
+                Long connectionId = terminalCreateRequest.containsKey("connectionId") ?
+                    ((Number)terminalCreateRequest.get("connectionId")).longValue() : null;
+                String connectionName = (String)terminalCreateRequest.get("connectionName");
 
-                Map<String, Object> sessionInfo = terminalService.createSshTerminalSessionFromConnection(
+                Map<String, Object> sessionInfo = terminalService.createSshTerminalSession(
                     sessionId, connectionId, connectionName
                 );
 
@@ -64,17 +64,12 @@ public class TerminalController {
 
             } else {
                 // Local terminal creation
-                String shell = (String) request.getOrDefault("shell", "bash");
-                terminalService.createLocalTerminalSession(sessionId, shell);
+                String shell = (String) terminalCreateRequest.getOrDefault("shell", "bash");
+                Map<String, Object> sessionInfo  = terminalService.createLocalTerminalSession(sessionId, shell);
 
                 log.info("Created local terminal session: {} (shell: {})", sessionId, shell);
 
-                return ResponseEntity.ok(Map.of(
-                    "sessionId", sessionId,
-                    "type", "local",
-                    "shell", shell,
-                    "status", "active"
-                ));
+                return ResponseEntity.ok(sessionInfo);
             }
 
         } catch (Exception e) {

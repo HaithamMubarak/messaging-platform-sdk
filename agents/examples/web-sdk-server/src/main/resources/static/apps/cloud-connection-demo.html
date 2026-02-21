@@ -286,12 +286,9 @@
             log('Fill in the form and click "Connect to Cloud"', 'info');
         });
 
-        // Cleanup on page unload
-        window.addEventListener('beforeunload', () => {
-            if (cloudInteraction && cloudConnected) {
-                cloudInteraction.disconnect();
-            }
-        });
+        // Note: Page unload cleanup is handled automatically by web-agent.js
+        // The cloud connection will be disconnected automatically when page closes
+        // No need for manual beforeunload handler here!
     </script>
 </body>
 </html>

@@ -21,9 +21,7 @@ import java.security.spec.InvalidKeySpecException;
 import java.security.spec.KeySpec;
 import java.security.spec.PKCS8EncodedKeySpec;
 import java.security.spec.X509EncodedKeySpec;
-import java.util.Base64;
-import java.util.Objects;
-import java.util.concurrent.ConcurrentHashMap;
+import java.util.*;
 
 public final class MySecurity {
     private static final Logger logger = LoggerFactory.getLogger(MySecurity.class);
@@ -45,8 +43,16 @@ public final class MySecurity {
     });
     private static final char[] HEX_ARRAY = "0123456789abcdef".toCharArray();
 
-    // Small cache to avoid recreating SecretKeySpec objects for the same key strings
-    private static final ConcurrentHashMap<String, SecretKeySpec> KEY_SPEC_CACHE = new ConcurrentHashMap<>();
+    // Bounded cache with LRU eviction to avoid recreating SecretKeySpec objects
+    // Max 1000 entries to prevent unbounded memory growth
+    private static final int MAX_KEY_SPEC_CACHE_SIZE = 1000;
+    private static final Map<String, SecretKeySpec> KEY_SPEC_CACHE =
+        Collections.synchronizedMap(new LinkedHashMap<>(16, 0.75f, true) {
+            @Override
+            protected boolean removeEldestEntry(Map.Entry<String, SecretKeySpec> eldest) {
+                return size() > MAX_KEY_SPEC_CACHE_SIZE;
+            }
+        });
 
     static {
         try {

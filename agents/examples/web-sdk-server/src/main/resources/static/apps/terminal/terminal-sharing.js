@@ -14,7 +14,7 @@ class TerminalSharing extends AgentInteractionBase {
             storagePrefix: 'terminal_sharing_',
             customType: 'terminal-sharing',
             usePubKey: false,
-            autoCreateDataChannel: false,
+            autoCreateDataChannel: true,
             supportsPauseResume: false
         });
 

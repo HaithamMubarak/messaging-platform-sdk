@@ -8,6 +8,11 @@ import org.springframework.web.servlet.config.annotation.CorsRegistry;
 import org.springframework.web.servlet.config.annotation.ResourceHandlerRegistry;
 import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
 
+import javax.servlet.*;
+import javax.servlet.http.HttpServletRequest;
+import javax.servlet.http.HttpServletResponse;
+import java.io.IOException;
+
 /**
  * Web MVC Configuration
  * Configures CORS, static resources, and other web settings
@@ -45,6 +50,33 @@ public class WebConfig implements WebMvcConfigurer {
     @Bean
     public RestTemplate restTemplate() {
         return new RestTemplate();
+    }
+
+    /**
+     * Redirect filter to handle /examples/** to /apps/** redirects
+     * This provides backward compatibility when the examples folder was renamed to apps
+     */
+    @Bean
+    public Filter examplesRedirectFilter() {
+        return (request, response, chain) -> {
+            HttpServletRequest httpRequest = (HttpServletRequest) request;
+            HttpServletResponse httpResponse = (HttpServletResponse) response;
+
+            String requestUri = httpRequest.getRequestURI();
+
+            // Redirect /examples/** to /apps/**
+            if (requestUri.startsWith("/examples/")) {
+                String newUri = requestUri.replace("/examples/", "/apps/");
+                String queryString = httpRequest.getQueryString();
+                String redirectUrl = queryString != null ? newUri + "?" + queryString : newUri;
+
+                httpResponse.setStatus(HttpServletResponse.SC_MOVED_PERMANENTLY); // 301 Permanent Redirect
+                httpResponse.setHeader("Location", redirectUrl);
+                return;
+            }
+
+            chain.doFilter(request, response);
+        };
     }
 }
 

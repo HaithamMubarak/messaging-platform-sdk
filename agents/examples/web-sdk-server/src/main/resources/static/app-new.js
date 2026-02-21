@@ -7,12 +7,12 @@ const CONFIG = {
         github: 'https://github.com/HaithamMubarak/messaging-platform-sdk',
         portal: 'developer/index.html',
         demos: {
-            whiteboard: 'examples/whiteboard/index.html',
-            airHockey: 'examples/mini-games/air-hockey/index.html',
-            quickShare: 'examples/quickshare/quickshare.html',
-            chat: 'examples/chat/index.html',
-            video: 'examples/video/index.html',
-            connectionTester: 'examples/test-api-key/index.html'
+            whiteboard: 'apps/whiteboard/index.html',
+            airHockey: 'apps/mini-games/air-hockey/index.html',
+            quickShare: 'apps/quickshare/quickshare.html',
+            chat: 'apps/chat/index.html',
+            video: 'apps/video/index.html',
+            connectionTester: 'apps/test-api-key/index.html'
         }
     },
     storage: {

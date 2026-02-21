@@ -22,4 +22,14 @@ public class ConnectResponse extends SessionRequest {
      * Provided only after successful channel connection
      */
     private List<IceServerConfig> iceServers;
+
+    /**
+     * Agent name (permanent identifier)
+     */
+    private String agentName;
+
+    /**
+     * Agent alias (display name, can be changed)
+     */
+    private String agentAlias;
 }

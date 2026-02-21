@@ -1,5 +1,6 @@
 package com.hmdev.sdk.local.terminal;
 
+import com.hmdev.messaging.common.CommonUtils;
 import com.hmdev.sdk.local.model.SshConnection;
 import com.hmdev.sdk.local.model.TerminalSession;
 import com.hmdev.sdk.local.repository.SshConnectionRepository;
@@ -36,10 +37,11 @@ public class TerminalService {
      * Create local terminal session using ProcessBuilder
      *
      * @param sessionId Unique session identifier
-     * @param shell Shell to spawn (cmd, powershell, bash, etc.)
+     * @param shell     Shell to spawn (cmd, powershell, bash, etc.)
+     * @return
      * @throws IOException if terminal cannot be started
      */
-    public void createLocalTerminalSession(String sessionId, String shell) throws IOException {
+    public Map<String, Object> createLocalTerminalSession(String sessionId, String shell) throws IOException {
         LocalTerminalSession session = new LocalTerminalSession(sessionId, shell);
 
         // Open the session (already opened in constructor, but call for consistency)
@@ -66,6 +68,13 @@ public class TerminalService {
         sessionRepository.save(dbSession);
         
         log.info("[TerminalService] Local terminal session created: {} (shell: {})", sessionId, shell);
+
+        return Map.of(
+                "sessionId", sessionId,
+                "type", "local",
+                "shell", shell,
+                "status", "active"
+        );
     }
 
     /**
@@ -102,6 +111,7 @@ public class TerminalService {
         dbSession.setCreatedAt(LocalDateTime.now());
 
         // Set default tab metadata (will be updated by frontend with connection name)
+        dbSession.setTabName(username + "@" + host);  // ✅ Set default SSH tab name
         dbSession.setTabIcon("🌐");
         dbSession.setAutoRestore(true);
 
@@ -127,17 +137,17 @@ public class TerminalService {
      * @return Map containing session info
      * @throws Exception if connection not found or session creation fails
      */
-    public Map<String, Object> createSshTerminalSessionFromConnection(String sessionId, Long connectionId, String connectionName) throws Exception {
+    public Map<String, Object> createSshTerminalSession(String sessionId, Long connectionId, String connectionName) throws Exception {
         // Get SSH connection from database
-        var sshConnection = connectionId != null ?
-            sshConnectionRepository.findById(connectionId) :
-            sshConnectionRepository.findByName(connectionName);
+        Optional<SshConnection> sshConnection = connectionId != null ?
+                sshConnectionRepository.findById(connectionId) :
+                sshConnectionRepository.findByName(connectionName);
 
         if (sshConnection.isEmpty()) {
             throw new IllegalArgumentException("SSH connection not found");
         }
 
-        var conn = sshConnection.get();
+        SshConnection conn = sshConnection.get();
 
         // Create SSH terminal session
         createSshTerminalSession(sessionId, conn.getHost(), conn.getPort(),
@@ -367,17 +377,28 @@ public class TerminalService {
         TerminalSession session = sessionRepository.findById(sessionId)
             .orElseThrow(() -> new IllegalArgumentException("Session not found: " + sessionId));
 
-        if (metadata.containsKey("tabName")) {
-            session.setTabName((String) metadata.get("tabName"));
+        String tabName =
+                CommonUtils.checkMapKey(metadata, "tabName", String.class);
+        if (tabName != null) {
+            session.setTabName(tabName);
         }
-        if (metadata.containsKey("tabIcon")) {
-            session.setTabIcon((String) metadata.get("tabIcon"));
+
+        String tabIcon =
+                CommonUtils.checkMapKey(metadata, "tabIcon", String.class);
+        if (tabIcon != null) {
+            session.setTabIcon(tabIcon);
         }
-        if (metadata.containsKey("tabOrder")) {
-            session.setTabOrder(((Number) metadata.get("tabOrder")).intValue());
+
+        Number tabOrder =
+                CommonUtils.checkMapKey(metadata, "tabIcon", Number.class);
+        if (tabOrder != null) {
+            session.setTabOrder(tabOrder.intValue());
         }
-        if (metadata.containsKey("autoRestore")) {
-            session.setAutoRestore((Boolean) metadata.get("autoRestore"));
+
+        Boolean autoRestore =
+                CommonUtils.checkMapKey(metadata, "autoRestore", Boolean.class);
+        if (autoRestore != null) {
+            session.setAutoRestore(autoRestore);
         }
 
         sessionRepository.save(session);

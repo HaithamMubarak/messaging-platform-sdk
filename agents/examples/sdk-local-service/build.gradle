@@ -23,6 +23,10 @@ repositories {
 }
 
 dependencies {
+
+    // messaging-common as a Gradle module dependency
+    implementation project(':messaging-common')
+
     // Spring Boot
     implementation 'org.springframework.boot:spring-boot-starter-web'
     implementation 'org.springframework.boot:spring-boot-starter-websocket'

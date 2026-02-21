@@ -122,7 +122,13 @@ public class EventMessage {
          * but does not inspect encrypted content. Encryption/decryption is handled
          * by the agents themselves (end-to-end encryption).
          */
-        FILE;
+        FILE,
+        /**
+         * Agent name change notification.
+         * Payload: JSON with oldName and newName fields.
+         * Broadcast to all agents in the channel when an agent changes their display name.
+         */
+        NAME_CHANGE;
 
         /**
          * Determines if this event type should always be broadcast to all agents
@@ -148,6 +154,7 @@ public class EventMessage {
                 case DISCONNECT:
                 case CHAT_TEXT:
                 case WEBRTC_SIGNALING:
+                case NAME_CHANGE:
                     return true;
                 case CUSTOM:
                 case UDP_DATA:

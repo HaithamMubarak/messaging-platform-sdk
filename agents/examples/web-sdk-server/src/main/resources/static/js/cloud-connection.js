@@ -10,7 +10,7 @@
  *
  * Usage:
  * <script src="../js/AgentInteractionBase.js"></script>
- * <script src="../examples/terminal/terminal-sharing.js"></script>
+ * <script src="../apps/terminal/terminal-sharing.js"></script>
  * <script src="../js/cloud-connection.js"></script>
  *
  * Version: 3.0 - Pure UI component

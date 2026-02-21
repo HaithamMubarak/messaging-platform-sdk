@@ -2787,26 +2787,93 @@
     if (typeof window !== 'undefined' && window.addEventListener) {
         /**
          * Warn user before closing/refreshing page if there are active agent connections
-         * This prevents accidental disconnections during collaborative sessions
+         * AND automatically disconnect all connections when page unloads
+         *
+         * This prevents:
+         * - Accidental disconnections during collaborative sessions (via confirmation)
+         * - Orphaned connections on the server (via auto-disconnect)
+         *
+         * Applications no longer need to implement their own beforeunload handlers!
          *
          * IMPORTANT: In modern browsers, setting e.returnValue triggers the confirmation dialog.
-         * If user clicks "Cancel", the page stays open. If "Leave", page closes.
+         * If user clicks "Cancel", the page stays open. If "Leave", page closes and disconnects.
          */
-          window.addEventListener('beforeunload', (e) => {
-            const activeConnections = _activeConnections;
+        window.addEventListener('beforeunload', (e) => {
+            const activeConnections = _activeConnections.slice(); // Copy array to avoid modification during iteration
 
-            if (activeConnections && activeConnections.length > 0) {
-              // Required for modern browsers
-              e.preventDefault();
+            // If there are active connections, warn the user
+            if (activeConnections.length > 0) {
+                console.log(`[web-agent.js] Beforeunload: ${activeConnections.length} active connection(s) detected`);
 
-              // Chrome, Edge, Firefox ignore custom text
-              // Setting returnValue triggers the confirmation dialog
-              e.returnValue = '';
-              return '';
+                // Show browser confirmation dialog
+                // Required for modern browsers
+                e.preventDefault();
+
+                // Chrome, Edge, Firefox ignore custom text
+                // Setting returnValue triggers the confirmation dialog
+                e.returnValue = '';
+
+                // Note: The actual disconnect happens in 'unload' event (see below)
+                // because beforeunload can be cancelled by user
+                return '';
             }
-          })
+        });
 
-        console.log('[web-agent.js] Beforeunload listener registered - will warn on page close if connected');
+        /**
+         * Cleanup: Disconnect all active connections when page actually unloads
+         * This runs AFTER user confirms (or if no confirmation was needed)
+         *
+         * Uses Beacon API for reliable disconnect during page unload:
+         * - Non-blocking: Won't delay page unload
+         * - Reliable: Browser guarantees delivery even after page closes
+         * - Mobile-friendly: Works with mobile browsers and bfcache
+         *
+         * This is the CENTRALIZED cleanup that applications used to duplicate!
+         */
+        window.addEventListener('unload', () => {
+            const activeConnections = _activeConnections.slice(); // Copy array
+
+            if (activeConnections.length > 0) {
+                console.log(`[web-agent.js] Unload: Disconnecting ${activeConnections.length} active connection(s) with beacon API...`);
+
+                // Disconnect all active connections using Beacon API
+                activeConnections.forEach((connection, index) => {
+                    try {
+                        const agentName = connection.agentName || `Connection-${index}`;
+                        console.log(`[web-agent.js] Disconnecting: ${agentName}`);
+                        // Use beacon API for reliable disconnect during unload
+                        connection.disconnect({ useBeacon: true });
+                    } catch (error) {
+                        console.error('[web-agent.js] Error disconnecting connection:', error);
+                    }
+                });
+
+                console.log('[web-agent.js] All connections disconnected on page unload with beacon API');
+            }
+        });
+
+        /**
+         * Additional cleanup for mobile browsers and bfcache scenarios
+         * pagehide event is more reliable than unload on mobile
+         */
+        window.addEventListener('pagehide', () => {
+            const activeConnections = _activeConnections.slice();
+
+            if (activeConnections.length > 0) {
+                console.log(`[web-agent.js] Pagehide: Disconnecting ${activeConnections.length} active connection(s)...`);
+
+                activeConnections.forEach((connection, index) => {
+                    try {
+                        const agentName = connection.agentName || `Connection-${index}`;
+                        connection.disconnect({ useBeacon: true });
+                    } catch (error) {
+                        console.error('[web-agent.js] Error disconnecting connection:', error);
+                    }
+                });
+            }
+        });
+
+        console.log('[web-agent.js] Beforeunload/unload/pagehide listeners registered - will warn and auto-disconnect with beacon API on page close');
     }
 
     // Export for Node.js

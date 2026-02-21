@@ -32,11 +32,87 @@
 // ========================================
 // SECTION 1: CONFIGURATION & CONSTANTS
 // ========================================
+// TEST MODE: Set to true to disable SLS service (for testing viewer-only mode)
+// When enabled, terminal will only connect to cloud and view shared sessions
+// without creating local terminal sessions (no backend required)
+const TEST_MODE_NO_SLS = localStorage.getItem('test_mode_no_sls') === 'true';
+
 // SDK Local Service Configuration
 const DEFAULT_SLS_PORT = 8088;
 let SLS_PORT = parseInt(localStorage.getItem('sls-port') || DEFAULT_SLS_PORT);
 let MLS_URL = `http://localhost:${SLS_PORT}`;
 let MLS_WS_URL = `ws://localhost:${SLS_PORT}`;
+
+if (TEST_MODE_NO_SLS) {
+    console.warn('🧪 TEST MODE: SLS service disabled - viewer-only mode (shared sessions only)');
+}
+
+/**
+ * Toggle test mode (disable SLS for testing)
+ *
+ * Test Mode Purpose:
+ * - Simulates SLS (local service) being offline/unavailable
+ * - Perfect for testing tab sharing functionality between multiple browser instances
+ * - Allows viewing shared sessions from cloud without requiring SLS
+ * - Use case: Open 2 browser windows - one with SLS (shares), one in test mode (views)
+ *
+ * Usage from console:
+ *   enableTestMode()  // Enable test mode
+ *   disableTestMode() // Disable test mode
+ *   toggleTestMode()  // Toggle current state
+ */
+function toggleTestMode() {
+    const newMode = !TEST_MODE_NO_SLS;
+    localStorage.setItem('test_mode_no_sls', newMode.toString());
+    console.log(`🧪 Test mode ${newMode ? 'ENABLED' : 'DISABLED'} - Reload page to apply`);
+    showToast('info', 'Test Mode', `${newMode ? 'Enabled' : 'Disabled'} - Reload page to apply`);
+
+    // Show helpful instructions
+    if (newMode) {
+        console.log('📌 TEST MODE ENABLED:');
+        console.log('  ✓ SLS service disabled (viewer-only mode)');
+        console.log('  ✓ Local/SSH terminals disabled');
+        console.log('  ✓ Cloud connection enabled (to view shared sessions)');
+        console.log('  ✓ Perfect for testing tab sharing!');
+        console.log('');
+        console.log('💡 TESTING TIP:');
+        console.log('  1. Open this page in another browser/tab WITH SLS running');
+        console.log('  2. In that window, create terminals and share them');
+        console.log('  3. In THIS window (test mode), connect to cloud and view shared sessions');
+    } else {
+        console.log('✅ TEST MODE DISABLED - Normal operation restored');
+        console.log('  ✓ SLS service enabled');
+        console.log('  ✓ Local/SSH terminals enabled');
+    }
+
+    return newMode;
+}
+
+/**
+ * Enable test mode (for console usage)
+ */
+function enableTestMode() {
+    if (TEST_MODE_NO_SLS) {
+        console.log('🧪 Test mode is already enabled');
+        return;
+    }
+    localStorage.setItem('test_mode_no_sls', 'true');
+    console.log('🧪 Test mode ENABLED - Reload page to apply');
+    showToast('info', 'Test Mode', 'Test mode enabled - Reload page to apply');
+}
+
+/**
+ * Disable test mode (for console usage)
+ */
+function disableTestMode() {
+    if (!TEST_MODE_NO_SLS) {
+        console.log('✅ Test mode is already disabled');
+        return;
+    }
+    localStorage.setItem('test_mode_no_sls', 'false');
+    console.log('✅ Test mode DISABLED - Reload page to apply');
+    showToast('info', 'Test Mode', 'Test mode disabled - Reload page to apply');
+}
 
 /**
  * Update SLS port configuration
@@ -82,6 +158,11 @@ let slsSecurityToken = null;
  * Request security token from SLS
  */
 async function requestSlsToken() {
+    if (TEST_MODE_NO_SLS) {
+        console.log('🧪 TEST MODE: Skipping SLS token request');
+        return null;
+    }
+
     try {
         const response = await fetch(`${MLS_URL}/auth/token`, {
             method: 'POST',
@@ -152,6 +233,19 @@ function getSlsHeaders(additionalHeaders = {}) {
  * Fetch with automatic token handling
  */
 async function slsFetch(url, options = {}) {
+    // Skip all SLS API calls in test mode
+    if (TEST_MODE_NO_SLS) {
+        console.log('🧪 TEST MODE: Skipping SLS fetch:', url);
+        // Return a mock successful response
+        return {
+            ok: false,
+            status: 503,
+            statusText: 'Service Unavailable (Test Mode)',
+            json: async () => ({ error: 'SLS disabled in test mode' }),
+            text: async () => 'SLS disabled in test mode'
+        };
+    }
+
     let token = getSlsToken();
 
     // Request new token if we don't have one
@@ -354,6 +448,16 @@ function getTabIcon(sessionId) {
 }
 
 /**
+ * Get tab title for a session
+ */
+function getTabTitle(sessionId) {
+    const tab = document.getElementById(`tab-${sessionId}`);
+    if (!tab) return null;
+    const titleEl = tab.querySelector('.tab-title');
+    return titleEl ? titleEl.textContent.trim() : null;
+}
+
+/**
  * Get tab order for a session
  */
 function getTabOrder(sessionId) {
@@ -416,8 +520,19 @@ async function restoreTab(dbSession) {
     console.log('[TabRestore] Restoring tab:', sessionId, 'type:', type, 'tabName:', dbSession.tabName);
 
     // Prepare default name and icon BEFORE any async operations
-    // This ensures we always have the saved name, even if SSH connection fetch fails
-    const name = dbSession.tabName || (type === 'local' ? `Local (${dbSession.shell || 'CMD'})` : 'SSH');
+    // This ensures we always have a meaningful name, even if SSH connection fetch fails
+    let name = dbSession.tabName;
+    if (!name) {
+        // Fallback: generate a meaningful default name
+        if (type === 'local') {
+            name = `Local (${(dbSession.shell || 'CMD').toUpperCase()})`;
+        } else if (type === 'ssh') {
+            // For SSH, try to create a meaningful name from available data
+            name = 'SSH Session';  // Ultimate fallback
+        } else {
+            name = 'Terminal';
+        }
+    }
     const icon = dbSession.tabIcon || (type === 'local' ? '💻' : '🌐');
 
     try {
@@ -607,7 +722,7 @@ function showToast(type, title, message, duration = 4000) {
     const toast = document.createElement('div');
     toast.className = `toast ${type}`;
 
-    const icons = { success: '✓', error: '✖', info: 'ℹ', warning: '⚠' };
+    const icons = { success: '✓', error: '✕', info: 'ℹ', warning: '⚠' };
     toast.innerHTML = `
         <div class="toast-icon">${icons[type] || 'ℹ'}</div>
         <div class="toast-content">
@@ -631,26 +746,51 @@ async function checkMlsHealth(showNotification = false) {
     const statusDot = document.getElementById('mlsStatus');
     const statusText = document.getElementById('mlsStatusText');
 
+    // In test mode, show special status
+    if (TEST_MODE_NO_SLS) {
+        statusDot.className = 'status-dot offline';
+        statusText.textContent = 'SLS: Test Mode';
+        statusText.title = 'Test mode enabled - SLS disabled';
+        console.log('🧪 TEST MODE: Skipping SLS health check');
+        return false; // Return false so dependent features know SLS is unavailable
+    }
+
     statusDot.className = 'status-dot checking';
     statusText.textContent = 'SLS: Checking...';
 
     try {
-        // Health endpoint is public, but we use slsFetch for consistency
-        const response = await fetch(`${MLS_URL}/health`);
+        // Health endpoint is public - use regular fetch (no auth needed)
+        // Don't use slsFetch to avoid unnecessary token requests for health checks
+        const response = await fetch(`${MLS_URL}/health`, {
+            method: 'GET',
+            // Add timeout to detect offline faster
+            signal: AbortSignal.timeout(5000) // 5 second timeout
+        });
+
         if (response.ok) {
             statusDot.className = 'status-dot online';
             statusText.textContent = 'SLS: Online';
+            statusText.title = `SDK Local Service running on port ${SLS_PORT}`;
             if (showNotification) {
                 showToast('success', 'SLS Online', 'SDK Local Service is running');
             }
             return true;
         }
-        throw new Error('Health check failed');
+
+        // Non-OK response (4xx, 5xx)
+        throw new Error(`Health check failed with status: ${response.status}`);
     } catch (error) {
         statusDot.className = 'status-dot offline';
         statusText.textContent = 'SLS: Offline';
+        statusText.title = `Cannot connect to SLS on localhost:${SLS_PORT}`;
+
+        console.warn('[Health] SLS health check failed:', error.message);
+
         if (showNotification) {
-            showToast('error', 'SLS Offline', 'Please start SDK Local Service on localhost:8088');
+            const errorMsg = error.name === 'TimeoutError'
+                ? 'Connection timeout - SLS not responding'
+                : `Please start SDK Local Service on localhost:${SLS_PORT}`;
+            showToast('error', 'SLS Offline', errorMsg);
         }
         return false;
     }
@@ -809,6 +949,12 @@ function checkTabOverflow() {
 // Tab Management
 // ========================================
 function createTab(sessionId, title, icon, type) {
+    // ✅ Validate and sanitize tab title - never show null/undefined
+    if (!title || title === 'null' || title === 'undefined') {
+        console.warn(`[createTab] Invalid title "${title}" for session ${sessionId}, using fallback`);
+        title = type === 'ssh' ? 'SSH Session' : type === 'local' ? 'Terminal' : 'Session';
+    }
+
     const tabBar = document.getElementById('tabBar');
     const addBtn = tabBar.querySelector('.tab-add');
 
@@ -967,6 +1113,12 @@ function createTerminalPanel(sessionId) {
 // Create Local Terminal
 // ========================================
 async function createLocalTerminal(shell = 'cmd') {
+    if (TEST_MODE_NO_SLS) {
+        showToast('warning', '🧪 Test Mode', 'Local terminals disabled in test mode. Connect to cloud to view shared sessions.');
+        console.warn('🧪 TEST MODE: Local terminal creation disabled');
+        return;
+    }
+
     const healthy = await checkMlsHealth();
     if (!healthy) {
         showToast('error', 'SLS Unavailable', 'Please start SDK Local Service first');
@@ -1050,6 +1202,12 @@ async function createLocalTerminal(shell = 'cmd') {
 // Connect to SSH
 // ========================================
 async function connectToSsh(connectionId, name, host, port, username) {
+    if (TEST_MODE_NO_SLS) {
+        showToast('warning', '🧪 Test Mode', 'SSH terminals disabled in test mode. Connect to cloud to view shared sessions.');
+        console.warn('🧪 TEST MODE: SSH connection disabled');
+        return;
+    }
+
     const healthy = await checkMlsHealth();
     if (!healthy) {
         showToast('error', 'SLS Unavailable', 'Please start SDK Local Service first');
@@ -1353,9 +1511,35 @@ function connectWebSocket(sessionId) {
     console.log('[WS] Connecting:', wsUrl);
 
     const ws = new WebSocket(wsUrl);
+    
+    // ⏱️ Set connection timeout to detect offline SLS faster
+    const connectionTimeout = setTimeout(() => {
+        if (ws.readyState === WebSocket.CONNECTING) {
+            console.error('[WS] Connection timeout - SLS not responding');
+            ws.close(1000, 'Connection timeout');
+            
+            session.terminal.clear();
+            session.terminal.writeln('\x1b[1;31m✖ Connection timeout\x1b[0m');
+            session.terminal.writeln('\x1b[33mSDK Local Service is not responding\x1b[0m');
+            session.terminal.writeln('');
+            session.terminal.writeln('\x1b[36mPossible causes:\x1b[0m');
+            session.terminal.writeln('  • SLS is not running');
+            session.terminal.writeln(`  • SLS is not listening on localhost:${SLS_PORT}`);
+            session.terminal.writeln('  • Firewall is blocking the connection');
+            session.terminal.writeln('');
+            session.terminal.writeln('\x1b[33mPress R to retry or close this tab\x1b[0m');
+            
+            showReconnectOverlay(sessionId);
+            showToast('error', 'Connection Timeout', 'Cannot connect to SLS - check if it\'s running');
+        }
+    }, 10000); // 10 second timeout
 
     ws.onopen = () => {
         console.log('[WS] Connected for session:', sessionId);
+        
+        // ✅ Clear connection timeout - we're connected!
+        clearTimeout(connectionTimeout);
+        
         session.connected = true;
 
         // Wrap WebSocket in TerminalDataSender for unified interface
@@ -1453,15 +1637,60 @@ function connectWebSocket(sessionId) {
     };
 
     ws.onerror = (error) => {
-        console.error('[WS] Error:', error);
+        // Clear timeout - error already occurred
+        clearTimeout(connectionTimeout);
+        
+        console.error('[WS] WebSocket error for session:', sessionId, error);
+
+        // Show user-friendly error based on connection state
+        if (!session.connected) {
+            // Connection never established - likely SLS is offline
+            console.error('[WS] Failed to establish connection - SLS may be offline');
+            session.terminal.writeln('');
+            session.terminal.writeln('\x1b[1;31m✖ Connection failed\x1b[0m');
+            session.terminal.writeln('\x1b[33mCannot connect to SDK Local Service\x1b[0m');
+            session.terminal.writeln('\x1b[36mPlease ensure SLS is running on localhost:' + SLS_PORT + '\x1b[0m');
+        }
     };
 
     ws.onclose = (event) => {
-        console.log('[WS] Closed:', event.code);
+        // Clear timeout - connection closed
+        clearTimeout(connectionTimeout);
+        
+        console.log('[WS] WebSocket closed for session:', sessionId);
+        console.log('[WS] Close code:', event.code, 'Reason:', event.reason || 'No reason provided');
+        console.log('[WS] Was clean close:', event.wasClean);
+
         session.connected = false;
         session.dataSender = null;
         updateTab(sessionId, true);
         showReconnectOverlay(sessionId);
+
+        // Provide context-specific messages based on close code
+        if (!event.wasClean) {
+            console.warn('[WS] Abnormal close - possible SLS crash or network issue');
+
+            // Common WebSocket close codes
+            const closeReasons = {
+                1000: 'Normal closure',
+                1001: 'Going away (SLS shutdown or navigation)',
+                1006: 'Abnormal closure (no close frame - SLS offline?)',
+                1011: 'Server error',
+                1012: 'Service restart',
+                1013: 'Try again later',
+                1014: 'Bad gateway',
+                1015: 'TLS handshake failure'
+            };
+
+            const reason = closeReasons[event.code] || `Unknown (code ${event.code})`;
+            console.log('[WS] Close reason:', reason);
+
+            // If code 1006, it's likely SLS went offline
+            if (event.code === 1006) {
+                console.error('[WS] Code 1006 - SLS likely went offline or crashed');
+                showToast('warning', 'Connection Lost', 'SLS may have stopped. Press R to reconnect.');
+            }
+        }
     };
 
     session.dataSender = ws;
@@ -1957,17 +2186,33 @@ function showTabContextMenu(e, sessionId) {
 }
 
 function tabContextMenuAction(action) {
+    console.log('[TabContextMenu] Action triggered:', action);
+    console.log('[TabContextMenu] Target sessionId:', tabContextMenuTarget);
+
     hideContextMenus();
     const sessionId = tabContextMenuTarget;
-    if (!sessionId) return;
+    if (!sessionId) {
+        console.warn('[TabContextMenu] No sessionId found, aborting');
+        return;
+    }
 
     // Check if the action is disabled (e.g., share when not connected)
     if (action === 'toggleShare') {
+        console.log('[TabContextMenu] toggleShare action detected');
+        console.log('[TabContextMenu] cloudConnected:', cloudConnected);
+        console.log('[TabContextMenu] terminalSharing:', terminalSharing);
+
         const shareMenuItem = document.getElementById('shareMenuItem');
+        console.log('[TabContextMenu] shareMenuItem:', shareMenuItem);
+        console.log('[TabContextMenu] shareMenuItem.classList:', shareMenuItem?.classList);
+
         if (shareMenuItem && shareMenuItem.classList.contains('disabled')) {
+            console.warn('[TabContextMenu] Share menu is disabled, showing warning');
             showToast('warning', 'Not Connected', 'Connect to cloud messaging first to share terminals');
             return;
         }
+
+        console.log('[TabContextMenu] Share menu is enabled, proceeding...');
     }
 
     switch (action) {
@@ -1996,17 +2241,32 @@ function tabContextMenuAction(action) {
             break;
         }
         case 'toggleShare': {
+            console.log('[TabContextMenu] Inside toggleShare case');
+            console.log('[TabContextMenu] cloudConnected:', cloudConnected);
+            console.log('[TabContextMenu] terminalSharing:', terminalSharing);
+
             // Check if cloud connected before allowing share/unshare
             if (!cloudConnected || !terminalSharing) {
+                console.warn('[TabContextMenu] Not connected - showing toast');
                 showToast('warning', 'Not Connected', 'Connect to cloud messaging first to share terminals');
                 return;
             }
 
             const session = sessions.get(sessionId);
-            if (!session) break;
+            console.log('[TabContextMenu] Session retrieved:', session);
+
+            if (!session) {
+                console.warn('[TabContextMenu] Session not found, breaking');
+                break;
+            }
+
+            console.log('[TabContextMenu] Session.isShared:', session.isShared);
+
             if (session.isShared) {
+                console.log('[TabContextMenu] Calling unshareTerminal');
                 unshareTerminal(sessionId);
             } else {
+                console.log('[TabContextMenu] Calling shareTerminal');
                 shareTerminal(sessionId);
             }
             break;
@@ -2132,50 +2392,81 @@ async function deleteSshConnection(connectionId, name) {
 
 /**
  * Check for auth URL parameters (shared link) and auto-connect
+ * @returns {Promise<boolean>} True if auth URL was processed, false otherwise
  */
 async function checkForAuthUrl() {
     const hash = window.location.hash;
-    if (!hash || hash.length < 10) return;
+    if (!hash || hash.length < 10) return false;
 
     console.log('[Terminal] Checking for shared link in URL');
+    console.log('[Terminal] Full hash:', hash);
 
     try {
-        // Remove # and split by # to get auth and optional channel name
-        const parts = hash.substring(1).split('#');
-        const authEncoded = parts[0];
+        // Remove first # and split by # to get auth and optional channel identifier
+        const hashWithoutFirst = hash.substring(1);
+        console.log('[Terminal] Hash without first #:', hashWithoutFirst);
 
-        if (!authEncoded) return;
+        const parts = hashWithoutFirst.split('#');
+        console.log('[Terminal] Split parts:', parts);
+
+        const authEncoded = parts[0];
+        console.log('[Terminal] Auth encoded part:', authEncoded);
+
+        if (!authEncoded) {
+            console.warn('[Terminal] No auth encoded string found');
+            return false;
+        }
 
         // Decode the auth
         let decoded;
         if (typeof ChannelAuthUtils !== 'undefined' && ChannelAuthUtils.decode) {
+            console.log('[Terminal] Using ChannelAuthUtils.decode');
             decoded = ChannelAuthUtils.decode(authEncoded);
         } else if (typeof decodeChannelAuth === 'function') {
+            console.log('[Terminal] Using decodeChannelAuth');
             decoded = decodeChannelAuth(authEncoded);
         } else {
             console.error('[Terminal] No decode function available');
-            return;
+            console.error('[Terminal] ChannelAuthUtils:', typeof ChannelAuthUtils);
+            console.error('[Terminal] decodeChannelAuth:', typeof decodeChannelAuth);
+            return false;
         }
 
-        if (!decoded || !decoded.channelName || !decoded.channelPassword) {
-            console.warn('[Terminal] Invalid auth URL');
-            return;
+        console.log('[Terminal] Decoded result:', decoded);
+
+        // ✅ Support both short (c, p, t) and long (channelName, channelPassword) property names
+        // Short names are used for URL brevity (e.g., from share modal encoding)
+        const channelName = decoded.channelName || decoded.c;
+        const channelPassword = decoded.channelPassword || decoded.p;
+        const timestamp = decoded.timestamp || decoded.t;
+
+        if (!decoded || !channelName || !channelPassword) {
+            console.warn('[Terminal] Invalid auth URL - decoded:', decoded);
+            console.warn('[Terminal] Missing channel name or password');
+            console.warn('[Terminal] Expected properties: c/channelName and p/channelPassword');
+            return false;
         }
 
         console.log('[Terminal] Valid shared link found');
+        console.log('[Terminal] Channel:', channelName);
+        console.log('[Terminal] Timestamp:', timestamp ? new Date(timestamp).toLocaleString() : 'N/A');
 
         // Prompt for agent name with a nice dialog
-        const agentName = await promptForAgentName(decoded.channelName);
+        const agentName = await promptForAgentName(channelName);
 
         if (!agentName) {
             console.log('[Terminal] User cancelled agent name prompt');
-            return;
+            return false;
         }
 
-        // Fill in the connection form
-        document.getElementById('cloudChannelName').value = decoded.channelName;
-        document.getElementById('cloudChannelPassword').value = decoded.channelPassword;
+        // Fill in the connection form with auth URL values
+        document.getElementById('cloudChannelName').value = channelName;
+        document.getElementById('cloudChannelPassword').value = channelPassword;
         document.getElementById('cloudAgentName').value = agentName;
+
+        console.log('[Terminal] ✅ Auth URL values set:');
+        console.log('[Terminal]   Channel:', channelName);
+        console.log('[Terminal]   Agent:', agentName);
 
         // Auto-connect
         showToast('info', 'Connecting...', `Connecting to shared terminal as ${agentName}`);
@@ -2183,8 +2474,12 @@ async function checkForAuthUrl() {
             connectToCloud();
         }, 500);
 
+        return true; // ✅ Auth URL was processed successfully
+
     } catch (error) {
         console.error('[Terminal] Failed to process auth URL:', error);
+        console.error('[Terminal] Error stack:', error.stack);
+        return false;
     }
 }
 
@@ -2936,9 +3231,12 @@ function shareTerminal(sessionId) {
 
     console.log('[ShareTerminal] Calling terminalSharing.shareSession...');
 
+    // Get session name with fallback to tab title or default
+    const sessionName = session.name || getTabTitle(sessionId) || 'Terminal Session';
+
     // Share via TerminalSharing
     const success = terminalSharing.shareSession(sessionId, {
-        name: session.name,
+        name: sessionName,
         shell: session.config?.shell || session.type || 'cmd',
         type: session.type
     });
@@ -3080,14 +3378,51 @@ function openSftpForSession(sessionId) {
 // Initialize
 // ========================================
 window.addEventListener('load', async () => {
-    // 🔐 Request SLS security token first
-    try {
-        await requestSlsToken();
-        console.log('✅ SLS authentication successful');
-    } catch (error) {
-        console.error('❌ Failed to authenticate with SLS:', error);
-        showToast('error', 'Authentication Failed', 'Failed to authenticate with SDK Local Service. Please ensure it is running.');
-        return; // Don't proceed if we can't authenticate
+    // 🧪 Show test mode banner if enabled
+    if (TEST_MODE_NO_SLS) {
+        showToast('info', '🧪 Test Mode Active', 'SLS service disabled - Viewer-only mode (shared sessions only)', 10000);
+
+        // Add visual indicator to UI
+        const testBanner = document.createElement('div');
+        testBanner.id = 'testModeBanner';
+        testBanner.style.cssText = `
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            background: linear-gradient(90deg, #f97316, #ea580c);
+            color: white;
+            padding: 8px 16px;
+            text-align: center;
+            font-size: 13px;
+            font-weight: 600;
+            z-index: 9999;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+        `;
+        testBanner.innerHTML = `
+            🧪 TEST MODE: SLS Disabled - Viewer Only 
+            <button onclick="toggleTestMode()" style="margin-left: 12px; padding: 4px 12px; border: 1px solid white; 
+                    border-radius: 4px; background: rgba(255,255,255,0.2); color: white; cursor: pointer; font-size: 11px;">
+                Disable Test Mode
+            </button>
+        `;
+        document.body.prepend(testBanner);
+
+        // Adjust terminal wrapper top margin
+        const wrapper = document.getElementById('terminalWrapper');
+        if (wrapper) wrapper.style.paddingTop = '40px';
+    }
+
+    // 🔐 Request SLS security token first (skip in test mode)
+    if (!TEST_MODE_NO_SLS) {
+        try {
+            await requestSlsToken();
+            console.log('✅ SLS authentication successful');
+        } catch (error) {
+            console.error('❌ Failed to authenticate with SLS:', error);
+            showToast('error', 'Authentication Failed', 'Failed to authenticate with SDK Local Service. Please ensure it is running.');
+            return; // Don't proceed if we can't authenticate
+        }
     }
 
     // Setup modal click-outside-to-close listeners (must be after DOM is loaded)
@@ -3103,21 +3438,31 @@ window.addEventListener('load', async () => {
         if (e.target.id === 'helpModalOverlay') closeHelpModal();
     });
 
-    // Now proceed with normal initialization
-    await checkMlsHealth();
-    await refreshConnections();
-
-    // ✅ Load cloud connection config from backend
-    await loadCloudConfig();
-
     // Initialize share modal
     if (typeof ShareModal !== 'undefined') {
         ShareModal.init();
         console.log('[Terminal] Share modal initialized');
     }
 
-    // Check for auth URL parameters (shared link)
-    await checkForAuthUrl();
+    // ✅ CRITICAL: Check for auth URL FIRST (before loadCloudConfig)
+    // This ensures auth URL values take precedence over saved config
+    const hasAuthUrl = await checkForAuthUrl();
+
+    // Now proceed with normal initialization (skip SLS checks in test mode)
+    if (!TEST_MODE_NO_SLS) {
+        await checkMlsHealth();
+        await refreshConnections();
+
+        // Load cloud connection config from backend (but don't override auth URL values)
+        if (!hasAuthUrl) {
+            await loadCloudConfig();
+        } else {
+            console.log('[Terminal] Skipping loadCloudConfig - using auth URL values');
+        }
+    } else {
+        console.log('🧪 TEST MODE: Skipping SLS health check and connection refresh');
+    }
+
 
     // Initialize SFTP browser
     initSftpBrowser();
@@ -3144,20 +3489,76 @@ window.addEventListener('resize', () => {
     checkTabOverflow();
 });
 
+// ========================================
+// CLEANUP ON PAGE UNLOAD
+// ========================================
+// Note: Cloud connection cleanup is handled automatically by web-agent.js
+// We only need to clean up application-specific resources here
 window.addEventListener('beforeunload', () => {
-    // Close SFTP browser
+    // Close SFTP browser (application-specific resource)
     if (sftpBrowser && sftpBrowser.isConnected) {
-        try { sftpBrowser.close(); } catch(e) {}
+        try {
+            sftpBrowser.close();
+        } catch(e) {
+            console.error('[Cleanup] Error closing SFTP browser:', e);
+        }
     }
 
-    // Disconnect from cloud
-    if (terminalSharing) {
-        try { terminalSharing.disconnect(); } catch(e) {}
-    }
+    // Note: terminalSharing (cloud connection) is automatically disconnected by web-agent.js
+    // No need to manually disconnect here!
 
-    // Close all terminal dataSender connections
+    // Close all terminal dataSender connections (WebSocket connections to local SLS)
     sessions.forEach((session) => {
-        if (session.dataSender) session.dataSender.close();
+        if (session.dataSender) {
+            try {
+                session.dataSender.close();
+            } catch(e) {
+                console.error('[Cleanup] Error closing terminal session:', e);
+            }
+        }
     });
+
+    console.log('[Terminal] Cleanup complete');
 });
 
+// ========================================
+// GLOBAL EXPORTS FOR TESTING
+// ========================================
+// Make test mode functions globally accessible from browser console
+window.toggleTestMode = toggleTestMode;
+window.enableTestMode = enableTestMode;
+window.disableTestMode = disableTestMode;
+
+// Keyboard shortcut for test mode (Ctrl+Shift+T)
+document.addEventListener('keydown', (e) => {
+    if (e.ctrlKey && e.shiftKey && e.key === 'T') {
+        e.preventDefault();
+        toggleTestMode();
+    }
+});
+
+// Log test mode instructions on console
+if (TEST_MODE_NO_SLS) {
+    console.log('%c🧪 TEST MODE ACTIVE', 'background: #f97316; color: white; padding: 8px 16px; font-size: 14px; font-weight: bold; border-radius: 4px;');
+    console.log('%c📋 TEST MODE INFO:', 'color: #f97316; font-weight: bold;');
+    console.log('  ✓ SLS service disabled (viewer-only mode)');
+    console.log('  ✓ Local/SSH terminals disabled');
+    console.log('  ✓ Cloud connection enabled (to view shared sessions)');
+    console.log('  ✓ Perfect for testing tab sharing!');
+    console.log('');
+    console.log('%c💡 TESTING WORKFLOW:', 'color: #22d3ee; font-weight: bold;');
+    console.log('  1️⃣  Open terminal in another browser/tab WITH SLS running (normal mode)');
+    console.log('  2️⃣  In normal mode: Create terminals, connect to cloud, and share sessions');
+    console.log('  3️⃣  In THIS window (test mode): Connect to same cloud channel');
+    console.log('  4️⃣  View and interact with shared sessions from the other window');
+    console.log('');
+    console.log('%c🎮 QUICK COMMANDS:', 'color: #4ade80; font-weight: bold;');
+    console.log('  disableTestMode()  - Exit test mode and enable SLS');
+    console.log('  Ctrl+Shift+T       - Toggle test mode (requires reload)');
+    console.log('');
+} else {
+    console.log('%c💡 TIP: Enable Test Mode for Tab Sharing Testing', 'color: #22d3ee; font-weight: bold;');
+    console.log('  enableTestMode()   - Enable viewer-only mode (no SLS required)');
+    console.log('  Ctrl+Shift+T       - Quick toggle test mode');
+    console.log('');
+}

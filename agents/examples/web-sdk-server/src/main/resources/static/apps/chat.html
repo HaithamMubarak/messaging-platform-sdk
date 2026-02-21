@@ -2492,29 +2492,9 @@
         }, 100);
 
         // Ensure cleanup runs on page close
-        // NOTE: Using BOTH 'unload' and 'pagehide' for maximum compatibility:
-        // - 'unload': Works on desktop browsers
-        // - 'pagehide': More reliable on mobile browsers and handles bfcache
-        // - Both only fire when page actually closes (not during warning dialog)
-        window.addEventListener('unload', cleanupBeforeUnload);
-        window.addEventListener('pagehide', cleanupBeforeUnload);
-
-        // Cleanup on page unload
-        function cleanupBeforeUnload() {
-            // Ask the channel to send a beacon-style disconnect if available. This is best-effort during unload.
-            try {
-                if (window.channel && typeof window.channel.disconnect === 'function') {
-                    try {
-                        window.channel.disconnect({ useBeacon: true });
-                        console.log('Requested channel disconnect with beacon');
-                    } catch (err) {
-                        console.warn('Error while calling channel.disconnect({useBeacon:true}) during unload:', err);
-                    }
-                }
-            } catch (e) {
-                console.warn('Error attempting beacon disconnect during unload:', e);
-            }
-        }
+        // NOTE: Page unload cleanup is handled automatically by web-agent.js
+        // All AgentConnection instances are automatically disconnected with beacon API
+        // when the page closes. No manual cleanup needed!
 
     })();
 </script>
