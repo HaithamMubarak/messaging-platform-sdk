@@ -24,6 +24,15 @@ class TerminalSharing extends AgentInteractionBase {
         // Message handlers registry
         this.messageHandlers = new Map();
 
+        // ✅ Register built-in message handlers IMMEDIATELY in constructor
+        // (so they're ready before any messages arrive)
+        this.registerHandler('session-shared', (msg, src) => this.handleSessionShared(msg, src));
+        this.registerHandler('session-unshared', (msg, src) => this.handleSessionUnshared(msg, src));
+        this.registerHandler('session-input', (msg, src) => this.handleSessionInput(msg, src));
+        this.registerHandler('session-output', (msg, src) => this.handleSessionOutput(msg, src));
+        this.registerHandler('sync-sessions', (msg, src) => this.handleSyncSessions(msg, src));
+        this.registerHandler('request-sync', (msg, src) => this.handleRequestSync(msg, src));
+
         // Callbacks (set by user)
         this.onSharedSessionAdd = null;      // (sessionId, sessionInfo, sourceAgent) => {}
         this.onSharedSessionRemove = null;   // (sessionId, sourceAgent) => {}
@@ -39,18 +48,18 @@ class TerminalSharing extends AgentInteractionBase {
     }
 
     /**
-     * Handle incoming messages - routes to registered handlers
+     * Override onDataChannelMessage - called when data is received via WebRTC or WebSocket
+     * Routes messages to handleMessage for processing
      */
-    handleMessage(event) {
-        const message = event.data;
-        const type = message.type;
+    onDataChannelMessage(sourceAgent, message) {
+        const { type } = message;
 
-        console.log('[TerminalSharing] Received:', type, 'from:', event.sourceAgent);
+        console.log('[TerminalSharing] Received:', type, 'from:', sourceAgent);
 
         // Call registered handler if exists
         const handler = this.messageHandlers.get(type);
         if (handler) {
-            handler(message, event.sourceAgent);
+            handler(message, sourceAgent);
         } else {
             console.log('[TerminalSharing] No handler for type:', type);
         }
@@ -188,31 +197,31 @@ class TerminalSharing extends AgentInteractionBase {
     /**
      * Handle session-shared message
      */
-    handleSessionShared(message, sourceAgent) {
-        const { sessionId, sessionInfo } = message;
+    handleSessionShared(msg, src) {
+        const { sessionId, sessionInfo } = msg;
 
         // Don't track our own shares
-        if (sourceAgent === this.username) return;
+        if (src === this.username) return;
 
         // Add to remote shared sessions
         this.sharedSessions.set(sessionId, {
             ...sessionInfo,
-            owner: sourceAgent
+            owner: src
         });
 
-        console.log('[TerminalSharing] Remote agent shared session:', sessionId, 'from:', sourceAgent);
+        console.log('[TerminalSharing] Remote agent shared session:', sessionId, 'from:', src);
 
         // Call callback if registered
         if (typeof this.onSharedSessionAdd === 'function') {
-            this.onSharedSessionAdd(sessionId, sessionInfo, sourceAgent);
+            this.onSharedSessionAdd(sessionId, sessionInfo, src);
         }
     }
 
     /**
      * Handle session-unshared message
      */
-    handleSessionUnshared(message, sourceAgent) {
-        const { sessionId } = message;
+    handleSessionUnshared(msg, src) {
+        const { sessionId } = msg;
 
         // Remove from shared sessions
         this.sharedSessions.delete(sessionId);
@@ -221,33 +230,33 @@ class TerminalSharing extends AgentInteractionBase {
 
         // Call callback if registered
         if (typeof this.onSharedSessionRemove === 'function') {
-            this.onSharedSessionRemove(sessionId, sourceAgent);
+            this.onSharedSessionRemove(sessionId, src);
         }
     }
 
     /**
      * Handle session-input message
      */
-    handleSessionInput(message, sourceAgent) {
-        const { sessionId, data } = message;
+    handleSessionInput(msg, src) {
+        const { sessionId, data } = msg;
 
-        console.log('[TerminalSharing] Received input for session:', sessionId, 'from:', sourceAgent);
+        console.log('[TerminalSharing] Received input for session:', sessionId, 'from:', src);
 
         // Call callback if registered
         if (typeof this.onSessionInput === 'function') {
-            this.onSessionInput(sessionId, data, sourceAgent);
+            this.onSessionInput(sessionId, data, src);
         }
     }
 
     /**
      * Handle session-output message
      */
-    handleSessionOutput(message, sourceAgent) {
-        const { sessionId, data } = message;
+    handleSessionOutput(msg, src) {
+        const { sessionId, data } = msg;
 
         // Call callback if registered
         if (typeof this.onSessionOutput === 'function') {
-            this.onSessionOutput(sessionId, data, sourceAgent);
+            this.onSessionOutput(sessionId, data, src);
         }
     }
 
@@ -364,13 +373,6 @@ class TerminalSharing extends AgentInteractionBase {
     onStart() {
         console.log('[TerminalSharing] Connected and ready');
 
-        // Register built-in message handlers
-        this.registerHandler('session-shared', (msg, src) => this.handleSessionShared(msg, src));
-        this.registerHandler('session-unshared', (msg, src) => this.handleSessionUnshared(msg, src));
-        this.registerHandler('session-input', (msg, src) => this.handleSessionInput(msg, src));
-        this.registerHandler('session-output', (msg, src) => this.handleSessionOutput(msg, src));
-        this.registerHandler('sync-sessions', (msg, src) => this.handleSyncSessions(msg, src));
-        this.registerHandler('request-sync', (msg, src) => this.handleRequestSync(msg, src));
 
         // Request sync from existing agents
         this.requestSyncFromPeers();
@@ -427,34 +429,34 @@ class TerminalSharing extends AgentInteractionBase {
     /**
      * Handle request-sync message - another agent wants our shared sessions
      */
-    handleRequestSync(message, sourceAgent) {
-        console.log('[TerminalSharing] Received sync request from:', sourceAgent);
-        this.sendSharedSessionsToAgent(sourceAgent);
+    handleRequestSync(msg, src) {
+        console.log('[TerminalSharing] Received sync request from:', src);
+        this.sendSharedSessionsToAgent(src);
     }
 
     /**
      * Handle sync-sessions message - receive multiple shared sessions at once
      */
-    handleSyncSessions(message, sourceAgent) {
-        const { sessions } = message;
+    handleSyncSessions(msg, src) {
+        const { sessions } = msg;
         if (!sessions || !Array.isArray(sessions)) return;
 
-        console.log('[TerminalSharing] Received', sessions.length, 'sessions from:', sourceAgent);
+        console.log('[TerminalSharing] Received', sessions.length, 'sessions from:', src);
 
         sessions.forEach(({ sessionId, sessionInfo }) => {
             // Don't track our own sessions
-            if (sourceAgent === this.username) return;
+            if (src === this.username) return;
 
             // Add to shared sessions if not already present
             if (!this.sharedSessions.has(sessionId)) {
                 this.sharedSessions.set(sessionId, {
                     ...sessionInfo,
-                    owner: sourceAgent
+                    owner: src
                 });
 
                 // Fire callback for each new session
                 if (typeof this.onSharedSessionAdd === 'function') {
-                    this.onSharedSessionAdd(sessionId, sessionInfo, sourceAgent);
+                    this.onSharedSessionAdd(sessionId, sessionInfo, src);
                 }
             }
         });

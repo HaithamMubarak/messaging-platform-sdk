@@ -720,9 +720,11 @@ class AgentInteractionBase {
         // Agent connect event
         this.channel.addEventListener('agent-connect', (ev) => {
             const agentName = ev.agentName;
+            console.log(`[AgentSessionBase] Agent connected: ${agentName}`);
             if (agentName !== this.username) {
                 // Fire onPlayerJoining (loading state - player is connecting)
                 if (typeof this.onPlayerJoining === 'function') {
+                    console.log(`[AgentSessionBase] PlayerJoining ${agentName}`);
                     this.onPlayerJoining({
                         agentName,
                         users: this.getConnectedUsers().filter(n => n !== this.username)
@@ -731,6 +733,7 @@ class AgentInteractionBase {
 
                 // Initiate WebRTC DataChannel with new peer (if enabled)
                 if (this.options.autoCreateDataChannel) {
+                    console.log(`[AgentSessionBase] Initiating DataChannel with new agent ${agentName}`);
                     this._initiateDataChannel(agentName);
                 }
 

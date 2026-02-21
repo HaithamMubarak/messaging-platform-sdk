@@ -2810,34 +2810,143 @@ function regenerateAgentName() {
 /**
  * Load cloud connection config from MLS backend
  */
-async function loadCloudConfig() {
+/**
+ * Load cloud config from backend (SLS)
+ * @returns {Object|null} Backend config or null if unavailable
+ */
+async function loadBackendCloudConfig() {
+    // Test mode: Skip backend loading (SLS disabled)
+    if (TEST_MODE_NO_SLS) {
+        console.log('[Cloud] ⚠️ Backend disabled (test mode)');
+        return null;
+    }
+
     try {
         const response = await slsFetch(`${MLS_URL}/cloud/connection`);
-        if (!response.ok) {
-            console.log('[Cloud] No saved config found');
+        if (response.ok) {
+            const data = await response.json();
+            const config = JSON.parse(data.config || '{}');
+            console.log('[Cloud] ✅ Loaded from backend');
+            return config;
+        }
+    } catch (backendError) {
+        console.log('[Cloud] ⚠️ Backend unavailable (SLS offline)');
+    }
+
+    return null;
+}
+
+async function loadCloudConfig() {
+    try {
+        // ✅ LAYER 1: Load from localStorage (always available)
+        const localConfigStr = localStorage.getItem('terminal_cloud_config');
+        const localStorageConfig = localConfigStr ? JSON.parse(localConfigStr) : null;
+        if (localStorageConfig) {
+            console.log('[Cloud] ✅ Loaded from localStorage');
+        }
+
+        // ✅ LAYER 2: Load from backend (if SLS is available and not in test mode)
+        const backendConfig = await loadBackendCloudConfig();
+
+        // ✅ DECIDE: Which config to use and sync if needed
+        const config = await decideAndSyncConfig(localStorageConfig, backendConfig);
+
+        if (!config) {
+            console.log('[Cloud] ℹ️ No saved config found');
             return;
         }
 
-        const data = await response.json();
-        const config = JSON.parse(data.config || '{}');
+        // ✅ POPULATE: Fill in the form
+        populateCloudForm(config);
 
-        console.log('[Cloud] Loaded config:', config);
-
-        document.getElementById('cloudChannelName').value = config.channelName || '';
-        document.getElementById('cloudChannelPassword').value = config.channelPassword || '';
-        document.getElementById('cloudAgentName').value = config.agentName || '';
-
-        // Auto-connect if was previously connected
+        // ✅ AUTO-CONNECT: If was previously connected
         if (config.isConnected) {
+            console.log('[Cloud] 🔌 Auto-connecting...');
             setTimeout(() => connectToCloud(), 500);
         }
     } catch (error) {
-        console.error('[Cloud] Failed to load config:', error);
+        console.error('[Cloud] ❌ Failed to load config:', error);
     }
 }
 
 /**
- * Save cloud connection config to MLS backend
+ * Decide which config to use and sync layers if needed
+ * @returns {Object|null} The config to use
+ */
+async function decideAndSyncConfig(localStorageConfig, backendConfig) {
+    const hasLocal = localStorageConfig?.channelName;
+    const hasBackend = backendConfig?.channelName;
+
+    // Case 1: Both exist → prefer backend, sync localStorage
+    if (hasBackend) {
+        console.log('[Cloud] 📋 Using backend config (source of truth)');
+
+        // Sync localStorage if different
+        if (JSON.stringify(localStorageConfig) !== JSON.stringify(backendConfig)) {
+            localStorage.setItem('terminal_cloud_config', JSON.stringify(backendConfig));
+            console.log('[Cloud] 🔄 Synced localStorage ← backend');
+        }
+
+        return backendConfig;
+    }
+
+    // Case 2: Only localStorage exists → use it, try to sync backend
+    if (hasLocal) {
+        console.log('[Cloud] 📋 Using localStorage config (backend unavailable)');
+
+        // Try to sync backend if it responded but was empty (null means it responded)
+        if (backendConfig !== null) {
+            const saved = await saveBackendCloudConfig(localStorageConfig);
+            if (saved) {
+                console.log('[Cloud] 🔄 Synced backend ← localStorage');
+            }
+        }
+
+        return localStorageConfig;
+    }
+
+    // Case 3: Neither exists
+    return null;
+}
+
+/**
+ * Populate cloud connection form with config
+ */
+function populateCloudForm(config) {
+    document.getElementById('cloudChannelName').value = config.channelName || '';
+    document.getElementById('cloudChannelPassword').value = config.channelPassword || '';
+    document.getElementById('cloudAgentName').value = config.agentName || '';
+    console.log('[Cloud] ✅ Form populated');
+}
+
+/**
+ * Save cloud config to backend (SLS)
+ * @param {Object} config - Config object to save
+ * @returns {Promise<boolean>} True if saved successfully
+ */
+async function saveBackendCloudConfig(config) {
+    // Test mode: Skip backend saving (SLS disabled)
+    if (TEST_MODE_NO_SLS) {
+        console.log('[Cloud] ⚠️ Backend save disabled (test mode)');
+        return false;
+    }
+
+    try {
+        await fetch(`${MLS_URL}/cloud/connection`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ config: JSON.stringify(config) })
+        });
+        console.log('[Cloud] ✅ Config saved to backend (both layers synced)');
+        return true;
+    } catch (backendError) {
+        console.log('[Cloud] ⚠️ Backend save failed (SLS offline)');
+        return false;
+    }
+}
+
+/**
+ * Save cloud connection config to both layers
  */
 async function saveCloudConfig(isConnected = false) {
     try {
@@ -2848,15 +2957,14 @@ async function saveCloudConfig(isConnected = false) {
             isConnected: isConnected
         };
 
-        await fetch(`${MLS_URL}/cloud/connection`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ config: JSON.stringify(config) })
-        });
+        // ✅ LAYER 1: Save to localStorage (always works, even without SLS)
+        localStorage.setItem('terminal_cloud_config', JSON.stringify(config));
+        console.log('[Cloud] ✅ Config saved to localStorage');
 
-        console.log('[Cloud] Config saved');
+        // ✅ LAYER 2: Save to backend (keep both layers in sync when SLS is available)
+        await saveBackendCloudConfig(config);
     } catch (error) {
-        console.error('[Cloud] Failed to save config:', error);
+        console.error('[Cloud] ❌ Failed to save config:', error);
     }
 }
 
