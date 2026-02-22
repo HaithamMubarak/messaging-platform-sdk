@@ -135,17 +135,33 @@ body {
 }
 
 .toolbar-btn.active {
-    background: rgba(34, 197, 94, 0.15);
+    background: rgba(34, 197, 94, 0.2);
     border-color: var(--accent-green);
-    box-shadow: 0 0 8px rgba(34, 197, 94, 0.3);
+    box-shadow: 0 0 12px rgba(34, 197, 94, 0.4), inset 0 0 20px rgba(34, 197, 94, 0.1);
 }
 
 .toolbar-btn.active:hover {
-    background: rgba(34, 197, 94, 0.25);
+    background: rgba(34, 197, 94, 0.3);
 }
 
 .toolbar-btn.active .label {
     color: var(--accent-green);
+    font-weight: 600;
+}
+
+.toolbar-btn.active .icon {
+    animation: iconPulse 2s ease-in-out infinite;
+}
+
+@keyframes iconPulse {
+    0%, 100% {
+        opacity: 1;
+        transform: scale(1);
+    }
+    50% {
+        opacity: 0.8;
+        transform: scale(1.05);
+    }
 }
 
 .toolbar-btn:active {
@@ -177,12 +193,104 @@ body {
 }
 
 /* ========== Left Sidebar (Sessions) ========== */
+/* ========== Sidebar with Tabs ========== */
 .sidebar {
-    width: 220px;
+    width: 250px;
+    min-width: 150px;
+    max-width: 50%;
     background: var(--bg-sidebar);
     border-right: 1px solid var(--border-color);
     display: flex;
     flex-direction: column;
+    user-select: none;
+}
+
+/* Sidebar Tabs */
+.sidebar-tabs {
+    display: flex;
+    background: var(--bg-darker);
+    border-bottom: 1px solid var(--border-color);
+    flex-shrink: 0;
+}
+
+.sidebar-tab {
+    flex: 1;
+    padding: 10px 8px;
+    background: transparent;
+    border: none;
+    border-bottom: 2px solid transparent;
+    color: var(--text-muted);
+    cursor: pointer;
+    transition: all 0.2s;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 4px;
+    position: relative;
+}
+
+.sidebar-tab:hover {
+    background: rgba(74, 158, 255, 0.1);
+    color: var(--text-primary);
+}
+
+.sidebar-tab.active {
+    color: var(--accent-blue);
+    border-bottom-color: var(--accent-blue);
+    background: rgba(74, 158, 255, 0.05);
+}
+
+.sidebar-tab-icon {
+    font-size: 16px;
+}
+
+.sidebar-tab-badge {
+    position: absolute;
+    top: 4px;
+    right: 4px;
+    background: var(--accent-red, #f87171);
+    color: white;
+    font-size: 9px;
+    font-weight: 600;
+    padding: 2px 4px;
+    border-radius: 8px;
+    min-width: 14px;
+    text-align: center;
+}
+
+/* Sidebar Content Panels */
+.sidebar-content {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+}
+
+.sidebar-panel {
+    display: none;
+    flex-direction: column;
+    flex: 1;
+    overflow: hidden;
+}
+
+.sidebar-panel.active {
+    display: flex;
+}
+
+/* Resize Handle */
+.resize-handle {
+    width: 8px;
+    background: rgba(74, 158, 255, 0.1);
+    border-left: 1px solid var(--border-color);
+    border-right: 1px solid var(--border-color);
+    cursor: ew-resize;
+    flex-shrink: 0;
+    transition: background 0.2s;
+}
+
+.resize-handle:hover,
+.resize-handle.resizing {
+    background: var(--accent-blue);
 }
 
 .sidebar-header {
@@ -530,6 +638,41 @@ body {
     flex-direction: column;
 }
 
+/* ========== Status Bar (Bottom) ========== */
+.status-bar {
+    height: 24px;
+    background: var(--bg-sidebar);
+    border-top: 1px solid var(--border-color);
+    display: flex;
+    align-items: center;
+    padding: 0 12px;
+    font-size: 11px;
+    color: var(--text-secondary);
+    gap: 8px;
+    flex-shrink: 0;
+}
+
+.status-bar-item {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+}
+
+.status-bar-label {
+    color: var(--text-muted);
+    font-weight: 500;
+}
+
+.status-bar-value {
+    color: var(--text-primary);
+    font-family: 'Consolas', 'Monaco', monospace;
+}
+
+.status-bar-separator {
+    color: var(--border-color);
+    user-select: none;
+}
+
 /* Ensure xterm.js container fills the parent */
 .terminal-content > div {
     flex: 1;
@@ -698,6 +841,12 @@ body {
     display: flex;
 }
 
+/* Cloud modal specific - higher z-index and backdrop blur */
+#cloudModalOverlay {
+    z-index: 9999;
+    backdrop-filter: blur(4px);
+}
+
 .modal {
     background: var(--bg-darker);
     border: 1px solid var(--border-color);
@@ -823,214 +972,173 @@ body {
     color: var(--text-primary);
 }
 
-/* ========== Help Modal Tabs ========== */
-.help-tab {
-    padding: 12px 20px;
-    font-size: 13px;
-    font-weight: 500;
-    color: var(--text-secondary);
-    cursor: pointer;
-    border-bottom: 2px solid transparent;
-    transition: all 0.2s;
-    white-space: nowrap;
+.btn-secondary:active {
+    transform: scale(0.98);
 }
 
-.help-tab:hover {
-    color: var(--text-primary);
-    background: rgba(255, 255, 255, 0.03);
+/* ========== Typing Indicator ========== */
+@keyframes pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.6; }
 }
 
-.help-tab.active {
-    color: var(--accent-cyan);
-    border-bottom-color: var(--accent-cyan);
-    background: rgba(34, 211, 238, 0.05);
+.typing-indicator {
+    animation: pulse 1.5s ease-in-out infinite;
 }
 
-.help-content {
-    display: none;
+/* ========== Permission Request Notification ========== */
+@keyframes slideIn {
+    from { transform: translateX(100%); opacity: 0; }
+    to { transform: translateX(0); opacity: 1; }
 }
 
-.help-content.active {
-    display: block;
+.permission-request-notification {
+    animation: slideIn 0.3s ease-out;
 }
 
-/* ========== API Documentation Styles ========== */
-.api-section {
-    margin-bottom: 24px;
+/* ========== Session Badge ========== */
+.session-badge {
+    pointer-events: none;
+    user-select: none;
 }
 
-.api-section-title {
-    font-size: 14px;
-    font-weight: 600;
-    color: var(--text-primary);
-    margin-bottom: 12px;
-    padding-bottom: 8px;
-    border-bottom: 1px solid var(--border-color);
+/* ========== Received Shared Tab Styles ========== */
+.tab.received-share {
+    position: relative;
+    border: 1px solid var(--accent-cyan);
+    background: linear-gradient(90deg, rgba(34, 211, 238, 0.15), transparent);
 }
 
-.api-endpoint {
-    display: flex;
-    align-items: center;
-    gap: 12px;
-    padding: 12px;
-    background: var(--bg-panel);
-    border-radius: 6px;
-    margin-bottom: 8px;
-    border-left: 3px solid transparent;
-    transition: all 0.2s;
+.tab.received-share::before {
+    content: '📡';
+    position: absolute;
+    left: 6px;
+    top: 50%;
+    transform: translateY(-50%);
+    font-size: 10px;
 }
 
-.api-endpoint:hover {
-    background: rgba(255, 255, 255, 0.03);
-    border-left-color: var(--accent-blue);
+.tab.received-share .tab-icon {
+    margin-left: 16px;
 }
 
-.api-method {
-    padding: 4px 10px;
-    border-radius: 4px;
-    font-size: 11px;
-    font-weight: 700;
-    font-family: monospace;
-    min-width: 50px;
-    text-align: center;
+/* Tab with write access */
+.tab.write-access {
+    border-color: var(--accent-green);
 }
 
-.api-method.get {
-    background: rgba(34, 211, 238, 0.2);
-    color: var(--accent-cyan);
+.tab.write-access::after {
+    content: '✏️';
+    position: absolute;
+    right: 28px;
+    top: 50%;
+    transform: translateY(-50%);
+    font-size: 9px;
 }
 
-.api-method.post {
-    background: rgba(74, 222, 128, 0.2);
-    color: var(--accent-green);
+/* Tab read-only indicator */
+.tab.read-only::after {
+    content: '👁️';
+    position: absolute;
+    right: 28px;
+    top: 50%;
+    transform: translateY(-50%);
+    font-size: 9px;
 }
 
-.api-method.put {
-    background: rgba(251, 146, 60, 0.2);
-    color: var(--accent-orange);
-}
-
-.api-method.delete {
-    background: rgba(248, 113, 113, 0.2);
-    color: var(--accent-red);
-}
-
-.api-method.ws {
-    background: rgba(167, 139, 250, 0.2);
-    color: var(--accent-purple);
-}
-
-.api-path {
-    font-family: 'Consolas', 'Monaco', monospace;
-    font-size: 13px;
-    color: var(--text-primary);
-    flex: 1;
-}
-
-.api-desc {
-    font-size: 12px;
-    color: var(--text-secondary);
-    flex: 2;
-}
-
-.api-example {
-    background: var(--bg-dark);
-    padding: 12px;
-    border-radius: 6px;
-    font-size: 12px;
-    font-family: 'Consolas', 'Monaco', monospace;
-    color: var(--accent-green);
-    margin-bottom: 16px;
-    overflow-x: auto;
-    border: 1px solid var(--border-color);
-}
-
-.api-example::before {
-    content: '📝 Example:';
-    display: block;
-    font-size: 11px;
-    color: var(--text-secondary);
-    margin-bottom: 8px;
-    font-family: 'Segoe UI', sans-serif;
-}
-
-/* ========== Toast Notifications ========== */
-.toast-container {
+/* ========== Context Menu ========== */
+.context-menu {
     position: fixed;
-    top: 50px;
-    right: 20px;
-    z-index: 9999;
-    display: flex;
-    flex-direction: column;
-    gap: 8px;
-}
-
-.toast {
     background: var(--bg-darker);
     border: 1px solid var(--border-color);
     border-radius: 8px;
-    padding: 12px 16px;
-    min-width: 280px;
-    display: flex;
-    align-items: center;
-    gap: 12px;
-    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
-    animation: slideIn 0.3s ease;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5);
+    z-index: 10000;
+    min-width: 200px;
+    padding: 6px 0;
+    display: none;
+    animation: contextMenuFadeIn 0.15s ease-out;
 }
 
-.toast.success {
-    border-left: 3px solid var(--accent-green);
-}
-
-.toast.error {
-    border-left: 3px solid var(--accent-red);
-}
-
-.toast.info {
-    border-left: 3px solid var(--accent-blue);
-}
-
-.toast.warning {
-    border-left: 3px solid var(--accent-orange);
-}
-
-.toast-icon {
-    font-size: 18px;
-}
-
-.toast-content {
-    flex: 1;
-}
-
-.toast-title {
-    font-size: 13px;
-    font-weight: 600;
-    margin-bottom: 2px;
-}
-
-.toast-message {
-    font-size: 11px;
-    color: var(--text-secondary);
-}
-
-@keyframes slideIn {
+@keyframes contextMenuFadeIn {
     from {
-        transform: translateX(100%);
         opacity: 0;
+        transform: scale(0.95);
     }
     to {
-        transform: translateX(0);
         opacity: 1;
+        transform: scale(1);
     }
+}
+
+.context-menu.visible {
+    display: block;
+}
+
+.context-menu-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 8px 16px;
+    cursor: pointer;
+    transition: all 0.15s;
+    font-size: 13px;
+    color: var(--text-primary);
+    user-select: none;
+}
+
+.context-menu-item:hover {
+    background: rgba(74, 158, 255, 0.15);
+}
+
+.context-menu-item.danger {
+    color: var(--accent-red);
+}
+
+.context-menu-item.danger:hover {
+    background: rgba(248, 113, 113, 0.15);
+}
+
+.context-menu-item .icon {
+    font-size: 14px;
+    width: 18px;
+    text-align: center;
+}
+
+.context-menu-separator {
+    height: 1px;
+    background: var(--border-color);
+    margin: 4px 0;
+}
+
+/* ========== Context Menu Disabled State ========== */
+.context-menu-item.disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+    pointer-events: none;
+}
+
+/* ========== Cloud Actions Row Buttons ========== */
+.cloud-actions-row .cloud-btn {
+    font-size: 11px;
+    padding: 8px 10px;
+}
+
+.cloud-btn.cloud-btn-secondary {
+    background: linear-gradient(90deg, var(--accent-cyan), var(--accent-blue));
+}
+
+.cloud-btn.disconnect {
+    background: linear-gradient(90deg, var(--accent-red), #dc2626);
 }
 
 /* ========== Empty State ========== */
 .empty-state {
-    flex: 1;
-    display: flex;
+    display: none;
     flex-direction: column;
     align-items: center;
     justify-content: center;
+    height: 100%;
     color: var(--text-muted);
 }
 
@@ -1042,7 +1150,7 @@ body {
 
 .empty-state-title {
     font-size: 18px;
-    font-weight: 500;
+    font-weight: 600;
     margin-bottom: 8px;
     color: var(--text-secondary);
 }
@@ -1050,105 +1158,95 @@ body {
 .empty-state-message {
     font-size: 13px;
     text-align: center;
-    max-width: 300px;
+    max-width: 400px;
     line-height: 1.6;
 }
 
-/* ========== Context Menu ========== */
-.context-menu {
+/* ========== Input Group ========== */
+.input-group {
+    display: flex;
+    gap: 8px;
+}
+
+.input-group input {
+    flex: 1;
+}
+
+.regen-btn, .cloud-regen-btn {
+    min-width: 36px;
+    padding: 0 10px;
+    background: transparent;
+    border: 1px solid var(--border-color);
+    border-radius: 4px;
+    color: var(--text-secondary);
+    cursor: pointer;
+    transition: all 0.15s;
+    font-size: 16px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    height: 36px;
+}
+
+.regen-btn:hover, .cloud-regen-btn:hover {
+    background: var(--accent-blue);
+    color: white;
+    border-color: var(--accent-blue);
+}
+
+.regen-btn:active, .cloud-regen-btn:active {
+    transform: scale(0.95);
+}
+
+.regen-btn:disabled, .cloud-regen-btn:disabled {
+    opacity: 0.3;
+    cursor: not-allowed;
+}
+
+/* ========== Cloud Panel ========== */
+.cloud-panel {
     position: fixed;
+    top: 68px;
+    right: 16px;
+    width: 320px;
     background: var(--bg-darker);
     border: 1px solid var(--border-color);
     border-radius: 8px;
-    padding: 6px 0;
-    min-width: 180px;
-    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5);
-    z-index: 10000;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.3);
+    z-index: 999;
+    display: flex;
+    flex-direction: column;
+    transition: all 0.3s ease;
+}
+
+.cloud-panel:not(.expanded) .cloud-panel-body {
     display: none;
 }
 
-.context-menu.visible {
+.cloud-panel.expanded .cloud-panel-body {
     display: block;
 }
 
-.context-menu-item {
-    padding: 8px 16px;
-    font-size: 12px;
-    color: var(--text-secondary);
-    cursor: pointer;
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    transition: all 0.15s;
-}
-
-.context-menu-item:hover {
-    background: rgba(74, 158, 255, 0.2);
-    color: var(--text-primary);
-}
-
-.context-menu-item.disabled {
-    opacity: 0.5;
-    cursor: not-allowed;
-    /* Don't use pointer-events: none - we want tooltips to show! */
-}
-
-.context-menu-item.disabled:hover {
-    background: transparent !important;
-    color: var(--text-secondary) !important;
-}
-
-.context-menu-item.danger:hover {
-    background: rgba(248, 113, 113, 0.2);
-    color: var(--accent-red);
-}
-
-.context-menu-item .icon {
-    font-size: 14px;
-    width: 20px;
-    text-align: center;
-}
-
-.context-menu-separator {
-    height: 1px;
-    background: var(--border-color);
-    margin: 4px 8px;
-}
-
-/* ========== Cloud Connection Panel ========== */
-.cloud-panel {
-    background: var(--bg-sidebar);
-    border-bottom: 1px solid var(--border-color);
-    overflow: hidden;
-    transition: max-height 0.3s ease;
-    max-height: 0;
-}
-
-.cloud-panel.expanded {
-    max-height: 400px;
-}
-
 .cloud-panel-header {
-    padding: 10px 12px;
+    padding: 12px 16px;
+    border-bottom: 1px solid var(--border-color);
+    cursor: pointer;
     display: flex;
     align-items: center;
     justify-content: space-between;
-    background: linear-gradient(90deg, rgba(74, 158, 255, 0.1), rgba(167, 139, 250, 0.1));
-    border-bottom: 1px solid var(--border-color);
-    cursor: pointer;
+    user-select: none;
 }
 
 .cloud-panel-header:hover {
-    background: linear-gradient(90deg, rgba(74, 158, 255, 0.15), rgba(167, 139, 250, 0.15));
+    background: rgba(255, 255, 255, 0.02);
 }
 
 .cloud-panel-title {
     display: flex;
     align-items: center;
     gap: 8px;
-    font-size: 12px;
+    font-size: 13px;
     font-weight: 600;
-    color: var(--text-primary);
 }
 
 .cloud-panel-status {
@@ -1156,21 +1254,23 @@ body {
     align-items: center;
     gap: 6px;
     font-size: 11px;
+    color: var(--text-muted);
 }
 
 .cloud-panel-body {
-    padding: 12px;
+    padding: 16px;
+    overflow-y: auto;
 }
 
 .cloud-form-row {
-    margin-bottom: 10px;
+    margin-bottom: 12px;
 }
 
 .cloud-form-row label {
     display: block;
     font-size: 11px;
-    color: var(--text-muted);
-    margin-bottom: 4px;
+    color: var(--text-secondary);
+    margin-bottom: 6px;
 }
 
 .cloud-form-row input {
@@ -1188,51 +1288,17 @@ body {
     border-color: var(--accent-blue);
 }
 
-.cloud-form-row input:disabled {
-    opacity: 0.5;
-    cursor: not-allowed;
-}
-
-/* ========== Reusable Input Group with Regenerate Button ========== */
-.input-group, .cloud-input-group {
+.cloud-input-group {
     display: flex;
     gap: 6px;
-    align-items: center;
 }
 
-.input-group input, .cloud-input-group input {
+.cloud-input-group input {
     flex: 1;
 }
 
-.regen-btn, .cloud-regen-btn {
-    padding: 8px 12px;
-    background: var(--bg-tab);
-    border: 1px solid var(--border-color);
-    border-radius: 4px;
-    color: var(--text-secondary);
-    font-size: 14px;
-    cursor: pointer;
-    transition: all 0.2s;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    min-width: 36px;
-    height: 36px;
-}
-
-.regen-btn:hover, .cloud-regen-btn:hover {
-    background: var(--accent-blue);
-    color: white;
-    border-color: var(--accent-blue);
-}
-
-.regen-btn:active, .cloud-regen-btn:active {
-    transform: scale(0.95);
-}
-
-.regen-btn:disabled, .cloud-regen-btn:disabled {
-    opacity: 0.3;
-    cursor: not-allowed;
+.cloud-actions {
+    margin-top: 16px;
 }
 
 .cloud-btn {
@@ -1310,72 +1376,19 @@ body {
     background: var(--accent-green);
 }
 
-/* ========== Shared Shell Styles ========== */
-/*.tab.shared::before {
-    content: '🌐';
-    position: absolute;
-    left: 4px;
-    top: 50%;
-    transform: translateY(-50%);
-    font-size: 10px;
-}*/
-
-.tab.shared {
-    padding-left: 24px;
-    border: 1px solid var(--accent-purple);
-    background: linear-gradient(90deg, rgba(167, 139, 250, 0.1), transparent);
-}
-
-/* Hide the shell icon when shared (only show the 🌐 icon) */
-.tab.shared .tab-icon {
-    display: none;
-}
-
-.tab.received-share::before {
-    content: '📡';
-    position: absolute;
-    left: 4px;
-    top: 50%;
-    transform: translateY(-50%);
-    font-size: 10px;
-}
-
-.tab.received-share {
-    padding-left: 24px;
-    border: 1px solid var(--accent-cyan);
-    background: linear-gradient(90deg, rgba(34, 211, 238, 0.1), transparent);
-}
-
-.shared-indicator {
-    display: flex;
-    align-items: center;
-    gap: 4px;
-    padding: 2px 8px;
-    background: linear-gradient(90deg, var(--accent-purple), var(--accent-cyan));
-    border-radius: 10px;
-    font-size: 9px;
-    color: white;
-    font-weight: 600;
-}
-
-/* ========== Right Panel for Shared Sessions ========== */
+/* ========== Shared Panel (Right Side) ========== */
 .shared-panel {
-    width: 200px;
+    width: 240px;
     background: var(--bg-sidebar);
     border-left: 1px solid var(--border-color);
-    display: none;
-    flex-direction: column;
-}
-
-.shared-panel.visible {
     display: flex;
+    flex-direction: column;
 }
 
 .shared-panel-header {
     padding: 10px 12px;
     font-size: 11px;
     font-weight: 600;
-    text-transform: uppercase;
     color: var(--text-muted);
     border-bottom: 1px solid var(--border-color);
 }
@@ -1386,17 +1399,28 @@ body {
     padding: 8px;
 }
 
+.shared-session-list::-webkit-scrollbar {
+    width: 6px;
+}
+
+.shared-session-list::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+.shared-session-list::-webkit-scrollbar-thumb {
+    background: var(--border-color);
+    border-radius: 3px;
+}
+
 .shared-session-item {
     display: flex;
     align-items: center;
     gap: 8px;
-    padding: 8px 10px;
-    background: rgba(167, 139, 250, 0.1);
-    border: 1px solid rgba(167, 139, 250, 0.3);
+    padding: 8px;
     border-radius: 6px;
-    margin-bottom: 6px;
     cursor: pointer;
     transition: all 0.15s;
+    margin-bottom: 4px;
 }
 
 .shared-session-item:hover {
@@ -1425,45 +1449,26 @@ body {
     color: var(--text-muted);
 }
 
-/* ========== Button Styles for Share Modal ========== */
-.btn {
-    padding: 10px 16px;
-    border: none;
-    border-radius: 6px;
-    font-size: 14px;
-    font-weight: 500;
-    cursor: pointer;
-    transition: all 0.15s;
-    outline: none;
+/* ========== Shared Shell Styles ========== */
+.tab.shared {
+    padding-left: 24px;
+    border: 1px solid var(--accent-purple);
+    background: linear-gradient(90deg, rgba(167, 139, 250, 0.1), transparent);
 }
 
-.btn-primary {
-    background: var(--accent-blue);
-    color: white;
+/* Hide the shell icon when shared (only show the 🌐 icon) */
+.tab.shared .tab-icon {
+    display: none;
 }
 
-.btn-primary:hover {
-    background: #4a86ff;
-    transform: translateY(-1px);
-    box-shadow: 0 4px 8px rgba(74, 158, 255, 0.3);
-}
-
-.btn-primary:active {
-    transform: translateY(0);
-}
-
-.btn-secondary {
-    background: var(--bg-darker);
-    color: var(--text-primary);
-    border: 1px solid var(--border-color);
-}
-
-.btn-secondary:hover {
-    background: var(--bg-panel);
-    border-color: var(--accent-blue);
-}
-
-.btn-secondary:active {
-    transform: scale(0.98);
+.shared-indicator {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    font-size: 10px;
+    color: var(--accent-purple);
+    padding: 2px 6px;
+    background: rgba(167, 139, 250, 0.2);
+    border-radius: 10px;
 }
 

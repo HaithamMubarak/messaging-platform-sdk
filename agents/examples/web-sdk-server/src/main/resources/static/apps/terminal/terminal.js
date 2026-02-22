@@ -720,22 +720,21 @@ async function updateSessionReferences(oldSessionId, newSessionId) {
 function showToast(type, title, message, duration = 4000) {
     const container = document.getElementById('toastContainer');
     const toast = document.createElement('div');
-    toast.className = `toast ${type}`;
+    toast.className = `toast toast-${type}`;
 
+    // Simple structure compatible with global toast.css
     const icons = { success: '✓', error: '✕', info: 'ℹ', warning: '⚠' };
-    toast.innerHTML = `
-        <div class="toast-icon">${icons[type] || 'ℹ'}</div>
-        <div class="toast-content">
-            <div class="toast-title">${title}</div>
-            <div class="toast-message">${message}</div>
-        </div>
-    `;
+    toast.textContent = `${icons[type] || 'ℹ'} ${title}: ${message}`;
+
     container.appendChild(toast);
 
     setTimeout(() => {
-        toast.style.opacity = '0';
-        toast.style.transform = 'translateX(100%)';
-        setTimeout(() => container.removeChild(toast), 300);
+        toast.classList.add('fade-out');
+        setTimeout(() => {
+            if (container.contains(toast)) {
+                container.removeChild(toast);
+            }
+        }, 300);
     }, duration);
 }
 
@@ -1039,18 +1038,16 @@ function switchToSession(sessionId) {
 
     activeSessionId = sessionId;
 
-    // Update status
-    const session = sessions.get(sessionId);
-    if (session) {
-        document.getElementById('statusActive').textContent = session.name;
+    // Update status bar with active session
+    updateStatusBar();
 
-        // Focus terminal and fit
-        if (session.terminal) {
-            setTimeout(() => {
-                if (session.fitAddon) session.fitAddon.fit();
-                session.terminal.focus();
-            }, 100);
-        }
+    // Focus terminal and fit
+    const session = sessions.get(sessionId);
+    if (session && session.terminal) {
+        setTimeout(() => {
+            if (session.fitAddon) session.fitAddon.fit();
+            session.terminal.focus();
+        }, 100);
     }
 
     updateEmptyState();
@@ -1069,10 +1066,231 @@ function closeActiveTab() {
 function updateEmptyState() {
     const emptyState = document.getElementById('emptyState');
     emptyState.style.display = sessions.size === 0 ? 'flex' : 'none';
+    updateStatusBar();
+}
+
+/**
+ * Update the bottom status bar with current session info
+ */
+function updateStatusBar() {
+    // Update MLS info
+    const statusMls = document.getElementById('statusMls');
+    if (statusMls) {
+        statusMls.textContent = `localhost:${SLS_PORT}`;
+    }
+
+    // Update session count
+    const statusSessions = document.getElementById('statusSessions');
+    if (statusSessions) {
+        statusSessions.textContent = sessions.size;
+    }
+
+    // Update active session info
+    const statusActive = document.getElementById('statusActive');
+    if (statusActive && activeSessionId) {
+        const session = sessions.get(activeSessionId);
+        if (session) {
+            // Format: user@host or session name
+            let activeInfo = session.name || 'Unknown';
+
+            // For SSH sessions, show user@host
+            if (session.type === 'ssh' && session.config) {
+                const user = session.config.username || 'user';
+                const host = session.config.host || 'unknown';
+                activeInfo = `${user}@${host}`;
+            }
+
+            statusActive.textContent = activeInfo;
+        } else {
+            statusActive.textContent = 'None';
+        }
+    } else if (statusActive) {
+        statusActive.textContent = 'None';
+    }
 }
 
 function updateSessionCount() {
     document.getElementById('statusSessions').textContent = sessions.size;
+}
+
+// ========================================
+// Sidebar Tab Management
+// ========================================
+
+/**
+ * Switch between sidebar tabs (sessions, sftp, shared, myshares)
+ */
+function switchSidebarTab(tabName) {
+    // Update tab buttons
+    document.querySelectorAll('.sidebar-tab').forEach(tab => {
+        if (tab.dataset.tab === tabName) {
+            tab.classList.add('active');
+        } else {
+            tab.classList.remove('active');
+        }
+    });
+
+    // Update panels
+    document.querySelectorAll('.sidebar-panel').forEach(panel => {
+        if (panel.id === `panel-${tabName}`) {
+            panel.classList.add('active');
+        } else {
+            panel.classList.remove('active');
+        }
+    });
+}
+
+// Make globally accessible for inline onclick handlers
+window.switchSidebarTab = switchSidebarTab;
+
+/**
+ * Update sidebar badges (shared count, my shares count)
+ */
+function updateSidebarBadges() {
+    // Count shared sessions (received from others)
+    const sharedCount = Array.from(sessions.values()).filter(s => s.owner && s.owner !== cloudAgentName).length;
+    const sharedBadge = document.getElementById('sharedBadge');
+    if (sharedBadge) {
+        if (sharedCount > 0) {
+            sharedBadge.textContent = sharedCount;
+            sharedBadge.style.display = 'block';
+        } else {
+            sharedBadge.style.display = 'none';
+        }
+    }
+
+    // Count my shared sessions
+    const mySharesCount = Array.from(sessions.values()).filter(s => s.isShared && !s.owner).length;
+    const mysharesBadge = document.getElementById('mysharesBadge');
+    if (mysharesBadge) {
+        if (mySharesCount > 0) {
+            mysharesBadge.textContent = mySharesCount;
+            mysharesBadge.style.display = 'block';
+        } else {
+            mysharesBadge.style.display = 'none';
+        }
+    }
+}
+
+/**
+ * Refresh functions for sidebar panels
+ */
+function refreshSharedSessions() {
+    // Refresh shared sessions list
+    updateSharedSessionsList();
+}
+
+function refreshMyShares() {
+    // Refresh my shares list
+    updateMySharesList();
+}
+
+function closeSftpPanel() {
+    switchSidebarTab('sessions');
+}
+
+// Make globally accessible for inline onclick handlers
+window.refreshSharedSessions = refreshSharedSessions;
+window.refreshMyShares = refreshMyShares;
+window.closeSftpPanel = closeSftpPanel;
+
+/**
+ * Update my shares list in sidebar
+ */
+function updateMySharesList() {
+    const container = document.getElementById('mysharesList');
+    if (!container) return;
+
+    const myShares = Array.from(sessions.values()).filter(s => s.isShared && !s.owner);
+
+    if (myShares.length === 0) {
+        container.innerHTML = `
+            <div style="padding: 20px; text-align: center; color: var(--text-muted); font-size: 11px;">
+                No shared terminals yet.<br>
+                Share a terminal to see it here.
+            </div>
+        `;
+        return;
+    }
+
+    let html = '';
+    myShares.forEach(session => {
+        const permission = session.permission || 'readonly';
+        const permIcon = permission === 'readwrite' ? '✏️' : '👁️';
+        const permLabel = permission === 'readwrite' ? 'Read/Write' : 'Read Only';
+
+        html += `
+            <div class="session-item" onclick="switchToSession('${session.id}')" title="${escapeHtml(session.name)} - ${permLabel}">
+                <div class="session-icon">📤</div>
+                <div class="session-details">
+                    <div class="session-name">${escapeHtml(session.name)}</div>
+                    <div class="session-info">${permIcon} ${permLabel}</div>
+                </div>
+            </div>
+        `;
+    });
+
+    container.innerHTML = html;
+}
+
+// ========================================
+// Sidebar Resize Handle
+// ========================================
+
+let isResizing = false;
+let startX = 0;
+let startWidth = 0;
+
+function initSidebarResize() {
+    const resizeHandle = document.getElementById('resizeHandle');
+    const sidebar = document.getElementById('sidebar');
+
+    console.log('[SidebarResize] Initializing...');
+    console.log('[SidebarResize] resizeHandle:', resizeHandle);
+    console.log('[SidebarResize] sidebar:', sidebar);
+
+    if (!resizeHandle || !sidebar) {
+        console.warn('[SidebarResize] Missing elements - resize disabled');
+        return;
+    }
+
+    console.log('[SidebarResize] ✅ Resize handle initialized');
+
+    resizeHandle.addEventListener('mousedown', (e) => {
+        console.log('[SidebarResize] Mouse down - starting resize');
+        isResizing = true;
+        startX = e.clientX;
+        startWidth = sidebar.offsetWidth;
+        resizeHandle.classList.add('resizing');
+        document.body.style.cursor = 'ew-resize';
+        document.body.style.userSelect = 'none';
+        e.preventDefault();
+    });
+
+    document.addEventListener('mousemove', (e) => {
+        if (!isResizing) return;
+
+        const diff = e.clientX - startX;
+        const newWidth = startWidth + diff;
+
+        // Min 150px, max 50% of window width
+        const minWidth = 150;
+        const maxWidth = window.innerWidth * 0.5;
+
+        if (newWidth >= minWidth && newWidth <= maxWidth) {
+            sidebar.style.width = `${newWidth}px`;
+        }
+    });
+
+    document.addEventListener('mouseup', () => {
+        if (isResizing) {
+            console.log('[SidebarResize] Mouse up - resize complete');
+            isResizing = false;
+            resizeHandle.classList.remove('resizing');
+            document.body.style.cursor = '';
+            document.body.style.userSelect = '';
+        }
+    });
 }
 
 // ========================================
@@ -1457,6 +1675,30 @@ function initTerminal(sessionId) {
             return;
         }
 
+        // ✅ Check permission for remote shared sessions
+        if (foundSession.owner && foundSession.permission === 'readonly') {
+            console.warn(`[Terminal] Session ${foundSessionId} is read-only`);
+            // Show visual feedback (flash the terminal briefly)
+            const termDiv = document.getElementById(`terminal-${foundSessionId}`);
+            if (termDiv) {
+                termDiv.style.opacity = '0.5';
+                setTimeout(() => { termDiv.style.opacity = '1'; }, 100);
+            }
+            return;
+        }
+
+        // ✅ Send typing indicator for remote sessions
+        if (foundSession.owner && terminalSharing && cloudConnected) {
+            // Send typing indicator (debounced)
+            clearTimeout(foundSession._typingTimeout);
+            terminalSharing.sendTypingIndicator(foundSessionId, true);
+            foundSession._typingTimeout = setTimeout(() => {
+                if (terminalSharing && cloudConnected) {
+                    terminalSharing.sendTypingIndicator(foundSessionId, false);
+                }
+            }, 2000);
+        }
+
         // ✅ Unified routing via dataSender (works for both WebSocket and Cloud)
         if (foundSession.dataSender && foundSession.dataSender.isReady) {
             // CMD and PowerShell need \r\n for Enter
@@ -1491,10 +1733,8 @@ function initTerminal(sessionId) {
     };
     window.addEventListener('resize', resizeHandler);
 
-    // Welcome message
-    terminal.writeln('\x1b[36m╔══════════════════════════════════════════════╗\x1b[0m');
-    terminal.writeln('\x1b[36m║\x1b[0m   \x1b[1;33mSDK Local Service\x1b[0m - Connecting...       \x1b[36m║\x1b[0m');
-    terminal.writeln('\x1b[36m╚══════════════════════════════════════════════╝\x1b[0m');
+    // Welcome message - simple and clean
+    terminal.writeln('\x1b[1;33mSDK Local Service\x1b[0m - Connecting...');
     terminal.writeln('');
 
     return terminal;
@@ -1828,6 +2068,13 @@ async function closeSession(sessionId) {
 
     console.log(`[Close] Session type: ${session.type}, connected: ${session.connected}`);
 
+    // ✅ If this is a shared session we own, notify viewers before closing
+    if (session.isShared && !session.owner && terminalSharing && cloudConnected) {
+        console.log(`[Close] Notifying viewers that session is closing: ${sessionId}`);
+        terminalSharing.notifyOwnerDisconnect(sessionId);
+        terminalSharing.unshareSession(sessionId);
+    }
+
     try {
         // Close dataSender (only for local/SSH sessions, not remote shared)
         if (session.dataSender) {
@@ -2134,6 +2381,17 @@ function contextMenuAction(action) {
         case 'openInNewTab':
             connectToSsh(connectionId, name, host, port, username);
             break;
+        case 'openSftp':
+            // Open SSH connection first, then open SFTP
+            connectToSsh(connectionId, name, host, port, username).then(() => {
+                // Wait a bit for session to be created
+                setTimeout(() => {
+                    if (activeSessionId) {
+                        openSftpForSession(activeSessionId);
+                    }
+                }, 500);
+            });
+            break;
         case 'edit':
             editSshConnection(connectionId);
             break;
@@ -2159,19 +2417,51 @@ function showTabContextMenu(e, sessionId) {
     const session = sessions.get(sessionId);
     const shareMenuItem = document.getElementById('shareMenuItem');
     const shareText = document.getElementById('shareMenuText');
+    const permissionMenuItem = document.getElementById('permissionMenuItem');
+    const requestPermissionMenuItem = document.getElementById('requestPermissionMenuItem');
+
+    // Check if this is a received shared session (I'm viewing someone else's share)
+    const isReceivedShare = session && session.owner && session.owner !== cloudAgentName;
+    const isMySharedSession = session && session.isShared && !session.owner;
 
     if (shareText) {
         shareText.textContent = session && session.isShared ? 'Unshare Session' : 'Share Session';
     }
 
-    // Disable share option if not connected to cloud
+    // Disable share option for received shares or if not connected to cloud
     if (shareMenuItem) {
-        if (!cloudConnected || !terminalSharing) {
+        if (isReceivedShare) {
+            shareMenuItem.classList.add('disabled');
+            shareMenuItem.title = 'Cannot share a received session';
+        } else if (!cloudConnected || !terminalSharing) {
             shareMenuItem.classList.add('disabled');
             shareMenuItem.title = 'Connect to cloud messaging first';
         } else {
             shareMenuItem.classList.remove('disabled');
             shareMenuItem.title = '';
+        }
+    }
+
+    // Show/hide permission toggle (only for my shared sessions)
+    if (permissionMenuItem) {
+        if (isMySharedSession && cloudConnected) {
+            permissionMenuItem.style.display = 'block';
+            const currentPerm = session.permission || 'readonly';
+            const permText = permissionMenuItem.querySelector('.permission-text');
+            if (permText) {
+                permText.textContent = currentPerm === 'readonly' ? 'Enable Write Access' : 'Set Read-Only';
+            }
+        } else {
+            permissionMenuItem.style.display = 'none';
+        }
+    }
+
+    // Show/hide request permission (only for received shares with readonly permission)
+    if (requestPermissionMenuItem) {
+        if (isReceivedShare && session.permission === 'readonly') {
+            requestPermissionMenuItem.style.display = 'block';
+        } else {
+            requestPermissionMenuItem.style.display = 'none';
         }
     }
 
@@ -2242,6 +2532,9 @@ function tabContextMenuAction(action) {
         }
         case 'toggleShare': {
             console.log('[TabContextMenu] Inside toggleShare case');
+            console.log('[TabContextMenu] sessionId param:', sessionId);
+            console.log('[TabContextMenu] typeof sessionId:', typeof sessionId);
+            console.log('[TabContextMenu] All session keys:', Array.from(sessions.keys()));
             console.log('[TabContextMenu] cloudConnected:', cloudConnected);
             console.log('[TabContextMenu] terminalSharing:', terminalSharing);
 
@@ -2256,7 +2549,10 @@ function tabContextMenuAction(action) {
             console.log('[TabContextMenu] Session retrieved:', session);
 
             if (!session) {
-                console.warn('[TabContextMenu] Session not found, breaking');
+                console.error('[TabContextMenu] Session not found!');
+                console.error('[TabContextMenu] Looking for:', sessionId);
+                console.error('[TabContextMenu] Available sessions:', sessions);
+                showToast('error', 'Session Not Found', 'Could not find the terminal session');
                 break;
             }
 
@@ -2295,6 +2591,26 @@ function tabContextMenuAction(action) {
             if (idx !== -1) {
                 allTabs.slice(0, idx).forEach(t => closeSession(t.dataset.sessionId));
             }
+            break;
+        }
+        case 'togglePermission': {
+            // Toggle permission between readonly and readwrite (owner only)
+            const session = sessions.get(sessionId);
+            if (!session || !session.isShared || session.owner) {
+                showToast('warning', 'Not Allowed', 'Can only change permission on your shared sessions');
+                break;
+            }
+            const newPerm = session.permission === 'readonly' ? 'readwrite' : 'readonly';
+            if (terminalSharing && terminalSharing.updateSessionPermission(sessionId, newPerm)) {
+                session.permission = newPerm;
+                const permLabel = newPerm === 'readwrite' ? 'Read-Write' : 'Read-Only';
+                showToast('success', '🔒 Permission Changed', `Session is now ${permLabel}`);
+            }
+            break;
+        }
+        case 'requestPermission': {
+            // Request write permission from owner (viewer only)
+            requestWritePermission(sessionId);
             break;
         }
         case 'closeAll': {
@@ -2417,18 +2733,17 @@ async function checkForAuthUrl() {
             return false;
         }
 
-        // Decode the auth
+        // Decode the auth (base64-encoded JSON)
         let decoded;
-        if (typeof ChannelAuthUtils !== 'undefined' && ChannelAuthUtils.decode) {
-            console.log('[Terminal] Using ChannelAuthUtils.decode');
-            decoded = ChannelAuthUtils.decode(authEncoded);
-        } else if (typeof decodeChannelAuth === 'function') {
-            console.log('[Terminal] Using decodeChannelAuth');
-            decoded = decodeChannelAuth(authEncoded);
-        } else {
-            console.error('[Terminal] No decode function available');
-            console.error('[Terminal] ChannelAuthUtils:', typeof ChannelAuthUtils);
-            console.error('[Terminal] decodeChannelAuth:', typeof decodeChannelAuth);
+        try {
+            console.log('[Terminal] Decoding base64 auth string...');
+            const jsonString = atob(authEncoded);
+            console.log('[Terminal] Decoded JSON string:', jsonString);
+            decoded = JSON.parse(jsonString);
+            console.log('[Terminal] Parsed auth object:', decoded);
+        } catch (decodeError) {
+            console.error('[Terminal] Failed to decode auth:', decodeError);
+            console.error('[Terminal] Auth string was:', authEncoded);
             return false;
         }
 
@@ -2732,37 +3047,155 @@ function updateShareButton() {
 /**
  * Show share modal for sharing channel connection (invite link)
  */
-function showShareModal() {
-    if (!cloudConnected || !terminalSharing) {
-        showToast('warning', 'Not Connected', 'Connect to cloud first to share terminals');
-        return;
-    }
-
-    // Get current connection details
-    const channelName = document.getElementById('cloudChannelName').value;
-    const channelPassword = document.getElementById('cloudChannelPassword').value;
-
-    if (!channelName || !channelPassword) {
-        showToast('error', 'No Connection', 'No active cloud connection found');
-        return;
-    }
-
-    // Show the share modal
-    if (typeof ShareModal !== 'undefined' && ShareModal.show) {
-        ShareModal.show(channelName, channelPassword, '');
-        console.log('[Terminal] Share modal shown');
-    } else {
-        showToast('error', 'Share Unavailable', 'Share modal not loaded');
-    }
-}
-
 // ========================================
 // Cloud Panel Functions
 // ========================================
 
-function toggleCloudPanel() {
-    const panel = document.getElementById('cloudPanel');
-    panel.classList.toggle('expanded');
+/**
+ * Open cloud connection modal
+ */
+function openCloudModal() {
+    console.log('[Cloud] Opening cloud modal...');
+    const overlay = document.getElementById('cloudModalOverlay');
+
+    if (!overlay) {
+        console.error('[Cloud] ❌ cloudModalOverlay element not found!');
+        return;
+    }
+
+    console.log('[Cloud] Found overlay element, setting display to flex...');
+    // Use inline style to override inline display:none (inline styles have higher specificity than classes)
+    overlay.style.display = 'flex';
+
+    // Verify it was added
+    console.log('[Cloud] Display style:', window.getComputedStyle(overlay).display);
+
+    // Update cloud toolbar button to indicate it's active (only if connected)
+    const cloudBtn = document.getElementById('cloudToolbarBtn');
+    if (cloudBtn && cloudConnected) {
+        cloudBtn.classList.add('active');
+    }
+
+    console.log('[Cloud] ✅ Modal should be visible now');
+}
+
+/**
+ * Close cloud connection modal
+ */
+function closeCloudModal() {
+    const overlay = document.getElementById('cloudModalOverlay');
+    if (overlay) {
+        overlay.style.display = 'none';
+    }
+}
+
+/**
+ * Toggle share section visibility within cloud modal
+ */
+function toggleShareSection() {
+    const content = document.getElementById('shareContent');
+    const btn = document.getElementById('shareToggleBtn');
+
+    if (content && btn) {
+        const isVisible = content.style.display !== 'none';
+
+        if (isVisible) {
+            // Collapse
+            content.style.display = 'none';
+            btn.classList.remove('expanded');
+        } else {
+            // Expand
+            content.style.display = 'block';
+            btn.classList.add('expanded');
+            // Generate share URL and QR code when opening
+            generateShareUrl();
+        }
+    }
+}
+
+/**
+ * Generate share URL for the current channel
+ */
+function generateShareUrl() {
+    const channelName = document.getElementById('cloudChannelName').value.trim();
+    const channelPassword = document.getElementById('cloudChannelPassword').value.trim();
+
+    if (!channelName || !channelPassword) {
+        showToast('warning', 'Missing Info', 'Please connect to cloud first');
+        return;
+    }
+
+    // Create auth object (same as whiteboard)
+    const auth = {
+        c: channelName,
+        p: channelPassword,
+        t: Date.now()
+    };
+
+    // Encode to base64
+    const authEncoded = btoa(JSON.stringify(auth));
+
+    // Build share URL with hash
+    const baseUrl = window.location.origin + window.location.pathname;
+    const shareUrl = `${baseUrl}#${authEncoded}#${channelName}`;
+
+    // Update input
+    const input = document.getElementById('shareUrlInput');
+    if (input) {
+        input.value = shareUrl;
+    }
+
+    // Pre-generate QR code but keep it hidden
+    const qrContainer = document.getElementById('shareQrCode');
+    if (qrContainer && typeof QRCode !== 'undefined') {
+        qrContainer.innerHTML = '';
+        new QRCode(qrContainer, {
+            text: shareUrl,
+            width: 200,
+            height: 200,
+            colorDark: '#000000',
+            colorLight: '#ffffff',
+            correctLevel: QRCode.CorrectLevel.M
+        });
+    }
+}
+
+/**
+ * Toggle QR code visibility
+ */
+function toggleQrCode() {
+    const qrContainer = document.getElementById('shareQrCode');
+    const toggleBtn = document.getElementById('qrToggleBtn');
+    const toggleIcon = document.getElementById('qrToggleIcon');
+    const toggleText = document.getElementById('qrToggleText');
+
+    if (qrContainer && toggleBtn) {
+        const isVisible = qrContainer.style.display !== 'none';
+
+        if (isVisible) {
+            // Hide QR code
+            qrContainer.style.display = 'none';
+            toggleIcon.textContent = '📱';
+            toggleText.textContent = 'Show QR Code';
+        } else {
+            // Show QR code
+            qrContainer.style.display = 'block';
+            toggleIcon.textContent = '✖️';
+            toggleText.textContent = 'Hide QR Code';
+        }
+    }
+}
+
+/**
+ * Copy share URL to clipboard
+ */
+function copyShareUrl() {
+    const input = document.getElementById('shareUrlInput');
+    if (input && input.value) {
+        input.select();
+        document.execCommand('copy');
+        showToast('success', 'Copied', 'Share link copied to clipboard');
+    }
 }
 
 /**
@@ -2805,6 +3238,54 @@ function regenerateAgentName() {
             showToast('success', 'Name Regenerated', `New agent name: ${newName}`);
         }
     }
+}
+
+/**
+ * Regenerate connection (channel name, password, and optionally agent name)
+ * Same pattern as whiteboard regenerate
+ */
+function regenerateConnection() {
+    const channelNameInput = document.getElementById('cloudChannelName');
+    const passwordInput = document.getElementById('cloudChannelPassword');
+    const agentNameInput = document.getElementById('cloudAgentName');
+
+    // Generate random channel name (terminal-XXXXXXXX)
+    const randomDigits = () => Math.floor(Math.random() * 100000000).toString().padStart(8, '0');
+    const newChannelName = `terminal-${randomDigits()}`;
+
+    // Generate random password (8 characters: 4 letters + 4 digits)
+    const randomLowercase = (n) => {
+        const letters = 'abcdefghijklmnopqrstuvwxyz';
+        let s = '';
+        for (let i = 0; i < n; i++) {
+            s += letters.charAt(Math.floor(Math.random() * letters.length));
+        }
+        return s;
+    };
+    const randomNumbers = (n) => {
+        let s = '';
+        for (let i = 0; i < n; i++) s += Math.floor(Math.random() * 10);
+        return s;
+    };
+    const newPassword = randomLowercase(4) + randomNumbers(4);
+
+    // Update channel and password
+    channelNameInput.value = newChannelName;
+    passwordInput.value = newPassword;
+
+    // Only regenerate agent name if it's not saved in localStorage
+    const savedAgentName = localStorage.getItem('cloud_agent_name');
+    if (!savedAgentName || savedAgentName.trim() === '') {
+        if (!agentNameInput.value || agentNameInput.value.trim() === '') {
+            const newName = generateAgentName();
+            agentNameInput.value = newName;
+        }
+    }
+
+    showToast('success', '🔄 Regenerated', 'New channel name and password generated');
+
+    // Save to localStorage
+    saveCloudConfig();
 }
 
 /**
@@ -3071,6 +3552,46 @@ async function connectToCloud() {
             updateSharedTerminalsList();
         };
 
+        // Called when someone is typing in a shared terminal
+        terminalSharing.onTypingIndicator = (sessionId, agentName, isTyping) => {
+            updateTypingIndicator(sessionId, agentName, isTyping);
+        };
+
+        // Called when a viewer requests write permission
+        terminalSharing.onPermissionRequest = (sessionId, requester) => {
+            console.log('[Terminal] Permission request from:', requester, 'for session:', sessionId);
+            showPermissionRequestNotification(sessionId, requester);
+        };
+
+        // Called when owner responds to our permission request
+        terminalSharing.onPermissionResponse = (sessionId, granted, owner) => {
+            console.log('[Terminal] Permission response:', granted ? 'GRANTED' : 'DENIED', 'from:', owner);
+            if (granted) {
+                showToast('success', '✅ Permission Granted', `${owner} granted you write access`);
+                updateSessionPermissionUI(sessionId, 'readwrite');
+            } else {
+                showToast('warning', '❌ Permission Denied', `${owner} denied your write request`);
+            }
+        };
+
+        // Called when session permission is updated
+        terminalSharing.onPermissionUpdate = (sessionId, newPermission) => {
+            console.log('[Terminal] Permission update for session:', sessionId, 'new permission:', newPermission);
+            updateSessionPermissionUI(sessionId, newPermission);
+        };
+
+        // Called when owner disconnects/closes a shared session
+        terminalSharing.onOwnerDisconnect = (sessionId, owner) => {
+            console.log('[Terminal] Owner disconnected:', owner, 'session:', sessionId);
+            showToast('warning', '⚠️ Session Ended', `${owner} closed the shared terminal`);
+
+            // Close the view-only session
+            if (sessions.has(sessionId)) {
+                closeSession(sessionId);
+            }
+            updateSharedTerminalsList();
+        };
+
         await terminalSharing.connect({
             username: agentName,
             channelName: channelName,
@@ -3085,9 +3606,23 @@ async function connectToCloud() {
         connectBtn.disabled = true;
         connectBtn.title = `Connected as ${agentName}`;
 
+        // Disable regenerate button when connected
+        const regenBtn = document.getElementById('cloudRegenBtn');
+        if (regenBtn) {
+            regenBtn.disabled = true;
+            regenBtn.title = 'Disconnect to regenerate';
+        }
+
         // Show the horizontal action buttons
         document.getElementById('cloudActionsRow').style.display = 'flex';
         document.getElementById('cloudAgentsSection').style.display = 'block';
+
+        // Show share section when connected
+        const shareSection = document.getElementById('cloudShareSection');
+        if (shareSection) {
+            shareSection.style.display = 'block';
+        }
+
         document.getElementById('cloudChannelName').disabled = true;
         document.getElementById('cloudChannelPassword').disabled = true;
         document.getElementById('cloudAgentName').disabled = true;
@@ -3100,7 +3635,7 @@ async function connectToCloud() {
             console.log('[Cloud] Status dot updated to online');
         }
         if (statusText) {
-            statusText.textContent = 'Connected';
+            statusText.textContent = `Connected as ${agentName}`;
             console.log('[Cloud] Status text updated to Connected');
         }
 
@@ -3109,6 +3644,8 @@ async function connectToCloud() {
         if (cloudBtn) {
             cloudBtn.classList.add('active');
             cloudBtn.title = `Connected as ${agentName}`;
+            cloudBtn.style.background = 'linear-gradient(135deg, rgba(16, 185, 129, 0.2), rgba(52, 211, 153, 0.2))';
+            cloudBtn.style.borderColor = 'rgba(16, 185, 129, 0.5)';
         }
 
         updateAgentsList();
@@ -3141,8 +3678,22 @@ function disconnectFromCloud() {
     connectBtn.disabled = false;
     connectBtn.title = 'Connect to Messaging Platform Cloud';
 
+    // Re-enable regenerate button when disconnected
+    const regenBtn = document.getElementById('cloudRegenBtn');
+    if (regenBtn) {
+        regenBtn.disabled = false;
+        regenBtn.title = 'Regenerate channel name and password';
+    }
+
     document.getElementById('cloudActionsRow').style.display = 'none';
     document.getElementById('cloudAgentsSection').style.display = 'none';
+
+    // Hide share section
+    const shareSection = document.getElementById('cloudShareSection');
+    if (shareSection) {
+        shareSection.style.display = 'none';
+    }
+
     document.getElementById('cloudChannelName').disabled = false;
     document.getElementById('cloudChannelPassword').disabled = false;
     document.getElementById('cloudAgentName').disabled = false;
@@ -3154,6 +3705,8 @@ function disconnectFromCloud() {
     if (cloudBtn) {
         cloudBtn.classList.remove('active');
         cloudBtn.title = 'Connect to Messaging Platform Cloud';
+        cloudBtn.style.background = '';
+        cloudBtn.style.borderColor = '';
     }
 
     updateAgentsList();
@@ -3233,7 +3786,9 @@ function updateSharedTerminalsList() {
         const ownerLabel = isOurs ? ' (You)' : ` (${session.owner})`;
         const clickable = !isOurs ? 'cursor: pointer;' : '';
         const hoverStyle = !isOurs ? 'transition: opacity 0.2s;' : '';
-        const title = !isOurs ? 'Click to view this shared terminal' : 'Your shared terminal';
+        const permIcon = session.permission === 'readwrite' ? '✏️' : '👁️';
+        const permTitle = session.permission === 'readwrite' ? 'Read-Write' : 'Read-Only';
+        const title = !isOurs ? `Click to view (${permTitle})` : `Your shared terminal (${permTitle})`;
 
         html += `<div class="cloud-agent-item"
             style="${clickable} ${hoverStyle}"
@@ -3242,6 +3797,7 @@ function updateSharedTerminalsList() {
             ${!isOurs ? `onmouseover="this.style.opacity='0.7'" onmouseout="this.style.opacity='1'"` : ''}>
             <div class="cloud-agent-dot" style="background: var(--accent-cyan);"></div>
             <span>${icon} ${session.name}${ownerLabel}</span>
+            <span style="margin-left: auto; font-size: 10px; opacity: 0.7;">${permIcon}</span>
         </div>`;
     });
 
@@ -3275,6 +3831,7 @@ function createSharedTerminalSession(sessionId, sessionInfo, ownerAgent) {
 
     const icon = sessionInfo.shell === 'bash' ? '🐧' : sessionInfo.shell === 'powershell' ? '⚡' : '💻';
     const name = `${sessionInfo.name} (${ownerAgent})`;
+    const permission = sessionInfo.permission || 'readonly';
 
     // Create UI
     createTab(sessionId, name, icon, sessionInfo.type || 'remote');
@@ -3297,7 +3854,8 @@ function createSharedTerminalSession(sessionId, sessionInfo, ownerAgent) {
         connected: true,  // Connected via cloud
         fitAddon: null,
         isShared: false,  // Not shared by me (I'm viewing someone else's share)
-        owner: ownerAgent  // The agent who owns this terminal
+        owner: ownerAgent,  // The agent who owns this terminal
+        permission: permission  // Read/write permission from owner
     });
 
     // Update fitAddon reference
@@ -3311,11 +3869,246 @@ function createSharedTerminalSession(sessionId, sessionInfo, ownerAgent) {
     updateEmptyState();
     updateSessionCount();
 
+    // Mark tab as received share (different styling)
+    const tab = document.getElementById(`tab-${sessionId}`);
+    if (tab) {
+        tab.classList.add('received-share');
+    }
+
+    // Add session badge showing permission mode
+    updateSessionBadge(sessionId, sessionInfo.permission || 'readonly');
+
     console.log('[Terminal] Created view-only session for shared session:', sessionId, 'from:', ownerAgent);
 }
 
-function shareTerminal(sessionId) {
-    console.log('[ShareTerminal] Called with sessionId:', sessionId);
+// ========================================
+// Typing Indicator & Permission UI
+// ========================================
+
+/**
+ * Update typing indicator for a session
+ * @param {string} sessionId - Session ID
+ * @param {string} agentName - Agent who is typing
+ * @param {boolean} isTyping - True if typing, false if stopped
+ */
+function updateTypingIndicator(sessionId, agentName, isTyping) {
+    const panel = document.getElementById(`panel-${sessionId}`);
+    if (!panel) return;
+
+    // Find or create typing indicator element
+    let indicator = panel.querySelector('.typing-indicator');
+
+    if (isTyping) {
+        if (!indicator) {
+            indicator = document.createElement('div');
+            indicator.className = 'typing-indicator';
+            indicator.style.cssText = `
+                position: absolute;
+                bottom: 8px;
+                left: 12px;
+                background: rgba(74, 158, 255, 0.9);
+                color: white;
+                padding: 4px 12px;
+                border-radius: 12px;
+                font-size: 11px;
+                font-weight: 500;
+                z-index: 100;
+                animation: pulse 1.5s ease-in-out infinite;
+            `;
+            panel.appendChild(indicator);
+        }
+        indicator.textContent = `${agentName} is typing...`;
+        indicator.style.display = 'block';
+    } else {
+        if (indicator) {
+            indicator.style.display = 'none';
+        }
+    }
+}
+
+/**
+ * Show permission request notification (for session owner)
+ * @param {string} sessionId - Session ID
+ * @param {string} requester - Agent requesting permission
+ */
+function showPermissionRequestNotification(sessionId, requester) {
+    const session = sessions.get(sessionId);
+    if (!session) return;
+
+    // Create notification element
+    const notification = document.createElement('div');
+    notification.className = 'permission-request-notification';
+    notification.style.cssText = `
+        position: fixed;
+        bottom: 20px;
+        right: 20px;
+        background: linear-gradient(135deg, var(--bg-panel) 0%, var(--bg-darker) 100%);
+        border: 1px solid var(--accent-purple);
+        border-radius: 12px;
+        padding: 16px 20px;
+        max-width: 320px;
+        box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+        z-index: 100000;
+        animation: slideIn 0.3s ease-out;
+    `;
+    notification.innerHTML = `
+        <style>
+            @keyframes slideIn {
+                from { transform: translateX(100%); opacity: 0; }
+                to { transform: translateX(0); opacity: 1; }
+            }
+        </style>
+        <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 12px;">
+            <span style="font-size: 24px;">✋</span>
+            <div>
+                <div style="font-weight: 600; color: var(--text-primary);">Permission Request</div>
+                <div style="font-size: 12px; color: var(--text-secondary);">${requester} wants write access</div>
+            </div>
+        </div>
+        <div style="font-size: 11px; color: var(--text-muted); margin-bottom: 12px;">
+            Session: ${session.name}
+        </div>
+        <div style="display: flex; gap: 8px;">
+            <button onclick="respondToPermission('${sessionId}', true, '${requester}', this.parentElement.parentElement)" 
+                    style="flex: 1; padding: 8px 12px; background: var(--accent-green); border: none; 
+                           border-radius: 6px; color: white; cursor: pointer; font-weight: 600; font-size: 12px;">
+                ✓ Grant
+            </button>
+            <button onclick="respondToPermission('${sessionId}', false, '${requester}', this.parentElement.parentElement)" 
+                    style="flex: 1; padding: 8px 12px; background: var(--accent-red); border: none; 
+                           border-radius: 6px; color: white; cursor: pointer; font-weight: 600; font-size: 12px;">
+                ✕ Deny
+            </button>
+        </div>
+    `;
+    document.body.appendChild(notification);
+
+    // Auto-dismiss after 30 seconds
+    setTimeout(() => {
+        if (document.body.contains(notification)) {
+            notification.style.animation = 'slideIn 0.3s ease-out reverse';
+            setTimeout(() => notification.remove(), 300);
+        }
+    }, 30000);
+}
+
+/**
+ * Respond to a permission request
+ */
+window.respondToPermission = function respondToPermission(sessionId, granted, requester, notificationElement) {
+    if (terminalSharing) {
+        terminalSharing.respondToPermissionRequest(sessionId, granted, requester);
+    }
+
+    // Remove the notification
+    if (notificationElement) {
+        notificationElement.style.animation = 'slideIn 0.3s ease-out reverse';
+        setTimeout(() => notificationElement.remove(), 300);
+    }
+
+    showToast(
+        granted ? 'success' : 'info',
+        granted ? '✓ Permission Granted' : '✕ Permission Denied',
+        `${granted ? 'Granted' : 'Denied'} write access to ${requester}`
+    );
+};
+
+/**
+ * Update session permission UI
+ * @param {string} sessionId - Session ID
+ * @param {string} permission - 'readonly' or 'readwrite'
+ */
+function updateSessionPermissionUI(sessionId, permission) {
+    const session = sessions.get(sessionId);
+    if (session) {
+        session.permission = permission;
+    }
+
+    // Update session badge
+    updateSessionBadge(sessionId, permission);
+
+    // Update tab styling
+    const tab = document.getElementById(`tab-${sessionId}`);
+    if (tab) {
+        if (permission === 'readwrite') {
+            tab.classList.add('write-access');
+            tab.classList.remove('read-only');
+        } else {
+            tab.classList.add('read-only');
+            tab.classList.remove('write-access');
+        }
+    }
+}
+
+/**
+ * Update session badge showing permission mode
+ * @param {string} sessionId - Session ID
+ * @param {string} permission - 'readonly' or 'readwrite'
+ */
+function updateSessionBadge(sessionId, permission) {
+    const panel = document.getElementById(`panel-${sessionId}`);
+    if (!panel) return;
+
+    // Find or create badge element
+    let badge = panel.querySelector('.session-badge');
+
+    if (!badge) {
+        badge = document.createElement('div');
+        badge.className = 'session-badge';
+        badge.style.cssText = `
+            position: absolute;
+            top: 8px;
+            right: 12px;
+            padding: 4px 10px;
+            border-radius: 12px;
+            font-size: 10px;
+            font-weight: 600;
+            z-index: 100;
+            display: flex;
+            align-items: center;
+            gap: 4px;
+        `;
+        panel.appendChild(badge);
+    }
+
+    if (permission === 'readwrite') {
+        badge.style.background = 'rgba(34, 197, 94, 0.2)';
+        badge.style.color = 'var(--accent-green)';
+        badge.style.border = '1px solid var(--accent-green)';
+        badge.innerHTML = '✏️ Read-Write';
+    } else {
+        badge.style.background = 'rgba(74, 158, 255, 0.2)';
+        badge.style.color = 'var(--accent-blue)';
+        badge.style.border = '1px solid var(--accent-blue)';
+        badge.innerHTML = '👁️ Read-Only';
+    }
+}
+
+/**
+ * Request write permission for a shared session
+ * @param {string} sessionId - Session ID
+ */
+function requestWritePermission(sessionId) {
+    if (!terminalSharing || !cloudConnected) {
+        showToast('warning', 'Not Connected', 'Connect to cloud first');
+        return;
+    }
+
+    const session = sessions.get(sessionId);
+    if (!session || !session.owner) {
+        showToast('error', 'Error', 'Cannot request permission for this session');
+        return;
+    }
+
+    if (terminalSharing.requestWritePermission(sessionId)) {
+        showToast('info', '📨 Request Sent', `Requesting write access from ${session.owner}`);
+    } else {
+        showToast('error', 'Error', 'Failed to send permission request');
+    }
+}
+
+function shareTerminal(sessionId, permission = 'readonly') {
+    console.log('[ShareTerminal] Called with sessionId:', sessionId, 'permission:', permission);
     console.log('[ShareTerminal] cloudConnected:', cloudConnected);
     console.log('[ShareTerminal] terminalSharing:', terminalSharing);
 
@@ -3336,6 +4129,7 @@ function shareTerminal(sessionId) {
     // Mark session as shared locally (owner = null means I own it)
     session.isShared = true;
     session.owner = null;  // null = I'm the owner of this local session
+    session.permission = permission;
 
     console.log('[ShareTerminal] Calling terminalSharing.shareSession...');
 
@@ -3346,7 +4140,8 @@ function shareTerminal(sessionId) {
     const success = terminalSharing.shareSession(sessionId, {
         name: sessionName,
         shell: session.config?.shell || session.type || 'cmd',
-        type: session.type
+        type: session.type,
+        permission: permission
     });
 
     console.log('[ShareTerminal] Share result:', success);
@@ -3355,11 +4150,15 @@ function shareTerminal(sessionId) {
         updateTabSharedIndicator(sessionId, true);  // Show shared badge
         updateAgentsList(); // Refresh agents list
         updateSharedTerminalsList(); // Refresh shared terminals list
-        showToast('success', '📤 Terminal Shared', `"${session.name}" is now shared with all agents`);
+        updateSidebarBadges(); // Update sidebar badges
+        updateMySharesList(); // Update my shares list
+        const permLabel = permission === 'readwrite' ? 'Read-Write' : 'Read-Only';
+        showToast('success', '📤 Terminal Shared', `"${session.name}" is now shared (${permLabel})`);
         console.log('[Terminal] Shared session:', sessionId, session.name);
     } else {
         session.isShared = false;
         session.owner = null;
+        session.permission = null;
         showToast('error', 'Share Failed', 'Failed to share terminal');
     }
 }
@@ -3380,6 +4179,8 @@ function unshareTerminal(sessionId) {
         terminalSharing.unshareSession(sessionId);
         updateAgentsList(); // Refresh agents list
         updateSharedTerminalsList(); // Refresh shared terminals list
+        updateSidebarBadges(); // Update sidebar badges
+        updateMySharesList(); // Update my shares list
     }
 
     updateTabSharedIndicator(sessionId, false);  // Hide shared badge
@@ -3435,33 +4236,20 @@ function toggleSftpPanel() {
         initSftpBrowser();
     }
 
-    // Check if there's an active SSH session
-    if (!activeSessionId) {
-        showToast('warning', 'No Session', 'Please open an SSH session first');
-        return;
-    }
+    // Switch to SFTP tab in sidebar
+    switchSidebarTab('sftp');
 
-    const session = sessions.get(activeSessionId);
-    if (!session || session.type !== 'ssh') {
-        showToast('warning', 'SSH Required', 'SFTP is only available for SSH sessions');
-        return;
-    }
-
-    // Toggle panel
-    if (sftpBrowser.isConnected && sftpBrowser.terminalSessionId === activeSessionId) {
-        sftpBrowser.close();
-    } else {
-        // Get connection info from the session
-        const connectionInfo = {
-            name: session.config.name || session.name,
-            host: session.config.host,
-            port: session.config.port,
-            username: session.config.username
-        };
-
-        sftpBrowser.open(activeSessionId, connectionInfo);
+    // If there's an active SSH session, open SFTP for it
+    if (activeSessionId) {
+        const session = sessions.get(activeSessionId);
+        if (session && session.type === 'ssh') {
+            openSftpForSession(activeSessionId);
+        }
     }
 }
+
+// Make globally accessible for toolbar button
+window.toggleSftpPanel = toggleSftpPanel;
 
 // Auto-open SFTP when SSH session is connected (optional feature)
 function openSftpForSession(sessionId) {
@@ -3546,11 +4334,10 @@ window.addEventListener('load', async () => {
         if (e.target.id === 'helpModalOverlay') closeHelpModal();
     });
 
-    // Initialize share modal
-    if (typeof ShareModal !== 'undefined') {
-        ShareModal.init();
-        console.log('[Terminal] Share modal initialized');
-    }
+    // Add click-outside-to-close for cloud modal
+    document.getElementById('cloudModalOverlay')?.addEventListener('click', (e) => {
+        if (e.target.id === 'cloudModalOverlay') closeCloudModal();
+    });
 
     // ✅ CRITICAL: Check for auth URL FIRST (before loadCloudConfig)
     // This ensures auth URL values take precedence over saved config
@@ -3560,20 +4347,24 @@ window.addEventListener('load', async () => {
     if (!TEST_MODE_NO_SLS) {
         await checkMlsHealth();
         await refreshConnections();
-
-        // Load cloud connection config from backend (but don't override auth URL values)
-        if (!hasAuthUrl) {
-            await loadCloudConfig();
-        } else {
-            console.log('[Terminal] Skipping loadCloudConfig - using auth URL values');
-        }
     } else {
         console.log('🧪 TEST MODE: Skipping SLS health check and connection refresh');
+    }
+
+    // Load cloud connection config (works in both normal and test mode via localStorage)
+    // Only skip if auth URL was provided
+    if (!hasAuthUrl) {
+        await loadCloudConfig();
+    } else {
+        console.log('[Terminal] Skipping loadCloudConfig - using auth URL values');
     }
 
 
     // Initialize SFTP browser
     initSftpBrowser();
+
+    // Initialize sidebar resize handle
+    initSidebarResize();
 
     // Restore saved tabs from previous session
     await restoreSavedTabs();

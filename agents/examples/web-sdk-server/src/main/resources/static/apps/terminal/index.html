@@ -18,20 +18,15 @@
     <!-- Toast notifications -->
     <link rel="stylesheet" href="../../css/toast.css"/>
 
-    <!-- Share Modal -->
-    <link rel="stylesheet" href="../../css/share-modal.css"/>
-
     <!-- Cloud Connection Component -->
     <link rel="stylesheet" href="../../css/cloud-connection.css"/>
 
-    <!-- Common utilities (needed before share-modal) -->
-    <script src="../../js/common-utils.js"></script>
+    <!-- SFTP Browser -->
+    <link rel="stylesheet" href="sftp-browser.css"/>
+    <script src="sftp-browser.js"></script>
 
-    <!-- QR Code library (needed before share-modal) -->
+    <!-- QR Code library (for cloud modal share section) -->
     <script src="../../lib/qrcode.min.js"></script>
-
-    <!-- Share Modal -->
-    <script src="../../js/share-modal.js"></script>
 
     <!-- Config Loader -->
     <script src="../../js/config-loader.js"></script>
@@ -61,6 +56,9 @@
         <div class="context-menu-item" onclick="contextMenuAction('openInNewTab')">
             <span class="icon">➕</span> Open in New Tab
         </div>
+        <div class="context-menu-item" onclick="contextMenuAction('openSftp')" id="openSftpMenuItem">
+            <span class="icon">📁</span> Open SFTP
+        </div>
         <div class="context-menu-separator"></div>
         <div class="context-menu-item" onclick="contextMenuAction('edit')">
             <span class="icon">✏️</span> Edit Connection
@@ -85,6 +83,12 @@
         <div class="context-menu-separator"></div>
         <div class="context-menu-item" onclick="tabContextMenuAction('toggleShare')" id="shareMenuItem">
             <span class="icon">🌐</span> <span id="shareMenuText">Share Session</span>
+        </div>
+        <div class="context-menu-item" onclick="tabContextMenuAction('togglePermission')" id="permissionMenuItem" style="display: none;">
+            <span class="icon">🔒</span> <span class="permission-text">Enable Write Access</span>
+        </div>
+        <div class="context-menu-item" onclick="tabContextMenuAction('requestPermission')" id="requestPermissionMenuItem" style="display: none;">
+            <span class="icon">✋</span> Request Write Access
         </div>
         <div class="context-menu-separator"></div>
         <div class="context-menu-item" onclick="tabContextMenuAction('close')">
@@ -136,7 +140,7 @@
             <span class="label">SSH</span>
         </button>
         <div class="toolbar-separator"></div>
-        <button class="toolbar-btn" onclick="toggleCloudPanel()" title="Connect to Messaging Platform Cloud"
+        <button class="toolbar-btn" onclick="openCloudModal()" title="Connect to Messaging Platform Cloud"
                 id="cloudToolbarBtn">
             <span class="icon">☁️</span>
             <span class="label">Cloud</span>
@@ -162,56 +166,112 @@
         </button>
     </div>
 
-    <!-- Cloud Connection Panel (collapsible) -->
-    <div class="cloud-panel" id="cloudPanel">
-        <div class="cloud-panel-header" onclick="toggleCloudPanel()">
-            <div class="cloud-panel-title">
-                <span>☁️</span>
-                <span>Messaging Platform Cloud</span>
-            </div>
-            <div class="cloud-panel-status">
-                <div class="status-dot" id="cloudStatus"></div>
-                <span id="cloudStatusText">Disconnected</span>
-            </div>
-        </div>
-        <div class="cloud-panel-body">
-            <div class="cloud-form-row">
-                <label for="cloudChannelName">Channel Name</label>
-                <input type="text" id="cloudChannelName" placeholder="my-terminal-channel" value="terminal-share">
-            </div>
-            <div class="cloud-form-row">
-                <label for="cloudChannelPassword">Channel Password</label>
-                <input type="password" id="cloudChannelPassword" placeholder="Channel password" value="terminal123">
-            </div>
-            <div class="cloud-form-row">
-                <label for="cloudAgentName">Your Agent Name</label>
-                <div class="cloud-input-group">
-                    <input type="text" id="cloudAgentName" placeholder="Auto-generated if empty">
-                    <button type="button" class="cloud-regen-btn" onclick="regenerateAgentName()"
-                            title="Regenerate agent name (only if empty)">
-                        🔄
-                    </button>
+    <!-- Cloud Connection Modal -->
+    <div class="modal-overlay" id="cloudModalOverlay" style="display: none;">
+        <div class="modal cloud-modal" id="cloudModal" style="width: 520px; max-height: 90vh; overflow-y: auto;">
+            <div class="modal-header" style="background: linear-gradient(135deg, rgba(74, 158, 255, 0.1), rgba(167, 139, 250, 0.1)); border-bottom: 1px solid var(--border-color, #2a2a4a); padding: 20px;">
+                <div class="modal-title" style="display: flex; align-items: center; gap: 10px; font-size: 18px;">
+                    <span style="font-size: 24px;">☁️</span>
+                    <span>Cloud Messaging</span>
+                </div>
+                <div style="display: flex; align-items: center; gap: 15px;">
+                    <div class="cloud-panel-status" style="display: flex; align-items: center; gap: 8px; padding: 6px 12px; background: var(--bg-panel, #0f0f1a); border-radius: 20px; font-size: 11px;">
+                        <div class="status-dot" id="cloudStatus"></div>
+                        <span id="cloudStatusText" style="font-weight: 500;">Disconnected</span>
+                    </div>
+                    <div class="modal-close" onclick="closeCloudModal()" style="font-size: 20px; width: 32px; height: 32px;">✕</div>
                 </div>
             </div>
-
-            <div class="cloud-actions">
-                <button type="button" class="cloud-btn" id="cloudConnectBtn" onclick="connectToCloud()">
-                    Connect to Cloud
-                </button>
-                <div class="cloud-actions-row" id="cloudActionsRow" style="display: none; gap: 8px; margin-top: 8px;">
-                    <button type="button" class="cloud-btn cloud-btn-small cloud-btn-secondary" id="cloudShareChannelBtn" onclick="showShareModal()" style="flex: 1;">
-                        🔗 Share Channel
-                    </button>
-                    <button type="button" class="cloud-btn cloud-btn-small disconnect" id="cloudDisconnectBtn" onclick="disconnectFromCloud()" style="flex: 1;">
-                        Disconnect
-                    </button>
+            <div class="modal-body" style="padding: 24px;">
+                <div class="cloud-form-row" style="margin-bottom: 16px;">
+                    <label for="cloudChannelName" style="font-size: 12px; font-weight: 600; color: var(--text-secondary, #8888aa); margin-bottom: 8px; display: block; text-transform: uppercase; letter-spacing: 0.5px;">Channel Name</label>
+                    <input type="text" id="cloudChannelName" placeholder="my-terminal-channel" value="terminal-share"
+                           style="width: 100%; padding: 12px; font-size: 13px; border-radius: 6px; border: 1px solid var(--border-color, #2a2a4a); background: var(--bg-panel, #0f0f1a); color: var(--text-primary, #e0e0e0); transition: border-color 0.2s;">
                 </div>
-            </div>
+                <div class="cloud-form-row" style="margin-bottom: 16px;">
+                    <label for="cloudChannelPassword" style="font-size: 12px; font-weight: 600; color: var(--text-secondary, #8888aa); margin-bottom: 8px; display: block; text-transform: uppercase; letter-spacing: 0.5px;">Channel Password</label>
+                    <input type="password" id="cloudChannelPassword" placeholder="Channel password" value="terminal123"
+                           style="width: 100%; padding: 12px; font-size: 13px; border-radius: 6px; border: 1px solid var(--border-color, #2a2a4a); background: var(--bg-panel, #0f0f1a); color: var(--text-primary, #e0e0e0); transition: border-color 0.2s;">
+                </div>
+                <div class="cloud-form-row" style="margin-bottom: 20px;">
+                    <label for="cloudAgentName" style="font-size: 12px; font-weight: 600; color: var(--text-secondary, #8888aa); margin-bottom: 8px; display: block; text-transform: uppercase; letter-spacing: 0.5px;">Your Agent Name</label>
+                    <input type="text" id="cloudAgentName" placeholder="Auto-generated if empty"
+                           style="width: 100%; padding: 12px; font-size: 13px; border-radius: 6px; border: 1px solid var(--border-color, #2a2a4a); background: var(--bg-panel, #0f0f1a); color: var(--text-primary, #e0e0e0); transition: border-color 0.2s;">
+                </div>
 
-            <div class="cloud-agents" id="cloudAgentsSection" style="display: none;">
-                <div class="cloud-agents-title">Connected Agents</div>
-                <div id="cloudAgentsList">
-                    <!-- Agents will be populated here -->
+                <div class="cloud-actions" style="margin-top: 24px;">
+                    <div class="cloud-actions-row" style="display: flex; gap: 10px; margin-bottom: 10px;">
+                        <button type="button" class="cloud-btn" id="cloudConnectBtn" onclick="connectToCloud()"
+                                style="flex: 2; padding: 14px 20px; font-size: 14px; font-weight: 600; border-radius: 8px; transition: all 0.2s;">
+                            Connect
+                        </button>
+                        <button type="button" class="cloud-btn cloud-btn-secondary" id="cloudRegenBtn" onclick="regenerateConnection()"
+                                title="Regenerate channel name and password"
+                                style="flex: 1; padding: 14px; font-size: 18px; border-radius: 8px; transition: all 0.2s;">
+                            🔄
+                        </button>
+                    </div>
+                    <div class="cloud-actions-row" id="cloudActionsRow" style="display: none; gap: 10px;">
+                        <button type="button" class="cloud-btn cloud-btn-small disconnect" id="cloudDisconnectBtn" onclick="disconnectFromCloud()"
+                                style="flex: 1; padding: 12px 20px; font-size: 13px; font-weight: 600; border-radius: 8px;">
+                            Disconnect
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Share Channel Section (Expandable) -->
+                <div class="cloud-share-section" id="cloudShareSection"
+                     style="display: none; margin-top: 24px; padding-top: 24px; border-top: 1px solid var(--border-color, #2a2a4a);">
+                    <button type="button" class="cloud-share-toggle" onclick="toggleShareSection()" id="shareToggleBtn"
+                            style="width: 100%; padding: 14px 16px; background: rgba(74, 158, 255, 0.08); border: 1px solid rgba(74, 158, 255, 0.3); border-radius: 8px; color: var(--text-primary, #e0e0e0); font-size: 13px; font-weight: 600; cursor: pointer; transition: all 0.2s; display: flex; align-items: center; gap: 10px;">
+                        <span class="icon" style="font-size: 16px;">🔗</span>
+                        <span style="flex: 1; text-align: left;">Share Channel</span>
+                        <span class="arrow" style="font-size: 12px; transition: transform 0.2s;">▼</span>
+                    </button>
+                    <div id="shareContent" style="display: none; margin-top: 16px;">
+                        <div style="font-size: 12px; color: var(--text-muted, #888); margin-bottom: 16px; padding: 12px; background: var(--bg-panel, #0f0f1a); border-radius: 6px; border-left: 3px solid var(--accent-blue, #4a9eff); line-height: 1.5;">
+                            💡 Share this channel link with others to connect together on the same terminal session.
+                        </div>
+
+                        <div class="cloud-form-row" style="margin-bottom: 12px;">
+                            <label style="font-size: 12px; font-weight: 600; color: var(--text-secondary, #8888aa); margin-bottom: 8px; display: block; text-transform: uppercase; letter-spacing: 0.5px;">📋 Share Link</label>
+                            <div class="cloud-input-group" style="display: flex; gap: 8px; margin-bottom: 8px;">
+                                <input type="text" id="shareUrlInput" readonly
+                                       style="flex: 1; font-size: 11px; background: var(--bg-darker, #08080d);
+                                              color: var(--text-primary, #e0e0e0);
+                                              border: 1px solid var(--border-color, #2a2a4a);
+                                              padding: 10px 12px; border-radius: 6px; font-family: monospace;">
+                                <button type="button" class="cloud-regen-btn" onclick="copyShareUrl()"
+                                        title="Copy to clipboard"
+                                        style="min-width: 44px; height: 40px; border-radius: 6px; font-size: 16px;">
+                                    📋
+                                </button>
+                            </div>
+                        </div>
+
+                        <button type="button" class="cloud-btn cloud-btn-secondary"
+                                onclick="toggleQrCode()"
+                                id="qrToggleBtn"
+                                style="width: 100%; margin-bottom: 12px; font-size: 12px; padding: 12px; border-radius: 8px; font-weight: 600;">
+                            <span id="qrToggleIcon">📱</span> <span id="qrToggleText">Show QR Code</span>
+                        </button>
+
+                        <div id="shareQrCode" style="display: none; text-align: center; margin: 0 auto; padding: 20px;
+                                                     background: white; border-radius: 8px;
+                                                     box-shadow: 0 4px 12px rgba(0,0,0,0.15); max-width: fit-content;">
+                            <!-- QR code will be generated here -->
+                        </div>
+                    </div>
+                </div>
+
+                <div class="cloud-agents" id="cloudAgentsSection"
+                     style="display: none; margin-top: 24px; padding-top: 24px; border-top: 1px solid var(--border-color, #2a2a4a);">
+                    <div class="cloud-agents-title" style="font-size: 12px; font-weight: 600; color: var(--text-secondary, #8888aa); margin-bottom: 12px; text-transform: uppercase; letter-spacing: 0.5px;">
+                        Connected Agents
+                    </div>
+                    <div id="cloudAgentsList" style="display: flex; flex-direction: column; gap: 8px;">
+                        <!-- Agents will be populated here -->
+                    </div>
                 </div>
             </div>
         </div>
@@ -219,16 +279,82 @@
 
     <!-- Main Container -->
     <div class="main-container">
-        <!-- Sidebar -->
-        <div class="sidebar">
-            <div class="sidebar-header">
-                <span>Sessions</span>
-                <button class="sidebar-header-btn" onclick="refreshConnections()" title="Refresh">🔄</button>
+        <!-- Sidebar with Tabs -->
+        <div class="sidebar" id="sidebar">
+            <div class="sidebar-tabs">
+                <button class="sidebar-tab active" onclick="switchSidebarTab('sessions')" title="SSH Connections" data-tab="sessions">
+                    <span class="sidebar-tab-icon">🌐</span>
+                </button>
+                <button class="sidebar-tab" onclick="switchSidebarTab('sftp')" title="SFTP Browser" data-tab="sftp">
+                    <span class="sidebar-tab-icon">📁</span>
+                </button>
+                <button class="sidebar-tab" onclick="switchSidebarTab('shared')" title="Shared with You" data-tab="shared">
+                    <span class="sidebar-tab-icon">📡</span>
+                    <span class="sidebar-tab-badge" id="sharedBadge" style="display: none;">0</span>
+                </button>
+                <button class="sidebar-tab" onclick="switchSidebarTab('myshares')" title="My Shared Terminals" data-tab="myshares">
+                    <span class="sidebar-tab-icon">📤</span>
+                    <span class="sidebar-tab-badge" id="mysharesBadge" style="display: none;">0</span>
+                </button>
             </div>
-            <div class="session-list" id="sessionList">
-                <!-- Sessions will be populated here -->
+
+            <div class="sidebar-content">
+                <!-- Sessions Tab -->
+                <div class="sidebar-panel active" id="panel-sessions">
+                    <div class="sidebar-header">
+                        <span>SSH Connections</span>
+                        <button class="sidebar-header-btn" onclick="refreshConnections()" title="Refresh">🔄</button>
+                    </div>
+                    <div class="session-list" id="sessionList">
+                        <!-- Sessions will be populated here -->
+                    </div>
+                </div>
+
+                <!-- SFTP Tab -->
+                <div class="sidebar-panel" id="panel-sftp">
+                    <div class="sidebar-header">
+                        <span>SFTP Browser</span>
+                        <button class="sidebar-header-btn" onclick="closeSftpPanel()" title="Close">✖️</button>
+                    </div>
+                    <div id="sftpPanelContainer" style="flex: 1; overflow: auto;">
+                        <!-- SFTP browser will be mounted here -->
+                    </div>
+                </div>
+
+                <!-- Shared with You Tab -->
+                <div class="sidebar-panel" id="panel-shared">
+                    <div class="sidebar-header">
+                        <span>Shared with You</span>
+                        <button class="sidebar-header-btn" onclick="refreshSharedSessions()" title="Refresh">🔄</button>
+                    </div>
+                    <div class="shared-session-list" id="sharedSessionList">
+                        <!-- Shared sessions from other agents will appear here -->
+                        <div style="padding: 20px; text-align: center; color: var(--text-muted); font-size: 11px;">
+                            No shared terminals yet.<br>
+                            Connect to cloud to see shared sessions.
+                        </div>
+                    </div>
+                </div>
+
+                <!-- My Shared Terminals Tab -->
+                <div class="sidebar-panel" id="panel-myshares">
+                    <div class="sidebar-header">
+                        <span>My Shared Terminals</span>
+                        <button class="sidebar-header-btn" onclick="refreshMyShares()" title="Refresh">🔄</button>
+                    </div>
+                    <div class="myshares-list" id="mysharesList">
+                        <!-- My shared sessions will appear here -->
+                        <div style="padding: 20px; text-align: center; color: var(--text-muted); font-size: 11px;">
+                            No shared terminals yet.<br>
+                            Share a terminal to see it here.
+                        </div>
+                    </div>
+                </div>
             </div>
         </div>
+
+        <!-- Resize Handle -->
+        <div class="resize-handle" id="resizeHandle"></div>
 
         <!-- Terminal Area -->
         <div class="terminal-area">
@@ -256,48 +382,33 @@
                     </div>
                 </div>
             </div>
-        </div>
 
-        <!-- Shared Sessions Panel (right side) -->
-        <div class="shared-panel" id="sharedPanel">
-            <div class="shared-panel-header">
-                📡 Shared Terminals
-            </div>
-            <div class="shared-session-list" id="sharedSessionList">
-                <!-- Shared sessions from other agents will appear here -->
-                <div style="padding: 20px; text-align: center; color: var(--text-muted); font-size: 11px;">
-                    No shared terminals yet.<br>
-                    Connect to cloud to see shared sessions.
+            <!-- Status Bar -->
+            <div class="status-bar" id="statusBar">
+                <div class="status-bar-item">
+                    <span class="status-bar-label">MLS:</span>
+                    <span class="status-bar-value" id="statusMls">localhost:8088</span>
+                </div>
+                <div class="status-bar-separator">|</div>
+                <div class="status-bar-item">
+                    <span class="status-bar-label">Sessions:</span>
+                    <span class="status-bar-value" id="statusSessions">0</span>
+                </div>
+                <div class="status-bar-separator">|</div>
+                <div class="status-bar-item">
+                    <span class="status-bar-label">Active:</span>
+                    <span class="status-bar-value" id="statusActive">None</span>
                 </div>
             </div>
         </div>
 
-        <!-- SFTP File Browser Panel (mount point) -->
-        <div id="sftpPanelContainer"></div>
+        <!-- SFTP File Browser Panel (hidden, controlled by sidebar) -->
+        <!-- Moved to sidebar -->
     </div>
 
-    <!-- Status Bar -->
-    <div class="status-bar">
-        <div class="status-item">
-            <span class="label">MLS:</span>
-            <span class="value" id="statusMls">localhost:8088</span>
-        </div>
-        <div class="status-item">
-            <span class="label">Sessions:</span>
-            <span class="value" id="statusSessions">0</span>
-        </div>
-        <div class="status-item">
-            <span class="label">Active:</span>
-            <span class="value" id="statusActive">None</span>
-        </div>
-        <div class="status-item" style="margin-left: auto;">
-            <span class="label">Cloud:</span>
-            <span class="value" id="statusCloud">Disconnected</span>
-        </div>
-    </div>
 
     <!-- Settings Modal -->
-    <div class="modal-overlay" id="settingsModalOverlay">
+    <div class="modal-overlay" id="settingsModalOverlay" style="display: none;">
         <div class="modal" style="width: 500px;">
             <div class="modal-header">
                 <div class="modal-title">⚙️ Settings</div>
@@ -346,7 +457,7 @@
     </div>
 
     <!-- SSH Modal -->
-    <div class="modal-overlay" id="sshModalOverlay">
+    <div class="modal-overlay" id="sshModalOverlay" style="display: none;">
         <div class="modal">
             <div class="modal-header">
                 <div class="modal-title">➕ Add SSH Connection</div>
@@ -400,7 +511,7 @@
     </div>
 
     <!-- Help Modal -->
-    <div class="modal-overlay" id="helpModalOverlay">
+    <div class="modal-overlay" id="helpModalOverlay" style="display: none;">
         <div class="modal" style="width: 900px; max-width: 95vw; max-height: 90vh; overflow-y: auto;">
             <div class="modal-header">
                 <div class="modal-title">📚 Documentation & API Reference</div>
@@ -820,72 +931,6 @@
             </div>
         </div>
     </div>
-
-    <!-- Share Modal -->
-    <div id="share-modal" class="modal">
-        <div class="modal-content">
-            <div class="modal-body">
-                <h2 style="margin-bottom: 20px; font-size: 20px;">📤 Share Channel Connection</h2>
-
-                <div style="display: flex; gap: 12px; margin-bottom: 20px;">
-                    <button id="share-public-btn" class="btn btn-primary" style="flex: 1;">
-                        📢 Public Link
-                    </button>
-                    <button id="share-encrypted-btn" class="btn btn-secondary" style="flex: 1;">
-                        🔒 Encrypted Link
-                    </button>
-                </div>
-
-                <div id="share-encryption-key-input" style="display: none; margin-bottom: 16px;">
-                    <label style="display: block; margin-bottom: 8px; font-size: 14px;">Encryption Key (Agent Name):</label>
-                    <input type="text" id="share-key-input" placeholder="Enter agent name as encryption key"
-                           style="width: 100%; padding: 10px; border: 1px solid var(--border-color); border-radius: 6px;
-                                  background: var(--bg-darker); color: var(--text-primary); font-size: 14px;">
-                    <button id="share-generate-encrypted-btn" class="btn btn-primary" style="width: 100%; margin-top: 12px;">
-                        Generate Encrypted Link
-                    </button>
-                </div>
-
-                <div id="share-link-container" style="display: none;">
-                    <label id="share-link-label" style="display: block; margin-bottom: 8px; font-size: 14px; font-weight: 600;">
-                        📋 Share Link
-                    </label>
-                    <div style="display: flex; gap: 8px;">
-                        <input type="text" id="share-link-output" readonly
-                               style="flex: 1; padding: 10px; border: 1px solid var(--border-color); border-radius: 6px;
-                                      background: var(--bg-darker); color: var(--text-primary); font-size: 13px;">
-                        <button id="share-copy-btn" class="btn btn-primary">📋 Copy</button>
-                    </div>
-                    <button id="share-qr-btn" class="btn btn-secondary" style="width: 100%; margin-top: 12px;">
-                        📱 Show QR Code
-                    </button>
-                    <div id="share-qr-container" style="display: none; margin-top: 16px; text-align: center;">
-                        <div id="share-qr-code"></div>
-                    </div>
-                </div>
-
-                <div id="share-encryption-info" style="display: none; margin-top: 16px; padding: 12px;
-                                                         background: rgba(34, 197, 94, 0.1); border-radius: 6px;
-                                                         border-left: 3px solid var(--accent-green);">
-                    <div style="font-size: 13px; margin-bottom: 8px;">
-                        🔐 <strong>Encryption Key:</strong> <code id="share-key-display" style="background: var(--bg-darker);
-                        padding: 2px 6px; border-radius: 3px;"></code>
-                    </div>
-                    <div style="font-size: 12px; color: var(--text-secondary);">
-                        Share this key securely with others to decrypt the link.
-                    </div>
-                </div>
-
-                <div style="margin-top: 20px; display: flex; justify-content: flex-end;">
-                    <button id="share-close" class="btn btn-secondary">Close</button>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <!-- SFTP Browser Component -->
-    <script src="sftp-browser.js"></script>
-
 </body>
 </html>
 

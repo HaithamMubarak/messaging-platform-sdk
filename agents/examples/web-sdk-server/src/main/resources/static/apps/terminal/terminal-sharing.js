@@ -7,6 +7,9 @@
  * - Message routing and handling
  * - Input/output communication
  * - Agent tracking
+ * - Read/Write permissions
+ * - Typing indicators
+ * - Permission request/grant workflow
  */
 class TerminalSharing extends AgentInteractionBase {
     constructor() {
@@ -19,10 +22,14 @@ class TerminalSharing extends AgentInteractionBase {
         });
 
         // Shared sessions tracking (sessionId = backend terminal session ID)
-        this.sharedSessions = new Map(); // sessionId -> { name, owner, shell, ... }
+        // Structure: { name, owner, shell, permission: 'readonly'|'readwrite', ... }
+        this.sharedSessions = new Map();
 
         // Message handlers registry
         this.messageHandlers = new Map();
+
+        // Pending permission requests (sessionId -> { requester, timestamp })
+        this.pendingPermissionRequests = new Map();
 
         // ✅ Register built-in message handlers IMMEDIATELY in constructor
         // (so they're ready before any messages arrive)
@@ -32,12 +39,23 @@ class TerminalSharing extends AgentInteractionBase {
         this.registerHandler('session-output', (msg, src) => this.handleSessionOutput(msg, src));
         this.registerHandler('sync-sessions', (msg, src) => this.handleSyncSessions(msg, src));
         this.registerHandler('request-sync', (msg, src) => this.handleRequestSync(msg, src));
+        this.registerHandler('typing-indicator', (msg, src) => this.handleTypingIndicator(msg, src));
+        this.registerHandler('permission-request', (msg, src) => this.handlePermissionRequest(msg, src));
+        this.registerHandler('permission-response', (msg, src) => this.handlePermissionResponse(msg, src));
+        this.registerHandler('permission-update', (msg, src) => this.handlePermissionUpdate(msg, src));
+        this.registerHandler('owner-disconnect', (msg, src) => this.handleOwnerDisconnect(msg, src));
 
         // Callbacks (set by user)
         this.onSharedSessionAdd = null;      // (sessionId, sessionInfo, sourceAgent) => {}
         this.onSharedSessionRemove = null;   // (sessionId, sourceAgent) => {}
         this.onSessionOutput = null;         // (sessionId, data, sourceAgent) => {}
         this.onSessionInput = null;          // (sessionId, data, sourceAgent) => {}
+        this.onTypingIndicator = null;       // (sessionId, agentName, isTyping) => {}
+        this.onPermissionRequest = null;     // (sessionId, requester) => {}
+        this.onPermissionResponse = null;    // (sessionId, granted, owner) => {}
+        this.onPermissionUpdate = null;      // (sessionId, newPermission) => {}
+        this.onOwnerDisconnect = null;       // (sessionId, owner) => {}
+        this.onConnectionError = null;       // (sessionId, error) => {}
     }
 
     /**
@@ -68,7 +86,8 @@ class TerminalSharing extends AgentInteractionBase {
     /**
      * Share a session with all connected agents
      * @param {string} sessionId - Terminal session identifier (from backend)
-     * @param {Object} sessionInfo - Session metadata { name, shell, ... }
+     * @param {Object} sessionInfo - Session metadata { name, shell, permission, ... }
+     * @param {string} sessionInfo.permission - 'readonly' or 'readwrite' (default: 'readonly')
      */
     shareSession(sessionId, sessionInfo) {
         if (!this.connected) {
@@ -92,10 +111,14 @@ class TerminalSharing extends AgentInteractionBase {
             return false;
         }
 
+        // Default permission is readonly
+        const permission = sessionInfo.permission || 'readonly';
+
         // Add to local shared sessions
         this.sharedSessions.set(sessionId, {
             ...sessionInfo,
-            owner: this.username
+            owner: this.username,
+            permission: permission
         });
 
         // Broadcast to all agents using sendData
@@ -104,11 +127,12 @@ class TerminalSharing extends AgentInteractionBase {
             sessionId: sessionId,
             sessionInfo: {
                 ...sessionInfo,
-                owner: this.username
+                owner: this.username,
+                permission: permission
             }
         });
 
-        console.log('[TerminalSharing] Shared session:', sessionId, sessionInfo.name);
+        console.log('[TerminalSharing] Shared session:', sessionId, sessionInfo.name, 'permission:', permission);
         return true;
     }
 
@@ -203,13 +227,14 @@ class TerminalSharing extends AgentInteractionBase {
         // Don't track our own shares
         if (src === this.username) return;
 
-        // Add to remote shared sessions
+        // Add to remote shared sessions with permission
         this.sharedSessions.set(sessionId, {
             ...sessionInfo,
-            owner: src
+            owner: src,
+            permission: sessionInfo.permission || 'readonly'
         });
 
-        console.log('[TerminalSharing] Remote agent shared session:', sessionId, 'from:', src);
+        console.log('[TerminalSharing] Remote agent shared session:', sessionId, 'from:', src, 'permission:', sessionInfo.permission);
 
         // Call callback if registered
         if (typeof this.onSharedSessionAdd === 'function') {
@@ -258,6 +283,232 @@ class TerminalSharing extends AgentInteractionBase {
         if (typeof this.onSessionOutput === 'function') {
             this.onSessionOutput(sessionId, data, src);
         }
+    }
+
+    /**
+     * Handle typing-indicator message
+     */
+    handleTypingIndicator(msg, src) {
+        const { sessionId, isTyping } = msg;
+
+        console.log('[TerminalSharing] Typing indicator from:', src, 'session:', sessionId, 'typing:', isTyping);
+
+        if (typeof this.onTypingIndicator === 'function') {
+            this.onTypingIndicator(sessionId, src, isTyping);
+        }
+    }
+
+    /**
+     * Handle permission-request message (viewer wants write access)
+     */
+    handlePermissionRequest(msg, src) {
+        const { sessionId } = msg;
+
+        console.log('[TerminalSharing] Permission request from:', src, 'for session:', sessionId);
+
+        // Store the pending request
+        this.pendingPermissionRequests.set(sessionId, {
+            requester: src,
+            timestamp: Date.now()
+        });
+
+        if (typeof this.onPermissionRequest === 'function') {
+            this.onPermissionRequest(sessionId, src);
+        }
+    }
+
+    /**
+     * Handle permission-response message (owner grants/denies)
+     */
+    handlePermissionResponse(msg, src) {
+        const { sessionId, granted, newPermission } = msg;
+
+        console.log('[TerminalSharing] Permission response from:', src, 'session:', sessionId, 'granted:', granted);
+
+        // Update local session permission if granted
+        if (granted && this.sharedSessions.has(sessionId)) {
+            const session = this.sharedSessions.get(sessionId);
+            session.permission = newPermission || 'readwrite';
+        }
+
+        if (typeof this.onPermissionResponse === 'function') {
+            this.onPermissionResponse(sessionId, granted, src);
+        }
+    }
+
+    /**
+     * Handle permission-update message (owner changed permission)
+     */
+    handlePermissionUpdate(msg, src) {
+        const { sessionId, permission } = msg;
+
+        console.log('[TerminalSharing] Permission update from:', src, 'session:', sessionId, 'new permission:', permission);
+
+        // Update local session permission
+        if (this.sharedSessions.has(sessionId)) {
+            const session = this.sharedSessions.get(sessionId);
+            session.permission = permission;
+        }
+
+        if (typeof this.onPermissionUpdate === 'function') {
+            this.onPermissionUpdate(sessionId, permission);
+        }
+    }
+
+    /**
+     * Handle owner-disconnect message (owner closed the session)
+     */
+    handleOwnerDisconnect(msg, src) {
+        const { sessionId } = msg;
+
+        console.log('[TerminalSharing] Owner disconnect from:', src, 'session:', sessionId);
+
+        // Remove the session from our map
+        this.sharedSessions.delete(sessionId);
+
+        if (typeof this.onOwnerDisconnect === 'function') {
+            this.onOwnerDisconnect(sessionId, src);
+        }
+    }
+
+    /**
+     * Send typing indicator
+     * @param {string} sessionId - Session to indicate typing on
+     * @param {boolean} isTyping - True if typing, false if stopped
+     */
+    sendTypingIndicator(sessionId, isTyping) {
+        if (!this.connected) return;
+
+        this.sendData({
+            type: 'typing-indicator',
+            sessionId: sessionId,
+            isTyping: isTyping
+        });
+    }
+
+    /**
+     * Request write permission for a session
+     * @param {string} sessionId - Session to request permission for
+     */
+    requestWritePermission(sessionId) {
+        if (!this.connected) return false;
+
+        const session = this.sharedSessions.get(sessionId);
+        if (!session || !session.owner) {
+            console.warn('[TerminalSharing] Cannot request permission - session not found');
+            return false;
+        }
+
+        this.sendData({
+            type: 'permission-request',
+            sessionId: sessionId
+        }, session.owner);
+
+        console.log('[TerminalSharing] Requested write permission for:', sessionId);
+        return true;
+    }
+
+    /**
+     * Respond to permission request (as owner)
+     * @param {string} sessionId - Session the request is for
+     * @param {boolean} granted - True to grant, false to deny
+     * @param {string} requester - Agent who requested
+     */
+    respondToPermissionRequest(sessionId, granted, requester) {
+        if (!this.connected) return;
+
+        const newPermission = granted ? 'readwrite' : 'readonly';
+
+        // Update local session
+        if (granted && this.sharedSessions.has(sessionId)) {
+            const session = this.sharedSessions.get(sessionId);
+            session.permission = newPermission;
+        }
+
+        // Clear pending request
+        this.pendingPermissionRequests.delete(sessionId);
+
+        // Send response to requester
+        this.sendData({
+            type: 'permission-response',
+            sessionId: sessionId,
+            granted: granted,
+            newPermission: newPermission
+        }, requester);
+
+        // If granted, broadcast update to all
+        if (granted) {
+            this.sendData({
+                type: 'permission-update',
+                sessionId: sessionId,
+                permission: newPermission
+            });
+        }
+
+        console.log('[TerminalSharing] Responded to permission request:', sessionId, 'granted:', granted);
+    }
+
+    /**
+     * Update session permission (as owner)
+     * @param {string} sessionId - Session to update
+     * @param {string} permission - 'readonly' or 'readwrite'
+     */
+    updateSessionPermission(sessionId, permission) {
+        if (!this.connected) return false;
+
+        if (!this.sharedSessions.has(sessionId)) return false;
+
+        const session = this.sharedSessions.get(sessionId);
+        if (session.owner !== this.username) {
+            console.warn('[TerminalSharing] Cannot update permission - not the owner');
+            return false;
+        }
+
+        session.permission = permission;
+
+        // Broadcast update to all agents
+        this.sendData({
+            type: 'permission-update',
+            sessionId: sessionId,
+            permission: permission
+        });
+
+        console.log('[TerminalSharing] Updated session permission:', sessionId, 'to:', permission);
+        return true;
+    }
+
+    /**
+     * Notify viewers that owner is disconnecting/closing a session
+     * @param {string} sessionId - Session being closed
+     */
+    notifyOwnerDisconnect(sessionId) {
+        if (!this.connected) return;
+
+        this.sendData({
+            type: 'owner-disconnect',
+            sessionId: sessionId
+        });
+
+        console.log('[TerminalSharing] Notified owner disconnect for:', sessionId);
+    }
+
+    /**
+     * Get session permission
+     * @param {string} sessionId - Session identifier
+     * @returns {string} 'readonly' or 'readwrite'
+     */
+    getSessionPermission(sessionId) {
+        const session = this.sharedSessions.get(sessionId);
+        return session?.permission || 'readonly';
+    }
+
+    /**
+     * Check if we have write permission for a session
+     * @param {string} sessionId - Session identifier
+     * @returns {boolean} True if we have write permission
+     */
+    hasWritePermission(sessionId) {
+        return this.getSessionPermission(sessionId) === 'readwrite';
     }
 
     /**
@@ -410,7 +661,8 @@ class TerminalSharing extends AgentInteractionBase {
                     name: session.name,
                     shell: session.shell,
                     type: session.type,
-                    owner: this.username
+                    owner: this.username,
+                    permission: session.permission || 'readonly'
                 }
             }))
         }, targetAgent);
@@ -451,7 +703,8 @@ class TerminalSharing extends AgentInteractionBase {
             if (!this.sharedSessions.has(sessionId)) {
                 this.sharedSessions.set(sessionId, {
                     ...sessionInfo,
-                    owner: src
+                    owner: src,
+                    permission: sessionInfo.permission || 'readonly'
                 });
 
                 // Fire callback for each new session

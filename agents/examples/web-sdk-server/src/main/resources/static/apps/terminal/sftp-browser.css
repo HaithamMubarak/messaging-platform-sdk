@@ -5,9 +5,9 @@
 
 /* ========== SFTP Panel (Right Side) ========== */
 .sftp-panel {
-    width: 320px;
+    width: 100%;
     min-width: 280px;
-    max-width: 500px;
+    /*max-width: 500px;*/
     background: var(--bg-sidebar);
     border-left: 1px solid var(--border-color);
     display: none;
