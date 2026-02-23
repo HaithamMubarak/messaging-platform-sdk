@@ -645,13 +645,20 @@ class TerminalSharing extends AgentInteractionBase {
      * Send all our shared sessions to a specific agent
      */
     sendSharedSessionsToAgent(targetAgent) {
+        console.log('[TerminalSharing] sendSharedSessionsToAgent called for:', targetAgent);
+        console.log('[TerminalSharing] All shared sessions:', Array.from(this.sharedSessions.keys()));
+        console.log('[TerminalSharing] Our username:', this.username);
+
         const ourSessions = this.getOurSharedSessions();
+        console.log('[TerminalSharing] Our shared sessions count:', ourSessions.length);
+
         if (ourSessions.length === 0) {
             console.log('[TerminalSharing] No sessions to sync to', targetAgent);
             return;
         }
 
         console.log('[TerminalSharing] Sending', ourSessions.length, 'shared sessions to', targetAgent);
+        console.log('[TerminalSharing] Sessions being sent:', ourSessions.map(s => ({ id: s.sessionId, name: s.name, owner: s.owner })));
 
         this.sendData({
             type: 'sync-sessions',

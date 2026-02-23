@@ -1136,6 +1136,56 @@ function switchToSession(sessionId) {
             if (session.fitAddon) session.fitAddon.fit();
             session.terminal.focus();
         }, 100);
+
+        // ✅ Mobile fix: Ensure terminal gets focus on tap/touch and keyboard input works
+        const terminalElement = document.getElementById(`terminal-${sessionId}`);
+        if (terminalElement) {
+            // Add touch event listeners for mobile
+            const focusTerminal = (e) => {
+                if (session.terminal) {
+                    session.terminal.focus();
+
+                    // ✅ CRITICAL: Find and focus the hidden textarea used by xterm.js
+                    // This ensures mobile keyboard input is captured
+                    const textarea = terminalElement.querySelector('textarea.xterm-helper-textarea');
+                    if (textarea) {
+                        textarea.focus();
+                        // Prevent default to avoid double-tap zoom on iOS
+                        if (e && e.type === 'touchstart') {
+                            e.preventDefault();
+                        }
+                    }
+                }
+            };
+
+            terminalElement.addEventListener('touchstart', focusTerminal);
+            terminalElement.addEventListener('touchend', focusTerminal, { passive: true });
+            terminalElement.addEventListener('click', focusTerminal);
+
+            // Also handle when keyboard appears (mobile browsers)
+            if ('visualViewport' in window) {
+                const handleViewportResize = () => {
+                    if (activeSessionId === sessionId) {
+                        focusTerminal();
+                    }
+                };
+                window.visualViewport.addEventListener('resize', handleViewportResize);
+
+                // Store cleanup function
+                if (!session._cleanupFunctions) session._cleanupFunctions = [];
+                session._cleanupFunctions.push(() => {
+                    window.visualViewport.removeEventListener('resize', handleViewportResize);
+                });
+            }
+
+            // Store cleanup functions
+            if (!session._cleanupFunctions) session._cleanupFunctions = [];
+            session._cleanupFunctions.push(() => {
+                terminalElement.removeEventListener('touchstart', focusTerminal);
+                terminalElement.removeEventListener('touchend', focusTerminal);
+                terminalElement.removeEventListener('click', focusTerminal);
+            });
+        }
     }
 
     updateEmptyState();
@@ -2197,6 +2247,12 @@ async function closeSession(sessionId) {
     if (session.terminal) {
         console.log(`[Close] Disposing terminal for session: ${sessionId}`);
         session.terminal.dispose();
+    }
+
+    // ✅ Clean up mobile event listeners
+    if (session._cleanupFunctions) {
+        session._cleanupFunctions.forEach(cleanup => cleanup());
+        session._cleanupFunctions = [];
     }
 
     // Remove UI elements
@@ -3705,6 +3761,12 @@ async function connectToCloud() {
         terminalSharing.onPlayerJoin = (event) => {
             console.log('[Terminal] Agent joined:', event.agentName);
             showToast('success', '✅ Agent Joined', `${event.agentName} connected`);
+
+            // ✅ CRITICAL: Call parent class method to send our shared sessions to new agent
+            if (terminalSharing.sendSharedSessionsToAgent) {
+                terminalSharing.sendSharedSessionsToAgent(event.agentName);
+            }
+
             updateAgentsList(); // Update list when fully connected
             updateSharedTerminalsList();
         };

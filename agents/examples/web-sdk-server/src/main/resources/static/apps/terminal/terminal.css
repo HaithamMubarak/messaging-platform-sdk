@@ -1631,6 +1631,32 @@ body {
 }
 
 /* ========================================
+   XTERM.JS MOBILE KEYBOARD FIX
+   ======================================== */
+/* Ensure xterm.js hidden textarea works on mobile */
+.xterm-helper-textarea {
+    /* Allow mobile keyboard to appear */
+    position: absolute !important;
+    opacity: 0 !important;
+    left: -9999px !important;
+    top: 0 !important;
+    width: 0 !important;
+    height: 0 !important;
+    z-index: -10 !important;
+    /* Prevent iOS zoom */
+    font-size: 16px !important;
+    /* Enable mobile keyboard */
+    -webkit-user-select: text !important;
+    user-select: text !important;
+}
+
+/* Ensure terminal container allows touch */
+.terminal-content {
+    touch-action: manipulation;
+    -webkit-tap-highlight-color: transparent;
+}
+
+/* ========================================
    MOBILE RESPONSIVE STYLES
    ======================================== */
 
