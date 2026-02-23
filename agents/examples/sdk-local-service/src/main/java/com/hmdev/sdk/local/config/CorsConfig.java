@@ -41,10 +41,10 @@ public class CorsConfig {
                         .allowedOriginPatterns(originPatterns)
                         // Only allow necessary HTTP methods
                         .allowedMethods("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS")
-                        // Explicitly allow required headers including configurable security token header
-                        .allowedHeaders("Content-Type", tokenHeader, "Origin", "Accept")
+                        // Allow all headers for trusted origins (more permissive for legitimate use)
+                        .allowedHeaders("*")
                         // Expose security-related headers
-                        .exposedHeaders(tokenHeader)
+                        .exposedHeaders(tokenHeader, "Content-Type", "Content-Length")
                         // Allow credentials for token-based auth
                         .allowCredentials(true)
                         // Cache preflight for 1 hour

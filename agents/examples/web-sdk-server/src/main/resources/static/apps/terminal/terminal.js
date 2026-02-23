@@ -1540,6 +1540,9 @@ async function connectToSsh(connectionId, name, host, port, username) {
             // CRITICAL: Update tab's onclick and close button to use real sessionId
             tab.onclick = () => switchToSession(sessionId);
 
+            // CRITICAL: Update context menu handler to use real sessionId
+            tab.oncontextmenu = (e) => showTabContextMenu(e, sessionId);
+
             // Update close button's onclick handler
             const closeBtn = tab.querySelector('.tab-close');
             if (closeBtn) {
@@ -2209,11 +2212,17 @@ function showSshModal() {
 
 function closeSshModal() {
     document.getElementById('sshModalOverlay').classList.remove('visible');
+    // Don't reset form - preserve inputs in case user accidentally closed modal
+    // Form will be reset only when explicitly saving or canceling
+}
+
+window.cancelSshModal = function() {
+    // Reset form when user explicitly cancels
     const form = document.getElementById('sshForm');
     form.reset();
     delete form.dataset.editId;
-    // Reset modal title
     document.querySelector('#sshModalOverlay .modal-title').textContent = '➕ Add SSH Connection';
+    closeSshModal();
 }
 
 async function saveSshConnection(e) {
@@ -2255,6 +2264,12 @@ async function saveSshConnection(e) {
             showToast('error', 'Save Failed', result.error);
             return;
         }
+
+        // Reset form after successful save
+        const form = document.getElementById('sshForm');
+        form.reset();
+        delete form.dataset.editId;
+        document.querySelector('#sshModalOverlay .modal-title').textContent = '➕ Add SSH Connection';
 
         closeSshModal();
         refreshConnections();
@@ -3501,7 +3516,14 @@ async function saveBackendCloudConfig(config) {
         console.log('[Cloud] ✅ Config saved to backend (both layers synced)');
         return true;
     } catch (backendError) {
-        console.log('[Cloud] ⚠️ Backend save failed (SLS offline)');
+        // Check if this is a CORS/network error
+        if (backendError.message && backendError.message.includes('CORS')) {
+            console.warn('[Cloud] ⚠️ CORS error - SLS must run on same origin or localhost');
+        } else if (backendError.message && backendError.message.includes('Failed to fetch')) {
+            console.warn('[Cloud] ⚠️ Network error - SLS not reachable (offline or CORS blocked)');
+        } else {
+            console.log('[Cloud] ⚠️ Backend save failed (SLS offline):', backendError.message);
+        }
         return false;
     }
 }
