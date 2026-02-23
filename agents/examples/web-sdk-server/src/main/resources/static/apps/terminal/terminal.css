@@ -1472,3 +1472,160 @@ body {
     border-radius: 10px;
 }
 
+/* ========== API Reference Styles ========== */
+.api-section {
+    margin-bottom: 32px;
+}
+
+.api-section-title {
+    font-size: 15px;
+    font-weight: 600;
+    color: var(--accent-cyan);
+    margin-bottom: 16px;
+    padding-bottom: 8px;
+    border-bottom: 2px solid var(--border-color);
+}
+
+.api-endpoint {
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+    margin-bottom: 12px;
+    padding: 12px;
+    background: var(--bg-panel);
+    border-left: 3px solid var(--border-color);
+    border-radius: 6px;
+}
+
+.api-method {
+    font-size: 11px;
+    font-weight: 700;
+    padding: 4px 10px;
+    border-radius: 4px;
+    text-align: center;
+    min-width: 50px;
+    flex-shrink: 0;
+}
+
+.api-method.get {
+    background: rgba(74, 222, 128, 0.2);
+    color: var(--accent-green);
+    border: 1px solid rgba(74, 222, 128, 0.3);
+}
+
+.api-method.post {
+    background: rgba(74, 158, 255, 0.2);
+    color: var(--accent-blue);
+    border: 1px solid rgba(74, 158, 255, 0.3);
+}
+
+.api-method.put {
+    background: rgba(251, 191, 36, 0.2);
+    color: #fbbf24;
+    border: 1px solid rgba(251, 191, 36, 0.3);
+}
+
+.api-method.delete {
+    background: rgba(239, 68, 68, 0.2);
+    color: #ef4444;
+    border: 1px solid rgba(239, 68, 68, 0.3);
+}
+
+.api-method.ws {
+    background: rgba(167, 139, 250, 0.2);
+    color: var(--accent-purple);
+    border: 1px solid rgba(167, 139, 250, 0.3);
+}
+
+.api-path {
+    font-family: 'Consolas', 'Monaco', 'Courier New', monospace;
+    font-size: 13px;
+    color: var(--text-primary);
+    font-weight: 600;
+    flex-shrink: 0;
+    min-width: 200px;
+}
+
+.api-desc {
+    color: var(--text-secondary);
+    font-size: 13px;
+    line-height: 1.4;
+    flex: 1;
+}
+
+.api-example {
+    margin: 8px 0 20px 0;
+    padding: 12px;
+    background: var(--bg-dark);
+    border: 1px solid var(--border-color);
+    border-radius: 6px;
+    font-family: 'Consolas', 'Monaco', 'Courier New', monospace;
+    font-size: 12px;
+    color: var(--accent-green);
+    overflow-x: auto;
+    line-height: 1.6;
+}
+
+/* ========== Help Modal Tabs ========== */
+.help-tab {
+    padding: 12px 20px;
+    background: transparent;
+    border: none;
+    border-bottom: 2px solid transparent;
+    color: var(--text-muted);
+    cursor: pointer;
+    font-size: 13px;
+    font-weight: 500;
+    transition: all 0.2s;
+}
+
+.help-tab:hover {
+    background: rgba(74, 158, 255, 0.1);
+    color: var(--text-primary);
+}
+
+.help-tab.active {
+    color: var(--accent-cyan);
+    border-bottom-color: var(--accent-cyan);
+    background: rgba(34, 211, 238, 0.05);
+}
+
+.help-content {
+    display: none;
+}
+
+.help-content.active {
+    display: block;
+}
+
+/* ========== Cloud Modal Tabs ========== */
+.cloud-tab {
+    flex: 1;
+    padding: 12px 20px;
+    text-align: center;
+    cursor: pointer;
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--text-muted);
+    border-bottom: 2px solid transparent;
+    transition: all 0.2s;
+}
+
+.cloud-tab:hover {
+    background: rgba(74, 158, 255, 0.1);
+    color: var(--text-primary);
+}
+
+.cloud-tab.active {
+    color: var(--accent-blue);
+    border-bottom-color: var(--accent-blue);
+    background: rgba(74, 158, 255, 0.05);
+}
+
+.cloud-tab-content {
+    display: none;
+}
+
+.cloud-tab-content.active {
+    display: block;
+}

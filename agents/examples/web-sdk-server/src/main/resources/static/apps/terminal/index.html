@@ -167,12 +167,12 @@
     </div>
 
     <!-- Cloud Connection Modal -->
-    <div class="modal-overlay" id="cloudModalOverlay" style="display: none;">
+    <div class="modal-overlay" id="cloudModalOverlay">
         <div class="modal cloud-modal" id="cloudModal" style="width: 520px; max-height: 90vh; overflow-y: auto;">
             <div class="modal-header" style="background: linear-gradient(135deg, rgba(74, 158, 255, 0.1), rgba(167, 139, 250, 0.1)); border-bottom: 1px solid var(--border-color, #2a2a4a); padding: 20px;">
                 <div class="modal-title" style="display: flex; align-items: center; gap: 10px; font-size: 18px;">
                     <span style="font-size: 24px;">☁️</span>
-                    <span>Cloud Messaging</span>
+                    <span>Cloud Sharing</span>
                 </div>
                 <div style="display: flex; align-items: center; gap: 15px;">
                     <div class="cloud-panel-status" style="display: flex; align-items: center; gap: 8px; padding: 6px 12px; background: var(--bg-panel, #0f0f1a); border-radius: 20px; font-size: 11px;">
@@ -182,7 +182,21 @@
                     <div class="modal-close" onclick="closeCloudModal()" style="font-size: 20px; width: 32px; height: 32px;">✕</div>
                 </div>
             </div>
-            <div class="modal-body" style="padding: 24px;">
+
+            <!-- Tab Navigation -->
+            <div style="display: flex; border-bottom: 1px solid var(--border-color); background: var(--bg-panel);">
+                <div class="cloud-tab active" onclick="switchCloudTab('connection')" id="cloud-tab-connection"
+                     style="flex: 1; padding: 12px 20px; text-align: center; cursor: pointer; font-size: 13px; font-weight: 500; color: var(--text-muted); border-bottom: 2px solid transparent; transition: all 0.2s;">
+                    🔌 Connection
+                </div>
+                <div class="cloud-tab" onclick="switchCloudTab('sharing')" id="cloud-tab-sharing"
+                     style="flex: 1; padding: 12px 20px; text-align: center; cursor: pointer; font-size: 13px; font-weight: 500; color: var(--text-muted); border-bottom: 2px solid transparent; transition: all 0.2s;">
+                    🔗 Sharing
+                </div>
+            </div>
+
+            <!-- Connection Tab Content -->
+            <div class="cloud-tab-content active" id="cloud-content-connection" style="padding: 24px;">
                 <div class="cloud-form-row" style="margin-bottom: 16px;">
                     <label for="cloudChannelName" style="font-size: 12px; font-weight: 600; color: var(--text-secondary, #8888aa); margin-bottom: 8px; display: block; text-transform: uppercase; letter-spacing: 0.5px;">Channel Name</label>
                     <input type="text" id="cloudChannelName" placeholder="my-terminal-channel" value="terminal-share"
@@ -199,68 +213,23 @@
                            style="width: 100%; padding: 12px; font-size: 13px; border-radius: 6px; border: 1px solid var(--border-color, #2a2a4a); background: var(--bg-panel, #0f0f1a); color: var(--text-primary, #e0e0e0); transition: border-color 0.2s;">
                 </div>
 
-                <div class="cloud-actions" style="margin-top: 24px;">
-                    <div class="cloud-actions-row" style="display: flex; gap: 10px; margin-bottom: 10px;">
+                <div class="cloud-actions" style="margin-top: 20px;">
+                    <div class="cloud-actions-row" style="display: flex; gap: 8px; margin-bottom: 8px;">
                         <button type="button" class="cloud-btn" id="cloudConnectBtn" onclick="connectToCloud()"
-                                style="flex: 2; padding: 14px 20px; font-size: 14px; font-weight: 600; border-radius: 8px; transition: all 0.2s;">
+                                style="flex: 2; padding: 10px 16px; font-size: 13px; font-weight: 600; border-radius: 6px; transition: all 0.2s;">
                             Connect
                         </button>
                         <button type="button" class="cloud-btn cloud-btn-secondary" id="cloudRegenBtn" onclick="regenerateConnection()"
                                 title="Regenerate channel name and password"
-                                style="flex: 1; padding: 14px; font-size: 18px; border-radius: 8px; transition: all 0.2s;">
+                                style="flex: 0 0 42px; padding: 10px; font-size: 16px; border-radius: 6px; transition: all 0.2s;">
                             🔄
                         </button>
                     </div>
-                    <div class="cloud-actions-row" id="cloudActionsRow" style="display: none; gap: 10px;">
+                    <div class="cloud-actions-row" id="cloudActionsRow" style="display: none; gap: 8px;">
                         <button type="button" class="cloud-btn cloud-btn-small disconnect" id="cloudDisconnectBtn" onclick="disconnectFromCloud()"
-                                style="flex: 1; padding: 12px 20px; font-size: 13px; font-weight: 600; border-radius: 8px;">
+                                style="flex: 1; padding: 10px 16px; font-size: 13px; font-weight: 600; border-radius: 6px;">
                             Disconnect
                         </button>
-                    </div>
-                </div>
-
-                <!-- Share Channel Section (Expandable) -->
-                <div class="cloud-share-section" id="cloudShareSection"
-                     style="display: none; margin-top: 24px; padding-top: 24px; border-top: 1px solid var(--border-color, #2a2a4a);">
-                    <button type="button" class="cloud-share-toggle" onclick="toggleShareSection()" id="shareToggleBtn"
-                            style="width: 100%; padding: 14px 16px; background: rgba(74, 158, 255, 0.08); border: 1px solid rgba(74, 158, 255, 0.3); border-radius: 8px; color: var(--text-primary, #e0e0e0); font-size: 13px; font-weight: 600; cursor: pointer; transition: all 0.2s; display: flex; align-items: center; gap: 10px;">
-                        <span class="icon" style="font-size: 16px;">🔗</span>
-                        <span style="flex: 1; text-align: left;">Share Channel</span>
-                        <span class="arrow" style="font-size: 12px; transition: transform 0.2s;">▼</span>
-                    </button>
-                    <div id="shareContent" style="display: none; margin-top: 16px;">
-                        <div style="font-size: 12px; color: var(--text-muted, #888); margin-bottom: 16px; padding: 12px; background: var(--bg-panel, #0f0f1a); border-radius: 6px; border-left: 3px solid var(--accent-blue, #4a9eff); line-height: 1.5;">
-                            💡 Share this channel link with others to connect together on the same terminal session.
-                        </div>
-
-                        <div class="cloud-form-row" style="margin-bottom: 12px;">
-                            <label style="font-size: 12px; font-weight: 600; color: var(--text-secondary, #8888aa); margin-bottom: 8px; display: block; text-transform: uppercase; letter-spacing: 0.5px;">📋 Share Link</label>
-                            <div class="cloud-input-group" style="display: flex; gap: 8px; margin-bottom: 8px;">
-                                <input type="text" id="shareUrlInput" readonly
-                                       style="flex: 1; font-size: 11px; background: var(--bg-darker, #08080d);
-                                              color: var(--text-primary, #e0e0e0);
-                                              border: 1px solid var(--border-color, #2a2a4a);
-                                              padding: 10px 12px; border-radius: 6px; font-family: monospace;">
-                                <button type="button" class="cloud-regen-btn" onclick="copyShareUrl()"
-                                        title="Copy to clipboard"
-                                        style="min-width: 44px; height: 40px; border-radius: 6px; font-size: 16px;">
-                                    📋
-                                </button>
-                            </div>
-                        </div>
-
-                        <button type="button" class="cloud-btn cloud-btn-secondary"
-                                onclick="toggleQrCode()"
-                                id="qrToggleBtn"
-                                style="width: 100%; margin-bottom: 12px; font-size: 12px; padding: 12px; border-radius: 8px; font-weight: 600;">
-                            <span id="qrToggleIcon">📱</span> <span id="qrToggleText">Show QR Code</span>
-                        </button>
-
-                        <div id="shareQrCode" style="display: none; text-align: center; margin: 0 auto; padding: 20px;
-                                                     background: white; border-radius: 8px;
-                                                     box-shadow: 0 4px 12px rgba(0,0,0,0.15); max-width: fit-content;">
-                            <!-- QR code will be generated here -->
-                        </div>
                     </div>
                 </div>
 
@@ -272,6 +241,42 @@
                     <div id="cloudAgentsList" style="display: flex; flex-direction: column; gap: 8px;">
                         <!-- Agents will be populated here -->
                     </div>
+                </div>
+            </div>
+
+            <!-- Sharing Tab Content -->
+            <div class="cloud-tab-content" id="cloud-content-sharing" style="padding: 24px;">
+                <div style="font-size: 13px; color: #d0d0d0; margin-bottom: 20px; padding: 14px; background: rgba(74, 158, 255, 0.08); border-radius: 6px; border-left: 3px solid var(--accent-blue, #4a9eff); line-height: 1.6;">
+                    💡 Share this channel link with others to connect together and share terminal sessions in real-time.
+                </div>
+
+                <div class="cloud-form-row" style="margin-bottom: 16px;">
+                    <label style="font-size: 12px; font-weight: 600; color: var(--text-secondary, #8888aa); margin-bottom: 8px; display: block; text-transform: uppercase; letter-spacing: 0.5px;">📋 Share Link</label>
+                    <div class="cloud-input-group" style="display: flex; gap: 8px; margin-bottom: 8px;">
+                        <input type="text" id="shareUrlInput" readonly
+                               style="flex: 1; font-size: 11px; background: var(--bg-darker, #08080d);
+                                      color: var(--text-primary, #e0e0e0);
+                                      border: 1px solid var(--border-color, #2a2a4a);
+                                      padding: 10px 12px; border-radius: 6px; font-family: monospace;">
+                        <button type="button" class="cloud-regen-btn" onclick="copyShareUrl()"
+                                title="Copy to clipboard"
+                                style="min-width: 44px; height: 40px; border-radius: 6px; font-size: 16px;">
+                            📋
+                        </button>
+                    </div>
+                </div>
+
+                <button type="button" class="cloud-btn cloud-btn-secondary"
+                        onclick="toggleQrCode()"
+                        id="qrToggleBtn"
+                        style="width: 100%; margin-bottom: 16px; font-size: 12px; padding: 12px; border-radius: 8px; font-weight: 600;">
+                    <span id="qrToggleIcon">📱</span> <span id="qrToggleText">Show QR Code</span>
+                </button>
+
+                <div id="shareQrCode" style="display: none; text-align: center; margin: 0 auto; padding: 20px;
+                                             background: white; border-radius: 8px;
+                                             box-shadow: 0 4px 12px rgba(0,0,0,0.15); max-width: fit-content;">
+                    <!-- QR code will be generated here -->
                 </div>
             </div>
         </div>
@@ -408,7 +413,7 @@
 
 
     <!-- Settings Modal -->
-    <div class="modal-overlay" id="settingsModalOverlay" style="display: none;">
+    <div class="modal-overlay" id="settingsModalOverlay">
         <div class="modal" style="width: 500px;">
             <div class="modal-header">
                 <div class="modal-title">⚙️ Settings</div>
@@ -457,7 +462,7 @@
     </div>
 
     <!-- SSH Modal -->
-    <div class="modal-overlay" id="sshModalOverlay" style="display: none;">
+    <div class="modal-overlay" id="sshModalOverlay">
         <div class="modal">
             <div class="modal-header">
                 <div class="modal-title">➕ Add SSH Connection</div>
@@ -511,7 +516,7 @@
     </div>
 
     <!-- Help Modal -->
-    <div class="modal-overlay" id="helpModalOverlay" style="display: none;">
+    <div class="modal-overlay" id="helpModalOverlay">
         <div class="modal" style="width: 900px; max-width: 95vw; max-height: 90vh; overflow-y: auto;">
             <div class="modal-header">
                 <div class="modal-title">📚 Documentation & API Reference</div>
@@ -524,11 +529,11 @@
                     <div class="help-tab active" onclick="switchHelpTab('quickstart')" id="tab-quickstart">
                         🚀 Quick Start
                     </div>
-                    <div class="help-tab" onclick="switchHelpTab('api')" id="tab-api">
-                        🔌 API Reference
-                    </div>
                     <div class="help-tab" onclick="switchHelpTab('shortcuts')" id="tab-shortcuts">
                         ⌨️ Shortcuts
+                    </div>
+                    <div class="help-tab" onclick="switchHelpTab('api')" id="tab-api">
+                        🔌 API Reference
                     </div>
                     <div class="help-tab" onclick="switchHelpTab('docs')" id="tab-docs">
                         📚 References

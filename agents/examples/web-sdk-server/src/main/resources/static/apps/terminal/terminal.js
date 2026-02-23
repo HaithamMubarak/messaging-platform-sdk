@@ -154,6 +154,9 @@ const TOAST_ICONS = {
 // ========================================
 let slsSecurityToken = null;
 
+// SLS state tracking: null (initial), 'online', or 'offline'
+let slsCurrentState = null;
+
 /**
  * Request security token from SLS
  */
@@ -188,7 +191,7 @@ async function requestSlsToken() {
         return slsSecurityToken;
     } catch (error) {
         console.error('❌ Failed to get SLS token:', error);
-        showToast('error', 'Authentication Failed', 'Failed to authenticate with SDK Local Service');
+        // Don't show toast here - let the caller handle it to avoid duplicates
         throw error;
     }
 }
@@ -722,9 +725,24 @@ function showToast(type, title, message, duration = 4000) {
     const toast = document.createElement('div');
     toast.className = `toast toast-${type}`;
 
-    // Simple structure compatible with global toast.css
+    // Check if message contains HTML tags
+    const isHtml = /<\/?[a-z][\s\S]*>/i.test(message);
+
     const icons = { success: '✓', error: '✕', info: 'ℹ', warning: '⚠' };
-    toast.textContent = `${icons[type] || 'ℹ'} ${title}: ${message}`;
+
+    if (isHtml) {
+        // Use innerHTML for HTML content
+        toast.innerHTML = `<div style="display: flex; align-items: flex-start; gap: 8px;">
+            <span style="flex-shrink: 0; font-size: 16px;">${icons[type] || 'ℹ'}</span>
+            <div style="flex: 1;">
+                ${title ? `<div style="font-weight: 600; margin-bottom: 4px;">${title}</div>` : ''}
+                <div>${message}</div>
+            </div>
+        </div>`;
+    } else {
+        // Use textContent for plain text (safer)
+        toast.textContent = `${icons[type] || 'ℹ'} ${title}: ${message}`;
+    }
 
     container.appendChild(toast);
 
@@ -751,7 +769,7 @@ async function checkMlsHealth(showNotification = false) {
         statusText.textContent = 'SLS: Test Mode';
         statusText.title = 'Test mode enabled - SLS disabled';
         console.log('🧪 TEST MODE: Skipping SLS health check');
-        return false; // Return false so dependent features know SLS is unavailable
+        return false;
     }
 
     statusDot.className = 'status-dot checking';
@@ -770,7 +788,13 @@ async function checkMlsHealth(showNotification = false) {
             statusDot.className = 'status-dot online';
             statusText.textContent = 'SLS: Online';
             statusText.title = `SDK Local Service running on port ${SLS_PORT}`;
-            if (showNotification) {
+
+            // Check if state changed: null→online or offline→online
+            const previousState = slsCurrentState;
+            slsCurrentState = 'online';
+
+            // Show notification only on state change
+            if (showNotification && previousState !== 'online') {
                 showToast('success', 'SLS Online', 'SDK Local Service is running');
             }
             return true;
@@ -785,11 +809,16 @@ async function checkMlsHealth(showNotification = false) {
 
         console.warn('[Health] SLS health check failed:', error.message);
 
-        if (showNotification) {
+        // Check if state changed: null→offline or online→offline
+        const previousState = slsCurrentState;
+        slsCurrentState = 'offline';
+
+        // Show notification only on state change
+        if (showNotification && previousState !== 'offline') {
             const errorMsg = error.name === 'TimeoutError'
                 ? 'Connection timeout - SLS not responding'
                 : `Please start SDK Local Service on localhost:${SLS_PORT}`;
-            showToast('error', 'SLS Offline', errorMsg);
+            showToast('warning', 'SLS Offline', errorMsg);
         }
         return false;
     }
@@ -2312,7 +2341,7 @@ window.closeHelpModal = function() {
     document.getElementById('helpModalOverlay').classList.remove('visible');
 }
 
-function switchHelpTab(tabName) {
+window.switchHelpTab = function(tabName) {
     // Remove active class from all tabs and content
     document.querySelectorAll('.help-tab').forEach(tab => tab.classList.remove('active'));
     document.querySelectorAll('.help-content').forEach(content => content.classList.remove('active'));
@@ -2322,19 +2351,65 @@ function switchHelpTab(tabName) {
     document.getElementById('content-' + tabName).classList.add('active');
 }
 
+window.switchCloudTab = function(tabName) {
+    // Remove active class from all cloud tabs
+    document.querySelectorAll('.cloud-tab').forEach(tab => tab.classList.remove('active'));
+
+    // Hide all cloud tab content using inline style to override existing inline styles
+    document.querySelectorAll('.cloud-tab-content').forEach(content => {
+        content.style.display = 'none';
+        content.classList.remove('active');
+    });
+
+    // Add active class to selected tab
+    document.getElementById('cloud-tab-' + tabName).classList.add('active');
+
+    // Show selected content using inline style
+    const selectedContent = document.getElementById('cloud-content-' + tabName);
+    if (selectedContent) {
+        selectedContent.style.display = 'block';
+        selectedContent.classList.add('active');
+    }
+}
+
+function enableSharingTab() {
+    const sharingTab = document.getElementById('cloud-tab-sharing');
+    if (sharingTab) {
+        sharingTab.style.opacity = '1';
+        sharingTab.style.cursor = 'pointer';
+        sharingTab.style.pointerEvents = 'auto';
+        sharingTab.title = 'Share your channel link';
+    }
+}
+
+function disableSharingTab() {
+    const sharingTab = document.getElementById('cloud-tab-sharing');
+    if (sharingTab) {
+        sharingTab.style.opacity = '0.5';
+        sharingTab.style.cursor = 'not-allowed';
+        sharingTab.style.pointerEvents = 'none';
+        sharingTab.title = 'Connect to cloud first to share';
+
+        // Switch back to Connection tab if currently on Sharing tab
+        if (sharingTab.classList.contains('active')) {
+            window.switchCloudTab('connection');
+        }
+    }
+}
+
 window.showAbout = function() {
     const aboutInfo = `
-        <div style="text-align: center;">
-            <h3 style="color: var(--accent-cyan); margin-bottom: 10px;">🖥️ SDK Local Service Terminal</h3>
-            <p style="color: var(--text-secondary); margin-bottom: 8px;">Version 1.0.0</p>
-            <p style="color: var(--text-muted); font-size: 12px; margin-bottom: 12px;">Built with xterm.js, Spring Boot & WebSocket</p>
-            <div style="border-top: 1px solid var(--border-color); padding-top: 12px; margin-top: 12px;">
-                <p style="color: var(--text-secondary); font-size: 12px;">Part of Messaging Platform SDK</p>
-                <p style="color: var(--text-muted); font-size: 11px; margin-top: 4px;">© 2026 - Open Source Project</p>
+        <div style="text-align: center; color: white;">
+            <h3 style="color: #ffffff; margin-bottom: 10px; font-weight: 600;">🖥️ SDK Local Service Terminal</h3>
+            <p style="color: #f0f0f0; margin-bottom: 8px; font-size: 14px;">Version 1.0.0</p>
+            <p style="color: #d0d0d0; font-size: 12px; margin-bottom: 12px;">Built with xterm.js, Spring Boot & WebSocket</p>
+            <div style="border-top: 1px solid rgba(255, 255, 255, 0.3); padding-top: 12px; margin-top: 12px;">
+                <p style="color: #e0e0e0; font-size: 12px;">Part of Messaging Platform SDK</p>
+                <p style="color: #c0c0c0; font-size: 11px; margin-top: 4px;">© 2026 - Open Source Project</p>
             </div>
         </div>
     `;
-    showToast('info', 'About', aboutInfo, 6000);
+    showToast('info', '', aboutInfo, 6000);
 }
 
 
@@ -3076,6 +3151,13 @@ function openCloudModal() {
         cloudBtn.classList.add('active');
     }
 
+    // Enable or disable Sharing tab based on connection status
+    if (cloudConnected) {
+        enableSharingTab();
+    } else {
+        disableSharingTab();
+    }
+
     console.log('[Cloud] ✅ Modal should be visible now');
 }
 
@@ -3340,11 +3422,9 @@ async function loadCloudConfig() {
         // ✅ POPULATE: Fill in the form
         populateCloudForm(config);
 
-        // ✅ AUTO-CONNECT: If was previously connected
-        if (config.isConnected) {
-            console.log('[Cloud] 🔌 Auto-connecting...');
-            setTimeout(() => connectToCloud(), 500);
-        }
+        // ❌ REMOVED AUTO-CONNECT: User must manually connect
+        // Connection should be done manually by clicking the Connect button
+        console.log('[Cloud] ℹ️ Config loaded. Click "Connect" to connect to cloud.');
     } catch (error) {
         console.error('[Cloud] ❌ Failed to load config:', error);
     }
@@ -3650,6 +3730,13 @@ async function connectToCloud() {
 
         updateAgentsList();
         updateSharedTerminalsList();
+
+        // Generate share URL for the sharing tab
+        generateShareUrl();
+
+        // Enable the Sharing tab
+        enableSharingTab();
+
         saveCloudConfig(true);
         showToast('success', 'Cloud Connected', `Connected as ${agentName}`);
         console.log('[Terminal] Connected as:', agentName);
@@ -3687,6 +3774,9 @@ function disconnectFromCloud() {
 
     document.getElementById('cloudActionsRow').style.display = 'none';
     document.getElementById('cloudAgentsSection').style.display = 'none';
+
+    // Disable the Sharing tab
+    disableSharingTab();
 
     // Hide share section
     const shareSection = document.getElementById('cloudShareSection');
@@ -4309,19 +4399,11 @@ window.addEventListener('load', async () => {
         if (wrapper) wrapper.style.paddingTop = '40px';
     }
 
-    // 🔐 Request SLS security token first (skip in test mode)
-    if (!TEST_MODE_NO_SLS) {
-        try {
-            await requestSlsToken();
-            console.log('✅ SLS authentication successful');
-        } catch (error) {
-            console.error('❌ Failed to authenticate with SLS:', error);
-            showToast('error', 'Authentication Failed', 'Failed to authenticate with SDK Local Service. Please ensure it is running.');
-            return; // Don't proceed if we can't authenticate
-        }
-    }
+    // ========================================
+    // Setup UI Event Listeners (BEFORE SLS check so they work even when SLS is offline)
+    // ========================================
 
-    // Setup modal click-outside-to-close listeners (must be after DOM is loaded)
+    // Setup modal click-outside-to-close listeners
     document.getElementById('settingsModalOverlay')?.addEventListener('click', (e) => {
         if (e.target.id === 'settingsModalOverlay') closeSettingsModal();
     });
@@ -4334,10 +4416,53 @@ window.addEventListener('load', async () => {
         if (e.target.id === 'helpModalOverlay') closeHelpModal();
     });
 
-    // Add click-outside-to-close for cloud modal
     document.getElementById('cloudModalOverlay')?.addEventListener('click', (e) => {
         if (e.target.id === 'cloudModalOverlay') closeCloudModal();
     });
+
+    // Global Escape key handler to close any open modal
+    document.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape' || e.key === 'Esc') {
+            // Check which modal is open and close it
+            if (document.getElementById('settingsModalOverlay')?.classList.contains('visible')) {
+                closeSettingsModal();
+            } else if (document.getElementById('sshModalOverlay')?.classList.contains('visible')) {
+                closeSshModal();
+            } else if (document.getElementById('helpModalOverlay')?.classList.contains('visible')) {
+                closeHelpModal();
+            } else if (document.getElementById('cloudModalOverlay')?.classList.contains('visible')) {
+                closeCloudModal();
+            }
+        }
+    });
+
+    // ========================================
+    // SLS Authentication
+    // ========================================
+
+    // 🔐 Request SLS security token first (skip in test mode)
+    if (!TEST_MODE_NO_SLS) {
+        try {
+            await requestSlsToken();
+            console.log('✅ SLS authentication successful');
+
+            // Set state to online on successful authentication
+            slsCurrentState = 'online';
+        } catch (error) {
+            console.warn('⚠️ SLS is offline');
+
+            // Set state to offline
+            const previousState = slsCurrentState;
+            slsCurrentState = 'offline';
+
+            // Show notification only on state change (null→offline means first time)
+            if (previousState !== 'offline') {
+                showToast('warning', 'SLS Offline', 'SDK Local Service is not running. Local and SSH terminals are disabled.');
+            }
+
+            // Continue initialization - Cloud messaging still works
+        }
+    }
 
     // ✅ CRITICAL: Check for auth URL FIRST (before loadCloudConfig)
     // This ensures auth URL values take precedence over saved config
