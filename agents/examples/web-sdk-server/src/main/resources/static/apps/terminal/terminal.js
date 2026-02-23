@@ -720,10 +720,38 @@ async function updateSessionReferences(oldSessionId, newSessionId) {
 // ========================================
 // Toast Notifications
 // ========================================
+// ========================================
+// Toast Notification System
+// ========================================
+const MAX_VISIBLE_TOASTS = 3;
+let activeToasts = [];
+let toastQueue = [];
+let lastToastMessage = null;
+let lastToastTime = 0;
+
 function showToast(type, title, message, duration = 4000) {
+    // Prevent duplicate toasts within 500ms
+    const now = Date.now();
+    const toastKey = `${type}-${title}-${message}`;
+    if (toastKey === lastToastMessage && (now - lastToastTime) < 500) {
+        console.log('[Toast] Ignoring duplicate toast');
+        return;
+    }
+    lastToastMessage = toastKey;
+    lastToastTime = now;
+
     const container = document.getElementById('toastContainer');
+
+    // If we have max visible toasts, add to queue
+    if (activeToasts.length >= MAX_VISIBLE_TOASTS) {
+        toastQueue.push({ type, title, message, duration });
+        updateToastCounter();
+        return;
+    }
+
     const toast = document.createElement('div');
     toast.className = `toast toast-${type}`;
+    toast.dataset.toastKey = toastKey;
 
     // Check if message contains HTML tags
     const isHtml = /<\/?[a-z][\s\S]*>/i.test(message);
@@ -745,15 +773,46 @@ function showToast(type, title, message, duration = 4000) {
     }
 
     container.appendChild(toast);
+    activeToasts.push(toast);
 
     setTimeout(() => {
         toast.classList.add('fade-out');
         setTimeout(() => {
             if (container.contains(toast)) {
                 container.removeChild(toast);
+                activeToasts = activeToasts.filter(t => t !== toast);
+
+                // Show next queued toast if any
+                if (toastQueue.length > 0) {
+                    const next = toastQueue.shift();
+                    showToast(next.type, next.title, next.message, next.duration);
+                } else {
+                    updateToastCounter();
+                }
             }
         }, 300);
     }, duration);
+
+    updateToastCounter();
+}
+
+function updateToastCounter() {
+    const container = document.getElementById('toastContainer');
+    let counter = container.querySelector('.toast-counter');
+
+    if (toastQueue.length > 0) {
+        if (!counter) {
+            counter = document.createElement('div');
+            counter.className = 'toast toast-info toast-counter';
+            counter.style.cssText = 'cursor: default; opacity: 0.8; font-size: 12px;';
+            container.appendChild(counter);
+        }
+        counter.textContent = `+${toastQueue.length} more`;
+    } else {
+        if (counter) {
+            counter.remove();
+        }
+    }
 }
 
 // ========================================
@@ -2695,6 +2754,9 @@ function tabContextMenuAction(action) {
                 session.permission = newPerm;
                 const permLabel = newPerm === 'readwrite' ? 'Read-Write' : 'Read-Only';
                 showToast('success', '🔒 Permission Changed', `Session is now ${permLabel}`);
+
+                // Update the shared sessions list to reflect permission change
+                updateSharedTerminalsList();
             }
             break;
         }
@@ -3774,6 +3836,20 @@ async function connectToCloud() {
 }
 
 function disconnectFromCloud() {
+    // Unshare all currently shared sessions before disconnecting
+    if (terminalSharing && cloudConnected) {
+        console.log('[Cloud] Unsharing all sessions before disconnect...');
+        sessions.forEach((session, sessionId) => {
+            if (session.isShared && !session.owner) {
+                // This is our shared session - unshare it
+                console.log('[Cloud] Unsharing session:', sessionId);
+                terminalSharing.unshareSession(sessionId);
+                session.isShared = false;
+                updateTabSharedIndicator(sessionId, false);
+            }
+        });
+    }
+
     if (terminalSharing) {
         terminalSharing.disconnect();
     }
@@ -4425,21 +4501,38 @@ window.addEventListener('load', async () => {
     // Setup UI Event Listeners (BEFORE SLS check so they work even when SLS is offline)
     // ========================================
 
+    // Track mousedown location for proper modal close behavior
+    let mouseDownTarget = null;
+
+    // Add global mousedown tracker
+    document.addEventListener('mousedown', (e) => {
+        mouseDownTarget = e.target;
+    });
+
     // Setup modal click-outside-to-close listeners
+    // Only close if BOTH mousedown AND mouseup happen on the overlay (not inside modal)
     document.getElementById('settingsModalOverlay')?.addEventListener('click', (e) => {
-        if (e.target.id === 'settingsModalOverlay') closeSettingsModal();
+        if (e.target.id === 'settingsModalOverlay' && mouseDownTarget?.id === 'settingsModalOverlay') {
+            closeSettingsModal();
+        }
     });
 
     document.getElementById('sshModalOverlay')?.addEventListener('click', (e) => {
-        if (e.target.id === 'sshModalOverlay') closeSshModal();
+        if (e.target.id === 'sshModalOverlay' && mouseDownTarget?.id === 'sshModalOverlay') {
+            closeSshModal();
+        }
     });
 
     document.getElementById('helpModalOverlay')?.addEventListener('click', (e) => {
-        if (e.target.id === 'helpModalOverlay') closeHelpModal();
+        if (e.target.id === 'helpModalOverlay' && mouseDownTarget?.id === 'helpModalOverlay') {
+            closeHelpModal();
+        }
     });
 
     document.getElementById('cloudModalOverlay')?.addEventListener('click', (e) => {
-        if (e.target.id === 'cloudModalOverlay') closeCloudModal();
+        if (e.target.id === 'cloudModalOverlay' && mouseDownTarget?.id === 'cloudModalOverlay') {
+            closeCloudModal();
+        }
     });
 
     // Global Escape key handler to close any open modal
