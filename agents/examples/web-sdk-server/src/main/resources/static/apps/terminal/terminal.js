@@ -1,10 +1,10 @@
 /**
- * Terminal.js - SDK Local Service Terminal
+ * Terminal.js - Messaging Platform Shared Terminal
  *
  * A modern web-based terminal emulator with advanced features:
  * - Local terminals (CMD, Bash, PowerShell)
  * - SSH connections with saved profiles
- * - Cloud-based terminal sharing (multi-user collaboration)
+ * - Real-time terminal sharing via Messaging Platform (multi-user collaboration)
  * - SFTP file browser integration
  * - Session persistence and auto-restore
  * - Real-time synchronization
@@ -929,14 +929,14 @@ async function checkMlsHealth(showNotification = false) {
     // In test mode, show special status
     if (TEST_MODE_NO_SLS) {
         statusDot.className = 'status-dot offline';
-        statusText.textContent = 'SLS: Test Mode';
+        statusText.textContent = 'Local Service: Test Mode';
         statusText.title = 'Test mode enabled - SLS disabled';
         console.log('🧪 TEST MODE: Skipping SLS health check');
         return false;
     }
 
     statusDot.className = 'status-dot checking';
-    statusText.textContent = 'SLS: Checking...';
+    statusText.textContent = 'Local Service: Checking...';
 
     try {
         // Health endpoint is public - use regular fetch (no auth needed)
@@ -949,7 +949,7 @@ async function checkMlsHealth(showNotification = false) {
 
         if (response.ok) {
             statusDot.className = 'status-dot online';
-            statusText.textContent = 'SLS: Online';
+            statusText.textContent = 'Local Service: Online';
             statusText.title = `SDK Local Service running on port ${SLS_PORT}`;
 
             // Check if state changed: null→online or offline→online
@@ -959,7 +959,7 @@ async function checkMlsHealth(showNotification = false) {
 
             // Show notification only on state change
             if (showNotification && previousState !== 'online') {
-                showToast('success', 'SLS Online', 'SDK Local Service is running');
+                showToast('success', 'Local Service Online', 'SDK Local Service is running');
             }
             return true;
         }
@@ -968,7 +968,7 @@ async function checkMlsHealth(showNotification = false) {
         throw new Error(`Health check failed with status: ${response.status}`);
     } catch (error) {
         statusDot.className = 'status-dot offline';
-        statusText.textContent = 'SLS: Offline';
+        statusText.textContent = 'Local Service: Offline';
         statusText.title = `Cannot connect to SLS on localhost:${SLS_PORT}`;
 
         console.warn('[Health] SLS health check failed:', error.message);
@@ -983,7 +983,7 @@ async function checkMlsHealth(showNotification = false) {
             const errorMsg = error.name === 'TimeoutError'
                 ? 'Connection timeout - SLS not responding'
                 : `Please start SDK Local Service on localhost:${SLS_PORT}`;
-            showToast('warning', 'SLS Offline', errorMsg);
+            showToast('warning', 'Local Service Offline', errorMsg);
         }
         return false;
     }
@@ -2639,10 +2639,15 @@ window.saveSlsPortSettings = async function() {
 // ========================================
 // Help Modal Functions
 // ========================================
-window.showHelp = function() {
+window.showInstallGuide = function() {
     document.getElementById('helpModalOverlay').classList.add('visible');
-    // Default to quickstart tab
-    switchHelpTab('quickstart');
+    // Default to installation tab
+    switchHelpTab('installation');
+}
+
+// Alias for backward compatibility
+window.showHelp = function() {
+    showInstallGuide();
 }
 
 window.closeHelpModal = function() {
@@ -2708,7 +2713,7 @@ function disableSharingTab() {
 window.showAbout = function() {
     const aboutInfo = `
         <div style="text-align: center; color: white;">
-            <h3 style="color: #ffffff; margin-bottom: 10px; font-weight: 600;">🖥️ SDK Local Service Terminal</h3>
+            <h3 style="color: #ffffff; margin-bottom: 10px; font-weight: 600;">💬 Messaging Platform - Shared Terminal</h3>
             <p style="color: #f0f0f0; margin-bottom: 8px; font-size: 14px;">Version 1.0.0</p>
             <p style="color: #d0d0d0; font-size: 12px; margin-bottom: 12px;">Built with xterm.js, Spring Boot & WebSocket</p>
             <div style="border-top: 1px solid rgba(255, 255, 255, 0.3); padding-top: 12px; margin-top: 12px;">
@@ -3457,35 +3462,36 @@ function updateShareButton() {
  * Open cloud connection modal
  */
 function openCloudModal() {
-    console.log('[Cloud] Opening cloud modal...');
+    console.log('[Messaging] Opening messaging platform modal...');
     const overlay = document.getElementById('cloudModalOverlay');
 
     if (!overlay) {
-        console.error('[Cloud] ❌ cloudModalOverlay element not found!');
+        console.error('[Messaging] ❌ cloudModalOverlay element not found!');
         return;
     }
 
-    console.log('[Cloud] Found overlay element, setting display to flex...');
+    console.log('[Messaging] Found overlay element, setting display to flex...');
     // Use inline style to override inline display:none (inline styles have higher specificity than classes)
     overlay.style.display = 'flex';
 
     // Verify it was added
-    console.log('[Cloud] Display style:', window.getComputedStyle(overlay).display);
+    console.log('[Messaging] Display style:', window.getComputedStyle(overlay).display);
 
-    // Update cloud toolbar button to indicate it's active (only if connected)
+    // Update messaging toolbar button to indicate it's active (only if connected)
+    const messagingBtn = document.getElementById('messagingToolbarBtn');
+    if (messagingBtn && cloudConnected) {
+        messagingBtn.classList.add('active');
+    }
+    // Also support old ID for compatibility
     const cloudBtn = document.getElementById('cloudToolbarBtn');
     if (cloudBtn && cloudConnected) {
         cloudBtn.classList.add('active');
     }
+}
 
-    // Enable or disable Sharing tab based on connection status
-    if (cloudConnected) {
-        enableSharingTab();
-    } else {
-        disableSharingTab();
-    }
-
-    console.log('[Cloud] ✅ Modal should be visible now');
+// Alias for better naming
+function openMessagingModal() {
+    openCloudModal();
 }
 
 /**
@@ -4071,10 +4077,25 @@ async function connectToCloud() {
         cloudConnected = true;
         cloudAgentName = agentName;
 
-        connectBtn.textContent = 'Connected to Cloud';
+        connectBtn.textContent = 'Connected';
         connectBtn.classList.add('active');
         connectBtn.disabled = true;
         connectBtn.title = `Connected as ${agentName}`;
+
+        // Highlight the messaging toolbar button
+        const messagingBtn = document.getElementById('messagingToolbarBtn');
+        if (messagingBtn) {
+            messagingBtn.classList.add('active');
+            messagingBtn.style.background = 'linear-gradient(135deg, #4ade80 0%, #22c55e 100%)';
+            messagingBtn.title = `Messaging Platform Connected as ${agentName}`;
+        }
+        // Also support old ID for compatibility
+        let cloudBtn = document.getElementById('cloudToolbarBtn');
+        if (cloudBtn) {
+            cloudBtn.classList.add('active');
+            cloudBtn.style.background = 'linear-gradient(135deg, #4ade80 0%, #22c55e 100%)';
+            cloudBtn.title = `Messaging Platform Connected as ${agentName}`;
+        }
 
         // Disable regenerate button when connected
         const regenBtn = document.getElementById('cloudRegenBtn');
@@ -4102,20 +4123,11 @@ async function connectToCloud() {
         const statusText = document.getElementById('cloudStatusText');
         if (statusDot) {
             statusDot.className = 'status-dot online';
-            console.log('[Cloud] Status dot updated to online');
+            console.log('[Messaging] Status dot updated to online');
         }
         if (statusText) {
             statusText.textContent = `Connected as ${agentName}`;
-            console.log('[Cloud] Status text updated to Connected');
-        }
-
-        // Highlight cloud button and show agent name on hover
-        const cloudBtn = document.getElementById('cloudToolbarBtn');
-        if (cloudBtn) {
-            cloudBtn.classList.add('active');
-            cloudBtn.title = `Connected as ${agentName}`;
-            cloudBtn.style.background = 'linear-gradient(135deg, rgba(16, 185, 129, 0.2), rgba(52, 211, 153, 0.2))';
-            cloudBtn.style.borderColor = 'rgba(16, 185, 129, 0.5)';
+            console.log('[Messaging] Status text updated to Connected');
         }
 
         updateAgentsList();
@@ -4128,7 +4140,7 @@ async function connectToCloud() {
         enableSharingTab();
 
         saveCloudConfig(true);
-        showToast('success', 'Cloud Connected', `Connected as ${agentName}`);
+        showToast('success', 'Messaging Platform Connected', `Connected as ${agentName}`);
         console.log('[Terminal] Connected as:', agentName);
 
     } catch (error) {
@@ -4144,11 +4156,11 @@ async function connectToCloud() {
 function disconnectFromCloud() {
     // Unshare all currently shared sessions before disconnecting
     if (terminalSharing && cloudConnected) {
-        console.log('[Cloud] Unsharing all sessions before disconnect...');
+        console.log('[Messaging] Unsharing all sessions before disconnect...');
         sessions.forEach((session, sessionId) => {
             if (session.isShared && !session.owner) {
                 // This is our shared session - unshare it
-                console.log('[Cloud] Unsharing session:', sessionId);
+                console.log('[Messaging] Unsharing session:', sessionId);
                 terminalSharing.unshareSession(sessionId);
                 session.isShared = false;
                 updateTabSharedIndicator(sessionId, false);
@@ -4164,10 +4176,25 @@ function disconnectFromCloud() {
     cloudAgentName = null;
 
     const connectBtn = document.getElementById('cloudConnectBtn');
-    connectBtn.textContent = 'Connect to Cloud';
+    connectBtn.textContent = 'Connect';
     connectBtn.classList.remove('disconnect', 'active');
     connectBtn.disabled = false;
-    connectBtn.title = 'Connect to Messaging Platform Cloud';
+    connectBtn.title = 'Connect to Messaging Platform';
+
+    // Reset messaging toolbar button
+    const messagingBtn = document.getElementById('messagingToolbarBtn');
+    if (messagingBtn) {
+        messagingBtn.classList.remove('active');
+        messagingBtn.style.background = '';
+        messagingBtn.title = 'Connect to Messaging Platform for Terminal Sharing';
+    }
+    // Also support old ID for compatibility
+    const cloudBtn = document.getElementById('cloudToolbarBtn');
+    if (cloudBtn) {
+        cloudBtn.classList.remove('active');
+        cloudBtn.style.background = '';
+        cloudBtn.title = 'Connect to Messaging Platform for Terminal Sharing';
+    }
 
     // Re-enable regenerate button when disconnected
     const regenBtn = document.getElementById('cloudRegenBtn');
@@ -4194,19 +4221,10 @@ function disconnectFromCloud() {
     document.getElementById('cloudStatus').className = 'status-dot offline';
     document.getElementById('cloudStatusText').textContent = 'Disconnected';
 
-    // Remove highlight from cloud button and reset tooltip
-    const cloudBtn = document.getElementById('cloudToolbarBtn');
-    if (cloudBtn) {
-        cloudBtn.classList.remove('active');
-        cloudBtn.title = 'Connect to Messaging Platform Cloud';
-        cloudBtn.style.background = '';
-        cloudBtn.style.borderColor = '';
-    }
-
     updateAgentsList();
     updateSharedTerminalsList();
     saveCloudConfig(false);
-    showToast('info', 'Disconnected', 'Disconnected from cloud');
+    showToast('info', 'Disconnected', 'Disconnected from Messaging Platform');
 }
 
 function updateAgentsList() {
@@ -4878,6 +4896,468 @@ function sendTerminalInputViaCloud(sessionId, data) {
 // ========================================
 
 // ========================================
+// Notes Management
+// ========================================
+const notes = new Map(); // noteId -> note object
+let activeNoteId = null;
+
+// Load notes from backend
+async function loadNotes() {
+    try {
+        const response = await slsFetch(`${MLS_URL}/notes`);
+        if (response.ok) {
+            const notesList = await response.json();
+            notes.clear();
+            notesList.forEach(note => {
+                notes.set(note.id, note);
+            });
+            updateNotesList();
+            updateNotesBadge();
+        }
+    } catch (error) {
+        console.error('[Notes] Failed to load notes:', error);
+    }
+}
+
+// Create a new note
+async function createNewNote() {
+    try {
+        const response = await slsFetch(`${MLS_URL}/notes`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                title: 'Untitled Note',
+                content: '',
+                shared: false
+            })
+        });
+
+        if (response.ok) {
+            const note = await response.json();
+            notes.set(note.id, note);
+            updateNotesList();
+            updateNotesBadge();
+            openNote(note.id);
+            showToast('success', '📝 Note Created', 'New note created successfully');
+        }
+    } catch (error) {
+        console.error('[Notes] Failed to create note:', error);
+        showToast('error', 'Create Failed', 'Failed to create note');
+    }
+}
+
+// Open a note in a tab
+function openNote(noteId) {
+    const note = notes.get(noteId);
+    if (!note) return;
+
+    activeNoteId = noteId;
+
+    // Create or reuse tab for this note
+    const tabId = `note-${noteId}`;
+    let tab = document.querySelector(`[data-tab-id="${tabId}"]`);
+
+    if (!tab) {
+        // Create new tab
+        createNoteTab(noteId, note);
+    } else {
+        // Switch to existing tab
+        switchToTab(tabId);
+    }
+
+    // Highlight active note in list
+    document.querySelectorAll('.note-item').forEach(item => {
+        item.classList.toggle('active', item.dataset.noteId === noteId);
+    });
+}
+
+// Create a tab for editing a note
+function createNoteTab(noteId, note) {
+    const tabId = `note-${noteId}`;
+    const tabBar = document.querySelector('.tab-bar');
+    const terminalWrapper = document.querySelector('.terminal-wrapper');
+
+    // Create tab
+    const tab = document.createElement('div');
+    tab.className = 'tab';
+    tab.dataset.tabId = tabId;
+    tab.innerHTML = `
+        <span class="tab-icon">📝</span>
+        <span class="tab-title">${note.title || 'Untitled Note'}</span>
+        ${note.shared ? '<span class="tab-shared-badge">🔗</span>' : ''}
+        <span class="tab-close" onclick="closeNoteTab('${tabId}', event)">✕</span>
+    `;
+    tab.onclick = (e) => {
+        if (!e.target.classList.contains('tab-close')) {
+            switchToTab(tabId);
+        }
+    };
+
+    // Add context menu
+    tab.oncontextmenu = (e) => {
+        e.preventDefault();
+        showNoteTabContextMenu(e, noteId, tabId);
+    };
+
+    tabBar.appendChild(tab);
+
+    // Create note editor container
+    const noteContainer = document.createElement('div');
+    noteContainer.id = `terminal-${tabId}`;
+    noteContainer.className = 'terminal-container';
+    noteContainer.style.display = 'none';
+    noteContainer.innerHTML = `
+        <div style="display: flex; flex-direction: column; height: 100%; background: var(--bg-panel); padding: 16px;">
+            <div style="margin-bottom: 12px; display: flex; gap: 10px; align-items: center;">
+                <input type="text" id="note-title-${noteId}" value="${note.title || ''}" 
+                       placeholder="Note title..."
+                       style="flex: 1; padding: 8px 12px; background: var(--bg-darker); border: 1px solid var(--border-color); 
+                              border-radius: 4px; color: var(--text-primary); font-size: 14px; font-weight: 600;"
+                       onchange="updateNoteTitle('${noteId}', this.value)">
+                <button onclick="toggleNoteSharing('${noteId}')" 
+                        id="share-btn-${noteId}"
+                        style="padding: 8px 16px; background: ${note.shared ? 'var(--accent-green)' : 'var(--bg-darker)'}; 
+                               border: 1px solid var(--border-color); border-radius: 4px; color: var(--text-primary); 
+                               cursor: pointer; font-size: 12px; transition: all 0.2s;">
+                    ${note.shared ? '🔗 Shared' : '🔒 Private'}
+                </button>
+                <button onclick="saveNote('${noteId}')" 
+                        style="padding: 8px 16px; background: var(--accent-blue); border: none; border-radius: 4px; 
+                               color: white; cursor: pointer; font-size: 12px; font-weight: 600;">
+                    💾 Save
+                </button>
+                <button onclick="deleteNote('${noteId}')" 
+                        style="padding: 8px 16px; background: var(--accent-red); border: none; border-radius: 4px; 
+                               color: white; cursor: pointer; font-size: 12px;">
+                    🗑️ Delete
+                </button>
+            </div>
+            <textarea id="note-content-${noteId}" 
+                      placeholder="Start writing your note..."
+                      style="flex: 1; padding: 12px; background: var(--bg-darker); border: 1px solid var(--border-color); 
+                             border-radius: 4px; color: var(--text-primary); font-size: 13px; font-family: 'Consolas', 'Monaco', monospace; 
+                             resize: none; line-height: 1.6;">${note.content || ''}</textarea>
+            <div style="margin-top: 8px; font-size: 11px; color: var(--text-muted); display: flex; justify-content: space-between;">
+                <span>Last modified: ${note.updatedAt ? new Date(note.updatedAt).toLocaleString() : 'Never'}</span>
+                <span id="note-status-${noteId}">Ready</span>
+            </div>
+        </div>
+    `;
+
+    terminalWrapper.appendChild(noteContainer);
+    switchToTab(tabId);
+}
+
+// Update note title
+async function updateNoteTitle(noteId, newTitle) {
+    const note = notes.get(noteId);
+    if (!note) return;
+
+    note.title = newTitle;
+
+    // Update tab title
+    const tab = document.querySelector(`[data-tab-id="note-${noteId}"] .tab-title`);
+    if (tab) tab.textContent = newTitle;
+
+    // Update in list
+    updateNotesList();
+}
+
+// Toggle note sharing
+async function toggleNoteSharing(noteId) {
+    const note = notes.get(noteId);
+    if (!note) return;
+
+    note.shared = !note.shared;
+
+    try {
+        const response = await slsFetch(`${MLS_URL}/notes/${noteId}`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(note)
+        });
+
+        if (response.ok) {
+            const shareBtn = document.getElementById(`share-btn-${noteId}`);
+            if (shareBtn) {
+                shareBtn.textContent = note.shared ? '🔗 Shared' : '🔒 Private';
+                shareBtn.style.background = note.shared ? 'var(--accent-green)' : 'var(--bg-darker)';
+            }
+
+            // Update tab badge
+            const tab = document.querySelector(`[data-tab-id="note-${noteId}"]`);
+            if (tab) {
+                const badge = tab.querySelector('.tab-shared-badge');
+                if (note.shared && !badge) {
+                    const titleEl = tab.querySelector('.tab-title');
+                    titleEl.insertAdjacentHTML('afterend', '<span class="tab-shared-badge">🔗</span>');
+                } else if (!note.shared && badge) {
+                    badge.remove();
+                }
+            }
+
+            updateNotesList();
+
+            if (note.shared) {
+                showToast('success', '🔗 Note Shared', 'Note is now visible to connected agents');
+                // Share via messaging platform if connected
+                if (terminalSharing && cloudConnected) {
+                    terminalSharing.shareNote(noteId, note);
+                }
+            } else {
+                showToast('info', '🔒 Note Private', 'Note is now private');
+                if (terminalSharing && cloudConnected) {
+                    terminalSharing.unshareNote(noteId);
+                }
+            }
+        }
+    } catch (error) {
+        console.error('[Notes] Failed to toggle sharing:', error);
+        showToast('error', 'Update Failed', 'Failed to update note sharing');
+    }
+}
+
+// Save note
+async function saveNote(noteId) {
+    const note = notes.get(noteId);
+    if (!note) return;
+
+    const titleInput = document.getElementById(`note-title-${noteId}`);
+    const contentTextarea = document.getElementById(`note-content-${noteId}`);
+    const statusSpan = document.getElementById(`note-status-${noteId}`);
+
+    if (!titleInput || !contentTextarea) return;
+
+    note.title = titleInput.value || 'Untitled Note';
+    note.content = contentTextarea.value;
+    note.updatedAt = new Date().toISOString();
+
+    if (statusSpan) statusSpan.textContent = 'Saving...';
+
+    try {
+        const response = await slsFetch(`${MLS_URL}/notes/${noteId}`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(note)
+        });
+
+        if (response.ok) {
+            if (statusSpan) statusSpan.textContent = 'Saved ✓';
+            setTimeout(() => {
+                if (statusSpan) statusSpan.textContent = 'Ready';
+            }, 2000);
+
+            updateNotesList();
+            showToast('success', '💾 Saved', 'Note saved successfully');
+
+            // Update shared note if connected
+            if (note.shared && terminalSharing && cloudConnected) {
+                terminalSharing.updateSharedNote(noteId, note);
+            }
+        }
+    } catch (error) {
+        console.error('[Notes] Failed to save note:', error);
+        if (statusSpan) statusSpan.textContent = 'Save failed ✗';
+        showToast('error', 'Save Failed', 'Failed to save note');
+    }
+}
+
+// Delete note
+async function deleteNote(noteId) {
+    if (!confirm('Are you sure you want to delete this note?')) return;
+
+    try {
+        const response = await slsFetch(`${MLS_URL}/notes/${noteId}`, {
+            method: 'DELETE'
+        });
+
+        if (response.ok) {
+            // Unshare if shared
+            const note = notes.get(noteId);
+            if (note && note.shared && terminalSharing && cloudConnected) {
+                terminalSharing.unshareNote(noteId);
+            }
+
+            notes.delete(noteId);
+            closeNoteTab(`note-${noteId}`);
+            updateNotesList();
+            updateNotesBadge();
+            showToast('success', '🗑️ Deleted', 'Note deleted successfully');
+        }
+    } catch (error) {
+        console.error('[Notes] Failed to delete note:', error);
+        showToast('error', 'Delete Failed', 'Failed to delete note');
+    }
+}
+
+// Close note tab
+function closeNoteTab(tabId, event) {
+    if (event) {
+        event.stopPropagation();
+    }
+
+    const tab = document.querySelector(`[data-tab-id="${tabId}"]`);
+    const container = document.getElementById(`terminal-${tabId}`);
+
+    if (tab) tab.remove();
+    if (container) container.remove();
+
+    // Switch to another tab if this was active
+    const remainingTabs = document.querySelectorAll('.tab');
+    if (remainingTabs.length > 0) {
+        const firstTab = remainingTabs[0];
+        const firstTabId = firstTab.dataset.tabId;
+        switchToTab(firstTabId);
+    }
+}
+
+// Update notes list in sidebar
+function updateNotesList() {
+    const notesList = document.getElementById('notesList');
+    if (!notesList) return;
+
+    if (notes.size === 0) {
+        notesList.innerHTML = `
+            <div style="padding: 20px; text-align: center; color: var(--text-muted); font-size: 12px;">
+                <div style="font-size: 32px; margin-bottom: 8px;">📝</div>
+                <div>No notes yet</div>
+                <div style="margin-top: 8px; font-size: 11px;">Click ➕ to create a new note</div>
+            </div>
+        `;
+        return;
+    }
+
+    const sortedNotes = Array.from(notes.values()).sort((a, b) => {
+        const dateA = new Date(a.updatedAt || a.createdAt || 0);
+        const dateB = new Date(b.updatedAt || b.createdAt || 0);
+        return dateB - dateA; // Most recent first
+    });
+
+    notesList.innerHTML = sortedNotes.map(note => {
+        const preview = (note.content || '').substring(0, 50);
+        const updatedDate = note.updatedAt ? new Date(note.updatedAt) : null;
+        const timeStr = updatedDate ? updatedDate.toLocaleDateString() : '';
+
+        return `
+            <div class="note-item ${note.shared ? 'shared' : ''}" 
+                 data-note-id="${note.id}" 
+                 onclick="openNote('${note.id}')"
+                 oncontextmenu="showNoteContextMenu(event, '${note.id}')">
+                <div class="note-icon">📝</div>
+                <div class="note-details">
+                    <div class="note-title">${note.title || 'Untitled Note'}</div>
+                    <div class="note-preview">${preview}${preview.length >= 50 ? '...' : ''}</div>
+                    <div class="note-meta">${timeStr}${note.shared ? ' • 🔗 Shared' : ''}</div>
+                </div>
+            </div>
+        `;
+    }).join('');
+}
+
+// Update notes badge count
+function updateNotesBadge() {
+    const badge = document.getElementById('notesBadge');
+    if (!badge) return;
+
+    const count = notes.size;
+    if (count > 0) {
+        badge.textContent = count;
+        badge.style.display = 'block';
+    } else {
+        badge.style.display = 'none';
+    }
+}
+
+// Show note context menu
+function showNoteContextMenu(event, noteId) {
+    event.preventDefault();
+    event.stopPropagation();
+
+    const note = notes.get(noteId);
+    if (!note) return;
+
+    // Remove existing context menu
+    const existingMenu = document.querySelector('.note-context-menu');
+    if (existingMenu) existingMenu.remove();
+
+    const menu = document.createElement('div');
+    menu.className = 'note-context-menu context-menu';
+    menu.style.position = 'fixed';
+    menu.style.left = event.clientX + 'px';
+    menu.style.top = event.clientY + 'px';
+    menu.style.zIndex = '10000';
+
+    menu.innerHTML = `
+        <div class="context-menu-item" onclick="openNote('${noteId}'); this.parentElement.remove();">
+            📝 Open Note
+        </div>
+        <div class="context-menu-item" onclick="toggleNoteSharing('${noteId}'); this.parentElement.remove();">
+            ${note.shared ? '🔒 Make Private' : '🔗 Share Note'}
+        </div>
+        <div class="context-menu-item" onclick="duplicateNote('${noteId}'); this.parentElement.remove();">
+            📋 Duplicate
+        </div>
+        <div class="context-menu-separator"></div>
+        <div class="context-menu-item danger" onclick="deleteNote('${noteId}'); this.parentElement.remove();">
+            🗑️ Delete Note
+        </div>
+    `;
+
+    document.body.appendChild(menu);
+
+    // Remove on click outside
+    setTimeout(() => {
+        document.addEventListener('click', function removeMenu() {
+            menu.remove();
+            document.removeEventListener('click', removeMenu);
+        });
+    }, 100);
+}
+
+// Show note tab context menu
+function showNoteTabContextMenu(event, noteId, tabId) {
+    const note = notes.get(noteId);
+    if (!note) return;
+
+    // Reuse existing context menu system
+    showNoteContextMenu(event, noteId);
+}
+
+// Duplicate note
+async function duplicateNote(noteId) {
+    const original = notes.get(noteId);
+    if (!original) return;
+
+    try {
+        const response = await slsFetch(`${MLS_URL}/notes`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                title: `${original.title} (Copy)`,
+                content: original.content,
+                shared: false
+            })
+        });
+
+        if (response.ok) {
+            const newNote = await response.json();
+            notes.set(newNote.id, newNote);
+            updateNotesList();
+            updateNotesBadge();
+            showToast('success', '📋 Duplicated', 'Note duplicated successfully');
+        }
+    } catch (error) {
+        console.error('[Notes] Failed to duplicate note:', error);
+        showToast('error', 'Duplicate Failed', 'Failed to duplicate note');
+    }
+}
+
+// Initialize notes on page load
+window.addEventListener('DOMContentLoaded', () => {
+    loadNotes();
+});
+
+// ========================================
 // SFTP Browser Integration
 // ========================================
 let sftpBrowser = null;
@@ -5061,7 +5541,7 @@ window.addEventListener('load', async () => {
 
             // Show notification only on state change (null→offline means first time)
             if (previousState !== 'offline') {
-                showToast('warning', 'SLS Offline', 'SDK Local Service is not running. Local and SSH terminals are disabled.');
+                showToast('warning', 'Local Service Offline', 'SDK Local Service is not running. Local and SSH terminals are disabled.');
             }
 
             // Continue initialization - Cloud messaging still works

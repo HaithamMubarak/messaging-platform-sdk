@@ -100,7 +100,8 @@ body {
 }
 
 .status-dot.offline {
-    background: var(--accent-red);
+    background: var(--accent-orange);
+    box-shadow: 0 0 6px var(--accent-orange);
 }
 
 .status-dot.checking {
@@ -439,6 +440,94 @@ body {
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
+}
+
+/* ========== Notes List ========== */
+.notes-list {
+    flex: 1;
+    overflow-y: auto;
+    padding: 8px;
+    user-select: none;
+}
+
+.notes-list::-webkit-scrollbar {
+    width: 6px;
+}
+
+.notes-list::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+.notes-list::-webkit-scrollbar-thumb {
+    background: var(--border-color);
+    border-radius: 3px;
+}
+
+.note-item {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    padding: 10px;
+    border-radius: 6px;
+    cursor: pointer;
+    transition: all 0.15s;
+    margin-bottom: 4px;
+    background: var(--bg-panel);
+    border: 1px solid var(--border-color);
+}
+
+.note-item:hover {
+    background: rgba(74, 158, 255, 0.1);
+    border-color: var(--accent-blue);
+}
+
+.note-item.active {
+    background: rgba(74, 158, 255, 0.2);
+    border-color: var(--accent-blue);
+}
+
+.note-item.shared {
+    border-left: 3px solid var(--accent-green);
+}
+
+.note-icon {
+    width: 28px;
+    height: 28px;
+    border-radius: 6px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 14px;
+    flex-shrink: 0;
+    background: linear-gradient(135deg, #fbbf24, #f59e0b);
+}
+
+.note-details {
+    flex: 1;
+    min-width: 0;
+}
+
+.note-title {
+    font-size: 12px;
+    font-weight: 500;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    margin-bottom: 2px;
+}
+
+.note-preview {
+    font-size: 10px;
+    color: var(--text-muted);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.note-meta {
+    font-size: 9px;
+    color: var(--text-muted);
+    margin-top: 4px;
 }
 
 /* ========== Terminal Area ========== */
@@ -2326,3 +2415,127 @@ body {
         background: transparent;
     }
 }
+
+/* ========================================
+   Mobile Portrait Mode (Phones)
+   ======================================== */
+@media (max-width: 768px) and (orientation: portrait) {
+    /* Fix toolbar buttons to display horizontally */
+    .toolbar {
+        padding: 4px 6px;
+        gap: 4px;
+        overflow-x: auto;
+        overflow-y: hidden;
+        white-space: nowrap;
+        -webkit-overflow-scrolling: touch;
+    }
+
+    .toolbar-btn {
+        min-width: 50px;
+        padding: 4px 8px;
+        flex-shrink: 0; /* Prevent buttons from shrinking */
+    }
+
+    .toolbar-btn .icon {
+        font-size: 18px;
+        margin-bottom: 1px;
+    }
+
+    .toolbar-btn .label {
+        font-size: 9px;
+    }
+
+    .toolbar-separator {
+        height: 28px;
+        flex-shrink: 0;
+        margin: 0 2px;
+    }
+
+    /* Keep sidebar visible on mobile portrait */
+    .sidebar {
+        width: 200px;
+        min-width: 150px;
+        max-width: 40%;
+        position: relative; /* ✅ Make sidebar visible by default */
+        transform: none;
+    }
+
+    /* Compact menu bar */
+    .menu-bar {
+        padding: 2px 6px;
+        height: 28px;
+        gap: 2px;
+    }
+
+    .menu-item {
+        padding: 4px 8px;
+        font-size: 11px;
+    }
+
+    /* Compact tabs */
+    .tab-bar-container {
+        min-height: 28px;
+    }
+
+    .tab {
+        height: 28px;
+        padding: 0 10px;
+        font-size: 11px;
+    }
+
+    .tab-close {
+        width: 20px;
+        height: 20px;
+    }
+
+    /* Compact status bar */
+    .status-bar {
+        height: 16px;
+        font-size: 10px;
+        padding: 0 8px;
+    }
+
+    /* Modal improvements for mobile */
+    .modal {
+        max-width: 95%;
+        max-height: 85vh;
+        margin: 20px;
+    }
+
+    .modal-overlay {
+        padding: 10px;
+    }
+}
+
+/* ========================================
+   Small Mobile (< 480px)
+   ======================================== */
+@media (max-width: 480px) {
+    .toolbar-btn {
+        min-width: 45px;
+        padding: 4px 6px;
+    }
+
+    .toolbar-btn .icon {
+        font-size: 16px;
+    }
+
+    .toolbar-btn .label {
+        font-size: 8px;
+    }
+
+    .sidebar {
+        width: 150px;
+        max-width: 35%;
+    }
+
+    .menu-bar {
+        height: 26px;
+    }
+
+    .menu-item {
+        padding: 3px 6px;
+        font-size: 10px;
+    }
+}
+

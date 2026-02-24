@@ -1,9 +1,9 @@
 /**
- * Service Worker for SDK Terminal PWA
+ * Service Worker for Messaging Platform - Shared Terminal PWA
  * Enables offline functionality by caching all terminal assets
  */
 
-const CACHE_NAME = 'sdk-terminal-v1.0.0';
+const CACHE_NAME = 'messaging-platform-shared-terminal-v1.1.0';
 const CACHE_TIMESTAMP = '2026-02-24';
 
 // Files to cache for offline use

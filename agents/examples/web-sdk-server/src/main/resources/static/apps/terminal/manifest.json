@@ -1,7 +1,7 @@
 {
-  "name": "SDK Terminal - Web Terminal Emulator",
-  "short_name": "SDK Terminal",
-  "description": "Web-based terminal emulator with SSH, cloud sharing, and SFTP support",
+  "name": "Messaging Platform - Shared Terminal",
+  "short_name": "Shared Terminal",
+  "description": "Web-based terminal emulator with SSH, SFTP, and real-time terminal sharing via Messaging Platform",
   "start_url": "./index.html",
   "display": "standalone",
   "background_color": "#0a0a14",
@@ -68,10 +68,10 @@
       "icons": [{ "src": "icons/icon-96x96.png", "sizes": "96x96" }]
     },
     {
-      "name": "Cloud Sharing",
-      "short_name": "Cloud",
-      "description": "Connect to cloud messaging",
-      "url": "./index.html?action=cloud",
+      "name": "Messaging Platform",
+      "short_name": "Messaging",
+      "description": "Connect to messaging platform for sharing",
+      "url": "./index.html?action=messaging",
       "icons": [{ "src": "icons/icon-96x96.png", "sizes": "96x96" }]
     }
   ]
