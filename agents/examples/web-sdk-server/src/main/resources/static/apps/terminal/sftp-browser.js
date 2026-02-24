@@ -14,6 +14,9 @@ class SftpBrowser {
         this.isConnected = false;
         this.connectionInfo = null;
 
+        // SFTP session cache: terminalSessionId → { sftpSessionId, lastPath, connectionInfo }
+        this.sessionCache = new Map();
+
         // DOM Elements
         this.panel = null;
         this.fileList = null;
@@ -252,6 +255,22 @@ class SftpBrowser {
      * Open SFTP panel for a terminal session
      */
     async open(terminalSessionId, connectionInfo = {}) {
+        // Save current session's path before switching
+        if (this.terminalSessionId && this.isConnected) {
+            this.sessionCache.set(this.terminalSessionId, {
+                sftpSessionId: this.sftpSessionId,
+                lastPath: this.currentPath,
+                connectionInfo: this.connectionInfo
+            });
+            // Also persist to localStorage
+            try {
+                localStorage.setItem(`sftp_last_path_${this.terminalSessionId}`, this.currentPath);
+            } catch (e) { /* ignore */ }
+        }
+
+        // Check if we have a cached session for this terminal
+        const cached = this.sessionCache.get(terminalSessionId);
+
         this.terminalSessionId = terminalSessionId;
         this.connectionInfo = connectionInfo;
         this.panel.classList.add('visible');
@@ -262,7 +281,25 @@ class SftpBrowser {
             connName.textContent = `- ${connectionInfo.name}`;
         }
 
-        await this.connect();
+        if (cached && cached.sftpSessionId) {
+            // Restore cached session
+            this.sftpSessionId = cached.sftpSessionId;
+            this.currentPath = cached.lastPath || '/';
+            this.isConnected = true;
+            this.updateConnectionStatus('Connected');
+            this.updatePathBar();
+            await this.loadDirectory(this.currentPath);
+        } else {
+            // Restore last path from localStorage if available
+            try {
+                const savedPath = localStorage.getItem(`sftp_last_path_${terminalSessionId}`);
+                if (savedPath) {
+                    this._initialPath = savedPath;
+                }
+            } catch (e) { /* ignore */ }
+
+            await this.connect();
+        }
     }
 
     /**
@@ -291,7 +328,14 @@ class SftpBrowser {
             this.updateConnectionStatus('Connected');
             this.updatePathBar();
 
-            await this.loadDirectory();
+            // Navigate to saved last path if available
+            const initialPath = this._initialPath;
+            this._initialPath = null;  // Clear after use
+            if (initialPath && initialPath !== this.currentPath) {
+                await this.loadDirectory(initialPath);
+            } else {
+                await this.loadDirectory();
+            }
 
             this.onToast('success', 'SFTP Connected', `Connected to ${this.connectionInfo.host || 'server'}`);
 
@@ -307,6 +351,18 @@ class SftpBrowser {
      * Close SFTP panel
      */
     async close() {
+        // ✅ Save last path before closing
+        if (this.terminalSessionId && this.currentPath) {
+            this.sessionCache.set(this.terminalSessionId, {
+                sftpSessionId: null,  // Session will be closed
+                lastPath: this.currentPath,
+                connectionInfo: this.connectionInfo
+            });
+            try {
+                localStorage.setItem(`sftp_last_path_${this.terminalSessionId}`, this.currentPath);
+            } catch (e) { /* ignore */ }
+        }
+
         if (this.isConnected && this.sftpSessionId) {
             try {
                 await fetch(`${this.mlsUrl}/sftp/close`, {
@@ -366,6 +422,19 @@ class SftpBrowser {
             this.updatePathBar();
 
             this.renderFileList();
+
+            // ✅ Save last navigated path for session persistence
+            if (this.terminalSessionId) {
+                try {
+                    localStorage.setItem(`sftp_last_path_${this.terminalSessionId}`, this.currentPath);
+                } catch (e) { /* ignore */ }
+                // Also update session cache
+                this.sessionCache.set(this.terminalSessionId, {
+                    sftpSessionId: this.sftpSessionId,
+                    lastPath: this.currentPath,
+                    connectionInfo: this.connectionInfo
+                });
+            }
 
         } catch (error) {
             console.error('[SFTP] Load directory error:', error);

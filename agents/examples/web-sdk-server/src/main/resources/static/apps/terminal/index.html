@@ -74,6 +74,20 @@
         </div>
     </div>
 
+    <!-- Viewer Context Menu (for managing agent permissions in "My Shares" list) -->
+    <div class="context-menu" id="viewerContextMenu">
+        <div class="context-menu-item" onclick="viewerContextMenuAction('readonly')">
+            <span class="icon">👁️</span> Set Read-Only
+        </div>
+        <div class="context-menu-item" onclick="viewerContextMenuAction('readwrite')">
+            <span class="icon">✏️</span> Set Read-Write
+        </div>
+        <div class="context-menu-separator"></div>
+        <div class="context-menu-item" onclick="viewerContextMenuAction('reset')">
+            <span class="icon">🔄</span> Reset to Global
+        </div>
+    </div>
+
     <!-- Tab Context Menu -->
     <div class="context-menu" id="tabContextMenu">
         <div class="context-menu-item" onclick="tabContextMenuAction('rename')">
@@ -88,6 +102,9 @@
         </div>
         <div class="context-menu-item" onclick="tabContextMenuAction('togglePermission')" id="permissionMenuItem" style="display: none;">
             <span class="icon">🔒</span> <span class="permission-text">Enable Write Access</span>
+        </div>
+        <div class="context-menu-item" onclick="tabContextMenuAction('resetPermissions')" id="resetPermissionsMenuItem" style="display: none;">
+            <span class="icon">🔄</span> Reset All Permissions
         </div>
         <div class="context-menu-item" onclick="tabContextMenuAction('requestPermission')" id="requestPermissionMenuItem" style="display: none;">
             <span class="icon">✋</span> Request Write Access
@@ -125,19 +142,19 @@
 
     <!-- Toolbar -->
     <div class="toolbar">
-        <button class="toolbar-btn" onclick="createLocalTerminal('cmd')" title="New CMD Terminal">
+        <button class="toolbar-btn sls-dependent" onclick="createLocalTerminal('cmd')" title="New CMD Terminal">
             <span class="icon">💻</span>
             <span class="label">CMD</span>
         </button>
-        <button class="toolbar-btn" onclick="createLocalTerminal('bash')" title="New Bash Terminal (WSL/Git)">
+        <button class="toolbar-btn sls-dependent" onclick="createLocalTerminal('bash')" title="New Bash Terminal (WSL/Git)">
             <span class="icon">🐧</span>
             <span class="label">Bash</span>
         </button>
-        <button class="toolbar-btn" onclick="createLocalTerminal('powershell')" title="New PowerShell Terminal">
+        <button class="toolbar-btn sls-dependent" onclick="createLocalTerminal('powershell')" title="New PowerShell Terminal">
             <span class="icon">⚡</span>
             <span class="label">PowerShell</span>
         </button>
-        <button class="toolbar-btn" onclick="showSshModal()" title="Add SSH Connection">
+        <button class="toolbar-btn sls-dependent" onclick="showSshModal()" title="Add SSH Connection">
             <span class="icon">🌐</span>
             <span class="label">SSH</span>
         </button>
@@ -148,16 +165,16 @@
             <span class="label">Cloud</span>
         </button>
         <div class="toolbar-separator"></div>
-        <button class="toolbar-btn" onclick="toggleSftpPanel()" title="SFTP File Browser" id="sftpToolbarBtn">
+        <button class="toolbar-btn sls-dependent" onclick="toggleSftpPanel()" title="SFTP File Browser" id="sftpToolbarBtn">
             <span class="icon">📁</span>
             <span class="label">SFTP</span>
         </button>
         <div class="toolbar-separator"></div>
-        <button class="toolbar-btn" onclick="refreshConnections()" title="Refresh Connections">
+        <button class="toolbar-btn sls-dependent" onclick="refreshConnections()" title="Refresh Connections">
             <span class="icon">🔄</span>
             <span class="label">Refresh</span>
         </button>
-        <button class="toolbar-btn" onclick="checkMlsHealth(true)" title="Check MLS Health">
+        <button class="toolbar-btn sls-dependent" onclick="checkMlsHealth(true)" title="Check MLS Health">
             <span class="icon">❤️</span>
             <span class="label">Health</span>
         </button>
@@ -406,6 +423,8 @@
                     <span class="status-bar-label">Active:</span>
                     <span class="status-bar-value" id="statusActive">None</span>
                 </div>
+                <!-- Typing indicator (shown when someone types in a shared session) -->
+                <span class="status-bar-typing" id="statusTyping" style="display: none;"></span>
             </div>
         </div>
 

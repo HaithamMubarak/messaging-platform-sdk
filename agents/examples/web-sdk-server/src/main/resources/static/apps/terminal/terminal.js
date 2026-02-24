@@ -158,6 +158,56 @@ let slsSecurityToken = null;
 let slsCurrentState = null;
 
 /**
+ * Enable/disable SLS-dependent toolbar buttons based on SLS state
+ * @param {boolean} online - true = SLS is online, false = offline
+ */
+function updateSlsDependentButtons(online) {
+    const buttons = document.querySelectorAll('.toolbar-btn.sls-dependent');
+    buttons.forEach(btn => {
+        if (online) {
+            btn.disabled = false;
+            btn.classList.remove('sls-disabled');
+            // Restore original title (stored on disable)
+            if (btn.dataset.originalTitle) {
+                btn.title = btn.dataset.originalTitle;
+                delete btn.dataset.originalTitle;
+            }
+        } else {
+            // Store original title before overwriting
+            if (!btn.dataset.originalTitle) {
+                btn.dataset.originalTitle = btn.title;
+            }
+            btn.disabled = true;
+            btn.classList.add('sls-disabled');
+            btn.title = 'SLS is offline — Start SDK Local Service to enable this';
+        }
+    });
+}
+
+/**
+ * Update SFTP toolbar button state based on active tab type
+ * Disables SFTP button when active tab is not an SSH session
+ */
+function updateSftpButtonState() {
+    const sftpBtn = document.getElementById('sftpToolbarBtn');
+    if (!sftpBtn) return;
+
+    // If SLS is offline, the sls-dependent class already disables it
+    if (slsCurrentState === 'offline') return;
+
+    const session = activeSessionId ? sessions.get(activeSessionId) : null;
+    if (!session || session.type !== 'ssh') {
+        sftpBtn.disabled = true;
+        sftpBtn.classList.add('sls-disabled');
+        sftpBtn.title = 'SFTP requires an active SSH connection';
+    } else {
+        sftpBtn.disabled = false;
+        sftpBtn.classList.remove('sls-disabled');
+        sftpBtn.title = 'SFTP File Browser';
+    }
+}
+
+/**
  * Request security token from SLS
  */
 async function requestSlsToken() {
@@ -386,7 +436,61 @@ function createTerminalDataSender(type, params) {
 }
 
 // ========================================
-// SECTION 4: STATE MANAGEMENT
+// SECTION 4: COMMON PERMISSION HELPERS
+// ========================================
+
+/**
+ * Update tab styling based on permission level
+ * @param {string} sessionId - Session ID
+ * @param {string} permission - 'readonly' or 'readwrite'
+ */
+function updateTabPermissionStyling(sessionId, permission) {
+    const tab = document.getElementById(`tab-${sessionId}`);
+    if (!tab) return;
+
+    if (permission === 'readwrite') {
+        tab.classList.add('write-access');
+        tab.classList.remove('read-only');
+    } else {
+        tab.classList.add('read-only');
+        tab.classList.remove('write-access');
+    }
+}
+
+/**
+ * Update all UI elements for a session permission change
+ * Centralizes badge update, tab styling, and list refreshes
+ * @param {string} sessionId - Session ID
+ * @param {string} permission - 'readonly' or 'readwrite'
+ * @param {Object} options - Optional flags for what to update
+ */
+function updatePermissionUI(sessionId, permission, options = {}) {
+    const {
+        updateBadge = true,
+        updateTabStyling = true,
+        updateMyShares = true,
+        updateShared = true
+    } = options;
+
+    if (updateBadge) {
+        updateSessionBadge(sessionId, permission);
+    }
+
+    if (updateTabStyling) {
+        updateTabPermissionStyling(sessionId, permission);
+    }
+
+    if (updateMyShares) {
+        updateMySharesList();
+    }
+
+    if (updateShared) {
+        updateSharedTerminalsList();
+    }
+}
+
+// ========================================
+// SECTION 5: STATE MANAGEMENT
 // ========================================
 /**
  * Global state for terminal sessions and cloud sharing
@@ -851,6 +955,7 @@ async function checkMlsHealth(showNotification = false) {
             // Check if state changed: null→online or offline→online
             const previousState = slsCurrentState;
             slsCurrentState = 'online';
+            updateSlsDependentButtons(true);
 
             // Show notification only on state change
             if (showNotification && previousState !== 'online') {
@@ -871,6 +976,7 @@ async function checkMlsHealth(showNotification = false) {
         // Check if state changed: null→offline or online→offline
         const previousState = slsCurrentState;
         slsCurrentState = 'offline';
+        updateSlsDependentButtons(false);
 
         // Show notification only on state change
         if (showNotification && previousState !== 'offline') {
@@ -1129,6 +1235,31 @@ function switchToSession(sessionId) {
     // Update status bar with active session
     updateStatusBar();
 
+    // Clear typing indicator from status bar (new tab might not have anyone typing)
+    const statusTyping = document.getElementById('statusTyping');
+    if (statusTyping) {
+        statusTyping.style.display = 'none';
+        statusTyping.textContent = '';
+    }
+
+    // Update SFTP button state (enabled only for SSH sessions)
+    updateSftpButtonState();
+
+    // If SFTP sidebar is open, switch to the SFTP session for this tab
+    const sftpPanel = document.getElementById('panel-sftp');
+    if (sftpPanel && sftpPanel.classList.contains('active')) {
+        const session = sessions.get(sessionId);
+        if (session && session.type === 'ssh') {
+            openSftpForSession(sessionId);
+        } else if (sftpBrowser) {
+            // Non-SSH tab: show a message in SFTP panel
+            const container = document.getElementById('sftpPanelContainer');
+            if (container && !session?.type?.includes('ssh')) {
+                // Don't close, just leave current SFTP view
+            }
+        }
+    }
+
     // Focus terminal and fit
     const session = sessions.get(sessionId);
     if (session && session.terminal) {
@@ -1205,6 +1336,7 @@ function updateEmptyState() {
     const emptyState = document.getElementById('emptyState');
     emptyState.style.display = sessions.size === 0 ? 'flex' : 'none';
     updateStatusBar();
+    updateSftpButtonState();
 }
 
 /**
@@ -1315,7 +1447,7 @@ function updateSidebarBadges() {
  */
 function refreshSharedSessions() {
     // Refresh shared sessions list
-    updateSharedSessionsList();
+    updateSharedTerminalsList();
 }
 
 function refreshMyShares() {
@@ -1339,9 +1471,16 @@ function updateMySharesList() {
     const container = document.getElementById('mysharesList');
     if (!container) return;
 
-    const myShares = Array.from(sessions.values()).filter(s => s.isShared && !s.owner);
+    // Get connected agents for viewer tracking
+    const connectedAgents = (terminalSharing && cloudConnected)
+        ? terminalSharing.getConnectedUsers().filter(a => a !== cloudAgentName)
+        : [];
 
-    if (myShares.length === 0) {
+    // Filter my shared sessions using Map.entries() to get both key and value
+    const mySharesEntries = Array.from(sessions.entries())
+        .filter(([_, session]) => session.isShared && !session.owner);
+
+    if (mySharesEntries.length === 0) {
         container.innerHTML = `
             <div style="padding: 20px; text-align: center; color: var(--text-muted); font-size: 11px;">
                 No shared terminals yet.<br>
@@ -1352,20 +1491,54 @@ function updateMySharesList() {
     }
 
     let html = '';
-    myShares.forEach(session => {
-        const permission = session.permission || 'readonly';
-        const permIcon = permission === 'readwrite' ? '✏️' : '👁️';
-        const permLabel = permission === 'readwrite' ? 'Read/Write' : 'Read Only';
+    mySharesEntries.forEach(([sessionId, session]) => {
+        const globalPerm = session.permission || 'readonly';
+        const globalPermIcon = globalPerm === 'readwrite' ? '✏️' : '👁️';
+        const globalPermLabel = globalPerm === 'readwrite' ? 'Read-Write' : 'Read-Only';
 
         html += `
-            <div class="session-item" onclick="switchToSession('${session.id}')" title="${escapeHtml(session.name)} - ${permLabel}">
-                <div class="session-icon">📤</div>
-                <div class="session-details">
-                    <div class="session-name">${escapeHtml(session.name)}</div>
-                    <div class="session-info">${permIcon} ${permLabel}</div>
-                </div>
-            </div>
-        `;
+            <div class="session-item" style="flex-direction: column; align-items: stretch;">
+                <div class="session-item-header" 
+                     style="display: flex; align-items: center; gap: 8px; cursor: pointer; padding: 8px; border-radius: 4px; transition: background 0.15s;"
+                     onclick="switchToSession('${sessionId}')"
+                     onmouseover="this.style.background='rgba(255,255,255,0.05)'"
+                     onmouseout="this.style.background='transparent'"
+                     title="Click to switch to this session">
+                    <div class="session-icon">📤</div>
+                    <div class="session-details" style="flex: 1;">
+                        <div class="session-name">${escapeHtml(session.name)}</div>
+                        <div class="session-info">${globalPermIcon} Global: ${globalPermLabel}</div>
+                    </div>
+                </div>`;
+
+        // Show connected viewers with per-agent permissions
+        if (connectedAgents.length > 0) {
+            html += `<div class="viewer-list">`;
+            connectedAgents.forEach(agent => {
+                // Per-agent permission (defaults to global)
+                const agentPerm = session.agentPermissions?.[agent] || globalPerm;
+                const hasCustomPerm = !!session.agentPermissions?.[agent];
+                const agentPermIcon = agentPerm === 'readwrite' ? '✏️' : '👁️';
+                const permLabel = agentPerm === 'readwrite' ? 'Read-Write' : 'Read-Only';
+                const customBadge = hasCustomPerm ? ' (custom)' : '';
+
+                html += `
+                    <div class="viewer-item" 
+                         oncontextmenu="showViewerContextMenu(event, '${sessionId}', '${agent}'); return false;"
+                         title="Right-click to change permissions">
+                        <div class="viewer-dot"></div>
+                        <span class="viewer-name">${escapeHtml(agent)}</span>
+                        <span class="viewer-perm-indicator" title="${permLabel}${customBadge}">
+                            ${agentPermIcon}
+                        </span>
+                    </div>`;
+            });
+            html += `</div>`;
+        } else {
+            html += `<div style="padding: 2px 8px 4px 20px; font-size: 10px; color: var(--text-muted); font-style: italic;">No viewers connected</div>`;
+        }
+
+        html += `</div>`;
     });
 
     container.innerHTML = html;
@@ -1828,8 +2001,13 @@ function initTerminal(sessionId) {
             return;
         }
 
-        // ✅ Send typing indicator for remote sessions
-        if (foundSession.owner && terminalSharing && cloudConnected) {
+        // ✅ Send typing indicator for remote sessions (viewer typing)
+        // AND for our own shared sessions (owner typing to notify viewers)
+        const shouldSendTyping = terminalSharing && cloudConnected && (
+            foundSession.owner ||  // We're viewing someone else's session
+            (foundSession.isShared && !foundSession.owner)  // We own this shared session
+        );
+        if (shouldSendTyping) {
             // Send typing indicator (debounced)
             clearTimeout(foundSession._typingTimeout);
             terminalSharing.sendTypingIndicator(foundSessionId, true);
@@ -2550,8 +2728,9 @@ let contextMenuTarget = null;    // SSH connection context menu target
 let tabContextMenuTarget = null; // Tab context menu target sessionId
 
 function hideContextMenus() {
-    document.getElementById('tabContextMenu').classList.remove('visible');
-    document.getElementById('sessionContextMenu').classList.remove('visible');
+    document.getElementById('tabContextMenu')?.classList.remove('visible');
+    document.getElementById('sessionContextMenu')?.classList.remove('visible');
+    document.getElementById('viewerContextMenu')?.classList.remove('visible');
 }
 
 // Dismiss any open context menu on outside click
@@ -2623,6 +2802,7 @@ function showTabContextMenu(e, sessionId) {
     const shareMenuItem = document.getElementById('shareMenuItem');
     const shareText = document.getElementById('shareMenuText');
     const permissionMenuItem = document.getElementById('permissionMenuItem');
+    const resetPermissionsMenuItem = document.getElementById('resetPermissionsMenuItem');
     const requestPermissionMenuItem = document.getElementById('requestPermissionMenuItem');
 
     // Check if this is a received shared session (I'm viewing someone else's share)
@@ -2658,6 +2838,15 @@ function showTabContextMenu(e, sessionId) {
             }
         } else {
             permissionMenuItem.style.display = 'none';
+        }
+    }
+
+    // Show/hide reset all permissions (only for my shared sessions)
+    if (resetPermissionsMenuItem) {
+        if (isMySharedSession && cloudConnected) {
+            resetPermissionsMenuItem.style.display = 'block';
+        } else {
+            resetPermissionsMenuItem.style.display = 'none';
         }
     }
 
@@ -2811,9 +3000,14 @@ function tabContextMenuAction(action) {
                 const permLabel = newPerm === 'readwrite' ? 'Read-Write' : 'Read-Only';
                 showToast('success', '🔒 Permission Changed', `Session is now ${permLabel}`);
 
-                // Update the shared sessions list to reflect permission change
-                updateSharedTerminalsList();
+                // Use common helper to update all UI elements
+                updatePermissionUI(sessionId, newPerm);
             }
+            break;
+        }
+        case 'resetPermissions': {
+            // Reset all agent permissions to readonly (owner only)
+            resetAllPermissions(sessionId);
             break;
         }
         case 'requestPermission': {
@@ -3700,27 +3894,35 @@ async function connectToCloud() {
         // Called when a remote agent shares a session
         terminalSharing.onSharedSessionAdd = (sessionId, sessionInfo, sourceAgent) => {
             console.log('[Terminal] Remote session shared:', sessionId, sessionInfo, 'from:', sourceAgent);
-            showToast('info', '📤 Session Shared', `${sourceAgent} shared "${sessionInfo.name}" (${sessionInfo.shell})`);
+
+            const permIcon = sessionInfo.permission === 'readwrite' ? '✏️' : '👁️';
+            const permLabel = sessionInfo.permission === 'readwrite' ? 'Read-Write' : 'Read-Only';
+            showToast('success', '📤 New Session Shared',
+                `${sourceAgent} shared "${sessionInfo.name}" (${permLabel})`, 6000);
 
             // Create a view-only terminal session for this shared session
             createSharedTerminalSession(sessionId, sessionInfo, sourceAgent);
 
-            updateAgentsList(); // Refresh agents list
-            updateSharedTerminalsList(); // Refresh shared terminals list
+            updateAgentsList();
+            updateSharedTerminalsList();
         };
 
         // Called when a remote agent unshares a session
         terminalSharing.onSharedSessionRemove = (sessionId, sourceAgent) => {
             console.log('[Terminal] Remote session unshared:', sessionId, 'from:', sourceAgent);
-            showToast('info', '🛑 Sharing Stopped', `${sourceAgent} stopped sharing a session`);
+
+            const session = sessions.get(sessionId);
+            const sessionName = session?.name || 'Terminal';
+            showToast('warning', '🛑 Session Unshared',
+                `${sourceAgent} stopped sharing "${sessionName}"`, 5000);
 
             // Close the view-only session if it exists
             if (sessions.has(sessionId)) {
                 closeSession(sessionId);
             }
 
-            updateAgentsList(); // Refresh agents list
-            updateSharedTerminalsList(); // Refresh shared terminals list
+            updateAgentsList();
+            updateSharedTerminalsList();
         };
 
         // Called when receiving terminal output from a shared session
@@ -3743,6 +3945,15 @@ async function connectToCloud() {
             // If we own this session (no owner = local) and it's shared, send input to local terminal
             const session = sessions.get(sessionId);
             if (session && session.isShared && !session.owner && session.dataSender) {
+                // ✅ Check per-agent permission first, then fall back to global permission
+                const agentPerm = session.agentPermissions?.[sourceAgent];
+                const effectivePerm = agentPerm || session.permission || 'readonly';
+
+                if (effectivePerm !== 'readwrite') {
+                    console.warn('[Terminal] Blocked input from', sourceAgent, '- permission:', effectivePerm);
+                    return;
+                }
+
                 console.log('[Terminal] Forwarding input to local terminal dataSender');
                 session.dataSender.send(data);
             } else {
@@ -3754,28 +3965,47 @@ async function connectToCloud() {
         terminalSharing.onPlayerJoining = (event) => {
             console.log('[Terminal] Agent joining:', event.agentName);
             showToast('info', '👋 Agent Joining', `${event.agentName} is connecting...`);
-            updateAgentsList(); // Update list immediately
+            updateAgentsList();
             updateSharedTerminalsList();
+            updateMySharesList();
         };
 
         terminalSharing.onPlayerJoin = (event) => {
             console.log('[Terminal] Agent joined:', event.agentName);
-            showToast('success', '✅ Agent Joined', `${event.agentName} connected`);
+
+            // Check if I have any shared sessions
+            const mySharesCount = Array.from(sessions.values()).filter(s => s.isShared && !s.owner).length;
+            const toastMsg = mySharesCount > 0
+                ? `${event.agentName} connected (can view your ${mySharesCount} shared session${mySharesCount > 1 ? 's' : ''})`
+                : `${event.agentName} connected`;
+
+            showToast('success', '✅ Agent Joined', toastMsg, 4000);
 
             // ✅ CRITICAL: Call parent class method to send our shared sessions to new agent
             if (terminalSharing.sendSharedSessionsToAgent) {
                 terminalSharing.sendSharedSessionsToAgent(event.agentName);
             }
 
-            updateAgentsList(); // Update list when fully connected
+            updateAgentsList();
             updateSharedTerminalsList();
+            updateMySharesList();
         };
 
         terminalSharing.onPlayerLeave = (event) => {
             console.log('[Terminal] Agent left:', event.agentName);
-            showToast('info', '👋 Agent Left', `${event.agentName} disconnected`);
-            updateAgentsList(); // Update list when agent leaves
+
+            // Check if I have any shared sessions
+            const mySharesCount = Array.from(sessions.values()).filter(s => s.isShared && !s.owner).length;
+            const toastMsg = mySharesCount > 0
+                ? `${event.agentName} disconnected (was viewing your shares)`
+                : `${event.agentName} disconnected`;
+
+            showToast('info', '👋 Agent Left', toastMsg, 4000);
+
+            updateAgentsList();
             updateSharedTerminalsList();
+            updateMySharesList();
+            updateSidebarBadges();
         };
 
         // Called when someone is typing in a shared terminal
@@ -3803,13 +4033,27 @@ async function connectToCloud() {
         // Called when session permission is updated
         terminalSharing.onPermissionUpdate = (sessionId, newPermission) => {
             console.log('[Terminal] Permission update for session:', sessionId, 'new permission:', newPermission);
+
+            const session = sessions.get(sessionId);
+            const sessionName = session?.name || 'Terminal';
+            const permIcon = newPermission === 'readwrite' ? '✏️' : '👁️';
+            const permLabel = newPermission === 'readwrite' ? 'Read-Write' : 'Read-Only';
+            const toastType = newPermission === 'readwrite' ? 'success' : 'info';
+
+            showToast(toastType, '🔒 Permission Changed',
+                `"${sessionName}" is now ${permLabel}`, 5000);
+
             updateSessionPermissionUI(sessionId, newPermission);
         };
 
         // Called when owner disconnects/closes a shared session
         terminalSharing.onOwnerDisconnect = (sessionId, owner) => {
             console.log('[Terminal] Owner disconnected:', owner, 'session:', sessionId);
-            showToast('warning', '⚠️ Session Ended', `${owner} closed the shared terminal`);
+
+            const session = sessions.get(sessionId);
+            const sessionName = session?.name || 'Terminal';
+            showToast('warning', '⚠️ Session Ended',
+                `${owner} closed "${sessionName}"`, 5000);
 
             // Close the view-only session
             if (sessions.has(sessionId)) {
@@ -4015,9 +4259,9 @@ function updateSharedTerminalsList() {
         return;
     }
 
-    const sharedSessions = terminalSharing.getSharedSessions();
+    const sharedSessions = terminalSharing.getRemoteSharedSessions();
 
-    console.log('[SharedTerminals] Shared sessions:', sharedSessions);
+    console.log('[SharedTerminals] Remote shared sessions:', sharedSessions);
 
     if (sharedSessions.length === 0) {
         sharedList.innerHTML = `<div style="padding: 20px; text-align: center; color: var(--text-muted); font-size: 11px;">
@@ -4030,23 +4274,25 @@ function updateSharedTerminalsList() {
     let html = '';
 
     // Show shared sessions (clickable to view)
-    sharedSessions.forEach(session => {
-        const isOurs = session.owner === cloudAgentName;
-        const icon = session.shell === 'bash' ? '🐧' : session.shell === 'powershell' ? '⚡' : '💻';
-        const ownerLabel = isOurs ? ' (You)' : ` (${session.owner})`;
-        const clickable = !isOurs ? 'cursor: pointer;' : '';
-        const hoverStyle = !isOurs ? 'transition: opacity 0.2s;' : '';
-        const permIcon = session.permission === 'readwrite' ? '✏️' : '👁️';
-        const permTitle = session.permission === 'readwrite' ? 'Read-Write' : 'Read-Only';
-        const title = !isOurs ? `Click to view (${permTitle})` : `Your shared terminal (${permTitle})`;
+    // Show remote shared sessions (clickable to view)
+    sharedSessions.forEach(sharedSession => {
+        const icon = sharedSession.shell === 'bash' ? '🐧' : sharedSession.shell === 'powershell' ? '⚡' : '💻';
+
+        // ✅ Get actual permission from local session if it exists (reflects per-agent overrides)
+        // Otherwise fall back to the shared session's global permission
+        const localSession = sessions.get(sharedSession.sessionId);
+        const effectivePerm = localSession?.permission || sharedSession.permission || 'readonly';
+
+        const permIcon = effectivePerm === 'readwrite' ? '✏️' : '👁️';
+        const permTitle = effectivePerm === 'readwrite' ? 'Read-Write' : 'Read-Only';
 
         html += `<div class="cloud-agent-item"
-            style="${clickable} ${hoverStyle}"
-            title="${title}"
-            ${!isOurs ? `onclick="viewSharedTerminal('${session.sessionId}', '${session.owner}')"` : ''}
-            ${!isOurs ? `onmouseover="this.style.opacity='0.7'" onmouseout="this.style.opacity='1'"` : ''}>
+            style="cursor: pointer; transition: opacity 0.2s;"
+            title="Click to view (${permTitle}) — shared by ${sharedSession.owner}"
+            onclick="viewSharedTerminal('${sharedSession.sessionId}', '${sharedSession.owner}')"
+            onmouseover="this.style.opacity='0.7'" onmouseout="this.style.opacity='1'">
             <div class="cloud-agent-dot" style="background: var(--accent-cyan);"></div>
-            <span>${icon} ${session.name}${ownerLabel}</span>
+            <span>${icon} ${sharedSession.name} (${sharedSession.owner})</span>
             <span style="margin-left: auto; font-size: 10px; opacity: 0.7;">${permIcon}</span>
         </div>`;
     });
@@ -4142,36 +4388,17 @@ function createSharedTerminalSession(sessionId, sessionInfo, ownerAgent) {
  * @param {boolean} isTyping - True if typing, false if stopped
  */
 function updateTypingIndicator(sessionId, agentName, isTyping) {
-    const panel = document.getElementById(`panel-${sessionId}`);
-    if (!panel) return;
-
-    // Find or create typing indicator element
-    let indicator = panel.querySelector('.typing-indicator');
-
-    if (isTyping) {
-        if (!indicator) {
-            indicator = document.createElement('div');
-            indicator.className = 'typing-indicator';
-            indicator.style.cssText = `
-                position: absolute;
-                bottom: 8px;
-                left: 12px;
-                background: rgba(74, 158, 255, 0.9);
-                color: white;
-                padding: 4px 12px;
-                border-radius: 12px;
-                font-size: 11px;
-                font-weight: 500;
-                z-index: 100;
-                animation: pulse 1.5s ease-in-out infinite;
-            `;
-            panel.appendChild(indicator);
-        }
-        indicator.textContent = `${agentName} is typing...`;
-        indicator.style.display = 'block';
-    } else {
-        if (indicator) {
-            indicator.style.display = 'none';
+    // ✅ Only update the status bar typing indicator (visible for active session)
+    if (sessionId === activeSessionId) {
+        const statusTyping = document.getElementById('statusTyping');
+        if (statusTyping) {
+            if (isTyping) {
+                statusTyping.textContent = `✏️ ${agentName} is typing...`;
+                statusTyping.style.display = 'inline';
+            } else {
+                statusTyping.style.display = 'none';
+                statusTyping.textContent = '';
+            }
         }
     }
 }
@@ -4274,20 +4501,8 @@ function updateSessionPermissionUI(sessionId, permission) {
         session.permission = permission;
     }
 
-    // Update session badge
-    updateSessionBadge(sessionId, permission);
-
-    // Update tab styling
-    const tab = document.getElementById(`tab-${sessionId}`);
-    if (tab) {
-        if (permission === 'readwrite') {
-            tab.classList.add('write-access');
-            tab.classList.remove('read-only');
-        } else {
-            tab.classList.add('read-only');
-            tab.classList.remove('write-access');
-        }
-    }
+    // Use common helper to update all UI (badge, styling, lists)
+    updatePermissionUI(sessionId, permission);
 }
 
 /**
@@ -4357,6 +4572,195 @@ function requestWritePermission(sessionId) {
     }
 }
 
+/**
+ * Toggle global permission for a shared session (owner only)
+ * Affects all agents that don't have a custom per-agent permission
+ * @param {string} sessionId - Session ID
+ */
+function toggleGlobalPermission(sessionId) {
+    const session = sessions.get(sessionId);
+    if (!session || !session.isShared || session.owner) return;
+
+    const newPerm = session.permission === 'readwrite' ? 'readonly' : 'readwrite';
+    session.permission = newPerm;
+
+    if (terminalSharing) {
+        terminalSharing.updateSessionPermission(sessionId, newPerm);
+    }
+
+    const permLabel = newPerm === 'readwrite' ? 'Read-Write' : 'Read-Only';
+    showToast('success', '🔒 Permission Changed', `Global permission set to ${permLabel}`);
+
+    // Use common helper to update all UI elements
+    updatePermissionUI(sessionId, newPerm);
+}
+window.toggleGlobalPermission = toggleGlobalPermission;
+
+/**
+ * Toggle per-agent permission for a shared session (owner only)
+ * Sets a custom permission for a specific agent, overriding the global default
+ * @param {string} sessionId - Session ID
+ * @param {string} agentName - Agent to toggle permission for
+ */
+function toggleAgentPermission(sessionId, agentName) {
+    const session = sessions.get(sessionId);
+    if (!session || !session.isShared || session.owner) return;
+
+    // Initialize agentPermissions map if not exists
+    if (!session.agentPermissions) {
+        session.agentPermissions = {};
+    }
+
+    const currentPerm = session.agentPermissions[agentName] || session.permission || 'readonly';
+    const newPerm = currentPerm === 'readwrite' ? 'readonly' : 'readwrite';
+    session.agentPermissions[agentName] = newPerm;
+
+    // Broadcast permission update to the specific agent
+    if (terminalSharing && cloudConnected) {
+        terminalSharing.sendData({
+            type: 'permission-update',
+            sessionId: sessionId,
+            permission: newPerm,
+            targetAgent: agentName
+        }, agentName);
+    }
+
+    const permLabel = newPerm === 'readwrite' ? 'Read-Write' : 'Read-Only';
+    showToast('success', '🔒 Permission Changed', `${agentName} is now ${permLabel}`);
+    updateMySharesList();
+}
+window.toggleAgentPermission = toggleAgentPermission;
+
+// ========================================
+// Viewer Context Menu (for agent permissions)
+// ========================================
+let viewerContextMenuTarget = { sessionId: null, agentName: null };
+
+function showViewerContextMenu(event, sessionId, agentName) {
+    event.preventDefault();
+    event.stopPropagation();
+
+    viewerContextMenuTarget = { sessionId, agentName };
+
+    const menu = document.getElementById('viewerContextMenu');
+    if (!menu) return;
+
+    // Position menu at cursor
+    menu.style.left = `${event.pageX}px`;
+    menu.style.top = `${event.pageY}px`;
+    menu.classList.add('visible');
+
+    console.log('[ViewerContextMenu] Opened for:', agentName, 'session:', sessionId);
+}
+window.showViewerContextMenu = showViewerContextMenu;
+
+function viewerContextMenuAction(action) {
+    const { sessionId, agentName } = viewerContextMenuTarget;
+    hideContextMenus();
+
+    if (!sessionId || !agentName) {
+        console.warn('[ViewerContextMenu] No target set');
+        return;
+    }
+
+    const session = sessions.get(sessionId);
+    if (!session || !session.isShared || session.owner) {
+        console.warn('[ViewerContextMenu] Invalid session for permission change');
+        return;
+    }
+
+    switch (action) {
+        case 'readonly':
+            setAgentPermission(sessionId, agentName, 'readonly');
+            break;
+        case 'readwrite':
+            setAgentPermission(sessionId, agentName, 'readwrite');
+            break;
+        case 'reset':
+            resetAgentPermission(sessionId, agentName);
+            break;
+    }
+}
+window.viewerContextMenuAction = viewerContextMenuAction;
+
+function setAgentPermission(sessionId, agentName, permission) {
+    const session = sessions.get(sessionId);
+    if (!session) return;
+
+    // Initialize agentPermissions map if not exists
+    if (!session.agentPermissions) {
+        session.agentPermissions = {};
+    }
+
+    session.agentPermissions[agentName] = permission;
+
+    // Broadcast permission update to the specific agent
+    if (terminalSharing && cloudConnected) {
+        terminalSharing.sendData({
+            type: 'permission-update',
+            sessionId: sessionId,
+            permission: permission,
+            targetAgent: agentName
+        }, agentName);
+    }
+
+    const permLabel = permission === 'readwrite' ? 'Read-Write' : 'Read-Only';
+    showToast('success', '🔒 Permission Set', `${agentName} → ${permLabel}`);
+    updateMySharesList();
+}
+
+function resetAgentPermission(sessionId, agentName) {
+    const session = sessions.get(sessionId);
+    if (!session || !session.agentPermissions) return;
+
+    delete session.agentPermissions[agentName];
+
+    // Notify agent to use global permission
+    if (terminalSharing && cloudConnected) {
+        const globalPerm = session.permission || 'readonly';
+        terminalSharing.sendData({
+            type: 'permission-update',
+            sessionId: sessionId,
+            permission: globalPerm,
+            targetAgent: agentName
+        }, agentName);
+    }
+
+    showToast('info', '🔄 Permission Reset', `${agentName} → Using global permission`);
+    updateMySharesList();
+}
+
+/**
+ * Reset all permissions (global + all agent overrides) to readonly
+ * @param {string} sessionId - Session ID
+ */
+function resetAllPermissions(sessionId) {
+    const session = sessions.get(sessionId);
+    if (!session || !session.isShared || session.owner) {
+        showToast('warning', 'Not Allowed', 'Can only reset permissions on your shared sessions');
+        return;
+    }
+
+    // Reset global permission to readonly
+    session.permission = 'readonly';
+
+    // Clear all agent-specific permissions
+    if (session.agentPermissions) {
+        session.agentPermissions = {};
+    }
+
+    // Broadcast global permission update to all agents
+    if (terminalSharing && cloudConnected) {
+        terminalSharing.updateSessionPermission(sessionId, 'readonly');
+    }
+
+    showToast('success', '🔄 All Permissions Reset', 'All permissions set to Read-Only');
+
+    // Use common helper to update all UI elements
+    updatePermissionUI(sessionId, 'readonly');
+}
+window.resetAllPermissions = resetAllPermissions;
+
 function shareTerminal(sessionId, permission = 'readonly') {
     console.log('[ShareTerminal] Called with sessionId:', sessionId, 'permission:', permission);
     console.log('[ShareTerminal] cloudConnected:', cloudConnected);
@@ -4402,8 +4806,17 @@ function shareTerminal(sessionId, permission = 'readonly') {
         updateSharedTerminalsList(); // Refresh shared terminals list
         updateSidebarBadges(); // Update sidebar badges
         updateMySharesList(); // Update my shares list
+
         const permLabel = permission === 'readwrite' ? 'Read-Write' : 'Read-Only';
-        showToast('success', '📤 Terminal Shared', `"${session.name}" is now shared (${permLabel})`);
+        const connectedCount = (terminalSharing && cloudConnected)
+            ? terminalSharing.getConnectedUsers().filter(a => a !== cloudAgentName).length
+            : 0;
+        const viewersMsg = connectedCount > 0
+            ? ` — ${connectedCount} viewer${connectedCount > 1 ? 's' : ''} connected`
+            : ' — No viewers yet';
+
+        showToast('success', '📤 Terminal Shared',
+            `"${session.name}" is now shared (${permLabel})${viewersMsg}`, 5000);
         console.log('[Terminal] Shared session:', sessionId, session.name);
     } else {
         session.isShared = false;
@@ -4420,6 +4833,8 @@ function unshareTerminal(sessionId) {
         return;
     }
 
+    const sessionName = session.name || 'Terminal';
+
     // Unmark session locally
     session.isShared = false;
     session.owner = null;
@@ -4434,7 +4849,7 @@ function unshareTerminal(sessionId) {
     }
 
     updateTabSharedIndicator(sessionId, false);  // Hide shared badge
-    showToast('success', '🛑 Sharing Stopped', `"${session.name}" is no longer shared`);
+    showToast('success', '🛑 Sharing Stopped', `"${sessionName}" is no longer shared`, 4000);
     console.log('[Terminal] Unshared session:', sessionId);
 }
 
@@ -4481,6 +4896,18 @@ function initSftpBrowser() {
 }
 
 function toggleSftpPanel() {
+    // Check if active session is SSH
+    if (activeSessionId) {
+        const session = sessions.get(activeSessionId);
+        if (!session || session.type !== 'ssh') {
+            showToast('warning', 'SFTP Unavailable', 'SFTP requires an active SSH connection. Select an SSH tab first.');
+            return;
+        }
+    } else {
+        showToast('warning', 'No Active Session', 'Open an SSH connection first to use SFTP.');
+        return;
+    }
+
     // Initialize SFTP browser if not done
     if (!sftpBrowser) {
         initSftpBrowser();
@@ -4489,13 +4916,8 @@ function toggleSftpPanel() {
     // Switch to SFTP tab in sidebar
     switchSidebarTab('sftp');
 
-    // If there's an active SSH session, open SFTP for it
-    if (activeSessionId) {
-        const session = sessions.get(activeSessionId);
-        if (session && session.type === 'ssh') {
-            openSftpForSession(activeSessionId);
-        }
-    }
+    // Open SFTP for the active SSH session
+    openSftpForSession(activeSessionId);
 }
 
 // Make globally accessible for toolbar button
@@ -4557,6 +4979,9 @@ window.addEventListener('load', async () => {
         // Adjust terminal wrapper top margin
         const wrapper = document.getElementById('terminalWrapper');
         if (wrapper) wrapper.style.paddingTop = '40px';
+
+        // Disable SLS-dependent buttons in test mode
+        updateSlsDependentButtons(false);
     }
 
     // ========================================
@@ -4625,12 +5050,14 @@ window.addEventListener('load', async () => {
 
             // Set state to online on successful authentication
             slsCurrentState = 'online';
+            updateSlsDependentButtons(true);
         } catch (error) {
             console.warn('⚠️ SLS is offline');
 
             // Set state to offline
             const previousState = slsCurrentState;
             slsCurrentState = 'offline';
+            updateSlsDependentButtons(false);
 
             // Show notification only on state change (null→offline means first time)
             if (previousState !== 'offline') {
