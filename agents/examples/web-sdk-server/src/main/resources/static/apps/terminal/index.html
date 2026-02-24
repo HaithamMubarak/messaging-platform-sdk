@@ -3,9 +3,23 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=yes">
+
+    <!-- PWA Configuration -->
     <meta name="mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-capable" content="yes">
-    <title>SDK Local Service - Terminal</title>
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="theme-color" content="#1a1a2e">
+    <link rel="manifest" href="manifest.json">
+
+    <!-- App Description -->
+    <meta name="description" content="Web-based terminal emulator with SSH, cloud sharing, and SFTP support">
+    <meta name="author" content="HM Dev">
+
+    <!-- Favicons & App Icons -->
+    <link rel="icon" type="image/png" sizes="192x192" href="icons/icon-192x192.png">
+    <link rel="apple-touch-icon" sizes="192x192" href="icons/icon-192x192.png">
+
+    <title>SDK Terminal - Web Terminal Emulator</title>
 
     <!-- xterm.js - Local Libraries -->
     <link rel="stylesheet" href="../../lib/xterm.css"/>
@@ -182,6 +196,12 @@
         <button class="toolbar-btn" onclick="closeActiveTab()" title="Close Active Tab">
             <span class="icon">✖️</span>
             <span class="label">Close</span>
+        </button>
+        <div class="toolbar-separator"></div>
+        <button class="toolbar-btn" id="pwaInstallBtn" onclick="promptPWAInstall()"
+                title="Install SDK Terminal as an App" style="display: none;">
+            <span class="icon">📲</span>
+            <span class="label">Install</span>
         </button>
     </div>
 
@@ -957,6 +977,121 @@
             </div>
         </div>
     </div>
+
+    <!-- PWA Service Worker Registration -->
+    <script>
+        // Register service worker for offline functionality
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', () => {
+                navigator.serviceWorker.register('./sw.js')
+                    .then((registration) => {
+                        console.log('✅ PWA: Service Worker registered successfully:', registration.scope);
+
+                        // Check for updates
+                        registration.addEventListener('updatefound', () => {
+                            const newWorker = registration.installing;
+                            console.log('🔄 PWA: New service worker found, installing...');
+
+                            newWorker.addEventListener('statechange', () => {
+                                if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
+                                    console.log('✨ PWA: New version available! Reload to update.');
+                                    // Optionally show a toast notification
+                                    if (typeof showToast === 'function') {
+                                        showToast('info', '🔄 Update Available',
+                                            'A new version is available. Reload to update.', 8000);
+                                    }
+                                }
+                            });
+                        });
+                    })
+                    .catch((error) => {
+                        console.warn('⚠️ PWA: Service Worker registration failed:', error);
+                    });
+            });
+
+            // Listen for service worker controlling the page
+            navigator.serviceWorker.addEventListener('controllerchange', () => {
+                console.log('🔄 PWA: Service Worker controller changed - reloading...');
+                window.location.reload();
+            });
+        } else {
+            console.warn('⚠️ PWA: Service Workers not supported in this browser');
+        }
+
+        // Handle install prompt
+        let deferredPrompt;
+        window.addEventListener('beforeinstallprompt', (e) => {
+            // Prevent the mini-infobar from appearing on mobile
+            e.preventDefault();
+            // Stash the event so it can be triggered later
+            deferredPrompt = e;
+            console.log('💡 PWA: Install prompt available');
+
+            // Show the install button
+            const installBtn = document.getElementById('pwaInstallBtn');
+            if (installBtn) {
+                installBtn.style.display = 'flex';
+            }
+
+            // Optionally show custom install button or notification
+            if (typeof showToast === 'function') {
+                showToast('info', '📲 Install App',
+                    'You can install SDK Terminal as an app for offline use! Click the Install button.', 8000);
+            }
+        });
+
+        // Optional: Function to trigger install prompt
+        window.promptPWAInstall = function() {
+            if (deferredPrompt) {
+                deferredPrompt.prompt();
+                deferredPrompt.userChoice.then((choiceResult) => {
+                    if (choiceResult.outcome === 'accepted') {
+                        console.log('✅ PWA: User accepted the install prompt');
+                        // Hide the install button
+                        const installBtn = document.getElementById('pwaInstallBtn');
+                        if (installBtn) {
+                            installBtn.style.display = 'none';
+                        }
+                        if (typeof showToast === 'function') {
+                            showToast('success', '✅ App Installed',
+                                'SDK Terminal has been installed successfully!', 4000);
+                        }
+                    } else {
+                        console.log('❌ PWA: User dismissed the install prompt');
+                    }
+                    deferredPrompt = null;
+                });
+            } else {
+                // Already installed or not available
+                if (window.matchMedia('(display-mode: standalone)').matches ||
+                    window.navigator.standalone === true) {
+                    if (typeof showToast === 'function') {
+                        showToast('info', 'ℹ️ Already Installed',
+                            'SDK Terminal is already installed!', 3000);
+                    }
+                } else {
+                    if (typeof showToast === 'function') {
+                        showToast('warning', '⚠️ Not Available',
+                            'Install prompt is not available. Check PWA requirements (HTTPS, valid icons, service worker).', 5000);
+                    }
+                }
+            }
+        };
+
+        // Detect if running as installed PWA
+        window.addEventListener('load', () => {
+            if (window.matchMedia('(display-mode: standalone)').matches ||
+                window.navigator.standalone === true) {
+                console.log('✅ PWA: Running as installed app');
+                document.body.classList.add('pwa-installed');
+                // Hide install button if already installed
+                const installBtn = document.getElementById('pwaInstallBtn');
+                if (installBtn) {
+                    installBtn.style.display = 'none';
+                }
+            }
+        });
+    </script>
 </body>
 </html>
 
