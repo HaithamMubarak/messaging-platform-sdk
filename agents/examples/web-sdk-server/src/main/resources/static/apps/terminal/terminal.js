@@ -5672,3 +5672,165 @@ if (TEST_MODE_NO_SLS) {
     console.log('  Ctrl+Shift+T       - Quick toggle test mode');
     console.log('');
 }
+
+// ========================================
+// Mobile Responsiveness
+// ========================================
+
+/**
+ * Toggle mobile sidebar visibility
+ */
+function toggleMobileSidebar() {
+    const sidebar = document.getElementById('sidebar');
+    const body = document.body;
+
+    if (sidebar.classList.contains('mobile-visible')) {
+        // Hide sidebar
+        sidebar.classList.remove('mobile-visible');
+        body.classList.remove('sidebar-open');
+    } else {
+        // Show sidebar
+        sidebar.classList.add('mobile-visible');
+        body.classList.add('sidebar-open');
+    }
+}
+
+/**
+ * Close mobile sidebar
+ */
+function closeMobileSidebar() {
+    const sidebar = document.getElementById('sidebar');
+    const body = document.body;
+    sidebar.classList.remove('mobile-visible');
+    body.classList.remove('sidebar-open');
+}
+
+/**
+ * Handle mobile back button
+ * Priority:
+ * 1. Close any open modal
+ * 2. Close mobile sidebar if open
+ * 3. Ask confirmation before leaving if there are active sessions
+ */
+function handleMobileBackButton(event) {
+    // Check for open modals
+    const modals = [
+        'cloudModalOverlay',
+        'sshModalOverlay',
+        'settingsModalOverlay',
+        'helpModalOverlay'
+    ];
+
+    for (const modalId of modals) {
+        const modal = document.getElementById(modalId);
+        if (modal && modal.style.display !== 'none') {
+            event.preventDefault();
+            modal.style.display = 'none';
+            // Push a new state so back button works again
+            window.history.pushState({ modal: 'closed' }, '');
+            return;
+        }
+    }
+
+    // Check if mobile sidebar is open
+    const sidebar = document.getElementById('sidebar');
+    if (sidebar && sidebar.classList.contains('mobile-visible')) {
+        event.preventDefault();
+        closeMobileSidebar();
+        window.history.pushState({ sidebar: 'closed' }, '');
+        return;
+    }
+
+    // Check for active sessions and warn before leaving
+    if (sessions.size > 0) {
+        const message = `You have ${sessions.size} active session(s). Are you sure you want to leave?`;
+        event.returnValue = message; // For Chrome
+        return message; // For Firefox
+    }
+}
+
+/**
+ * Initialize mobile features
+ */
+function initMobileFeatures() {
+    // Handle back button
+    window.addEventListener('popstate', handleMobileBackButton);
+
+    // Add initial history state
+    window.history.pushState({ initial: true }, '');
+
+    // ✅ Setup modal overlay click handlers to close modals
+    setupModalOverlayHandlers();
+
+    // Close sidebar when clicking overlay (on body::before)
+    document.body.addEventListener('click', (e) => {
+        const sidebar = document.getElementById('sidebar');
+        if (sidebar && sidebar.classList.contains('mobile-visible')) {
+            // Check if click is outside sidebar
+            const rect = sidebar.getBoundingClientRect();
+            if (e.clientX < rect.left || e.clientX > rect.right ||
+                e.clientY < rect.top || e.clientY > rect.bottom) {
+                closeMobileSidebar();
+            }
+        }
+    });
+
+    // Prevent zoom on double-tap for better mobile UX
+    let lastTouchEnd = 0;
+    document.addEventListener('touchend', (event) => {
+        const now = Date.now();
+        if (now - lastTouchEnd <= 300) {
+            event.preventDefault();
+        }
+        lastTouchEnd = now;
+    }, false);
+
+    // Auto-close sidebar when switching to a terminal tab (mobile only)
+    if (window.innerWidth <= 480) {
+        // Override switchToSession to auto-close sidebar on mobile
+        const originalSwitchToSession = window.switchToSession;
+        window.switchToSession = function(sessionId) {
+            originalSwitchToSession.call(this, sessionId);
+            closeMobileSidebar();
+        };
+    }
+}
+
+/**
+ * Setup click handlers for modal overlays to close on outside click
+ */
+function setupModalOverlayHandlers() {
+    const modalConfigs = [
+        { overlayId: 'cloudModalOverlay', modalId: 'cloudModal', closeFunc: closeCloudModal },
+        { overlayId: 'sshModalOverlay', modalId: null, closeFunc: closeSshModal },
+        { overlayId: 'settingsModalOverlay', modalId: null, closeFunc: closeSettingsModal },
+        { overlayId: 'helpModalOverlay', modalId: null, closeFunc: closeHelpModal }
+    ];
+
+    modalConfigs.forEach(config => {
+        const overlay = document.getElementById(config.overlayId);
+        if (overlay) {
+            overlay.addEventListener('click', (e) => {
+                // Close if clicking on overlay (not modal content)
+                if (e.target === overlay) {
+                    config.closeFunc();
+                }
+            });
+        }
+    });
+}
+
+// Initialize mobile features on load
+if (typeof window !== 'undefined') {
+    window.addEventListener('DOMContentLoaded', initMobileFeatures);
+}
+
+// Warn before closing page with active sessions
+window.addEventListener('beforeunload', (e) => {
+    if (sessions.size > 0) {
+        const message = `You have ${sessions.size} active session(s). Are you sure you want to leave?`;
+        e.returnValue = message;
+        return message;
+    }
+});
+
