@@ -2021,9 +2021,13 @@ function initTerminal(sessionId) {
         // ✅ Unified routing via dataSender (works for both WebSocket and Cloud)
         if (foundSession.dataSender && foundSession.dataSender.isReady) {
             // CMD and PowerShell need \r\n for Enter
-            // Bash manages its own line endings - send plain \r only
+            // Bash and SSH manage their own line endings - send plain \r only
             const shell = foundSession.config?.shell || 'cmd';
-            if (data === '\r' && (shell === 'cmd' || shell === 'powershell')) {
+            const sessionType = foundSession.config?.type || 'local';
+
+            // For SSH sessions, always send \r only (SSH server handles line endings)
+            // For local terminals: cmd/powershell need \r\n, bash needs \r only
+            if (data === '\r' && sessionType !== 'ssh' && (shell === 'cmd' || shell === 'powershell')) {
                 foundSession.dataSender.send('\r\n');
             } else {
                 foundSession.dataSender.send(data);
@@ -4086,14 +4090,12 @@ async function connectToCloud() {
         const messagingBtn = document.getElementById('messagingToolbarBtn');
         if (messagingBtn) {
             messagingBtn.classList.add('active');
-            messagingBtn.style.background = 'linear-gradient(135deg, #4ade80 0%, #22c55e 100%)';
             messagingBtn.title = `Messaging Platform Connected as ${agentName}`;
         }
         // Also support old ID for compatibility
         let cloudBtn = document.getElementById('cloudToolbarBtn');
         if (cloudBtn) {
             cloudBtn.classList.add('active');
-            cloudBtn.style.background = 'linear-gradient(135deg, #4ade80 0%, #22c55e 100%)';
             cloudBtn.title = `Messaging Platform Connected as ${agentName}`;
         }
 
@@ -4904,7 +4906,7 @@ let activeNoteId = null;
 // Load notes from backend
 async function loadNotes() {
     try {
-        const response = await slsFetch(`${MLS_URL}/notes`);
+        const response = await slsFetch(`${MLS_URL}/api/notes`);
         if (response.ok) {
             const notesList = await response.json();
             notes.clear();
@@ -4922,7 +4924,7 @@ async function loadNotes() {
 // Create a new note
 async function createNewNote() {
     try {
-        const response = await slsFetch(`${MLS_URL}/notes`, {
+        const response = await slsFetch(`${MLS_URL}/api/notes`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
@@ -5071,7 +5073,7 @@ async function toggleNoteSharing(noteId) {
     note.shared = !note.shared;
 
     try {
-        const response = await slsFetch(`${MLS_URL}/notes/${noteId}`, {
+        const response = await slsFetch(`${MLS_URL}/api/notes/${noteId}`, {
             method: 'PUT',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(note)
@@ -5135,7 +5137,7 @@ async function saveNote(noteId) {
     if (statusSpan) statusSpan.textContent = 'Saving...';
 
     try {
-        const response = await slsFetch(`${MLS_URL}/notes/${noteId}`, {
+        const response = await slsFetch(`${MLS_URL}/api/notes/${noteId}`, {
             method: 'PUT',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(note)
@@ -5167,7 +5169,7 @@ async function deleteNote(noteId) {
     if (!confirm('Are you sure you want to delete this note?')) return;
 
     try {
-        const response = await slsFetch(`${MLS_URL}/notes/${noteId}`, {
+        const response = await slsFetch(`${MLS_URL}/api/notes/${noteId}`, {
             method: 'DELETE'
         });
 
@@ -5329,7 +5331,7 @@ async function duplicateNote(noteId) {
     if (!original) return;
 
     try {
-        const response = await slsFetch(`${MLS_URL}/notes`, {
+        const response = await slsFetch(`${MLS_URL}/api/notes`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({

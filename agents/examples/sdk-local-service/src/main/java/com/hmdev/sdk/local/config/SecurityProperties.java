@@ -35,7 +35,9 @@ public class SecurityProperties {
         "/",                  // Root
         "/index.html",        // Index page
         "/terminal/stream",   // WebSocket streaming (sessionId auth)
-        "/cloud/connection"   // Cloud configuration
+        "/cloud/connection",  // Cloud configuration
+        "/api/notes",         // Notes API (all methods)
+        "/api/notes/**"       // Notes API with IDs
     );
 
     /**

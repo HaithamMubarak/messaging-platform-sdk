@@ -175,8 +175,8 @@
         <div class="toolbar-separator"></div>
         <button class="toolbar-btn" onclick="openMessagingModal()" title="Connect to Messaging Platform for Terminal Sharing"
                 id="messagingToolbarBtn">
-            <span class="icon">💬</span>
-            <span class="label">Messaging</span>
+            <span class="icon">🔗</span>
+            <span class="label">Remote Share</span>
         </button>
         <div class="toolbar-separator"></div>
         <button class="toolbar-btn sls-dependent" onclick="toggleSftpPanel()" title="SFTP File Browser" id="sftpToolbarBtn">
@@ -582,10 +582,10 @@
 
                 <!-- Tab Navigation -->
                 <div style="display: flex; border-bottom: 1px solid var(--border-color); background: var(--bg-panel);">
-                    <div class="help-tab active" onclick="switchHelpTab('quickstart')" id="tab-quickstart">
+                    <div class="help-tab" onclick="switchHelpTab('quickstart')" id="tab-quickstart">
                         🚀 Local Service Setup
                     </div>
-                    <div class="help-tab" onclick="switchHelpTab('installation')" id="tab-installation">
+                    <div class="help-tab active" onclick="switchHelpTab('installation')" id="tab-installation">
                         📲 Install App
                     </div>
                     <div class="help-tab" onclick="switchHelpTab('shortcuts')" id="tab-shortcuts">
@@ -597,7 +597,7 @@
                 </div>
 
                 <!-- Installation Tab -->
-                <div class="help-content" id="content-installation" style="padding: 24px;">
+                <div class="help-content active" id="content-installation" style="padding: 24px;">
                     <h3 style="font-size: 16px; color: var(--accent-cyan); margin-bottom: 16px;">📲 Install as Progressive Web App (PWA)</h3>
 
                     <div style="background: linear-gradient(135deg, rgba(74, 158, 255, 0.1) 0%, rgba(34, 211, 238, 0.1) 100%); padding: 20px; border-radius: 8px; border: 1px solid var(--accent-blue); margin-bottom: 24px;">
@@ -704,7 +704,7 @@
                 </div>
 
                 <!-- Local Service Setup Tab -->
-                <div class="help-content active" id="content-quickstart" style="padding: 24px;">
+                <div class="help-content" id="content-quickstart" style="padding: 24px;">
                     <h3 style="font-size: 16px; color: var(--accent-cyan); margin-bottom: 16px;">🚀 Local Service Setup</h3>
 
                     <!-- Download Section - GitHub Links -->
