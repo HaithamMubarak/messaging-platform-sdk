@@ -185,20 +185,22 @@ public class TerminalWebSocketHandler extends TextWebSocketHandler {
             if (clients != null) {
                 clients.remove(session);
                 if (clients.isEmpty()) {
-                    log.info("[WebSocket] All clients disconnected for session: {}, closing terminal session", sessionId);
+                    log.info("[WebSocket] All clients disconnected for session: {}", sessionId);
+                    log.info("[WebSocket] Session {} will remain active until user explicitly closes tab", sessionId);
 
-                    // Clean up resources
+                    // Clean up WebSocket resources ONLY - keep terminal session AND streaming thread alive!
                     sessionClients.remove(sessionId);
                     inputBuffers.remove(sessionId);
-                    streamingThreads.remove(sessionId);
+                    // ✅ DO NOT remove streaming thread! It should continue running.
+                    // When user reconnects (e.g., page refresh), the thread will still be there
+                    // and will continue broadcasting to the new WebSocket client.
 
-                    // Close the terminal session (SSH or local)
-                    try {
-                        terminalService.closeSession(sessionId);
-                        log.info("[WebSocket] Terminal session closed: {}", sessionId);
-                    } catch (Exception e) {
-                        log.error("[WebSocket] Failed to close terminal session {}: {}", sessionId, e.getMessage());
-                    }
+                    // ✅ DO NOT close terminal session here!
+                    // Sessions are persisted in DB and should only be closed when:
+                    // 1. User explicitly clicks the "X" button on tab (DELETE request)
+                    // 2. SSH connection dies (detected via SSH_DISCONNECTED banner)
+                    // This allows tabs to survive page refresh!
+
                 } else {
                     log.info("[WebSocket] Client disconnected, {} client(s) remaining for session: {}", clients.size(), sessionId);
                 }

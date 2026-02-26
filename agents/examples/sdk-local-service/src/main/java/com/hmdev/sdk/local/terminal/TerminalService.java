@@ -340,37 +340,38 @@ public class TerminalService {
     }
     
     /**
-     * Get all active terminal sessions (only returns sessions that are ALIVE in memory)
+     * Get all active terminal sessions (includes both alive and disconnected sessions)
      *
-     * This prevents restoring tabs for dead SSH connections that are still marked
-     * as 'active' in the database. If a session exists in DB but not in memory,
-     * it gets marked as 'closed' automatically.
+     * Sessions remain in DB with status='active' even after SLS restart or SSH disconnect.
+     * Tabs persist across restarts and show "Resume" button for disconnected sessions.
+     * Sessions are ONLY removed when user explicitly closes the tab (clicks X).
      *
-     * @return List of active sessions that are actually running
+     * @return List of all active sessions (with isAlive flag indicating memory state)
      */
     public List<TerminalSession> getAllActiveSessions() {
         List<TerminalSession> dbSessions = sessionRepository.findByStatus("active");
 
-        // Filter out sessions that are NOT alive in memory
-        List<TerminalSession> aliveSessions = dbSessions.stream()
-            .filter(dbSession -> {
-                String sessionId = dbSession.getSessionId();
-                boolean isAlive = sessions.containsKey(sessionId);
+        // DO NOT filter out dead sessions - return ALL with isAlive flag
+        // This allows tabs to persist across SLS restart
+        dbSessions.forEach(dbSession -> {
+            String sessionId = dbSession.getSessionId();
+            boolean isAlive = sessions.containsKey(sessionId);
 
-                if (!isAlive) {
-                    // Session is in DB but NOT in memory - mark it as closed
-                    log.info("[GetActiveSessions] Session {} is dead (not in memory), marking as closed", sessionId);
-                    dbSession.setStatus("closed");
-                    dbSession.setClosedAt(LocalDateTime.now());
-                    sessionRepository.save(dbSession);
-                }
+            // Set transient field to indicate if session is alive in memory
+            // Frontend uses this to show Resume button for disconnected sessions
+            dbSession.setIsAlive(isAlive);
 
-                return isAlive;
-            })
-            .collect(java.util.stream.Collectors.toList());
+            if (!isAlive) {
+                log.debug("[GetActiveSessions] Session {} is in DB but not in memory (disconnected)", sessionId);
+            }
+        });
 
-        log.debug("[GetActiveSessions] Found {} alive sessions out of {} in DB", aliveSessions.size(), dbSessions.size());
-        return aliveSessions;
+        log.info("[GetActiveSessions] Returning {} sessions ({} alive, {} disconnected)",
+                 dbSessions.size(),
+                 dbSessions.stream().filter(s -> s.getIsAlive() != null && s.getIsAlive()).count(),
+                 dbSessions.stream().filter(s -> s.getIsAlive() == null || !s.getIsAlive()).count());
+
+        return dbSessions;
     }
     
     /**

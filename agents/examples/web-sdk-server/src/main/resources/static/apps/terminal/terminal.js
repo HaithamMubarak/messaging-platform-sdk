@@ -875,6 +875,12 @@ function getTabOrder(sessionId) {
 
 /**
  * Restore tabs from backend on page load
+ *
+ * Tab Persistence Strategy:
+ * - Tabs ALWAYS persist in DB (even after SLS restart or SSH disconnect)
+ * - Page refresh: Restore tabs that were open before refresh (from localStorage)
+ * - SLS restart: Restore ALL tabs with "Resume" button for disconnected ones
+ * - Tabs only disappear when user explicitly closes them (clicks X)
  */
 async function restoreSavedTabs() {
     try {
@@ -887,12 +893,14 @@ async function restoreSavedTabs() {
         const openTabs = getOpenTabs();
         console.log('[TabPersistence] Tabs open before refresh:', openTabs);
 
+        // Check if this is a page refresh or first load after SLS restart
+        const isPageRefresh = openTabs.length > 0;
+
         // Filter sessions to restore:
-        // 1. Must be in the openTabs list (was open before refresh)
-        // 2. Must be active status
-        // 3. Must have autoRestore enabled (or not explicitly disabled)
-        const toRestore = savedSessions
-            .filter(s => {
+        let toRestore;
+        if (isPageRefresh) {
+            // Page refresh: Only restore tabs that were open before
+            toRestore = savedSessions.filter(s => {
                 const shouldRestore = openTabs.includes(s.sessionId) &&
                                      s.status === 'active' &&
                                      s.autoRestore !== false;
@@ -900,10 +908,17 @@ async function restoreSavedTabs() {
                     console.log(`[TabPersistence] Skipping session ${s.sessionId} - not in openTabs`);
                 }
                 return shouldRestore;
-            })
-            .sort((a, b) => (a.tabOrder || 0) - (b.tabOrder || 0));
+            });
+            console.log('[TabPersistence] Page refresh detected - restoring', toRestore.length, 'previously open tabs');
+        } else {
+            // First load or SLS restart: Restore ALL active sessions
+            // (disconnected sessions will show Resume button)
+            toRestore = savedSessions.filter(s => s.status === 'active' && s.autoRestore !== false);
+            console.log('[TabPersistence] First load - restoring', toRestore.length, 'active sessions from DB');
+        }
 
-        console.log('[TabPersistence] Found', toRestore.length, 'sessions to restore');
+        // Sort by tab order
+        toRestore.sort((a, b) => (a.tabOrder || 0) - (b.tabOrder || 0));
 
         for (const dbSession of toRestore) {
             await restoreTab(dbSession);
@@ -1020,11 +1035,10 @@ async function restoreTab(dbSession) {
             }
         }, 200);
 
-        // Check if backend connection is still alive
-        console.log('[TabRestore] Checking if backend connection is alive for:', sessionId);
-        const checkResponse = await fetch(`${MLS_URL}/terminal/${sessionId}`);
+        // Check if backend connection is alive (use isAlive field from API)
+        const isAlive = dbSession.isAlive === true;
 
-        if (checkResponse.ok) {
+        if (isAlive) {
             // ✅ Backend connection is ALIVE! Auto-reconnect WebSocket
             console.log('[TabRestore] Backend connection alive, auto-connecting WebSocket:', sessionId);
             terminal.clear();

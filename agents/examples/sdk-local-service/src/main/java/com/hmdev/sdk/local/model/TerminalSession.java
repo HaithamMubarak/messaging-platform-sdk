@@ -55,5 +55,9 @@ public class TerminalSession {
 
     @Column(name = "source")
     private String source; // Agent name that is sharing this terminal (empty for local terminals)
+
+    // Transient fields (not stored in DB, computed at runtime)
+    @Transient
+    private Boolean isAlive; // Is this session alive in backend memory? (null = unknown, true = alive, false = disconnected)
 }
 
