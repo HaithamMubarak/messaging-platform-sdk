@@ -1,5 +1,5 @@
 /**
- * AgentInteractionBase - Abstract base class for real-time multi-agent applications
+ * UserConnectionBase - Abstract base class for real-time multi-user applications
  * Provides common functionality for games, file sharing, collaboration tools, and more
  *
  * Features:
@@ -15,15 +15,15 @@
  * - File sharing (QuickShare)
  * - Collaboration tools (whiteboard, terminal sharing)
  * - Chat applications
- * - Any multi-agent real-time interaction
+ * - Any multi-user real-time interaction
  *
- * @class AgentInteractionBase
+ * @class UserConnectionBase
  * @abstract
  */
-class AgentInteractionBase {
+class UserConnectionBase {
     constructor(options = {}) {
-        if (this.constructor === AgentInteractionBase) {
-            throw new Error('AgentInteractionBase is abstract and cannot be instantiated directly');
+        if (this.constructor === UserConnectionBase) {
+            throw new Error('UserConnectionBase is abstract and cannot be instantiated directly');
         }
 
         this.options = {
@@ -88,7 +88,7 @@ class AgentInteractionBase {
         // Event emitter for custom events
         this.eventHandlers = new Map();
 
-        console.log('Created AgentInteractionBase instance with options:', this.options);
+        console.log('Created UserConnectionBase instance with options:', this.options);
     }
 
     // =========================================================================
@@ -139,7 +139,7 @@ class AgentInteractionBase {
             try {
                 handler(...args);
             } catch (error) {
-                console.error(`[AgentInteractionBase] Error in event handler for '${eventName}':`, error);
+                console.error(`[UserConnectionBase] Error in event handler for '${eventName}':`, error);
             }
         }
     }
@@ -154,7 +154,7 @@ class AgentInteractionBase {
     async initialize() {
         if (this.isInitialized) return;
 
-        console.log('[AgentInteractionBase] Initializing...');
+        console.log('[UserConnectionBase] Initializing...');
 
         // Auto-connect disabled - users must click Connect button manually
         // (Previously enabled auto-connect for shared links)
@@ -165,7 +165,7 @@ class AgentInteractionBase {
         }
 
         this.isInitialized = true;
-        console.log('[AgentInteractionBase] Initialized');
+        console.log('[UserConnectionBase] Initialized');
     }
 
     /**
@@ -177,17 +177,17 @@ class AgentInteractionBase {
         // CRITICAL: Cancel auto-connect timer to prevent duplicate connection
         if (window.MiniGameUtils && typeof window.MiniGameUtils._cancelAutoConnect === 'function') {
             window.MiniGameUtils._cancelAutoConnect();
-            console.log('[AgentInteractionBase] Auto-connect canceled - manual connection started');
+            console.log('[UserConnectionBase] Auto-connect canceled - manual connection started');
         }
 
         // GUARD: Prevent duplicate connection requests
         if (this.connected) {
-            console.warn('[AgentInteractionBase] Already connected, ignoring duplicate connect request');
+            console.warn('[UserConnectionBase] Already connected, ignoring duplicate connect request');
             return;
         }
 
         if (this.connecting) {
-            console.warn('[AgentInteractionBase] Connection in progress, ignoring duplicate connect request');
+            console.warn('[UserConnectionBase] Connection in progress, ignoring duplicate connect request');
             return;
         }
 
@@ -204,7 +204,7 @@ class AgentInteractionBase {
             this.channelPassword = channelPassword || '';
 
             // Get config
-            console.log('[AgentInteractionBase] Requesting API key...');
+            console.log('[UserConnectionBase] Requesting API key...');
             const response = await window.fetchAppConfig(300, false);
             const config = response?.data || response;
             const apiKey = config?.apiKey || null;
@@ -214,7 +214,7 @@ class AgentInteractionBase {
                 throw new Error('No messagingServiceUrl in config');
             }
 
-            console.log('[AgentInteractionBase] Using API URL:', apiUrl);
+            console.log('[UserConnectionBase] Using API URL:', apiUrl);
 
             // Create connection (same as legacy)
             this.channel = new AgentConnection();
@@ -259,7 +259,7 @@ class AgentInteractionBase {
                 });
             });
 
-            console.log('[AgentInteractionBase] Connected');
+            console.log('[UserConnectionBase] Connected');
 
             // Setup automatic cleanup on page unload
             this._setupCleanupOnUnload();
@@ -277,9 +277,9 @@ class AgentInteractionBase {
     _setupCleanupOnUnload() {
         if (typeof MiniGameUtils !== 'undefined' && typeof MiniGameUtils.setupCleanupOnUnload === 'function') {
             MiniGameUtils.setupCleanupOnUnload(() => this.channel, this.options.customType || 'Game');
-            console.log(`[AgentInteractionBase] Cleanup on unload registered for ${this.options.customType}`);
+            console.log(`[UserConnectionBase] Cleanup on unload registered for ${this.options.customType}`);
         } else {
-            console.warn('[AgentInteractionBase] MiniGameUtils not loaded, cleanup may not work properly');
+            console.warn('[UserConnectionBase] MiniGameUtils not loaded, cleanup may not work properly');
         }
     }
 
@@ -292,11 +292,11 @@ class AgentInteractionBase {
         }
 
         if (this.isRunning) {
-            console.warn('[AgentInteractionBase] Already running');
+            console.warn('[UserConnectionBase] Already running');
             return;
         }
 
-        console.log('[AgentInteractionBase] Starting...');
+        console.log('[UserConnectionBase] Starting...');
         this.isRunning = true;
 
         // Call subclass start
@@ -304,7 +304,7 @@ class AgentInteractionBase {
             this.onStart();
         }
 
-        console.log('[AgentInteractionBase] Started');
+        console.log('[UserConnectionBase] Started');
     }
 
     /**
@@ -313,7 +313,7 @@ class AgentInteractionBase {
     stop() {
         if (!this.isRunning) return;
 
-        console.log('[AgentInteractionBase] Stopping...');
+        console.log('[UserConnectionBase] Stopping...');
         this.isRunning = false;
 
         // Call subclass stop
@@ -321,7 +321,7 @@ class AgentInteractionBase {
             this.onStop();
         }
 
-        console.log('[AgentInteractionBase] Stopped');
+        console.log('[UserConnectionBase] Stopped');
     }
 
     /**
@@ -335,7 +335,7 @@ class AgentInteractionBase {
         }
 
         this.connected = false;
-        console.log('[AgentInteractionBase] Disconnected');
+        console.log('[UserConnectionBase] Disconnected');
     }
 
     /**
@@ -425,7 +425,7 @@ class AgentInteractionBase {
      */
     _sendViaWebSocketRelay(data, targetPeer = null) {
         if (!this.channel || !this.connected) {
-            console.warn('[AgentInteractionBase] Not connected to channel');
+            console.warn('[UserConnectionBase] Not connected to channel');
             return 0;
         }
 
@@ -447,7 +447,7 @@ class AgentInteractionBase {
             ephemeral: true  // Use ephemeral message system
         }, (response) => {
             if (response.status !== 'success') {
-                console.error('[AgentInteractionBase] WebSocket relay send failed:', response.statusMessage);
+                console.error('[UserConnectionBase] WebSocket relay send failed:', response.statusMessage);
             }
         });
 
@@ -722,10 +722,10 @@ class AgentInteractionBase {
             const agentName = ev.agentName;
             console.log(`[AgentSessionBase] Agent connected: ${agentName}`);
             if (agentName !== this.username) {
-                // Fire onPlayerJoining (loading state - player is connecting)
-                if (typeof this.onPlayerJoining === 'function') {
-                    console.log(`[AgentSessionBase] PlayerJoining ${agentName}`);
-                    this.onPlayerJoining({
+                // Fire onUserJoining (loading state - user is connecting)
+                if (typeof this.onUserJoining === 'function') {
+                    console.log(`[AgentSessionBase] UserJoining ${agentName}`);
+                    this.onUserJoining({
                         agentName,
                         users: this.getConnectedUsers().filter(n => n !== this.username)
                     });
@@ -737,7 +737,7 @@ class AgentInteractionBase {
                     this._initiateDataChannel(agentName);
                 }
 
-                // NOTE: onPlayerJoin is fired when DataChannel opens (when ready for communication)
+                // NOTE: onUserJoin is fired when DataChannel opens (when ready for communication)
             }
         });
 
@@ -745,8 +745,8 @@ class AgentInteractionBase {
         this.channel.addEventListener('agent-disconnect', (ev) => {
             const agentName = ev.agentName;
 
-            if (typeof this.onPlayerLeave === 'function') {
-                this.onPlayerLeave({
+            if (typeof this.onUserLeave === 'function') {
+                this.onUserLeave({
                     agentName,
                     users: this.getConnectedUsers().filter(n => n !== this.username)
                 });
@@ -782,10 +782,10 @@ class AgentInteractionBase {
                 console.log(`[AgentSessionBase] DataChannel opened with ${peerId}`);
             }
 
-            // Fire onPlayerJoin for new agent (DataChannel is ready for communication)
-            console.log(`[AgentSessionBase] Agent ${peerId} DataChannel ready - firing onPlayerJoin`);
-            if (typeof this.onPlayerJoin === 'function') {
-                this.onPlayerJoin({
+            // Fire onUserJoin for new agent (DataChannel is ready for communication)
+            console.log(`[AgentSessionBase] Agent ${peerId} DataChannel ready - firing onUserJoin`);
+            if (typeof this.onUserJoin === 'function') {
+                this.onUserJoin({
                     agentName: peerId,
                     users: this.getConnectedUsers().filter(n => n !== this.username),
                     connectionTimeMs: connectionTimeMs
@@ -1029,14 +1029,14 @@ class AgentInteractionBase {
     // Called when game stops
     onStop() {}
 
-    // Called when a player is joining (agent-connect event - show loading notification)
-    onPlayerJoining(detail) {}
+    // Called when a user is joining (agent-connect event - show loading notification)
+    onUserJoining(detail) {}
 
-    // Called when a player joins successfully (datachannel-open event - ready for communication)
-    onPlayerJoin(detail) {}
+    // Called when a user joins successfully (datachannel-open event - ready for communication)
+    onUserJoin(detail) {}
 
-    // Called when a player leaves
-    onPlayerLeave(detail) {}
+    // Called when a user leaves
+    onUserLeave(detail) {}
 
     // Called when current user becomes host (generic - automatically called by AgentSessionBase)
     onBecomeHost() {}
@@ -1510,7 +1510,7 @@ class AgentInteractionBase {
      * @deprecated Use pauseSession() instead
      */
     pauseGame(reason) {
-        console.warn('[AgentInteractionBase] pauseGame() is deprecated, use pauseSession() instead');
+        console.warn('[UserConnectionBase] pauseGame() is deprecated, use pauseSession() instead');
         return this.pauseSession(reason);
     }
 
@@ -1518,7 +1518,7 @@ class AgentInteractionBase {
      * @deprecated Use resumeSession() instead
      */
     resumeGame() {
-        console.warn('[AgentInteractionBase] resumeGame() is deprecated, use resumeSession() instead');
+        console.warn('[UserConnectionBase] resumeGame() is deprecated, use resumeSession() instead');
         return this.resumeSession();
     }
 
@@ -1768,7 +1768,7 @@ let GameInitializer = {
                     const modal = document.getElementById('connectionModal');
                     if (modal) {
                         modal.classList.add('active');
-                        
+
                         // Collapse modal immediately when auto-connect is enabled
                         if (hasSharedLink && connectCallback && typeof connectCallback === 'function') {
                             modal.classList.add('collapsed');
@@ -1829,7 +1829,7 @@ let GameInitializer = {
 
     /**
      * Get the current game instance
-     * @returns {AgentSessionBase|null}
+     * @returns {UserConnectionBase|null}
      */
     getGame: function() {
         return this.game;
@@ -1838,3 +1838,7 @@ let GameInitializer = {
 
 // Expose globally
 window.GameInitializer = GameInitializer;
+
+
+
+

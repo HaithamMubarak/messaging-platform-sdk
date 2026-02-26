@@ -4398,7 +4398,7 @@ async function saveCloudConfig(isConnected = false) {
 }
 
 /**
- * Connect to cloud using AgentInteractionBase (same pattern as air-hockey)
+ * Connect to cloud using UserConnectionBase (same pattern as air-hockey)
  */
 async function connectToCloud() {
     const channelName = document.getElementById('cloudChannelName').value.trim();

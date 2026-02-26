@@ -126,7 +126,7 @@ class QuizQuestionManager {
 // QUIZ BATTLE GAME - BaseGame Integration
 // ============================================
 
-class QuizBattleGame extends AgentInteractionBase {
+class QuizBattleGame extends UserConnectionBase {
     constructor() {
         super({
             storagePrefix: 'quiz',
@@ -249,8 +249,8 @@ class QuizBattleGame extends AgentInteractionBase {
         }
     }
 
-    onPlayerLeave(detail) {
-        console.log('[QuizBattle] Player left:', detail.agentName);
+    onUserLeave(detail) {
+        console.log('[QuizBattle] User left:', detail.agentName);
 
         // Show toast notification using BaseGame method
         this.showLeaveNotification(detail.agentName);

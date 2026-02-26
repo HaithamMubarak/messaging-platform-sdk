@@ -103,7 +103,7 @@ const PLAYER_CONFIGS = [
 // AIR HOCKEY GAME CLASS
 // ============================================
 
-class AirHockeyGame extends AgentInteractionBase {
+class AirHockeyGame extends UserConnectionBase {
     constructor() {
         super({
             storagePrefix: 'airhockey',
@@ -416,8 +416,8 @@ class AirHockeyGame extends AgentInteractionBase {
         });
     }
 
-    onPlayerLeave(detail) {
-        console.log('[AirHockey] Player left:', detail.agentName);
+    onUserLeave(detail) {
+        console.log('[AirHockey] User left:', detail.agentName);
         this.showToast(`${detail.agentName} left`, 'info');
 
         this.removePlayer(detail.agentName);

@@ -9,7 +9,7 @@
  * - terminal-sharing.js (TerminalShareManager - handles all data/messaging)
  *
  * Usage:
- * <script src="../js/AgentInteractionBase.js"></script>
+ * <script src="../js/UserConnectionBase.js"></script>
  * <script src="../apps/terminal/terminal-sharing.js"></script>
  * <script src="../js/cloud-connection.js"></script>
  *

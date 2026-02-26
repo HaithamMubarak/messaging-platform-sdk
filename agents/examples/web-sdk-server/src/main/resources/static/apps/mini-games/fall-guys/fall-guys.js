@@ -1565,7 +1565,7 @@ class GameWorld {
 // ============================================
 // MAIN GAME CLASS
 // ============================================
-class FallGuysGame extends AgentInteractionBase {
+class FallGuysGame extends UserConnectionBase {
     constructor() {
         super({
             storagePrefix: 'fallguys',
@@ -1765,16 +1765,16 @@ class FallGuysGame extends AgentInteractionBase {
         document.getElementById('waitingRoom')?.classList.remove('hidden');
     }
 
-    onPlayerJoining(detail) {
-        console.log('[FallGuys] Player joining:', detail.agentName);
+    onUserJoining(detail) {
+        console.log('[FallGuys] User joining:', detail.agentName);
         this.showToast(`${detail.agentName} is joining...`, 'info', 2000);
 
         // Show loader while waiting for DataChannel to open
         this.showConnectionLoader(`Connecting to ${detail.agentName}...`);
     }
 
-    onPlayerJoin(detail) {
-        console.log('[FallGuys] Player joined:', detail.agentName);
+    onUserJoin(detail) {
+        console.log('[FallGuys] User joined:', detail.agentName);
 
         // Hide the connection loader - DataChannel is now open
         this.hideConnectionLoader();
@@ -1813,8 +1813,8 @@ class FallGuysGame extends AgentInteractionBase {
         }
     }
 
-    onPlayerLeave(detail) {
-        console.log('[FallGuys] Player left:', detail.agentName);
+    onUserLeave(detail) {
+        console.log('[FallGuys] User left:', detail.agentName);
         this.showToast(`${detail.agentName} left the race`, 'warning');
 
         // Remove player

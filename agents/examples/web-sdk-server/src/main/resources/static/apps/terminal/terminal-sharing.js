@@ -1,5 +1,5 @@
 /**
- * TerminalSharing - Terminal sharing using AgentInteractionBase
+ * TerminalSharing - Terminal sharing using UserConnectionBase
  * Same pattern as air-hockey, whiteboard, and other multiplayer apps
  *
  * Single unified class combining all terminal sharing functionality:
@@ -11,7 +11,7 @@
  * - Typing indicators
  * - Permission request/grant workflow
  */
-class TerminalSharing extends AgentInteractionBase {
+class TerminalSharing extends UserConnectionBase {
     constructor() {
         super({
             storagePrefix: 'terminal_sharing_',
@@ -635,10 +635,10 @@ class TerminalSharing extends AgentInteractionBase {
     }
 
     /**
-     * Override onPlayerJoin - called when a new agent joins
+     * Override onUserJoin - called when a new agent joins
      * Send all our shared sessions to the new agent
      */
-    onPlayerJoin(event) {
+    onUserJoin(event) {
         const { agentName } = event;
         console.log('[TerminalSharing] New agent joined:', agentName);
 

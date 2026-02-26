@@ -9,9 +9,9 @@
  * - Encrypted transfer (DTLS)
  *
  * @class QuickShare
- * @extends AgentInteractionBase
+ * @extends UserConnectionBase
  */
-class QuickShare extends AgentInteractionBase {
+class QuickShare extends UserConnectionBase {
     constructor(options = {}) {
         super({
             storagePrefix: 'quickshare',
@@ -60,15 +60,15 @@ class QuickShare extends AgentInteractionBase {
     /**
      * Handle player join event
      */
-    onPlayerJoin(detail) {
+    onUserJoin(detail) {
         console.log('[QuickShare] User joined:', detail.agentName);
         this.emit('user-joined', detail.agentName);
     }
 
     /**
-     * Handle player leave event
+     * Handle user leave event
      */
-    onPlayerLeave(detail) {
+    onUserLeave(detail) {
         console.log('[QuickShare] User left:', detail.agentName);
 
         // Cancel any transfers with this peer

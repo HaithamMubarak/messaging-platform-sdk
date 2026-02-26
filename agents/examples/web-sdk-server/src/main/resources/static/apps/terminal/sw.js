@@ -23,7 +23,7 @@ const STATIC_ASSETS = [
     '../../../lib/xterm/xterm-addon-fit.js',
     '../../../lib/qrcode/qrcode.min.js',
     '../../web-agent.js',
-    '../../AgentInteractionBase.js',
+    '../../UserConnectionBase.js',
 
     // Web SDK server base (if needed)
     '../../../',

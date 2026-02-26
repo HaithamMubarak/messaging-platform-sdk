@@ -1150,7 +1150,7 @@ function getWhiteboardCanvas() {
  * Whiteboard Game Class - Integration with Common Game Framework
  * Wraps existing whiteboard logic with BaseGame structure
  */
-class WhiteboardGame extends AgentInteractionBase {
+class WhiteboardGame extends UserConnectionBase {
     constructor() {
         super({
             storagePrefix: 'whiteboard',
@@ -1453,8 +1453,8 @@ class WhiteboardGame extends AgentInteractionBase {
     /**
      * Handle player joining (loading state)
      */
-    onPlayerJoining(detail) {
-        console.log('[WhiteboardGame] Player joining:', detail.agentName);
+    onUserJoining(detail) {
+        console.log('[WhiteboardGame] User joining:', detail.agentName);
 
         const agentName = detail.agentName;
         if (agentName === this.username) return;
@@ -1467,10 +1467,10 @@ class WhiteboardGame extends AgentInteractionBase {
     }
 
     /**
-     * Handle player join - integrated whiteboard logic
+     * Handle user join - integrated whiteboard logic
      */
-    onPlayerJoin(detail) {
-        console.log('[WhiteboardGame] Player joined successfully:', detail.agentName);
+    onUserJoin(detail) {
+        console.log('[WhiteboardGame] User joined successfully:', detail.agentName);
 
         const agentName = detail.agentName;
         if (agentName === this.username) return;
@@ -1492,10 +1492,10 @@ class WhiteboardGame extends AgentInteractionBase {
     }
 
     /**
-     * Handle player leave - integrated whiteboard logic
+     * Handle user leave - integrated whiteboard logic
      */
-    onPlayerLeave(detail) {
-        console.log('[WhiteboardGame] Player left:', detail.agentName);
+    onUserLeave(detail) {
+        console.log('[WhiteboardGame] User left:', detail.agentName);
 
         const agentName = detail.agentName;
         if (agentName === this.username) return;

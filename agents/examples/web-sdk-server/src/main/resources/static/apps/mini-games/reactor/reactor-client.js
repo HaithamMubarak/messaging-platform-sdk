@@ -204,7 +204,7 @@ const STAGES = [
 // REACTOR GAME CLASS - BaseGame Integration
 // ============================================
 
-class ReactorGame extends AgentInteractionBase {
+class ReactorGame extends UserConnectionBase {
     constructor() {
         super({
             storagePrefix: 'reactor',
@@ -302,16 +302,16 @@ class ReactorGame extends AgentInteractionBase {
         this.showWaitingRoom();
     }
 
-    onPlayerJoining(detail) {
-        console.log('[Reactor] Player joining:', detail.agentName);
+    onUserJoining(detail) {
+        console.log('[Reactor] User joining:', detail.agentName);
         this.showToast(`${detail.agentName} is joining...`, 'info', 2000);
 
         // Show loader while waiting for DataChannel to open
         this.showConnectionLoader(`Connecting to ${detail.agentName}...`);
     }
 
-    onPlayerJoin(detail) {
-        console.log('[Reactor] Player joined successfully:', detail.agentName);
+    onUserJoin(detail) {
+        console.log('[Reactor] User joined successfully:', detail.agentName);
 
         // Hide the connection loader - DataChannel is now open
         this.hideConnectionLoader();
@@ -328,8 +328,8 @@ class ReactorGame extends AgentInteractionBase {
         }
     }
 
-    onPlayerLeave(detail) {
-        console.log('[Reactor] Player left:', detail.agentName);
+    onUserLeave(detail) {
+        console.log('[Reactor] User left:', detail.agentName);
         this.showLeaveNotification(detail.agentName);
 
         this.removePlayer(detail.agentName);

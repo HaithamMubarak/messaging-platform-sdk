@@ -834,7 +834,7 @@
     // Main game
     // ----------------------------
 
-    class RaceBallsGame extends AgentInteractionBase {
+    class RaceBallsGame extends UserConnectionBase {
         constructor() {
             super({
                 storagePrefix: 'raceballs',
@@ -1618,8 +1618,8 @@
             this._updateLobbyUI();
         }
 
-        onPlayerLeave(info) {
-            console.log('[RaceBalls] Player left:', info.agentName);
+        onUserLeave(info) {
+            console.log('[RaceBalls] User left:', info.agentName);
 
             // Show toast notification
             MiniGameUtils?.showToast?.(`${info.agentName} left`, 'info');

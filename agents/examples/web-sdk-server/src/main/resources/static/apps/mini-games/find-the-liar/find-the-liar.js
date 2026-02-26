@@ -81,7 +81,7 @@ const LIAR_EFFECT_COOLDOWN_MS = 15000; // 15 seconds cooldown between liar effec
 // FIND THE LIAR GAME CLASS
 // ============================================
 
-class FindTheLiarGame extends AgentInteractionBase {
+class FindTheLiarGame extends UserConnectionBase {
     constructor() {
         super({
             storagePrefix: 'liar',
@@ -151,7 +151,7 @@ class FindTheLiarGame extends AgentInteractionBase {
         // Timer
         this.timerInterval = null;
         this.connectedPeers = new Set();
-        this.joiningPlayers = new Set(); // Track players who are connecting
+        this.joiningUsers = new Set(); // Track users who are connecting
 
         console.log('[FindTheLiar] Game instance created');
     }
@@ -504,49 +504,49 @@ class FindTheLiarGame extends AgentInteractionBase {
 
         // Hide loader after a short delay if no DataChannels are pending
         setTimeout(() => {
-            if (this.connectedPeers.size === 0 && this.joiningPlayers.size === 0) {
+            if (this.connectedPeers.size === 0 && this.joiningUsers.size === 0) {
                 this.hideConnectionLoader();
             }
         }, CONNECTION_LOADER_TIMEOUT);
     }
 
-    onPlayerJoining(detail) {
-        console.log('[FindTheLiar] Player joining (connecting):', detail.agentName);
+    onUserJoining(detail) {
+        console.log('[FindTheLiar] User joining (connecting):', detail.agentName);
         this.showToast(`⏳ ${detail.agentName} is connecting...`, 'info');
-        this.joiningPlayers.add(detail.agentName);
-        this.updatePlayersList();
+        this.joiningUsers.add(detail.agentName);
+        this.updateUsersList();
     }
 
-    onPlayerJoin(detail) {
-        console.log('[FindTheLiar] Player joined (DataChannel ready):', detail.agentName);
+    onUserJoin(detail) {
+        console.log('[FindTheLiar] User joined (DataChannel ready):', detail.agentName);
         this.showToast(`👋 ${detail.agentName} joined!`, 'success');
 
-        this.joiningPlayers.delete(detail.agentName); // Remove from joining state
-        this.updatePlayersList();
+        this.joiningUsers.delete(detail.agentName); // Remove from joining state
+        this.updateUsersList();
         this.updateStartButton();
 
         // Send game state to late joiner
         if (this.isHost() && this.gameState.phase !== GamePhase.WAITING) {
-            this.sendGameStateToPlayer(detail.agentName);
+            this.sendGameStateToUser(detail.agentName);
         }
     }
 
-    onPlayerLeave(detail) {
-        console.log('[FindTheLiar] Player left:', detail.agentName);
+    onUserLeave(detail) {
+        console.log('[FindTheLiar] User left:', detail.agentName);
         this.showToast(`👋 ${detail.agentName} left`, 'warning');
         
-        const leftPlayerName = detail.agentName;
+        const leftUserName = detail.agentName;
 
-        // Clean up player data
-        this.connectedPeers.delete(leftPlayerName);
-        this.joiningPlayers.delete(leftPlayerName);
+        // Clean up user data
+        this.connectedPeers.delete(leftUserName);
+        this.joiningUsers.delete(leftUserName);
 
         // If game is active, clean up game state
         if (this.isHost() && this.gameState.phase !== GamePhase.WAITING) {
-            this.handlePlayerDisconnectDuringGame(leftPlayerName);
+            this.handleUserDisconnectDuringGame(leftUserName);
         }
 
-        this.updatePlayersList();
+        this.updateUsersList();
         this.updateStartButton();
 
         // Host migration check
@@ -655,71 +655,71 @@ class FindTheLiarGame extends AgentInteractionBase {
     // =========================================================================
 
     /**
-     * Handle player disconnect during active game
+     * Handle user disconnect during active game
      * Cleans up their data and checks if game can continue
      */
-    handlePlayerDisconnectDuringGame(playerName) {
+    handleUserDisconnectDuringGame(userName) {
         if (!this.isHost()) return;
 
-        console.log(`[FindTheLiar] Handling disconnect for ${playerName} during ${this.gameState.phase}`);
+        console.log(`[FindTheLiar] Handling disconnect for ${userName} during ${this.gameState.phase}`);
 
         // Remove from current answers (if they hadn't answered yet)
-        if (this.gameState.currentAnswers.has(playerName)) {
-            this.gameState.currentAnswers.delete(playerName);
-            console.log(`[FindTheLiar] Removed ${playerName}'s answer`);
+        if (this.gameState.currentAnswers.has(userName)) {
+            this.gameState.currentAnswers.delete(userName);
+            console.log(`[FindTheLiar] Removed ${userName}'s answer`);
         }
 
         // Remove from votes (if they hadn't voted yet)
-        if (this.gameState.votes.has(playerName)) {
-            this.gameState.votes.delete(playerName);
-            console.log(`[FindTheLiar] Removed ${playerName}'s vote`);
+        if (this.gameState.votes.has(userName)) {
+            this.gameState.votes.delete(userName);
+            console.log(`[FindTheLiar] Removed ${userName}'s vote`);
         }
 
         // Remove from role reveals
-        if (this.gameState.playerRoles.has(playerName)) {
-            this.gameState.playerRoles.delete(playerName);
-            console.log(`[FindTheLiar] Removed ${playerName}'s role`);
+        if (this.gameState.playerRoles.has(userName)) {
+            this.gameState.playerRoles.delete(userName);
+            console.log(`[FindTheLiar] Removed ${userName}'s role`);
         }
 
         // Check if we should auto-advance due to disconnect
-        const remainingPlayers = this.getPlayerCount();
+        const remainingUsers = this.getPlayerCount();
 
-        // Check minimum player requirement
-        if (remainingPlayers < MIN_PLAYERS) {
-            console.log(`[FindTheLiar] Not enough players (${remainingPlayers}/${MIN_PLAYERS}), ending game`);
-            this.showToast('⚠️ Not enough players - game ended', 'error');
+        // Check minimum user requirement
+        if (remainingUsers < MIN_PLAYERS) {
+            console.log(`[FindTheLiar] Not enough users (${remainingUsers}/${MIN_PLAYERS}), ending game`);
+            this.showToast('⚠️ Not enough users - game ended', 'error');
             this.endGameDueToDisconnect();
             return;
         }
 
-        // If in QUESTIONING phase, check if all remaining players answered
+        // If in QUESTIONING phase, check if all remaining users answered
         if (this.gameState.phase === GamePhase.QUESTIONING) {
             this.checkAllAnswersSubmitted();
         }
 
-        // If in VOTING phase, check if all remaining players voted
+        // If in VOTING phase, check if all remaining users voted
         if (this.gameState.phase === GamePhase.VOTING) {
             this.checkAllVotesSubmitted();
         }
 
         // Check if game should end in Survival mode
         if (this.gameState.gameMode === GameMode.SURVIVAL) {
-            const activePlayers = this.getPeerList().filter(p => !this.gameState.eliminatedPlayers.has(p.name));
+            const activeUsers = this.getPeerList().filter(p => !this.gameState.eliminatedPlayers.has(p.name));
 
-            // If player who left was not eliminated, treat as eliminated
-            if (!this.gameState.eliminatedPlayers.has(playerName)) {
-                const stillActive = activePlayers.some(p => p.name === playerName);
+            // If user who left was not eliminated, treat as eliminated
+            if (!this.gameState.eliminatedPlayers.has(userName)) {
+                const stillActive = activeUsers.some(p => p.name === userName);
                 if (stillActive) {
-                    this.gameState.eliminatedPlayers.add(playerName);
-                    console.log(`[FindTheLiar] Marked disconnected player ${playerName} as eliminated`);
+                    this.gameState.eliminatedPlayers.add(userName);
+                    console.log(`[FindTheLiar] Marked disconnected user ${userName} as eliminated`);
                 }
             }
 
-            // Check if too few players remain (≤3 in survival)
-            const activeNonEliminated = activePlayers.filter(p => !this.gameState.eliminatedPlayers.has(p.name));
+            // Check if too few users remain (≤3 in survival)
+            const activeNonEliminated = activeUsers.filter(p => !this.gameState.eliminatedPlayers.has(p.name));
             if (activeNonEliminated.length <= 2) {
-                console.log('[FindTheLiar] Too few active players in Survival mode, ending game');
-                this.showToast('⚠️ Too few players remain - game ended', 'warning');
+                console.log('[FindTheLiar] Too few active users in Survival mode, ending game');
+                this.showToast('⚠️ Too few users remain - game ended', 'warning');
                 // Request role reveal to determine winner
                 this.requestRoleReveal('SURVIVAL');
             }
@@ -740,7 +740,7 @@ class FindTheLiarGame extends AgentInteractionBase {
         // Broadcast game end
         this.sendData({
             type: 'game-ended-disconnect',
-            message: 'Game ended - not enough players'
+            message: 'Game ended - not enough users'
         });
 
         // Show end screen locally
@@ -749,9 +749,9 @@ class FindTheLiarGame extends AgentInteractionBase {
             container.innerHTML = `
                 <div class="waiting-screen">
                     <span class="phase-indicator phase-waiting">Game Ended</span>
-                    <h2>⚠️ Not Enough Players</h2>
+                    <h2>⚠️ Not Enough Users</h2>
                     <p style="color:#666;margin:20px 0;">
-                        The game has ended because too many players disconnected.
+                        The game has ended because too many users disconnected.
                     </p>
                     <p style="color:#666;margin:10px 0;">
                         ${this.isHost() ? 'Click below to return to lobby.' : 'Waiting for host...'}
@@ -1206,7 +1206,7 @@ class FindTheLiarGame extends AgentInteractionBase {
         }
     }
 
-    sendGameStateToPlayer(playerName) {
+    sendGameStateToUser(userName) {
         if (!this.isHost()) return;
 
         this.sendData({
@@ -1217,7 +1217,7 @@ class FindTheLiarGame extends AgentInteractionBase {
             phaseEndTime: this.gameState.phaseEndTime,
             questionIndex: this.gameState.currentQuestionIndex,
             totalQuestions: this.gameState.questions?.length || 0
-        }, playerName);
+        }, userName);
     }
 
     /**
@@ -1626,9 +1626,9 @@ class FindTheLiarGame extends AgentInteractionBase {
             container.innerHTML = `
                 <div class="waiting-screen">
                     <span class="phase-indicator phase-waiting">Game Ended</span>
-                    <h2>⚠️ Not Enough Players</h2>
+                    <h2>⚠️ Not Enough Users</h2>
                     <p style="color:#666;margin:20px 0;">
-                        ${data.message || 'The game has ended because too many players disconnected.'}
+                        ${data.message || 'The game has ended because too many users disconnected.'}
                     </p>
                     <p style="color:#666;margin:10px 0;">
                         Waiting for host to restart...
@@ -1638,7 +1638,7 @@ class FindTheLiarGame extends AgentInteractionBase {
             `;
         }
 
-        this.showToast(data.message || 'Game ended - not enough players', 'warning');
+        this.showToast(data.message || 'Game ended - not enough users', 'warning');
     }
 
     handleRoleRevealRequest(data) {
@@ -2080,30 +2080,30 @@ class FindTheLiarGame extends AgentInteractionBase {
         if (bar) bar.style.width = `${percentage * 100}%`;
     }
 
-    updatePlayersList() {
+    updateUsersList() {
         const listEl = document.getElementById('playersList');
 
         if (!listEl) return;
 
-        const players = this.getPeerList();
+        const users = this.getPeerList();
 
-        let html = players.map(player => {
+        let html = users.map(user => {
             let cls = 'player-item';
-            if (player.isHost) cls += ' host';
-            if (player.isSelf) cls += ' self';
-            
-            // Show ⏳ icon if player is joining (connecting)
-            const isJoining = this.joiningPlayers.has(player.name);
+            if (user.isHost) cls += ' host';
+            if (user.isSelf) cls += ' self';
+
+            // Show ⏳ icon if user is joining (connecting)
+            const isJoining = this.joiningUsers.has(user.name);
             const joiningIcon = isJoining ? ' ⏳' : '';
 
             return `
-                <div class="${cls}" data-name="${player.name}">
-                    ${player.isHost ? '👑' : '👤'} ${player.name}${player.isSelf ? ' (You)' : ''}${joiningIcon}
+                <div class="${cls}" data-name="${user.name}">
+                    ${user.isHost ? '👑' : '👤'} ${user.name}${user.isSelf ? ' (You)' : ''}${joiningIcon}
                 </div>
             `;
         }).join('');
 
-        listEl.innerHTML = html || '<p style="color:#999;text-align:center;">No players</p>';
+        listEl.innerHTML = html || '<p style="color:#999;text-align:center;">No users</p>';
     }
 
     updateStartButton() {
