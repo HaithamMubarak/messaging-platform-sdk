@@ -45,6 +45,11 @@ class TerminalSharing extends AgentInteractionBase {
         this.registerHandler('permission-update', (msg, src) => this.handlePermissionUpdate(msg, src));
         this.registerHandler('owner-disconnect', (msg, src) => this.handleOwnerDisconnect(msg, src));
 
+        // SFTP message handlers for remote SFTP operations
+        this.registerHandler('sftp-request', (msg, src) => this.handleSftpRequest(msg, src));
+        this.registerHandler('sftp-response', (msg, src) => this.handleSftpResponse(msg, src));
+        this.registerHandler('sftp-navigate', (msg, src) => this.handleSftpNavigate(msg, src));
+
         // Callbacks (set by user)
         this.onSharedSessionAdd = null;      // (sessionId, sessionInfo, sourceAgent) => {}
         this.onSharedSessionRemove = null;   // (sessionId, sourceAgent) => {}
@@ -737,6 +742,267 @@ class TerminalSharing extends AgentInteractionBase {
 
         this.sharedSessions.clear();
         console.log('[TerminalSharing] Stopped');
+    }
+
+    // ========================================
+    // SFTP Remote Operations
+    // ========================================
+
+    /**
+     * Send SFTP request to session owner
+     * Used by viewers to request SFTP operations on the owner's session
+     */
+    sendSftpRequest(sessionId, operation, params, requestId) {
+        const sessionInfo = this.sharedSessions.get(sessionId);
+        if (!sessionInfo || !sessionInfo.owner) {
+            console.error('[TerminalSharing] Cannot send SFTP request - session not found or no owner');
+            return;
+        }
+
+        const owner = sessionInfo.owner;
+        console.log(`[TerminalSharing] Sending SFTP request to ${owner}:`, operation, params);
+
+        this.sendData({
+            type: 'sftp-request',
+            sessionId: sessionId,
+            operation: operation,
+            params: params,
+            requestId: requestId
+        }, owner);
+    }
+
+    /**
+     * Handle incoming SFTP request (owner receives this from viewers)
+     */
+    async handleSftpRequest(msg, src) {
+        console.log('[TerminalSharing] Received SFTP request from:', src, msg);
+
+        const { sessionId, operation, params, requestId } = msg;
+
+        // Verify this is our session
+        const sessionInfo = this.sharedSessions.get(sessionId);
+        if (!sessionInfo || sessionInfo.owner !== this.username) {
+            console.error('[TerminalSharing] SFTP request for session we don\'t own');
+            this.sendSftpResponse(sessionId, requestId, { error: 'Unauthorized' }, src);
+            return;
+        }
+
+        // Check permission
+        const permission = sessionInfo.agentPermissions?.[src] || sessionInfo.permission || 'readonly';
+        if (permission === 'readonly' && ['upload', 'delete', 'rename', 'mkdir'].includes(operation)) {
+            console.warn('[TerminalSharing] SFTP write operation denied - readonly permission');
+            this.sendSftpResponse(sessionId, requestId, { error: 'Permission denied' }, src);
+            return;
+        }
+
+        try {
+            // Execute SFTP operation via local SLS
+            const response = await this.executeSftpOperation(sessionId, operation, params);
+            this.sendSftpResponse(sessionId, requestId, response, src);
+        } catch (error) {
+            console.error('[TerminalSharing] SFTP operation failed:', error);
+            this.sendSftpResponse(sessionId, requestId, { error: error.message }, src);
+        }
+    }
+
+    /**
+     * Execute SFTP operation locally (called by session owner)
+     * NEW LOGIC: Use auto-created SFTP session (created when SSH connects)
+     */
+    async executeSftpOperation(sessionId, operation, params) {
+        console.log('[TerminalSharing] Executing SFTP operation:', operation, params);
+
+        const MLS_URL = window.MLS_URL || 'http://localhost:8088';
+
+        // Use the auto-created SFTP session
+        const sftpSessionId = `sftp-${sessionId}`;
+
+        try {
+            // Execute the requested operation using the SFTP session
+            switch (operation) {
+                case 'list':
+                    // List directory
+                    let listResponse = await fetch(`${MLS_URL}/sftp/${sftpSessionId}/list`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ path: params.path || '/' })
+                    });
+
+                    // If session not found, try to recreate it
+                    if (!listResponse.ok && (listResponse.status === 404 || listResponse.status === 500)) {
+                        console.warn('[TerminalSharing] SFTP session error - attempting refresh');
+                        if (window.createSftpSessionForSsh) {
+                            await window.createSftpSessionForSsh(sessionId);
+                            // Retry
+                            listResponse = await fetch(`${MLS_URL}/sftp/${sftpSessionId}/list`, {
+                                method: 'POST',
+                                headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify({ path: params.path || '/' })
+                            });
+                        }
+                    }
+
+                    if (!listResponse.ok) {
+                        throw new Error(`SFTP list failed: ${listResponse.statusText}`);
+                    }
+
+                    const listResult = await listResponse.json();
+
+                    // ✅ Share navigation state with all viewers
+                    this.shareSftpNavigation(sessionId, params.path || '/', listResult.files || []);
+
+                    return listResult;
+
+                case 'download':
+                    const downloadResponse = await fetch(`${MLS_URL}/sftp/${sftpSessionId}/download`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ path: params.path })
+                    });
+                    if (!downloadResponse.ok) {
+                        throw new Error(`SFTP download failed: ${downloadResponse.statusText}`);
+                    }
+                    return await downloadResponse.json();
+
+                case 'upload':
+                    const uploadResponse = await fetch(`${MLS_URL}/sftp/${sftpSessionId}/upload`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            path: params.path,
+                            content: params.content
+                        })
+                    });
+                    if (!uploadResponse.ok) {
+                        throw new Error(`SFTP upload failed: ${uploadResponse.statusText}`);
+                    }
+                    return await uploadResponse.json();
+
+                case 'delete':
+                    const deleteResponse = await fetch(`${MLS_URL}/sftp/${sftpSessionId}/delete`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ path: params.path })
+                    });
+                    if (!deleteResponse.ok) {
+                        throw new Error(`SFTP delete failed: ${deleteResponse.statusText}`);
+                    }
+                    return await deleteResponse.json();
+
+                case 'rename':
+                    const renameResponse = await fetch(`${MLS_URL}/sftp/${sftpSessionId}/rename`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            oldPath: params.oldPath,
+                            newPath: params.newPath
+                        })
+                    });
+                    if (!renameResponse.ok) {
+                        throw new Error(`SFTP rename failed: ${renameResponse.statusText}`);
+                    }
+                    return await renameResponse.json();
+
+                case 'mkdir':
+                    const mkdirResponse = await fetch(`${MLS_URL}/sftp/${sftpSessionId}/mkdir`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ path: params.path })
+                    });
+                    if (!mkdirResponse.ok) {
+                        throw new Error(`SFTP mkdir failed: ${mkdirResponse.statusText}`);
+                    }
+                    return await mkdirResponse.json();
+
+                default:
+                    throw new Error(`Unknown SFTP operation: ${operation}`);
+            }
+        } catch (error) {
+            console.error('[TerminalSharing] SFTP operation error:', error);
+            throw error;
+        }
+    }
+
+    /**
+     * Send SFTP response back to requester
+     */
+    sendSftpResponse(sessionId, requestId, data, targetAgent) {
+        console.log(`[TerminalSharing] Sending SFTP response to ${targetAgent}:`, requestId);
+
+        this.sendData({
+            type: 'sftp-response',
+            sessionId: sessionId,
+            requestId: requestId,
+            data: data
+        }, targetAgent);
+    }
+
+    /**
+     * Handle incoming SFTP response (viewer receives this from owner)
+     */
+    handleSftpResponse(msg, src) {
+        console.log('[TerminalSharing] Received SFTP response from:', src, msg);
+
+        const { requestId, data } = msg;
+
+        // Trigger callback for pending SFTP requests
+        // This will be handled by the SFTP browser component
+        if (window.sftpBrowser && typeof window.sftpBrowser.handleRemoteResponse === 'function') {
+            window.sftpBrowser.handleRemoteResponse(requestId, data);
+        } else {
+            console.warn('[TerminalSharing] No SFTP browser to handle response');
+        }
+    }
+
+    // ========================================
+    // SFTP Navigation Sharing (NEW)
+    // ========================================
+
+    /**
+     * Share SFTP navigation state with all viewers
+     * Called when owner navigates to a different directory
+     */
+    shareSftpNavigation(sessionId, path, files) {
+        console.log(`[TerminalSharing] Sharing SFTP navigation for session ${sessionId}:`, path);
+
+        // Broadcast to all connected agents
+        this.sendData({
+            type: 'sftp-navigate',
+            sessionId: sessionId,
+            path: path,
+            files: files,
+            timestamp: Date.now()
+        }); // No target = broadcast to all
+    }
+
+    /**
+     * Handle incoming SFTP navigation update
+     * Viewers receive this when owner navigates
+     */
+    handleSftpNavigate(msg, src) {
+        console.log('[TerminalSharing] Received SFTP navigation from:', src, msg);
+
+        const { sessionId, path, files } = msg;
+
+        // Check if this is a shared session we're viewing
+        const sessionInfo = this.sharedSessions.get(sessionId);
+        if (!sessionInfo || sessionInfo.owner === this.username) {
+            // Ignore if it's our own session or session not found
+            console.log('[TerminalSharing] Ignoring SFTP navigate - not viewing this session or it\'s our own');
+            return;
+        }
+
+        // Update SFTP browser if it's open and showing this session
+        if (window.sftpBrowser && window.sftpBrowser.sftpSessionId === `sftp-${sessionId}`) {
+            console.log(`[TerminalSharing] Syncing SFTP browser to path: ${path}`);
+
+            // Update browser state without triggering navigation event (to avoid loops)
+            window.sftpBrowser.updateNavigationState(path, files, false);
+
+            // Toast is shown by updateNavigationState when triggerEvent=false
+        } else {
+            console.log('[TerminalSharing] SFTP browser not open or showing different session');
+        }
     }
 }
 

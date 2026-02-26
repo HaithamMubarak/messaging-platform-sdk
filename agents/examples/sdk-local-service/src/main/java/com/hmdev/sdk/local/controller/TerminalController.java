@@ -1,5 +1,7 @@
 package com.hmdev.sdk.local.controller;
 
+import com.hmdev.sdk.local.dto.SshTestRequest;
+import com.hmdev.sdk.local.dto.SshTestResponse;
 import com.hmdev.sdk.local.model.SshConnection;
 import com.hmdev.sdk.local.model.TerminalSession;
 import com.hmdev.sdk.local.terminal.TerminalService;
@@ -386,6 +388,48 @@ public class TerminalController {
         } catch (Exception e) {
             log.error("Failed to delete SSH connection: {}", e.getMessage(), e);
             return ResponseEntity.internalServerError().body(Map.of("error", e.getMessage()));
+        }
+    }
+
+    /**
+     * Test SSH connection credentials
+     *
+     * POST /terminal/ssh-connections/test
+     * {
+     *   "host": "example.com",
+     *   "port": 22,
+     *   "username": "admin",
+     *   "password": "secret",
+     *   "privateKey": "-----BEGIN RSA PRIVATE KEY-----\n..."
+     * }
+     */
+    @PostMapping("/ssh-connections/test")
+    public ResponseEntity<SshTestResponse> testSshConnection(@RequestBody SshTestRequest request) {
+        try {
+            log.info("[SSH Test] Testing connection to {}@{}:{}",
+                     request.getUsername(), request.getHost(), request.getPort());
+
+            SshTestResponse response = terminalService.testSshConnection(
+                request.getHost(),
+                request.getPort(),
+                request.getUsername(),
+                request.getPassword(),
+                request.getPrivateKey()
+            );
+
+            if (response.isSuccess()) {
+                log.info("[SSH Test] Connection successful: {}@{}:{}",
+                         request.getUsername(), request.getHost(), request.getPort());
+                return ResponseEntity.ok(response);
+            } else {
+                log.warn("[SSH Test] Connection failed: {}", response.getError());
+                return ResponseEntity.badRequest().body(response);
+            }
+
+        } catch (Exception e) {
+            log.error("[SSH Test] Unexpected error: {}", e.getMessage(), e);
+            return ResponseEntity.internalServerError()
+                .body(SshTestResponse.failure("Unexpected error: " + e.getMessage()));
         }
     }
 }

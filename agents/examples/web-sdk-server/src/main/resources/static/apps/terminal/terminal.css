@@ -1174,6 +1174,36 @@ body {
     transform: scale(0.98);
 }
 
+.btn-info {
+    background: var(--accent-cyan);
+    color: white;
+}
+
+.btn-info:hover {
+    background: #1db9d4;
+}
+
+.btn-info.loading {
+    background: #fbbf24;
+    cursor: wait;
+    opacity: 0.8;
+}
+
+.btn-info.success {
+    background: var(--accent-green);
+    cursor: default;
+}
+
+.btn-info.error {
+    background: var(--accent-red);
+    cursor: default;
+}
+
+.btn-info:disabled {
+    cursor: not-allowed;
+    opacity: 0.6;
+}
+
 /* ========== Typing Indicator ========== */
 @keyframes pulse {
     0%, 100% { opacity: 1; }

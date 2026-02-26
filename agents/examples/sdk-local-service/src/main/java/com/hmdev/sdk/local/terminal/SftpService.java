@@ -26,6 +26,48 @@ public class SftpService {
     private final TerminalService terminalService;
 
     /**
+     * Create SFTP session with explicit credentials (for auto-creation)
+     * This allows creating SFTP sessions without requiring an existing terminal session
+     */
+    public void createSftpSession(String sessionId, String sshSessionId, String host, int port,
+                                   String username, String password, String privateKey) throws Exception {
+        // Check if already open
+        if (sftpChannels.containsKey(sessionId)) {
+            ChannelSftp existing = sftpChannels.get(sessionId);
+            if (existing.isConnected()) {
+                log.info("[SFTP] Session already exists: {}", sessionId);
+                return;
+            }
+        }
+
+        // Create new JSch session for SFTP
+        JSch jsch = new JSch();
+
+        // Add private key if provided
+        if (privateKey != null && !privateKey.trim().isEmpty()) {
+            jsch.addIdentity("key", privateKey.getBytes(StandardCharsets.UTF_8), null, null);
+        }
+
+        Session jschSession = jsch.getSession(username, host, port);
+
+        if (password != null && !password.isEmpty()) {
+            jschSession.setPassword(password);
+        }
+
+        jschSession.setConfig("StrictHostKeyChecking", "no");
+        jschSession.connect(30000);
+
+        // Open SFTP channel
+        ChannelSftp sftpChannel = (ChannelSftp) jschSession.openChannel("sftp");
+        sftpChannel.connect(10000);
+
+        sftpSessions.put(sessionId, jschSession);
+        sftpChannels.put(sessionId, sftpChannel);
+
+        log.info("[SFTP] Created SFTP session {} for SSH session {}", sessionId, sshSessionId);
+    }
+
+    /**
      * Open SFTP channel for an existing SSH terminal session
      * Reuses the same JSch session if available
      */

@@ -132,6 +132,11 @@ const HEALTH_CHECK_INTERVAL = 30000;
 const TERMINAL_RESIZE_DELAY = 100;
 const TOKEN_MAX_AGE_HOURS = 23;
 
+// Terminal control banners - must match Java backend constants
+// Format: <<BANNER_NAME>> to avoid conflicts with normal terminal output
+const BANNER_SSH_DISCONNECTED = '<<SSH_DISCONNECTED>>';
+const BANNER_STREAM_CLOSED = '<<STREAM_CLOSED>>';
+
 // Icons
 const SHELL_ICONS = {
     cmd: '💻',
@@ -148,6 +153,230 @@ const TOAST_ICONS = {
     warning: '⚠',
     info: 'ℹ'
 };
+
+// ========================================
+// TabSessionManager - Centralized Tab & Session Management
+// ========================================
+/**
+ * TabSessionManager - Manages all tab switching and session tracking
+ * Provides better encapsulation for tab/session operations
+ */
+class TabSessionManager {
+    constructor() {
+        this.activeSessionId = null;
+        this.sessions = new Map();
+        this.notes = new Map();
+    }
+
+    /**
+     * Switch to a session (terminal or note)
+     * @param {string} sessionId - The session/tab ID to switch to
+     */
+    switchTo(sessionId) {
+        // Deactivate all tabs
+        document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+
+        // Activate target tab
+        const tab = document.getElementById(`tab-${sessionId}`);
+        if (tab) {
+            tab.classList.add('active');
+        }
+
+        // Deactivate all panels
+        document.querySelectorAll('.terminal-panel').forEach(p => p.classList.remove('active'));
+
+        // Activate target panel
+        const panel = document.getElementById(`panel-${sessionId}`);
+        if (panel) {
+            panel.classList.add('active');
+        }
+
+        // Update active session
+        this.activeSessionId = sessionId;
+
+        // Handle session-specific logic
+        if (sessionId.startsWith('note-')) {
+            // It's a note - clear terminal-related state
+            this.handleNoteSwitch(sessionId);
+        } else {
+            // It's a terminal session
+            this.handleTerminalSwitch(sessionId);
+        }
+
+        return this;
+    }
+
+    /**
+     * Handle switching to a note tab
+     */
+    handleNoteSwitch(sessionId) {
+        const noteId = sessionId.substring(5); // Remove 'note-' prefix
+
+        // Focus the textarea
+        const textarea = document.getElementById(`note-content-${noteId}`);
+        if (textarea) {
+            setTimeout(() => textarea.focus(), 100);
+        }
+
+        // Highlight active note in sidebar
+        document.querySelectorAll('.note-item').forEach(item => {
+            item.classList.toggle('active', item.dataset.noteId === noteId);
+        });
+
+        // Clear typing indicator (not relevant for notes)
+        const statusTyping = document.getElementById('statusTyping');
+        if (statusTyping) {
+            statusTyping.style.display = 'none';
+            statusTyping.textContent = '';
+        }
+
+        // Update status bar
+        if (typeof updateStatusBar === 'function') {
+            updateStatusBar();
+        }
+    }
+
+    /**
+     * Handle switching to a terminal session
+     */
+    handleTerminalSwitch(sessionId) {
+        const session = this.sessions.get(sessionId);
+        if (!session) return;
+
+        // Update status bar
+        if (typeof updateStatusBar === 'function') {
+            updateStatusBar();
+        }
+
+        // Clear typing indicator
+        const statusTyping = document.getElementById('statusTyping');
+        if (statusTyping) {
+            statusTyping.style.display = 'none';
+            statusTyping.textContent = '';
+        }
+
+        // Update SFTP button state
+        if (typeof updateSftpButtonState === 'function') {
+            updateSftpButtonState();
+        }
+
+        // Handle SFTP panel if open
+        const sftpPanel = document.getElementById('panel-sftp');
+        if (sftpPanel && sftpPanel.classList.contains('active') && session.type === 'ssh') {
+            if (typeof openSftpForSession === 'function') {
+                openSftpForSession(sessionId);
+            }
+        }
+
+        // Focus terminal and fit
+        if (session.terminal) {
+            setTimeout(() => {
+                if (session.fitAddon) {
+                    session.fitAddon.fit();
+                }
+                session.terminal.focus();
+            }, 100);
+
+            // Mobile: Ensure terminal gets focus
+            const terminalElement = document.getElementById(`terminal-${sessionId}`);
+            if (terminalElement) {
+                const focusTerminal = () => {
+                    if (session.terminal) {
+                        session.terminal.focus();
+                        const textarea = terminalElement.querySelector('.xterm-helper-textarea');
+                        if (textarea) {
+                            textarea.focus();
+                        }
+                    }
+                };
+
+                // Focus on touch/click
+                terminalElement.addEventListener('touchstart', focusTerminal, { passive: true });
+                terminalElement.addEventListener('click', focusTerminal);
+            }
+        }
+    }
+
+    /**
+     * Get the currently active session ID
+     */
+    getActiveSessionId() {
+        return this.activeSessionId;
+    }
+
+    /**
+     * Get a session by ID
+     */
+    getSession(sessionId) {
+        return this.sessions.get(sessionId);
+    }
+
+    /**
+     * Add or update a session
+     */
+    setSession(sessionId, sessionData) {
+        this.sessions.set(sessionId, sessionData);
+        return this;
+    }
+
+    /**
+     * Remove a session
+     */
+    removeSession(sessionId) {
+        this.sessions.delete(sessionId);
+        return this;
+    }
+
+    /**
+     * Get all sessions
+     */
+    getAllSessions() {
+        return this.sessions;
+    }
+
+    /**
+     * Get a note by ID
+     */
+    getNote(noteId) {
+        return this.notes.get(noteId);
+    }
+
+    /**
+     * Add or update a note
+     */
+    setNote(noteId, noteData) {
+        this.notes.set(noteId, noteData);
+        return this;
+    }
+
+    /**
+     * Remove a note
+     */
+    removeNote(noteId) {
+        this.notes.delete(noteId);
+        return this;
+    }
+
+    /**
+     * Get all notes
+     */
+    getAllNotes() {
+        return this.notes;
+    }
+
+    /**
+     * Close mobile sidebar when switching (for mobile UX)
+     */
+    closeMobileSidebar() {
+        if (window.innerWidth <= 480 && typeof closeMobileSidebar === 'function') {
+            closeMobileSidebar();
+        }
+        return this;
+    }
+}
+
+// Create global instance
+const tabSessionManager = new TabSessionManager();
 
 // ========================================
 // SECTION 2: SECURITY & AUTHENTICATION
@@ -196,14 +425,30 @@ function updateSftpButtonState() {
     if (slsCurrentState === 'offline') return;
 
     const session = activeSessionId ? sessions.get(activeSessionId) : null;
-    if (!session || session.type !== 'ssh') {
+
+    // Enable SFTP for:
+    // 1. Local SSH sessions (session.type === 'ssh')
+    // 2. Shared SSH sessions (owner sharing their SSH)
+    // 3. Received shared SSH sessions (viewing someone else's SSH)
+    const isLocalSsh = session && session.type === 'ssh';
+    const isSharedSsh = session && session.type === 'ssh' && session.isShared;
+    const isReceivedSsh = session && session.type === 'ssh' && session.owner && session.owner !== cloudAgentName;
+
+    if (isLocalSsh || isSharedSsh || isReceivedSsh) {
+        sftpBtn.disabled = false;
+        sftpBtn.classList.remove('sls-disabled');
+
+        if (isReceivedSsh) {
+            sftpBtn.title = `SFTP File Browser (Remote: ${session.owner})`;
+        } else if (isSharedSsh) {
+            sftpBtn.title = 'SFTP File Browser (Shared)';
+        } else {
+            sftpBtn.title = 'SFTP File Browser';
+        }
+    } else {
         sftpBtn.disabled = true;
         sftpBtn.classList.add('sls-disabled');
         sftpBtn.title = 'SFTP requires an active SSH connection';
-    } else {
-        sftpBtn.disabled = false;
-        sftpBtn.classList.remove('sls-disabled');
-        sftpBtn.title = 'SFTP File Browser';
     }
 }
 
@@ -508,8 +753,18 @@ function updatePermissionUI(sessionId, permission, options = {}) {
  *   owner: String|null              // null = my terminal, "AgentName" = remote
  * }
  */
-const sessions = new Map();
-let activeSessionId = null;
+// Use TabSessionManager for centralized state management
+const sessions = tabSessionManager.getAllSessions();
+
+// Compatibility getter/setter for activeSessionId
+Object.defineProperty(window, 'activeSessionId', {
+    get: () => tabSessionManager.getActiveSessionId(),
+    set: (value) => {
+        tabSessionManager.activeSessionId = value;
+    }
+});
+
+let activeSessionId = null; // Keep for backward compatibility (will be shadowed by window property)
 
 // ========================================
 // SECTION 5: CLOUD SHARING STATE
@@ -539,8 +794,52 @@ async function saveTabMetadata(sessionId, tabName, tabIcon, tabOrder) {
                 autoRestore: true
             })
         });
+
+        // Also track in localStorage for page refresh detection
+        trackOpenTab(sessionId);
     } catch (e) {
         console.warn('[TabPersistence] Failed to save metadata:', e);
+    }
+}
+
+/**
+ * Track open tabs in localStorage (survives page refresh)
+ */
+function trackOpenTab(sessionId) {
+    try {
+        const openTabs = getOpenTabs();
+        if (!openTabs.includes(sessionId)) {
+            openTabs.push(sessionId);
+            localStorage.setItem('terminal_open_tabs', JSON.stringify(openTabs));
+        }
+    } catch (e) {
+        console.warn('[TabPersistence] Failed to track open tab:', e);
+    }
+}
+
+/**
+ * Remove tab from localStorage tracking
+ */
+function untrackOpenTab(sessionId) {
+    try {
+        const openTabs = getOpenTabs();
+        const filtered = openTabs.filter(id => id !== sessionId);
+        localStorage.setItem('terminal_open_tabs', JSON.stringify(filtered));
+    } catch (e) {
+        console.warn('[TabPersistence] Failed to untrack tab:', e);
+    }
+}
+
+/**
+ * Get list of open tabs from localStorage
+ */
+function getOpenTabs() {
+    try {
+        const stored = localStorage.getItem('terminal_open_tabs');
+        return stored ? JSON.parse(stored) : [];
+    } catch (e) {
+        console.warn('[TabPersistence] Failed to get open tabs:', e);
+        return [];
     }
 }
 
@@ -584,9 +883,24 @@ async function restoreSavedTabs() {
 
         const savedSessions = await response.json();
 
-        // Filter active sessions that should be restored
+        // Get list of tabs that were open before page refresh
+        const openTabs = getOpenTabs();
+        console.log('[TabPersistence] Tabs open before refresh:', openTabs);
+
+        // Filter sessions to restore:
+        // 1. Must be in the openTabs list (was open before refresh)
+        // 2. Must be active status
+        // 3. Must have autoRestore enabled (or not explicitly disabled)
         const toRestore = savedSessions
-            .filter(s => s.status === 'active' && s.autoRestore !== false)
+            .filter(s => {
+                const shouldRestore = openTabs.includes(s.sessionId) &&
+                                     s.status === 'active' &&
+                                     s.autoRestore !== false;
+                if (!shouldRestore && s.status === 'active') {
+                    console.log(`[TabPersistence] Skipping session ${s.sessionId} - not in openTabs`);
+                }
+                return shouldRestore;
+            })
             .sort((a, b) => (a.tabOrder || 0) - (b.tabOrder || 0));
 
         console.log('[TabPersistence] Found', toRestore.length, 'sessions to restore');
@@ -1166,6 +1480,9 @@ function createTab(sessionId, title, icon, type) {
 
     tabBar.insertBefore(tab, addBtn);
 
+    // Ensure add button stays at the end
+    ensureAddButtonAtEnd();
+
     // Deactivate other tabs
     tabBar.querySelectorAll('.tab').forEach(t => {
         if (t.id !== `tab-${sessionId}`) t.classList.remove('active');
@@ -1176,6 +1493,20 @@ function createTab(sessionId, title, icon, type) {
 
     // Check for tab overflow and show/hide scroll buttons
     setTimeout(checkTabOverflow, 100);
+}
+
+/**
+ * Ensure the Add Tab button is always at the end of the tab bar
+ * This prevents it from appearing in the middle when mixing terminal and note tabs
+ */
+function ensureAddButtonAtEnd() {
+    const tabBar = document.getElementById('tabBar') || document.querySelector('.tab-bar');
+    const addBtn = tabBar?.querySelector('.tab-add');
+
+    if (tabBar && addBtn) {
+        // Move add button to the very end
+        tabBar.appendChild(addBtn);
+    }
 }
 
 function updateTab(sessionId, disconnected = false) {
@@ -1220,105 +1551,15 @@ function removeTab(sessionId) {
 }
 
 function switchToSession(sessionId) {
-    // Update tabs
-    document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
-    const tab = document.getElementById(`tab-${sessionId}`);
-    if (tab) tab.classList.add('active');
+    // Use TabSessionManager for core switching logic
+    tabSessionManager.switchTo(sessionId);
 
-    // Update terminal panels
-    document.querySelectorAll('.terminal-panel').forEach(p => p.classList.remove('active'));
-    const panel = document.getElementById(`panel-${sessionId}`);
-    if (panel) panel.classList.add('active');
-
-    activeSessionId = sessionId;
-
-    // Update status bar with active session
-    updateStatusBar();
-
-    // Clear typing indicator from status bar (new tab might not have anyone typing)
-    const statusTyping = document.getElementById('statusTyping');
-    if (statusTyping) {
-        statusTyping.style.display = 'none';
-        statusTyping.textContent = '';
+    // Mobile: Auto-close sidebar
+    if (window.innerWidth <= 480) {
+        tabSessionManager.closeMobileSidebar();
     }
 
-    // Update SFTP button state (enabled only for SSH sessions)
-    updateSftpButtonState();
-
-    // If SFTP sidebar is open, switch to the SFTP session for this tab
-    const sftpPanel = document.getElementById('panel-sftp');
-    if (sftpPanel && sftpPanel.classList.contains('active')) {
-        const session = sessions.get(sessionId);
-        if (session && session.type === 'ssh') {
-            openSftpForSession(sessionId);
-        } else if (sftpBrowser) {
-            // Non-SSH tab: show a message in SFTP panel
-            const container = document.getElementById('sftpPanelContainer');
-            if (container && !session?.type?.includes('ssh')) {
-                // Don't close, just leave current SFTP view
-            }
-        }
-    }
-
-    // Focus terminal and fit
-    const session = sessions.get(sessionId);
-    if (session && session.terminal) {
-        setTimeout(() => {
-            if (session.fitAddon) session.fitAddon.fit();
-            session.terminal.focus();
-        }, 100);
-
-        // ✅ Mobile fix: Ensure terminal gets focus on tap/touch and keyboard input works
-        const terminalElement = document.getElementById(`terminal-${sessionId}`);
-        if (terminalElement) {
-            // Add touch event listeners for mobile
-            const focusTerminal = (e) => {
-                if (session.terminal) {
-                    session.terminal.focus();
-
-                    // ✅ CRITICAL: Find and focus the hidden textarea used by xterm.js
-                    // This ensures mobile keyboard input is captured
-                    const textarea = terminalElement.querySelector('textarea.xterm-helper-textarea');
-                    if (textarea) {
-                        textarea.focus();
-                        // Prevent default to avoid double-tap zoom on iOS
-                        if (e && e.type === 'touchstart') {
-                            e.preventDefault();
-                        }
-                    }
-                }
-            };
-
-            terminalElement.addEventListener('touchstart', focusTerminal);
-            terminalElement.addEventListener('touchend', focusTerminal, { passive: true });
-            terminalElement.addEventListener('click', focusTerminal);
-
-            // Also handle when keyboard appears (mobile browsers)
-            if ('visualViewport' in window) {
-                const handleViewportResize = () => {
-                    if (activeSessionId === sessionId) {
-                        focusTerminal();
-                    }
-                };
-                window.visualViewport.addEventListener('resize', handleViewportResize);
-
-                // Store cleanup function
-                if (!session._cleanupFunctions) session._cleanupFunctions = [];
-                session._cleanupFunctions.push(() => {
-                    window.visualViewport.removeEventListener('resize', handleViewportResize);
-                });
-            }
-
-            // Store cleanup functions
-            if (!session._cleanupFunctions) session._cleanupFunctions = [];
-            session._cleanupFunctions.push(() => {
-                terminalElement.removeEventListener('touchstart', focusTerminal);
-                terminalElement.removeEventListener('touchend', focusTerminal);
-                terminalElement.removeEventListener('click', focusTerminal);
-            });
-        }
-    }
-
+    // Update empty state
     updateEmptyState();
 }
 
@@ -1876,6 +2117,9 @@ async function connectToSsh(connectionId, name, host, port, username) {
 
         showToast('success', 'SSH Connected', `Connected to ${host}`);
 
+        // ✅ AUTO-CREATE SFTP SESSION FOR THIS SSH CONNECTION
+        await createSftpSessionForSsh(sessionId);
+
     } catch (error) {
         console.error('[SSH] Connection error:', error);
 
@@ -2064,6 +2308,153 @@ function initTerminal(sessionId) {
 }
 
 // ========================================
+// WebSocket Helper Functions
+// ========================================
+
+/**
+ * Mark session as disconnected and show reconnect UI
+ * Centralized function to avoid code duplication
+ * @param {string} sessionId - Terminal session ID
+ * @param {Object} session - Session object
+ * @param {string} toastTitle - Toast notification title
+ * @param {string} toastMessage - Toast notification message
+ */
+function markSessionDisconnected(sessionId, session, toastTitle, toastMessage) {
+    session.connected = false;
+    session.dataSender = null;
+    updateTab(sessionId, true);
+    showReconnectOverlay(sessionId);
+    showToast('error', toastTitle, toastMessage);
+}
+
+/**
+ * Handle disconnection banner detection
+ * Checks if banner is a real disconnection or false alarm (e.g., cat file.txt)
+ * @param {string} sessionId - Terminal session ID
+ * @param {Object} session - Session object
+ * @returns {Promise<boolean>} - true if real disconnection, false if false alarm
+ */
+async function handleDisconnectionBanner(sessionId, session) {
+    try {
+        // Check if session is still alive via API
+        const alive = await checkSessionAlive(sessionId);
+        console.log('[WS] Session alive check after banner:', alive);
+
+        if (!alive) {
+            // REAL DISCONNECTION: Session is dead
+            console.error('[WS] Session is NOT alive - real SSH disconnection');
+            markSessionDisconnected(sessionId, session, 'SSH Disconnected', 'SSH connection lost. Press R to reconnect.');
+            return true;
+        }
+
+        // FALSE ALARM: Session is alive - this was just file content
+        return false;
+    } catch (err) {
+        console.error('[WS] Failed to check session alive:', err);
+        // On error, assume disconnection to be safe
+        markSessionDisconnected(sessionId, session, 'Connection Error', 'Press R to reconnect.');
+        return true;
+    }
+}
+
+/**
+ * Write terminal data to xterm.js terminal
+ * Handles data cleaning, filtering, and cloud broadcasting
+ * @param {Object} session - Session object with terminal and config
+ * @param {string} rawData - Raw data from WebSocket
+ */
+function writeTerminalData(session, rawData) {
+    try {
+        // Filter out invalid control characters that cause xterm parsing errors
+        // Remove DEL (127/0x7F) and other problematic control chars
+        let data = rawData.replace(/[\x7F]/g, ''); // Remove DEL character
+
+        // Clean bash output - strip leading spaces per line
+        const shell = session.config?.shell || 'cmd';
+        data = cleanOutput(data, shell);
+
+        // Only write if we have valid data
+        if (data.length > 0) {
+            session.terminal.write(data);
+        }
+
+        // ✅ If this terminal is shared, broadcast the output to other agents
+        if (session.isShared && cloudConnected && terminalSharing) {
+            const sent = terminalSharing.sendOutputFromSession(session.terminal.sessionId || sessionId, rawData);
+            if (sent) {
+                console.log('[Terminal] Broadcasted output, bytes:', rawData.length);
+            }
+        }
+    } catch (e) {
+        console.warn('[Terminal] Write error:', e);
+    }
+}
+
+/**
+ * Handle WebSocket close event with session alive check
+ * Provides appropriate user feedback based on close reason
+ * @param {Object} event - WebSocket CloseEvent
+ * @param {string} sessionId - Terminal session ID
+ * @param {Object} session - Session object
+ */
+async function handleWebSocketClose(event, sessionId, session) {
+    console.log('[WS] WebSocket closed for session:', sessionId);
+    console.log('[WS] Close code:', event.code, 'Reason:', event.reason || 'No reason provided');
+    console.log('[WS] Was clean close:', event.wasClean);
+
+    session.connected = false;
+    session.dataSender = null;
+    updateTab(sessionId, true);
+
+    // Provide context-specific messages based on close code
+    if (!event.wasClean) {
+        console.warn('[WS] Abnormal close - possible SLS crash or network issue');
+
+        // Common WebSocket close codes
+        const closeReasons = {
+            1000: 'Normal closure',
+            1001: 'Going away (SLS shutdown or navigation)',
+            1006: 'Abnormal closure (no close frame - SLS offline?)',
+            1011: 'Server error',
+            1012: 'Service restart',
+            1013: 'Try again later',
+            1014: 'Bad gateway',
+            1015: 'TLS handshake failure'
+        };
+
+        const reason = closeReasons[event.code] || `Unknown (code ${event.code})`;
+        console.log('[WS] Close reason:', reason);
+
+        // If code 1006, it's likely SLS went offline
+        if (event.code === 1006) {
+            console.error('[WS] Code 1006 - SLS likely went offline or crashed');
+        }
+    }
+
+    // Check if session is still alive before showing reconnect overlay
+    try {
+        const alive = await checkSessionAlive(sessionId);
+        console.log('[WS] Session alive check on close:', alive);
+
+        if (!alive) {
+            // Session is truly dead - show reconnect UI
+            showReconnectOverlay(sessionId);
+            showToast('warning', 'Session Disconnected', 'Connection lost. Press R to reconnect.');
+        } else {
+            // Session is alive but WebSocket closed (e.g., SSH channel disconnected)
+            // Still show reconnect overlay so user can re-establish connection
+            showReconnectOverlay(sessionId);
+            showToast('warning', 'Connection Closed', 'WebSocket closed. Press R to reconnect.');
+        }
+    } catch (err) {
+        console.error('[WS] Failed to check session alive:', err);
+        // On error, show reconnect overlay to be safe
+        showReconnectOverlay(sessionId);
+        showToast('warning', 'Connection Closed', 'Press R to reconnect.');
+    }
+}
+
+// ========================================
 // WebSocket Connection
 // ========================================
 function connectWebSocket(sessionId) {
@@ -2167,36 +2558,42 @@ function connectWebSocket(sessionId) {
         }, 400); // Send after resize completes
     };
 
-    ws.onmessage = (event) => {
-        try {
-            let data = event.data;
+    // WebSocket message handler - processes all terminal output
+    ws.onmessage = async (event) => {
+        const rawData = event.data;
 
-            // Filter out invalid control characters that cause xterm parsing errors
-            // Remove DEL (127/0x7F) and other problematic control chars
-            // Keep: printable chars, newlines (\n, \r), tabs (\t), and valid ANSI escapes (ESC = 27/0x1B)
-            data = data.replace(/[\x7F]/g, ''); // Remove DEL character
+        // Check for special banners - verify session is still alive to avoid false alarms
+        // (e.g., banner might appear in file content like: cat file.txt)
+        if (rawData.includes(BANNER_SSH_DISCONNECTED) || rawData.includes(BANNER_STREAM_CLOSED)) {
+            const bannerType = rawData.includes(BANNER_SSH_DISCONNECTED) ? 'SSH_DISCONNECTED' : 'STREAM_CLOSED';
+            console.warn(`[WS] ${bannerType} banner detected for session:`, sessionId);
 
-            // Clean bash output - strip leading spaces per line
-            // Bash running through a pipe (no PTY) produces extra leading spaces
-            // because tools can't detect terminal width properly
-            const shell = session.config?.shell || 'cmd';
-            data = cleanOutput(data, shell);
+            // Verify if this is a real disconnection or just file content
+            const isAlive = await checkSessionAlive(sessionId);
 
-            // Only write if we have valid data
-            if (data.length > 0) {
-                session.terminal.write(data);
+            if (!isAlive) {
+                // REAL DISCONNECTION: Session is dead
+                console.error('[WS] Confirmed: Session is dead');
+                session.connected = false;
+                session.dataSender = null;
+                updateTab(sessionId, true);
+                showReconnectOverlay(sessionId);
+
+                const message = bannerType === 'SSH_DISCONNECTED'
+                    ? 'SSH connection lost. Press R to reconnect.'
+                    : 'Terminal stream ended. Press R to reconnect.';
+                showToast('error', 'Disconnected', message);
+
+                return; // Don't write banner text to terminal
             }
 
-            // ✅ If this terminal is shared, broadcast the output to other agents
-            if (session.isShared && cloudConnected && terminalSharing) {
-                const sent = terminalSharing.sendOutputFromSession(sessionId, event.data);
-                if (sent) {
-                    console.log('[Terminal] Broadcasted output:', sessionId, 'bytes:', event.data.length);
-                }
-            }
-        } catch (e) {
-            console.warn('[Terminal] Write error:', e);
+            // FALSE ALARM: Session is alive - banner is just in file content
+            console.log('[WS] Banner is false alarm (session still alive), processing as normal output');
+            // Fall through to write the data normally
         }
+
+        // Process and display terminal data
+        writeTerminalData(session, rawData);
     };
 
     ws.onerror = (error) => {
@@ -2216,44 +2613,9 @@ function connectWebSocket(sessionId) {
         }
     };
 
-    ws.onclose = (event) => {
-        // Clear timeout - connection closed
+    ws.onclose = async (event) => {
         clearTimeout(connectionTimeout);
-        
-        console.log('[WS] WebSocket closed for session:', sessionId);
-        console.log('[WS] Close code:', event.code, 'Reason:', event.reason || 'No reason provided');
-        console.log('[WS] Was clean close:', event.wasClean);
-
-        session.connected = false;
-        session.dataSender = null;
-        updateTab(sessionId, true);
-        showReconnectOverlay(sessionId);
-
-        // Provide context-specific messages based on close code
-        if (!event.wasClean) {
-            console.warn('[WS] Abnormal close - possible SLS crash or network issue');
-
-            // Common WebSocket close codes
-            const closeReasons = {
-                1000: 'Normal closure',
-                1001: 'Going away (SLS shutdown or navigation)',
-                1006: 'Abnormal closure (no close frame - SLS offline?)',
-                1011: 'Server error',
-                1012: 'Service restart',
-                1013: 'Try again later',
-                1014: 'Bad gateway',
-                1015: 'TLS handshake failure'
-            };
-
-            const reason = closeReasons[event.code] || `Unknown (code ${event.code})`;
-            console.log('[WS] Close reason:', reason);
-
-            // If code 1006, it's likely SLS went offline
-            if (event.code === 1006) {
-                console.error('[WS] Code 1006 - SLS likely went offline or crashed');
-                showToast('warning', 'Connection Lost', 'SLS may have stopped. Press R to reconnect.');
-            }
-        }
+        await handleWebSocketClose(event, sessionId, session);
     };
 
     session.dataSender = ws;
@@ -2287,6 +2649,21 @@ function showReconnectOverlay(sessionId) {
 function hideReconnectOverlay(sessionId) {
     const overlay = document.getElementById(`reconnect-${sessionId}`);
     if (overlay) overlay.classList.remove('visible');
+}
+
+/**
+ * Check if a terminal session is still alive on the backend
+ * @param {string} sessionId - Session ID to check
+ * @returns {Promise<boolean>} - True if session is alive, false otherwise
+ */
+async function checkSessionAlive(sessionId) {
+    try {
+        const response = await fetch(`${MLS_URL}/terminal/${sessionId}`);
+        return response.ok; // 200 = alive, 404 = not found
+    } catch (error) {
+        console.error('[CheckAlive] Failed to check session status:', error);
+        return false;
+    }
 }
 
 async function reconnectSession(sessionId) {
@@ -2452,6 +2829,9 @@ async function closeSession(sessionId) {
     sessions.delete(sessionId);
     console.log(`[Close] Session removed from sessions map: ${sessionId}`);
 
+    // Remove from localStorage tracking (so it won't restore on refresh)
+    untrackOpenTab(sessionId);
+
     // Switch to another session if this was active
     if (activeSessionId === sessionId) {
         activeSessionId = null;
@@ -2521,6 +2901,85 @@ window.cancelSshModal = function() {
     document.querySelector('#sshModalOverlay .modal-title').textContent = '➕ Add SSH Connection';
     closeSshModal();
 }
+
+/**
+ * Test SSH connection before saving
+ */
+async function testSshConnection() {
+    const testBtn = document.getElementById('testSshBtn');
+    const originalText = testBtn.innerHTML;
+
+    // Validate required fields
+    const host = document.getElementById('sshHost').value.trim();
+    const username = document.getElementById('sshUsername').value.trim();
+
+    if (!host || !username) {
+        showToast('warning', 'Missing Fields', 'Please fill in Host and Username to test connection');
+        return;
+    }
+
+    const data = {
+        host: host,
+        port: parseInt(document.getElementById('sshPort').value) || 22,
+        username: username,
+        password: document.getElementById('sshPassword').value || null,
+        privateKey: document.getElementById('sshPrivateKey').value || null
+    };
+
+    try {
+        // Disable button and show loading state
+        testBtn.disabled = true;
+        testBtn.innerHTML = '⏳ Testing...';
+        testBtn.classList.add('loading');
+
+        const response = await slsFetch(`${MLS_URL}/terminal/ssh-connections/test`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(data)
+        });
+
+        if (!response.ok) {
+            const error = await response.text();
+            throw new Error(error || 'Connection test failed');
+        }
+
+        const result = await response.json();
+
+        if (result.success) {
+            showToast('success', '✅ Connection Successful',
+                     `Connected to ${data.username}@${data.host}:${data.port}`, 5000);
+            testBtn.innerHTML = '✅ Success';
+            testBtn.classList.add('success');
+
+            // Reset button after 3 seconds
+            setTimeout(() => {
+                testBtn.innerHTML = originalText;
+                testBtn.disabled = false;
+                testBtn.classList.remove('loading', 'success');
+            }, 3000);
+        } else {
+            throw new Error(result.error || 'Connection test failed');
+        }
+
+    } catch (error) {
+        console.error('[SSH Test] Connection test failed:', error);
+        showToast('error', '❌ Connection Failed',
+                 error.message || 'Could not connect to SSH server', 8000);
+
+        testBtn.innerHTML = '❌ Failed';
+        testBtn.classList.add('error');
+
+        // Reset button after 3 seconds
+        setTimeout(() => {
+            testBtn.innerHTML = originalText;
+            testBtn.disabled = false;
+            testBtn.classList.remove('loading', 'error');
+        }, 3000);
+    }
+}
+
+// Make globally accessible
+window.testSshConnection = testSshConnection;
 
 async function saveSshConnection(e) {
     e.preventDefault();
@@ -2889,9 +3348,14 @@ function tabContextMenuAction(action) {
         return;
     }
 
+    // Check if this is a note tab or terminal tab
+    const isNoteTab = sessionId.startsWith('note-');
+    const noteId = isNoteTab ? sessionId.substring(5) : null; // Remove 'note-' prefix
+
     // Check if the action is disabled (e.g., share when not connected)
     if (action === 'toggleShare') {
         console.log('[TabContextMenu] toggleShare action detected');
+        console.log('[TabContextMenu] isNoteTab:', isNoteTab);
         console.log('[TabContextMenu] cloudConnected:', cloudConnected);
         console.log('[TabContextMenu] terminalSharing:', terminalSharing);
 
@@ -2901,7 +3365,7 @@ function tabContextMenuAction(action) {
 
         if (shareMenuItem && shareMenuItem.classList.contains('disabled')) {
             console.warn('[TabContextMenu] Share menu is disabled, showing warning');
-            showToast('warning', 'Not Connected', 'Connect to cloud messaging first to share terminals');
+            showToast('warning', 'Not Connected', 'Connect to cloud messaging first to share');
             return;
         }
 
@@ -2909,90 +3373,136 @@ function tabContextMenuAction(action) {
     }
 
     switch (action) {
-        // ...existing code...
         case 'rename': {
-            const session = sessions.get(sessionId);
-            const current = session ? session.name : sessionId;
-            const newName = prompt('Rename tab:', current);
-            if (newName && newName.trim()) {
-                const tab = document.getElementById(`tab-${sessionId}`);
-                if (tab) {
-                    tab.querySelector('.tab-title').textContent = newName.trim();
+            if (isNoteTab) {
+                // Rename note
+                const note = notes.get(noteId);
+                const current = note ? note.title : 'Untitled Note';
+                const newName = prompt('Rename note:', current);
+                if (newName && newName.trim()) {
+                    updateNoteTitle(noteId, newName.trim());
                 }
-                if (session) session.name = newName.trim();
+            } else {
+                // Rename terminal session
+                const session = sessions.get(sessionId);
+                const current = session ? session.name : sessionId;
+                const newName = prompt('Rename tab:', current);
+                if (newName && newName.trim()) {
+                    const tab = document.getElementById(`tab-${sessionId}`);
+                    if (tab) {
+                        tab.querySelector('.tab-title').textContent = newName.trim();
+                    }
+                    if (session) session.name = newName.trim();
+                }
             }
             break;
         }
         case 'duplicate': {
-            const session = sessions.get(sessionId);
-            if (session && session.type === 'local') {
-                createLocalTerminal(session.config?.shell || 'bash');
-            } else if (session && session.type === 'ssh') {
-                const cfg = session.config || {};
-                connectToSsh(cfg.connectionId, cfg.name, cfg.host, cfg.port, cfg.username);
+            if (isNoteTab) {
+                // Duplicate note
+                duplicateNote(noteId);
+            } else {
+                // Duplicate terminal
+                const session = sessions.get(sessionId);
+                if (session && session.type === 'local') {
+                    createLocalTerminal(session.config?.shell || 'bash');
+                } else if (session && session.type === 'ssh') {
+                    const cfg = session.config || {};
+                    connectToSsh(cfg.connectionId, cfg.name, cfg.host, cfg.port, cfg.username);
+                }
             }
             break;
         }
         case 'toggleShare': {
             console.log('[TabContextMenu] Inside toggleShare case');
             console.log('[TabContextMenu] sessionId param:', sessionId);
-            console.log('[TabContextMenu] typeof sessionId:', typeof sessionId);
-            console.log('[TabContextMenu] All session keys:', Array.from(sessions.keys()));
-            console.log('[TabContextMenu] cloudConnected:', cloudConnected);
-            console.log('[TabContextMenu] terminalSharing:', terminalSharing);
+            console.log('[TabContextMenu] isNoteTab:', isNoteTab);
 
             // Check if cloud connected before allowing share/unshare
             if (!cloudConnected || !terminalSharing) {
                 console.warn('[TabContextMenu] Not connected - showing toast');
-                showToast('warning', 'Not Connected', 'Connect to cloud messaging first to share terminals');
+                showToast('warning', 'Not Connected', 'Connect to cloud messaging first to share');
                 return;
             }
 
-            const session = sessions.get(sessionId);
-            console.log('[TabContextMenu] Session retrieved:', session);
-
-            if (!session) {
-                console.error('[TabContextMenu] Session not found!');
-                console.error('[TabContextMenu] Looking for:', sessionId);
-                console.error('[TabContextMenu] Available sessions:', sessions);
-                showToast('error', 'Session Not Found', 'Could not find the terminal session');
-                break;
-            }
-
-            console.log('[TabContextMenu] Session.isShared:', session.isShared);
-
-            if (session.isShared) {
-                console.log('[TabContextMenu] Calling unshareTerminal');
-                unshareTerminal(sessionId);
+            if (isNoteTab) {
+                // Toggle note sharing
+                toggleNoteSharing(noteId);
             } else {
-                console.log('[TabContextMenu] Calling shareTerminal');
-                shareTerminal(sessionId);
+                // Toggle terminal sharing
+                const session = sessions.get(sessionId);
+                console.log('[TabContextMenu] Session retrieved:', session);
+
+                if (!session) {
+                    console.error('[TabContextMenu] Session not found!');
+                    showToast('error', 'Session Not Found', 'Could not find the terminal session');
+                    break;
+                }
+
+                console.log('[TabContextMenu] Session.isShared:', session.isShared);
+
+                if (session.isShared) {
+                    console.log('[TabContextMenu] Calling unshareTerminal');
+                    unshareTerminal(sessionId);
+                } else {
+                    console.log('[TabContextMenu] Calling shareTerminal');
+                    shareTerminal(sessionId);
+                }
             }
             break;
         }
         case 'close':
-            closeSession(sessionId);
+            if (isNoteTab) {
+                closeNoteTab(sessionId);
+            } else {
+                closeSession(sessionId);
+            }
             break;
         case 'closeOthers': {
-            const toClose = Array.from(sessions.keys()).filter(id => id !== sessionId);
-            toClose.forEach(id => closeSession(id));
+            const allTabIds = isNoteTab
+                ? Array.from(notes.keys()).map(id => `note-${id}`)
+                : Array.from(sessions.keys());
+            const toClose = allTabIds.filter(id => id !== sessionId);
+            toClose.forEach(id => {
+                if (id.startsWith('note-')) {
+                    closeNoteTab(id);
+                } else {
+                    closeSession(id);
+                }
+            });
             break;
         }
         case 'closeToRight': {
             const tabBar = document.getElementById('tabBar');
-            const allTabs = Array.from(tabBar.querySelectorAll('.tab[data-session-id]'));
-            const idx = allTabs.findIndex(t => t.dataset.sessionId === sessionId);
+            const allTabs = Array.from(tabBar.querySelectorAll('.tab'));
+            const currentTab = document.getElementById(`tab-${sessionId}`);
+            const idx = allTabs.indexOf(currentTab);
             if (idx !== -1) {
-                allTabs.slice(idx + 1).forEach(t => closeSession(t.dataset.sessionId));
+                allTabs.slice(idx + 1).forEach(t => {
+                    const tabId = t.id.replace('tab-', '');
+                    if (tabId.startsWith('note-')) {
+                        closeNoteTab(tabId);
+                    } else {
+                        closeSession(tabId);
+                    }
+                });
             }
             break;
         }
         case 'closeToLeft': {
             const tabBar = document.getElementById('tabBar');
-            const allTabs = Array.from(tabBar.querySelectorAll('.tab[data-session-id]'));
-            const idx = allTabs.findIndex(t => t.dataset.sessionId === sessionId);
+            const allTabs = Array.from(tabBar.querySelectorAll('.tab'));
+            const currentTab = document.getElementById(`tab-${sessionId}`);
+            const idx = allTabs.indexOf(currentTab);
             if (idx !== -1) {
-                allTabs.slice(0, idx).forEach(t => closeSession(t.dataset.sessionId));
+                allTabs.slice(0, idx).forEach(t => {
+                    const tabId = t.id.replace('tab-', '');
+                    if (tabId.startsWith('note-')) {
+                        closeNoteTab(tabId);
+                    } else {
+                        closeSession(tabId);
+                    }
+                });
             }
             break;
         }
@@ -4900,7 +5410,8 @@ function sendTerminalInputViaCloud(sessionId, data) {
 // ========================================
 // Notes Management
 // ========================================
-const notes = new Map(); // noteId -> note object
+// Use TabSessionManager for centralized notes management
+const notes = tabSessionManager.getAllNotes(); // noteId -> note object
 let activeNoteId = null;
 
 // Load notes from backend
@@ -4957,14 +5468,14 @@ function openNote(noteId) {
 
     // Create or reuse tab for this note
     const tabId = `note-${noteId}`;
-    let tab = document.querySelector(`[data-tab-id="${tabId}"]`);
+    let tab = document.getElementById(`tab-${tabId}`);
 
     if (!tab) {
         // Create new tab
         createNoteTab(noteId, note);
     } else {
-        // Switch to existing tab
-        switchToTab(tabId);
+        // Switch to existing tab using existing switchToSession function
+        switchToSession(tabId);
     }
 
     // Highlight active note in list
@@ -4979,10 +5490,10 @@ function createNoteTab(noteId, note) {
     const tabBar = document.querySelector('.tab-bar');
     const terminalWrapper = document.querySelector('.terminal-wrapper');
 
-    // Create tab
+    // Create tab (using same ID system as terminal tabs)
     const tab = document.createElement('div');
     tab.className = 'tab';
-    tab.dataset.tabId = tabId;
+    tab.id = `tab-${tabId}`; // Same as terminal tabs
     tab.innerHTML = `
         <span class="tab-icon">📝</span>
         <span class="tab-title">${note.title || 'Untitled Note'}</span>
@@ -4991,23 +5502,37 @@ function createNoteTab(noteId, note) {
     `;
     tab.onclick = (e) => {
         if (!e.target.classList.contains('tab-close')) {
-            switchToTab(tabId);
+            switchToSession(tabId); // Use existing switchToSession!
         }
     };
 
-    // Add context menu
+    // Add right-click context menu (same as terminal tabs)
     tab.oncontextmenu = (e) => {
         e.preventDefault();
-        showNoteTabContextMenu(e, noteId, tabId);
+        showTabContextMenu(e, tabId);
     };
 
-    tabBar.appendChild(tab);
+    // Insert tab before the "Add Tab" button (same as terminal tabs)
+    const addBtn = tabBar.querySelector('.tab-add');
+    if (addBtn) {
+        tabBar.insertBefore(tab, addBtn);
+    } else {
+        tabBar.appendChild(tab);
+    }
 
-    // Create note editor container
+    // Ensure add button always stays at the end
+    ensureAddButtonAtEnd();
+
+    // Deactivate other tabs and make this one active
+    tabBar.querySelectorAll('.tab').forEach(t => {
+        if (t.id !== `tab-${tabId}`) t.classList.remove('active');
+    });
+    tab.classList.add('active');
+
+    // Create note editor container (using same structure as terminal panels)
     const noteContainer = document.createElement('div');
-    noteContainer.id = `terminal-${tabId}`;
-    noteContainer.className = 'terminal-container';
-    noteContainer.style.display = 'none';
+    noteContainer.id = `panel-${tabId}`; // Same as terminal panels
+    noteContainer.className = 'terminal-panel'; // Same class as terminal panels
     noteContainer.innerHTML = `
         <div style="display: flex; flex-direction: column; height: 100%; background: var(--bg-panel); padding: 16px;">
             <div style="margin-bottom: 12px; display: flex; gap: 10px; align-items: center;">
@@ -5016,26 +5541,14 @@ function createNoteTab(noteId, note) {
                        style="flex: 1; padding: 8px 12px; background: var(--bg-darker); border: 1px solid var(--border-color); 
                               border-radius: 4px; color: var(--text-primary); font-size: 14px; font-weight: 600;"
                        onchange="updateNoteTitle('${noteId}', this.value)">
-                <button onclick="toggleNoteSharing('${noteId}')" 
-                        id="share-btn-${noteId}"
-                        style="padding: 8px 16px; background: ${note.shared ? 'var(--accent-green)' : 'var(--bg-darker)'}; 
-                               border: 1px solid var(--border-color); border-radius: 4px; color: var(--text-primary); 
-                               cursor: pointer; font-size: 12px; transition: all 0.2s;">
-                    ${note.shared ? '🔗 Shared' : '🔒 Private'}
-                </button>
                 <button onclick="saveNote('${noteId}')" 
                         style="padding: 8px 16px; background: var(--accent-blue); border: none; border-radius: 4px; 
                                color: white; cursor: pointer; font-size: 12px; font-weight: 600;">
                     💾 Save
                 </button>
-                <button onclick="deleteNote('${noteId}')" 
-                        style="padding: 8px 16px; background: var(--accent-red); border: none; border-radius: 4px; 
-                               color: white; cursor: pointer; font-size: 12px;">
-                    🗑️ Delete
-                </button>
             </div>
             <textarea id="note-content-${noteId}" 
-                      placeholder="Start writing your note..."
+                      placeholder="Start writing your note... (Right-click tab for more options)"
                       style="flex: 1; padding: 12px; background: var(--bg-darker); border: 1px solid var(--border-color); 
                              border-radius: 4px; color: var(--text-primary); font-size: 13px; font-family: 'Consolas', 'Monaco', monospace; 
                              resize: none; line-height: 1.6;">${note.content || ''}</textarea>
@@ -5047,7 +5560,7 @@ function createNoteTab(noteId, note) {
     `;
 
     terminalWrapper.appendChild(noteContainer);
-    switchToTab(tabId);
+    switchToSession(tabId); // Use existing switchToSession function
 }
 
 // Update note title
@@ -5056,13 +5569,50 @@ async function updateNoteTitle(noteId, newTitle) {
     if (!note) return;
 
     note.title = newTitle;
+    note.updatedAt = new Date().toISOString();
 
     // Update tab title
-    const tab = document.querySelector(`[data-tab-id="note-${noteId}"] .tab-title`);
-    if (tab) tab.textContent = newTitle;
+    const tab = document.getElementById(`tab-note-${noteId}`);
+    if (tab) {
+        const titleEl = tab.querySelector('.tab-title');
+        if (titleEl) titleEl.textContent = newTitle;
+    }
 
-    // Update in list
+    // Update sidebar list
     updateNotesList();
+
+    // Update input field if viewing this note
+    const titleInput = document.getElementById(`note-title-${noteId}`);
+    if (titleInput && titleInput.value !== newTitle) {
+        titleInput.value = newTitle;
+    }
+
+    // Save to backend
+    try {
+        const response = await slsFetch(`${MLS_URL}/api/notes/${noteId}`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(note)
+        });
+
+        if (response.ok) {
+            showToast('success', 'Note Renamed', `"${newTitle}" updated successfully`);
+        }
+    } catch (error) {
+        console.error('[Notes] Failed to update note title:', error);
+        showToast('error', 'Update Failed', 'Failed to save note title');
+    }
+}
+
+// Rename note via prompt (for sidebar context menu)
+function renameNotePrompt(noteId) {
+    const note = notes.get(noteId);
+    if (!note) return;
+
+    const newTitle = prompt('Rename note:', note.title || 'Untitled Note');
+    if (newTitle && newTitle.trim() && newTitle.trim() !== note.title) {
+        updateNoteTitle(noteId, newTitle.trim());
+    }
 }
 
 // Toggle note sharing
@@ -5071,6 +5621,7 @@ async function toggleNoteSharing(noteId) {
     if (!note) return;
 
     note.shared = !note.shared;
+    note.updatedAt = new Date().toISOString();
 
     try {
         const response = await slsFetch(`${MLS_URL}/api/notes/${noteId}`, {
@@ -5080,37 +5631,33 @@ async function toggleNoteSharing(noteId) {
         });
 
         if (response.ok) {
-            const shareBtn = document.getElementById(`share-btn-${noteId}`);
-            if (shareBtn) {
-                shareBtn.textContent = note.shared ? '🔗 Shared' : '🔒 Private';
-                shareBtn.style.background = note.shared ? 'var(--accent-green)' : 'var(--bg-darker)';
-            }
-
             // Update tab badge
-            const tab = document.querySelector(`[data-tab-id="note-${noteId}"]`);
+            const tab = document.getElementById(`tab-note-${noteId}`);
             if (tab) {
-                const badge = tab.querySelector('.tab-shared-badge');
-                if (note.shared && !badge) {
-                    const titleEl = tab.querySelector('.tab-title');
-                    titleEl.insertAdjacentHTML('afterend', '<span class="tab-shared-badge">🔗</span>');
-                } else if (!note.shared && badge) {
-                    badge.remove();
+                let badge = tab.querySelector('.tab-shared-badge');
+                if (note.shared) {
+                    if (!badge) {
+                        badge = document.createElement('span');
+                        badge.className = 'tab-shared-badge';
+                        badge.textContent = '🔗';
+                        tab.querySelector('.tab-close').before(badge);
+                    }
+                    tab.classList.add('shared');
+                } else {
+                    if (badge) badge.remove();
+                    tab.classList.remove('shared');
                 }
             }
 
             updateNotesList();
+            showToast('success', note.shared ? 'Note Shared' : 'Note Unshared',
+                     note.shared ? 'Note is now shared' : 'Note sharing disabled');
 
-            if (note.shared) {
-                showToast('success', '🔗 Note Shared', 'Note is now visible to connected agents');
-                // Share via messaging platform if connected
-                if (terminalSharing && cloudConnected) {
-                    terminalSharing.shareNote(noteId, note);
-                }
-            } else {
-                showToast('info', '🔒 Note Private', 'Note is now private');
-                if (terminalSharing && cloudConnected) {
-                    terminalSharing.unshareNote(noteId);
-                }
+            // TODO: Share via cloud messaging if connected
+            if (note.shared && cloudConnected && terminalSharing) {
+                // terminalSharing.shareNote(noteId);
+            } else if (!note.shared && cloudConnected && terminalSharing) {
+                // terminalSharing.unshareNote(noteId);
             }
         }
     } catch (error) {
@@ -5198,18 +5745,23 @@ function closeNoteTab(tabId, event) {
         event.stopPropagation();
     }
 
-    const tab = document.querySelector(`[data-tab-id="${tabId}"]`);
-    const container = document.getElementById(`terminal-${tabId}`);
+    // Extract note ID if needed
+    const noteId = tabId.startsWith('note-') ? tabId.substring(5) : tabId;
+    const fullTabId = tabId.startsWith('note-') ? tabId : `note-${tabId}`;
+
+    // Find and remove tab and panel using standard naming
+    const tab = document.getElementById(`tab-${fullTabId}`);
+    const panel = document.getElementById(`panel-${fullTabId}`);
 
     if (tab) tab.remove();
-    if (container) container.remove();
+    if (panel) panel.remove();
 
     // Switch to another tab if this was active
     const remainingTabs = document.querySelectorAll('.tab');
     if (remainingTabs.length > 0) {
         const firstTab = remainingTabs[0];
-        const firstTabId = firstTab.dataset.tabId;
-        switchToTab(firstTabId);
+        const firstTabId = firstTab.id.replace('tab-', ''); // Extract ID from tab-${id}
+        switchToSession(firstTabId);
     }
 }
 
@@ -5292,6 +5844,9 @@ function showNoteContextMenu(event, noteId) {
     menu.innerHTML = `
         <div class="context-menu-item" onclick="openNote('${noteId}'); this.parentElement.remove();">
             📝 Open Note
+        </div>
+        <div class="context-menu-item" onclick="renameNotePrompt('${noteId}'); this.parentElement.remove();">
+            ✏️ Rename
         </div>
         <div class="context-menu-item" onclick="toggleNoteSharing('${noteId}'); this.parentElement.remove();">
             ${note.shared ? '🔒 Make Private' : '🔗 Share Note'}
@@ -5405,6 +5960,118 @@ function toggleSftpPanel() {
 // Make globally accessible for toolbar button
 window.toggleSftpPanel = toggleSftpPanel;
 
+/**
+ * Auto-create SFTP session when SSH session is created
+ * NEW LOGIC: SFTP session is created automatically, not lazily
+ */
+async function createSftpSessionForSsh(sshSessionId) {
+    const session = sessions.get(sshSessionId);
+    if (!session || session.type !== 'ssh') {
+        console.warn('[SFTP] Cannot create SFTP session - not an SSH session');
+        return;
+    }
+
+    try {
+        const sftpSessionId = `sftp-${sshSessionId}`;
+
+        console.log(`[SFTP] Auto-creating SFTP session: ${sftpSessionId}`);
+
+        const response = await slsFetch(`${MLS_URL}/sftp/create`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                sessionId: sftpSessionId,
+                sshSessionId: sshSessionId,
+                host: session.config.host,
+                port: session.config.port || 22,
+                username: session.config.username,
+                password: session.config.password,
+                privateKey: session.config.privateKey,
+                shared: false, // Will be set to true when SSH session is shared
+                metadata: {
+                    type: 'auto-created-sftp',
+                    parentSshSession: sshSessionId,
+                    createdAt: new Date().toISOString()
+                }
+            })
+        });
+
+        if (response.ok) {
+            const result = await response.json();
+            console.log('[SFTP] SFTP session created successfully:', result);
+
+            // Store SFTP session ID in SSH session for easy reference
+            session.sftpSessionId = sftpSessionId;
+
+            showToast('success', '📁 SFTP Ready', 'SFTP file browser is now available', 2000);
+        } else {
+            console.error('[SFTP] Failed to create SFTP session:', response.statusText);
+            showToast('warning', 'SFTP Creation Failed', 'SFTP browser may not be available. Use refresh button.');
+        }
+    } catch (error) {
+        console.error('[SFTP] Error creating SFTP session:', error);
+        // Don't show error toast - SFTP is optional feature
+    }
+}
+
+/**
+ * Refresh SFTP session (recreate if idle/timeout)
+ * Called from refresh button in SFTP browser
+ */
+async function refreshSftpSession(sshSessionId) {
+    const session = sessions.get(sshSessionId);
+    if (!session || session.type !== 'ssh') {
+        showToast('error', 'Refresh Failed', 'Not an SSH session');
+        return;
+    }
+
+    const sftpSessionId = session.sftpSessionId || `sftp-${sshSessionId}`;
+
+    try {
+        console.log(`[SFTP] Refreshing SFTP session: ${sftpSessionId}`);
+
+        // Delete existing SFTP session
+        await slsFetch(`${MLS_URL}/sftp/${sftpSessionId}`, {
+            method: 'DELETE'
+        }).catch(() => {}); // Ignore errors if session doesn't exist
+
+        // Recreate SFTP session
+        await createSftpSessionForSsh(sshSessionId);
+
+        // If SFTP browser is open, refresh it
+        if (sftpBrowser && sftpBrowser.currentSessionId === sftpSessionId) {
+            sftpBrowser.refresh();
+        }
+
+        showToast('success', '🔄 SFTP Refreshed', 'SFTP connection recreated successfully');
+    } catch (error) {
+        console.error('[SFTP] Error refreshing SFTP session:', error);
+        showToast('error', 'Refresh Failed', 'Failed to refresh SFTP connection');
+    }
+}
+
+// Make globally accessible
+window.createSftpSessionForSsh = createSftpSessionForSsh;
+window.refreshSftpSession = refreshSftpSession;
+
+/**
+ * Refresh current SFTP connection (called from SFTP browser toolbar)
+ */
+function refreshCurrentSftp() {
+    if (!sftpBrowser || !sftpBrowser.currentSessionId) {
+        showToast('error', 'No SFTP Session', 'No active SFTP session to refresh');
+        return;
+    }
+
+    // Extract SSH session ID from SFTP session ID (format: sftp-{sshId})
+    const sshSessionId = sftpBrowser.currentSessionId.replace('sftp-', '');
+
+    console.log('[SFTP] Refreshing current SFTP connection for SSH session:', sshSessionId);
+    refreshSftpSession(sshSessionId);
+}
+
+window.refreshCurrentSftp = refreshCurrentSftp;
+
 // Auto-open SFTP when SSH session is connected (optional feature)
 function openSftpForSession(sessionId) {
     const session = sessions.get(sessionId);
@@ -5414,14 +6081,26 @@ function openSftpForSession(sessionId) {
         initSftpBrowser();
     }
 
+    // Check if this is a remote/shared SSH session
+    const isRemoteSsh = session.owner && session.owner !== cloudAgentName;
+
     const connectionInfo = {
-        name: session.config.name || session.name,
-        host: session.config.host,
-        port: session.config.port,
-        username: session.config.username
+        name: session.config?.name || session.name,
+        host: session.config?.host,
+        port: session.config?.port,
+        username: session.config?.username,
+        isRemote: isRemoteSsh,
+        remoteOwner: isRemoteSsh ? session.owner : null,
+        sessionId: sessionId // Pass session ID for remote SFTP requests
     };
 
+    // For remote SFTP, we'll proxy requests through the session owner
     sftpBrowser.open(sessionId, connectionInfo);
+
+    // Show indicator for remote SFTP
+    if (isRemoteSsh) {
+        showToast('info', '📁 Remote SFTP', `Connected to ${session.owner}'s SFTP session`, 3000);
+    }
 }
 
 // ========================================

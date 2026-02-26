@@ -1,6 +1,7 @@
 package com.hmdev.sdk.local.terminal;
 
 import com.hmdev.messaging.common.CommonUtils;
+import com.hmdev.sdk.local.dto.SshTestResponse;
 import com.hmdev.sdk.local.model.SshConnection;
 import com.hmdev.sdk.local.model.TerminalSession;
 import com.hmdev.sdk.local.repository.SshConnectionRepository;
@@ -339,12 +340,37 @@ public class TerminalService {
     }
     
     /**
-     * Get all active terminal sessions
+     * Get all active terminal sessions (only returns sessions that are ALIVE in memory)
      *
-     * @return List of active sessions
+     * This prevents restoring tabs for dead SSH connections that are still marked
+     * as 'active' in the database. If a session exists in DB but not in memory,
+     * it gets marked as 'closed' automatically.
+     *
+     * @return List of active sessions that are actually running
      */
     public List<TerminalSession> getAllActiveSessions() {
-        return sessionRepository.findByStatus("active");
+        List<TerminalSession> dbSessions = sessionRepository.findByStatus("active");
+
+        // Filter out sessions that are NOT alive in memory
+        List<TerminalSession> aliveSessions = dbSessions.stream()
+            .filter(dbSession -> {
+                String sessionId = dbSession.getSessionId();
+                boolean isAlive = sessions.containsKey(sessionId);
+
+                if (!isAlive) {
+                    // Session is in DB but NOT in memory - mark it as closed
+                    log.info("[GetActiveSessions] Session {} is dead (not in memory), marking as closed", sessionId);
+                    dbSession.setStatus("closed");
+                    dbSession.setClosedAt(LocalDateTime.now());
+                    sessionRepository.save(dbSession);
+                }
+
+                return isAlive;
+            })
+            .collect(java.util.stream.Collectors.toList());
+
+        log.debug("[GetActiveSessions] Found {} alive sessions out of {} in DB", aliveSessions.size(), dbSessions.size());
+        return aliveSessions;
     }
     
     /**
@@ -546,6 +572,89 @@ public class TerminalService {
         }
         sshConnectionRepository.deleteById(id);
         log.info("[TerminalService] Deleted SSH connection: {}", id);
+    }
+
+    /**
+     * Test SSH connection credentials
+     *
+     * @param host SSH host
+     * @param port SSH port
+     * @param username SSH username
+     * @param password SSH password (optional)
+     * @param privateKey SSH private key (optional)
+     * @return SshTestResponse with connection status
+     */
+    public SshTestResponse testSshConnection(String host, Integer port, String username,
+                                             String password, String privateKey) {
+        JSch jsch = new JSch();
+        Session session = null;
+
+        try {
+            log.info("[SSH Test] Attempting to connect to {}@{}:{}", username, host, port);
+
+            // Create JSch session
+            session = jsch.getSession(username, host, port != null ? port : 22);
+
+            // Set authentication
+            if (privateKey != null && !privateKey.trim().isEmpty()) {
+                // Use private key authentication
+                try {
+                    jsch.addIdentity("key", privateKey.getBytes(), null, null);
+                    log.debug("[SSH Test] Using private key authentication");
+                } catch (JSchException e) {
+                    log.error("[SSH Test] Invalid private key format: {}", e.getMessage());
+                    return SshTestResponse.failure("Invalid private key format: " + e.getMessage());
+                }
+            } else if (password != null && !password.isEmpty()) {
+                // Use password authentication
+                session.setPassword(password);
+                log.debug("[SSH Test] Using password authentication");
+            } else {
+                return SshTestResponse.failure("Either password or private key is required");
+            }
+
+            // Configure session
+            session.setConfig("StrictHostKeyChecking", "no");
+            session.setConfig("PreferredAuthentications", privateKey != null ? "publickey" : "password");
+            session.setTimeout(10000); // 10 second timeout
+
+            // Attempt connection
+            session.connect();
+
+            // Get server version
+            String serverVersion = session.getServerVersion();
+            log.info("[SSH Test] Successfully connected. Server version: {}", serverVersion);
+
+            return SshTestResponse.success(host, port, username, serverVersion);
+
+        } catch (JSchException e) {
+            String errorMsg = e.getMessage();
+            log.warn("[SSH Test] Connection failed: {}", errorMsg);
+
+            // Provide user-friendly error messages
+            if (errorMsg.contains("Auth fail")) {
+                return SshTestResponse.failure("Authentication failed: Invalid credentials");
+            } else if (errorMsg.contains("timeout") || errorMsg.contains("Connection timed out")) {
+                return SshTestResponse.failure("Connection timeout: Unable to reach host");
+            } else if (errorMsg.contains("UnknownHostException")) {
+                return SshTestResponse.failure("Unknown host: Cannot resolve hostname");
+            } else if (errorMsg.contains("Connection refused")) {
+                return SshTestResponse.failure("Connection refused: SSH service may not be running");
+            } else {
+                return SshTestResponse.failure("Connection failed: " + errorMsg);
+            }
+
+        } catch (Exception e) {
+            log.error("[SSH Test] Unexpected error: {}", e.getMessage(), e);
+            return SshTestResponse.failure("Unexpected error: " + e.getMessage());
+
+        } finally {
+            // Always disconnect
+            if (session != null && session.isConnected()) {
+                session.disconnect();
+                log.debug("[SSH Test] Session disconnected");
+            }
+        }
     }
 
     // ========== Terminal Sharing ==========

@@ -21,6 +21,12 @@ import java.util.concurrent.ConcurrentHashMap;
 @Slf4j
 public class TerminalWebSocketHandler extends TextWebSocketHandler {
 
+    // Terminal control banners - used to signal special events to frontend
+    // Format: <<BANNER_NAME>> to avoid conflicts with normal terminal output
+    // These must match the JavaScript constants in terminal.js
+    public static final String BANNER_SSH_DISCONNECTED = "<<SSH_DISCONNECTED>>";
+    public static final String BANNER_STREAM_CLOSED = "<<STREAM_CLOSED>>";
+
     private final TerminalService terminalService;
     private final Map<String, Set<WebSocketSession>> sessionClients = new ConcurrentHashMap<>();
     private final Map<String, Boolean> streamingThreads = new ConcurrentHashMap<>();
@@ -147,16 +153,26 @@ public class TerminalWebSocketHandler extends TextWebSocketHandler {
             log.debug("[WebSocket-Input] Successfully sent to session {}", sessionId);
         } catch (Exception e) {
             String msg = e.getMessage() != null ? e.getMessage() : "";
+
+            // Check for SSH channel disconnection - this is a critical error
+            // Send simple banner that frontend can detect
+            if (msg.contains("SSH channel is not connected") || msg.contains("channel is not connected")) {
+                log.error("[WebSocket-Input] SSH channel disconnected for session {}: {}", sessionId, msg);
+                // Send banner to frontend - frontend will check if session is still alive
+                // to avoid false alarms (e.g., if banner appears in file content)
+                broadcast(sessionId, "\r\n" + BANNER_SSH_DISCONNECTED + "\r\n");
+                return;
+            }
+
             // Silently ignore transient errors from Ctrl+C or broken pipe
             if (msg.contains("pipe") || msg.contains("stream") || msg.contains("closed")
                     || msg.contains("Failed to send input")) {
                 log.debug("[WebSocket-Input] Suppressed transient error for session {}: {}", sessionId, msg);
                 return;
             }
+
+            // Log other errors but don't send control messages - they're not critical
             log.error("[WebSocket-Input] Failed to send input to session {}: {}", sessionId, msg, e);
-            if (session.isOpen()) {
-                session.sendMessage(new TextMessage("\r\n[Error: " + msg + "]\r\n"));
-            }
         }
     }
 
@@ -169,9 +185,22 @@ public class TerminalWebSocketHandler extends TextWebSocketHandler {
             if (clients != null) {
                 clients.remove(session);
                 if (clients.isEmpty()) {
+                    log.info("[WebSocket] All clients disconnected for session: {}, closing terminal session", sessionId);
+
+                    // Clean up resources
                     sessionClients.remove(sessionId);
-                    // Clean up input buffer when all clients disconnected
                     inputBuffers.remove(sessionId);
+                    streamingThreads.remove(sessionId);
+
+                    // Close the terminal session (SSH or local)
+                    try {
+                        terminalService.closeSession(sessionId);
+                        log.info("[WebSocket] Terminal session closed: {}", sessionId);
+                    } catch (Exception e) {
+                        log.error("[WebSocket] Failed to close terminal session {}: {}", sessionId, e.getMessage());
+                    }
+                } else {
+                    log.info("[WebSocket] Client disconnected, {} client(s) remaining for session: {}", clients.size(), sessionId);
                 }
             }
         }
@@ -210,8 +239,9 @@ public class TerminalWebSocketHandler extends TextWebSocketHandler {
                         // Broadcast immediately - auto-flush!
                         broadcast(sessionId, output);
                     } else if (bytesRead == -1) {
-                        // Stream closed
+                        // Stream closed - send banner to frontend
                         log.info("[Stream-{}] Stream closed (EOF)", sessionId);
+                        broadcast(sessionId, "\r\n" + BANNER_STREAM_CLOSED + "\r\n");
                         break;
                     }
                 }
@@ -227,6 +257,9 @@ public class TerminalWebSocketHandler extends TextWebSocketHandler {
         }, "terminal-output-" + sessionId).start();
     }
 
+    /**
+     * Broadcast terminal output to all clients connected to this session
+     */
     public void broadcast(String sessionId, String message) {
         Set<WebSocketSession> clients = sessionClients.get(sessionId);
         if (clients == null || clients.isEmpty()) {
@@ -250,6 +283,17 @@ public class TerminalWebSocketHandler extends TextWebSocketHandler {
                          sessionId, client.getId(), e.getMessage());
             }
         });
+    }
+
+    /**
+     * Send a control banner to frontend
+     * Banners are special markers that frontend can detect to trigger specific actions
+     * @param sessionId Terminal session ID
+     * @param banner Banner constant (e.g., BANNER_SSH_DISCONNECTED)
+     */
+    public void sendControlBanner(String sessionId, String banner) {
+        log.info("[Control-{}] Sending banner: {}", sessionId, banner);
+        broadcast(sessionId, "\r\n" + banner + "\r\n");
     }
 
     private String extractSessionId(WebSocketSession session) {

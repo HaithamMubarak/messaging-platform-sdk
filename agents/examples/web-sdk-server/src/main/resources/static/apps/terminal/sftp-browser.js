@@ -58,8 +58,12 @@ class SftpBrowser {
                 <button class="sftp-toolbar-btn" onclick="sftpBrowser.goHome()" title="Go Home">
                     <span>🏠</span>
                 </button>
-                <button class="sftp-toolbar-btn" onclick="sftpBrowser.refresh()" title="Refresh">
+                <button class="sftp-toolbar-btn" onclick="sftpBrowser.refresh()" title="Refresh Directory">
                     <span>🔄</span>
+                </button>
+                <button class="sftp-toolbar-btn" onclick="window.refreshCurrentSftp?window.refreshCurrentSftp():void(0)" title="Refresh SFTP Connection (use if connection times out)">
+                    <span>🔌</span>
+                    <span class="label" style="font-size: 0.8em;">Reconnect</span>
                 </button>
                 <div class="sftp-toolbar-separator"></div>
                 <button class="sftp-toolbar-btn" onclick="sftpBrowser.createNewFile()" title="New File">
@@ -410,31 +414,14 @@ class SftpBrowser {
                 throw new Error(result.error);
             }
 
-            this.files = result.files || [];
-
             // Use backend's currentDir since it now accurately reflects the navigation
-            // Backend changes directory before returning currentDir
-            this.currentPath = result.currentDir || targetPath;
+            const finalPath = result.currentDir || targetPath;
+            const files = result.files || [];
 
-            console.log('[SFTP] Successfully loaded - targetPath:', targetPath, '- currentDir from backend:', result.currentDir, '- final currentPath:', this.currentPath);
+            console.log('[SFTP] Successfully loaded - targetPath:', targetPath, '- currentDir from backend:', result.currentDir, '- final currentPath:', finalPath);
 
-            // ALWAYS update path input to show current directory
-            this.updatePathBar();
-
-            this.renderFileList();
-
-            // ✅ Save last navigated path for session persistence
-            if (this.terminalSessionId) {
-                try {
-                    localStorage.setItem(`sftp_last_path_${this.terminalSessionId}`, this.currentPath);
-                } catch (e) { /* ignore */ }
-                // Also update session cache
-                this.sessionCache.set(this.terminalSessionId, {
-                    sftpSessionId: this.sftpSessionId,
-                    lastPath: this.currentPath,
-                    connectionInfo: this.connectionInfo
-                });
-            }
+            // ✅ Use updateNavigationState for consistent state updates and sharing
+            this.updateNavigationState(finalPath, files, true);
 
         } catch (error) {
             console.error('[SFTP] Load directory error:', error);
@@ -446,6 +433,51 @@ class SftpBrowser {
 
             // Re-throw so navigateTo can handle it
             throw error;
+        }
+    }
+
+    /**
+     * Update navigation state and optionally share with other agents
+     * This centralizes all navigation state updates and sharing logic
+     */
+    updateNavigationState(path, files, triggerEvent = true) {
+        console.log('[SFTP] updateNavigationState:', path, 'triggerEvent:', triggerEvent);
+
+        this.currentPath = path;
+        this.files = files;
+
+        // Update UI
+        this.updatePathBar();
+        this.renderFileList();
+
+        // Save to session cache
+        if (this.terminalSessionId) {
+            try {
+                localStorage.setItem(`sftp_last_path_${this.terminalSessionId}`, this.currentPath);
+            } catch (e) { /* ignore */ }
+            this.sessionCache.set(this.terminalSessionId, {
+                sftpSessionId: this.sftpSessionId,
+                lastPath: this.currentPath,
+                connectionInfo: this.connectionInfo
+            });
+        }
+
+        // Share navigation with other agents (only if this is a local action)
+        if (triggerEvent && window.terminalSharing) {
+            // Extract SSH session ID from SFTP session ID (format: sftp-{sshId})
+            const sshSessionId = this.sftpSessionId ? this.sftpSessionId.replace('sftp-', '') : this.terminalSessionId;
+            if (sshSessionId) {
+                window.terminalSharing.shareSftpNavigation(sshSessionId, path, files);
+                console.log('[SFTP] Shared navigation update to other agents');
+            }
+        }
+
+        // Show sync toast only if this came from remote
+        if (!triggerEvent) {
+            console.log('[SFTP Browser] Synced to remote navigation:', path);
+            if (this.onToast) {
+                this.onToast('info', '📁 SFTP Synced', `Following owner to: ${path}`, 2000);
+            }
         }
     }
 

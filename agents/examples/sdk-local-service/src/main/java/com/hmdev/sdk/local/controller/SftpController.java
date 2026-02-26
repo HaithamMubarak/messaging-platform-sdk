@@ -29,6 +29,58 @@ public class SftpController {
     private final SftpService sftpService;
 
     /**
+     * Create SFTP session (auto-creation support)
+     *
+     * POST /sftp/create
+     * {
+     *   "sessionId": "sftp-xxx",
+     *   "sshSessionId": "ssh-session-id",
+     *   "host": "server.com",
+     *   "port": 22,
+     *   "username": "user",
+     *   "password": "pass",
+     *   "privateKey": "...",
+     *   "shared": false,
+     *   "metadata": {...}
+     * }
+     */
+    @PostMapping("/create")
+    public ResponseEntity<?> createSftpSession(@RequestBody Map<String, Object> request) {
+        String sessionId = (String) request.get("sessionId");
+        String sshSessionId = (String) request.get("sshSessionId");
+        String host = (String) request.get("host");
+        Integer port = request.get("port") != null ? ((Number) request.get("port")).intValue() : 22;
+        String username = (String) request.get("username");
+        String password = (String) request.get("password");
+        String privateKey = (String) request.get("privateKey");
+
+        if (sessionId == null || sessionId.isEmpty()) {
+            return ResponseEntity.badRequest().body(Map.of("error", "sessionId is required"));
+        }
+
+        if (sshSessionId == null || host == null || username == null) {
+            return ResponseEntity.badRequest().body(Map.of("error", "sshSessionId, host, and username are required"));
+        }
+
+        try {
+            sftpService.createSftpSession(sessionId, sshSessionId, host, port, username, password, privateKey);
+            String currentDir = sftpService.getCurrentDirectory(sessionId);
+
+            log.info("[SFTP] Created SFTP session {} for SSH session {}", sessionId, sshSessionId);
+
+            return ResponseEntity.ok(Map.of(
+                "status", "created",
+                "sessionId", sessionId,
+                "sshSessionId", sshSessionId,
+                "currentDir", currentDir
+            ));
+        } catch (Exception e) {
+            log.error("[SFTP] Failed to create SFTP session {}: {}", sessionId, e.getMessage(), e);
+            return ResponseEntity.internalServerError().body(Map.of("error", e.getMessage()));
+        }
+    }
+
+    /**
      * Open SFTP channel for an existing terminal session
      *
      * POST /sftp/open
