@@ -74,6 +74,8 @@ const MAX_LIAR_PERCENTAGE = 0.5;     // Maximum 50% of players can be liars
 // UI Constants
 const PLAYER_INITIAL_HINT_COUNT = 2; // Number of hints shown in item reminder
 const CELEBRATION_EMOJI_COUNT = 20;  // Number of emojis in celebration
+const MAX_MCQ_OPTIONS = 4;           // Maximum number of options to show in MCQ questions
+const LIAR_EFFECT_COOLDOWN_MS = 15000; // 15 seconds cooldown between liar effects (configurable)
 
 // ============================================
 // FIND THE LIAR GAME CLASS
@@ -141,6 +143,10 @@ class FindTheLiarGame extends AgentInteractionBase {
         this.myCurrentAnswer = null;
         this.hasAnswered = false;
         this.hasVoted = false;
+
+        // Liar effect cooldown tracking
+        this.lastEffectTime = 0;        // Timestamp of last effect used
+        this.effectCooldownMs = LIAR_EFFECT_COOLDOWN_MS;  // Configurable cooldown
 
         // Timer
         this.timerInterval = null;
@@ -529,8 +535,17 @@ class FindTheLiarGame extends AgentInteractionBase {
         console.log('[FindTheLiar] Player left:', detail.agentName);
         this.showToast(`👋 ${detail.agentName} left`, 'warning');
         
-        this.connectedPeers.delete(detail.agentName);
-        this.joiningPlayers.delete(detail.agentName); // Also remove from joining state
+        const leftPlayerName = detail.agentName;
+
+        // Clean up player data
+        this.connectedPeers.delete(leftPlayerName);
+        this.joiningPlayers.delete(leftPlayerName);
+
+        // If game is active, clean up game state
+        if (this.isHost() && this.gameState.phase !== GamePhase.WAITING) {
+            this.handlePlayerDisconnectDuringGame(leftPlayerName);
+        }
+
         this.updatePlayersList();
         this.updateStartButton();
 
@@ -609,6 +624,9 @@ class FindTheLiarGame extends AgentInteractionBase {
             case 'game-paused':
                 this.handleGamePaused(data);
                 break;
+            case 'game-ended-disconnect':
+                this.handleGameEndedDisconnect(data);
+                break;
 
             // Player to host
             case 'submit-answer':
@@ -630,6 +648,131 @@ class FindTheLiarGame extends AgentInteractionBase {
                 this.handleLiarDisturbance(peerId, data);
                 break;
         }
+    }
+
+    // =========================================================================
+    // Disconnect Handling
+    // =========================================================================
+
+    /**
+     * Handle player disconnect during active game
+     * Cleans up their data and checks if game can continue
+     */
+    handlePlayerDisconnectDuringGame(playerName) {
+        if (!this.isHost()) return;
+
+        console.log(`[FindTheLiar] Handling disconnect for ${playerName} during ${this.gameState.phase}`);
+
+        // Remove from current answers (if they hadn't answered yet)
+        if (this.gameState.currentAnswers.has(playerName)) {
+            this.gameState.currentAnswers.delete(playerName);
+            console.log(`[FindTheLiar] Removed ${playerName}'s answer`);
+        }
+
+        // Remove from votes (if they hadn't voted yet)
+        if (this.gameState.votes.has(playerName)) {
+            this.gameState.votes.delete(playerName);
+            console.log(`[FindTheLiar] Removed ${playerName}'s vote`);
+        }
+
+        // Remove from role reveals
+        if (this.gameState.playerRoles.has(playerName)) {
+            this.gameState.playerRoles.delete(playerName);
+            console.log(`[FindTheLiar] Removed ${playerName}'s role`);
+        }
+
+        // Check if we should auto-advance due to disconnect
+        const remainingPlayers = this.getPlayerCount();
+
+        // Check minimum player requirement
+        if (remainingPlayers < MIN_PLAYERS) {
+            console.log(`[FindTheLiar] Not enough players (${remainingPlayers}/${MIN_PLAYERS}), ending game`);
+            this.showToast('⚠️ Not enough players - game ended', 'error');
+            this.endGameDueToDisconnect();
+            return;
+        }
+
+        // If in QUESTIONING phase, check if all remaining players answered
+        if (this.gameState.phase === GamePhase.QUESTIONING) {
+            this.checkAllAnswersSubmitted();
+        }
+
+        // If in VOTING phase, check if all remaining players voted
+        if (this.gameState.phase === GamePhase.VOTING) {
+            this.checkAllVotesSubmitted();
+        }
+
+        // Check if game should end in Survival mode
+        if (this.gameState.gameMode === GameMode.SURVIVAL) {
+            const activePlayers = this.getPeerList().filter(p => !this.gameState.eliminatedPlayers.has(p.name));
+
+            // If player who left was not eliminated, treat as eliminated
+            if (!this.gameState.eliminatedPlayers.has(playerName)) {
+                const stillActive = activePlayers.some(p => p.name === playerName);
+                if (stillActive) {
+                    this.gameState.eliminatedPlayers.add(playerName);
+                    console.log(`[FindTheLiar] Marked disconnected player ${playerName} as eliminated`);
+                }
+            }
+
+            // Check if too few players remain (≤3 in survival)
+            const activeNonEliminated = activePlayers.filter(p => !this.gameState.eliminatedPlayers.has(p.name));
+            if (activeNonEliminated.length <= 2) {
+                console.log('[FindTheLiar] Too few active players in Survival mode, ending game');
+                this.showToast('⚠️ Too few players remain - game ended', 'warning');
+                // Request role reveal to determine winner
+                this.requestRoleReveal('SURVIVAL');
+            }
+        }
+    }
+
+    /**
+     * End game gracefully due to disconnect
+     */
+    endGameDueToDisconnect() {
+        if (!this.isHost()) return;
+
+        console.log('[FindTheLiar] Ending game due to disconnect');
+
+        // Stop timers
+        this.stopTimer();
+
+        // Broadcast game end
+        this.sendData({
+            type: 'game-ended-disconnect',
+            message: 'Game ended - not enough players'
+        });
+
+        // Show end screen locally
+        const container = document.getElementById('gameContainer');
+        if (container) {
+            container.innerHTML = `
+                <div class="waiting-screen">
+                    <span class="phase-indicator phase-waiting">Game Ended</span>
+                    <h2>⚠️ Not Enough Players</h2>
+                    <p style="color:#666;margin:20px 0;">
+                        The game has ended because too many players disconnected.
+                    </p>
+                    <p style="color:#666;margin:10px 0;">
+                        ${this.isHost() ? 'Click below to return to lobby.' : 'Waiting for host...'}
+                    </p>
+                    ${this.isHost() ? `
+                        <button class="btn btn-primary" onclick="liarGame.resetGame()">
+                            🔄 Return to Lobby
+                        </button>
+                    ` : `
+                        <div class="waiting-indicator">Waiting for host...</div>
+                    `}
+                </div>
+            `;
+        }
+
+        // Reset to waiting state after a delay
+        setTimeout(() => {
+            if (this.isHost()) {
+                this.resetGame();
+            }
+        }, 5000);
     }
 
     // =========================================================================
@@ -1468,6 +1611,36 @@ class FindTheLiarGame extends AgentInteractionBase {
         }
     }
 
+    handleGameEndedDisconnect(data) {
+        console.log('[FindTheLiar] Game ended due to disconnect:', data.message);
+
+        // Stop timer
+        if (this.timerInterval) {
+            clearInterval(this.timerInterval);
+            this.timerInterval = null;
+        }
+
+        // Show end screen
+        const container = document.getElementById('gameContainer');
+        if (container) {
+            container.innerHTML = `
+                <div class="waiting-screen">
+                    <span class="phase-indicator phase-waiting">Game Ended</span>
+                    <h2>⚠️ Not Enough Players</h2>
+                    <p style="color:#666;margin:20px 0;">
+                        ${data.message || 'The game has ended because too many players disconnected.'}
+                    </p>
+                    <p style="color:#666;margin:10px 0;">
+                        Waiting for host to restart...
+                    </p>
+                    <div class="waiting-indicator">Waiting for host...</div>
+                </div>
+            `;
+        }
+
+        this.showToast(data.message || 'Game ended - not enough players', 'warning');
+    }
+
     handleRoleRevealRequest(data) {
         console.log('[FindTheLiar] Role reveal requested by host');
 
@@ -1537,6 +1710,12 @@ class FindTheLiarGame extends AgentInteractionBase {
      * Apply disturbance effects based on type
      */
     applyDisturbanceEffect(type, emoji, text) {
+        // Don't apply effects to liar's own screen
+        if (this.myRole === 'LIAR' || this.myPersistentRole === 'LIAR') {
+            console.log('[FindTheLiar] Skipping disturbance effect for liar');
+            return;
+        }
+
         console.log('[FindTheLiar] Applying disturbance effect:', type);
         switch(type) {
             case 'celebration':
@@ -2255,10 +2434,18 @@ class FindTheLiarGame extends AgentInteractionBase {
         // Build answer input UI based on question type
         let answerInputHtml = '';
         if (isMcq && question.options) {
-            // MCQ: Radio buttons
+            // MCQ: Radio buttons - limit to MAX_MCQ_OPTIONS (4)
+            let displayOptions = question.options;
+            if (displayOptions.length > MAX_MCQ_OPTIONS) {
+                // Randomly select MAX_MCQ_OPTIONS from available options
+                displayOptions = [...question.options]
+                    .sort(() => Math.random() - 0.5)
+                    .slice(0, MAX_MCQ_OPTIONS);
+            }
+
             answerInputHtml = `
                 <div class="mcq-options">
-                    ${question.options.map((opt, optIdx) => `
+                    ${displayOptions.map((opt, optIdx) => `
                         <label class="mcq-option" for="mcq-${index}-${optIdx}">
                             <input type="radio" id="mcq-${index}-${optIdx}" name="mcqAnswer" value="${opt.id}" />
                             <span class="mcq-option-text">${opt.text}</span>
@@ -2656,6 +2843,15 @@ class FindTheLiarGame extends AgentInteractionBase {
             return;
         }
 
+        // Check cooldown
+        const now = Date.now();
+        const timeSinceLastEffect = now - this.lastEffectTime;
+        if (timeSinceLastEffect < this.effectCooldownMs) {
+            const remainingSeconds = Math.ceil((this.effectCooldownMs - timeSinceLastEffect) / 1000);
+            this.showToast(`⏱️ Cooldown: ${remainingSeconds}s remaining`, 'warning');
+            return;
+        }
+
         // Use liar's personal celebration settings (or defaults)
         const emoji = this.myCelebrationEmoji || '😈';
         const text = type === 'celebration' ? (this.myCelebrationText || 'HAHAHA!') : this.getDisturbanceText(type);
@@ -2676,6 +2872,9 @@ class FindTheLiarGame extends AgentInteractionBase {
             // Non-host: sendData() automatically routes to host
             this.sendData(message);
         }
+
+        // Update last effect time
+        this.lastEffectTime = now;
 
         this.showToast(`${this.getDisturbanceIcon(type)} ${this.getDisturbanceMessage(type)}`, 'success');
     }
@@ -3115,16 +3314,32 @@ class FindTheLiarGame extends AgentInteractionBase {
         overlay.appendChild(emojiContainer);
         overlay.appendChild(messageEl);
 
-        // Only show liar names if provided (at game end)
+        // Only show liar names at game end AND only if not a liar yourself
         if (liarNames && liarNames.length > 0) {
-            const liarNamesEl = document.createElement('p');
-            liarNamesEl.textContent = liarNames.join(' & ') + (liarNames.length > 1 ? ' escaped!' : ' escaped!');
-            liarNamesEl.style.cssText = `
-                color: #fff;
-                font-size: 32px;
-                margin-top: 20px;
-            `;
-            overlay.appendChild(liarNamesEl);
+            // Check if current player is a liar
+            const isCurrentPlayerLiar = this.myRole === 'LIAR' || this.myPersistentRole === 'LIAR';
+
+            if (!isCurrentPlayerLiar) {
+                // Only show names to non-liars
+                const liarNamesEl = document.createElement('p');
+                liarNamesEl.textContent = liarNames.join(' & ') + (liarNames.length > 1 ? ' escaped!' : ' escaped!');
+                liarNamesEl.style.cssText = `
+                    color: #fff;
+                    font-size: 32px;
+                    margin-top: 20px;
+                `;
+                overlay.appendChild(liarNamesEl);
+            } else {
+                // For liars, show generic message
+                const genericMessage = document.createElement('p');
+                genericMessage.textContent = 'The liars escaped!';
+                genericMessage.style.cssText = `
+                    color: #fff;
+                    font-size: 32px;
+                    margin-top: 20px;
+                `;
+                overlay.appendChild(genericMessage);
+            }
         }
 
         document.body.appendChild(overlay);

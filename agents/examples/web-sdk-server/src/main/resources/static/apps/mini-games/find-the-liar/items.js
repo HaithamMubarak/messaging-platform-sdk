@@ -996,16 +996,26 @@ class ItemManager {
      * @returns {Array} Array of question objects
      */
     getShuffledQuestions(count = 10) {
-        const mcqCount = Math.ceil(count * 0.7); // 70% MCQ
-        const freeTextCount = count - mcqCount;  // 30% FREE_TEXT
+        // Ensure at least 1 free text question when count >= 3
+        let mcqCount, freeTextCount;
+
+        if (count <= 2) {
+            // For 1-2 questions, use all MCQ
+            mcqCount = count;
+            freeTextCount = 0;
+        } else {
+            // For 3+ questions, use floor instead of ceil to ensure some free text
+            mcqCount = Math.floor(count * 0.7); // 70% MCQ (floor ensures space for free text)
+            freeTextCount = count - mcqCount;   // Remaining are free text
+        }
 
         // Get random MCQ questions
         const shuffledMcq = [...this.mcqQuestions].sort(() => Math.random() - 0.5);
-        const selectedMcq = shuffledMcq.slice(0, mcqCount);
+        const selectedMcq = shuffledMcq.slice(0, Math.min(mcqCount, this.mcqQuestions.length));
 
         // Get random FREE_TEXT questions
         const shuffledFreeText = [...this.freeTextQuestions].sort(() => Math.random() - 0.5);
-        const selectedFreeText = shuffledFreeText.slice(0, freeTextCount);
+        const selectedFreeText = shuffledFreeText.slice(0, Math.min(freeTextCount, this.freeTextQuestions.length));
 
         // Combine and shuffle
         const combined = [...selectedMcq, ...selectedFreeText];
