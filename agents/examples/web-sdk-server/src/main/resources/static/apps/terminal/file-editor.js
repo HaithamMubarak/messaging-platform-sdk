@@ -528,6 +528,13 @@ class FileEditor {
         // Use setTimeout to ensure this happens AFTER change events
         setTimeout(() => {
             this.isLoadingContent = false;
+
+            // Refresh CodeMirror to ensure proper layout and line number alignment
+            if (this.mode === 'popup' && this.editorPopup) {
+                this.editorPopup.refresh();
+            } else if (this.editorPinned) {
+                this.editorPinned.refresh();
+            }
         }, 0);
 
         // Set status

@@ -252,45 +252,18 @@
     overflow: hidden;
     display: flex;
     position: relative;
-    background: var(--editor-bg);  /* Match editor background */
 }
 
+/* Wrapper for CodeMirror - NO styling of CodeMirror internals */
 .file-editor-codemirror {
     width: 100%;
     height: 100%;
-    /* Let CodeMirror theme handle font-family and font-size */
 }
 
 /* Ensure CodeMirror fills container - ONLY size, no colors/margins */
 .file-editor-codemirror .CodeMirror {
     height: 100%;
 }
-
-/* Override CodeMirror Monokai background to match our professional dark theme */
-.file-editor-codemirror .CodeMirror,
-.file-editor-codemirror .CodeMirror-gutters {
-    background-color: #1e1e1e !important;  /* Our dark theme, not Monokai's #272822 */
-}
-
-.file-editor-codemirror .CodeMirror-gutter {
-    background-color: #1e1e1e !important;
-}
-
-.file-editor-codemirror .CodeMirror-linenumber {
-    color: #858585 !important;  /* Muted line numbers */
-}
-
-/* Light theme override */
-.theme-light .file-editor-codemirror .CodeMirror,
-.theme-light .file-editor-codemirror .CodeMirror-gutters,
-.theme-light .file-editor-codemirror .CodeMirror-gutter {
-    background-color: #ffffff !important;
-}
-
-.theme-light .file-editor-codemirror .CodeMirror-linenumber {
-    color: #666666 !important;
-}
-
 
 /* Footer - Status Bar */
 .file-editor-footer {

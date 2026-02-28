@@ -3,7 +3,7 @@
  * Enables offline functionality by caching all terminal assets
  */
 
-const CACHE_NAME = 'messaging-platform-shared-terminal-v1.7.9';
+const CACHE_NAME = 'messaging-platform-shared-terminal-v1.8.2';
 const CACHE_TIMESTAMP = '2026-02-28';
 
 // Files to cache for offline use
