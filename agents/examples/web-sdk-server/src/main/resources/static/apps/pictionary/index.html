@@ -1,0 +1,171 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="theme-color" content="#6965db">
+    <title>🎨 Pictionary - Drawing & Guessing Game</title>
+
+    <!-- Common Styles -->
+    <link rel="stylesheet" href="../../css/toast.css">
+    <link rel="stylesheet" href="../../css/connection-modal.css">
+    <link rel="stylesheet" href="../../css/share-modal.css">
+
+    <!-- Game Styles -->
+    <link rel="stylesheet" href="pictionary.css">
+</head>
+<body>
+    <!-- Share Button -->
+    <button id="shareBtn" class="share-btn" onclick="pictionaryGame?.openShareModal()" style="display: none;">
+        📤 Share
+    </button>
+
+    <!-- Connection Status -->
+    <div id="connectionStatus" class="connection-status">
+        <span id="statusDot" class="status-dot"></span>
+        <span id="statusText">Disconnected</span>
+    </div>
+
+    <!-- Game Container -->
+    <div id="gameContainer" class="game-container hidden">
+        <!-- Header -->
+        <div class="game-header">
+            <div class="header-left">
+                <h1>🎨 Pictionary</h1>
+                <span id="roomName" class="room-badge"></span>
+            </div>
+            <div class="header-right">
+                <div id="timerDisplay" class="timer">
+                    <span class="timer-icon">⏱️</span>
+                    <span id="timerValue">0:00</span>
+                </div>
+                <div id="roundInfo" class="round-info">Round 0/0</div>
+            </div>
+        </div>
+
+        <!-- Main Game Area -->
+        <div class="game-layout">
+            <!-- Left Sidebar: Players & Scores -->
+            <div class="sidebar-left">
+                <div class="players-panel">
+                    <h3>👥 Players (<span id="playerCount">0</span>)</h3>
+                    <div id="playersList" class="players-list"></div>
+                </div>
+
+                <div class="current-word-panel">
+                    <h3 id="wordPanelTitle">🎯 Current Word</h3>
+                    <div id="currentWordDisplay" class="word-display">
+                        Waiting...
+                    </div>
+                    <div id="wordHintDisplay" class="word-hint"></div>
+                </div>
+            </div>
+
+            <!-- Center: Canvas -->
+            <div class="canvas-area">
+                <div id="artistBanner" class="artist-banner hidden">
+                    🎨 <span id="artistName"></span> is drawing!
+                </div>
+
+                <canvas id="drawingCanvas"></canvas>
+
+                <div id="drawingTools" class="drawing-tools hidden">
+                    <div class="tool-group">
+                        <button class="tool-btn active" data-tool="pen" title="Pen">
+                            ✏️
+                        </button>
+                        <button class="tool-btn" data-tool="eraser" title="Eraser">
+                            🧹
+                        </button>
+                    </div>
+
+                    <div class="tool-group">
+                        <div class="color-picker">
+                            <button class="color-btn active" data-color="#000000" style="background: #000000"></button>
+                            <button class="color-btn" data-color="#ff0000" style="background: #ff0000"></button>
+                            <button class="color-btn" data-color="#00ff00" style="background: #00ff00"></button>
+                            <button class="color-btn" data-color="#0000ff" style="background: #0000ff"></button>
+                            <button class="color-btn" data-color="#ffff00" style="background: #ffff00"></button>
+                            <button class="color-btn" data-color="#ff00ff" style="background: #ff00ff"></button>
+                            <button class="color-btn" data-color="#00ffff" style="background: #00ffff"></button>
+                            <button class="color-btn" data-color="#ffffff" style="background: #ffffff; border: 1px solid #ccc"></button>
+                        </div>
+                    </div>
+
+                    <div class="tool-group">
+                        <label>Size: <span id="brushSizeLabel">5</span></label>
+                        <input type="range" id="brushSize" min="2" max="20" value="5">
+                    </div>
+
+                    <div class="tool-group">
+                        <button class="tool-btn" onclick="pictionaryGame?.clearCanvas()" title="Clear Canvas">
+                            🗑️ Clear
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Right Sidebar: Chat & Guesses -->
+            <div class="sidebar-right">
+                <div class="chat-panel">
+                    <h3>💬 Guesses</h3>
+                    <div id="chatMessages" class="chat-messages"></div>
+                    <div class="chat-input-area">
+                        <input type="text" id="chatInput" placeholder="Type your guess..." maxlength="100">
+                        <button onclick="pictionaryGame?.sendGuess()">Send</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Control Panel (Lobby/Results) -->
+        <div id="controlPanel" class="control-panel">
+            <h2>🎨 Pictionary Lobby</h2>
+            <div class="lobby-content">
+                <p>Waiting for players to join...</p>
+                <p class="lobby-info">Need at least 2 players to start</p>
+
+                <div class="game-settings">
+                    <label>
+                        Rounds per Game:
+                        <select id="roundsPerGame">
+                            <option value="3">3 Rounds</option>
+                            <option value="5" selected>5 Rounds</option>
+                            <option value="7">7 Rounds</option>
+                            <option value="10">10 Rounds</option>
+                        </select>
+                    </label>
+
+                    <label>
+                        Time per Drawing (seconds):
+                        <select id="drawingTime">
+                            <option value="30">30s (Quick)</option>
+                            <option value="60" selected>60s (Normal)</option>
+                            <option value="90">90s (Relaxed)</option>
+                            <option value="120">120s (Extended)</option>
+                        </select>
+                    </label>
+                </div>
+
+                <button id="startGameBtn" class="btn-primary" onclick="pictionaryGame?.startGame()" disabled>
+                    Start Game
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Include Libraries -->
+    <script src="../../js/config-loader.js"></script>
+    <script src="../../generated-web-agent-js/messaging-web-agent.js"></script>
+    <script src="../../js/UserConnectionBase.js"></script>
+    <script src="../../js/MiniGameUtils.js"></script>
+
+    <!-- Game Logic -->
+    <script src="pictionary.js"></script>
+
+    <!-- Connection Modal -->
+    <script src="../../js/connection-modal.js"></script>
+    <script src="../../js/share-modal.js"></script>
+</body>
+</html>
+

@@ -1,0 +1,168 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5, user-scalable=yes">
+    <meta name="theme-color" content="#4f46e5">
+    <title>📝 Collaborative Document Editor</title>
+
+    <!-- Common Styles -->
+    <link rel="stylesheet" href="../../css/toast.css">
+    <link rel="stylesheet" href="../../css/connection-modal.css">
+    <link rel="stylesheet" href="../../css/share-modal.css">
+
+    <!-- CodeMirror -->
+    <link rel="stylesheet" href="../terminal/libs/codemirror/css/codemirror.min.css"/>
+    <link rel="stylesheet" href="../terminal/libs/codemirror/theme/monokai.min.css"/>
+    <link rel="stylesheet" href="../terminal/libs/codemirror/theme/eclipse.min.css"/>
+    <script src="../terminal/libs/codemirror/js/codemirror.min.js"></script>
+    <script src="../terminal/libs/codemirror/mode/markdown/markdown.min.js"></script>
+    <script src="../terminal/libs/codemirror/mode/gfm/gfm.min.js"></script>
+
+    <!-- Marked.js for Markdown Preview -->
+    <script src="https://cdn.jsdelivr.net/npm/marked@12.0.0/marked.min.js"></script>
+
+    <!-- App Styles -->
+    <link rel="stylesheet" href="collab-doc.css">
+</head>
+<body>
+    <!-- Share Button -->
+    <button id="shareBtn" class="share-btn" onclick="collabDoc?.openShareModal()" style="display: none;">
+        📤 Share
+    </button>
+
+    <!-- Connection Status -->
+    <div id="connectionStatus" class="connection-status">
+        <span id="statusDot" class="status-dot"></span>
+        <span id="statusText">Disconnected</span>
+    </div>
+
+    <!-- App Container -->
+    <div id="appContainer" class="app-container hidden">
+        <!-- Header -->
+        <div class="app-header">
+            <div class="header-left">
+                <h1>📝 Collaborative Document</h1>
+                <input type="text" id="docTitle" class="doc-title" placeholder="Untitled Document" maxlength="100">
+            </div>
+            <div class="header-center">
+                <span id="roomName" class="room-badge"></span>
+            </div>
+            <div class="header-right">
+                <div class="view-mode-toggle">
+                    <button class="mode-btn active" data-mode="edit" title="Edit Mode">
+                        ✏️ Edit
+                    </button>
+                    <button class="mode-btn" data-mode="split" title="Split View">
+                        ↔️ Split
+                    </button>
+                    <button class="mode-btn" data-mode="preview" title="Preview Mode">
+                        👁️ Preview
+                    </button>
+                </div>
+                <div class="theme-toggle">
+                    <button id="themeBtn" onclick="collabDoc?.toggleTheme()" title="Toggle Theme">
+                        🌙
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Toolbar -->
+        <div class="editor-toolbar">
+            <div class="toolbar-group">
+                <button class="toolbar-btn" onclick="collabDoc?.insertMarkdown('**', '**')" title="Bold">
+                    <strong>B</strong>
+                </button>
+                <button class="toolbar-btn" onclick="collabDoc?.insertMarkdown('*', '*')" title="Italic">
+                    <em>I</em>
+                </button>
+                <button class="toolbar-btn" onclick="collabDoc?.insertMarkdown('~~', '~~')" title="Strikethrough">
+                    <s>S</s>
+                </button>
+            </div>
+
+            <div class="toolbar-separator"></div>
+
+            <div class="toolbar-group">
+                <button class="toolbar-btn" onclick="collabDoc?.insertHeading(1)" title="Heading 1">
+                    H1
+                </button>
+                <button class="toolbar-btn" onclick="collabDoc?.insertHeading(2)" title="Heading 2">
+                    H2
+                </button>
+                <button class="toolbar-btn" onclick="collabDoc?.insertHeading(3)" title="Heading 3">
+                    H3
+                </button>
+            </div>
+
+            <div class="toolbar-separator"></div>
+
+            <div class="toolbar-group">
+                <button class="toolbar-btn" onclick="collabDoc?.insertMarkdown('[', '](url)')" title="Link">
+                    🔗
+                </button>
+                <button class="toolbar-btn" onclick="collabDoc?.insertMarkdown('`', '`')" title="Code">
+                    &lt;/&gt;
+                </button>
+                <button class="toolbar-btn" onclick="collabDoc?.insertList()" title="List">
+                    ☰
+                </button>
+                <button class="toolbar-btn" onclick="collabDoc?.insertQuote()" title="Quote">
+                    ❝
+                </button>
+            </div>
+
+            <div class="toolbar-separator"></div>
+
+            <div class="toolbar-group">
+                <button class="toolbar-btn" onclick="collabDoc?.exportMarkdown()" title="Export Markdown">
+                    💾 .md
+                </button>
+                <button class="toolbar-btn" onclick="collabDoc?.exportHTML()" title="Export HTML">
+                    💾 .html
+                </button>
+            </div>
+        </div>
+
+        <!-- Editor Area -->
+        <div class="editor-layout">
+            <!-- Editor Pane -->
+            <div id="editorPane" class="editor-pane">
+                <textarea id="editorTextarea"></textarea>
+            </div>
+
+            <!-- Preview Pane -->
+            <div id="previewPane" class="preview-pane hidden">
+                <div id="previewContent" class="preview-content"></div>
+            </div>
+        </div>
+
+        <!-- Status Bar -->
+        <div class="status-bar">
+            <div class="status-left">
+                <span id="cursorPosition">Ln 1, Col 1</span>
+                <span id="wordCount">0 words</span>
+                <span id="charCount">0 characters</span>
+            </div>
+            <div class="status-right">
+                <div id="usersList" class="users-list"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Include Libraries -->
+    <script src="../../js/config-loader.js"></script>
+    <script src="../../generated-web-agent-js/messaging-web-agent.js"></script>
+    <script src="../../js/UserConnectionBase.js"></script>
+    <script src="../../js/MiniGameUtils.js"></script>
+
+    <!-- App Logic -->
+    <script src="collab-doc.js"></script>
+
+    <!-- Connection Modal -->
+    <script src="../../js/connection-modal.js"></script>
+    <script src="../../js/share-modal.js"></script>
+</body>
+</html>
+

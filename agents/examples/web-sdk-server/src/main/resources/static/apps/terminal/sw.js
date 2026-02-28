@@ -3,8 +3,8 @@
  * Enables offline functionality by caching all terminal assets
  */
 
-const CACHE_NAME = 'messaging-platform-shared-terminal-v1.8.2';
-const CACHE_TIMESTAMP = '2026-02-28';
+const CACHE_NAME = 'messaging-platform-shared-terminal-v1.8.3';
+const CACHE_TIMESTAMP = '2026-02-28-lib-reorganized';
 
 // Files to cache for offline use
 const STATIC_ASSETS = [
@@ -53,11 +53,15 @@ const STATIC_ASSETS = [
     './libs/codemirror/addon/search/match-highlighter.min.js',
     './libs/codemirror/addon/search/matchesonscrollbar.min.js',
 
-    // Dependencies (from parent directories - adjust paths as needed)
-    '../../../lib/xterm/xterm.js',
-    '../../../lib/xterm/xterm.css',
-    '../../../lib/xterm/xterm-addon-fit.js',
-    '../../../lib/qrcode/qrcode.min.js',
+    // XTerm.js - Terminal-specific library
+    './lib/xterm.js',
+    './lib/xterm.css',
+    './lib/xterm-addon-fit.js',
+
+    // QR Code library
+    '../../lib/qrcode/qrcode.min.js',
+
+    // Web SDK dependencies
     '../../web-agent.js',
     '../../UserConnectionBase.js',
 

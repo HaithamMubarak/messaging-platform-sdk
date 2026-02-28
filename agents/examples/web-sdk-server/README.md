@@ -1,6 +1,6 @@
-# 🎮 Mini Games Server
+# 🎮 Web SDK Server
 
-**Spring Boot backend serving interactive multiplayer games with secure temporary API key management.**
+**Spring Boot backend serving interactive multiplayer games, collaboration tools, and demos with secure temporary API key management.**
 
 > **📁 Resource Organization:** This module uses a clean separation between SDK files (copied at build time to `static/generated/`) and demo-specific files (in `static/js/` and `static/css/`). See [ORGANIZATION-SUMMARY.md](ORGANIZATION-SUMMARY.md) for details.
 
@@ -8,32 +8,44 @@
 
 ## ✨ Features
 
-- 🎮 **3 Interactive Multiplayer Games** served from static resources
+- 🎮 **17+ Interactive Apps** - Games and collaboration tools
 - 🔐 **Secure Temporary Keys** - Real API key never exposed to browsers
 - 🚀 **Production Ready** - Built with Spring Boot
-- 📦 **Single JAR Deployment** - All games bundled
+- 📦 **Single JAR Deployment** - All apps bundled
 - 🌐 **CORS Enabled** - Works with any frontend
-- 💉 **Automatic API Key Injection** - No manual configuration in games
+- 💉 **Automatic API Key Injection** - No manual configuration needed
 - 📊 **Health Checks** - Monitor service status
+- 🎨 **Unified Framework** - All apps use UserConnectionBase
 
 ---
 
-## 🎯 Games Included
+## 🎯 Applications Included
 
-### 1. ⚡ Reaction Speed Battle
-- Test your reflexes in multiplayer
-- Click when box turns green
-- Real-time leaderboard
+### 🎮 Multiplayer Games (8 Games)
 
-### 2. 🧠 Quiz Battle
-- Answer trivia questions
-- Speed-based scoring
-- 10 diverse questions
+1. **🏒 Air Hockey** - 2-4 player physics-based hockey
+2. **🧠 Quiz Battle** - Trivia competition with scoring
+3. **⚡ 4-Player Reactor** - Reaction speed battle
+4. **🎯 Find the Liar** - Social deduction game
+5. **🏎️ Race Balls** - 3D multiplayer racing
+6. **🏃 Fall Guys Race** - Obstacle course racing
+7. **🎨 Pictionary** - Drawing guessing game ⭐ NEW
+8. **♟️ Chess** - Classic chess with spectators ⭐ NEW
 
-### 3. 🎨 Real-Time Whiteboard
-- Collaborative drawing
-- Live cursor tracking
-- Export artwork
+### 🛠️ Collaboration Tools (4 Tools)
+
+9. **🎨 Collaborative Whiteboard** - Real-time drawing board
+10. **📝 Collaborative Document** - Markdown editor with preview ⭐ NEW
+11. **🗺️ Mind Map Builder** - Visual brainstorming tool ⭐ NEW
+12. **🎨 Pixel Art Editor** - Sprite creation tool ⭐ NEW
+
+### 📡 Communication & Utilities (5 Apps)
+
+13. **💬 Real-Time Chat** - Multi-channel messaging
+14. **📹 WebRTC Video** - P2P video calls
+15. **📁 Quick Share** - P2P file sharing
+16. **👨‍💻 Developer Console** - API testing
+17. **🧪 Terminal (PWA)** - Web terminal with SSH/SFTP
 
 ---
 
@@ -71,13 +83,21 @@ cd mini-games-server
 java -jar build/libs/mini-games-server.jar
 ```
 
-### 4. Access Games
+### 4. Access Apps
 
 Open your browser to:
 - **Portal:** http://localhost:8090/
-- **Reaction Game:** http://localhost:8090/reaction-game/
-- **Quiz Battle:** http://localhost:8090/quiz-battle/
-- **Whiteboard:** http://localhost:8090/whiteboard/
+- **Games:**
+  - Air Hockey: http://localhost:8090/apps/mini-games/air-hockey/
+  - Quiz Battle: http://localhost:8090/apps/mini-games/quiz-battle/
+  - Pictionary: http://localhost:8090/apps/pictionary/ ⭐ NEW
+  - Chess: http://localhost:8090/apps/chess/ ⭐ NEW
+- **Collaboration:**
+  - Whiteboard: http://localhost:8090/apps/whiteboard/
+  - Document Editor: http://localhost:8090/apps/collab-doc/ ⭐ NEW
+  - Mind Map: http://localhost:8090/apps/mind-map/ ⭐ NEW
+  - Pixel Art: http://localhost:8090/apps/pixel-art/ ⭐ NEW
+- **Terminal:** http://localhost:8090/apps/terminal/
 
 ---
 

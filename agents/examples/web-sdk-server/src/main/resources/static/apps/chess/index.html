@@ -1,0 +1,154 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5, user-scalable=yes">
+    <meta name="theme-color" content="#2c3e50">
+    <title>♟️ Chess - Multiplayer</title>
+
+    <!-- Common Styles -->
+    <link rel="stylesheet" href="../../css/toast.css">
+    <link rel="stylesheet" href="../../css/connection-modal.css">
+    <link rel="stylesheet" href="../../css/share-modal.css">
+
+    <!-- Chess Styles -->
+    <link rel="stylesheet" href="chess.css">
+
+    <!-- Chess.js Library (for game logic) -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/chess.js/0.10.3/chess.min.js"></script>
+</head>
+<body>
+    <!-- Share Button -->
+    <button id="shareBtn" class="share-btn" onclick="chessGame?.openShareModal()" style="display: none;">
+        📤 Share
+    </button>
+
+    <!-- Connection Status -->
+    <div id="connectionStatus" class="connection-status">
+        <span id="statusDot" class="status-dot"></span>
+        <span id="statusText">Disconnected</span>
+    </div>
+
+    <!-- Game Container -->
+    <div id="gameContainer" class="game-container hidden">
+        <!-- Header -->
+        <div class="game-header">
+            <div class="header-left">
+                <h1>♟️ Chess</h1>
+                <span id="roomName" class="room-badge"></span>
+            </div>
+            <div class="header-center">
+                <div id="gameStatus" class="game-status">
+                    Waiting for players...
+                </div>
+            </div>
+            <div class="header-right">
+                <div id="turnIndicator" class="turn-indicator">
+                    <span id="turnText">White's Turn</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Main Layout -->
+        <div class="game-layout">
+            <!-- Left Sidebar: Players & Info -->
+            <div class="sidebar-left">
+                <!-- Black Player -->
+                <div class="player-panel black-player">
+                    <div class="player-icon">♚</div>
+                    <div class="player-info">
+                        <div class="player-name" id="blackPlayerName">Waiting...</div>
+                        <div class="player-status" id="blackPlayerStatus">⏳</div>
+                    </div>
+                    <div class="captured-pieces" id="blackCaptured"></div>
+                </div>
+
+                <!-- White Player -->
+                <div class="player-panel white-player">
+                    <div class="player-icon">♔</div>
+                    <div class="player-info">
+                        <div class="player-name" id="whitePlayerName">Waiting...</div>
+                        <div class="player-status" id="whitePlayerStatus">⏳</div>
+                    </div>
+                    <div class="captured-pieces" id="whiteCaptured"></div>
+                </div>
+
+                <!-- Spectators -->
+                <div class="spectators-panel">
+                    <h3>👀 Spectators (<span id="spectatorCount">0</span>)</h3>
+                    <div id="spectatorsList" class="spectators-list"></div>
+                </div>
+            </div>
+
+            <!-- Center: Chess Board -->
+            <div class="board-area">
+                <div id="chessBoard" class="chess-board"></div>
+
+                <!-- Promotion Dialog -->
+                <div id="promotionDialog" class="promotion-dialog hidden">
+                    <h3>Choose promotion piece:</h3>
+                    <div class="promotion-choices">
+                        <button class="promotion-btn" data-piece="q">♛</button>
+                        <button class="promotion-btn" data-piece="r">♜</button>
+                        <button class="promotion-btn" data-piece="b">♝</button>
+                        <button class="promotion-btn" data-piece="n">♞</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Right Sidebar: Move History & Controls -->
+            <div class="sidebar-right">
+                <div class="controls-panel">
+                    <h3>🎮 Controls</h3>
+                    <button id="newGameBtn" class="btn-secondary" onclick="chessGame?.requestNewGame()" disabled>
+                        🔄 New Game
+                    </button>
+                    <button id="resignBtn" class="btn-danger" onclick="chessGame?.resign()" disabled>
+                        🏳️ Resign
+                    </button>
+                    <button id="offerDrawBtn" class="btn-secondary" onclick="chessGame?.offerDraw()" disabled>
+                        🤝 Offer Draw
+                    </button>
+                </div>
+
+                <div class="moves-panel">
+                    <h3>📜 Move History</h3>
+                    <div id="moveHistory" class="move-history"></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Lobby Panel -->
+        <div id="lobbyPanel" class="lobby-panel">
+            <h2>♟️ Chess Lobby</h2>
+            <p>Choose your color:</p>
+            <div class="color-choice">
+                <button class="color-btn" onclick="chessGame?.chooseColor('white')">
+                    ♔ Play as White
+                </button>
+                <button class="color-btn" onclick="chessGame?.chooseColor('black')">
+                    ♚ Play as Black
+                </button>
+                <button class="color-btn spectate" onclick="chessGame?.chooseSpectator()">
+                    👀 Spectate
+                </button>
+            </div>
+            <p class="lobby-info">Or wait for auto-assignment...</p>
+        </div>
+    </div>
+
+    <!-- Include Libraries -->
+    <script src="../../js/config-loader.js"></script>
+    <script src="../../generated-web-agent-js/messaging-web-agent.js"></script>
+    <script src="../../js/UserConnectionBase.js"></script>
+    <script src="../../js/MiniGameUtils.js"></script>
+
+    <!-- Game Logic -->
+    <script src="chess-game.js"></script>
+
+    <!-- Connection Modal -->
+    <script src="../../js/connection-modal.js"></script>
+    <script src="../../js/share-modal.js"></script>
+</body>
+</html>
+
