@@ -2,6 +2,7 @@ package com.hmdev.sdk.local.terminal;
 
 import com.hmdev.messaging.common.CommonUtils;
 import com.hmdev.sdk.local.dto.SshTestResponse;
+import com.hmdev.sdk.local.filesystem.FileSystemService;
 import com.hmdev.sdk.local.model.SshConnection;
 import com.hmdev.sdk.local.model.TerminalSession;
 import com.hmdev.sdk.local.repository.SshConnectionRepository;
@@ -33,6 +34,9 @@ public class TerminalService {
     // Repository dependencies
     private final TerminalSessionRepository sessionRepository;
     private final SshConnectionRepository sshConnectionRepository;
+
+    // File system service for auto-cleanup
+    private final FileSystemService fileSystemService;
 
     /**
      * Create local terminal session using ProcessBuilder
@@ -312,6 +316,15 @@ public class TerminalService {
 
         ITerminalSession session = sessions.remove(sessionId);
         sessionShells.remove(sessionId);  // Clean up shell type tracking
+
+        // Auto-close file system session if exists
+        try {
+            fileSystemService.closeFileSystem(sessionId);
+            log.info("[TerminalService] File system closed for session: {}", sessionId);
+        } catch (Exception e) {
+            log.debug("[TerminalService] No file system to close for session: {}", sessionId);
+        }
+
         if (session != null) {
             log.info("[TerminalService] Found session {}, type: {}", sessionId, session.getClass().getSimpleName());
             boolean closed = session.close();
@@ -455,6 +468,16 @@ public class TerminalService {
             conn.setPrivateKey(null);
         });
         return connections;
+    }
+
+    /**
+     * Get all SSH connections WITH credentials (for export/backup only)
+     * WARNING: Contains sensitive data - use with caution!
+     */
+    public List<SshConnection> getAllSshConnectionsWithCredentials() {
+        List<SshConnection> connections = sshConnectionRepository.findAll();
+        log.info("[TerminalService] Retrieved {} SSH connections WITH credentials for export", connections.size());
+        return connections;  // Includes passwords and private keys
     }
 
     /**

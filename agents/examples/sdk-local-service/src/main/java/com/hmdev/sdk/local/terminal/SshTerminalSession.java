@@ -215,5 +215,15 @@ public class SshTerminalSession implements ITerminalSession {
     public String getSessionId() {
         return sessionId;
     }
+
+    /**
+     * Get the underlying JSch Session for SFTP channel creation.
+     * This allows reusing the existing SSH connection instead of creating a new one.
+     *
+     * @return JSch Session object
+     */
+    public Session getJSchSession() {
+        return jschSession;
+    }
 }
 

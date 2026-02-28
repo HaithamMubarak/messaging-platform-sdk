@@ -306,10 +306,20 @@ public class TerminalController {
      * Get all SSH connections
      *
      * GET /terminal/ssh-connections
+     * GET /terminal/ssh-connections?includeCredentials=true  (for export/backup)
+     *
+     * @param includeCredentials If true, includes passwords and private keys (for export only)
      */
     @GetMapping("/ssh-connections")
-    public ResponseEntity<?> getAllSshConnections() {
-        return ResponseEntity.ok(terminalService.getAllSshConnections());
+    public ResponseEntity<?> getAllSshConnections(
+            @RequestParam(value = "includeCredentials", required = false, defaultValue = "false") boolean includeCredentials) {
+
+        if (includeCredentials) {
+            log.warn("[SSH] Retrieving SSH connections WITH credentials (export mode)");
+            return ResponseEntity.ok(terminalService.getAllSshConnectionsWithCredentials());
+        } else {
+            return ResponseEntity.ok(terminalService.getAllSshConnections());
+        }
     }
 
     /**

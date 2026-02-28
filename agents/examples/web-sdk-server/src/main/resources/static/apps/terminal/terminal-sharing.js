@@ -50,6 +50,10 @@ class TerminalSharing extends UserConnectionBase {
         this.registerHandler('sftp-response', (msg, src) => this.handleSftpResponse(msg, src));
         this.registerHandler('sftp-navigate', (msg, src) => this.handleSftpNavigate(msg, src));
 
+        // File System message handlers (unified file system - local + SFTP)
+        this.registerHandler('fs-request', (msg, src) => this.handleFileSystemRequest(msg, src));
+        this.registerHandler('fs-response', (msg, src) => this.handleFileSystemResponse(msg, src));
+
         // Callbacks (set by user)
         this.onSharedSessionAdd = null;      // (sessionId, sessionInfo, sourceAgent) => {}
         this.onSharedSessionRemove = null;   // (sessionId, sourceAgent) => {}
@@ -61,6 +65,8 @@ class TerminalSharing extends UserConnectionBase {
         this.onPermissionUpdate = null;      // (sessionId, newPermission) => {}
         this.onOwnerDisconnect = null;       // (sessionId, owner) => {}
         this.onConnectionError = null;       // (sessionId, error) => {}
+        this.onFileSystemRequest = null;     // (sessionId, operation, params, sourceAgent, requestId) => {}
+        this.onFileSystemResponse = null;    // (sessionId, requestId, data, sourceAgent) => {}
     }
 
     /**
@@ -945,13 +951,9 @@ class TerminalSharing extends UserConnectionBase {
 
         const { requestId, data } = msg;
 
-        // Trigger callback for pending SFTP requests
-        // This will be handled by the SFTP browser component
-        if (window.sftpBrowser && typeof window.sftpBrowser.handleRemoteResponse === 'function') {
-            window.sftpBrowser.handleRemoteResponse(requestId, data);
-        } else {
-            console.warn('[TerminalSharing] No SFTP browser to handle response');
-        }
+        // TODO: SFTP remote sharing not implemented yet
+        // File Explorer doesn't have handleRemoteResponse method
+        console.warn('[TerminalSharing] SFTP response received but File Explorer remote operations not implemented');
     }
 
     // ========================================
@@ -992,16 +994,96 @@ class TerminalSharing extends UserConnectionBase {
             return;
         }
 
-        // Update SFTP browser if it's open and showing this session
-        if (window.sftpBrowser && window.sftpBrowser.sftpSessionId === `sftp-${sessionId}`) {
-            console.log(`[TerminalSharing] Syncing SFTP browser to path: ${path}`);
+        // TODO: SFTP navigation sharing not implemented yet
+        // File Explorer doesn't have updateNavigationState method
+        console.log('[TerminalSharing] SFTP navigation received but File Explorer sync not implemented');
+    }
 
-            // Update browser state without triggering navigation event (to avoid loops)
-            window.sftpBrowser.updateNavigationState(path, files, false);
+    // ========================================
+    // FILE SYSTEM SHARING (Unified - Local + SFTP)
+    // ========================================
 
-            // Toast is shown by updateNavigationState when triggerEvent=false
+    /**
+     * Send file system request to owner (viewer → owner)
+     * @param {string} sessionId - Terminal session ID
+     * @param {string} operation - Operation name (list, read, write, etc.)
+     * @param {object} params - Operation parameters
+     * @param {string} targetAgent - Owner agent name
+     * @param {string} requestId - Unique request identifier
+     */
+    sendFileSystemRequest(sessionId, operation, params, targetAgent, requestId) {
+        if (!this.connected) {
+            console.warn('[TerminalSharing] Not connected, cannot send file system request');
+            return false;
+        }
+
+        const message = {
+            type: 'fs-request',
+            sessionId,
+            operation,
+            params,
+            requestId
+        };
+
+        console.log('[TerminalSharing] Sending FS request:', operation, 'to:', targetAgent, 'requestId:', requestId);
+        this.sendData(message, targetAgent);
+        return true;
+    }
+
+    /**
+     * Send file system response to viewer (owner → viewer)
+     * @param {string} sessionId - Terminal session ID
+     * @param {string} requestId - Request identifier to match
+     * @param {object} data - Response data
+     * @param {string} targetAgent - Viewer agent name
+     */
+    sendFileSystemResponse(sessionId, requestId, data, targetAgent) {
+        if (!this.connected) {
+            console.warn('[TerminalSharing] Not connected, cannot send file system response');
+            return false;
+        }
+
+        const message = {
+            type: 'fs-response',
+            sessionId,
+            requestId,
+            data
+        };
+
+        console.log('[TerminalSharing] Sending FS response to:', targetAgent, 'requestId:', requestId);
+        this.sendData(message, targetAgent);
+        return true;
+    }
+
+    /**
+     * Handle incoming file system request (owner receives from viewer)
+     */
+    handleFileSystemRequest(msg, src) {
+        console.log('[TerminalSharing] Received FS request from:', src, msg);
+
+        const { sessionId, operation, params, requestId } = msg;
+
+        // Call user-defined callback
+        if (this.onFileSystemRequest) {
+            this.onFileSystemRequest(sessionId, operation, params, src, requestId);
         } else {
-            console.log('[TerminalSharing] SFTP browser not open or showing different session');
+            console.warn('[TerminalSharing] No onFileSystemRequest handler defined');
+        }
+    }
+
+    /**
+     * Handle incoming file system response (viewer receives from owner)
+     */
+    handleFileSystemResponse(msg, src) {
+        console.log('[TerminalSharing] Received FS response from:', src, msg);
+
+        const { sessionId, requestId, data } = msg;
+
+        // Call user-defined callback
+        if (this.onFileSystemResponse) {
+            this.onFileSystemResponse(sessionId, requestId, data, src);
+        } else {
+            console.warn('[TerminalSharing] No onFileSystemResponse handler defined');
         }
     }
 }

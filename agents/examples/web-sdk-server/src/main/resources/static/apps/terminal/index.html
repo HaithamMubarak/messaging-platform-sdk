@@ -28,8 +28,47 @@
 
     <link rel="stylesheet" href="terminal.css"/>
 
-    <!-- SFTP Browser Component -->
-    <link rel="stylesheet" href="sftp-browser.css"/>
+    <!-- File Explorer Component -->
+    <link rel="stylesheet" href="file-explorer.css"/>
+
+    <!-- Note Editor Component -->
+    <link rel="stylesheet" href="note-editor.css"/>
+
+    <!-- CodeMirror (Code Editor) - Local Files -->
+    <link rel="stylesheet" href="libs/codemirror/css/codemirror.min.css"/>
+    <link rel="stylesheet" href="libs/codemirror/theme/monokai.min.css"/>
+    <script src="libs/codemirror/js/codemirror.min.js"></script>
+
+    <!-- CodeMirror Language Modes -->
+    <script src="libs/codemirror/mode/javascript/javascript.min.js"></script>
+    <script src="libs/codemirror/mode/xml/xml.min.js"></script>
+    <script src="libs/codemirror/mode/css/css.min.js"></script>
+    <script src="libs/codemirror/mode/htmlmixed/htmlmixed.min.js"></script>
+    <script src="libs/codemirror/mode/python/python.min.js"></script>
+    <script src="libs/codemirror/mode/markdown/markdown.min.js"></script>
+    <script src="libs/codemirror/mode/yaml/yaml.min.js"></script>
+    <script src="libs/codemirror/mode/shell/shell.min.js"></script>
+    <script src="libs/codemirror/mode/sql/sql.min.js"></script>
+    <script src="libs/codemirror/mode/clike/clike.min.js"></script>
+    <script src="libs/codemirror/mode/php/php.min.js"></script>
+    <script src="libs/codemirror/mode/ruby/ruby.min.js"></script>
+    <script src="libs/codemirror/mode/go/go.min.js"></script>
+    <script src="libs/codemirror/mode/rust/rust.min.js"></script>
+    <script src="libs/codemirror/mode/swift/swift.min.js"></script>
+    <script src="libs/codemirror/mode/properties/properties.min.js"></script>
+
+    <!-- CodeMirror Addons -->
+    <script src="libs/codemirror/addon/edit/matchbrackets.min.js"></script>
+    <script src="libs/codemirror/addon/edit/closebrackets.min.js"></script>
+    <script src="libs/codemirror/addon/selection/active-line.min.js"></script>
+    <script src="libs/codemirror/addon/scroll/annotatescrollbar.min.js"></script>
+    <script src="libs/codemirror/addon/search/searchcursor.min.js"></script>
+    <link rel="stylesheet" href="libs/codemirror/addon/search/matchesonscrollbar.css"/>
+    <script src="libs/codemirror/addon/search/match-highlighter.min.js"></script>
+    <script src="libs/codemirror/addon/search/matchesonscrollbar.min.js"></script>
+
+    <!-- File Editor Component (Multi-Tab) -->
+    <link rel="stylesheet" href="file-editor.css"/>
 
     <!-- Toast notifications -->
     <link rel="stylesheet" href="../../css/toast.css"/>
@@ -37,9 +76,14 @@
     <!-- Cloud Connection Component -->
     <link rel="stylesheet" href="../../css/cloud-connection.css"/>
 
-    <!-- SFTP Browser -->
-    <link rel="stylesheet" href="sftp-browser.css"/>
-    <script src="sftp-browser.js"></script>
+    <!-- File Explorer -->
+    <script src="file-explorer.js"></script>
+
+    <!-- Note Editor -->
+    <script src="note-editor.js"></script>
+
+    <!-- File Editor (Multi-Tab) -->
+    <script src="file-editor.js"></script>
 
     <!-- QR Code library (for cloud modal share section) -->
     <script src="../../lib/qrcode.min.js"></script>
@@ -184,11 +228,6 @@
             <span class="label">Remote Share</span>
         </button>
         <div class="toolbar-separator"></div>
-        <button class="toolbar-btn sls-dependent" onclick="toggleSftpPanel()" title="SFTP File Browser" id="sftpToolbarBtn">
-            <span class="icon">📁</span>
-            <span class="label">SFTP</span>
-        </button>
-        <div class="toolbar-separator"></div>
         <button class="toolbar-btn sls-dependent" onclick="refreshConnections()" title="Refresh Connections">
             <span class="icon">🔄</span>
             <span class="label">Refresh</span>
@@ -331,14 +370,14 @@
         <!-- Sidebar with Tabs -->
         <div class="sidebar" id="sidebar">
             <div class="sidebar-tabs">
-                <button class="sidebar-tab active" onclick="switchSidebarTab('sessions')" title="SSH Connections" data-tab="sessions">
-                    <span class="sidebar-tab-icon">🌐</span>
+                <button class="sidebar-tab active" onclick="switchSidebarTab('sessions')" title="Terminal Sessions" data-tab="sessions">
+                    <span class="sidebar-tab-icon">🖥️</span>
                 </button>
                 <button class="sidebar-tab" onclick="switchSidebarTab('notes')" title="Notes" data-tab="notes">
                     <span class="sidebar-tab-icon">📝</span>
                     <span class="sidebar-tab-badge" id="notesBadge" style="display: none;">0</span>
                 </button>
-                <button class="sidebar-tab" onclick="switchSidebarTab('sftp')" title="SFTP Browser" data-tab="sftp">
+                <button class="sidebar-tab" onclick="openFileExplorerForActiveTab()" title="File Explorer" data-tab="files">
                     <span class="sidebar-tab-icon">📁</span>
                 </button>
                 <button class="sidebar-tab" onclick="switchSidebarTab('shared')" title="Shared with You" data-tab="shared">
@@ -349,13 +388,16 @@
                     <span class="sidebar-tab-icon">📤</span>
                     <span class="sidebar-tab-badge" id="mysharesBadge" style="display: none;">0</span>
                 </button>
+                <button class="sidebar-tab" onclick="switchSidebarTab('settings')" title="Settings & Backup" data-tab="settings">
+                    <span class="sidebar-tab-icon">⚙️</span>
+                </button>
             </div>
 
             <div class="sidebar-content">
                 <!-- Sessions Tab -->
                 <div class="sidebar-panel active" id="panel-sessions">
                     <div class="sidebar-header">
-                        <span>SSH Connections</span>
+                        <span>Terminal Sessions</span>
                         <button class="sidebar-header-btn" onclick="refreshConnections()" title="Refresh">🔄</button>
                     </div>
                     <div class="session-list" id="sessionList">
@@ -374,14 +416,14 @@
                     </div>
                 </div>
 
-                <!-- SFTP Tab -->
-                <div class="sidebar-panel" id="panel-sftp">
+                <!-- File Explorer Tab -->
+                <div class="sidebar-panel" id="panel-files">
                     <div class="sidebar-header">
-                        <span>SFTP Browser</span>
-                        <button class="sidebar-header-btn" onclick="closeSftpPanel()" title="Close">✖️</button>
+                        <span>File Explorer</span>
+                        <button class="sidebar-header-btn" onclick="closeFileExplorerPanel()" title="Close">✖️</button>
                     </div>
-                    <div id="sftpPanelContainer" style="flex: 1; overflow: auto;">
-                        <!-- SFTP browser will be mounted here -->
+                    <div id="fileExplorerPanelContainer" style="flex: 1; overflow: auto;">
+                        <!-- File Explorer will be mounted here -->
                     </div>
                 </div>
 
@@ -411,6 +453,94 @@
                         <div style="padding: 20px; text-align: center; color: var(--text-muted); font-size: 11px;">
                             No shared terminals yet.<br>
                             Share a terminal to see it here.
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Settings Tab -->
+                <div class="sidebar-panel" id="panel-settings">
+                    <div class="sidebar-header">
+                        <span>Settings & Backup</span>
+                    </div>
+                    <div class="settings-container" style="padding: 15px;">
+
+                        <!-- Export Configuration -->
+                        <div class="settings-section">
+                            <h3 style="margin: 0 0 10px 0; font-size: 14px;">📦 Export Configuration</h3>
+                            <p style="font-size: 11px; color: var(--text-muted); margin: 0 0 10px 0;">
+                                Export your settings, SSH connections, and notes as a password-protected ZIP file.
+                            </p>
+
+                            <!-- Export Options -->
+                            <div style="margin: 10px 0;">
+                                <label style="display: block; margin: 5px 0; font-size: 12px;">
+                                    <input type="checkbox" id="exportSSH" checked> SSH Connections
+                                </label>
+                                <label style="display: block; margin: 5px 0; font-size: 12px;">
+                                    <input type="checkbox" id="exportNotes" checked> Notes
+                                </label>
+                                <label style="display: block; margin: 5px 0; font-size: 12px;">
+                                    <input type="checkbox" id="exportSettings" checked> Application Settings
+                                </label>
+                            </div>
+
+                            <!-- Password for export -->
+                            <input type="password"
+                                   id="exportPassword"
+                                   placeholder="Password (optional)"
+                                   style="width: 100%; padding: 8px; margin: 10px 0; border: 1px solid var(--border-color); border-radius: 4px; background: var(--bg-primary); color: var(--text-primary);">
+
+                            <button class="sidebar-btn primary" onclick="exportConfiguration()" style="width: 100%;">
+                                📥 Export Backup
+                            </button>
+                        </div>
+
+                        <div style="border-top: 1px solid var(--border-color); margin: 20px 0;"></div>
+
+                        <!-- Import Configuration -->
+                        <div class="settings-section">
+                            <h3 style="margin: 0 0 10px 0; font-size: 14px;">📤 Import Configuration</h3>
+                            <p style="font-size: 11px; color: var(--text-muted); margin: 0 0 10px 0;">
+                                Import settings from a backup file (ZIP or XML).
+                            </p>
+
+                            <input type="file"
+                                   id="importFileInput"
+                                   accept=".zip,.xml"
+                                   style="display: none;"
+                                   onchange="handleImportFile(event)">
+
+                            <button class="sidebar-btn secondary" onclick="document.getElementById('importFileInput').click()" style="width: 100%;">
+                                📂 Choose Backup File
+                            </button>
+
+                            <!-- Password for import (shown when file selected) -->
+                            <div id="importPasswordSection" style="display: none; margin-top: 10px;">
+                                <input type="password"
+                                       id="importPassword"
+                                       placeholder="Password (if protected)"
+                                       style="width: 100%; padding: 8px; margin: 10px 0; border: 1px solid var(--border-color); border-radius: 4px; background: var(--bg-primary); color: var(--text-primary);">
+
+                                <button class="sidebar-btn primary" onclick="importConfiguration()" style="width: 100%;">
+                                    ✅ Import Backup
+                                </button>
+                            </div>
+                        </div>
+
+                        <div style="border-top: 1px solid var(--border-color); margin: 20px 0;"></div>
+
+                        <!-- Database Access -->
+                        <div class="settings-section">
+                            <h3 style="margin: 0 0 10px 0; font-size: 14px;">💾 Database Console</h3>
+                            <p style="font-size: 11px; color: var(--text-muted); margin: 0 0 10px 0;">
+                                Access H2 database console for advanced debugging.
+                            </p>
+                            <button class="sidebar-btn secondary" onclick="window.open('http://localhost:8088/h2-console', '_blank')" style="width: 100%;">
+                                🔍 Open H2 Console
+                            </button>
+                            <div style="font-size: 10px; color: var(--text-muted); margin-top: 5px;">
+                                Username: admin | Password: changeme
+                            </div>
                         </div>
                     </div>
                 </div>

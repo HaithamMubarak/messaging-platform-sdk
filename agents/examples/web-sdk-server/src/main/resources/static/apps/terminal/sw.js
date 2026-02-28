@@ -3,8 +3,8 @@
  * Enables offline functionality by caching all terminal assets
  */
 
-const CACHE_NAME = 'messaging-platform-shared-terminal-v1.1.0';
-const CACHE_TIMESTAMP = '2026-02-24';
+const CACHE_NAME = 'messaging-platform-shared-terminal-v1.6.0';
+const CACHE_TIMESTAMP = '2026-02-28';
 
 // Files to cache for offline use
 const STATIC_ASSETS = [
@@ -13,9 +13,46 @@ const STATIC_ASSETS = [
     './terminal.js',
     './terminal.css',
     './terminal-sharing.js',
-    './sftp-browser.js',
-    './sftp-browser.css',
+    './file-explorer.js',
+    './file-explorer.css',
+    './file-editor.js',
+    './file-editor.css',
+    './note-editor.js',
+    './note-editor.css',
     './manifest.json',
+
+    // CodeMirror Core
+    './libs/codemirror/css/codemirror.min.css',
+    './libs/codemirror/theme/monokai.min.css',
+    './libs/codemirror/js/codemirror.min.js',
+
+    // CodeMirror Language Modes
+    './libs/codemirror/mode/javascript/javascript.min.js',
+    './libs/codemirror/mode/xml/xml.min.js',
+    './libs/codemirror/mode/css/css.min.js',
+    './libs/codemirror/mode/htmlmixed/htmlmixed.min.js',
+    './libs/codemirror/mode/python/python.min.js',
+    './libs/codemirror/mode/markdown/markdown.min.js',
+    './libs/codemirror/mode/yaml/yaml.min.js',
+    './libs/codemirror/mode/shell/shell.min.js',
+    './libs/codemirror/mode/sql/sql.min.js',
+    './libs/codemirror/mode/clike/clike.min.js',
+    './libs/codemirror/mode/php/php.min.js',
+    './libs/codemirror/mode/ruby/ruby.min.js',
+    './libs/codemirror/mode/go/go.min.js',
+    './libs/codemirror/mode/rust/rust.min.js',
+    './libs/codemirror/mode/swift/swift.min.js',
+    './libs/codemirror/mode/properties/properties.min.js',
+
+    // CodeMirror Addons
+    './libs/codemirror/addon/edit/matchbrackets.min.js',
+    './libs/codemirror/addon/edit/closebrackets.min.js',
+    './libs/codemirror/addon/selection/active-line.min.js',
+    './libs/codemirror/addon/scroll/annotatescrollbar.min.js',
+    './libs/codemirror/addon/search/searchcursor.min.js',
+    './libs/codemirror/addon/search/matchesonscrollbar.css',
+    './libs/codemirror/addon/search/match-highlighter.min.js',
+    './libs/codemirror/addon/search/matchesonscrollbar.min.js',
 
     // Dependencies (from parent directories - adjust paths as needed)
     '../../../lib/xterm/xterm.js',

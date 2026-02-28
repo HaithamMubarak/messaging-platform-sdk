@@ -1,0 +1,500 @@
+/* ================================================
+   FILE EDITOR - MULTI-TAB POPUP AND PINNED MODES
+   ================================================ */
+
+/* Theme Variables - Dark Professional Theme (Default) */
+.file-editor-overlay,
+.file-editor-pinned {
+    /* Dark Theme (Default - Professional Dark) */
+    --editor-bg: #1e1e1e;              /* Darker main background */
+    --editor-header-bg: #252526;       /* Dark header/footer */
+    --editor-tab-bg: #2d2d2d;          /* Dark tab background */
+    --editor-tab-hover-bg: #3e3e3e;    /* Tab hover state */
+    --editor-tab-active-bg: #0e639c;   /* Active tab (darker blue) */
+    --editor-border: #454545;          /* Subtle borders */
+    --editor-text: #cccccc;            /* Light text */
+    --editor-text-muted: #858585;      /* Muted text */
+    --editor-accent: #0e639c;          /* Accent color */
+    --editor-accent-hover: #1177bb;    /* Accent hover */
+    --editor-modified: #e5c07b;        /* Modified indicator (gold) */
+    --editor-success: #98c379;         /* Success/saved (green) */
+}
+
+/* Light Theme Option */
+.file-editor-overlay.theme-light,
+.file-editor-pinned.theme-light {
+    --editor-bg: #ffffff;
+    --editor-header-bg: #f3f3f3;
+    --editor-tab-bg: #ececec;
+    --editor-tab-hover-bg: #e0e0e0;
+    --editor-tab-active-bg: #007acc;
+    --editor-border: #cccccc;
+    --editor-text: #333333;
+    --editor-text-muted: #666666;
+    --editor-accent: #007acc;
+    --editor-accent-hover: #0098ff;
+    --editor-modified: #ff9800;
+    --editor-success: #4caf50;
+}
+
+/* Popup Overlay */
+.file-editor-overlay {
+    display: none;
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0, 0, 0, 0.7);
+    z-index: 10000;
+    backdrop-filter: blur(4px);
+}
+
+.file-editor-overlay.visible {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+/* Popup Modal */
+.file-editor-modal {
+    background: var(--editor-bg);
+    border-radius: 12px;
+    box-shadow: 0 10px 40px rgba(0, 0, 0, 0.5);
+    width: 90%;
+    max-width: 1200px;
+    height: 85vh;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    z-index: 10001;
+    color: var(--editor-text);
+}
+
+/* Pinned Side Panel */
+.file-editor-pinned {
+    display: none;
+    position: fixed;
+    top: 60px;
+    right: 0;
+    bottom: 0;
+    width: 600px;
+    background: var(--editor-bg);
+    border-left: 2px solid var(--editor-border);
+    box-shadow: -5px 0 20px rgba(0, 0, 0, 0.3);
+    z-index: 9000;
+    flex-direction: column;
+    color: var(--editor-text);
+}
+
+.file-editor-pinned.visible {
+    display: flex;
+}
+
+/* Resizer for Pinned Mode */
+.file-editor-resizer {
+    position: absolute;
+    left: 0;
+    top: 0;
+    bottom: 0;
+    width: 6px;
+    cursor: ew-resize;
+    background: transparent;
+    transition: background 0.2s;
+    z-index: 10;
+}
+
+.file-editor-resizer:hover {
+    background: var(--editor-accent);
+}
+
+.file-editor-pinned-content {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    margin-left: 6px;  /* Space for resizer */
+}
+
+/* Header with Tab Bar and Actions */
+.file-editor-header {
+    display: flex;
+    flex-direction: column;
+    background: var(--editor-header-bg);
+    border-bottom: 1px solid var(--editor-border);
+}
+
+.file-editor-actions {
+    display: flex;
+    gap: 8px;
+    padding: 8px 12px;
+    background: var(--editor-header-bg);
+    border-bottom: 1px solid var(--editor-border);
+}
+
+.file-editor-tabs {
+    display: flex;
+    flex: 1;
+    align-items: center;
+    gap: 4px;
+    padding: 4px 8px;
+    overflow-x: auto;
+    overflow-y: hidden;
+    scrollbar-width: thin;
+    min-height: 40px;
+    background: var(--editor-header-bg);
+}
+
+.file-editor-tabs::-webkit-scrollbar {
+    height: 4px;
+}
+
+.file-editor-tabs::-webkit-scrollbar-thumb {
+    background: var(--editor-border);
+    border-radius: 2px;
+}
+
+/* Individual Tab */
+.file-editor-tab {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 12px;
+    background: var(--editor-tab-bg);
+    border: 1px solid var(--editor-border);
+    border-radius: 6px;
+    cursor: pointer;
+    transition: all 0.2s;
+    flex-shrink: 0;
+    max-width: 200px;
+    min-height: 48px;
+    color: var(--editor-text);
+}
+
+.file-editor-tab:hover {
+    background: var(--editor-tab-hover-bg);
+    border-color: var(--editor-accent);
+}
+
+.file-editor-tab.active {
+    background: var(--editor-tab-active-bg);
+    border-color: var(--editor-tab-active-bg);
+    color: white;
+}
+
+/* Two-line tab content container */
+.file-editor-tab-content {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    overflow: hidden;
+    flex: 1;
+    min-width: 0;  /* Important for text truncation */
+}
+
+/* Session name (first line) */
+.file-editor-tab-session {
+    font-size: 10px;
+    opacity: 0.7;
+    font-weight: 600;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    line-height: 1.2;
+}
+
+.file-editor-tab.active .file-editor-tab-session {
+    opacity: 0.9;
+}
+
+/* File name (second line) */
+.file-editor-tab-name {
+    font-size: 12px;
+    font-weight: 500;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    line-height: 1.2;
+}
+
+/* Close button */
+.file-editor-tab-close {
+    padding: 2px 6px;
+    border-radius: 3px;
+    font-size: 14px;
+    opacity: 0.6;
+    transition: all 0.2s;
+    flex-shrink: 0;
+    align-self: flex-start;
+    margin-top: 2px;
+}
+
+.file-editor-tab-close:hover {
+    opacity: 1;
+    background: rgba(255, 255, 255, 0.2);
+}
+
+.file-editor-tab.active .file-editor-tab-close:hover {
+    background: rgba(255, 255, 255, 0.3);
+}
+
+/* Header Actions */
+.file-editor-actions {
+    display: flex;
+    gap: 6px;
+    padding: 6px 12px;
+    border-left: 1px solid var(--border-color);
+}
+
+/* Body - CodeMirror Editor Area */
+.file-editor-body {
+    flex: 1;
+    padding: 0;
+    overflow: hidden;
+    display: flex;
+    position: relative;
+    background: var(--editor-bg);  /* Match editor background */
+}
+
+.file-editor-codemirror {
+    width: 100%;
+    height: 100%;
+    /* Let CodeMirror theme handle font-family and font-size */
+}
+
+/* Ensure CodeMirror fills container - ONLY size, no colors/margins */
+.file-editor-codemirror .CodeMirror {
+    height: 100%;
+}
+
+/* Override CodeMirror Monokai background to match our professional dark theme */
+.file-editor-codemirror .CodeMirror,
+.file-editor-codemirror .CodeMirror-gutters {
+    background-color: #1e1e1e !important;  /* Our dark theme, not Monokai's #272822 */
+}
+
+.file-editor-codemirror .CodeMirror-gutter {
+    background-color: #1e1e1e !important;
+}
+
+.file-editor-codemirror .CodeMirror-linenumber {
+    color: #858585 !important;  /* Muted line numbers */
+}
+
+/* Light theme override */
+.theme-light .file-editor-codemirror .CodeMirror,
+.theme-light .file-editor-codemirror .CodeMirror-gutters,
+.theme-light .file-editor-codemirror .CodeMirror-gutter {
+    background-color: #ffffff !important;
+}
+
+.theme-light .file-editor-codemirror .CodeMirror-linenumber {
+    color: #666666 !important;
+}
+
+
+/* Footer - Status Bar */
+.file-editor-footer {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 8px 16px;
+    background: var(--editor-header-bg);
+    border-top: 1px solid var(--editor-border);
+    font-size: 12px;
+    color: var(--editor-text);
+}
+
+.file-editor-status-left {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.file-editor-status-right {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+}
+
+.file-editor-status {
+    font-weight: 600;
+    color: var(--editor-text-muted);
+}
+
+.file-editor-status.modified {
+    color: var(--editor-modified);
+}
+
+.file-editor-status.saved {
+    color: var(--editor-success);
+}
+
+.file-editor-path {
+    color: var(--editor-text-muted);
+    font-size: 11px;
+    max-width: 300px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+#fileEditorCursor,
+#fileEditorCursorPinned {
+    color: var(--editor-text-muted);
+}
+
+#fileEditorEncoding,
+#fileEditorEncodingPinned {
+    color: var(--editor-text-muted);
+    font-weight: 600;
+}
+
+/* Buttons */
+.file-editor-btn {
+    padding: 6px 12px;
+    border: none;
+    border-radius: 6px;
+    font-size: 13px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.2s;
+    background: var(--editor-tab-bg);
+    color: var(--editor-text);
+    white-space: nowrap;
+}
+
+.file-editor-btn:hover {
+    background: var(--editor-tab-hover-bg);
+    transform: translateY(-1px);
+}
+
+.file-editor-btn:active {
+    transform: translateY(0);
+}
+
+.file-editor-btn.primary {
+    background: var(--editor-accent);
+    color: white;
+}
+
+.file-editor-btn.primary:hover {
+    background: var(--editor-accent-hover);
+}
+
+.file-editor-btn.secondary {
+    background: var(--editor-tab-bg);
+}
+
+.file-editor-btn.small {
+    padding: 5px 10px;
+    font-size: 12px;
+}
+
+/* Responsive - Smaller screens */
+@media (max-width: 768px) {
+    .file-editor-modal {
+        width: 95%;
+        height: 90vh;
+    }
+
+    .file-editor-pinned {
+        width: 100%;
+        border-left: none;
+    }
+
+    .file-editor-resizer {
+        display: none;
+    }
+
+    .file-editor-tab {
+        max-width: 150px;
+    }
+
+    .file-editor-tab-session {
+        display: none;  /* Hide session on mobile */
+    }
+
+    .file-editor-path {
+        max-width: 150px;
+    }
+}
+
+/* Dark mode adjustments */
+@media (prefers-color-scheme: dark) {
+    .file-editor-overlay {
+        background: rgba(0, 0, 0, 0.85);
+    }
+}
+
+/* Scrollbar styling for tab bar */
+.file-editor-tabs {
+    scrollbar-color: var(--editor-border) transparent;
+}
+
+/* Modified indicator in tab name */
+.file-editor-tab-name::after {
+    content: '';
+}
+
+/* Add visual indicator for modified tabs */
+.file-editor-tab[data-modified="true"] {
+    border-left: 3px solid var(--editor-modified);
+}
+
+.file-editor-tab.active[data-modified="true"] {
+    border-left: 3px solid rgba(255, 255, 255, 0.8);
+}
+
+/* Animation for tab open/close - only on creation, not on updates */
+.file-editor-tab.new-tab {
+    animation: tabSlideIn 0.2s ease;
+}
+
+@keyframes tabSlideIn {
+    from {
+        opacity: 0;
+        transform: translateX(-10px);
+    }
+    to {
+        opacity: 1;
+        transform: translateX(0);
+    }
+}
+
+/* Performance optimization - prevent layout thrashing */
+.file-editor-tab {
+    will-change: auto;  /* Don't pre-optimize */
+}
+
+.file-editor-tab:hover {
+    will-change: background, border-color;  /* Optimize on hover */
+}
+
+/* Empty state (no tabs) */
+.file-editor-empty {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    height: 100%;
+    color: var(--editor-text-muted);
+    padding: 40px;
+    text-align: center;
+}
+
+.file-editor-empty-icon {
+    font-size: 64px;
+    margin-bottom: 16px;
+    opacity: 0.5;
+}
+
+.file-editor-empty-text {
+    font-size: 16px;
+    margin-bottom: 8px;
+}
+
+.file-editor-empty-hint {
+    font-size: 13px;
+    opacity: 0.7;
+}
+

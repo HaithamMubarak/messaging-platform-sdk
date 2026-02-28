@@ -1,0 +1,279 @@
+package com.hmdev.sdk.local.filesystem;
+
+import com.hmdev.sdk.local.model.TerminalSession;
+import com.hmdev.sdk.local.terminal.ITerminalSession;
+import com.hmdev.sdk.local.terminal.SshTerminalSession;
+import com.hmdev.sdk.local.terminal.TerminalService;
+import com.jcraft.jsch.ChannelSftp;
+import com.jcraft.jsch.Session;
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.stereotype.Service;
+
+import java.nio.file.Paths;
+import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
+
+/**
+ * Service for managing file system instances.
+ * Provides factory methods for creating different types of file systems.
+ * Auto-creates file systems on-demand based on terminal sessions.
+ */
+@Service
+@Slf4j
+@RequiredArgsConstructor
+public class FileSystemService {
+
+    // Active file system sessions mapped by session ID
+    private final Map<String, IFileSystem> fileSystems = new ConcurrentHashMap<>();
+
+    // Terminal service for auto-creation
+    private final TerminalService terminalService;
+
+    /**
+     * Create a local file system instance (Internal use only)
+     *
+     * @param sessionId Unique session identifier
+     * @param rootPath  Root path for the file system (optional, defaults to user home)
+     * @return File system instance
+     */
+    private IFileSystem createLocalFileSystem(String sessionId, String rootPath) {
+        log.info("[FileSystemService] Creating local file system for session: {} (root: {})",
+                sessionId, rootPath);
+
+        IFileSystem fileSystem;
+        if (rootPath != null && !rootPath.isEmpty()) {
+            fileSystem = new LocalFileSystem(Paths.get(rootPath));
+        } else {
+            fileSystem = new LocalFileSystem();
+        }
+
+        fileSystems.put(sessionId, fileSystem);
+        return fileSystem;
+    }
+
+    /**
+     * Create an SFTP file system instance with credentials (Internal use only)
+     *
+     * @param sessionId  Unique session identifier
+     * @param host       SSH host
+     * @param port       SSH port
+     * @param username   SSH username
+     * @param password   SSH password (optional if using private key)
+     * @param privateKey SSH private key (optional if using password)
+     * @return File system instance
+     * @throws FileSystemException if connection fails
+     */
+    private IFileSystem createSftpFileSystem(String sessionId, String host, int port,
+                                            String username, String password, String privateKey)
+            throws FileSystemException {
+        log.info("[FileSystemService] Creating SFTP file system for session: {} ({}:{}@{}:{})",
+                sessionId, username, "***", host, port);
+
+        IFileSystem fileSystem = new SftpFileSystem(host, port, username, password, privateKey);
+        fileSystems.put(sessionId, fileSystem);
+        return fileSystem;
+    }
+
+    /**
+     * Create an SFTP file system instance from existing JSch session
+     *
+     * @param sessionId    Unique session identifier
+     * @param sshSession   Existing JSch session
+     * @param sftpChannel  Existing SFTP channel
+     * @return File system instance
+     * @throws FileSystemException if initialization fails
+     */
+    public IFileSystem createSftpFileSystemFromChannel(String sessionId, Session sshSession, ChannelSftp sftpChannel)
+            throws FileSystemException {
+        log.info("[FileSystemService] Creating SFTP file system from existing channel for session: {}", sessionId);
+
+        IFileSystem fileSystem = new SftpFileSystem(sshSession, sftpChannel);
+        fileSystems.put(sessionId, fileSystem);
+        return fileSystem;
+    }
+
+    /**
+     * Get an existing file system instance
+     *
+     * @param sessionId Session identifier
+     * @return File system instance or null if not found
+     */
+    public IFileSystem getFileSystem(String sessionId) {
+        return fileSystems.get(sessionId);
+    }
+
+    /**
+     * Get or auto-create file system for a terminal session
+     * This is the main entry point - all file system access should use this method.
+     * Automatically creates file system on first access based on terminal type.
+     *
+     * @param terminalSessionId Terminal session identifier (cannot be null)
+     * @return File system instance or null if terminal not found/unsupported
+     */
+    public IFileSystem getOrCreateFileSystem(String terminalSessionId) {
+        if (terminalSessionId == null || terminalSessionId.trim().isEmpty()) {
+            log.warn("[FileSystemService] Terminal session ID cannot be null or empty");
+            return null;
+        }
+
+        // Check if file system already exists (fast path)
+        IFileSystem existing = fileSystems.get(terminalSessionId);
+        if (existing != null) {
+            if (!existing.isConnected()) {
+                log.warn("[FileSystemService] File system exists but disconnected for terminal: {}", terminalSessionId);
+                // Remove stale session and recreate below
+                fileSystems.remove(terminalSessionId);
+            } else {
+                log.debug("[FileSystemService] Using existing file system for terminal: {}", terminalSessionId);
+                return existing;
+            }
+        }
+
+        // Get terminal session info
+        ITerminalSession terminalSession = terminalService.getSession(terminalSessionId);
+        if (terminalSession == null) {
+            log.warn("[FileSystemService] Terminal session not found: {}", terminalSessionId);
+            return null;
+        }
+
+        // Auto-create file system based on terminal type
+        try {
+            if (terminalSession instanceof SshTerminalSession) {
+                return createSftpFileSystemForTerminal(terminalSessionId);
+            } else {
+                return createLocalFileSystemForTerminal(terminalSessionId);
+            }
+        } catch (Exception e) {
+            log.error("[FileSystemService] Unexpected error auto-creating file system for terminal {}: {}",
+                    terminalSessionId, e.getMessage(), e);
+            return null;
+        }
+    }
+
+    /**
+     * Create SFTP file system for SSH terminal (Internal helper)
+     */
+    private IFileSystem createSftpFileSystemForTerminal(String terminalSessionId) {
+        log.info("[FileSystemService] Auto-creating SFTP file system for SSH terminal: {}", terminalSessionId);
+
+        // Get connection details from terminal session metadata
+        TerminalSession dbSession = terminalService.getSessionById(terminalSessionId).orElse(null);
+        if (dbSession == null) {
+            log.warn("[FileSystemService] Terminal session not found in DB: {}", terminalSessionId);
+            return null;
+        }
+
+        if (dbSession.getSshConnectionId() == null) {
+            log.warn("[FileSystemService] SSH connection ID not set for terminal: {}", terminalSessionId);
+            return null;
+        }
+
+        var sshConnection = terminalService.getSshConnectionById(dbSession.getSshConnectionId()).orElse(null);
+        if (sshConnection == null) {
+            log.warn("[FileSystemService] SSH connection not found: {}", dbSession.getSshConnectionId());
+            return null;
+        }
+
+        try {
+            return createSftpFileSystem(
+                    terminalSessionId,
+                    sshConnection.getHost(),
+                    sshConnection.getPort(),
+                    sshConnection.getUsername(),
+                    sshConnection.getPassword(),
+                    sshConnection.getPrivateKey()
+            );
+        } catch (FileSystemException e) {
+            log.error("[FileSystemService] Failed to create SFTP file system for terminal {}: {}",
+                    terminalSessionId, e.getMessage());
+            return null;
+        }
+    }
+
+    /**
+     * Create local file system for local terminal (Internal helper)
+     */
+    private IFileSystem createLocalFileSystemForTerminal(String terminalSessionId) {
+        log.info("[FileSystemService] Auto-creating local file system for terminal: {}", terminalSessionId);
+        return createLocalFileSystem(terminalSessionId, null);
+    }
+
+    /**
+     * Close and remove a file system instance
+     * Called automatically when terminal session closes
+     *
+     * @param sessionId Session identifier (can be null - will return false)
+     * @return true if file system was found and closed successfully
+     */
+    public boolean closeFileSystem(String sessionId) {
+        if (sessionId == null || sessionId.trim().isEmpty()) {
+            log.debug("[FileSystemService] Cannot close - session ID is null or empty");
+            return false;
+        }
+
+        IFileSystem fileSystem = fileSystems.remove(sessionId);
+        if (fileSystem != null) {
+            try {
+                fileSystem.close();
+                log.info("[FileSystemService] Closed file system for session: {}", sessionId);
+                return true;
+            } catch (FileSystemException e) {
+                log.error("[FileSystemService] Error closing file system for session {}: {}",
+                        sessionId, e.getMessage());
+                return false;
+            }
+        }
+        log.debug("[FileSystemService] No file system found to close for session: {}", sessionId);
+        return false;
+    }
+
+    /**
+     * Get all active file system session IDs
+     *
+     * @return Set of active session IDs
+     */
+    public java.util.Set<String> getActiveSessions() {
+        return fileSystems.keySet();
+    }
+
+    /**
+     * Check if a file system session exists
+     *
+     * @param sessionId Session identifier
+     * @return true if session exists
+     */
+    public boolean hasSession(String sessionId) {
+        return fileSystems.containsKey(sessionId);
+    }
+
+    /**
+     * Check if a file system is still connected
+     *
+     * @param sessionId Session identifier
+     * @return true if connected, false if not found or disconnected
+     */
+    public boolean isConnected(String sessionId) {
+        IFileSystem fileSystem = fileSystems.get(sessionId);
+        return fileSystem != null && fileSystem.isConnected();
+    }
+
+    /**
+     * Close all file systems (cleanup on shutdown)
+     */
+    public void closeAll() {
+        log.info("[FileSystemService] Closing all file systems ({} active)", fileSystems.size());
+
+        fileSystems.forEach((sessionId, fileSystem) -> {
+            try {
+                fileSystem.close();
+                log.debug("[FileSystemService] Closed file system: {}", sessionId);
+            } catch (FileSystemException e) {
+                log.error("[FileSystemService] Error closing file system {}: {}", sessionId, e.getMessage());
+            }
+        });
+
+        fileSystems.clear();
+    }
+}
+

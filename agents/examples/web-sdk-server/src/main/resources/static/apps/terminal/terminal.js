@@ -255,16 +255,24 @@ class TabSessionManager {
             statusTyping.textContent = '';
         }
 
-        // Update SFTP button state
-        if (typeof updateSftpButtonState === 'function') {
-            updateSftpButtonState();
-        }
+        // If File Explorer sidebar panel is active, update it to show current session's files
+        const filesPanel = document.getElementById('panel-files');
+        if (filesPanel && filesPanel.classList.contains('active')) {
+            // File Explorer is currently selected in sidebar - update it for new session
+            if (sessionSupportsFileExplorer(session)) {
+                // New session supports File Explorer - update to show its files
+                console.log('[FileExplorer] Auto-updating to show files for session:', sessionId);
 
-        // Handle SFTP panel if open
-        const sftpPanel = document.getElementById('panel-sftp');
-        if (sftpPanel && sftpPanel.classList.contains('active') && session.type === 'ssh') {
-            if (typeof openSftpForSession === 'function') {
-                openSftpForSession(sessionId);
+                // Initialize if needed
+                if (!fileExplorer) {
+                    initFileExplorer();
+                }
+
+                // Open file browser for the new active session
+                openFileBrowserForSession(sessionId);
+            } else {
+                // New session doesn't support File Explorer - keep panel open but show message
+                console.log('[FileExplorer] New session does not support File Explorer');
             }
         }
 
@@ -413,43 +421,23 @@ function updateSlsDependentButtons(online) {
     });
 }
 
+// File Explorer button state management removed - accessed via sidebar only
+
 /**
- * Update SFTP toolbar button state based on active tab type
- * Disables SFTP button when active tab is not an SSH session
+ * Check if a session supports File Explorer
+ * @param {Object} session - Session object
+ * @returns {boolean} - True if session supports File Explorer
  */
-function updateSftpButtonState() {
-    const sftpBtn = document.getElementById('sftpToolbarBtn');
-    if (!sftpBtn) return;
+function sessionSupportsFileExplorer(session) {
 
-    // If SLS is offline, the sls-dependent class already disables it
-    if (slsCurrentState === 'offline') return;
+    console.log('[FileExplorer] Checking if session supports File Explorer. Session:', session);
+    if (!session) return false;
 
-    const session = activeSessionId ? sessions.get(activeSessionId) : null;
+    const isSsh = session.type === 'ssh';
+    const isLocalTerminal = session.type === 'local' &&
+        session.config &&  ['cmd', 'bash', 'ps'].includes(session.config.shell);
 
-    // Enable SFTP for:
-    // 1. Local SSH sessions (session.type === 'ssh')
-    // 2. Shared SSH sessions (owner sharing their SSH)
-    // 3. Received shared SSH sessions (viewing someone else's SSH)
-    const isLocalSsh = session && session.type === 'ssh';
-    const isSharedSsh = session && session.type === 'ssh' && session.isShared;
-    const isReceivedSsh = session && session.type === 'ssh' && session.owner && session.owner !== cloudAgentName;
-
-    if (isLocalSsh || isSharedSsh || isReceivedSsh) {
-        sftpBtn.disabled = false;
-        sftpBtn.classList.remove('sls-disabled');
-
-        if (isReceivedSsh) {
-            sftpBtn.title = `SFTP File Browser (Remote: ${session.owner})`;
-        } else if (isSharedSsh) {
-            sftpBtn.title = 'SFTP File Browser (Shared)';
-        } else {
-            sftpBtn.title = 'SFTP File Browser';
-        }
-    } else {
-        sftpBtn.disabled = true;
-        sftpBtn.classList.add('sls-disabled');
-        sftpBtn.title = 'SFTP requires an active SSH connection';
-    }
+    return isSsh || isLocalTerminal;
 }
 
 /**
@@ -772,6 +760,10 @@ let activeSessionId = null; // Keep for backward compatibility (will be shadowed
 let terminalSharing = null;    // TerminalSharing instance (like air-hockey airHockeyGame)
 let cloudConnected = false;
 let cloudAgentName = null;
+
+// File System Sharing (for proxying file system requests through owner)
+const pendingFileSystemRequests = new Map(); // requestId → resolve callback
+let fsRequestIdCounter = 0;
 
 // ========================================
 // Tab Persistence Functions
@@ -1591,7 +1583,6 @@ function updateEmptyState() {
     const emptyState = document.getElementById('emptyState');
     emptyState.style.display = sessions.size === 0 ? 'flex' : 'none';
     updateStatusBar();
-    updateSftpButtonState();
 }
 
 /**
@@ -1714,10 +1705,15 @@ function closeSftpPanel() {
     switchSidebarTab('sessions');
 }
 
+function closeFileExplorerPanel() {
+    switchSidebarTab('sessions');
+}
+
 // Make globally accessible for inline onclick handlers
 window.refreshSharedSessions = refreshSharedSessions;
 window.refreshMyShares = refreshMyShares;
 window.closeSftpPanel = closeSftpPanel;
+window.closeFileExplorerPanel = closeFileExplorerPanel;
 
 /**
  * Update my shares list in sidebar
@@ -1975,6 +1971,9 @@ async function createLocalTerminal(shell = 'cmd') {
         updateSessionCount();
 
         showToast('success', 'Terminal Created', `Local ${shellName} terminal started`);
+
+        // ✅ AUTO-CREATE FILE SYSTEM SESSION FOR THIS LOCAL TERMINAL
+        // Backend auto-creates on-demand: await createFileSystemSessionForTerminal(sessionId);
 
     } catch (error) {
         console.error('Failed to create terminal:', error);
@@ -2867,12 +2866,23 @@ async function closeSession(sessionId) {
 // Keyboard Handler for Reconnection
 // ========================================
 document.addEventListener('keydown', (e) => {
-    // R to reconnect (when overlay is visible and terminal not focused for input)
+    // R to reconnect (when disconnected session is active)
     if (e.key && e.key.toLowerCase() === 'r' && activeSessionId) {
+        // Don't trigger if typing in input field
+        const activeElement = document.activeElement;
+        if (activeElement && (
+            activeElement.tagName === 'INPUT' ||
+            activeElement.tagName === 'TEXTAREA' ||
+            activeElement.isContentEditable
+        )) {
+            return;
+        }
+
         const session = sessions.get(activeSessionId);
         if (session && !session.connected) {
             const overlay = document.getElementById(`reconnect-${activeSessionId}`);
-            if (overlay && overlay.classList.contains('visible')) {
+            // If reconnect overlay exists and is visible OR just tab is focused, reconnect
+            if (overlay && (overlay.classList.contains('visible') || document.activeElement.closest('.terminal-panel'))) {
                 e.preventDefault();
                 reconnectSession(activeSessionId);
             }
@@ -4495,6 +4505,105 @@ async function connectToCloud() {
             }
         };
 
+        // ========================================
+        // FILE SYSTEM SHARING HANDLERS
+        // ========================================
+
+        /**
+         * Handle file system requests from viewers (viewers → owner)
+         * Owner acts as proxy to their local file system
+         */
+        terminalSharing.onFileSystemRequest = async (sessionId, operation, params, sourceAgent, requestId) => {
+            console.log('[FileSystem] Received request from:', sourceAgent, 'session:', sessionId, 'op:', operation);
+
+            const session = sessions.get(sessionId);
+            if (!session || !session.isShared || session.owner) {
+                console.warn('[FileSystem] Rejecting request - not the owner or session not shared');
+                return;
+            }
+
+            const fsSessionId = session.fileSystemSessionId;
+            if (!fsSessionId) {
+                console.warn('[FileSystem] No file system session for terminal:', sessionId);
+                terminalSharing.sendFileSystemResponse(sessionId, requestId, {
+                    success: false,
+                    error: 'No file system session available'
+                }, sourceAgent);
+                return;
+            }
+
+            try {
+                let result;
+
+                // Execute the requested operation on owner's file system
+                switch (operation) {
+                    case 'list':
+                        result = await slsFetch(`${MLS_URL}/filesystem/${fsSessionId}/list?path=${encodeURIComponent(params.path || '.')}`);
+                        break;
+                    case 'read':
+                        result = await slsFetch(`${MLS_URL}/filesystem/${fsSessionId}/read?path=${encodeURIComponent(params.path)}`);
+                        break;
+                    case 'info':
+                        result = await slsFetch(`${MLS_URL}/filesystem/${fsSessionId}/info?path=${encodeURIComponent(params.path)}`);
+                        break;
+                    case 'write':
+                        result = await slsFetch(`${MLS_URL}/filesystem/${fsSessionId}/write`, {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify(params)
+                        });
+                        break;
+                    case 'delete':
+                        result = await slsFetch(`${MLS_URL}/filesystem/${fsSessionId}/delete?path=${encodeURIComponent(params.path)}&recursive=${params.recursive || false}`, {
+                            method: 'DELETE'
+                        });
+                        break;
+                    case 'mkdir':
+                        result = await slsFetch(`${MLS_URL}/filesystem/${fsSessionId}/mkdir?path=${encodeURIComponent(params.path)}`, {
+                            method: 'POST'
+                        });
+                        break;
+                    case 'rename':
+                        result = await slsFetch(`${MLS_URL}/filesystem/${fsSessionId}/rename?oldPath=${encodeURIComponent(params.oldPath)}&newPath=${encodeURIComponent(params.newPath)}`, {
+                            method: 'POST'
+                        });
+                        break;
+                    case 'status':
+                        result = await slsFetch(`${MLS_URL}/filesystem/${fsSessionId}/status`);
+                        break;
+                    default:
+                        throw new Error('Unknown operation: ' + operation);
+                }
+
+                const data = await result.json();
+                terminalSharing.sendFileSystemResponse(sessionId, requestId, data, sourceAgent);
+
+            } catch (error) {
+                console.error('[FileSystem] Error handling request:', error);
+                terminalSharing.sendFileSystemResponse(sessionId, requestId, {
+                    success: false,
+                    error: error.message
+                }, sourceAgent);
+            }
+        };
+
+        /**
+         * Handle file system responses from owner (owner → viewer)
+         * Viewer receives results from owner's proxy requests
+         */
+        terminalSharing.onFileSystemResponse = (sessionId, requestId, data, sourceAgent) => {
+            console.log('[FileSystem] Received response from:', sourceAgent, 'requestId:', requestId);
+
+            // Resolve the pending promise for this request
+            const callback = pendingFileSystemRequests.get(requestId);
+            if (callback) {
+                callback(data);
+                pendingFileSystemRequests.delete(requestId);
+            } else {
+                console.warn('[FileSystem] No pending callback for requestId:', requestId);
+            }
+        };
+
         // Listen for agent connection events to update agents list
         terminalSharing.onPlayerJoining = (event) => {
             console.log('[Terminal] Agent joining:', event.agentName);
@@ -5428,18 +5537,87 @@ function sendTerminalInputViaCloud(sessionId, data) {
 const notes = tabSessionManager.getAllNotes(); // noteId -> note object
 let activeNoteId = null;
 
-// Load notes from backend
+// Generate UUID for notes
+function generateNoteUUID() {
+    if (typeof crypto !== 'undefined' && crypto.randomUUID) {
+        return crypto.randomUUID();
+    }
+    // Fallback UUID v4 generator
+    return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
+        const r = Math.random() * 16 | 0;
+        const v = c === 'x' ? r : (r & 0x3 | 0x8);
+        return v.toString(16);
+    });
+}
+
+// Load notes from backend (filesystem)
 async function loadNotes() {
     try {
-        const response = await slsFetch(`${MLS_URL}/api/notes`);
-        if (response.ok) {
-            const notesList = await response.json();
+        // List all note files from filesystem
+        const response = await fetch(`${MLS_URL}/filesystem/notes/list?path=.`, {
+            headers: { 'X-SLS-Token': localStorage.getItem('sls-token') }
+        });
+
+        if (!response.ok) {
+            console.error('[Notes] Failed to load notes list');
+            return;
+        }
+
+        const result = await response.json();
+
+        if (result.success && result.files) {
             notes.clear();
-            notesList.forEach(note => {
-                notes.set(note.id, note);
+
+            // Load each note file to get title and preview
+            const loadPromises = result.files.map(async (fileInfo) => {
+                try {
+                    // Extract noteId from path (note://abc-123 → abc-123)
+                    const noteId = fileInfo.path.replace('note://', '');
+
+                    // Read file content to extract title
+                    const readResponse = await fetch(
+                        `${MLS_URL}/filesystem/notes/read?path=note://${noteId}`,
+                        { headers: { 'X-SLS-Token': localStorage.getItem('sls-token') } }
+                    );
+
+                    let title = 'Untitled Note';
+                    let content = '';
+
+                    if (readResponse.ok) {
+                        const readResult = await readResponse.json();
+                        content = readResult.content || '';
+
+                        // Extract title from first line if present
+                        const lines = content.split('\n');
+                        if (lines[0] && lines[0].startsWith('# TITLE: ')) {
+                            title = lines[0].substring(9); // Remove "# TITLE: "
+                        }
+                    }
+
+                    const note = {
+                        id: noteId,
+                        title: title,
+                        content: content,
+                        shared: false,
+                        createdAt: fileInfo.lastModified || new Date().toISOString(),
+                        updatedAt: fileInfo.lastModified || new Date().toISOString()
+                    };
+
+                    notes.set(note.id, note);
+                } catch (error) {
+                    console.warn('[Notes] Failed to load note:', fileInfo.path, error);
+                }
             });
+
+            await Promise.all(loadPromises);
+
             updateNotesList();
             updateNotesBadge();
+
+            // Set up context menu event delegation (one-time setup)
+            setupNotesContextMenu();
+
+            console.log('[Notes] Loaded notes from filesystem:', notes.size);
         }
     } catch (error) {
         console.error('[Notes] Failed to load notes:', error);
@@ -5449,47 +5627,85 @@ async function loadNotes() {
 // Create a new note
 async function createNewNote() {
     try {
-        const response = await slsFetch(`${MLS_URL}/api/notes`, {
+        // Generate new note ID
+        const noteId = generateNoteUUID();
+        const timestamp = new Date().toISOString();
+        const title = 'Untitled Note';
+
+        // Create note object in memory
+        const note = {
+            id: noteId,
+            title: title,
+            content: '',
+            shared: false,
+            createdAt: timestamp,
+            updatedAt: timestamp
+        };
+
+        // Create file with title as first line via filesystem API
+        const initialContent = `# TITLE: ${title}\n`;
+
+        const response = await fetch(`${MLS_URL}/filesystem/notes/write`, {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
+            headers: {
+                'Content-Type': 'application/json',
+                'X-SLS-Token': localStorage.getItem('sls-token')
+            },
             body: JSON.stringify({
-                title: 'Untitled Note',
-                content: '',
-                shared: false
+                path: `note://${noteId}`,
+                content: initialContent
             })
         });
 
-        if (response.ok) {
-            const note = await response.json();
-            notes.set(note.id, note);
-            updateNotesList();
-            updateNotesBadge();
-            openNote(note.id);
-            showToast('success', '📝 Note Created', 'New note created successfully');
+        if (!response.ok) {
+            const errorText = await response.text();
+            console.error('[Notes] Failed to create note file:', errorText);
+            throw new Error('Failed to create note file');
         }
+
+        const result = await response.json();
+        if (!result.success) {
+            console.error('[Notes] Note creation failed:', result.error);
+            throw new Error(result.error || 'Failed to create note file');
+        }
+
+        console.log('[Notes] Note file created successfully:', noteId);
+
+        // Add to notes collection
+        notes.set(note.id, note);
+        updateNotesList();
+        updateNotesBadge();
+
+        // Open in editor (file now exists!)
+        openNote(note.id);
+
+        showToast('success', '📝 Note Created', 'New note created successfully');
     } catch (error) {
         console.error('[Notes] Failed to create note:', error);
         showToast('error', 'Create Failed', 'Failed to create note');
     }
 }
 
-// Open a note in a tab
+// Open a note in editor (popup/pinned mode - NO TABS!)
 function openNote(noteId) {
     const note = notes.get(noteId);
     if (!note) return;
 
     activeNoteId = noteId;
 
-    // Create or reuse tab for this note
-    const tabId = `note-${noteId}`;
-    let tab = document.getElementById(`tab-${tabId}`);
-
-    if (!tab) {
-        // Create new tab
-        createNoteTab(noteId, note);
+    // ✅ NEW: Open in file editor (same as files) - unified editing experience
+    if (window.fileEditor) {
+        // Use note title as display name in the path for better tab labels
+        const noteTitle = note.title || 'Untitled Note';
+        // Use format: note://{title}/{noteId} so getFileName extracts the title
+        fileEditor.openFile(
+            'notes',  // Special session ID for notes
+            'Notes',  // Session name
+            `note://${noteTitle}/${noteId}`  // Virtual file path with title for display
+        );
     } else {
-        // Switch to existing tab using existing switchToSession function
-        switchToSession(tabId);
+        console.error('[Notes] File editor not initialized');
+        showToast('error', 'Editor Error', 'File editor not available');
     }
 
     // Highlight active note in list
@@ -5498,86 +5714,17 @@ function openNote(noteId) {
     });
 }
 
-// Create a tab for editing a note
+// OLD TAB-BASED NOTE EDITING - REMOVED
+// Notes now open in popup/pinned editor instead of tabs
+// This keeps tab bar clean (terminals only)
+/*
 function createNoteTab(noteId, note) {
-    const tabId = `note-${noteId}`;
-    const tabBar = document.querySelector('.tab-bar');
-    const terminalWrapper = document.querySelector('.terminal-wrapper');
-
-    // Create tab (using same ID system as terminal tabs)
-    const tab = document.createElement('div');
-    tab.className = 'tab';
-    tab.id = `tab-${tabId}`; // Same as terminal tabs
-    tab.innerHTML = `
-        <span class="tab-icon">📝</span>
-        <span class="tab-title">${note.title || 'Untitled Note'}</span>
-        ${note.shared ? '<span class="tab-shared-badge">🔗</span>' : ''}
-        <span class="tab-close" onclick="closeNoteTab('${tabId}', event)">✕</span>
-    `;
-    tab.onclick = (e) => {
-        if (!e.target.classList.contains('tab-close')) {
-            switchToSession(tabId); // Use existing switchToSession!
-        }
-    };
-
-    // Add right-click context menu (same as terminal tabs)
-    tab.oncontextmenu = (e) => {
-        e.preventDefault();
-        showTabContextMenu(e, tabId);
-    };
-
-    // Insert tab before the "Add Tab" button (same as terminal tabs)
-    const addBtn = tabBar.querySelector('.tab-add');
-    if (addBtn) {
-        tabBar.insertBefore(tab, addBtn);
-    } else {
-        tabBar.appendChild(tab);
-    }
-
-    // Ensure add button always stays at the end
-    ensureAddButtonAtEnd();
-
-    // Deactivate other tabs and make this one active
-    tabBar.querySelectorAll('.tab').forEach(t => {
-        if (t.id !== `tab-${tabId}`) t.classList.remove('active');
-    });
-    tab.classList.add('active');
-
-    // Create note editor container (using same structure as terminal panels)
-    const noteContainer = document.createElement('div');
-    noteContainer.id = `panel-${tabId}`; // Same as terminal panels
-    noteContainer.className = 'terminal-panel'; // Same class as terminal panels
-    noteContainer.innerHTML = `
-        <div style="display: flex; flex-direction: column; height: 100%; background: var(--bg-panel); padding: 16px;">
-            <div style="margin-bottom: 12px; display: flex; gap: 10px; align-items: center;">
-                <input type="text" id="note-title-${noteId}" value="${note.title || ''}" 
-                       placeholder="Note title..."
-                       style="flex: 1; padding: 8px 12px; background: var(--bg-darker); border: 1px solid var(--border-color); 
-                              border-radius: 4px; color: var(--text-primary); font-size: 14px; font-weight: 600;"
-                       onchange="updateNoteTitle('${noteId}', this.value)">
-                <button onclick="saveNote('${noteId}')" 
-                        style="padding: 8px 16px; background: var(--accent-blue); border: none; border-radius: 4px; 
-                               color: white; cursor: pointer; font-size: 12px; font-weight: 600;">
-                    💾 Save
-                </button>
-            </div>
-            <textarea id="note-content-${noteId}" 
-                      placeholder="Start writing your note... (Right-click tab for more options)"
-                      style="flex: 1; padding: 12px; background: var(--bg-darker); border: 1px solid var(--border-color); 
-                             border-radius: 4px; color: var(--text-primary); font-size: 13px; font-family: 'Consolas', 'Monaco', monospace; 
-                             resize: none; line-height: 1.6;">${note.content || ''}</textarea>
-            <div style="margin-top: 8px; font-size: 11px; color: var(--text-muted); display: flex; justify-content: space-between;">
-                <span>Last modified: ${note.updatedAt ? new Date(note.updatedAt).toLocaleString() : 'Never'}</span>
-                <span id="note-status-${noteId}">Ready</span>
-            </div>
-        </div>
-    `;
-
-    terminalWrapper.appendChild(noteContainer);
-    switchToSession(tabId); // Use existing switchToSession function
+    // ...old code removed...
+    // Notes are no longer tabs!
 }
+*/
 
-// Update note title
+// Update note title (saved as first line in file with marker)
 async function updateNoteTitle(noteId, newTitle) {
     const note = notes.get(noteId);
     if (!note) return;
@@ -5585,37 +5732,48 @@ async function updateNoteTitle(noteId, newTitle) {
     note.title = newTitle;
     note.updatedAt = new Date().toISOString();
 
-    // Update tab title
-    const tab = document.getElementById(`tab-note-${noteId}`);
-    if (tab) {
-        const titleEl = tab.querySelector('.tab-title');
-        if (titleEl) titleEl.textContent = newTitle;
-    }
-
     // Update sidebar list
+    notes.set(noteId, note);
     updateNotesList();
 
-    // Update input field if viewing this note
-    const titleInput = document.getElementById(`note-title-${noteId}`);
-    if (titleInput && titleInput.value !== newTitle) {
-        titleInput.value = newTitle;
-    }
-
-    // Save to backend
     try {
-        const response = await slsFetch(`${MLS_URL}/api/notes/${noteId}`, {
-            method: 'PUT',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(note)
-        });
+        // Read current content
+        const readResponse = await fetch(
+            `${MLS_URL}/filesystem/notes/read?path=note://${noteId}`,
+            { headers: { 'X-SLS-Token': localStorage.getItem('sls-token') } }
+        );
 
-        if (response.ok) {
-            showToast('success', 'Note Renamed', `"${newTitle}" updated successfully`);
+        if (readResponse.ok) {
+            const readResult = await readResponse.json();
+            let content = readResult.content || '';
+
+            // Remove old title line if exists
+            const lines = content.split('\n');
+            if (lines[0] && lines[0].startsWith('# TITLE: ')) {
+                lines.shift(); // Remove old title
+            }
+
+            // Add new title as first line
+            const newContent = `# TITLE: ${newTitle}\n${lines.join('\n')}`;
+
+            // Write back
+            await fetch(`${MLS_URL}/filesystem/notes/write`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-SLS-Token': localStorage.getItem('sls-token')
+                },
+                body: JSON.stringify({
+                    path: `note://${noteId}`,
+                    content: newContent
+                })
+            });
         }
     } catch (error) {
-        console.error('[Notes] Failed to update note title:', error);
-        showToast('error', 'Update Failed', 'Failed to save note title');
+        console.error('[Notes] Failed to save title to file:', error);
     }
+
+    console.log('[Notes] Note title updated:', noteId, newTitle);
 }
 
 // Rename note via prompt (for sidebar context menu)
@@ -5629,154 +5787,116 @@ function renameNotePrompt(noteId) {
     }
 }
 
-// Toggle note sharing
-async function toggleNoteSharing(noteId) {
-    const note = notes.get(noteId);
-    if (!note) return;
-
-    note.shared = !note.shared;
-    note.updatedAt = new Date().toISOString();
-
-    try {
-        const response = await slsFetch(`${MLS_URL}/api/notes/${noteId}`, {
-            method: 'PUT',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(note)
-        });
-
-        if (response.ok) {
-            // Update tab badge
-            const tab = document.getElementById(`tab-note-${noteId}`);
-            if (tab) {
-                let badge = tab.querySelector('.tab-shared-badge');
-                if (note.shared) {
-                    if (!badge) {
-                        badge = document.createElement('span');
-                        badge.className = 'tab-shared-badge';
-                        badge.textContent = '🔗';
-                        tab.querySelector('.tab-close').before(badge);
-                    }
-                    tab.classList.add('shared');
-                } else {
-                    if (badge) badge.remove();
-                    tab.classList.remove('shared');
-                }
-            }
-
-            updateNotesList();
-            showToast('success', note.shared ? 'Note Shared' : 'Note Unshared',
-                     note.shared ? 'Note is now shared' : 'Note sharing disabled');
-
-            // TODO: Share via cloud messaging if connected
-            if (note.shared && cloudConnected && terminalSharing) {
-                // terminalSharing.shareNote(noteId);
-            } else if (!note.shared && cloudConnected && terminalSharing) {
-                // terminalSharing.unshareNote(noteId);
-            }
-        }
-    } catch (error) {
-        console.error('[Notes] Failed to toggle sharing:', error);
-        showToast('error', 'Update Failed', 'Failed to update note sharing');
-    }
+// Toggle note sharing (REMOVED - notes are local files, no sharing)
+// Notes don't support sharing since they're file-based
+function toggleNoteSharing(noteId) {
+    console.log('[Notes] Sharing not supported for file-based notes');
+    showToast('info', 'Not Supported', 'Note sharing is not available for file-based notes');
 }
 
-// Save note
+// OLD: Save note from tab - NO LONGER NEEDED
+// Note editor handles saving internally now!
+/*
 async function saveNote(noteId) {
-    const note = notes.get(noteId);
-    if (!note) return;
-
-    const titleInput = document.getElementById(`note-title-${noteId}`);
-    const contentTextarea = document.getElementById(`note-content-${noteId}`);
-    const statusSpan = document.getElementById(`note-status-${noteId}`);
-
-    if (!titleInput || !contentTextarea) return;
-
-    note.title = titleInput.value || 'Untitled Note';
-    note.content = contentTextarea.value;
-    note.updatedAt = new Date().toISOString();
-
-    if (statusSpan) statusSpan.textContent = 'Saving...';
-
-    try {
-        const response = await slsFetch(`${MLS_URL}/api/notes/${noteId}`, {
-            method: 'PUT',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(note)
-        });
-
-        if (response.ok) {
-            if (statusSpan) statusSpan.textContent = 'Saved ✓';
-            setTimeout(() => {
-                if (statusSpan) statusSpan.textContent = 'Ready';
-            }, 2000);
-
-            updateNotesList();
-            showToast('success', '💾 Saved', 'Note saved successfully');
-
-            // Update shared note if connected
-            if (note.shared && terminalSharing && cloudConnected) {
-                terminalSharing.updateSharedNote(noteId, note);
-            }
-        }
-    } catch (error) {
-        console.error('[Notes] Failed to save note:', error);
-        if (statusSpan) statusSpan.textContent = 'Save failed ✗';
-        showToast('error', 'Save Failed', 'Failed to save note');
-    }
+    // ...old save logic for tabs removed...
+    // Note editor has its own save() method!
 }
+*/
 
 // Delete note
 async function deleteNote(noteId) {
     if (!confirm('Are you sure you want to delete this note?')) return;
 
     try {
-        const response = await slsFetch(`${MLS_URL}/api/notes/${noteId}`, {
-            method: 'DELETE'
+        // Delete via filesystem API
+        const response = await fetch(`${MLS_URL}/filesystem/notes/delete?path=note://${noteId}`, {
+            method: 'DELETE',
+            headers: { 'X-SLS-Token': localStorage.getItem('sls-token') }
         });
 
-        if (response.ok) {
-            // Unshare if shared
-            const note = notes.get(noteId);
-            if (note && note.shared && terminalSharing && cloudConnected) {
-                terminalSharing.unshareNote(noteId);
-            }
-
-            notes.delete(noteId);
-            closeNoteTab(`note-${noteId}`);
-            updateNotesList();
-            updateNotesBadge();
-            showToast('success', '🗑️ Deleted', 'Note deleted successfully');
+        if (!response.ok) {
+            throw new Error('Failed to delete note file');
         }
+
+        const result = await response.json();
+        if (!result.success) {
+            throw new Error(result.error || 'Failed to delete note');
+        }
+
+        // Remove from memory
+        notes.delete(noteId);
+
+        // Close editor if this note is currently open
+        if (window.fileEditor) {
+            // Close any tabs for this note (check both filePath and backendPath)
+            const tabsToClose = window.fileEditor.tabs.filter(tab => {
+                if (tab.terminalId !== 'notes') return false;
+                // Check if filePath contains noteId (format: note://{title}/{noteId})
+                if (tab.filePath && tab.filePath.includes(noteId)) return true;
+                // Check backendPath (format: note://{noteId})
+                if (tab.backendPath && tab.backendPath === `note://${noteId}`) return true;
+                return false;
+            });
+            tabsToClose.forEach(tab => window.fileEditor.closeTab(tab.id));
+        }
+
+        updateNotesList();
+        updateNotesBadge();
+        showToast('success', '🗑️ Deleted', 'Note deleted successfully');
+
+        console.log('[Notes] Note deleted:', noteId);
     } catch (error) {
         console.error('[Notes] Failed to delete note:', error);
         showToast('error', 'Delete Failed', 'Failed to delete note');
     }
 }
 
-// Close note tab
+// OLD: Close note tab - NO LONGER NEEDED (notes use popup/pinned editor)
+// Notes don't have tabs anymore!
+/*
 function closeNoteTab(tabId, event) {
-    if (event) {
-        event.stopPropagation();
+    // ...old tab closing logic removed...
+}
+*/
+
+// Set up context menu event delegation for notes (call once on init)
+let notesContextMenuSetup = false;
+function setupNotesContextMenu() {
+    console.log('[Notes] setupNotesContextMenu called, already setup:', notesContextMenuSetup);
+
+    if (notesContextMenuSetup) return;  // Only set up once
+
+    const notesList = document.getElementById('notesList');
+    if (!notesList) {
+        console.error('[Notes] notesList element not found!');
+        return;
     }
 
-    // Extract note ID if needed
-    const noteId = tabId.startsWith('note-') ? tabId.substring(5) : tabId;
-    const fullTabId = tabId.startsWith('note-') ? tabId : `note-${tabId}`;
+    console.log('[Notes] Setting up context menu on notesList:', notesList);
 
-    // Find and remove tab and panel using standard naming
-    const tab = document.getElementById(`tab-${fullTabId}`);
-    const panel = document.getElementById(`panel-${fullTabId}`);
+    // Use event delegation - listen on parent container
+    notesList.addEventListener('contextmenu', (e) => {
+        console.log('[Notes] Context menu event fired on:', e.target);
 
-    if (tab) tab.remove();
-    if (panel) panel.remove();
+        // Find the closest .note-item ancestor
+        const noteItem = e.target.closest('.note-item');
+        console.log('[Notes] Found note-item:', noteItem);
 
-    // Switch to another tab if this was active
-    const remainingTabs = document.querySelectorAll('.tab');
-    if (remainingTabs.length > 0) {
-        const firstTab = remainingTabs[0];
-        const firstTabId = firstTab.id.replace('tab-', ''); // Extract ID from tab-${id}
-        switchToSession(firstTabId);
-    }
+        if (!noteItem) return;
+
+        e.preventDefault();
+        e.stopPropagation();
+
+        const noteId = noteItem.getAttribute('data-note-id');
+        console.log('[Notes] Note ID:', noteId);
+
+        if (noteId) {
+            showNoteContextMenu(e, noteId);
+        }
+    });
+
+    notesContextMenuSetup = true;
+    console.log('[Notes] ✅ Context menu event delegation set up successfully');
 }
 
 // Update notes list in sidebar
@@ -5807,15 +5927,14 @@ function updateNotesList() {
         const timeStr = updatedDate ? updatedDate.toLocaleDateString() : '';
 
         return `
-            <div class="note-item ${note.shared ? 'shared' : ''}" 
+            <div class="note-item" 
                  data-note-id="${note.id}" 
-                 onclick="openNote('${note.id}')"
-                 oncontextmenu="showNoteContextMenu(event, '${note.id}')">
+                 onclick="openNote('${note.id.replace(/'/g, "\\'")}')">
                 <div class="note-icon">📝</div>
                 <div class="note-details">
                     <div class="note-title">${note.title || 'Untitled Note'}</div>
                     <div class="note-preview">${preview}${preview.length >= 50 ? '...' : ''}</div>
-                    <div class="note-meta">${timeStr}${note.shared ? ' • 🔗 Shared' : ''}</div>
+                    <div class="note-meta">${timeStr}</div>
                 </div>
             </div>
         `;
@@ -5838,18 +5957,28 @@ function updateNotesBadge() {
 
 // Show note context menu
 function showNoteContextMenu(event, noteId) {
+    console.log('[Notes] showNoteContextMenu called with noteId:', noteId, 'event:', event);
+
     event.preventDefault();
     event.stopPropagation();
 
     const note = notes.get(noteId);
-    if (!note) return;
+    console.log('[Notes] Found note:', note);
+    if (!note) {
+        console.error('[Notes] Note not found in notes map!');
+        return;
+    }
 
     // Remove existing context menu
     const existingMenu = document.querySelector('.note-context-menu');
-    if (existingMenu) existingMenu.remove();
+    if (existingMenu) {
+        console.log('[Notes] Removing existing menu:', existingMenu);
+        existingMenu.remove();
+    }
 
+    console.log('[Notes] Creating menu at position:', event.clientX, event.clientY);
     const menu = document.createElement('div');
-    menu.className = 'note-context-menu context-menu';
+    menu.className = 'note-context-menu context-menu visible';  // ✅ Add 'visible' class!
     menu.style.position = 'fixed';
     menu.style.left = event.clientX + 'px';
     menu.style.top = event.clientY + 'px';
@@ -5862,9 +5991,6 @@ function showNoteContextMenu(event, noteId) {
         <div class="context-menu-item" onclick="renameNotePrompt('${noteId}'); this.parentElement.remove();">
             ✏️ Rename
         </div>
-        <div class="context-menu-item" onclick="toggleNoteSharing('${noteId}'); this.parentElement.remove();">
-            ${note.shared ? '🔒 Make Private' : '🔗 Share Note'}
-        </div>
         <div class="context-menu-item" onclick="duplicateNote('${noteId}'); this.parentElement.remove();">
             📋 Duplicate
         </div>
@@ -5874,7 +6000,11 @@ function showNoteContextMenu(event, noteId) {
         </div>
     `;
 
+    console.log('[Notes] Appending menu to body:', menu);
     document.body.appendChild(menu);
+    console.log('[Notes] Menu appended, checking if visible...');
+    console.log('[Notes] Menu element:', menu);
+    console.log('[Notes] Menu computed style:', window.getComputedStyle(menu).display, window.getComputedStyle(menu).visibility);
 
     // Remove on click outside
     setTimeout(() => {
@@ -5900,23 +6030,64 @@ async function duplicateNote(noteId) {
     if (!original) return;
 
     try {
-        const response = await slsFetch(`${MLS_URL}/api/notes`, {
+        // Read original note content from filesystem
+        const readResponse = await fetch(
+            `${MLS_URL}/filesystem/notes/read?path=note://${noteId}`,
+            { headers: { 'X-SLS-Token': localStorage.getItem('sls-token') } }
+        );
+
+        if (!readResponse.ok) {
+            throw new Error('Failed to read original note');
+        }
+
+        const readResult = await readResponse.json();
+        if (!readResult.success) {
+            throw new Error('Failed to read original note content');
+        }
+
+        // Generate new note ID
+        const newNoteId = generateNoteUUID();
+        const timestamp = new Date().toISOString();
+
+        // Create new note object
+        const newNote = {
+            id: newNoteId,
+            title: `${original.title} (Copy)`,
+            content: readResult.content,
+            shared: false,
+            createdAt: timestamp,
+            updatedAt: timestamp
+        };
+
+        // Write new note file via filesystem API
+        const writeResponse = await fetch(`${MLS_URL}/filesystem/notes/write`, {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
+            headers: {
+                'Content-Type': 'application/json',
+                'X-SLS-Token': localStorage.getItem('sls-token')
+            },
             body: JSON.stringify({
-                title: `${original.title} (Copy)`,
-                content: original.content,
-                shared: false
+                path: `note://${newNoteId}`,
+                content: readResult.content
             })
         });
 
-        if (response.ok) {
-            const newNote = await response.json();
-            notes.set(newNote.id, newNote);
-            updateNotesList();
-            updateNotesBadge();
-            showToast('success', '📋 Duplicated', 'Note duplicated successfully');
+        if (!writeResponse.ok) {
+            throw new Error('Failed to create duplicate note file');
         }
+
+        const writeResult = await writeResponse.json();
+        if (!writeResult.success) {
+            throw new Error('Failed to write duplicate note');
+        }
+
+        // Add to memory
+        notes.set(newNote.id, newNote);
+        updateNotesList();
+        updateNotesBadge();
+
+        showToast('success', '📋 Duplicated', 'Note duplicated successfully');
+        console.log('[Notes] Note duplicated:', noteId, '→', newNoteId);
     } catch (error) {
         console.error('[Notes] Failed to duplicate note:', error);
         showToast('error', 'Duplicate Failed', 'Failed to duplicate note');
@@ -5926,196 +6097,304 @@ async function duplicateNote(noteId) {
 // Initialize notes on page load
 window.addEventListener('DOMContentLoaded', () => {
     loadNotes();
+
+    // Set up notes context menu (fallback in case loadNotes fails)
+    // This ensures context menu works even if notes list is empty or fails to load
+    setTimeout(() => {
+        setupNotesContextMenu();
+    }, 1000);
 });
 
 // ========================================
-// SFTP Browser Integration
+// File Browser Integration (Universal)
+// Supports both SSH (SFTP) and Local (LocalFileSystem)
 // ========================================
-let sftpBrowser = null;
+let fileExplorer = null;
 
-function initSftpBrowser() {
-    if (sftpBrowser) return;
+function initFileExplorer() {
+    if (fileExplorer) return;
 
-    sftpBrowser = new SftpBrowser({
+    fileExplorer = new FileExplorer({
         mlsUrl: MLS_URL,
         onToast: showToast
     });
 
     // Mount to container
-    const container = document.getElementById('sftpPanelContainer');
-    sftpBrowser.mount(container);
+    const container = document.getElementById('fileExplorerPanelContainer');
+    fileExplorer.mount(container);
 }
 
-function toggleSftpPanel() {
-    // Check if active session is SSH
-    if (activeSessionId) {
-        const session = sessions.get(activeSessionId);
-        if (!session || session.type !== 'ssh') {
-            showToast('warning', 'SFTP Unavailable', 'SFTP requires an active SSH connection. Select an SSH tab first.');
-            return;
-        }
-    } else {
-        showToast('warning', 'No Active Session', 'Open an SSH connection first to use SFTP.');
+/**
+ * Toggle file browser panel
+ * Works for both SSH sessions (SFTP) and local terminals (LocalFileSystem)
+ */
+function toggleFileExplorerPanel() {
+    // Check if active session supports file browser
+    if (!activeSessionId) {
+        showToast('warning', 'No Active Session', 'Open a terminal session first to use File Explorer.');
         return;
     }
 
-    // Initialize SFTP browser if not done
-    if (!sftpBrowser) {
-        initSftpBrowser();
+    const session = sessions.get(activeSessionId);
+    if (!session) {
+        showToast('warning', 'No Active Session', 'Open a terminal session first.');
+        return;
     }
 
-    // Switch to SFTP tab in sidebar
+    if (!sessionSupportsFileExplorer(session)) {
+        showToast('warning', 'File Explorer Unavailable',
+            'File Explorer requires an SSH or local terminal session.');
+        return;
+    }
+
+    // Initialize file browser if not done
+    if (!fileExplorer) {
+        initFileExplorer();
+    }
+
+    // Switch to file browser tab in sidebar
     switchSidebarTab('sftp');
 
-    // Open SFTP for the active SSH session
-    openSftpForSession(activeSessionId);
+    // Open file browser for the active session
+    openFileBrowserForSession(activeSessionId);
 }
 
 // Make globally accessible for toolbar button
-window.toggleSftpPanel = toggleSftpPanel;
+window.toggleSftpPanel = toggleFileExplorerPanel;
+window.toggleFileExplorerPanel = toggleFileExplorerPanel;
 
 /**
- * Auto-create SFTP session when SSH session is created
- * NEW LOGIC: SFTP session is created automatically, not lazily
+ * Open File Explorer for the currently active tab (called from left sidebar button)
+ * Opens on demand and keeps consistent with active session
  */
-async function createSftpSessionForSsh(sshSessionId) {
-    const session = sessions.get(sshSessionId);
-    if (!session || session.type !== 'ssh') {
-        console.warn('[SFTP] Cannot create SFTP session - not an SSH session');
+function openFileExplorerForActiveTab() {
+    if (!activeSessionId) {
+        showToast('warning', 'No Active Session', 'Open a terminal session first to use File Explorer.');
         return;
     }
 
-    try {
-        const sftpSessionId = `sftp-${sshSessionId}`;
-
-        console.log(`[SFTP] Auto-creating SFTP session: ${sftpSessionId}`);
-
-        const response = await slsFetch(`${MLS_URL}/sftp/create`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                sessionId: sftpSessionId,
-                sshSessionId: sshSessionId,
-                host: session.config.host,
-                port: session.config.port || 22,
-                username: session.config.username,
-                password: session.config.password,
-                privateKey: session.config.privateKey,
-                shared: false, // Will be set to true when SSH session is shared
-                metadata: {
-                    type: 'auto-created-sftp',
-                    parentSshSession: sshSessionId,
-                    createdAt: new Date().toISOString()
-                }
-            })
-        });
-
-        if (response.ok) {
-            const result = await response.json();
-            console.log('[SFTP] SFTP session created successfully:', result);
-
-            // Store SFTP session ID in SSH session for easy reference
-            session.sftpSessionId = sftpSessionId;
-
-            showToast('success', '📁 SFTP Ready', 'SFTP file browser is now available', 2000);
-        } else {
-            console.error('[SFTP] Failed to create SFTP session:', response.statusText);
-            showToast('warning', 'SFTP Creation Failed', 'SFTP browser may not be available. Use refresh button.');
-        }
-    } catch (error) {
-        console.error('[SFTP] Error creating SFTP session:', error);
-        // Don't show error toast - SFTP is optional feature
-    }
-}
-
-/**
- * Refresh SFTP session (recreate if idle/timeout)
- * Called from refresh button in SFTP browser
- */
-async function refreshSftpSession(sshSessionId) {
-    const session = sessions.get(sshSessionId);
-    if (!session || session.type !== 'ssh') {
-        showToast('error', 'Refresh Failed', 'Not an SSH session');
+    const session = sessions.get(activeSessionId);
+    if (!session) {
+        showToast('warning', 'Session Not Found', 'Active session no longer exists.');
         return;
     }
 
-    const sftpSessionId = session.sftpSessionId || `sftp-${sshSessionId}`;
-
-    try {
-        console.log(`[SFTP] Refreshing SFTP session: ${sftpSessionId}`);
-
-        // Delete existing SFTP session
-        await slsFetch(`${MLS_URL}/sftp/${sftpSessionId}`, {
-            method: 'DELETE'
-        }).catch(() => {}); // Ignore errors if session doesn't exist
-
-        // Recreate SFTP session
-        await createSftpSessionForSsh(sshSessionId);
-
-        // If SFTP browser is open, refresh it
-        if (sftpBrowser && sftpBrowser.currentSessionId === sftpSessionId) {
-            sftpBrowser.refresh();
-        }
-
-        showToast('success', '🔄 SFTP Refreshed', 'SFTP connection recreated successfully');
-    } catch (error) {
-        console.error('[SFTP] Error refreshing SFTP session:', error);
-        showToast('error', 'Refresh Failed', 'Failed to refresh SFTP connection');
+    if (!sessionSupportsFileExplorer(session)) {
+        showToast('warning', 'File Explorer Unavailable',
+            'File Explorer requires an SSH or local terminal session.');
+        return;
     }
+
+    // Initialize file browser if not done
+    if (!fileExplorer) {
+        initFileExplorer();
+    }
+
+    // Switch to file browser tab in sidebar
+    switchSidebarTab('files');
+
+    // Open file browser for the active session
+    openFileBrowserForSession(activeSessionId);
 }
 
 // Make globally accessible
-window.createSftpSessionForSsh = createSftpSessionForSsh;
-window.refreshSftpSession = refreshSftpSession;
+window.openFileExplorerForActiveTab = openFileExplorerForActiveTab;
 
 /**
- * Refresh current SFTP connection (called from SFTP browser toolbar)
+ * DEPRECATED: File system sessions are now auto-created by backend on first access!
+ * No need to manually create them anymore.
+ *
+ * This function is kept for reference but does nothing.
+ * Backend's getOrCreateFileSystem() handles everything automatically.
  */
-function refreshCurrentSftp() {
-    if (!sftpBrowser || !sftpBrowser.currentSessionId) {
-        showToast('error', 'No SFTP Session', 'No active SFTP session to refresh');
+async function createFileSystemSessionForTerminal(terminalSessionId) {
+    console.log('[FileSystem] Auto-creation handled by backend - no action needed');
+    // Backend auto-creates file system session on first /filesystem/{terminalId}/list call
+    // No manual creation needed anymore! ✅
+}
+
+/**
+ * Auto-create SFTP session when SSH session is created (LEGACY - redirects to new function)
+/**
+ * Auto-create SFTP session when SSH session is created (LEGACY - redirects to new function)
+ * NEW LOGIC: File system session is created automatically for all terminals
+ */
+async function createSftpSessionForSsh(sshSessionId) {
+    // Redirect to unified function
+    return createFileSystemSessionForTerminal(sshSessionId);
+}
+
+/**
+ * Refresh file system session (recreate if idle/timeout)
+ * Called from refresh button in file browser
+ */
+async function refreshFileSystemSession(terminalSessionId) {
+    const session = sessions.get(terminalSessionId);
+    if (!session) {
+        showToast('error', 'Refresh Failed', 'Terminal session not found');
         return;
     }
 
-    // Extract SSH session ID from SFTP session ID (format: sftp-{sshId})
-    const sshSessionId = sftpBrowser.currentSessionId.replace('sftp-', '');
+    const fsSessionId = session.fileSystemSessionId || `fs-${terminalSessionId}`;
 
-    console.log('[SFTP] Refreshing current SFTP connection for SSH session:', sshSessionId);
-    refreshSftpSession(sshSessionId);
+    try {
+        console.log(`[FileSystem] Refreshing file system session: ${fsSessionId}`);
+
+        // Delete existing file system session
+        await slsFetch(`${MLS_URL}/filesystem/${fsSessionId}`, {
+            method: 'DELETE'
+        }).catch(() => {}); // Ignore errors if session doesn't exist
+
+        // Recreate file system session
+        // Backend auto-creates on-demand: await createFileSystemSessionForTerminal(terminalSessionId);
+
+        // If file browser is open, refresh it
+        if (fileExplorer && fileExplorer.currentSessionId === fsSessionId) {
+            fileExplorer.refresh();
+        }
+
+        showToast('success', '🔄 File Browser Refreshed', 'File system connection recreated successfully');
+    } catch (error) {
+        console.error('[FileSystem] Error refreshing file system session:', error);
+        showToast('error', 'Refresh Failed', 'Failed to refresh file system connection');
+    }
 }
 
-window.refreshCurrentSftp = refreshCurrentSftp;
+/**
+ * Refresh SFTP session (LEGACY - redirects to new function)
+ */
+async function refreshSftpSession(sshSessionId) {
+    return refreshFileSystemSession(sshSessionId);
+}
 
-// Auto-open SFTP when SSH session is connected (optional feature)
-function openSftpForSession(sessionId) {
-    const session = sessions.get(sessionId);
-    if (!session || session.type !== 'ssh') return;
+// Make globally accessible
+window.createFileSystemSessionForTerminal = createFileSystemSessionForTerminal;
+window.createSftpSessionForSsh = createSftpSessionForSsh;
+window.refreshFileSystemSession = refreshFileSystemSession;
+window.refreshSftpSession = refreshSftpSession;
 
-    if (!sftpBrowser) {
-        initSftpBrowser();
+/**
+ * Refresh current file browser connection (called from file browser toolbar)
+ */
+function refreshCurrentFileExplorer() {
+    if (!fileExplorer || !fileExplorer.currentSessionId) {
+        showToast('error', 'No File Browser Session', 'No active file browser session to refresh');
+        return;
     }
 
-    // Check if this is a remote/shared SSH session
-    const isRemoteSsh = session.owner && session.owner !== cloudAgentName;
+    // Extract terminal session ID from file system session ID (format: fs-{terminalId})
+    const terminalSessionId = fileExplorer.currentSessionId.replace('fs-', '').replace('sftp-', '');
 
+    console.log('[FileSystem] Refreshing current file browser for terminal session:', terminalSessionId);
+    refreshFileSystemSession(terminalSessionId);
+}
+
+window.refreshCurrentSftp = refreshCurrentFileExplorer;
+window.refreshCurrentFileExplorer = refreshCurrentFileExplorer;
+
+/**
+ * Open file browser for a terminal session
+ * Handles both SSH (SFTP) and local terminals (LocalFileSystem)
+ */
+function openFileBrowserForSession(sessionId) {
+    const session = sessions.get(sessionId);
+    if (!session) return;
+
+    if (!sessionSupportsFileExplorer(session)) return;
+
+    if (!fileExplorer) {
+        initFileExplorer();
+    }
+
+    // Check if this is a remote/shared session
+    const isRemote = session.owner && session.owner !== cloudAgentName;
+
+    // Prepare connection info for File Explorer
     const connectionInfo = {
         name: session.config?.name || session.name,
-        host: session.config?.host,
+        host: session.config?.host || 'localhost',
         port: session.config?.port,
         username: session.config?.username,
-        isRemote: isRemoteSsh,
-        remoteOwner: isRemoteSsh ? session.owner : null,
-        sessionId: sessionId // Pass session ID for remote SFTP requests
+        isRemote: isRemote,
+        remoteOwner: isRemote ? session.owner : null
     };
 
-    // For remote SFTP, we'll proxy requests through the session owner
-    sftpBrowser.open(sessionId, connectionInfo);
+    // Open file browser - use terminal session ID (not FS session ID)
+    // File Explorer handles file system abstraction internally
+    fileExplorer.open(sessionId, connectionInfo);
 
-    // Show indicator for remote SFTP
-    if (isRemoteSsh) {
-        showToast('info', '📁 Remote SFTP', `Connected to ${session.owner}'s SFTP session`, 3000);
-    }
+    console.log('[FileSystem] Opened file browser for session:', sessionId);
 }
+
+/**
+ * Open SFTP for session (LEGACY - redirects to new function)
+ */
+function openSftpForSession(sessionId) {
+    return openFileBrowserForSession(sessionId);
+}
+
+
+
+// ========================================
+// FILE SYSTEM PROXY (for remote/shared sessions)
+// ========================================
+
+/**
+ * Make a file system request to a remote session owner (viewer → owner proxy)
+ * @param {string} sessionId - Terminal session ID
+ * @param {string} operation - Operation name (list, read, write, etc.)
+ * @param {object} params - Operation parameters
+ * @returns {Promise<object>} - Operation result
+ */
+async function proxyFileSystemRequest(sessionId, operation, params) {
+    const session = sessions.get(sessionId);
+
+    // If it's not a remote session, use local API directly
+    if (!session || !session.owner) {
+        throw new Error('Not a remote session');
+    }
+
+    const requestId = `fs-${++fsRequestIdCounter}`;
+    const owner = session.owner;
+
+    console.log('[FileSystem] Proxying request to owner:', owner, 'op:', operation, 'requestId:', requestId);
+
+    // Create a promise that will be resolved when we get the response
+    const resultPromise = new Promise((resolve, reject) => {
+        // Store the resolve callback
+        pendingFileSystemRequests.set(requestId, resolve);
+
+        // Timeout after 30 seconds
+        setTimeout(() => {
+            if (pendingFileSystemRequests.has(requestId)) {
+                pendingFileSystemRequests.delete(requestId);
+                reject(new Error('File system request timeout'));
+            }
+        }, 30000);
+    });
+
+    // Send request to owner via terminal sharing
+    if (terminalSharing) {
+        terminalSharing.sendFileSystemRequest(sessionId, operation, params, owner, requestId);
+    } else {
+        pendingFileSystemRequests.delete(requestId);
+        throw new Error('Terminal sharing not initialized');
+    }
+
+    return resultPromise;
+}
+
+/**
+ * Check if a session uses remote file system (needs proxy)
+ */
+function isRemoteFileSystem(sessionId) {
+    const session = sessions.get(sessionId);
+    return session && session.owner && session.owner !== cloudAgentName;
+}
+
+// Make functions globally accessible
+window.proxyFileSystemRequest = proxyFileSystemRequest;
+window.isRemoteFileSystem = isRemoteFileSystem;
 
 // ========================================
 // Initialize
@@ -6264,8 +6543,22 @@ window.addEventListener('load', async () => {
     }
 
 
-    // Initialize SFTP browser
-    initSftpBrowser();
+    // Initialize File Explorer
+    initFileExplorer();
+
+    // Initialize Note Editor
+    console.log('[Terminal] Initializing Note Editor');
+    window.noteEditor = new NoteEditor({
+        mlsUrl: MLS_URL,
+        onToast: showToast
+    });
+
+    // Initialize File Editor (Multi-Tab)
+    console.log('[Terminal] Initializing File Editor');
+    window.fileEditor = new FileEditor({
+        mlsUrl: MLS_URL,
+        onToast: showToast
+    });
 
     // Initialize sidebar resize handle
     initSidebarResize();
@@ -6298,12 +6591,12 @@ window.addEventListener('resize', () => {
 // Note: Cloud connection cleanup is handled automatically by web-agent.js
 // We only need to clean up application-specific resources here
 window.addEventListener('beforeunload', () => {
-    // Close SFTP browser (application-specific resource)
-    if (sftpBrowser && sftpBrowser.isConnected) {
+    // Close File Explorer (application-specific resource)
+    if (fileExplorer && fileExplorer.isConnected) {
         try {
-            sftpBrowser.close();
+            fileExplorer.close();
         } catch(e) {
-            console.error('[Cleanup] Error closing SFTP browser:', e);
+            console.error('[Cleanup] Error closing File Explorer:', e);
         }
     }
 
@@ -6491,6 +6784,7 @@ function initMobileFeatures() {
 
 /**
  * Setup click handlers for modal overlays to close on outside click
+ * Fixed: Prevent closing when user drags text selection from modal to overlay
  */
 function setupModalOverlayHandlers() {
     const modalConfigs = [
@@ -6503,14 +6797,403 @@ function setupModalOverlayHandlers() {
     modalConfigs.forEach(config => {
         const overlay = document.getElementById(config.overlayId);
         if (overlay) {
+            let mouseDownOnOverlay = false;
+
+            // Track where mousedown started
+            overlay.addEventListener('mousedown', (e) => {
+                // Only set flag if mousedown is directly on overlay (not bubbled from modal)
+                mouseDownOnOverlay = (e.target === overlay);
+            });
+
+            // Only close if both mousedown and mouseup were on overlay
             overlay.addEventListener('click', (e) => {
-                // Close if clicking on overlay (not modal content)
-                if (e.target === overlay) {
+                // Close only if:
+                // 1. Click target is overlay (not modal content)
+                // 2. Mousedown was also on overlay (not dragged from modal)
+                if (e.target === overlay && mouseDownOnOverlay) {
                     config.closeFunc();
                 }
+                // Reset flag
+                mouseDownOnOverlay = false;
             });
         }
     });
+}
+
+// ═══════════════════════════════════════════════════════════════════
+//  Configuration Import/Export Functions
+// ═══════════════════════════════════════════════════════════════════
+
+/**
+ * Export configuration as password-protected ZIP file
+ */
+async function exportConfiguration() {
+    try {
+        // Get selected options
+        const exportSSH = document.getElementById('exportSSH').checked;
+        const exportNotes = document.getElementById('exportNotes').checked;
+        const exportSettings = document.getElementById('exportSettings').checked;
+        const password = document.getElementById('exportPassword').value;
+
+        if (!exportSSH && !exportNotes && !exportSettings) {
+            showToast('warning', 'No Selection', 'Please select at least one option to export');
+            return;
+        }
+
+        showToast('info', 'Exporting...', 'Creating backup file...');
+
+        // Build configuration object
+        const config = {
+            version: '1.0',
+            exportDate: new Date().toISOString(),
+            data: {}
+        };
+
+        // Export SSH connections
+        if (exportSSH) {
+            // Get from backend WITH credentials for backup (includeCredentials=true)
+            const response = await slsFetch(`${MLS_URL}/terminal/ssh-connections?includeCredentials=true`);
+            if (response.ok) {
+                const data = await response.json();
+                config.data.sshConnections = data;
+            }
+        }
+
+        // Export notes
+        if (exportNotes) {
+            const notesArray = [];
+            for (const [id, note] of notes) {
+                notesArray.push({
+                    id: id,
+                    title: note.title,
+                    content: note.content,
+                    createdAt: note.createdAt,
+                    updatedAt: note.updatedAt
+                });
+            }
+            config.data.notes = notesArray;
+        }
+
+        // Export settings
+        if (exportSettings) {
+            config.data.settings = {
+                mlsUrl: MLS_URL,
+                theme: document.body.classList.contains('dark-theme') ? 'dark' : 'light',
+                // Add more settings as needed
+            };
+        }
+
+        // Convert to XML format
+        const xmlContent = convertToXML(config);
+
+        // Create blob and download
+        const blob = new Blob([xmlContent], { type: 'application/xml' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `messaging-platform-backup-${new Date().toISOString().split('T')[0]}.xml`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+
+        showToast('success', 'Export Complete', 'Configuration exported successfully');
+
+        // TODO: If password provided, create ZIP with password protection
+        // This requires a library like JSZip with encryption support
+
+    } catch (error) {
+        console.error('[Export] Error:', error);
+        showToast('error', 'Export Failed', error.message);
+    }
+}
+
+/**
+ * Handle import file selection
+ */
+function handleImportFile(event) {
+    const file = event.target.files[0];
+    if (!file) return;
+
+    // Show password section if file is selected
+    document.getElementById('importPasswordSection').style.display = 'block';
+
+    // Store file for import
+    window.selectedImportFile = file;
+
+    showToast('info', 'File Selected', `Ready to import: ${file.name}`);
+}
+
+/**
+ * Import configuration from backup file
+ */
+async function importConfiguration() {
+    const file = window.selectedImportFile;
+    if (!file) {
+        showToast('warning', 'No File', 'Please select a backup file first');
+        return;
+    }
+
+    const password = document.getElementById('importPassword').value;
+
+    try {
+        showToast('info', 'Importing...', 'Reading backup file...');
+
+        // Read file
+        const text = await file.text();
+
+        // Parse XML
+        const parser = new DOMParser();
+        const xmlDoc = parser.parseFromString(text, 'text/xml');
+
+        // Check for parse errors
+        const parseError = xmlDoc.getElementsByTagName('parsererror');
+        if (parseError.length > 0) {
+            throw new Error('Invalid XML format');
+        }
+
+        // Extract configuration
+        const config = parseXMLConfig(xmlDoc);
+
+        // Confirm import
+        const confirmMsg = `Import configuration?\n\n` +
+            `- SSH Connections: ${config.data.sshConnections ? config.data.sshConnections.length : 0}\n` +
+            `- Notes: ${config.data.notes ? config.data.notes.length : 0}\n` +
+            `- Settings: ${config.data.settings ? 'Yes' : 'No'}\n\n` +
+            `This will merge with existing data.`;
+
+        if (!confirm(confirmMsg)) {
+            return;
+        }
+
+        // Import SSH connections
+        if (config.data.sshConnections) {
+            showToast('info', 'Importing', `Importing ${config.data.sshConnections.length} SSH connections...`);
+
+            for (const conn of config.data.sshConnections) {
+                try {
+                    // Create SSH connection via API
+                    const response = await slsFetch(`${MLS_URL}/terminal/ssh-connections`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            name: conn.name,
+                            host: conn.host,
+                            port: conn.port,
+                            username: conn.username,
+                            password: conn.password || null,
+                            privateKey: conn.privateKey || null,
+                            description: conn.description || null
+                        })
+                    });
+
+                    if (response.ok) {
+                        log.info('[Import] Successfully imported SSH connection:', conn.name);
+                    } else {
+                        const error = await response.text();
+                        log.warn('[Import] Failed to import SSH connection:', conn.name, error);
+                        // Continue with other connections even if one fails
+                    }
+                } catch (error) {
+                    log.error('[Import] Error importing SSH connection:', conn.name, error);
+                }
+            }
+        }
+
+        // Import notes
+        if (config.data.notes) {
+            for (const note of config.data.notes) {
+                await createNote(note.title, note.content);
+            }
+        }
+
+        // Import settings
+        if (config.data.settings) {
+            // Apply settings
+            if (config.data.settings.theme) {
+                // Apply theme
+            }
+        }
+
+        showToast('success', 'Import Complete', 'Configuration imported successfully');
+
+        // Reset import UI
+        document.getElementById('importFileInput').value = '';
+        document.getElementById('importPassword').value = '';
+        document.getElementById('importPasswordSection').style.display = 'none';
+        window.selectedImportFile = null;
+
+        // Refresh data
+        await loadNotes();
+        refreshConnections();
+
+    } catch (error) {
+        console.error('[Import] Error:', error);
+        showToast('error', 'Import Failed', error.message);
+    }
+}
+
+/**
+ * Convert configuration object to XML
+ */
+function convertToXML(config) {
+    let xml = '<?xml version="1.0" encoding="UTF-8"?>\n';
+    xml += '<MessagingPlatformBackup>\n';
+    xml += `  <Version>${config.version}</Version>\n`;
+    xml += `  <ExportDate>${config.exportDate}</ExportDate>\n`;
+    xml += '  <Data>\n';
+
+    // SSH Connections
+    if (config.data.sshConnections) {
+        xml += '    <SSHConnections>\n';
+        for (const conn of config.data.sshConnections) {
+            xml += '      <Connection>\n';
+            xml += `        <ID>${conn.id}</ID>\n`;
+            xml += `        <Name>${escapeXML(conn.name)}</Name>\n`;
+            xml += `        <Host>${escapeXML(conn.host)}</Host>\n`;
+            xml += `        <Port>${conn.port}</Port>\n`;
+            xml += `        <Username>${escapeXML(conn.username)}</Username>\n`;
+
+            // Include password if present
+            if (conn.password) {
+                xml += `        <Password><![CDATA[${conn.password}]]></Password>\n`;
+            }
+
+            // Include private key if present
+            if (conn.privateKey) {
+                xml += `        <PrivateKey><![CDATA[${conn.privateKey}]]></PrivateKey>\n`;
+            }
+
+            // Include description if present
+            if (conn.description) {
+                xml += `        <Description>${escapeXML(conn.description)}</Description>\n`;
+            }
+
+            // Timestamps
+            if (conn.createdAt) {
+                xml += `        <CreatedAt>${conn.createdAt}</CreatedAt>\n`;
+            }
+            if (conn.updatedAt) {
+                xml += `        <UpdatedAt>${conn.updatedAt}</UpdatedAt>\n`;
+            }
+            if (conn.lastUsedAt) {
+                xml += `        <LastUsedAt>${conn.lastUsedAt}</LastUsedAt>\n`;
+            }
+
+            xml += '      </Connection>\n';
+        }
+        xml += '    </SSHConnections>\n';
+    }
+
+    // Notes
+    if (config.data.notes) {
+        xml += '    <Notes>\n';
+        for (const note of config.data.notes) {
+            xml += '      <Note>\n';
+            xml += `        <ID>${note.id}</ID>\n`;
+            xml += `        <Title>${escapeXML(note.title)}</Title>\n`;
+            xml += `        <Content><![CDATA[${note.content}]]></Content>\n`;
+            xml += `        <CreatedAt>${note.createdAt}</CreatedAt>\n`;
+            xml += `        <UpdatedAt>${note.updatedAt}</UpdatedAt>\n`;
+            xml += '      </Note>\n';
+        }
+        xml += '    </Notes>\n';
+    }
+
+    // Settings
+    if (config.data.settings) {
+        xml += '    <Settings>\n';
+        xml += `      <Theme>${config.data.settings.theme}</Theme>\n`;
+        xml += '    </Settings>\n';
+    }
+
+    xml += '  </Data>\n';
+    xml += '</MessagingPlatformBackup>';
+
+    return xml;
+}
+
+/**
+ * Parse XML configuration
+ */
+function parseXMLConfig(xmlDoc) {
+    const config = {
+        version: xmlDoc.getElementsByTagName('Version')[0]?.textContent,
+        exportDate: xmlDoc.getElementsByTagName('ExportDate')[0]?.textContent,
+        data: {}
+    };
+
+    // Parse SSH Connections
+    const sshConnections = xmlDoc.getElementsByTagName('Connection');
+    if (sshConnections.length > 0) {
+        config.data.sshConnections = [];
+        for (const conn of sshConnections) {
+            const connectionData = {
+                name: conn.getElementsByTagName('Name')[0]?.textContent,
+                host: conn.getElementsByTagName('Host')[0]?.textContent,
+                port: parseInt(conn.getElementsByTagName('Port')[0]?.textContent),
+                username: conn.getElementsByTagName('Username')[0]?.textContent
+            };
+
+            // Include password if present
+            const passwordElement = conn.getElementsByTagName('Password')[0];
+            if (passwordElement) {
+                connectionData.password = passwordElement.textContent;
+            }
+
+            // Include private key if present
+            const privateKeyElement = conn.getElementsByTagName('PrivateKey')[0];
+            if (privateKeyElement) {
+                connectionData.privateKey = privateKeyElement.textContent;
+            }
+
+            // Include description if present
+            const descriptionElement = conn.getElementsByTagName('Description')[0];
+            if (descriptionElement) {
+                connectionData.description = descriptionElement.textContent;
+            }
+
+            config.data.sshConnections.push(connectionData);
+        }
+    }
+
+    // Parse Notes
+    const noteElements = xmlDoc.getElementsByTagName('Note');
+    if (noteElements.length > 0) {
+        config.data.notes = [];
+        for (const note of noteElements) {
+            config.data.notes.push({
+                id: note.getElementsByTagName('ID')[0]?.textContent,
+                title: note.getElementsByTagName('Title')[0]?.textContent,
+                content: note.getElementsByTagName('Content')[0]?.textContent,
+                createdAt: note.getElementsByTagName('CreatedAt')[0]?.textContent,
+                updatedAt: note.getElementsByTagName('UpdatedAt')[0]?.textContent
+            });
+        }
+    }
+
+    // Parse Settings
+    const themeElement = xmlDoc.getElementsByTagName('Theme')[0];
+    if (themeElement) {
+        config.data.settings = {
+            theme: themeElement.textContent
+        };
+    }
+
+    return config;
+}
+
+/**
+ * Escape XML special characters
+ */
+function escapeXML(str) {
+    if (!str) return '';
+    return str
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&apos;');
 }
 
 // Initialize mobile features on load
