@@ -398,7 +398,13 @@ let slsCurrentState = null;
  * Enable/disable SLS-dependent toolbar buttons based on SLS state
  * @param {boolean} online - true = SLS is online, false = offline
  */
+/**
+ * Update all SLS-dependent UI elements based on online/offline state
+ * Handles toolbar buttons, menu items, and sidebar tabs
+ * @param {boolean} online - True if SLS is online, false if offline
+ */
 function updateSlsDependentButtons(online) {
+    // Update toolbar buttons
     const buttons = document.querySelectorAll('.toolbar-btn.sls-dependent');
     buttons.forEach(btn => {
         if (online) {
@@ -416,9 +422,66 @@ function updateSlsDependentButtons(online) {
             }
             btn.disabled = true;
             btn.classList.add('sls-disabled');
-            btn.title = 'SLS is offline — Start SDK Local Service to enable this';
+            btn.title = 'SDK Local Service is offline - Start SLS to enable this feature';
         }
     });
+
+    // Update menu items
+    const menuItems = document.querySelectorAll('.menu-item.sls-dependent');
+    menuItems.forEach(item => {
+        if (online) {
+            item.classList.remove('disabled');
+            item.style.pointerEvents = '';
+            item.style.opacity = '';
+            // Restore original title
+            if (item.dataset.originalTitle) {
+                item.title = item.dataset.originalTitle;
+                delete item.dataset.originalTitle;
+            }
+        } else {
+            // Store original title
+            if (!item.dataset.originalTitle) {
+                item.dataset.originalTitle = item.title || '';
+            }
+            item.classList.add('disabled');
+            item.style.pointerEvents = 'none';
+            item.style.opacity = '0.5';
+            item.title = 'SDK Local Service is offline - Start SLS to enable this feature';
+        }
+    });
+
+    // Update sidebar tabs
+    const sidebarTabs = document.querySelectorAll('.sidebar-tab.sls-dependent');
+    sidebarTabs.forEach(tab => {
+        if (online) {
+            tab.disabled = false;
+            tab.classList.remove('disabled');
+            tab.style.pointerEvents = '';
+            tab.style.opacity = '';
+            // Restore original title
+            if (tab.dataset.originalTitle) {
+                tab.title = tab.dataset.originalTitle;
+                delete tab.dataset.originalTitle;
+            }
+        } else {
+            // Store original title
+            if (!tab.dataset.originalTitle) {
+                tab.dataset.originalTitle = tab.title || '';
+            }
+            tab.disabled = true;
+            tab.classList.add('disabled');
+            tab.style.pointerEvents = 'none';
+            tab.style.opacity = '0.5';
+            tab.title = 'SDK Local Service is offline - Start SLS to enable this feature';
+        }
+    });
+
+    // Dispatch custom event for other components to listen
+    window.dispatchEvent(new CustomEvent('sls-status-changed', {
+        detail: { online }
+    }));
+
+    console.log(`[SLS] UI updated: ${online ? 'Online' : 'Offline'} - All SLS-dependent elements ${online ? 'enabled' : 'disabled'}`);
 }
 
 // File Explorer button state management removed - accessed via sidebar only
@@ -1275,6 +1338,15 @@ async function checkMlsHealth(showNotification = false) {
             // Check if state changed: null→online or offline→online
             const previousState = slsCurrentState;
             slsCurrentState = 'online';
+
+            // Dispatch SLS online event (only on state change)
+            if (previousState !== 'online') {
+                window.dispatchEvent(new CustomEvent('sls-online', {
+                    detail: { previousState, currentState: 'online', timestamp: new Date() }
+                }));
+                console.log('[SLS] 🟢 State changed: ONLINE - Event dispatched');
+            }
+
             updateSlsDependentButtons(true);
 
             // Show notification only on state change
@@ -1296,6 +1368,15 @@ async function checkMlsHealth(showNotification = false) {
         // Check if state changed: null→offline or online→offline
         const previousState = slsCurrentState;
         slsCurrentState = 'offline';
+
+        // Dispatch SLS offline event (only on state change)
+        if (previousState !== 'offline') {
+            window.dispatchEvent(new CustomEvent('sls-offline', {
+                detail: { previousState, currentState: 'offline', timestamp: new Date(), error: error.message }
+            }));
+            console.log('[SLS] 🔴 State changed: OFFLINE - Event dispatched');
+        }
+
         updateSlsDependentButtons(false);
 
         // Show notification only on state change
@@ -3198,18 +3279,11 @@ function disableSharingTab() {
 }
 
 window.showAbout = function() {
-    const aboutInfo = `
-        <div style="text-align: center; color: white;">
-            <h3 style="color: #ffffff; margin-bottom: 10px; font-weight: 600;">💬 Messaging Platform - Shared Terminal</h3>
-            <p style="color: #f0f0f0; margin-bottom: 8px; font-size: 14px;">Version 1.0.0</p>
-            <p style="color: #d0d0d0; font-size: 12px; margin-bottom: 12px;">Built with xterm.js, Spring Boot & WebSocket</p>
-            <div style="border-top: 1px solid rgba(255, 255, 255, 0.3); padding-top: 12px; margin-top: 12px;">
-                <p style="color: #e0e0e0; font-size: 12px;">Part of Messaging Platform SDK</p>
-                <p style="color: #c0c0c0; font-size: 11px; margin-top: 4px;">© 2026 - Open Source Project</p>
-            </div>
-        </div>
-    `;
-    showToast('info', '', aboutInfo, 6000);
+    document.getElementById('aboutModalOverlay').classList.add('visible');
+}
+
+window.closeAboutModal = function() {
+    document.getElementById('aboutModalOverlay').classList.remove('visible');
 }
 
 
@@ -4015,6 +4089,13 @@ function openCloudModal() {
     // Verify it was added
     console.log('[Messaging] Display style:', window.getComputedStyle(overlay).display);
 
+    // Disable Sharing tab if not connected
+    if (!cloudConnected) {
+        disableSharingTab();
+        // Ensure we're on Connection tab
+        window.switchCloudTab('connection');
+    }
+
     // Update messaging toolbar button to indicate it's active (only if connected)
     const messagingBtn = document.getElementById('messagingToolbarBtn');
     if (messagingBtn && cloudConnected) {
@@ -4773,6 +4854,9 @@ async function connectToCloud() {
 
         // Enable the Sharing tab
         enableSharingTab();
+
+        // Automatically switch to Sharing tab after successful connection
+        window.switchCloudTab('sharing');
 
         saveCloudConfig(true);
         showToast('success', 'Messaging Platform Connected', `Connected as ${agentName}`);
@@ -6476,6 +6560,12 @@ window.addEventListener('load', async () => {
         }
     });
 
+    document.getElementById('aboutModalOverlay')?.addEventListener('click', (e) => {
+        if (e.target.id === 'aboutModalOverlay' && mouseDownTarget?.id === 'aboutModalOverlay') {
+            closeAboutModal();
+        }
+    });
+
     // Global Escape key handler to close any open modal
     document.addEventListener('keydown', (e) => {
         if (e.key === 'Escape' || e.key === 'Esc') {
@@ -6486,6 +6576,8 @@ window.addEventListener('load', async () => {
                 closeSshModal();
             } else if (document.getElementById('helpModalOverlay')?.classList.contains('visible')) {
                 closeHelpModal();
+            } else if (document.getElementById('aboutModalOverlay')?.classList.contains('visible')) {
+                closeAboutModal();
             } else if (document.getElementById('cloudModalOverlay')?.classList.contains('visible')) {
                 closeCloudModal();
             }
@@ -6504,6 +6596,13 @@ window.addEventListener('load', async () => {
 
             // Set state to online on successful authentication
             slsCurrentState = 'online';
+
+            // Dispatch SLS online event (initial state)
+            window.dispatchEvent(new CustomEvent('sls-online', {
+                detail: { previousState: null, currentState: 'online', timestamp: new Date() }
+            }));
+            console.log('[SLS] 🟢 Initial state: ONLINE - Event dispatched');
+
             updateSlsDependentButtons(true);
         } catch (error) {
             console.warn('⚠️ SLS is offline');
@@ -6511,6 +6610,13 @@ window.addEventListener('load', async () => {
             // Set state to offline
             const previousState = slsCurrentState;
             slsCurrentState = 'offline';
+
+            // Dispatch SLS offline event (initial state)
+            window.dispatchEvent(new CustomEvent('sls-offline', {
+                detail: { previousState: null, currentState: 'offline', timestamp: new Date(), error: error.message }
+            }));
+            console.log('[SLS] 🔴 Initial state: OFFLINE - Event dispatched');
+
             updateSlsDependentButtons(false);
 
             // Show notification only on state change (null→offline means first time)
@@ -6568,6 +6674,32 @@ window.addEventListener('load', async () => {
 
     // Check tab overflow after restore
     checkTabOverflow();
+
+    // ========================================
+    // SLS Event Listeners Setup
+    // ========================================
+    // Listen for SLS online event
+    window.addEventListener('sls-online', (event) => {
+        console.log('[SLS Event] 🟢 SLS is now ONLINE', event.detail);
+        // Custom logic when SLS comes online
+        // All UI elements are already updated by updateSlsDependentButtons()
+        // Add any additional custom logic here if needed
+    });
+
+    // Listen for SLS offline event
+    window.addEventListener('sls-offline', (event) => {
+        console.log('[SLS Event] 🔴 SLS is now OFFLINE', event.detail);
+        // Custom logic when SLS goes offline
+        // All UI elements are already updated by updateSlsDependentButtons()
+        // Add any additional custom logic here if needed
+    });
+
+    console.log('[SLS] Event-based status system initialized');
+
+    // Disable Sharing tab initially (will be enabled on connection)
+    if (!cloudConnected) {
+        disableSharingTab();
+    }
 
     // Start health check interval
     setInterval(() => checkMlsHealth(), 30000);
@@ -6791,7 +6923,8 @@ function setupModalOverlayHandlers() {
         { overlayId: 'cloudModalOverlay', modalId: 'cloudModal', closeFunc: closeCloudModal },
         { overlayId: 'sshModalOverlay', modalId: null, closeFunc: closeSshModal },
         { overlayId: 'settingsModalOverlay', modalId: null, closeFunc: closeSettingsModal },
-        { overlayId: 'helpModalOverlay', modalId: null, closeFunc: closeHelpModal }
+        { overlayId: 'helpModalOverlay', modalId: null, closeFunc: closeHelpModal },
+        { overlayId: 'aboutModalOverlay', modalId: null, closeFunc: closeAboutModal }
     ];
 
     modalConfigs.forEach(config => {

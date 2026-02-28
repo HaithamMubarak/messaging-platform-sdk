@@ -3,7 +3,7 @@
  * Enables offline functionality by caching all terminal assets
  */
 
-const CACHE_NAME = 'messaging-platform-shared-terminal-v1.6.1';
+const CACHE_NAME = 'messaging-platform-shared-terminal-v1.7.9';
 const CACHE_TIMESTAMP = '2026-02-28';
 
 // Files to cache for offline use
@@ -40,7 +40,6 @@ const STATIC_ASSETS = [
     './libs/codemirror/mode/php/php.min.js',
     './libs/codemirror/mode/ruby/ruby.min.js',
     './libs/codemirror/mode/go/go.min.js',
-    './libs/codemirror/mode/rust/rust.min.js',
     './libs/codemirror/mode/swift/swift.min.js',
     './libs/codemirror/mode/properties/properties.min.js',
 

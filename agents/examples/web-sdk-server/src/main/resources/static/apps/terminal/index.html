@@ -53,7 +53,6 @@
     <script src="libs/codemirror/mode/php/php.min.js"></script>
     <script src="libs/codemirror/mode/ruby/ruby.min.js"></script>
     <script src="libs/codemirror/mode/go/go.min.js"></script>
-    <script src="libs/codemirror/mode/rust/rust.min.js"></script>
     <script src="libs/codemirror/mode/swift/swift.min.js"></script>
     <script src="libs/codemirror/mode/properties/properties.min.js"></script>
 
@@ -188,7 +187,7 @@
 
     <!-- Menu Bar -->
     <div class="menu-bar">
-        <div class="menu-item" onclick="showSettings()">Settings</div>
+        <div class="menu-item sls-dependent" onclick="showSettings()">Settings</div>
         <div class="menu-item" onclick="showInstallGuide()">Install</div>
         <div class="menu-item" onclick="showAbout()">About</div>
         <div class="menu-spacer"></div>
@@ -235,17 +234,6 @@
         <button class="toolbar-btn sls-dependent" onclick="checkMlsHealth(true)" title="Check MLS Health">
             <span class="icon">❤️</span>
             <span class="label">Health</span>
-        </button>
-        <div class="toolbar-separator"></div>
-        <button class="toolbar-btn" onclick="closeActiveTab()" title="Close Active Tab">
-            <span class="icon">✖️</span>
-            <span class="label">Close</span>
-        </button>
-        <div class="toolbar-separator"></div>
-        <button class="toolbar-btn" id="pwaInstallBtn" onclick="promptPWAInstall()"
-                title="Install SDK Terminal as an App" style="display: none;">
-            <span class="icon">📲</span>
-            <span class="label">Install</span>
         </button>
     </div>
 
@@ -370,14 +358,14 @@
         <!-- Sidebar with Tabs -->
         <div class="sidebar" id="sidebar">
             <div class="sidebar-tabs">
-                <button class="sidebar-tab active" onclick="switchSidebarTab('sessions')" title="Terminal Sessions" data-tab="sessions">
+                <button class="sidebar-tab active sls-dependent" onclick="switchSidebarTab('sessions')" title="Terminal Sessions" data-tab="sessions">
                     <span class="sidebar-tab-icon">🖥️</span>
                 </button>
-                <button class="sidebar-tab" onclick="switchSidebarTab('notes')" title="Notes" data-tab="notes">
+                <button class="sidebar-tab sls-dependent" onclick="switchSidebarTab('notes')" title="Notes" data-tab="notes">
                     <span class="sidebar-tab-icon">📝</span>
                     <span class="sidebar-tab-badge" id="notesBadge" style="display: none;">0</span>
                 </button>
-                <button class="sidebar-tab" onclick="openFileExplorerForActiveTab()" title="File Explorer" data-tab="files">
+                <button class="sidebar-tab sls-dependent" onclick="openFileExplorerForActiveTab()" title="File Explorer" data-tab="files">
                     <span class="sidebar-tab-icon">📁</span>
                 </button>
                 <button class="sidebar-tab" onclick="switchSidebarTab('shared')" title="Shared with You" data-tab="shared">
@@ -388,7 +376,7 @@
                     <span class="sidebar-tab-icon">📤</span>
                     <span class="sidebar-tab-badge" id="mysharesBadge" style="display: none;">0</span>
                 </button>
-                <button class="sidebar-tab" onclick="switchSidebarTab('settings')" title="Settings & Backup" data-tab="settings">
+                <button class="sidebar-tab sls-dependent" onclick="switchSidebarTab('settings')" title="Settings & Backup" data-tab="settings">
                     <span class="sidebar-tab-icon">⚙️</span>
                 </button>
             </div>
@@ -721,10 +709,10 @@
 
                 <!-- Tab Navigation -->
                 <div style="display: flex; border-bottom: 1px solid var(--border-color); background: var(--bg-panel);">
-                    <div class="help-tab" onclick="switchHelpTab('quickstart')" id="tab-quickstart">
+                    <div class="help-tab active" onclick="switchHelpTab('quickstart')" id="tab-quickstart">
                         🚀 Local Service Setup
                     </div>
-                    <div class="help-tab active" onclick="switchHelpTab('installation')" id="tab-installation">
+                    <div class="help-tab" onclick="switchHelpTab('installation')" id="tab-installation">
                         📲 Install App
                     </div>
                     <div class="help-tab" onclick="switchHelpTab('shortcuts')" id="tab-shortcuts">
@@ -736,7 +724,7 @@
                 </div>
 
                 <!-- Installation Tab -->
-                <div class="help-content active" id="content-installation" style="padding: 24px;">
+                <div class="help-content" id="content-installation" style="padding: 24px;">
                     <h3 style="font-size: 16px; color: var(--accent-cyan); margin-bottom: 16px;">📲 Install as Progressive Web App (PWA)</h3>
 
                     <div style="background: linear-gradient(135deg, rgba(74, 158, 255, 0.1) 0%, rgba(34, 211, 238, 0.1) 100%); padding: 20px; border-radius: 8px; border: 1px solid var(--accent-blue); margin-bottom: 24px;">
@@ -763,6 +751,18 @@
                         </div>
                     </div>
 
+                    <!-- Quick Install Button -->
+                    <div style="text-align: center; margin-bottom: 24px;">
+                        <button class="btn btn-primary" id="pwaInstallBtnModal" onclick="promptPWAInstall()"
+                                style="display: none; padding: 8px 20px; font-size: 14px; background: linear-gradient(135deg, var(--accent-blue), var(--accent-cyan)); border: none; border-radius: 6px; font-weight: 600;">
+                            <span style="font-size: 16px; margin-right: 6px;">📲</span>
+                            Install Now
+                        </button>
+                        <div id="pwaInstallMessageModal" style="display: none; color: var(--text-muted); font-size: 13px; margin-top: 8px;">
+                            Already installed or use browser menu to install
+                        </div>
+                    </div>
+
                     <!-- Chrome/Edge Installation -->
                     <div style="margin-bottom: 24px;">
                         <h4 style="font-size: 14px; color: var(--text-primary); margin-bottom: 12px; display: flex; align-items: center; gap: 8px;">
@@ -770,7 +770,7 @@
                         </h4>
                         <div style="background: var(--bg-panel); padding: 16px; border-radius: 8px; border-left: 3px solid var(--accent-blue);">
                             <ol style="font-size: 13px; line-height: 2; color: var(--text-secondary); padding-left: 20px;">
-                                <li>Look for the <strong style="color: var(--text-primary);">📲 Install</strong> button in the toolbar (top-right)</li>
+                                <li>Click the <strong style="color: var(--accent-green);">📲 Install Now</strong> button above</li>
                                 <li><strong>OR</strong> click the <strong style="color: var(--text-primary);">⊕</strong> icon in the address bar</li>
                                 <li>Click <strong style="color: var(--accent-green);">"Install"</strong> to add to your system</li>
                                 <li>The app will appear in your Start Menu/Applications folder</li>
@@ -843,7 +843,7 @@
                 </div>
 
                 <!-- Local Service Setup Tab -->
-                <div class="help-content" id="content-quickstart" style="padding: 24px;">
+                <div class="help-content active" id="content-quickstart" style="padding: 24px;">
                     <h3 style="font-size: 16px; color: var(--accent-cyan); margin-bottom: 16px;">🚀 Local Service Setup</h3>
 
                     <!-- Download Section - GitHub Links -->
@@ -1014,7 +1014,7 @@
                 <!-- API Reference Tab -->
                 <div class="help-content" id="content-api" style="padding: 24px;">
                     <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
-                        <h3 style="font-size: 16px; color: var(--accent-cyan); margin: 0;">🔌 REST API Reference</h3>
+                        <h3 style="font-size: 16px; color: var(--accent-cyan); margin: 0;">🔌 SDK Local Service REST API</h3>
                         <a href="http://localhost:8088/health" target="_blank"
                            style="color: var(--accent-green); text-decoration: none; font-size: 12px; display: inline-flex; align-items: center; gap: 6px; padding: 6px 12px; background: rgba(74, 222, 128, 0.1); border-radius: 6px; border: 1px solid rgba(74, 222, 128, 0.3);">
                             <span>🔗</span> Test API (Health Check)
@@ -1023,7 +1023,7 @@
                     <div style="font-size: 12px; color: var(--text-secondary); margin-bottom: 20px;">
                         Base URL: <code style="background: var(--bg-dark); padding: 2px 6px; border-radius: 3px;">http://localhost:8088</code>
                         <span style="margin-left: 12px; color: var(--text-muted);">•</span>
-                        <span style="margin-left: 12px;">All endpoints require SLS running locally</span>
+                        <span style="margin-left: 12px;">Requires SLS security token (auto-managed)</span>
                     </div>
 
                     <!-- Terminal Operations -->
@@ -1035,15 +1035,14 @@
                             <div class="api-path">/terminal/create</div>
                             <div class="api-desc">Create a new terminal session (local or SSH)</div>
                         </div>
-                        <pre class="api-example">{
-      "type": "local",
-      "shell": "bash"
-    }
-    // or for SSH:
-    {
-      "type": "ssh",
-      "connectionId": 1
-    }</pre>
+                        <pre class="api-example">// Local terminal:
+{ "type": "local", "shell": "bash" }
+
+// SSH terminal:
+{ "type": "ssh", "connectionId": 1 }
+
+// With session restore:
+{ "type": "local", "shell": "cmd", "sessionId": "uuid" }</pre>
 
                         <div class="api-endpoint">
                             <div class="api-method post">POST</div>
@@ -1063,6 +1062,12 @@
                             <div class="api-method get">GET</div>
                             <div class="api-path">/terminal/sessions</div>
                             <div class="api-desc">Get all active sessions</div>
+                        </div>
+
+                        <div class="api-endpoint">
+                            <div class="api-method get">GET</div>
+                            <div class="api-path">/terminal/session/{sessionId}</div>
+                            <div class="api-desc">Get session info</div>
                         </div>
 
                         <div class="api-endpoint">
@@ -1094,12 +1099,18 @@
                             <div class="api-desc">Save new SSH connection</div>
                         </div>
                         <pre class="api-example">{
-      "name": "production-server",
-      "host": "example.com",
-      "port": 22,
-      "username": "admin",
-      "password": "***"
-    }</pre>
+  "name": "production-server",
+  "host": "example.com",
+  "port": 22,
+  "username": "admin",
+  "password": "***"
+}</pre>
+
+                        <div class="api-endpoint">
+                            <div class="api-method get">GET</div>
+                            <div class="api-path">/terminal/ssh-connections/{id}</div>
+                            <div class="api-desc">Get SSH connection by ID</div>
+                        </div>
 
                         <div class="api-endpoint">
                             <div class="api-method put">PUT</div>
@@ -1112,17 +1123,176 @@
                             <div class="api-path">/terminal/ssh-connections/{id}</div>
                             <div class="api-desc">Delete SSH connection</div>
                         </div>
+
+                        <div class="api-endpoint">
+                            <div class="api-method post">POST</div>
+                            <div class="api-path">/terminal/ssh-connections/test</div>
+                            <div class="api-desc">Test SSH connection before saving</div>
+                        </div>
+                        <pre class="api-example">{
+  "host": "example.com",
+  "port": 22,
+  "username": "admin",
+  "password": "***"
+}</pre>
                     </div>
 
-                    <!-- Health Check -->
+                    <!-- File System Operations -->
+                    <div class="api-section">
+                        <h4 class="api-section-title">File System Operations</h4>
+
+                        <div class="api-endpoint">
+                            <div class="api-method get">GET</div>
+                            <div class="api-path">/filesystem/{terminalSessionId}/list</div>
+                            <div class="api-desc">List files in a directory (path param)</div>
+                        </div>
+                        <pre class="api-example">GET /filesystem/abc-123/list?path=/home/user</pre>
+
+                        <div class="api-endpoint">
+                            <div class="api-method post">POST</div>
+                            <div class="api-path">/filesystem/{terminalSessionId}/read</div>
+                            <div class="api-desc">Read file content</div>
+                        </div>
+                        <pre class="api-example">{ "path": "/home/user/file.txt" }</pre>
+
+                        <div class="api-endpoint">
+                            <div class="api-method post">POST</div>
+                            <div class="api-path">/filesystem/{terminalSessionId}/write</div>
+                            <div class="api-desc">Write file content</div>
+                        </div>
+                        <pre class="api-example">{
+  "path": "/home/user/file.txt",
+  "content": "base64-encoded-content"
+}</pre>
+
+                        <div class="api-endpoint">
+                            <div class="api-method post">POST</div>
+                            <div class="api-path">/filesystem/{terminalSessionId}/create-file</div>
+                            <div class="api-desc">Create a new file</div>
+                        </div>
+                        <pre class="api-example">{ "path": "/home/user/newfile.txt" }</pre>
+
+                        <div class="api-endpoint">
+                            <div class="api-method post">POST</div>
+                            <div class="api-path">/filesystem/{terminalSessionId}/create-directory</div>
+                            <div class="api-desc">Create a new directory</div>
+                        </div>
+                        <pre class="api-example">{ "path": "/home/user/newfolder" }</pre>
+
+                        <div class="api-endpoint">
+                            <div class="api-method post">POST</div>
+                            <div class="api-path">/filesystem/{terminalSessionId}/delete</div>
+                            <div class="api-desc">Delete file or directory</div>
+                        </div>
+                        <pre class="api-example">{ "path": "/home/user/oldfile.txt" }</pre>
+
+                        <div class="api-endpoint">
+                            <div class="api-method post">POST</div>
+                            <div class="api-path">/filesystem/{terminalSessionId}/rename</div>
+                            <div class="api-desc">Rename/move file or directory</div>
+                        </div>
+                        <pre class="api-example">{
+  "oldPath": "/home/user/old.txt",
+  "newPath": "/home/user/new.txt"
+}</pre>
+                    </div>
+
+                    <!-- Notes Management -->
+                    <div class="api-section">
+                        <h4 class="api-section-title">Notes Management</h4>
+
+                        <div class="api-endpoint">
+                            <div class="api-method get">GET</div>
+                            <div class="api-path">/api/notes</div>
+                            <div class="api-desc">Get all notes</div>
+                        </div>
+
+                        <div class="api-endpoint">
+                            <div class="api-method get">GET</div>
+                            <div class="api-path">/api/notes/{id}</div>
+                            <div class="api-desc">Get specific note by ID</div>
+                        </div>
+
+                        <div class="api-endpoint">
+                            <div class="api-method post">POST</div>
+                            <div class="api-path">/api/notes</div>
+                            <div class="api-desc">Create a new note</div>
+                        </div>
+                        <pre class="api-example">{
+  "title": "My Note",
+  "content": "# Note content",
+  "shared": false
+}</pre>
+
+                        <div class="api-endpoint">
+                            <div class="api-method put">PUT</div>
+                            <div class="api-path">/api/notes/{id}</div>
+                            <div class="api-desc">Update an existing note</div>
+                        </div>
+
+                        <div class="api-endpoint">
+                            <div class="api-method delete">DELETE</div>
+                            <div class="api-path">/api/notes/{id}</div>
+                            <div class="api-desc">Delete a note</div>
+                        </div>
+
+                        <div class="api-endpoint">
+                            <div class="api-method get">GET</div>
+                            <div class="api-path">/api/notes/shared</div>
+                            <div class="api-desc">Get all shared notes</div>
+                        </div>
+                    </div>
+
+                    <!-- Authentication -->
+                    <div class="api-section">
+                        <h4 class="api-section-title">Authentication</h4>
+
+                        <div class="api-endpoint">
+                            <div class="api-method post">POST</div>
+                            <div class="api-path">/auth/token</div>
+                            <div class="api-desc">Generate security token for web clients</div>
+                        </div>
+                        <pre class="api-example">{
+  "origin": "http://localhost:8080",
+  "expiryHours": 24
+}</pre>
+
+                        <div class="api-endpoint">
+                            <div class="api-method post">POST</div>
+                            <div class="api-path">/auth/validate</div>
+                            <div class="api-desc">Validate security token</div>
+                        </div>
+                        <pre class="api-example">{ "token": "your-token-here" }</pre>
+                    </div>
+
+                    <!-- System -->
                     <div class="api-section">
                         <h4 class="api-section-title">System</h4>
 
                         <div class="api-endpoint">
                             <div class="api-method get">GET</div>
                             <div class="api-path">/health</div>
-                            <div class="api-desc">Health check endpoint</div>
+                            <div class="api-desc">Health check endpoint (no auth required)</div>
                         </div>
+                        <pre class="api-example">// Response:
+{
+  "status": "UP",
+  "service": "SDK Local Service",
+  "version": "1.0.0",
+  "uptime": "2h 15m"
+}</pre>
+                    </div>
+
+                    <!-- Usage Notes -->
+                    <div style="background: rgba(255, 193, 7, 0.1); padding: 16px; border-radius: 8px; border-left: 3px solid var(--accent-yellow); margin-top: 24px;">
+                        <h4 style="font-size: 13px; color: var(--accent-yellow); margin-bottom: 8px;">📝 Important Notes</h4>
+                        <ul style="font-size: 12px; line-height: 1.8; color: var(--text-secondary); margin: 0; padding-left: 20px;">
+                            <li><strong>Security Token:</strong> Most endpoints require an <code>X-Security-Token</code> header (auto-managed by UI)</li>
+                            <li><strong>File System:</strong> Auto-creates sessions based on terminal session ID</li>
+                            <li><strong>WebSocket:</strong> Use binary frames for terminal output, text frames for control messages</li>
+                            <li><strong>Session Restore:</strong> Include <code>sessionId</code> in create request to restore previous session</li>
+                            <li><strong>Base64 Encoding:</strong> File content must be base64-encoded in write operations</li>
+                        </ul>
                     </div>
                 </div>
 
@@ -1239,6 +1409,177 @@
         </div>
     </div>
 
+    <!-- About Modal -->
+    <div class="modal-overlay" id="aboutModalOverlay">
+        <div class="modal" style="width: 700px; max-width: 95vw; max-height: 90vh; overflow-y: auto;">
+            <div class="modal-header">
+                <div class="modal-title">ℹ️ About SDK Terminal</div>
+                <div class="modal-close" onclick="closeAboutModal()">✕</div>
+            </div>
+            <div class="modal-body" style="padding: 24px;">
+
+                <!-- App Info -->
+                <div style="text-align: center; margin-bottom: 24px;">
+                    <h2 style="color: var(--accent-cyan); margin-bottom: 8px; font-size: 24px;">💬 Messaging Platform</h2>
+                    <h3 style="color: var(--text-primary); margin-bottom: 4px; font-size: 18px;">Shared Terminal</h3>
+                    <p style="color: var(--text-secondary); font-size: 14px;">Version 1.0.0</p>
+                </div>
+
+                <!-- Description -->
+                <div style="background: linear-gradient(135deg, rgba(74, 158, 255, 0.1) 0%, rgba(34, 211, 238, 0.1) 100%); padding: 16px; border-radius: 8px; border: 1px solid var(--accent-blue); margin-bottom: 24px;">
+                    <p style="color: var(--text-secondary); font-size: 13px; line-height: 1.6; margin: 0;">
+                        A web-based terminal emulator with real-time collaboration features. Connect to local terminals,
+                        SSH servers, and share your sessions with others through WebRTC. Built with modern web technologies
+                        and Spring Boot microservices.
+                    </p>
+                </div>
+
+                <!-- Backend Technologies -->
+                <div style="margin-bottom: 20px;">
+                    <h4 style="color: var(--accent-green); font-size: 14px; margin-bottom: 12px; display: flex; align-items: center; gap: 8px;">
+                        <span>🔧</span> Backend Technologies
+                    </h4>
+                    <div style="background: var(--bg-panel); padding: 12px; border-radius: 6px; font-size: 12px; line-height: 1.8;">
+                        <div style="display: grid; grid-template-columns: 140px 1fr; gap: 8px; color: var(--text-secondary);">
+                            <strong style="color: var(--text-primary);">Framework:</strong>
+                            <span>Spring Boot 2.7.14</span>
+
+                            <strong style="color: var(--text-primary);">Language:</strong>
+                            <span>Java 11</span>
+
+                            <strong style="color: var(--text-primary);">Build Tool:</strong>
+                            <span>Gradle 8.14</span>
+
+                            <strong style="color: var(--text-primary);">WebSocket:</strong>
+                            <span>Spring WebSocket + STOMP</span>
+
+                            <strong style="color: var(--text-primary);">Database:</strong>
+                            <span>H2 (Embedded)</span>
+
+                            <strong style="color: var(--text-primary);">SSH Client:</strong>
+                            <span>JSch 0.1.55</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Frontend Technologies -->
+                <div style="margin-bottom: 20px;">
+                    <h4 style="color: var(--accent-blue); font-size: 14px; margin-bottom: 12px; display: flex; align-items: center; gap: 8px;">
+                        <span>🎨</span> Frontend Technologies
+                    </h4>
+                    <div style="background: var(--bg-panel); padding: 12px; border-radius: 6px; font-size: 12px; line-height: 1.8;">
+                        <div style="display: grid; grid-template-columns: 140px 1fr; gap: 8px; color: var(--text-secondary);">
+                            <strong style="color: var(--text-primary);">Terminal Emulator:</strong>
+                            <span>xterm.js 5.x</span>
+
+                            <strong style="color: var(--text-primary);">Code Editor:</strong>
+                            <span>CodeMirror 5.65.x</span>
+
+                            <strong style="color: var(--text-primary);">UI Framework:</strong>
+                            <span>Vanilla JavaScript + CSS3</span>
+
+                            <strong style="color: var(--text-primary);">WebRTC:</strong>
+                            <span>Native WebRTC API</span>
+
+                            <strong style="color: var(--text-primary);">PWA:</strong>
+                            <span>Service Worker + Manifest</span>
+
+                            <strong style="color: var(--text-primary);">Icons:</strong>
+                            <span>Unicode Emoji</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Key Libraries -->
+                <div style="margin-bottom: 20px;">
+                    <h4 style="color: var(--accent-cyan); font-size: 14px; margin-bottom: 12px; display: flex; align-items: center; gap: 8px;">
+                        <span>📦</span> Key Libraries & Addons
+                    </h4>
+                    <div style="background: var(--bg-panel); padding: 12px; border-radius: 6px; font-size: 12px; line-height: 1.8;">
+                        <div style="display: grid; grid-template-columns: 140px 1fr; gap: 8px; color: var(--text-secondary);">
+                            <strong style="color: var(--text-primary);">xterm-addon-fit:</strong>
+                            <span>Terminal auto-sizing</span>
+
+                            <strong style="color: var(--text-primary);">xterm-addon-web-links:</strong>
+                            <span>Clickable URLs</span>
+
+                            <strong style="color: var(--text-primary);">xterm-addon-search:</strong>
+                            <span>Text search in terminal</span>
+
+                            <strong style="color: var(--text-primary);">CodeMirror modes:</strong>
+                            <span>JavaScript, Python, Java, CSS, HTML, Markdown, Shell</span>
+
+                            <strong style="color: var(--text-primary);">CodeMirror addons:</strong>
+                            <span>Search, Match Highlighter, Scrollbar Matches, Closebrackets</span>
+
+                            <strong style="color: var(--text-primary);">Lombok:</strong>
+                            <span>Java code generation</span>
+
+                            <strong style="color: var(--text-primary);">SLF4J + Logback:</strong>
+                            <span>Logging framework</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Features -->
+                <div style="margin-bottom: 20px;">
+                    <h4 style="color: var(--accent-yellow); font-size: 14px; margin-bottom: 12px; display: flex; align-items: center; gap: 8px;">
+                        <span>✨</span> Features
+                    </h4>
+                    <div style="background: var(--bg-panel); padding: 12px; border-radius: 6px;">
+                        <ul style="font-size: 12px; line-height: 1.8; color: var(--text-secondary); margin: 0; padding-left: 20px;">
+                            <li>Local terminal sessions (CMD, Bash, PowerShell)</li>
+                            <li>SSH connection management with saved profiles</li>
+                            <li>Real-time terminal sharing via WebRTC</li>
+                            <li>File explorer with SFTP support</li>
+                            <li>Integrated code editor with syntax highlighting</li>
+                            <li>Notes management with Markdown support</li>
+                            <li>Session persistence and restoration</li>
+                            <li>Multi-tab interface with drag & drop</li>
+                            <li>Progressive Web App (PWA) support</li>
+                            <li>Dark/Light theme switching</li>
+                        </ul>
+                    </div>
+                </div>
+
+                <!-- Credits -->
+                <div style="margin-bottom: 20px;">
+                    <h4 style="color: var(--accent-purple); font-size: 14px; margin-bottom: 12px; display: flex; align-items: center; gap: 8px;">
+                        <span>👏</span> Credits & Open Source
+                    </h4>
+                    <div style="background: var(--bg-panel); padding: 12px; border-radius: 6px;">
+                        <p style="font-size: 12px; line-height: 1.6; color: var(--text-secondary); margin: 0 0 8px 0;">
+                            Built with amazing open source projects:
+                        </p>
+                        <ul style="font-size: 12px; line-height: 1.6; color: var(--text-secondary); margin: 0; padding-left: 20px;">
+                            <li><strong style="color: var(--text-primary);">xterm.js</strong> by xtermjs team</li>
+                            <li><strong style="color: var(--text-primary);">CodeMirror</strong> by Marijn Haverbeke</li>
+                            <li><strong style="color: var(--text-primary);">Spring Boot</strong> by Pivotal/VMware</li>
+                            <li><strong style="color: var(--text-primary);">JSch</strong> by JCraft</li>
+                        </ul>
+                    </div>
+                </div>
+
+                <!-- License & Copyright -->
+                <div style="border-top: 1px solid var(--border-color); padding-top: 16px; text-align: center;">
+                    <p style="color: var(--text-secondary); font-size: 12px; margin: 0 0 4px 0;">
+                        Part of <a href="https://github.com/HaithamMubarak/messaging-platform-sdk" target="_blank"
+                                   style="color: var(--accent-cyan); text-decoration: none; font-weight: 600;">
+                            <strong>Messaging Platform SDK</strong>
+                        </a>
+                    </p>
+                    <p style="color: var(--text-muted); font-size: 11px; margin: 0;">
+                        © 2026 - Open Source Project
+                    </p>
+                </div>
+
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" onclick="closeAboutModal()">Close</button>
+            </div>
+        </div>
+    </div>
+
     <!-- PWA Service Worker Registration -->
     <script>
         // Register service worker ONLY when PWA is installed (standalone mode)
@@ -1316,17 +1657,17 @@
             deferredPrompt = e;
             console.log('💡 PWA: Install prompt available');
 
-            // Show the install button
-            const installBtn = document.getElementById('pwaInstallBtn');
+            // Show the install button in the modal
+            const installBtn = document.getElementById('pwaInstallBtnModal');
+            const installMessage = document.getElementById('pwaInstallMessageModal');
             if (installBtn) {
-                installBtn.style.display = 'flex';
+                installBtn.style.display = 'inline-block';
+            }
+            if (installMessage) {
+                installMessage.style.display = 'none';
             }
 
-            // Optionally show custom install button or notification
-            if (typeof showToast === 'function') {
-                showToast('info', '📲 Install App',
-                    'You can install SDK Terminal as an app for offline use! Click the Install button.', 8000);
-            }
+            // Don't show notification - user can find install button in the Install menu
         });
 
         // Optional: Function to trigger install prompt
@@ -1336,10 +1677,16 @@
                 deferredPrompt.userChoice.then((choiceResult) => {
                     if (choiceResult.outcome === 'accepted') {
                         console.log('✅ PWA: User accepted the install prompt');
-                        // Hide the install button
-                        const installBtn = document.getElementById('pwaInstallBtn');
+                        // Hide the install button in modal and show message
+                        const installBtn = document.getElementById('pwaInstallBtnModal');
+                        const installMessage = document.getElementById('pwaInstallMessageModal');
                         if (installBtn) {
                             installBtn.style.display = 'none';
+                        }
+                        if (installMessage) {
+                            installMessage.style.display = 'block';
+                            installMessage.textContent = '✅ App installed successfully!';
+                            installMessage.style.color = 'var(--accent-green)';
                         }
                         if (typeof showToast === 'function') {
                             showToast('success', '✅ App Installed',
@@ -1361,7 +1708,7 @@
                 } else {
                     if (typeof showToast === 'function') {
                         showToast('warning', '⚠️ Not Available',
-                            'Install prompt is not available. Check PWA requirements (HTTPS, valid icons, service worker).', 5000);
+                            'Install prompt is not available. Use browser menu to install (⊕ icon in address bar).', 5000);
                     }
                 }
             }
@@ -1373,10 +1720,16 @@
                 window.navigator.standalone === true) {
                 console.log('✅ PWA: Running as installed app');
                 document.body.classList.add('pwa-installed');
-                // Hide install button if already installed
-                const installBtn = document.getElementById('pwaInstallBtn');
+                // Hide install button and show message if already installed
+                const installBtn = document.getElementById('pwaInstallBtnModal');
+                const installMessage = document.getElementById('pwaInstallMessageModal');
                 if (installBtn) {
                     installBtn.style.display = 'none';
+                }
+                if (installMessage) {
+                    installMessage.style.display = 'block';
+                    installMessage.textContent = '✅ App is already installed';
+                    installMessage.style.color = 'var(--accent-green)';
                 }
             }
         });

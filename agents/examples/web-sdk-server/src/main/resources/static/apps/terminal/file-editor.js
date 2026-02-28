@@ -13,6 +13,7 @@ class FileEditor {
         this.autoSaveTimeouts = new Map();  // Per-tab auto-save timers
         this.onToast = options.onToast || (() => {});
         this.theme = options.theme || 'dark';  // 'dark' or 'light'
+        this.isLoadingContent = false;  // Flag to prevent marking as modified during initial load
 
         // CodeMirror editors
         this.editorPopup = null;
@@ -157,12 +158,13 @@ class FileEditor {
         // Initialize popup editor
         const containerPopup = document.getElementById('fileEditorContent');
         this.editorPopup = CodeMirror(containerPopup, {
-            lineNumbers: true,
+            lineNumbers: true,  // Show line numbers
             theme: 'monokai',
             indentUnit: 4,
             tabSize: 4,
             lineWrapping: false,
             mode: 'text/plain',
+            readOnly: false,  // Ensure editor is editable
             matchBrackets: true,
             autoCloseBrackets: true,
             styleActiveLine: true,
@@ -172,12 +174,13 @@ class FileEditor {
         // Initialize pinned editor
         const containerPinned = document.getElementById('fileEditorContentPinned');
         this.editorPinned = CodeMirror(containerPinned, {
-            lineNumbers: true,
+            lineNumbers: true,  // Show line numbers
             theme: 'monokai',
             indentUnit: 4,
             tabSize: 4,
             lineWrapping: false,
             mode: 'text/plain',
+            readOnly: false,  // Ensure editor is editable
             matchBrackets: true,
             autoCloseBrackets: true,
             styleActiveLine: true,
@@ -193,6 +196,10 @@ class FileEditor {
         if (this.editorPopup) {
             this.editorPopup.on('change', () => {
                 if (!this.activeTabId) return;
+
+                // Don't mark as modified if we're loading content
+                if (this.isLoadingContent) return;
+
                 this.markTabAsModified(this.activeTabId);
 
                 // Auto-save only for notes (not regular files)
@@ -227,6 +234,10 @@ class FileEditor {
         if (this.editorPinned) {
             this.editorPinned.on('change', () => {
                 if (!this.activeTabId) return;
+
+                // Don't mark as modified if we're loading content
+                if (this.isLoadingContent) return;
+
                 this.markTabAsModified(this.activeTabId);
 
                 // Auto-save only for notes (not regular files)
@@ -500,6 +511,9 @@ class FileEditor {
         // Detect file type and get CodeMirror mode
         const mode = this.getCodeMirrorMode(tab.filePath);
 
+        // Set flag to prevent marking as modified during initial load
+        this.isLoadingContent = true;
+
         // Set content and mode in CodeMirror
         if (this.editorPopup) {
             this.editorPopup.setValue(tab.content);
@@ -509,6 +523,12 @@ class FileEditor {
             this.editorPinned.setValue(tab.content);
             this.editorPinned.setOption('mode', mode);
         }
+
+        // Clear flag after content is loaded and all change events have fired
+        // Use setTimeout to ensure this happens AFTER change events
+        setTimeout(() => {
+            this.isLoadingContent = false;
+        }, 0);
 
         // Set status
         const status = tab.modified ? 'Modified' : 'Ready';
