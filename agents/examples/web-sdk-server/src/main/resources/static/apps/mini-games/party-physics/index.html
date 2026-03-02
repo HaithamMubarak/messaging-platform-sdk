@@ -1,0 +1,293 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Party Physics - Multiplayer Brawl Game</title>
+
+    <!-- Common Styles -->
+    <link rel="stylesheet" href="../../../css/toast.css">
+    <link rel="stylesheet" href="../../../css/connection-modal.css">
+    <link rel="stylesheet" href="../../../css/share-modal.css">
+
+    <!-- Game Styles -->
+    <link rel="stylesheet" href="party-physics.css">
+
+    <!-- Three.js r150 (local) -->
+    <script src="libs/three.min.js"></script>
+
+    <!-- Rapier Physics Engine (CDN - esm.sh) -->
+    <script type="module">
+        import * as RAPIER from 'https://esm.sh/@dimforge/rapier3d-compat@0.11.2';
+
+        await RAPIER.init();
+
+        window.RAPIER = RAPIER;
+        window.dispatchEvent(new CustomEvent('rapier-loaded'));
+        console.log('[Rapier] Loaded from esm.sh CDN');
+    </script>
+</head>
+<body>
+    <!-- Share Button (hidden until connected) -->
+    <button id="shareBtn" class="share-btn" onclick="partyPhysicsGame?.openShareModal()" style="display: none;">
+        📤 Share
+    </button>
+
+    <!-- Connection Status -->
+    <div id="connectionStatus" class="connection-status">
+        <span id="statusDot" class="status-dot"></span>
+        <span id="statusText">Disconnected</span>
+    </div>
+
+    <!-- Game Container -->
+    <div id="gameContainer" class="game-container">
+        <!-- Three.js Canvas will be inserted here -->
+
+        <!-- Game UI Overlay -->
+        <div id="gameUI" class="game-ui">
+            <!-- Player Stats -->
+            <div id="playerStats" class="player-stats hidden">
+                <div class="stat-bar hp-bar">
+                    <span class="stat-label">❤️ HP</span>
+                    <div class="stat-fill">
+                        <div id="hpFill" class="fill hp-fill" style="width: 100%"></div>
+                    </div>
+                    <span id="hpValue" class="stat-value">100</span>
+                </div>
+                <div class="stat-bar stamina-bar">
+                    <span class="stat-label">⚡ Stamina</span>
+                    <div class="stat-fill">
+                        <div id="staminaFill" class="fill stamina-fill" style="width: 100%"></div>
+                    </div>
+                    <span id="staminaValue" class="stat-value">100</span>
+                </div>
+                <div class="cooldown-indicator hidden" id="abilityCooldown">
+                    <span>🎯 Ability: <span id="cooldownValue">Ready!</span></span>
+                </div>
+            </div>
+
+            <!-- Scoreboard -->
+            <div id="scoreboard" class="scoreboard hidden">
+                <h3>🏆 Players</h3>
+                <div id="scoreList" class="score-list">
+                    <!-- Score entries will be added here -->
+                </div>
+            </div>
+
+            <!-- Player Count -->
+            <div id="playerCount" class="player-count">
+                <span id="playerCountValue">0</span> Players
+            </div>
+
+            <!-- Camera Controls Panel -->
+            <div id="cameraPanel" class="camera-panel hidden">
+                <div class="panel-header">
+                    📷 Camera Controls
+                    <button class="panel-toggle" onclick="toggleCameraPanel()">−</button>
+                </div>
+                <div class="panel-content">
+                    <div class="control-group">
+                        <label>
+                            <input type="checkbox" id="cameraFollowToggle" checked>
+                            Follow Player
+                        </label>
+                    </div>
+                    <div class="control-group">
+                        <label>Distance: <span id="distanceValue">12</span></label>
+                        <input type="range" id="distanceSlider" min="5" max="30" value="12" step="0.5">
+                    </div>
+                    <div class="control-group">
+                        <label>Height: <span id="heightValue">8</span></label>
+                        <input type="range" id="heightSlider" min="2" max="20" value="8" step="0.5">
+                    </div>
+                    <div class="control-group">
+                        <label>Pitch: <span id="pitchValue">0.5</span></label>
+                        <input type="range" id="pitchSlider" min="0.1" max="1.5" value="0.5" step="0.1">
+                    </div>
+                    <button class="reset-btn" onclick="resetCamera()">🔄 Reset Camera</button>
+                    <div class="camera-tips">
+                        <small>💡 Drag mouse to rotate • Scroll to zoom</small>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Waiting Room Overlay -->
+        <div id="waitingRoom" class="waiting-room hidden">
+            <div class="waiting-content">
+                <h1>🎉 Party Physics Brawl</h1>
+                <p class="subtitle">Multiplayer Physics Battle Arena</p>
+
+                <!-- Mode Selection -->
+                <div class="mode-selection">
+                    <h3>🎮 Select Game Mode</h3>
+                    <div class="mode-buttons">
+                        <button class="mode-btn active host-only" data-mode="fight" onclick="partyPhysicsGame?.selectMode('fight')">
+                            <span class="mode-icon">⚔️</span>
+                            <span class="mode-name">Fight</span>
+                            <span class="mode-desc">Last one standing wins!</span>
+                        </button>
+                        <button class="mode-btn host-only" data-mode="dodgeball" onclick="partyPhysicsGame?.selectMode('dodgeball')">
+                            <span class="mode-icon">⚽</span>
+                            <span class="mode-name">Dodgeball</span>
+                            <span class="mode-desc">Hit opponents with balls!</span>
+                        </button>
+                        <button class="mode-btn host-only" data-mode="race" onclick="partyPhysicsGame?.selectMode('race')">
+                            <span class="mode-icon">🏁</span>
+                            <span class="mode-name">Race</span>
+                            <span class="mode-desc">First to finish wins!</span>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Map Selection (shown after mode selected) -->
+                <div id="mapSelection" class="map-selection hidden">
+                    <h3>🗺️ Choose Map</h3>
+                    <div id="mapGrid" class="map-grid">
+                        <!-- Maps will be dynamically loaded here -->
+                    </div>
+                </div>
+
+                <!-- Character Selection -->
+                <div class="character-selection">
+                    <h3>🐾 Choose Your Character</h3>
+                    <div class="character-grid">
+                        <button class="character-btn" data-archetype="bear" onclick="partyPhysicsGame?.selectCharacter('bear')">
+                            <span class="char-icon">🐻</span>
+                            <span class="char-name">Bear</span>
+                            <span class="char-role">Tank</span>
+                        </button>
+                        <button class="character-btn active" data-archetype="bunny" onclick="partyPhysicsGame?.selectCharacter('bunny')">
+                            <span class="char-icon">🐰</span>
+                            <span class="char-name">Bunny</span>
+                            <span class="char-role">Speedster</span>
+                        </button>
+                        <button class="character-btn" data-archetype="bull" onclick="partyPhysicsGame?.selectCharacter('bull')">
+                            <span class="char-icon">🐂</span>
+                            <span class="char-name">Bull</span>
+                            <span class="char-role">Brawler</span>
+                        </button>
+                        <button class="character-btn" data-archetype="monkey" onclick="partyPhysicsGame?.selectCharacter('monkey')">
+                            <span class="char-icon">🐵</span>
+                            <span class="char-name">Monkey</span>
+                            <span class="char-role">Trickster</span>
+                        </button>
+                        <button class="character-btn" data-archetype="frog" onclick="partyPhysicsGame?.selectCharacter('frog')">
+                            <span class="char-icon">🐸</span>
+                            <span class="char-name">Frog</span>
+                            <span class="char-role">Chaos</span>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Player List -->
+                <div class="player-list-container">
+                    <h3>Players in Lobby</h3>
+                    <div id="playerList" class="player-list">
+                        <!-- Players will be added here -->
+                    </div>
+                </div>
+
+                <!-- Start Button -->
+                <div class="waiting-actions">
+                    <button id="startBtn" class="btn-start host-only" onclick="partyPhysicsGame?.hostStartGame()">
+                        Start Battle!
+                    </button>
+                </div>
+
+                <!-- Controls Info -->
+                <div class="controls-info">
+                    <h3>🎮 Controls</h3>
+                    <div class="controls-grid">
+                        <div class="control-item"><span class="key">W A S D</span> or <span class="key">Arrow Keys</span> Move</div>
+                        <div class="control-item"><span class="key">SPACE</span> Jump</div>
+                        <div class="control-item"><span class="key">SHIFT</span> Dash</div>
+                        <div class="control-item"><span class="key">CTRL</span> Punch</div>
+                        <div class="control-item"><span class="key">Q</span> Special Ability</div>
+                    </div>
+                    <p class="mobile-note">📱 Mobile: Virtual joystick + buttons</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Mobile Controls -->
+        <div id="mobileControls" class="mobile-controls hidden">
+            <!-- Virtual Joystick -->
+            <div id="joystickContainer" class="joystick-container">
+                <div id="joystickBase" class="joystick-base"></div>
+                <div id="joystickStick" class="joystick-stick"></div>
+            </div>
+
+            <!-- Action Buttons -->
+            <div class="action-buttons">
+                <button id="jumpBtn" class="action-btn jump-btn">
+                    <span>🦘</span>
+                    <span class="btn-label">Jump</span>
+                </button>
+                <button id="dashBtn" class="action-btn dash-btn">
+                    <span>💨</span>
+                    <span class="btn-label">Dash</span>
+                </button>
+                <button id="punchBtn" class="action-btn punch-btn">
+                    <span>👊</span>
+                    <span class="btn-label">Punch</span>
+                </button>
+                <button id="abilityBtn" class="action-btn ability-btn">
+                    <span>⭐</span>
+                    <span class="btn-label">Ability</span>
+                </button>
+            </div>
+        </div>
+
+        <!-- Finish Overlay -->
+        <div id="finishOverlay" class="finish-overlay hidden">
+            <div class="finish-content">
+                <h1 id="finishTitle">🏆 Game Over!</h1>
+                <div id="finishResults" class="finish-results">
+                    <!-- Results will be added here -->
+                </div>
+                <button id="playAgainBtn" class="btn-play-again host-only" onclick="partyPhysicsGame?.hostRestartGame()">
+                    Play Again
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Connection Modal will be loaded dynamically -->
+
+    <!-- Share Modal -->
+    <div id="shareModal" class="modal-overlay hidden">
+        <div class="modal-content share-modal-content">
+            <!-- Share modal content injected by share-modal.js -->
+        </div>
+    </div>
+
+    <!-- Toast Container -->
+    <div id="toast-container" class="toast-container"></div>
+
+    <!-- Scripts -->
+    <script src="../../../js/config-loader.js"></script>
+    <script src="../../../lib/qrcode.min.js"></script>
+    <script src="../../../generated-web-agent-js/js/web-agent.libs.js"></script>
+    <script src="../../../generated-web-agent-js/js/web-agent.js"></script>
+    <script src="../../../generated-web-agent-js/js/web-agent.webrtc.js"></script>
+
+    <script src="../../../js/share-modal.js"></script>
+    <script src="../../../js/common-utils.js"></script>
+    <script src="../../../js/connection-modal.js"></script>
+    <script src="../../../js/UserConnectionBase.js"></script>
+
+    <!-- Game Modules -->
+    <script src="modules/GameAuthority.js"></script>
+    <script src="modules/GameClient.js"></script>
+    <script src="modules/NetAdapter.js"></script>
+    <script src="modules/InputHandler.js"></script>
+    <script src="modules/MobileControls.js"></script>
+    <script src="modules/Archetypes.js"></script>
+    <script src="modules/Maps.js"></script>
+
+    <!-- Main Game Script -->
+    <script src="party-physics.js"></script>
+</body>
+</html>
+

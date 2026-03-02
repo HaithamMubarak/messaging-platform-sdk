@@ -148,7 +148,7 @@ minigames.cors-allowed-origins=*
 └─────────────────────────────────────────────┘
                      ↓
 ┌─────────────────────────────────────────────┐
-│       Mini Games Server (Port 8090)         │
+│       Mini Games Server (Port 8084)         │
 │                                             │
 │  Spring Boot Backend:                       │
 │  - Serves static games                      │

@@ -1913,6 +1913,30 @@ agent.onError = (err) => console.error('Error:', err);
                             </a>
                         </div>
 
+                        <!-- NEW: Party Physics (Localhost Only) -->
+                        <div class="example-card localhost-only" style="position: relative;">
+                            <div style="position: absolute; top: 12px; right: 12px; background: #10b981; color: white; padding: 4px 10px; border-radius: 6px; font-size: 10px; font-weight: 700;">🆕 NEW</div>
+                            <div class="card-icon">🎉</div>
+                            <h2 class="card-title">Party Physics Brawl</h2>
+                            <p class="card-description">
+                                Multiplayer physics-based party game! Battle with unique characters in arenas.
+                                Host-authoritative with Rapier physics and Three.js graphics.
+                            </p>
+                            <ul class="card-features">
+                                <li>2-8 players real-time combat</li>
+                                <li>5 unique character archetypes</li>
+                                <li>Fight Mode (MVP complete)</li>
+                                <li>Mobile touch controls</li>
+                                <li>HP & stamina system</li>
+                            </ul>
+                            <a href="apps/mini-games/party-physics/index.html" class="card-link">
+                                Play Party Physics
+                                <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
+                                </svg>
+                            </a>
+                        </div>
+
                         <!-- Race Balls -->
                         <div class="example-card" style="opacity: 0.7; position: relative;">
                             <div style="position: absolute; top: 12px; right: 12px; background: #94a3b8; color: white; padding: 4px 10px; border-radius: 6px; font-size: 10px; font-weight: 700;">🚧 COMING SOON</div>
@@ -3027,6 +3051,9 @@ agent.connect({
                 });
             } else {
                 console.log('[Index] Production environment - hiding experimental apps');
+                document.querySelectorAll('.localhost-only').forEach(card => {
+                    card.style.display = 'none';
+                });
             }
         });
 

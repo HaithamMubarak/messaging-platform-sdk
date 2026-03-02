@@ -14,8 +14,8 @@
     <!-- Chess Styles -->
     <link rel="stylesheet" href="chess.css">
 
-    <!-- Chess.js Library (for game logic) -->
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/chess.js/0.10.3/chess.min.js"></script>
+    <!-- Chess.js Library (for game logic) - LOCAL VERSION -->
+    <script src="lib/chess.min.js"></script>
 </head>
 <body>
     <!-- Share Button -->
@@ -139,6 +139,7 @@
 
     <!-- Include Libraries -->
     <script src="../../js/config-loader.js"></script>
+    <script src="../../lib/qrcode.min.js"></script>
     <script src="../../generated-web-agent-js/messaging-web-agent.js"></script>
     <script src="../../js/UserConnectionBase.js"></script>
     <script src="../../js/MiniGameUtils.js"></script>
@@ -146,7 +147,8 @@
     <!-- Game Logic -->
     <script src="chess-game.js"></script>
 
-    <!-- Connection Modal -->
+    <!-- Connection Modal & Share -->
+    <script src="../../js/common-utils.js"></script>
     <script src="../../js/connection-modal.js"></script>
     <script src="../../js/share-modal.js"></script>
 </body>
