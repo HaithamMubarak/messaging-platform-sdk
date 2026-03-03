@@ -361,11 +361,13 @@ class FileExplorer {
     /**
      * Load directory contents
      */
-    async loadDirectory(path = null) {
+    async loadDirectory(path = null, triggerEvent = true) {
         if (!this.isConnected) return;
 
         const targetPath = path || this.currentPath;
         const previousPath = this.currentPath; // Save previous path for recovery
+
+        console.log('[FileExplorer] loadDirectory:', targetPath, 'triggerEvent:', triggerEvent);
 
         try {
             this.showLoading('Loading...');
@@ -405,7 +407,8 @@ class FileExplorer {
             console.log('[FileSystem] Mapped files sample:', mappedFiles.slice(0, 3));
 
             // ✅ Use updateNavigationState for consistent state updates and sharing
-            this.updateNavigationState(finalPath, mappedFiles, true);
+            // Pass triggerEvent to control whether navigation is broadcast
+            this.updateNavigationState(finalPath, mappedFiles, triggerEvent);
 
         } catch (error) {
             console.error('[SFTP] Load directory error:', error);
@@ -459,8 +462,8 @@ class FileExplorer {
             // Extract SSH session ID from SFTP session ID (format: sftp-{sshId})
             const sshSessionId = this.terminalSessionId ? this.terminalSessionId.replace('sftp-', '') : this.terminalSessionId;
             if (sshSessionId) {
-                window.terminalSharing.shareSftpNavigation(sshSessionId, path, files);
-                console.log('[SFTP] Shared navigation update to other agents');
+                window.terminalSharing.shareFileSystemNavigation(sshSessionId, path, files);
+                console.log('[FileExplorer] Shared navigation update to other agents');
             }
         }
 
@@ -556,10 +559,10 @@ class FileExplorer {
         // Trim whitespace
         path = path.trim();
 
-        console.log('[SFTP] Navigating to:', path);
+        console.log('[SFTP] Navigating to:', path, 'sendSync:', sendSync);
 
         try {
-            await this.loadDirectory(path);
+            await this.loadDirectory(path, sendSync); // ✅ Pass sendSync to loadDirectory
 
             // ✅ Send navigation sync to owner if this is a remote session and sendSync is true
             if (sendSync && window.isRemoteFileSystem && window.isRemoteFileSystem(this.terminalSessionId)) {

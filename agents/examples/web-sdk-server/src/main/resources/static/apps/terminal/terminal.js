@@ -4978,16 +4978,27 @@ terminalSharing.onFileSystemRequest = async (sessionId, operation, params, sourc
                 // This notifies everyone (including owner) that the file was saved
                 if (operation === 'write' && result.ok) {
                     console.log('[FileSystem] Broadcasting write notification to all users after save');
+
+                    const notificationDetails = {
+                        path: params.path,
+                        name: params.path.split('/').pop() || params.path,
+                        savedBy: sourceAgent
+                    };
+
+                    // Broadcast to other users
                     terminalSharing.sendFileSystemNotification(
                         sessionId,
                         'write',
-                        {
-                            path: params.path,
-                            name: params.path.split('/').pop() || params.path,
-                            savedBy: sourceAgent
-                        }
+                        notificationDetails
                         // No targetAgent = broadcast to all
                     );
+
+                    // ✅ Also trigger notification handler locally for the host/owner
+                    // The host doesn't receive their own broadcast, so we call the handler directly
+                    console.log('[FileSystem] Triggering local notification handler for host/owner');
+                    if (terminalSharing.onFileSystemNotification) {
+                        terminalSharing.onFileSystemNotification(sessionId, 'write', notificationDetails, sourceAgent);
+                    }
                 }
 
             } catch (error) {
@@ -5059,18 +5070,29 @@ terminalSharing.onFileSystemNotification = (sessionId, operation, details, sourc
     // Show notification to owner
     showToast('info', `🔔 File System Activity`, message, 4000);
 
-    // ✅ If someone saved a file, check if we have it open in file editor
-    if (operation === 'write' && window.fileEditor && details.path) {
-        console.log('[FileSystem] File saved notification - triggering reload check');
+    // ✅ If someone ELSE saved a file, check if we have it open in file editor
+    // Don't show reload button if we are the one who saved it
+    // Use details.savedBy (actual saver) instead of sourceAgent (message relayer/owner)
+    const actualSaver = details.savedBy || sourceAgent;
+    const isOurAction = actualSaver === window.cloudAgentName || actualSaver === terminalSharing.username;
+
+    if (operation === 'write' && window.fileEditor && details.path && !isOurAction) {
+        console.log('[FileSystem] File saved by another user - triggering reload check');
         console.log('[FileSystem] Details:', {
             sessionId,
             path: details.path,
             name: details.name,
-            savedBy: details.savedBy || sourceAgent,
+            actualSaver: actualSaver,
+            sourceAgent: sourceAgent,
+            ourUsername: terminalSharing.username,
+            isOurAction: isOurAction,
             fullDetails: details
         });
-        console.log('[FileSystem] Calling fileEditor.showReloadNotification with:', sessionId, details.path, sourceAgent);
-        window.fileEditor.showReloadNotification(sessionId, details.path, sourceAgent);
+        console.log('[FileSystem] Calling fileEditor.showReloadNotification with:', sessionId, details.path, actualSaver);
+        window.fileEditor.showReloadNotification(sessionId, details.path, actualSaver);
+    } else if (operation === 'write' && isOurAction) {
+        console.log('[FileSystem] Skipping reload notification - we saved the file ourselves');
+        console.log('[FileSystem] actualSaver:', actualSaver, 'ourUsername:', terminalSharing.username);
     }
 
     // If file explorer is open for this session, refresh the view
