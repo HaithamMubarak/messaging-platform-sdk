@@ -5,7 +5,7 @@
 
 class FileExplorer {
     constructor(options = {}) {
-        this.mlsUrl = options.mlsUrl || 'http://localhost:8088';
+        this.mlsUrl = options.mlsUrl || (typeof MLS_URL !== 'undefined' ? MLS_URL : 'http://localhost:8088');
         this.terminalSessionId = null;  // Terminal session ID - used directly for all file operations
         this.currentPath = '/';
         this.files = [];
@@ -349,9 +349,10 @@ class FileExplorer {
         try {
             this.showLoading('Loading...');
 
-            // Use unified file system API
+            // Use unified file system API (with timeout for offline detection)
             const response = await fetch(
-                `${this.mlsUrl}/filesystem/${encodeURIComponent(this.terminalSessionId)}/list?path=${encodeURIComponent(targetPath)}`
+                `${this.mlsUrl}/filesystem/${encodeURIComponent(this.terminalSessionId)}/list?path=${encodeURIComponent(targetPath)}`,
+                { signal: AbortSignal.timeout(10000) } // 10 second timeout
             );
 
             const result = await response.json();
@@ -387,7 +388,15 @@ class FileExplorer {
 
         } catch (error) {
             console.error('[SFTP] Load directory error:', error);
-            const errorMsg = error.message || 'Unknown error';
+            let errorMsg = error.message || 'Unknown error';
+
+            // Provide helpful messages for common errors
+            if (error.name === 'TimeoutError' || error.name === 'AbortError') {
+                errorMsg = 'Request timed out - SDK Local Service may be offline';
+            } else if (errorMsg.includes('Failed to fetch') || errorMsg.includes('NetworkError')) {
+                errorMsg = 'Cannot connect to SDK Local Service - check if it\'s running';
+            }
+
             this.showError(`Cannot access "${targetPath}": ${errorMsg}`);
 
             // Restore previous path (don't let backend change our path on error)
@@ -590,8 +599,13 @@ class FileExplorer {
      * Refresh current directory
      */
     async refresh() {
-        await this.loadDirectory();
-        this.onToast('info', 'Refreshed', 'Directory listing refreshed');
+        try {
+            await this.loadDirectory();
+            this.onToast('info', 'Refreshed', 'Directory listing refreshed');
+        } catch (error) {
+            console.error('[FileExplorer] Refresh failed:', error);
+            this.onToast('error', 'Refresh Failed', error.message || 'Failed to refresh directory');
+        }
     }
 
     /**

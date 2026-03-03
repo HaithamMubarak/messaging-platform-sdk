@@ -194,6 +194,9 @@ class TabSessionManager {
         // Update active session
         this.activeSessionId = sessionId;
 
+        // Persist last active tab so it can be restored on page refresh
+        try { localStorage.setItem('terminal_last_active_tab', sessionId); } catch (e) { /* ignore */ }
+
         // Handle session-specific logic
         if (sessionId.startsWith('note-')) {
             // It's a note - clear terminal-related state
@@ -285,9 +288,9 @@ class TabSessionManager {
                 session.terminal.focus();
             }, 100);
 
-            // Mobile: Ensure terminal gets focus
+            // Mobile: Ensure terminal gets focus (only attach once per element)
             const terminalElement = document.getElementById(`terminal-${sessionId}`);
-            if (terminalElement) {
+            if (terminalElement && !terminalElement._focusListenerAttached) {
                 const focusTerminal = () => {
                     if (session.terminal) {
                         session.terminal.focus();
@@ -298,9 +301,10 @@ class TabSessionManager {
                     }
                 };
 
-                // Focus on touch/click
+                // Focus on touch/click - only attach once
                 terminalElement.addEventListener('touchstart', focusTerminal, { passive: true });
                 terminalElement.addEventListener('click', focusTerminal);
+                terminalElement._focusListenerAttached = true;
             }
         }
     }
@@ -611,7 +615,8 @@ async function slsFetch(url, options = {}) {
     try {
         const response = await fetch(url, {
             ...options,
-            headers
+            headers,
+            signal: options.signal || AbortSignal.timeout(15000) // 15s default timeout
         });
 
         // If 401, token might be expired - try refreshing once
@@ -625,13 +630,23 @@ async function slsFetch(url, options = {}) {
                 headers: {
                     'X-SLS-Token': token,
                     ...(options.headers || {})
-                }
+                },
+                signal: options.signal || AbortSignal.timeout(15000)
             });
         }
 
         return response;
     } catch (error) {
-        console.error('SLS fetch error:', error);
+        // Enhance error messages for common failure modes
+        if (error.name === 'TimeoutError' || error.name === 'AbortError') {
+            console.error('[slsFetch] Request timed out:', url);
+            throw new Error('Request timed out - SDK Local Service may be offline');
+        }
+        if (error.message?.includes('Failed to fetch') || error.message?.includes('NetworkError')) {
+            console.error('[slsFetch] Network error:', url);
+            throw new Error('Cannot connect to SDK Local Service - check if it\'s running');
+        }
+        console.error('[slsFetch] Error:', error);
         throw error;
     }
 }
@@ -815,7 +830,7 @@ Object.defineProperty(window, 'activeSessionId', {
     }
 });
 
-let activeSessionId = null; // Keep for backward compatibility (will be shadowed by window property)
+// activeSessionId is managed via tabSessionManager (accessed through window.activeSessionId property above)
 
 // ========================================
 // SECTION 5: CLOUD SHARING STATE
@@ -825,8 +840,34 @@ let cloudConnected = false;
 let cloudAgentName = null;
 
 // File System Sharing (for proxying file system requests through owner)
-const pendingFileSystemRequests = new Map(); // requestId → resolve callback
+const pendingFileSystemRequests = new Map(); // requestId → { resolve, timer }
 let fsRequestIdCounter = 0;
+const FS_REQUEST_TIMEOUT_MS = 30000; // 30 seconds
+
+/**
+ * Create a pending file system request with automatic timeout cleanup
+ * @param {string} requestId - Unique request identifier
+ * @returns {Promise} - Promise that resolves with the response data
+ */
+function createPendingFsRequest(requestId) {
+    return new Promise((resolve, reject) => {
+        const timer = setTimeout(() => {
+            if (pendingFileSystemRequests.has(requestId)) {
+                pendingFileSystemRequests.delete(requestId);
+                reject(new Error('File system request timed out after 30 seconds'));
+            }
+        }, FS_REQUEST_TIMEOUT_MS);
+
+        pendingFileSystemRequests.set(requestId, {
+            resolve: (data) => {
+                clearTimeout(timer);
+                pendingFileSystemRequests.delete(requestId);
+                resolve(data);
+            },
+            timer
+        });
+    });
+}
 
 // ========================================
 // Tab Persistence Functions
@@ -880,6 +921,10 @@ function untrackOpenTab(sessionId) {
         const openTabs = getOpenTabs();
         const filtered = openTabs.filter(id => id !== sessionId);
         localStorage.setItem('terminal_open_tabs', JSON.stringify(filtered));
+        // If this was the last active tab, clear that key too
+        if (localStorage.getItem('terminal_last_active_tab') === sessionId) {
+            localStorage.removeItem('terminal_last_active_tab');
+        }
     } catch (e) {
         console.warn('[TabPersistence] Failed to untrack tab:', e);
     }
@@ -934,7 +979,7 @@ function getTabOrder(sessionId) {
  * Tab Persistence Strategy:
  * - Tabs ALWAYS persist in DB (even after SLS restart or SSH disconnect)
  * - Page refresh: Restore tabs that were open before refresh (from localStorage)
- * - SLS restart: Restore ALL tabs with "Resume" button for disconnected ones
+ * - SLS restart / late SLS: Restore ALL tabs; skip any that are already in DOM
  * - Tabs only disappear when user explicitly closes them (clicks X)
  */
 async function restoreSavedTabs() {
@@ -967,7 +1012,6 @@ async function restoreSavedTabs() {
             console.log('[TabPersistence] Page refresh detected - restoring', toRestore.length, 'previously open tabs');
         } else {
             // First load or SLS restart: Restore ALL active sessions
-            // (disconnected sessions will show Resume button)
             toRestore = savedSessions.filter(s => s.status === 'active' && s.autoRestore !== false);
             console.log('[TabPersistence] First load - restoring', toRestore.length, 'active sessions from DB');
         }
@@ -975,25 +1019,43 @@ async function restoreSavedTabs() {
         // Sort by tab order
         toRestore.sort((a, b) => (a.tabOrder || 0) - (b.tabOrder || 0));
 
-        for (const dbSession of toRestore) {
+        // ✅ DUPLICATE GUARD: Skip sessions that already have a tab in the DOM.
+        // This handles the case where:
+        //   1. SLS was offline at page load → restoreSavedTabs() silently failed
+        //   2. SLS came online later → sls-online fires → restoreSavedTabs() called again
+        //   3. Some tabs may have been partially created; skip those already present.
+        const toActuallyRestore = toRestore.filter(s => {
+            const alreadyInDom = !!document.getElementById(`tab-${s.sessionId}`);
+            const alreadyInMap = sessions.has(s.sessionId);
+            if (alreadyInDom || alreadyInMap) {
+                console.log(`[TabPersistence] Skipping already-open session: ${s.sessionId}`);
+                return false;
+            }
+            return true;
+        });
+
+        console.log(`[TabPersistence] Restoring ${toActuallyRestore.length} of ${toRestore.length} sessions (${toRestore.length - toActuallyRestore.length} already open)`);
+
+        for (const dbSession of toActuallyRestore) {
             await restoreTab(dbSession);
         }
 
-        // After all tabs are restored, switch to the first one to give it focus
-        if (toRestore.length > 0) {
-            const firstSessionId = toRestore[0].sessionId;
-            console.log('[TabPersistence] Switching to first restored tab:', firstSessionId);
-            // Use setTimeout to ensure all tabs are fully rendered
-            setTimeout(() => {
-                switchToSession(firstSessionId);
-            }, 200);
+        // After all tabs are restored, switch to the last active tab (or first as fallback)
+        if (toActuallyRestore.length > 0) {
+            const lastActiveId = localStorage.getItem('terminal_last_active_tab');
+            const restoredIds = toActuallyRestore.map(s => s.sessionId);
+            const targetId = (lastActiveId && restoredIds.includes(lastActiveId))
+                ? lastActiveId
+                : toActuallyRestore[0].sessionId;
+            console.log('[TabPersistence] Switching to last active tab:', targetId);
+            setTimeout(() => switchToSession(targetId), 200);
         }
 
         updateEmptyState();
         updateSessionCount();
 
     } catch (error) {
-        console.error('[TabPersistence] Failed to restore tabs:', error);
+        console.warn('[TabPersistence] Failed to restore tabs:', error.message || 'Unknown error');
     }
 }
 
@@ -1071,7 +1133,7 @@ async function restoreTab(dbSession) {
             connected: false,
             fitAddon: null,  // Will be set by initTerminal
             isShared: false,  // Runtime only - managed by TerminalSharing
-            owner: null  // Runtime only - set when receiving shared tabs from cloud
+            owner: null       // Runtime only - set when receiving shared tabs from cloud
         });
 
         // Initialize terminal (this will update the session with terminal and fitAddon)
@@ -1404,8 +1466,13 @@ async function loadSshConnections() {
     }
 }
 
-async function refreshConnections() {
-    const container = document.getElementById('sessionList');
+/**
+ * Render the sidebar session list (Quick Actions + SSH Connections).
+ * Shared between refreshConnections() and the sls-online event handler so
+ * the sls-online path never calls checkMlsHealth() again (avoids a loop).
+ */
+async function _renderSessionList(container) {
+    if (!container) return;
     const connections = await loadSshConnections();
 
     let html = `
@@ -1461,6 +1528,24 @@ async function refreshConnections() {
     }
 
     container.innerHTML = html;
+}
+
+/**
+ * Refresh connections sidebar.
+ * Always fires a background health check so that if SLS just came online,
+ * the sls-online event triggers tab restore automatically.
+ * Does NOT await the health check — sidebar renders immediately.
+ */
+async function refreshConnections() {
+    console.log('[Refresh] Refreshing connections sidebar + triggering health check...');
+
+    // Fire health check in background — no await.
+    // If SLS just came online this fires sls-online → restoreSavedTabs + _renderSessionList.
+    checkMlsHealth(true).catch(() => {});
+
+    // Reload sidebar immediately (returns empty if SLS offline, that's fine)
+    const container = document.getElementById('sessionList');
+    await _renderSessionList(container);
 }
 
 function escapeHtml(str) {
@@ -1687,14 +1772,16 @@ function updateStatusBar() {
     if (statusActive && activeSessionId) {
         const session = sessions.get(activeSessionId);
         if (session) {
-            // Format: user@host or session name
+            // Show tab name + type detail (e.g. "Local CMD  |  C:\Users\admin>" or "SSH  user@host")
             let activeInfo = session.name || 'Unknown';
 
-            // For SSH sessions, show user@host
+            // For SSH sessions, append user@host
             if (session.type === 'ssh' && session.config) {
                 const user = session.config.username || 'user';
                 const host = session.config.host || 'unknown';
-                activeInfo = `${user}@${host}`;
+                activeInfo = `${session.name}  ·  ${user}@${host}`;
+            } else if (session.type === 'remote' && session.owner) {
+                activeInfo = `${session.name}  ·  via ${session.owner}`;
             }
 
             statusActive.textContent = activeInfo;
@@ -1973,10 +2060,18 @@ function createTerminalPanel(sessionId) {
 // ========================================
 // Create Local Terminal
 // ========================================
+const MAX_SESSIONS = 20; // Maximum concurrent terminal sessions
+
 async function createLocalTerminal(shell = 'cmd') {
     if (TEST_MODE_NO_SLS) {
         showToast('warning', '🧪 Test Mode', 'Local terminals disabled in test mode. Connect to cloud to view shared sessions.');
         console.warn('🧪 TEST MODE: Local terminal creation disabled');
+        return;
+    }
+
+    // Guard against too many sessions
+    if (sessions.size >= MAX_SESSIONS) {
+        showToast('warning', 'Session Limit', `Maximum ${MAX_SESSIONS} concurrent sessions reached. Close some sessions first.`);
         return;
     }
 
@@ -2078,6 +2173,12 @@ async function connectToSsh(connectionId, name, host, port, username) {
         return;
     }
 
+    // Guard against too many sessions
+    if (sessions.size >= MAX_SESSIONS) {
+        showToast('warning', 'Session Limit', `Maximum ${MAX_SESSIONS} concurrent sessions reached. Close some sessions first.`);
+        return;
+    }
+
     // Generate temporary session ID for UI
     const tempSessionId = 'ssh-temp-' + Date.now();
     const displayName = `${name} (${host})`;
@@ -2114,7 +2215,8 @@ async function connectToSsh(connectionId, name, host, port, username) {
         const response = await fetch(`${MLS_URL}/terminal/create`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ type: 'ssh', connectionId })
+            body: JSON.stringify({ type: 'ssh', connectionId }),
+            signal: AbortSignal.timeout(15000) // 15 second timeout for SSH connections
         });
 
         const result = await response.json();
@@ -2217,13 +2319,21 @@ async function connectToSsh(connectionId, name, host, port, username) {
     } catch (error) {
         console.error('[SSH] Connection error:', error);
 
+        // Provide helpful error messages
+        let errorMsg = error.message || 'Failed to connect to SSH server';
+        if (error.name === 'TimeoutError' || error.name === 'AbortError') {
+            errorMsg = 'Connection timed out - SSH server may be unreachable';
+        } else if (errorMsg.includes('Failed to fetch') || errorMsg.includes('NetworkError')) {
+            errorMsg = 'Cannot reach SDK Local Service - check if it\'s running';
+        }
+
         // Check if temp session still exists (might have been closed)
         const stillExists = sessions.has(tempSessionId);
 
         if (stillExists) {
             // Session exists, show error and clean up
             closeSession(tempSessionId);
-            showToast('error', 'Connection Failed', error.message || 'Failed to connect to SSH server');
+            showToast('error', 'Connection Failed', errorMsg);
         } else {
             // Session was already closed, just log it
             console.log('[SSH] Session was closed during connection attempt');
@@ -2393,6 +2503,8 @@ function initTerminal(sessionId) {
         }
     };
     window.addEventListener('resize', resizeHandler);
+    // Store handler on session for cleanup on close
+    if (session) session._resizeHandler = resizeHandler;
 
     // Welcome message - simple and clean
     terminal.writeln('\x1b[1;33mSDK Local Service\x1b[0m - Connecting...');
@@ -2456,8 +2568,9 @@ async function handleDisconnectionBanner(sessionId, session) {
  * Handles data cleaning, filtering, and cloud broadcasting
  * @param {Object} session - Session object with terminal and config
  * @param {string} rawData - Raw data from WebSocket
+ * @param {string} sessionId - Terminal session ID (for cloud broadcasting)
  */
-function writeTerminalData(session, rawData) {
+function writeTerminalData(session, rawData, sessionId) {
     try {
         // Filter out invalid control characters that cause xterm parsing errors
         // Remove DEL (127/0x7F) and other problematic control chars
@@ -2474,7 +2587,7 @@ function writeTerminalData(session, rawData) {
 
         // ✅ If this terminal is shared, broadcast the output to other agents
         if (session.isShared && cloudConnected && terminalSharing) {
-            const sent = terminalSharing.sendOutputFromSession(session.terminal.sessionId || sessionId, rawData);
+            const sent = terminalSharing.sendOutputFromSession(sessionId, rawData);
             if (sent) {
                 console.log('[Terminal] Broadcasted output, bytes:', rawData.length);
             }
@@ -2485,7 +2598,7 @@ function writeTerminalData(session, rawData) {
 }
 
 /**
- * Handle WebSocket close event with session alive check
+ * Handle WebSocket close event with session alive check and auto-reconnect
  * Provides appropriate user feedback based on close reason
  * @param {Object} event - WebSocket CloseEvent
  * @param {string} sessionId - Terminal session ID
@@ -2496,33 +2609,83 @@ async function handleWebSocketClose(event, sessionId, session) {
     console.log('[WS] Close code:', event.code, 'Reason:', event.reason || 'No reason provided');
     console.log('[WS] Was clean close:', event.wasClean);
 
+    // ✅ If the session is being intentionally closed (user clicked X), ignore this event entirely.
+    // closeSession() sets _closing=true before calling dataSender.close() to signal this.
+    if (session._closing) {
+        console.log('[WS] Intentional close - skipping reconnect logic for session:', sessionId);
+        return;
+    }
+
     session.connected = false;
     session.dataSender = null;
     updateTab(sessionId, true);
 
-    // Provide context-specific messages based on close code
-    if (!event.wasClean) {
-        console.warn('[WS] Abnormal close - possible SLS crash or network issue');
+    // Common WebSocket close codes
+    const closeReasons = {
+        1000: 'Normal closure',
+        1001: 'Going away (SLS shutdown or navigation)',
+        1006: 'Abnormal closure (no close frame - SLS offline?)',
+        1011: 'Server error',
+        1012: 'Service restart',
+        1013: 'Try again later',
+        1014: 'Bad gateway',
+        1015: 'TLS handshake failure'
+    };
 
-        // Common WebSocket close codes
-        const closeReasons = {
-            1000: 'Normal closure',
-            1001: 'Going away (SLS shutdown or navigation)',
-            1006: 'Abnormal closure (no close frame - SLS offline?)',
-            1011: 'Server error',
-            1012: 'Service restart',
-            1013: 'Try again later',
-            1014: 'Bad gateway',
-            1015: 'TLS handshake failure'
-        };
+    const reason = closeReasons[event.code] || `Unknown (code ${event.code})`;
+    console.log('[WS] Close reason:', reason);
 
-        const reason = closeReasons[event.code] || `Unknown (code ${event.code})`;
-        console.log('[WS] Close reason:', reason);
+    // Auto-reconnect for recoverable close codes
+    const autoReconnectCodes = [1006, 1012, 1013];
+    const shouldAutoReconnect = autoReconnectCodes.includes(event.code) || !event.wasClean;
 
-        // If code 1006, it's likely SLS went offline
-        if (event.code === 1006) {
-            console.error('[WS] Code 1006 - SLS likely went offline or crashed');
+    if (shouldAutoReconnect && sessions.has(sessionId)) {
+        // Initialize retry state if not present
+        if (!session._reconnectAttempts) session._reconnectAttempts = 0;
+
+        const MAX_RECONNECT_ATTEMPTS = 5;
+        const BASE_DELAY = 1000; // 1 second
+        const MAX_DELAY = 30000; // 30 seconds
+
+        if (session._reconnectAttempts < MAX_RECONNECT_ATTEMPTS) {
+            session._reconnectAttempts++;
+            const delay = Math.min(BASE_DELAY * Math.pow(2, session._reconnectAttempts - 1), MAX_DELAY);
+
+            console.log(`[WS] Auto-reconnect attempt ${session._reconnectAttempts}/${MAX_RECONNECT_ATTEMPTS} in ${delay}ms`);
+
+            session.terminal?.writeln('');
+            session.terminal?.writeln(`\x1b[33m⟳ Reconnecting (${session._reconnectAttempts}/${MAX_RECONNECT_ATTEMPTS})...\x1b[0m`);
+
+            session._reconnectTimer = setTimeout(async () => {
+                // Check if session still exists (user may have closed tab)
+                if (!sessions.has(sessionId)) {
+                    console.log('[WS] Session closed during reconnect wait, canceling');
+                    return;
+                }
+
+                try {
+                    const alive = await checkSessionAlive(sessionId);
+                    if (alive) {
+                        console.log('[WS] Session alive, reconnecting WebSocket...');
+                        connectWebSocket(sessionId);
+                        // Reset retry count on successful reconnection (reset happens in ws.onopen)
+                    } else {
+                        // Session dead on backend - try to recreate
+                        console.log('[WS] Session dead, attempting full reconnect...');
+                        reconnectSession(sessionId);
+                    }
+                } catch (err) {
+                    console.error('[WS] Auto-reconnect check failed:', err);
+                    // Will be retried by the next handleWebSocketClose if it fails again
+                }
+            }, delay);
+
+            return; // Don't show reconnect overlay yet during auto-reconnect
         }
+
+        // Max attempts reached - fall through to manual reconnect
+        console.warn(`[WS] Max auto-reconnect attempts (${MAX_RECONNECT_ATTEMPTS}) reached`);
+        session._reconnectAttempts = 0; // Reset for future manual reconnect
     }
 
     // Check if session is still alive before showing reconnect overlay
@@ -2531,18 +2694,14 @@ async function handleWebSocketClose(event, sessionId, session) {
         console.log('[WS] Session alive check on close:', alive);
 
         if (!alive) {
-            // Session is truly dead - show reconnect UI
             showReconnectOverlay(sessionId);
             showToast('warning', 'Session Disconnected', 'Connection lost. Press R to reconnect.');
         } else {
-            // Session is alive but WebSocket closed (e.g., SSH channel disconnected)
-            // Still show reconnect overlay so user can re-establish connection
             showReconnectOverlay(sessionId);
             showToast('warning', 'Connection Closed', 'WebSocket closed. Press R to reconnect.');
         }
     } catch (err) {
         console.error('[WS] Failed to check session alive:', err);
-        // On error, show reconnect overlay to be safe
         showReconnectOverlay(sessionId);
         showToast('warning', 'Connection Closed', 'Press R to reconnect.');
     }
@@ -2589,6 +2748,7 @@ function connectWebSocket(sessionId) {
         clearTimeout(connectionTimeout);
         
         session.connected = true;
+        session._reconnectAttempts = 0; // Reset auto-reconnect counter on success
 
         // Wrap WebSocket in TerminalDataSender for unified interface
         session.dataSender = createTerminalDataSender('websocket', { webSocket: ws });
@@ -2641,15 +2801,10 @@ function connectWebSocket(sessionId) {
                 }
             }
         }, 200);
-
-        // Send Enter key to trigger prompt display (for restored sessions)
-        // This helps show the shell prompt when reconnecting to an alive session
-        setTimeout(() => {
-            if (session.connected && session.dataSender && session.dataSender.isReady) {
-                console.log('[WS] Sending Enter key to trigger prompt for session:', sessionId);
-                session.dataSender.send('\r');
-            }
-        }, 400); // Send after resize completes
+        // NOTE: We intentionally do NOT send Enter (\r) on connect/reconnect.
+        // Sending \r would submit any stale input the backend buffer had from before
+        // a page refresh (e.g. user typed "di", refreshed, we'd send "di\n" accidentally).
+        // The backend clears its input buffer on WebSocket reconnect instead.
     };
 
     // WebSocket message handler - processes all terminal output
@@ -2687,7 +2842,7 @@ function connectWebSocket(sessionId) {
         }
 
         // Process and display terminal data
-        writeTerminalData(session, rawData);
+        writeTerminalData(session, rawData, sessionId);
     };
 
     ws.onerror = (error) => {
@@ -2712,7 +2867,8 @@ function connectWebSocket(sessionId) {
         await handleWebSocketClose(event, sessionId, session);
     };
 
-    session.dataSender = ws;
+    // Note: dataSender is set properly in ws.onopen via createTerminalDataSender
+    // Do NOT assign raw ws here - it bypasses the isReady guard
 }
 
 // ========================================
@@ -2752,7 +2908,9 @@ function hideReconnectOverlay(sessionId) {
  */
 async function checkSessionAlive(sessionId) {
     try {
-        const response = await fetch(`${MLS_URL}/terminal/${sessionId}`);
+        const response = await fetch(`${MLS_URL}/terminal/${sessionId}`, {
+            signal: AbortSignal.timeout(5000) // 5 second timeout
+        });
         return response.ok; // 200 = alive, 404 = not found
     } catch (error) {
         console.error('[CheckAlive] Failed to check session status:', error);
@@ -2764,6 +2922,13 @@ async function reconnectSession(sessionId) {
     const session = sessions.get(sessionId);
     if (!session) return;
 
+    // Reset auto-reconnect counter on manual reconnect
+    session._reconnectAttempts = 0;
+    if (session._reconnectTimer) {
+        clearTimeout(session._reconnectTimer);
+        session._reconnectTimer = null;
+    }
+
     showToast('info', 'Reconnecting...', `Reconnecting ${session.name}`);
     hideReconnectOverlay(sessionId);
 
@@ -2774,7 +2939,9 @@ async function reconnectSession(sessionId) {
 
     try {
         // First, check if backend session still exists
-        const checkResponse = await fetch(`${MLS_URL}/terminal/${sessionId}`);
+        const checkResponse = await fetch(`${MLS_URL}/terminal/${sessionId}`, {
+            signal: AbortSignal.timeout(5000) // 5 second timeout
+        });
 
         if (checkResponse.ok) {
             // Session exists, just reconnect WebSocket
@@ -2840,11 +3007,24 @@ async function reconnectSession(sessionId) {
 
     } catch (error) {
         console.error('[Reconnect] Failed:', error);
+
+        let errorMsg = error.message || 'Unknown error';
+        if (error.name === 'TimeoutError' || error.name === 'AbortError') {
+            errorMsg = 'Connection timed out - SDK Local Service may be offline';
+        } else if (errorMsg.includes('Failed to fetch') || errorMsg.includes('NetworkError')) {
+            errorMsg = 'Cannot connect to SDK Local Service';
+        }
+
         session.terminal.clear();
         session.terminal.writeln('\x1b[31m✖ Reconnect failed\x1b[0m');
-        session.terminal.writeln(`\x1b[33m${error.message}\x1b[0m`);
+        session.terminal.writeln(`\x1b[33m${errorMsg}\x1b[0m`);
+        session.terminal.writeln('');
+        session.terminal.writeln('\x1b[36mTroubleshooting:\x1b[0m');
+        session.terminal.writeln('  • Check if SDK Local Service is running');
+        session.terminal.writeln(`  • Verify it's listening on localhost:${SLS_PORT}`);
+        session.terminal.writeln('');
         session.terminal.writeln('\x1b[33mPress R to retry...\x1b[0m');
-        showToast('error', 'Reconnect Failed', error.message);
+        showToast('error', 'Reconnect Failed', errorMsg);
         showReconnectOverlay(sessionId);
     }
 }
@@ -2873,6 +3053,7 @@ async function closeSession(sessionId) {
         // Close dataSender (only for local/SSH sessions, not remote shared)
         if (session.dataSender) {
             console.log(`[Close] Closing dataSender for session: ${sessionId}`);
+            session._closing = true; // ✅ Flag so ws.onclose knows this is intentional
             session.dataSender.close();
         } else {
             console.log(`[Close] No dataSender to close for session: ${sessionId}`);
@@ -2906,6 +3087,24 @@ async function closeSession(sessionId) {
     if (session._cleanupFunctions) {
         session._cleanupFunctions.forEach(cleanup => cleanup());
         session._cleanupFunctions = [];
+    }
+
+    // ✅ Clean up resize handler
+    if (session._resizeHandler) {
+        window.removeEventListener('resize', session._resizeHandler);
+        session._resizeHandler = null;
+    }
+
+    // ✅ Clean up typing timeout
+    if (session._typingTimeout) {
+        clearTimeout(session._typingTimeout);
+        session._typingTimeout = null;
+    }
+
+    // ✅ Clean up auto-reconnect timer
+    if (session._reconnectTimer) {
+        clearTimeout(session._reconnectTimer);
+        session._reconnectTimer = null;
     }
 
     // Remove UI elements
@@ -3929,8 +4128,9 @@ function promptForAgentName(channelName) {
                     document.body.removeChild(overlay);
                 }
             }, 200);
-            // Clear the hash to avoid re-triggering
-            window.history.replaceState(null, '', window.location.pathname + window.location.search);
+            // NOTE: Do NOT clear the hash — preserve the shared link URL so the
+            // user can copy/reshare it, and so page refresh reconnects to the same channel.
+            // window.history.replaceState(null, '', window.location.pathname + window.location.search);
         };
 
         const confirm = () => {
@@ -4676,10 +4876,9 @@ async function connectToCloud() {
             console.log('[FileSystem] Received response from:', sourceAgent, 'requestId:', requestId);
 
             // Resolve the pending promise for this request
-            const callback = pendingFileSystemRequests.get(requestId);
-            if (callback) {
-                callback(data);
-                pendingFileSystemRequests.delete(requestId);
+            const pending = pendingFileSystemRequests.get(requestId);
+            if (pending) {
+                pending.resolve(data); // This also clears the timeout timer
             } else {
                 console.warn('[FileSystem] No pending callback for requestId:', requestId);
             }
@@ -4784,6 +4983,69 @@ async function connectToCloud() {
                 closeSession(sessionId);
             }
             updateSharedTerminalsList();
+        };
+
+        // Called when cloud connection is lost unexpectedly
+        terminalSharing.onDisconnect = (reason) => {
+            console.warn('[Terminal] Cloud connection lost:', reason);
+
+            cloudConnected = false;
+
+            // Update UI to show disconnected state
+            const statusDot = document.getElementById('cloudStatus');
+            const statusText = document.getElementById('cloudStatusText');
+            if (statusDot) statusDot.className = 'status-dot offline';
+            if (statusText) statusText.textContent = 'Disconnected (connection lost)';
+
+            const connectBtn = document.getElementById('cloudConnectBtn');
+            if (connectBtn) {
+                connectBtn.textContent = 'Reconnect';
+                connectBtn.classList.remove('active');
+                connectBtn.disabled = false;
+            }
+
+            // Reset toolbar button
+            const messagingBtn = document.getElementById('messagingToolbarBtn');
+            if (messagingBtn) {
+                messagingBtn.classList.remove('active');
+            }
+
+            // Mark all remote sessions as disconnected
+            sessions.forEach((session, sid) => {
+                if (session.owner) {
+                    session.terminal?.writeln('');
+                    session.terminal?.writeln('\x1b[1;31m⚠ Cloud connection lost - owner unreachable\x1b[0m');
+                }
+            });
+
+            // Unshare our local sessions (flags only, connection is already gone)
+            sessions.forEach((session, sid) => {
+                if (session.isShared && !session.owner) {
+                    session.isShared = false;
+                    updateTabSharedIndicator(sid, false);
+                }
+            });
+
+            disableSharingTab();
+            updateAgentsList();
+            updateSharedTerminalsList();
+            updateMySharesList();
+
+            showToast('error', '⚠️ Cloud Disconnected',
+                'Connection to Messaging Platform lost. Click Reconnect to try again.', 8000);
+
+            // Auto-reconnect attempt after 5 seconds
+            setTimeout(async () => {
+                if (!cloudConnected && terminalSharing && channelName && channelPassword) {
+                    console.log('[Terminal] Attempting cloud auto-reconnect...');
+                    showToast('info', '🔄 Reconnecting...', 'Attempting to reconnect to cloud...');
+                    try {
+                        await connectToCloud();
+                    } catch (e) {
+                        console.error('[Terminal] Cloud auto-reconnect failed:', e);
+                    }
+                }
+            }, 5000);
         };
 
         await terminalSharing.connect({
@@ -4943,6 +5205,12 @@ function disconnectFromCloud() {
     updateAgentsList();
     updateSharedTerminalsList();
     saveCloudConfig(false);
+
+    // Clear the shared link hash from URL so the auth credentials are not exposed
+    if (window.location.hash) {
+        window.history.replaceState(null, '', window.location.pathname + window.location.search);
+    }
+
     showToast('info', 'Disconnected', 'Disconnected from Messaging Platform');
 }
 
@@ -5098,6 +5366,11 @@ function createSharedTerminalSession(sessionId, sessionInfo, ownerAgent) {
             if (session.fitAddon) session.fitAddon.fit();
         }, 100);
     }
+
+    // Remote shared sessions connect via cloud messaging (not WebSocket),
+    // so the "Connecting..." overlay must be hidden immediately — it will never
+    // be hidden by ws.onopen since there is no WebSocket for these sessions.
+    hideConnectingOverlay(sessionId);
 
     updateEmptyState();
     updateSessionCount();
@@ -6678,20 +6951,66 @@ window.addEventListener('load', async () => {
     // ========================================
     // SLS Event Listeners Setup
     // ========================================
+    // Guard: prevents sls-online → refreshConnections → checkMlsHealth → sls-online loop
+    let _slsOnlineRestoring = false;
+
     // Listen for SLS online event
     window.addEventListener('sls-online', (event) => {
         console.log('[SLS Event] 🟢 SLS is now ONLINE', event.detail);
-        // Custom logic when SLS comes online
-        // All UI elements are already updated by updateSlsDependentButtons()
-        // Add any additional custom logic here if needed
+
+        // Re-enable terminal creation buttons
+        updateSlsDependentButtons(true);
+
+        // When SLS just came online (from offline/null), restore tabs that weren't
+        // loaded yet and reload the sidebar. Guard against re-entrant calls.
+        const { previousState } = event.detail;
+        if (previousState !== 'online' && !_slsOnlineRestoring) {
+            _slsOnlineRestoring = true;
+            console.log('[SLS Event] SLS came online from:', previousState, '— restoring tabs + sidebar');
+
+            restoreSavedTabs()
+                .then(async () => {
+                    checkTabOverflow();
+                    updateEmptyState();
+                    // Reload sidebar SSH list directly — do NOT call refreshConnections()
+                    // which would call checkMlsHealth() again → infinite loop
+                    const container = document.getElementById('sessionList');
+                    await _renderSessionList(container);
+                })
+                .catch(e => console.error('[SLS Event] Restore failed:', e))
+                .finally(() => { _slsOnlineRestoring = false; });
+        }
+
+        // Notify disconnected sessions that SLS is back
+        sessions.forEach((session, sessionId) => {
+            if (!session.connected && session.type !== 'remote') {
+                if (session.terminal) {
+                    session.terminal.writeln('');
+                    session.terminal.writeln('\x1b[1;32m✓ SDK Local Service is back online\x1b[0m');
+                    session.terminal.writeln('\x1b[33mPress R to reconnect this session\x1b[0m');
+                }
+            }
+        });
     });
 
     // Listen for SLS offline event
     window.addEventListener('sls-offline', (event) => {
         console.log('[SLS Event] 🔴 SLS is now OFFLINE', event.detail);
-        // Custom logic when SLS goes offline
-        // All UI elements are already updated by updateSlsDependentButtons()
-        // Add any additional custom logic here if needed
+
+        // Disable terminal creation buttons
+        updateSlsDependentButtons(false);
+
+        // Mark all local/SSH sessions as potentially disconnected
+        sessions.forEach((session, sessionId) => {
+            if (session.connected && session.type !== 'remote') {
+                // Don't immediately disconnect - WebSocket close handler will do that
+                // But warn the user
+                if (session.terminal) {
+                    session.terminal.writeln('');
+                    session.terminal.writeln('\x1b[1;33m⚠ SDK Local Service went offline\x1b[0m');
+                }
+            }
+        });
     });
 
     console.log('[SLS] Event-based status system initialized');
@@ -6720,33 +7039,47 @@ window.addEventListener('resize', () => {
 // ========================================
 // CLEANUP ON PAGE UNLOAD
 // ========================================
-// Note: Cloud connection cleanup is handled automatically by web-agent.js
-// We only need to clean up application-specific resources here
-window.addEventListener('beforeunload', () => {
-    // Close File Explorer (application-specific resource)
+// Warn before closing page and cleanup active sessions
+window.addEventListener('beforeunload', (e) => {
+    // Clean up File Explorer
     if (fileExplorer && fileExplorer.isConnected) {
         try {
             fileExplorer.close();
-        } catch(e) {
-            console.error('[Cleanup] Error closing File Explorer:', e);
+        } catch(err) {
+            console.error('[Cleanup] Error closing File Explorer:', err);
         }
     }
 
-    // Note: terminalSharing (cloud connection) is automatically disconnected by web-agent.js
-    // No need to manually disconnect here!
-
-    // Close all terminal dataSender connections (WebSocket connections to local SLS)
+    // Clean up all terminal sessions
     sessions.forEach((session) => {
+        // Clear any pending timers
+        if (session._reconnectTimer) clearTimeout(session._reconnectTimer);
+        if (session._typingTimeout) clearTimeout(session._typingTimeout);
+        if (session._resizeHandler) window.removeEventListener('resize', session._resizeHandler);
+        // Close dataSender connections
         if (session.dataSender) {
             try {
                 session.dataSender.close();
-            } catch(e) {
-                console.error('[Cleanup] Error closing terminal session:', e);
+            } catch(err) {
+                console.error('[Cleanup] Error closing terminal session:', err);
             }
         }
     });
 
+    // Clean up pending file system requests
+    pendingFileSystemRequests.forEach((pending) => {
+        if (pending.timer) clearTimeout(pending.timer);
+    });
+    pendingFileSystemRequests.clear();
+
     console.log('[Terminal] Cleanup complete');
+
+    // Warn user about active sessions
+    if (sessions.size > 0) {
+        const message = `You have ${sessions.size} active session(s). Are you sure you want to leave?`;
+        e.returnValue = message;
+        return message;
+    }
 });
 
 // ========================================
@@ -7121,14 +7454,14 @@ async function importConfiguration() {
                     });
 
                     if (response.ok) {
-                        log.info('[Import] Successfully imported SSH connection:', conn.name);
+                        console.log('[Import] Successfully imported SSH connection:', conn.name);
                     } else {
                         const error = await response.text();
-                        log.warn('[Import] Failed to import SSH connection:', conn.name, error);
+                        console.warn('[Import] Failed to import SSH connection:', conn.name, error);
                         // Continue with other connections even if one fails
                     }
                 } catch (error) {
-                    log.error('[Import] Error importing SSH connection:', conn.name, error);
+                    console.error('[Import] Error importing SSH connection:', conn.name, error);
                 }
             }
         }
@@ -7334,12 +7667,5 @@ if (typeof window !== 'undefined') {
     window.addEventListener('DOMContentLoaded', initMobileFeatures);
 }
 
-// Warn before closing page with active sessions
-window.addEventListener('beforeunload', (e) => {
-    if (sessions.size > 0) {
-        const message = `You have ${sessions.size} active session(s). Are you sure you want to leave?`;
-        e.returnValue = message;
-        return message;
-    }
-});
+// Note: beforeunload handler is already registered in the cleanup section above
 

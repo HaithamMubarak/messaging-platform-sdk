@@ -135,12 +135,12 @@
     display: flex;
     flex: 1;
     align-items: center;
-    gap: 4px;
-    padding: 4px 8px;
+    gap: 2px;
+    padding: 2px 6px;
     overflow-x: auto;
     overflow-y: hidden;
     scrollbar-width: thin;
-    min-height: 40px;
+    min-height: 28px;
     background: var(--editor-header-bg);
 }
 
@@ -153,20 +153,21 @@
     border-radius: 2px;
 }
 
-/* Individual Tab */
+/* Individual Tab — single line, compact */
 .file-editor-tab {
     display: flex;
     align-items: center;
-    gap: 8px;
-    padding: 8px 12px;
+    gap: 6px;
+    padding: 2px 10px;
     background: var(--editor-tab-bg);
     border: 1px solid var(--editor-border);
-    border-radius: 6px;
+    border-radius: 4px;
     cursor: pointer;
-    transition: all 0.2s;
+    transition: all 0.15s;
     flex-shrink: 0;
-    max-width: 200px;
-    min-height: 48px;
+    max-width: 180px;
+    min-height: 24px;
+    /* height: 24px; */
     color: var(--editor-text);
 }
 
@@ -181,51 +182,52 @@
     color: white;
 }
 
-/* Two-line tab content container */
+/* Two-line tab content container — no longer used, tabs are single-line now */
 .file-editor-tab-content {
-    display: flex;
-    flex-direction: column;
-    gap: 2px;
-    overflow: hidden;
-    flex: 1;
-    min-width: 0;  /* Important for text truncation */
+    display: none;
 }
 
-/* Session name (first line) */
+/* Session name in tab — hidden, moved to footer */
 .file-editor-tab-session {
-    font-size: 10px;
-    opacity: 0.7;
-    font-weight: 600;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    line-height: 1.2;
+    display: none;
 }
 
-.file-editor-tab.active .file-editor-tab-session {
-    opacity: 0.9;
-}
-
-/* File name (second line) */
+/* File name — single line in tab */
 .file-editor-tab-name {
-    font-size: 12px;
+    font-size: 11px;
     font-weight: 500;
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
-    line-height: 1.2;
+    flex: 1;
+    min-width: 0;
+    line-height: 1;
 }
 
 /* Close button */
 .file-editor-tab-close {
-    padding: 2px 6px;
+    padding: 1px 4px;
     border-radius: 3px;
-    font-size: 14px;
-    opacity: 0.6;
-    transition: all 0.2s;
+    font-size: 12px;
+    opacity: 0.5;
+    transition: all 0.15s;
     flex-shrink: 0;
-    align-self: flex-start;
-    margin-top: 2px;
+    line-height: 1;
+}
+
+/* Session name in footer */
+.file-editor-session {
+    font-size: 11px;
+    color: var(--editor-accent);
+    font-weight: 600;
+    opacity: 0.85;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 200px;
+}
+.file-editor-session:empty {
+    display: none;
 }
 
 .file-editor-tab-close:hover {

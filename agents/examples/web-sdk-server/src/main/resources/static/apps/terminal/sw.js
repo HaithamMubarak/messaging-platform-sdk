@@ -3,8 +3,8 @@
  * Enables offline functionality by caching all terminal assets
  */
 
-const CACHE_NAME = 'messaging-platform-shared-terminal-v1.8.3';
-const CACHE_TIMESTAMP = '2026-02-28-lib-reorganized';
+const CACHE_NAME = 'messaging-platform-shared-terminal-v1.9.3';
+const CACHE_TIMESTAMP = '2026-03-03-console-cleanup';
 
 // Files to cache for offline use
 const STATIC_ASSETS = [
@@ -59,14 +59,14 @@ const STATIC_ASSETS = [
     './lib/xterm-addon-fit.js',
 
     // QR Code library
-    '../../lib/qrcode/qrcode.min.js',
+    '../../lib/qrcode.min.js',
 
-    // Web SDK dependencies
-    '../../web-agent.js',
-    '../../UserConnectionBase.js',
-
-    // Web SDK server base (if needed)
-    '../../../',
+    // Web SDK dependencies (must match index.html script tags)
+    '../../js/config-loader.js',
+    '../../generated-web-agent-js/js/web-agent.libs.js',
+    '../../generated-web-agent-js/js/web-agent.js',
+    '../../generated-web-agent-js/js/web-agent.webrtc.js',
+    '../../js/UserConnectionBase.js',
 ];
 
 // Install event - cache all static assets
@@ -125,9 +125,23 @@ self.addEventListener('fetch', (event) => {
         return;
     }
 
-    // Skip API calls to SLS/MLS (localhost:8088)
-    if (url.hostname === 'localhost' && url.port === '8088') {
-        // Let these requests go through to network (SLS service)
+    // Skip API calls to SLS/MLS (any localhost port that's not the web server)
+    // The web server typically runs on 8084, SLS on 8088, but port is configurable
+    if (url.hostname === 'localhost' && url.port && url.port !== self.location.port) {
+        // Let these requests go through to network (SLS service on different port)
+        return;
+    }
+
+    // Also skip known SLS API paths
+    if (url.hostname === 'localhost' && (
+        url.pathname.startsWith('/terminal/') ||
+        url.pathname.startsWith('/filesystem/') ||
+        url.pathname.startsWith('/sftp/') ||
+        url.pathname.startsWith('/health') ||
+        url.pathname.startsWith('/auth/') ||
+        url.pathname.startsWith('/cloud/') ||
+        url.pathname.startsWith('/notes/')
+    )) {
         return;
     }
 
@@ -136,7 +150,33 @@ self.addEventListener('fetch', (event) => {
         return;
     }
 
-    // Strategy: Cache First, falling back to Network
+    // Strategy: Network-first for HTML (always get latest), Cache-first for other static assets
+    const isHtmlRequest = request.mode === 'navigate' || url.pathname.endsWith('.html');
+
+    if (isHtmlRequest) {
+        // Network-first for HTML files - ensures latest version
+        event.respondWith(
+            fetch(request)
+                .then((response) => {
+                    if (response && response.status === 200) {
+                        const responseToCache = response.clone();
+                        caches.open(CACHE_NAME).then((cache) => {
+                            cache.put(request, responseToCache);
+                        });
+                    }
+                    return response;
+                })
+                .catch(() => {
+                    // Network failed - fall back to cache
+                    return caches.match(request).then((cached) => {
+                        return cached || caches.match('./index.html');
+                    });
+                })
+        );
+        return;
+    }
+
+    // Cache-first for static assets (JS, CSS, images, fonts)
     event.respondWith(
         caches.match(request)
             .then((cachedResponse) => {

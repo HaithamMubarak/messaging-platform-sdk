@@ -6,7 +6,7 @@
 
 class NoteEditor {
     constructor(options = {}) {
-        this.mlsUrl = options.mlsUrl || 'http://localhost:8088';
+        this.mlsUrl = options.mlsUrl || (typeof MLS_URL !== 'undefined' ? MLS_URL : 'http://localhost:8088');
         this.currentNoteId = null;
         this.mode = 'popup';  // 'popup' or 'pinned'
         this.isVisible = false;

@@ -597,7 +597,7 @@ body {
 .tab-bar {
     display: flex;
     flex: 1;
-    min-height: 36px;
+    min-height: 28px;
     overflow-x: auto;
     overflow-y: hidden;
     scroll-behavior: smooth;
@@ -610,15 +610,15 @@ body {
 .tab {
     display: flex;
     align-items: center;
-    gap: 8px;
-    padding: 0 16px;
-    height: 36px;
+    gap: 6px;
+    padding: 0 12px;
+    height: 28px;
     background: var(--bg-tab);
     border-right: 1px solid var(--border-color);
     cursor: pointer;
     transition: all 0.15s;
-    min-width: 140px;
-    max-width: 200px;
+    min-width: 120px;
+    max-width: 180px;
     position: relative;
     user-select: none;
     -webkit-user-select: none;
@@ -709,14 +709,14 @@ body {
 }
 
 .tab-add {
-    width: 36px;
-    height: 36px;
+    width: 28px;
+    height: 28px;
     display: flex;
     align-items: center;
     justify-content: center;
     color: var(--text-muted);
     cursor: pointer;
-    font-size: 18px;
+    font-size: 16px;
     transition: all 0.15s;
 }
 
@@ -2196,7 +2196,7 @@ body {
         min-width: 80px;
         max-width: 120px;
         padding: 0 8px;
-        height: 32px;
+        height: 24px;
     }
 
     .tab-icon {

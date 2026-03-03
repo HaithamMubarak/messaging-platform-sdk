@@ -31,8 +31,15 @@ public class TerminalWebSocketHandler extends TextWebSocketHandler {
     private final Map<String, Set<WebSocketSession>> sessionClients = new ConcurrentHashMap<>();
     private final Map<String, Boolean> streamingThreads = new ConcurrentHashMap<>();
 
-    // Track input buffer per session to handle backspace correctly
+    // Per-WebSocket-client input buffer (keyed by wsSession.getId()).
+    // Each browser tab has its own buffer — reconnecting one tab never corrupts another.
     private final Map<String, StringBuilder> inputBuffers = new ConcurrentHashMap<>();
+
+    // Per-terminal-session last partial input (keyed by terminal sessionId).
+    // Tracks what was being typed but not yet submitted (not Enter'd yet).
+    // Sent to a reconnecting client so they see their in-progress text restored.
+    // Cleared on Enter, Ctrl+C, or when the session is deleted.
+    private final Map<String, String> lastSessionInput = new ConcurrentHashMap<>();
 
     @Override
     public void afterConnectionEstablished(WebSocketSession session) throws Exception {
@@ -44,17 +51,27 @@ public class TerminalWebSocketHandler extends TextWebSocketHandler {
             return;
         }
 
-        // Add client to session
         sessionClients.computeIfAbsent(sessionId, k -> ConcurrentHashMap.newKeySet()).add(session);
 
         log.info("WebSocket connected: {} -> terminal session: {}", session.getId(), sessionId);
 
-        // Start streaming output (only once per session)
-        if (streamingThreads.putIfAbsent(sessionId, true) == null) {
+        boolean alreadyStreaming = streamingThreads.putIfAbsent(sessionId, true) != null;
+        if (!alreadyStreaming) {
             log.info("Starting output streaming for session: {}", sessionId);
             startOutputStreaming(sessionId);
         } else {
             log.info("Output streaming already active for session: {}", sessionId);
+
+            // Reconnect replay: send any partial input that was being typed before disconnect.
+            String partial = lastSessionInput.get(sessionId);
+            if (partial != null && !partial.isEmpty()) {
+                log.info("[Reconnect-{}] Replaying partial input ({} chars): {}", sessionId, partial.length(), partial);
+                try {
+                    session.sendMessage(new TextMessage(partial));
+                } catch (Exception e) {
+                    log.warn("[Reconnect-{}] Failed to send partial input replay: {}", sessionId, e.getMessage());
+                }
+            }
         }
     }
 
@@ -73,78 +90,75 @@ public class TerminalWebSocketHandler extends TextWebSocketHandler {
                  TerminalStringUtils.formatForLogging(data));
 
         try {
-            // Check if terminal needs manual echo (Windows CMD in pipe mode)
             boolean needsEcho = terminalService.needsManualEcho(sessionId);
 
-            // Get or create input buffer for this session
-            StringBuilder inputBuffer = inputBuffers.computeIfAbsent(sessionId, k -> new StringBuilder());
+            // Buffer keyed by THIS WebSocket client's ID — not the terminal session ID.
+            // Each browser tab gets its own independent input tracking buffer.
+            StringBuilder inputBuffer = inputBuffers.computeIfAbsent(session.getId(), k -> new StringBuilder());
 
             if (needsEcho) {
                 // Manual echo for Windows CMD
                 if (TerminalStringUtils.isCtrlC(data)) {
-                    // Ctrl+C - interrupt running process
-                    inputBuffer.setLength(0);  // Clear input buffer
+                    inputBuffer.setLength(0);
+                    lastSessionInput.remove(sessionId);   // ← clear cached input
                     broadcast(sessionId, "^C\r\n");
                     terminalService.sendCtrlC(sessionId);
                     return;
                 } else if (TerminalStringUtils.isBackspace(data)) {
-                    // Backspace - only process if we have characters to delete
                     if (inputBuffer.length() > 0) {
                         inputBuffer.deleteCharAt(inputBuffer.length() - 1);
-                        // Echo backspace visually
+                        lastSessionInput.put(sessionId, inputBuffer.toString());  // ← sync
                         broadcast(sessionId, "\b \b");
-                        // Send actual backspace to CMD to delete the character from its input
                         terminalService.sendInput(sessionId, "\b");
                     }
-                    // If buffer is empty, don't do anything (prevents deleting prompt)
-                    return; // Don't send backspace again below
+                    return;
                 } else if (TerminalStringUtils.isNewline(data)) {
-                    // Enter key - log the complete command, then send to CMD
                     String command = inputBuffer.toString().trim();
                     log.info("[COMMAND] Session: {}, Command: '{}'", sessionId, command);
+                    inputBuffer.setLength(0);
+                    lastSessionInput.remove(sessionId);   // ← clear cached input on Enter
 
-                    // Handle CLS command manually for Windows CMD
                     if (TerminalStringUtils.isClearScreenCommand(command)) {
-                        // Clear the buffer
-                        inputBuffer.setLength(0);
-                        // Send ANSI clear screen sequence
                         broadcast(sessionId, TerminalStringUtils.getClearScreenSequence());
-                        // Don't send to CMD - we handled it
+                        terminalService.sendInput(sessionId, "\r\n");
                         return;
                     }
 
-                    // Clear the buffer for next command
-                    inputBuffer.setLength(0);
-                    // Echo newline
                     broadcast(sessionId, "\r\n");
                 } else if (TerminalStringUtils.isTab(data)) {
-                    // Tab - DON'T echo, let CMD handle auto-completion via output
-                    // Don't add to buffer - tab completion is handled by CMD
+                    // Tab — let CMD handle completion, don't update lastSessionInput
                 } else if (TerminalStringUtils.isSinglePrintableChar(data)) {
-                    // Printable ASCII character - add to buffer and echo
                     inputBuffer.append(data);
+                    lastSessionInput.put(sessionId, inputBuffer.toString());  // ← sync
                     broadcast(sessionId, data);
                 }
-                // For all other control characters, don't echo or buffer
             } else {
-                // For non-manual-echo sessions (SSH, PowerShell, Bash), just track for logging
+                // Non-echo sessions (SSH, PowerShell, Bash) — track for logging + replay
                 if (TerminalStringUtils.isCtrlC(data)) {
-                    // Ctrl+C - interrupt running process, clear buffer
                     inputBuffer.setLength(0);
+                    lastSessionInput.remove(sessionId);   // ← clear
                     terminalService.sendCtrlC(sessionId);
                     return;
                 } else if (TerminalStringUtils.isNewline(data)) {
-                    String command = inputBuffer.toString();
+                    String command = inputBuffer.toString().trim();
                     if (!command.isEmpty()) {
                         log.info("[COMMAND] Session: {}, Command: '{}'", sessionId, command);
                     }
                     inputBuffer.setLength(0);
+                    lastSessionInput.remove(sessionId);   // ← clear on Enter
+
+                    if (TerminalStringUtils.isClearScreenCommand(command)) {
+                        broadcast(sessionId, TerminalStringUtils.getClearScreenSequence());
+                        // fall through — let the shell run cls/clear too
+                    }
                 } else if (TerminalStringUtils.isBackspace(data)) {
                     if (inputBuffer.length() > 0) {
                         inputBuffer.deleteCharAt(inputBuffer.length() - 1);
+                        lastSessionInput.put(sessionId, inputBuffer.toString());  // ← sync
                     }
                 } else if (data.length() == 1 && data.charAt(0) >= 32) {
                     inputBuffer.append(data);
+                    lastSessionInput.put(sessionId, inputBuffer.toString());  // ← sync
                 }
             }
 
@@ -187,25 +201,19 @@ public class TerminalWebSocketHandler extends TextWebSocketHandler {
                 if (clients.isEmpty()) {
                     log.info("[WebSocket] All clients disconnected for session: {}", sessionId);
                     log.info("[WebSocket] Session {} will remain active until user explicitly closes tab", sessionId);
-
-                    // Clean up WebSocket resources ONLY - keep terminal session AND streaming thread alive!
                     sessionClients.remove(sessionId);
-                    inputBuffers.remove(sessionId);
-                    // ✅ DO NOT remove streaming thread! It should continue running.
-                    // When user reconnects (e.g., page refresh), the thread will still be there
-                    // and will continue broadcasting to the new WebSocket client.
-
-                    // ✅ DO NOT close terminal session here!
-                    // Sessions are persisted in DB and should only be closed when:
-                    // 1. User explicitly clicks the "X" button on tab (DELETE request)
-                    // 2. SSH connection dies (detected via SSH_DISCONNECTED banner)
-                    // This allows tabs to survive page refresh!
+                    // NOTE: lastSessionInput is intentionally kept alive here.
+                    // If the user refreshes and reconnects, we replay the partial input.
+                    // It is only cleaned up when the terminal session itself is deleted.
 
                 } else {
                     log.info("[WebSocket] Client disconnected, {} client(s) remaining for session: {}", clients.size(), sessionId);
                 }
             }
         }
+
+        // ✅ Clean up THIS client's input buffer (keyed by WS client ID)
+        inputBuffers.remove(session.getId());
 
         log.info("WebSocket disconnected: {}", session.getId());
     }
@@ -260,7 +268,7 @@ public class TerminalWebSocketHandler extends TextWebSocketHandler {
     }
 
     /**
-     * Broadcast terminal output to all clients connected to this session
+     * Broadcast terminal output to all clients connected to this session.
      */
     public void broadcast(String sessionId, String message) {
         Set<WebSocketSession> clients = sessionClients.get(sessionId);
@@ -288,14 +296,30 @@ public class TerminalWebSocketHandler extends TextWebSocketHandler {
     }
 
     /**
-     * Send a control banner to frontend
-     * Banners are special markers that frontend can detect to trigger specific actions
+     * Send a control banner to frontend.
+     * Banners are special markers that frontend can detect to trigger specific actions.
      * @param sessionId Terminal session ID
      * @param banner Banner constant (e.g., BANNER_SSH_DISCONNECTED)
      */
     public void sendControlBanner(String sessionId, String banner) {
         log.info("[Control-{}] Sending banner: {}", sessionId, banner);
         broadcast(sessionId, "\r\n" + banner + "\r\n");
+    }
+
+    /**
+     * Clean up all server-side state for a terminal session.
+     * Called when the session is explicitly deleted (user clicks X / DELETE API).
+     */
+    public void cleanupSession(String sessionId) {
+        lastSessionInput.remove(sessionId);
+        streamingThreads.remove(sessionId);
+        Set<WebSocketSession> clients = sessionClients.remove(sessionId);
+        if (clients != null) {
+            clients.forEach(client -> {
+                try { if (client.isOpen()) client.close(); } catch (Exception ignored) {}
+            });
+        }
+        log.info("[Cleanup-{}] Session state cleared", sessionId);
     }
 
     private String extractSessionId(WebSocketSession session) {

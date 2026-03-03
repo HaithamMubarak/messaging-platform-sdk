@@ -27,7 +27,7 @@ public final class TerminalStringUtils {
     public static final String BACKSPACE_DEL = "\u007F";
     public static final String TAB = "\t";
     public static final String CTRL_C = "\u0003";
-    public static final String ANSI_CLEAR_SCREEN = "\u001b[2J\u001b[H";
+    public static final String ANSI_CLEAR_SCREEN = "\u001b[2J\u001b[3J\u001b[H";
 
     // ========================================
     // Character Detection

@@ -6,6 +6,7 @@ import com.hmdev.sdk.local.model.SshConnection;
 import com.hmdev.sdk.local.model.TerminalSession;
 import com.hmdev.sdk.local.terminal.TerminalService;
 import com.hmdev.sdk.local.terminal.util.TerminalStringUtils;
+import com.hmdev.sdk.local.terminal.websocket.TerminalWebSocketHandler;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;
@@ -22,6 +23,7 @@ import java.util.UUID;
 public class TerminalController {
 
     private final TerminalService terminalService;
+    private final TerminalWebSocketHandler terminalWebSocketHandler;
 
     /**
      * Create terminal session (local or SSH)
@@ -165,6 +167,9 @@ public class TerminalController {
         log.info("[Controller] Received close request for session: {}", sessionId);
 
         try {
+            // Clean up WebSocket-level replay caches (lastPromptLine, lastSessionInput)
+            terminalWebSocketHandler.cleanupSession(sessionId);
+
             // Service handles both session closure and database update
             terminalService.closeSession(sessionId);
 

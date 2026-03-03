@@ -6,7 +6,7 @@
 
 class FileEditor {
     constructor(options = {}) {
-        this.mlsUrl = options.mlsUrl || 'http://localhost:8088';
+        this.mlsUrl = options.mlsUrl || (typeof MLS_URL !== 'undefined' ? MLS_URL : 'http://localhost:8088');
         this.mode = 'popup';  // 'popup' or 'pinned'
         this.tabs = [];  // Array of open file tabs
         this.activeTabId = null;
@@ -89,6 +89,7 @@ class FileEditor {
                 <div class="file-editor-footer">
                     <div class="file-editor-status-left">
                         <span class="file-editor-status" id="fileEditorStatus">Ready</span>
+                        <span class="file-editor-session" id="fileEditorSession"></span>
                         <span class="file-editor-path" id="fileEditorPath"></span>
                     </div>
                     <div class="file-editor-status-right">
@@ -133,6 +134,7 @@ class FileEditor {
                 <div class="file-editor-footer">
                     <div class="file-editor-status-left">
                         <span class="file-editor-status" id="fileEditorStatusPinned">Ready</span>
+                        <span class="file-editor-session" id="fileEditorSessionPinned"></span>
                         <span class="file-editor-path" id="fileEditorPathPinned"></span>
                     </div>
                     <div class="file-editor-status-right">
@@ -155,37 +157,67 @@ class FileEditor {
             return;
         }
 
-        // Initialize popup editor
-        const containerPopup = document.getElementById('fileEditorContent');
-        this.editorPopup = CodeMirror(containerPopup, {
-            lineNumbers: true,  // Show line numbers
-            theme: 'monokai',
-            indentUnit: 4,
-            tabSize: 4,
-            lineWrapping: false,
-            mode: 'text/plain',
-            readOnly: false,  // Ensure editor is editable
-            matchBrackets: true,
-            autoCloseBrackets: true,
-            styleActiveLine: true,
-            highlightSelectionMatches: { showToken: /\w/, annotateScrollbar: true }
-        });
+        try {
+            // Initialize popup editor
+            const containerPopup = document.getElementById('fileEditorContent');
+            this.editorPopup = CodeMirror(containerPopup, {
+                lineNumbers: true,  // Show line numbers
+                theme: 'monokai',
+                indentUnit: 4,
+                tabSize: 4,
+                lineWrapping: false,
+                mode: 'text/plain',
+                readOnly: false,  // Ensure editor is editable
+                matchBrackets: true,
+                autoCloseBrackets: true,
+                styleActiveLine: true,
+                highlightSelectionMatches: { showToken: /\w/, annotateScrollbar: true }
+            });
+        } catch (e) {
+            console.error('[FileEditor] Failed to initialize popup CodeMirror:', e);
+            // Try minimal initialization without addons
+            try {
+                const containerPopup = document.getElementById('fileEditorContent');
+                this.editorPopup = CodeMirror(containerPopup, {
+                    lineNumbers: true,
+                    theme: 'monokai',
+                    mode: 'text/plain'
+                });
+            } catch (e2) {
+                console.error('[FileEditor] CodeMirror popup completely failed:', e2);
+            }
+        }
 
-        // Initialize pinned editor
-        const containerPinned = document.getElementById('fileEditorContentPinned');
-        this.editorPinned = CodeMirror(containerPinned, {
-            lineNumbers: true,  // Show line numbers
-            theme: 'monokai',
-            indentUnit: 4,
-            tabSize: 4,
-            lineWrapping: false,
-            mode: 'text/plain',
-            readOnly: false,  // Ensure editor is editable
-            matchBrackets: true,
-            autoCloseBrackets: true,
-            styleActiveLine: true,
-            highlightSelectionMatches: { showToken: /\w/, annotateScrollbar: true }
-        });
+        try {
+            // Initialize pinned editor
+            const containerPinned = document.getElementById('fileEditorContentPinned');
+            this.editorPinned = CodeMirror(containerPinned, {
+                lineNumbers: true,  // Show line numbers
+                theme: 'monokai',
+                indentUnit: 4,
+                tabSize: 4,
+                lineWrapping: false,
+                mode: 'text/plain',
+                readOnly: false,  // Ensure editor is editable
+                matchBrackets: true,
+                autoCloseBrackets: true,
+                styleActiveLine: true,
+                highlightSelectionMatches: { showToken: /\w/, annotateScrollbar: true }
+            });
+        } catch (e) {
+            console.error('[FileEditor] Failed to initialize pinned CodeMirror:', e);
+            // Try minimal initialization without addons
+            try {
+                const containerPinned = document.getElementById('fileEditorContentPinned');
+                this.editorPinned = CodeMirror(containerPinned, {
+                    lineNumbers: true,
+                    theme: 'monokai',
+                    mode: 'text/plain'
+                });
+            } catch (e2) {
+                console.error('[FileEditor] CodeMirror pinned completely failed:', e2);
+            }
+        }
     }
 
     /**
@@ -423,9 +455,8 @@ class FileEditor {
         const tabsHTML = this.tabs.map(tab => {
             const fileName = this.getFileName(tab.filePath);
             const isActive = tab.id === this.activeTabId;
-            const modifiedMarker = tab.modified ? ' *' : '';
+            const modifiedMarker = tab.modified ? ' ●' : '';
 
-            // Create tooltip with full file information
             const tooltipInfo = [
                 `File: ${fileName}`,
                 `Path: ${tab.filePath}`,
@@ -438,10 +469,7 @@ class FileEditor {
                      data-tab-id="${tab.id}"
                      title="${this.escapeHtml(tooltipInfo)}"
                      onclick="fileEditor.switchTab('${tab.id}')">
-                    <div class="file-editor-tab-content">
-                        <div class="file-editor-tab-session">[${this.escapeHtml(tab.terminalName)}]</div>
-                        <div class="file-editor-tab-name">${this.escapeHtml(fileName)}${modifiedMarker}</div>
-                    </div>
+                    <span class="file-editor-tab-name">${this.escapeHtml(fileName)}${modifiedMarker}</span>
                     <span class="file-editor-tab-close" onclick="event.stopPropagation(); fileEditor.closeTab('${tab.id}')">✕</span>
                 </div>
             `;
@@ -508,10 +536,17 @@ class FileEditor {
         pathPopup.textContent = tab.filePath;
         pathPinned.textContent = tab.filePath;
 
+        // Show session name in footer
+        ['fileEditorSession', 'fileEditorSessionPinned'].forEach((id, i) => {
+            const el = document.getElementById(id);
+            if (el) el.textContent = tab.terminalName || '';
+        });
+
         // Detect file type and get CodeMirror mode
         const mode = this.getCodeMirrorMode(tab.filePath);
 
-        // Set flag to prevent marking as modified during initial load
+        // Set flag to prevent marking as modified during initial load.
+        // Must be set BEFORE setValue() — CodeMirror fires 'change' synchronously.
         this.isLoadingContent = true;
 
         // Set content and mode in CodeMirror
@@ -524,9 +559,10 @@ class FileEditor {
             this.editorPinned.setOption('mode', mode);
         }
 
-        // Clear flag after content is loaded and all change events have fired
-        // Use setTimeout to ensure this happens AFTER change events
-        setTimeout(() => {
+        // Clear flag after ALL synchronous change events have fired.
+        // Double-rAF ensures we're past both the sync change event AND
+        // any microtasks/macrotasks CodeMirror may schedule internally.
+        requestAnimationFrame(() => requestAnimationFrame(() => {
             this.isLoadingContent = false;
 
             // Refresh CodeMirror to ensure proper layout and line number alignment
@@ -535,7 +571,7 @@ class FileEditor {
             } else if (this.editorPinned) {
                 this.editorPinned.refresh();
             }
-        }, 0);
+        }));
 
         // Set status
         const status = tab.modified ? 'Modified' : 'Ready';

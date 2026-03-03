@@ -25,6 +25,10 @@ class TerminalSharing extends UserConnectionBase {
         // Structure: { name, owner, shell, permission: 'readonly'|'readwrite', ... }
         this.sharedSessions = new Map();
 
+        // ✅ Per-session viewer tracking: sessionId → Set<agentName>
+        // Tracks which agents are actively viewing which shared sessions
+        this.sessionViewers = new Map();
+
         // Message handlers registry
         this.messageHandlers = new Map();
 
@@ -65,6 +69,7 @@ class TerminalSharing extends UserConnectionBase {
         this.onPermissionUpdate = null;      // (sessionId, newPermission) => {}
         this.onOwnerDisconnect = null;       // (sessionId, owner) => {}
         this.onConnectionError = null;       // (sessionId, error) => {}
+        this.onDisconnect = null;            // (reason) => {} - called when cloud connection is lost
         this.onFileSystemRequest = null;     // (sessionId, operation, params, sourceAgent, requestId) => {}
         this.onFileSystemResponse = null;    // (sessionId, requestId, data, sourceAgent) => {}
     }
@@ -735,19 +740,44 @@ class TerminalSharing extends UserConnectionBase {
 
     /**
      * Override onStop - called when disconnecting
+     * Broadcasts owner-disconnect for all our sessions before clearing
      */
     onStop() {
-        // Unshare all our sessions
+        // Broadcast owner-disconnect for all our sessions before unsharing
         const ourSessions = Array.from(this.sharedSessions.keys());
         ourSessions.forEach(sessionId => {
             const session = this.sharedSessions.get(sessionId);
             if (session && session.owner === this.username) {
+                // Notify viewers that owner is leaving
+                try {
+                    this.notifyOwnerDisconnect(sessionId);
+                } catch(e) {
+                    console.warn('[TerminalSharing] Failed to notify disconnect for:', sessionId, e);
+                }
                 this.unshareSession(sessionId);
             }
         });
 
         this.sharedSessions.clear();
         console.log('[TerminalSharing] Stopped');
+
+        // Fire onDisconnect callback for the UI to handle
+        if (typeof this.onDisconnect === 'function') {
+            this.onDisconnect();
+        }
+    }
+
+    /**
+     * Override onConnectionLost - called when WebRTC/WebSocket connection drops unexpectedly
+     * This is different from intentional disconnect (onStop)
+     */
+    onConnectionLost(reason) {
+        console.warn('[TerminalSharing] Connection lost:', reason);
+
+        // Fire onDisconnect callback
+        if (typeof this.onDisconnect === 'function') {
+            this.onDisconnect(reason);
+        }
     }
 
     // ========================================
@@ -818,7 +848,7 @@ class TerminalSharing extends UserConnectionBase {
     async executeSftpOperation(sessionId, operation, params) {
         console.log('[TerminalSharing] Executing SFTP operation:', operation, params);
 
-        const MLS_URL = window.MLS_URL || 'http://localhost:8088';
+        const MLS_URL = window.MLS_URL || `http://localhost:${window.SLS_PORT || 8088}`;
 
         // Use the auto-created SFTP session
         const sftpSessionId = `sftp-${sessionId}`;

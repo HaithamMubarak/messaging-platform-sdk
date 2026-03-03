@@ -148,29 +148,18 @@ public class LocalTerminalSession implements ITerminalSession {
     }
 
     /**
-     * Initialize Windows CMD with proper settings
+     * Initialize Windows CMD.
+     * NOTE: Do NOT clear startup output or send extra commands here!
+     * Let CMD start naturally - the initial prompt (e.g. C:\Users\admin>)
+     * will be streamed directly to the WebSocket client via the output streaming thread.
+     *
+     * Previous approach of clearing output + sending 'cd' caused garbled/truncated prompts
+     * because it raced with the WebSocket connection and partial output was consumed.
      */
     private void initializeWindowsCmd() {
-        try {
-            OutputStream out = process.getOutputStream();
-            InputStream in = process.getInputStream();
-
-            // Wait for cmd to be ready
-            Thread.sleep(150);
-
-            // Clear any startup output
-            while (in.available() > 0) {
-                in.read();
-            }
-
-            // Send "cd" to show initial prompt
-            out.write("cd\r\n".getBytes(StandardCharsets.UTF_8));
-            out.flush();
-
-            log.info("[LocalTerminal-{}] Windows CMD initialized", sessionId);
-        } catch (Exception e) {
-            log.warn("[LocalTerminal-{}] Failed to initialize Windows CMD: {}", sessionId, e.getMessage());
-        }
+        // Nothing to do - let CMD start naturally
+        // The first prompt will appear via the streaming thread
+        log.info("[LocalTerminal-{}] Windows CMD initialized (natural startup)", sessionId);
     }
 
     @Override
@@ -217,8 +206,14 @@ public class LocalTerminalSession implements ITerminalSession {
 
     @Override
     public void onResize(int cols, int rows) {
-        // ProcessBuilder doesn't support terminal resizing (would need PTY library like pty4j)
-        log.debug("[LocalTerminal-{}] Resize requested ({}x{}) but not supported with ProcessBuilder",
+        // ProcessBuilder creates pipe-based processes without a real PTY.
+        // CMD in pipe mode doesn't have an attached console, so 'mode con' won't work.
+        // For true terminal resize support, a PTY library (e.g., pty4j) would be needed.
+        //
+        // Note: The truncated prompt issue (e.g. "C:\Users\admi>") was caused by
+        // initializeWindowsCmd() consuming bytes from the output stream, NOT by column width.
+        // That issue is now fixed by letting CMD start naturally without byte consumption.
+        log.debug("[LocalTerminal-{}] Resize requested ({}x{}) - not supported in pipe mode",
                 sessionId, cols, rows);
     }
 
