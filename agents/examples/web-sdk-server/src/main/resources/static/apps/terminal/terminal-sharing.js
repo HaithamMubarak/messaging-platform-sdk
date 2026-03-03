@@ -39,6 +39,8 @@ class TerminalSharing extends UserConnectionBase {
         // (so they're ready before any messages arrive)
         this.registerHandler('session-shared', (msg, src) => this.handleSessionShared(msg, src));
         this.registerHandler('session-unshared', (msg, src) => this.handleSessionUnshared(msg, src));
+        this.registerHandler('session-viewer-join', (msg, src) => this.handleSessionViewerJoin(msg, src));
+        this.registerHandler('session-viewer-leave', (msg, src) => this.handleSessionViewerLeave(msg, src));
         this.registerHandler('session-input', (msg, src) => this.handleSessionInput(msg, src));
         this.registerHandler('session-output', (msg, src) => this.handleSessionOutput(msg, src));
         this.registerHandler('sync-sessions', (msg, src) => this.handleSyncSessions(msg, src));
@@ -61,6 +63,8 @@ class TerminalSharing extends UserConnectionBase {
         // Callbacks (set by user)
         this.onSharedSessionAdd = null;      // (sessionId, sessionInfo, sourceAgent) => {}
         this.onSharedSessionRemove = null;   // (sessionId, sourceAgent) => {}
+        this.onViewerJoin = null;            // ✅ (sessionId, agentName) => {}
+        this.onViewerLeave = null;           // ✅ (sessionId, agentName) => {}
         this.onSessionOutput = null;         // (sessionId, data, sourceAgent) => {}
         this.onSessionInput = null;          // (sessionId, data, sourceAgent) => {}
         this.onTypingIndicator = null;       // (sessionId, agentName, isTyping) => {}
@@ -97,6 +101,60 @@ class TerminalSharing extends UserConnectionBase {
         } else {
             console.log('[TerminalSharing] No handler for type:', type);
         }
+    }
+
+    /**
+     * ✅ Add a viewer to a session
+     * @param {string} sessionId - Session ID
+     * @param {string} agentName - Agent viewing the session
+     */
+    addViewer(sessionId, agentName) {
+        if (!this.sessionViewers.has(sessionId)) {
+            this.sessionViewers.set(sessionId, new Set());
+        }
+        this.sessionViewers.get(sessionId).add(agentName);
+        console.log('[TerminalSharing] Added viewer:', agentName, 'to session:', sessionId);
+    }
+
+    /**
+     * ✅ Remove a viewer from a session
+     * @param {string} sessionId - Session ID
+     * @param {string} agentName - Agent name
+     */
+    removeViewer(sessionId, agentName) {
+        if (this.sessionViewers.has(sessionId)) {
+            this.sessionViewers.get(sessionId).delete(agentName);
+            if (this.sessionViewers.get(sessionId).size === 0) {
+                this.sessionViewers.delete(sessionId);
+            }
+            console.log('[TerminalSharing] Removed viewer:', agentName, 'from session:', sessionId);
+        }
+    }
+
+    /**
+     * ✅ Remove a viewer from ALL sessions (called when agent disconnects)
+     * @param {string} agentName - Agent name
+     */
+    removeViewerFromAllSessions(agentName) {
+        this.sessionViewers.forEach((viewers, sessionId) => {
+            if (viewers.has(agentName)) {
+                viewers.delete(agentName);
+                console.log('[TerminalSharing] Removed disconnected viewer:', agentName, 'from session:', sessionId);
+                if (viewers.size === 0) {
+                    this.sessionViewers.delete(sessionId);
+                }
+            }
+        });
+    }
+
+    /**
+     * ✅ Get viewers for a specific session
+     * @param {string} sessionId - Session ID
+     * @returns {string[]} Array of agent names viewing this session
+     */
+    getSessionViewers(sessionId) {
+        const viewers = this.sessionViewers.get(sessionId);
+        return viewers ? Array.from(viewers) : [];
     }
 
     /**
@@ -267,11 +325,48 @@ class TerminalSharing extends UserConnectionBase {
         // Remove from shared sessions
         this.sharedSessions.delete(sessionId);
 
+        // Remove all viewers for this session
+        this.sessionViewers.delete(sessionId);
+
         console.log('[TerminalSharing] Remote agent unshared session:', sessionId);
 
         // Call callback if registered
         if (typeof this.onSharedSessionRemove === 'function') {
             this.onSharedSessionRemove(sessionId, src);
+        }
+    }
+
+    /**
+     * ✅ Handle session-viewer-join message
+     * Sent by viewer when they open a shared session
+     */
+    handleSessionViewerJoin(msg, src) {
+        const { sessionId } = msg;
+        console.log('[TerminalSharing] Viewer joined:', src, 'session:', sessionId);
+
+        // Add viewer to tracking
+        this.addViewer(sessionId, src);
+
+        // Notify UI if callback registered (update viewers list)
+        if (typeof this.onViewerJoin === 'function') {
+            this.onViewerJoin(sessionId, src);
+        }
+    }
+
+    /**
+     * ✅ Handle session-viewer-leave message
+     * Sent by viewer when they close a shared session
+     */
+    handleSessionViewerLeave(msg, src) {
+        const { sessionId } = msg;
+        console.log('[TerminalSharing] Viewer left:', src, 'session:', sessionId);
+
+        // Remove viewer from tracking
+        this.removeViewer(sessionId, src);
+
+        // Notify UI if callback registered (update viewers list)
+        if (typeof this.onViewerLeave === 'function') {
+            this.onViewerLeave(sessionId, src);
         }
     }
 

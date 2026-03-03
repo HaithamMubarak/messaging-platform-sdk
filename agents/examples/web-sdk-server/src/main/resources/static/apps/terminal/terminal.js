@@ -1890,11 +1890,6 @@ function updateMySharesList() {
     const container = document.getElementById('mysharesList');
     if (!container) return;
 
-    // Get connected agents for viewer tracking
-    const connectedAgents = (terminalSharing && cloudConnected)
-        ? terminalSharing.getConnectedUsers().filter(a => a !== cloudAgentName)
-        : [];
-
     // Filter my shared sessions using Map.entries() to get both key and value
     const mySharesEntries = Array.from(sessions.entries())
         .filter(([_, session]) => session.isShared && !session.owner);
@@ -1930,10 +1925,15 @@ function updateMySharesList() {
                     </div>
                 </div>`;
 
+        // ✅ Get viewers for THIS specific session (not all connected agents)
+        const sessionViewers = (terminalSharing && cloudConnected)
+            ? terminalSharing.getSessionViewers(sessionId)
+            : [];
+
         // Show connected viewers with per-agent permissions
-        if (connectedAgents.length > 0) {
+        if (sessionViewers.length > 0) {
             html += `<div class="viewer-list">`;
-            connectedAgents.forEach(agent => {
+            sessionViewers.forEach(agent => {
                 // Per-agent permission (defaults to global)
                 const agentPerm = session.agentPermissions?.[agent] || globalPerm;
                 const hasCustomPerm = !!session.agentPermissions?.[agent];
@@ -3047,6 +3047,15 @@ async function closeSession(sessionId) {
         console.log(`[Close] Notifying viewers that session is closing: ${sessionId}`);
         terminalSharing.notifyOwnerDisconnect(sessionId);
         terminalSharing.unshareSession(sessionId);
+    }
+
+    // ✅ If this is a remote session we're viewing, notify owner we're leaving
+    if (session.owner && terminalSharing && terminalSharing.connected) {
+        console.log(`[Close] Notifying owner that we're leaving session: ${sessionId}`);
+        terminalSharing.sendData({
+            type: 'session-viewer-leave',
+            sessionId: sessionId
+        });
     }
 
     try {
@@ -4917,6 +4926,21 @@ async function connectToCloud() {
         terminalSharing.onPlayerLeave = (event) => {
             console.log('[Terminal] Agent left:', event.agentName);
 
+            // ✅ Remove this agent from all session viewers
+            if (terminalSharing) {
+                terminalSharing.removeViewerFromAllSessions(event.agentName);
+            }
+
+            // ✅ Clear any custom permissions for this agent from all shared sessions
+            sessions.forEach((session, sessionId) => {
+                if (session.isShared && !session.owner && session.agentPermissions) {
+                    if (session.agentPermissions[event.agentName]) {
+                        delete session.agentPermissions[event.agentName];
+                        console.log('[Terminal] Cleared permissions for disconnected agent:', event.agentName, 'from session:', sessionId);
+                    }
+                }
+            });
+
             // Check if I have any shared sessions
             const mySharesCount = Array.from(sessions.values()).filter(s => s.isShared && !s.owner).length;
             const toastMsg = mySharesCount > 0
@@ -4929,6 +4953,18 @@ async function connectToCloud() {
             updateSharedTerminalsList();
             updateMySharesList();
             updateSidebarBadges();
+        };
+
+        // ✅ Called when a viewer joins a shared session
+        terminalSharing.onViewerJoin = (sessionId, agentName) => {
+            console.log('[Terminal] Viewer joined:', agentName, 'session:', sessionId);
+            updateMySharesList();
+        };
+
+        // ✅ Called when a viewer leaves a shared session
+        terminalSharing.onViewerLeave = (sessionId, agentName) => {
+            console.log('[Terminal] Viewer left:', agentName, 'session:', sessionId);
+            updateMySharesList();
         };
 
         // Called when someone is typing in a shared terminal
@@ -5383,6 +5419,15 @@ function createSharedTerminalSession(sessionId, sessionInfo, ownerAgent) {
 
     // Add session badge showing permission mode
     updateSessionBadge(sessionId, sessionInfo.permission || 'readonly');
+
+    // ✅ Notify owner that we're viewing this session
+    if (terminalSharing && terminalSharing.connected) {
+        terminalSharing.sendData({
+            type: 'session-viewer-join',
+            sessionId: sessionId
+        });
+        console.log('[Terminal] Notified owner that we joined session:', sessionId);
+    }
 
     console.log('[Terminal] Created view-only session for shared session:', sessionId, 'from:', ownerAgent);
 }
@@ -5848,6 +5893,12 @@ function unshareTerminal(sessionId) {
     // Unmark session locally
     session.isShared = false;
     session.owner = null;
+    session.permission = null;  // ✅ Clear global permission
+
+    // ✅ Clear all agent-specific permissions
+    if (session.agentPermissions) {
+        session.agentPermissions = {};
+    }
 
     // Unshare via TerminalSharing
     if (terminalSharing) {
@@ -5860,7 +5911,7 @@ function unshareTerminal(sessionId) {
 
     updateTabSharedIndicator(sessionId, false);  // Hide shared badge
     showToast('success', '🛑 Sharing Stopped', `"${sessionName}" is no longer shared`, 4000);
-    console.log('[Terminal] Unshared session:', sessionId);
+    console.log('[Terminal] Unshared session:', sessionId, '— permissions cleared');
 }
 
 /**
