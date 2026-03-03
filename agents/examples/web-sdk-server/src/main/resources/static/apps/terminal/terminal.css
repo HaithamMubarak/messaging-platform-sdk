@@ -241,10 +241,33 @@ body {
     background: var(--bg-darker);
     border-bottom: 1px solid var(--border-color);
     flex-shrink: 0;
+    overflow-x: auto;
+    overflow-y: hidden;
+    scrollbar-width: thin;
+    scrollbar-color: var(--accent-blue) var(--bg-darker);
+}
+
+/* Webkit scrollbar for sidebar tabs */
+.sidebar-tabs::-webkit-scrollbar {
+    height: 4px;
+}
+
+.sidebar-tabs::-webkit-scrollbar-track {
+    background: var(--bg-darker);
+}
+
+.sidebar-tabs::-webkit-scrollbar-thumb {
+    background: var(--accent-blue);
+    border-radius: 2px;
+}
+
+.sidebar-tabs::-webkit-scrollbar-thumb:hover {
+    background: var(--accent-cyan);
 }
 
 .sidebar-tab {
     flex: 1;
+    min-width: fit-content;
     padding: 10px 8px;
     background: transparent;
     border: none;

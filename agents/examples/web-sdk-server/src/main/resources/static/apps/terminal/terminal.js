@@ -4154,9 +4154,9 @@ function promptForAgentName(channelName) {
                     50% { transform: translateY(-10px); }
                 }
             </style>
-            <div style="${iconStyle}">🚀</div>
+            <div style="${iconStyle}">💻</div>
             <h2 style="margin: 0 0 16px 0; font-size: 24px; color: var(--text-primary); text-align: center; font-weight: 700;">
-                Join Shared Channel
+                Join Shared Terminal
             </h2>
             <p style="margin: 0 0 24px 0; font-size: 14px; color: var(--text-secondary); line-height: 1.7; text-align: center;">
                 You're joining <strong style="color: var(--accent-cyan); font-weight: 600;">${channelName}</strong>
@@ -5195,6 +5195,15 @@ terminalSharing.onFileSystemNotification = (sessionId, operation, details, sourc
             if (granted) {
                 showToast('success', '✅ Permission Granted', `${owner} granted you write access`);
                 updateSessionPermissionUI(sessionId, 'readwrite');
+
+                // ✅ Update file explorer button immediately if this session is active
+                if (activeSessionId === sessionId) {
+                    const session = sessions.get(sessionId);
+                    if (session && window.updateFileExplorerButtonState) {
+                        console.log('[Terminal] Updating file explorer button after permission grant');
+                        window.updateFileExplorerButtonState(session);
+                    }
+                }
             } else {
                 showToast('warning', '❌ Permission Denied', `${owner} denied your write request`);
             }
@@ -5214,6 +5223,14 @@ terminalSharing.onFileSystemNotification = (sessionId, operation, details, sourc
                 `"${sessionName}" is now ${permLabel}`, 5000);
 
             updateSessionPermissionUI(sessionId, newPermission);
+
+            // ✅ Update file explorer button immediately if this session is active
+            if (activeSessionId === sessionId) {
+                if (session && window.updateFileExplorerButtonState) {
+                    console.log('[Terminal] Updating file explorer button after permission update');
+                    window.updateFileExplorerButtonState(session);
+                }
+            }
         };
 
         // Called when owner disconnects/closes a shared session
