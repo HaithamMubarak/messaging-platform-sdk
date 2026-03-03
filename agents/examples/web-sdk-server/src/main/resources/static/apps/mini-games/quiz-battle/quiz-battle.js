@@ -214,7 +214,7 @@ class QuizBattleGame extends UserConnectionBase {
         this.showWaitingRoom();
     }
 
-    onPlayerJoining(detail) {
+    onUserJoining(detail) {
         console.log('[QuizBattle] Player joining:', detail.agentName);
         this.showToast(`${detail.agentName} is joining...`, 'info', 2000);
 
@@ -222,7 +222,7 @@ class QuizBattleGame extends UserConnectionBase {
         this.showConnectionLoader(`Connecting to ${detail.agentName}...`);
     }
 
-    onPlayerJoin(detail) {
+    onUserJoin(detail) {
         console.log('[QuizBattle] Player joined successfully:', detail.agentName);
 
         // Hide the connection loader - DataChannel is now open

@@ -3,8 +3,8 @@
  * Enables offline functionality by caching all terminal assets
  */
 
-const CACHE_NAME = 'messaging-platform-shared-terminal-v1.9.5';
-const CACHE_TIMESTAMP = '2026-03-03-permission-clearing';
+const CACHE_NAME = 'messaging-platform-shared-terminal-v1.9.7';
+const CACHE_TIMESTAMP = '2026-03-03-user-terminology';
 
 // Files to cache for offline use
 const STATIC_ASSETS = [

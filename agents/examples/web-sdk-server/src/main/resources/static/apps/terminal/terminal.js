@@ -496,15 +496,21 @@ function updateSlsDependentButtons(online) {
  * @returns {boolean} - True if session supports File Explorer
  */
 function sessionSupportsFileExplorer(session) {
-
     console.log('[FileExplorer] Checking if session supports File Explorer. Session:', session);
     if (!session) return false;
 
+    // SSH sessions support file explorer
     const isSsh = session.type === 'ssh';
-    const isLocalTerminal = session.type === 'local' &&
-        session.config &&  ['cmd', 'bash', 'ps'].includes(session.config.shell);
 
-    return isSsh || isLocalTerminal;
+    // Local terminals support file explorer
+    const isLocalTerminal = session.type === 'local' &&
+        session.config && ['cmd', 'bash', 'ps'].includes(session.config.shell);
+
+    // ✅ Remote shared sessions support file explorer (operations proxied to owner)
+    // Viewer can use file browser regardless of permission (read-only can browse, read-write can edit)
+    const isRemoteShared = session.type === 'remote' && session.owner;
+
+    return isSsh || isLocalTerminal || isRemoteShared;
 }
 
 /**
@@ -4894,7 +4900,7 @@ async function connectToCloud() {
         };
 
         // Listen for agent connection events to update agents list
-        terminalSharing.onPlayerJoining = (event) => {
+        terminalSharing.onUserJoining = (event) => {
             console.log('[Terminal] Agent joining:', event.agentName);
             showToast('info', '👋 Agent Joining', `${event.agentName} is connecting...`);
             updateAgentsList();
@@ -4902,7 +4908,7 @@ async function connectToCloud() {
             updateMySharesList();
         };
 
-        terminalSharing.onPlayerJoin = (event) => {
+        terminalSharing.onUserJoin = (event) => {
             console.log('[Terminal] Agent joined:', event.agentName);
 
             // Check if I have any shared sessions
@@ -4923,7 +4929,7 @@ async function connectToCloud() {
             updateMySharesList();
         };
 
-        terminalSharing.onPlayerLeave = (event) => {
+        terminalSharing.onUserLeave = (event) => {
             console.log('[Terminal] Agent left:', event.agentName);
 
             // ✅ Remove this agent from all session viewers
@@ -6551,7 +6557,7 @@ function toggleFileExplorerPanel() {
 
     if (!sessionSupportsFileExplorer(session)) {
         showToast('warning', 'File Explorer Unavailable',
-            'File Explorer requires an SSH or local terminal session.');
+            'File Explorer requires an SSH, local terminal, or remote shared session.');
         return;
     }
 
@@ -6589,7 +6595,7 @@ function openFileExplorerForActiveTab() {
 
     if (!sessionSupportsFileExplorer(session)) {
         showToast('warning', 'File Explorer Unavailable',
-            'File Explorer requires an SSH or local terminal session.');
+            'File Explorer requires an SSH, local terminal, or remote shared session.');
         return;
     }
 

@@ -1590,7 +1590,7 @@
             console.log('[RaceBalls] ✅ Connection complete! Check if control panel is visible above the 3D scene.');
         }
 
-        onPlayerJoin(info) {
+        onUserJoin(info) {
             console.log('[RaceBalls] Player joined:', info.agentName);
 
             // Show toast notification

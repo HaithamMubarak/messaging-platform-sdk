@@ -354,7 +354,7 @@ class AirHockeyGame extends UserConnectionBase {
         this.startRenderLoop();
     }
 
-    onPlayerJoining(detail) {
+    onUserJoining(detail) {
         console.log('[AirHockey] Player joining:', detail.agentName);
 
         // Only show joining message if game hasn't started
@@ -365,7 +365,7 @@ class AirHockeyGame extends UserConnectionBase {
         // Note: Loader is NOT shown here - it shows on the joining player's screen, not existing players
     }
 
-    onPlayerJoin(detail) {
+    onUserJoin(detail) {
         console.log('[AirHockey] Player joined successfully:', detail.agentName);
 
         // Hide the connection loader - DataChannel is now open

@@ -22,8 +22,8 @@ class NetAdapter {
 
         // Callbacks
         this.onSnapshotCallback = null;
-        this.onPlayerJoinCallback = null;
-        this.onPlayerLeaveCallback = null;
+        this.onUserJoinCallback = null;
+        this.onUserLeaveCallback = null;
         this.onModeChangeCallback = null;
         this.onGameStartCallback = null;
         this.onGameEndCallback = null;
@@ -247,17 +247,17 @@ class NetAdapter {
     }
 
     /**
-     * Set callback for player join
+     * Set callback for user join
      */
-    onPlayerJoin(callback) {
-        this.onPlayerJoinCallback = callback;
+    onUserJoin(callback) {
+        this.onUserJoinCallback = callback;
     }
 
     /**
-     * Set callback for player leave
+     * Set callback for user leave
      */
-    onPlayerLeave(callback) {
-        this.onPlayerLeaveCallback = callback;
+    onUserLeave(callback) {
+        this.onUserLeaveCallback = callback;
     }
 
     /**
@@ -282,22 +282,22 @@ class NetAdapter {
     }
 
     /**
-     * Handle player join (called from game's onUserJoin)
+     * Handle user join (called from game's onUserJoin)
      */
-    handlePlayerJoin(peerId, username) {
-        console.log('[NetAdapter] Player joined:', peerId, username);
-        if (this.onPlayerJoinCallback) {
-            this.onPlayerJoinCallback({ peerId, name: username });
+    handleUserJoin(peerId, username) {
+        console.log('[NetAdapter] User joined:', peerId, username);
+        if (this.onUserJoinCallback) {
+            this.onUserJoinCallback({ peerId, name: username });
         }
     }
 
     /**
-     * Handle player leave (called from game's onUserLeave)
+     * Handle user leave (called from game's onUserLeave)
      */
-    handlePlayerLeave(peerId, username) {
-        console.log('[NetAdapter] Player left:', peerId, username);
-        if (this.onPlayerLeaveCallback) {
-            this.onPlayerLeaveCallback({ peerId, name: username });
+    handleUserLeave(peerId, username) {
+        console.log('[NetAdapter] User left:', peerId, username);
+        if (this.onUserLeaveCallback) {
+            this.onUserLeaveCallback({ peerId, name: username });
         }
     }
 }

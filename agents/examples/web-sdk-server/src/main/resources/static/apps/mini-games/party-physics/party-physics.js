@@ -140,11 +140,11 @@ class PartyPhysicsGame extends UserConnectionBase {
             this.onGameEnd(data.winnerId);
         });
 
-        this.netAdapter.onPlayerJoin((data) => {
+        this.netAdapter.onUserJoin((data) => {
             this.addLobbyPlayer(data.peerId, data.name, data.character);
         });
 
-        this.netAdapter.onPlayerLeave((data) => {
+        this.netAdapter.onUserLeave((data) => {
             this.removeLobbyPlayer(data.peerId);
         });
     }
@@ -157,7 +157,7 @@ class PartyPhysicsGame extends UserConnectionBase {
 
         // Forward to NetAdapter
         if (this.netAdapter) {
-            this.netAdapter.handlePlayerJoin(userId, username);
+            this.netAdapter.handleUserJoin(userId, username);
         }
 
         showToast(`${username} joined the game!`, 'info');
@@ -171,7 +171,7 @@ class PartyPhysicsGame extends UserConnectionBase {
 
         // Forward to NetAdapter
         if (this.netAdapter) {
-            this.netAdapter.handlePlayerLeave(userId, username);
+            this.netAdapter.handleUserLeave(userId, username);
         }
 
         showToast(`${username} left the game`, 'warning');
