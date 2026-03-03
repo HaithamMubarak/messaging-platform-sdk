@@ -127,9 +127,77 @@ public class SftpFileSystem extends AbstractFileSystem {
         }
     }
 
-    @Override
-    public List<FileInfo> listFiles(String path) throws FileSystemException {
+    // ========================================
+    // ROBUST CONNECTION VALIDATION
+    // ========================================
+
+    /**
+     * Validate that SFTP channel is actually usable (not just "connected").
+     *
+     * Problem: Sometimes channel reports connected=true but throws IO errors.
+     * This happens due to:
+     * - Concurrent requests using same channel
+     * - Stale/broken channel state
+     * - SSH session disconnected but channel not notified
+     *
+     * Solution: Test channel health with a lightweight operation before use.
+     *
+     * @param operation Name of operation for logging
+     * @throws FileSystemException if channel is not healthy
+     */
+    private synchronized void validateChannelHealth(String operation) throws FileSystemException {
+        // Step 1: Basic connection check
         checkConnection();
+
+        // Step 2: Validate SSH session is still connected
+        if (sshSession == null || !sshSession.isConnected()) {
+            log.warn("[SftpFS] SSH session disconnected during {}", operation);
+            connected = false;
+            throw new FileSystemException(
+                "SSH session disconnected",
+                FileSystemException.ErrorCode.CONNECTION_ERROR
+            );
+        }
+
+        // Step 3: Validate SFTP channel is actually usable
+        if (sftpChannel == null || sftpChannel.isClosed()) {
+            log.warn("[SftpFS] SFTP channel closed during {}", operation);
+            connected = false;
+            throw new FileSystemException(
+                "SFTP channel closed",
+                FileSystemException.ErrorCode.CONNECTION_ERROR
+            );
+        }
+
+        // Step 4: Test channel with lightweight operation (pwd)
+        // This catches stale channels that report connected=true but can't actually work
+        try {
+            String testPwd = sftpChannel.pwd();
+            if (testPwd == null) {
+                log.warn("[SftpFS] Channel health check failed (pwd returned null) during {}", operation);
+                connected = false;
+                throw new FileSystemException(
+                    "SFTP channel unhealthy - pwd returned null",
+                    FileSystemException.ErrorCode.CONNECTION_ERROR
+                );
+            }
+            // Channel is healthy ✅
+            log.debug("[SftpFS] Channel health check passed for {}", operation);
+        } catch (SftpException e) {
+            log.warn("[SftpFS] Channel health check failed during {}: {}", operation, e.getMessage());
+            connected = false;
+            throw new FileSystemException(
+                "SFTP channel unhealthy - health check failed: " + e.getMessage(),
+                FileSystemException.ErrorCode.CONNECTION_ERROR,
+                e
+            );
+        }
+    }
+
+    @Override
+    public synchronized List<FileInfo> listFiles(String path) throws FileSystemException {
+        // ✅ Robust connection check with channel validation
+        validateChannelHealth("listFiles");
 
         try {
             String targetPath = path.isEmpty() || path.equals(".") ? currentDirectory : path;
@@ -158,8 +226,16 @@ public class SftpFileSystem extends AbstractFileSystem {
                     .collect(Collectors.toList());
 
         } catch (SftpException e) {
+            // Check if connection was lost during operation
+            if (!isConnected()) {
+                throw new FileSystemException(
+                        "SFTP connection lost during list operation: " + path,
+                        FileSystemException.ErrorCode.CONNECTION_ERROR,
+                        e
+                );
+            }
             throw new FileSystemException(
-                    "Error listing directory: " + path + " - " + e.getMessage(),
+                    "Error listing directory: " + path + (e.getMessage() != null ? " - " + e.getMessage() : ""),
                     mapSftpError(e),
                     e
             );
@@ -190,7 +266,7 @@ public class SftpFileSystem extends AbstractFileSystem {
 
     @Override
     public FileInfo getFileInfo(String path) throws FileSystemException {
-        checkConnection();
+        validateChannelHealth("getFileInfo");
 
         try {
             SftpATTRS attrs = sftpChannel.stat(path);
@@ -243,15 +319,23 @@ public class SftpFileSystem extends AbstractFileSystem {
 
     @Override
     public byte[] readFileBytes(String path) throws FileSystemException {
-        checkConnection();
+        validateChannelHealth("readFileBytes");
 
         try (ByteArrayOutputStream baos = new ByteArrayOutputStream()) {
             sftpChannel.get(path, baos);
             return baos.toByteArray();
 
         } catch (SftpException | IOException e) {
+            // Check if connection was lost during operation
+            if (!isConnected()) {
+                throw new FileSystemException(
+                        "SFTP connection lost during read operation: " + path,
+                        FileSystemException.ErrorCode.CONNECTION_ERROR,
+                        e
+                );
+            }
             throw new FileSystemException(
-                    "Error reading file: " + path + " - " + e.getMessage(),
+                    "Error reading file: " + path + (e.getMessage() != null ? " - " + e.getMessage() : ""),
                     mapSftpError(e),
                     e
             );
@@ -260,7 +344,7 @@ public class SftpFileSystem extends AbstractFileSystem {
 
     @Override
     public byte[] readFileByteRange(String path, long offset, int length) throws FileSystemException {
-        checkConnection();
+        validateChannelHealth("readFileByteRange");
 
         try (InputStream is = sftpChannel.get(path, null, offset)) {
             byte[] buffer = new byte[length];
@@ -289,7 +373,7 @@ public class SftpFileSystem extends AbstractFileSystem {
 
     @Override
     public InputStream openInputStream(String path) throws FileSystemException {
-        checkConnection();
+        validateChannelHealth("openInputStream");
 
         try {
             return sftpChannel.get(path);
@@ -305,15 +389,23 @@ public class SftpFileSystem extends AbstractFileSystem {
 
     @Override
     public void writeFileBytes(String path, byte[] bytes) throws FileSystemException {
-        checkConnection();
+        validateChannelHealth("writeFileBytes");
 
         try (ByteArrayInputStream bais = new ByteArrayInputStream(bytes)) {
             sftpChannel.put(bais, path, ChannelSftp.OVERWRITE);
             log.info("[SftpFS] Wrote {} bytes to {}", bytes.length, path);
 
         } catch (SftpException | IOException e) {
+            // Check if connection was lost during operation
+            if (!isConnected()) {
+                throw new FileSystemException(
+                        "SFTP connection lost during write operation: " + path,
+                        FileSystemException.ErrorCode.CONNECTION_ERROR,
+                        e
+                );
+            }
             throw new FileSystemException(
-                    "Error writing file: " + path + " - " + e.getMessage(),
+                    "Error writing file: " + path + (e.getMessage() != null ? " - " + e.getMessage() : ""),
                     mapSftpError(e),
                     e
             );
@@ -322,7 +414,7 @@ public class SftpFileSystem extends AbstractFileSystem {
 
     @Override
     public void writeAtPosition(String path, long position, byte[] bytes) throws FileSystemException {
-        checkConnection();
+        validateChannelHealth("writeAtPosition");
 
         try {
             // SFTP doesn't support direct write at position
@@ -360,7 +452,7 @@ public class SftpFileSystem extends AbstractFileSystem {
 
     @Override
     public void appendToFile(String path, String content) throws FileSystemException {
-        checkConnection();
+        validateChannelHealth("appendToFile");
 
         try (ByteArrayInputStream bais = new ByteArrayInputStream(content.getBytes(StandardCharsets.UTF_8))) {
             sftpChannel.put(bais, path, ChannelSftp.APPEND);
@@ -377,7 +469,7 @@ public class SftpFileSystem extends AbstractFileSystem {
 
     @Override
     public OutputStream openOutputStream(String path, boolean append) throws FileSystemException {
-        checkConnection();
+        validateChannelHealth("openOutputStream");
 
         try {
             int mode = append ? ChannelSftp.APPEND : ChannelSftp.OVERWRITE;
@@ -394,7 +486,7 @@ public class SftpFileSystem extends AbstractFileSystem {
 
     @Override
     public void createDirectory(String path) throws FileSystemException {
-        checkConnection();
+        validateChannelHealth("createDirectory");
 
         try {
             sftpChannel.mkdir(path);
@@ -411,7 +503,7 @@ public class SftpFileSystem extends AbstractFileSystem {
 
     @Override
     public boolean deleteFile(String path) throws FileSystemException {
-        checkConnection();
+        validateChannelHealth("deleteFile");
 
         try {
             SftpATTRS attrs = sftpChannel.stat(path);
@@ -439,7 +531,7 @@ public class SftpFileSystem extends AbstractFileSystem {
 
     @Override
     public boolean deleteRecursive(String path) throws FileSystemException {
-        checkConnection();
+        validateChannelHealth("deleteRecursive");
 
         try {
             deleteRecursiveInternal(path);
@@ -480,7 +572,7 @@ public class SftpFileSystem extends AbstractFileSystem {
 
     @Override
     public void rename(String oldPath, String newPath) throws FileSystemException {
-        checkConnection();
+        validateChannelHealth("rename");
 
         try {
             sftpChannel.rename(oldPath, newPath);
@@ -497,7 +589,7 @@ public class SftpFileSystem extends AbstractFileSystem {
 
     @Override
     public void copyFile(String sourcePath, String destinationPath) throws FileSystemException {
-        checkConnection();
+        validateChannelHealth("copyFile");
 
         try {
             // SFTP doesn't have native copy, so we download and upload
@@ -554,7 +646,7 @@ public class SftpFileSystem extends AbstractFileSystem {
 
     @Override
     public void changeDirectory(String path) throws FileSystemException {
-        checkConnection();
+        validateChannelHealth("changeDirectory");
 
         try {
             sftpChannel.cd(path);

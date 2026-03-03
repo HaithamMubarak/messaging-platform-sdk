@@ -384,6 +384,14 @@ class FileExplorer {
             console.log('[FileSystem] Requested path:', targetPath);
             console.log('[FileSystem] Backend currentDir:', result.currentDir);
 
+            // ✅ Check for backend errors and handle gracefully
+            if (!result.success || result.error) {
+                const errorMsg = result.error || result.message || 'Unknown error';
+                const errorCode = result.errorCode || 'UNKNOWN';
+                console.error('[FileSystem] Backend returned error:', errorCode, errorMsg);
+                throw new Error(`${errorCode}: ${errorMsg}`);
+            }
+
             if (result.error) {
                 throw new Error(result.error);
             }
@@ -419,12 +427,17 @@ class FileExplorer {
                 errorMsg = 'Request timed out - SDK Local Service may be offline';
             } else if (errorMsg.includes('Failed to fetch') || errorMsg.includes('NetworkError')) {
                 errorMsg = 'Cannot connect to SDK Local Service - check if it\'s running';
+            } else if (errorMsg.includes('IO_ERROR') || errorMsg.includes('Error reading file')) {
+                errorMsg = 'File system error - try refreshing or reconnecting';
             }
 
             this.showError(`Cannot access "${targetPath}": ${errorMsg}`);
 
             // Restore previous path (don't let backend change our path on error)
             this.currentPath = previousPath;
+            
+            // ✅ Update path bar even on error to show we're back to previous path
+            this.updatePathBar();
 
             // Re-throw so navigateTo can handle it
             throw error;
@@ -642,12 +655,22 @@ class FileExplorer {
      * Refresh current directory
      */
     async refresh() {
+        if (!this.isConnected) {
+            console.warn('[FileExplorer] Cannot refresh - not connected');
+            return;
+        }
+
         try {
             await this.loadDirectory();
             this.onToast('info', 'Refreshed', 'Directory listing refreshed');
         } catch (error) {
             console.error('[FileExplorer] Refresh failed:', error);
-            this.onToast('error', 'Refresh Failed', error.message || 'Failed to refresh directory');
+            // ✅ Don't show error toast if we already showed error in loadDirectory
+            // Just log it and allow user to continue
+            if (!error.message.includes('Cannot access')) {
+                this.onToast('error', 'Refresh Failed', error.message || 'Failed to refresh directory');
+            }
+            // Don't re-throw - allow file explorer to remain functional
         }
     }
 

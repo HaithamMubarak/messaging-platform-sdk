@@ -5096,11 +5096,29 @@ terminalSharing.onFileSystemNotification = (sessionId, operation, details, sourc
     }
 
     // If file explorer is open for this session, refresh the view
+    // ✅ IMPORTANT: For remote/shared sessions, only the OWNER should refresh!
+    // Viewer (Host B) should NOT call refresh() directly - it would hit backend directly instead of proxy!
+    //
+    // How it works:
+    // 1. Host A (owner) refreshes file explorer after file save ✅
+    // 2. Host A broadcasts navigation via shareFileSystemNavigation() ✅
+    // 3. Host B receives 'fs-navigate' message ✅
+    // 4. Host B's onFileSystemNavigate handler updates file explorer ✅
+    // 5. Both hosts see the same view, but only Host A called backend!
     if (fileExplorer && fileExplorer.terminalSessionId === sessionId && operation !== 'read' && operation !== 'navigate') {
-        console.log('[FileSystem] Refreshing file explorer after viewer action');
-        setTimeout(() => {
-            fileExplorer.refresh();
-        }, 500);
+        const isRemoteSession = window.isRemoteFileSystem && window.isRemoteFileSystem(sessionId);
+
+        if (isRemoteSession) {
+            console.log('[FileSystem] Skipping refresh for remote session - viewer will receive navigation event from owner');
+            // Host B (viewer) waits for 'fs-navigate' event from Host A
+            // This prevents duplicate backend calls and SSH session issues
+        } else {
+            // Host A (owner) refreshes and broadcasts navigation
+            console.log('[FileSystem] Refreshing file explorer after owner action');
+            setTimeout(() => {
+                fileExplorer.refresh(); // This will trigger shareFileSystemNavigation()
+            }, 500);
+        }
     }
 };
 
@@ -6843,14 +6861,6 @@ function openFileExplorerForActiveTab() {
         return;
     }
 
-    // ✅ Check if file explorer is already open for this session
-    if (fileExplorer && fileExplorer.terminalSessionId === activeSessionId && fileExplorer.isConnected) {
-        console.log('[FileExplorer] Already open for this session - just switching to files tab');
-        // Just switch to the files tab without reopening
-        switchSidebarTab('files');
-        return;
-    }
-
     // Initialize file browser if not done
     if (!fileExplorer) {
         initFileExplorer();
@@ -6859,8 +6869,23 @@ function openFileExplorerForActiveTab() {
     // Switch to file browser tab in sidebar
     switchSidebarTab('files');
 
-    // Open file browser for the active session
-    openFileBrowserForSession(activeSessionId);
+    // ✅ Smart refresh logic:
+    // - If already open for SAME session AND connected → Just refresh (light operation)
+    // - If different session OR not connected → Full reopen (triggers backend check)
+    const isAlreadyOpenForThisSession = fileExplorer.terminalSessionId === activeSessionId;
+    const isConnected = fileExplorer.isConnected;
+
+    if (isAlreadyOpenForThisSession && isConnected) {
+        console.log('[FileExplorer] Already open for this session - refreshing file list');
+        // Just refresh the current directory (will check backend/owner for updates)
+        // This will trigger backend call which will auto-recreate crashed SFTP if needed
+        fileExplorer.refresh();
+    } else {
+        console.log('[FileExplorer] Opening file browser for session:', activeSessionId);
+        // Full reopen - session changed or not connected
+        // This will communicate with backend/owner to get fresh file list
+        openFileBrowserForSession(activeSessionId);
+    }
 }
 
 // Make globally accessible
@@ -6961,8 +6986,10 @@ window.refreshCurrentFileExplorer = refreshCurrentFileExplorer;
 /**
  * Open file browser for a terminal session
  * Handles both SSH (SFTP) and local terminals (LocalFileSystem)
+ * ✅ For Host B (viewer): Sends proxy request to get initial file list
+ * ✅ For Host A (owner): Opens normally (backend auto-creates session if crashed)
  */
-function openFileBrowserForSession(sessionId) {
+async function openFileBrowserForSession(sessionId) {
     const session = sessions.get(sessionId);
     if (!session) return;
 
@@ -6972,7 +6999,7 @@ function openFileBrowserForSession(sessionId) {
         initFileExplorer();
     }
 
-    // Check if this is a remote/shared session
+    // Check if this is a remote/shared session (Host B - viewer)
     const isRemote = session.owner && session.owner !== cloudAgentName;
 
     // Prepare connection info for File Explorer
@@ -6985,8 +7012,37 @@ function openFileBrowserForSession(sessionId) {
         remoteOwner: isRemote ? session.owner : null
     };
 
-    // Open file browser - use terminal session ID (not FS session ID)
-    // File Explorer handles file system abstraction internally
+    // ✅ For remote sessions (Host B - viewer):
+    // Send proxy request first to get initial file list from owner
+    if (isRemote) {
+        console.log('[FileSystem] Remote session detected - sending proxy request for initial file list');
+        try {
+            // Open file explorer first (will show loading state)
+            fileExplorer.open(sessionId, connectionInfo);
+
+            // Send proxy request to get initial file list
+            // This will trigger the owner to create/check backend session
+            const result = await proxyFileSystemRequest(sessionId, 'list', { path: '.' });
+
+            if (result.success) {
+                console.log('[FileSystem] Received initial file list from owner:', result.files?.length || 0, 'files');
+                // File explorer will receive and display the files automatically
+            } else {
+                showToast('error', 'File System Error', result.error || 'Failed to load files from owner');
+            }
+        } catch (error) {
+            console.error('[FileSystem] Failed to get initial file list from owner:', error);
+            showToast('error', 'Connection Error', 'Failed to connect to owner\'s file system');
+        }
+        return;
+    }
+
+    // ✅ For local/owner sessions (Host A):
+    // Open file browser normally - backend will auto-create session if needed
+    // When fileExplorer.open() calls loadDirectory(), it will hit backend endpoint:
+    // GET /filesystem/{terminalSessionId}/list?path=.
+    // Backend's getOrCreateFileSystem() will auto-create SFTP session if crashed!
+    console.log('[FileSystem] Opening file browser for local/owner session:', sessionId);
     fileExplorer.open(sessionId, connectionInfo);
 
     console.log('[FileSystem] Opened file browser for session:', sessionId);

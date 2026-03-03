@@ -922,7 +922,20 @@ class TerminalSharing extends UserConnectionBase {
             requestId
         };
 
+        // ✅ Detailed logging to debug file write issues
         console.log('[TerminalSharing] Sending FS request:', operation, 'to:', targetAgent, 'requestId:', requestId);
+        console.log('[TerminalSharing] FS request params:', {
+            operation,
+            sessionId,
+            requestId,
+            paramsKeys: params ? Object.keys(params) : [],
+            path: params?.path,
+            contentLength: params?.content ? params.content.length : 0,
+            contentPreview: params?.content ? params.content.substring(0, 100) + '...' : null,
+            contentEndsWithDash: params?.content ? params.content.endsWith('-') : false,
+            contentLastChars: params?.content ? params.content.substring(params.content.length - 10) : null
+        });
+
         this.sendData(message, targetAgent);
         return true;
     }
