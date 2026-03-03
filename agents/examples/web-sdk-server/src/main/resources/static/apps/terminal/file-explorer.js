@@ -372,10 +372,10 @@ class FileExplorer {
         try {
             this.showLoading('Loading...');
 
-            // Use unified file system API (with timeout for offline detection)
+            // Use unified file system API (with increased timeout for slow connections)
             const response = await fetch(
                 `${this.mlsUrl}/filesystem/${encodeURIComponent(this.terminalSessionId)}/list?path=${encodeURIComponent(targetPath)}`,
-                { signal: AbortSignal.timeout(10000) } // 10 second timeout
+                { signal: AbortSignal.timeout(30000) } // 30 second timeout (increased from 10s)
             );
 
             const result = await response.json();
