@@ -485,6 +485,14 @@ function updateSlsDependentButtons(online) {
         detail: { online }
     }));
 
+    // Update file explorer button based on active session (independent of SLS for shared sessions)
+    if (activeSessionId) {
+        const session = sessions.get(activeSessionId);
+        if (session) {
+            updateFileExplorerButtonState(session);
+        }
+    }
+
     console.log(`[SLS] UI updated: ${online ? 'Online' : 'Offline'} - All SLS-dependent elements ${online ? 'enabled' : 'disabled'}`);
 }
 
@@ -499,6 +507,13 @@ function sessionSupportsFileExplorer(session) {
     console.log('[FileExplorer] Checking if session supports File Explorer. Session:', session);
     if (!session) return false;
 
+    // ✅ Session must be alive/connected (except remote sessions which use cloud connection)
+    const isAlive = session.connected || (session.type === 'remote' && session.owner);
+    if (!isAlive) {
+        console.log('[FileExplorer] Session not alive - button disabled');
+        return false;
+    }
+
     // SSH sessions support file explorer
     const isSsh = session.type === 'ssh';
 
@@ -506,11 +521,54 @@ function sessionSupportsFileExplorer(session) {
     const isLocalTerminal = session.type === 'local' &&
         session.config && ['cmd', 'bash', 'ps'].includes(session.config.shell);
 
-    // ✅ Remote shared sessions support file explorer (operations proxied to owner)
-    // Viewer can use file browser regardless of permission (read-only can browse, read-write can edit)
-    const isRemoteShared = session.type === 'remote' && session.owner;
+    // ✅ Remote shared sessions support file explorer ONLY with write permission
+    // Read-only viewers cannot access file system (they can only view terminal output)
+    const isRemoteShared = session.type === 'remote' && session.owner && session.permission === 'readwrite';
 
     return isSsh || isLocalTerminal || isRemoteShared;
+}
+
+/**
+ * Update file explorer button state based on active session
+ * Enables button if current session supports file explorer
+ * @param {Object} session - Current session object
+ */
+function updateFileExplorerButtonState(session) {
+    const filesTabBtn = document.getElementById('filesTabBtn');
+    if (!filesTabBtn) return;
+
+    const supportsFileExplorer = sessionSupportsFileExplorer(session);
+
+    if (supportsFileExplorer) {
+        // ✅ Properly enable button
+        filesTabBtn.disabled = false;
+        filesTabBtn.removeAttribute('disabled'); // Remove HTML attribute
+        filesTabBtn.classList.remove('disabled');
+        filesTabBtn.style.removeProperty('pointer-events'); // Remove inline style
+        filesTabBtn.style.removeProperty('opacity'); // Remove inline style
+
+        // Update tooltip based on session type
+        if (session.type === 'ssh') {
+            filesTabBtn.title = 'File Explorer (Remote Files via SFTP)';
+        } else if (session.type === 'remote') {
+            filesTabBtn.title = 'File Explorer (Shared Session - ' +
+                               (session.permission === 'readwrite' ? 'Read-Write' : 'Read-Only') + ')';
+        } else {
+            filesTabBtn.title = 'File Explorer (Local Files)';
+        }
+
+        console.log('[FileExplorer] Button enabled for session:', session.id, 'type:', session.type);
+    } else {
+        // ✅ Properly disable button
+        filesTabBtn.disabled = true;
+        filesTabBtn.setAttribute('disabled', 'disabled'); // Set HTML attribute
+        filesTabBtn.classList.add('disabled');
+        filesTabBtn.style.pointerEvents = 'none';
+        filesTabBtn.style.opacity = '0.5';
+        filesTabBtn.title = 'File Explorer - Not available for this session type';
+
+        console.log('[FileExplorer] Button disabled for session:', session.id, 'type:', session.type);
+    }
 }
 
 /**
@@ -1739,6 +1797,12 @@ function switchToSession(sessionId) {
 
     // Update empty state
     updateEmptyState();
+
+    // ✅ Update file explorer button state for the new active session
+    const session = sessions.get(sessionId);
+    if (session) {
+        updateFileExplorerButtonState(session);
+    }
 }
 
 function closeTab(sessionId) {
@@ -2958,6 +3022,12 @@ async function reconnectSession(sessionId) {
             connectWebSocket(sessionId);
 
             showToast('success', 'Reconnected', `${session.name} reconnected successfully`);
+
+            // ✅ Update file explorer button state after reconnection
+            if (activeSessionId === sessionId) {
+                updateFileExplorerButtonState(session);
+            }
+
             return;
         }
 
@@ -3010,6 +3080,11 @@ async function reconnectSession(sessionId) {
         connectWebSocket(sessionId);
 
         showToast('success', 'Reconnected', `${session.name} reconnected successfully`);
+
+        // ✅ Update file explorer button state after session recreation
+        if (activeSessionId === sessionId) {
+            updateFileExplorerButtonState(session);
+        }
 
     } catch (error) {
         console.error('[Reconnect] Failed:', error);
@@ -4809,27 +4884,26 @@ async function connectToCloud() {
          * Handle file system requests from viewers (viewers → owner)
          * Owner acts as proxy to their local file system
          */
-        terminalSharing.onFileSystemRequest = async (sessionId, operation, params, sourceAgent, requestId) => {
-            console.log('[FileSystem] Received request from:', sourceAgent, 'session:', sessionId, 'op:', operation);
+terminalSharing.onFileSystemRequest = async (sessionId, operation, params, sourceAgent, requestId) => {
+    console.log('[FileSystem] Received request from:', sourceAgent, 'session:', sessionId, 'op:', operation);
 
-            const session = sessions.get(sessionId);
-            if (!session || !session.isShared || session.owner) {
-                console.warn('[FileSystem] Rejecting request - not the owner or session not shared');
-                return;
-            }
+    const session = sessions.get(sessionId);
+    if (!session || !session.isShared || session.owner) {
+        console.warn('[FileSystem] Rejecting request - not the owner or session not shared');
+        terminalSharing.sendFileSystemResponse(sessionId, requestId, {
+            success: false,
+            error: 'Not authorized - not the session owner'
+        }, sourceAgent);
+        return;
+    }
 
-            const fsSessionId = session.fileSystemSessionId;
-            if (!fsSessionId) {
-                console.warn('[FileSystem] No file system session for terminal:', sessionId);
-                terminalSharing.sendFileSystemResponse(sessionId, requestId, {
-                    success: false,
-                    error: 'No file system session available'
-                }, sourceAgent);
-                return;
-            }
+    // Get file system session ID (may not be explicitly set, so use terminal session ID as fallback)
+    // Backend auto-creates file system sessions using terminal session ID
+    const fsSessionId = session.fileSystemSessionId || sessionId;
+    console.log('[FileSystem] Using FS session ID:', fsSessionId, 'for terminal session:', sessionId);
 
-            try {
-                let result;
+    try {
+        let result;
 
                 // Execute the requested operation on owner's file system
                 switch (operation) {
@@ -4838,6 +4912,11 @@ async function connectToCloud() {
                         break;
                     case 'read':
                         result = await slsFetch(`${MLS_URL}/filesystem/${fsSessionId}/read?path=${encodeURIComponent(params.path)}`);
+                        // ✅ Notify owner that viewer opened a file
+                        if (result.ok) {
+                            const fileName = params.path.split('/').pop() || params.path;
+                            showToast('info', `📂 ${sourceAgent}`, `Opened file: ${fileName}`);
+                        }
                         break;
                     case 'info':
                         result = await slsFetch(`${MLS_URL}/filesystem/${fsSessionId}/info?path=${encodeURIComponent(params.path)}`);
@@ -4848,21 +4927,42 @@ async function connectToCloud() {
                             headers: { 'Content-Type': 'application/json' },
                             body: JSON.stringify(params)
                         });
+                        // ✅ Notify owner that viewer saved a file
+                        if (result.ok) {
+                            const fileName = params.path.split('/').pop() || params.path;
+                            showToast('success', `💾 ${sourceAgent}`, `Saved file: ${fileName}`);
+                        }
                         break;
                     case 'delete':
                         result = await slsFetch(`${MLS_URL}/filesystem/${fsSessionId}/delete?path=${encodeURIComponent(params.path)}&recursive=${params.recursive || false}`, {
                             method: 'DELETE'
                         });
+                        // ✅ Notify owner that viewer deleted a file
+                        if (result.ok) {
+                            const fileName = params.path.split('/').pop() || params.path;
+                            showToast('warning', `🗑️ ${sourceAgent}`, `Deleted: ${fileName}`);
+                        }
                         break;
                     case 'mkdir':
                         result = await slsFetch(`${MLS_URL}/filesystem/${fsSessionId}/mkdir?path=${encodeURIComponent(params.path)}`, {
                             method: 'POST'
                         });
+                        // ✅ Notify owner that viewer created a folder
+                        if (result.ok) {
+                            const folderName = params.path.split('/').pop() || params.path;
+                            showToast('info', `📁 ${sourceAgent}`, `Created folder: ${folderName}`);
+                        }
                         break;
                     case 'rename':
                         result = await slsFetch(`${MLS_URL}/filesystem/${fsSessionId}/rename?oldPath=${encodeURIComponent(params.oldPath)}&newPath=${encodeURIComponent(params.newPath)}`, {
                             method: 'POST'
                         });
+                        // ✅ Notify owner that viewer renamed a file
+                        if (result.ok) {
+                            const oldName = params.oldPath.split('/').pop() || params.oldPath;
+                            const newName = params.newPath.split('/').pop() || params.newPath;
+                            showToast('info', `✏️ ${sourceAgent}`, `Renamed: ${oldName} → ${newName}`);
+                        }
                         break;
                     case 'status':
                         result = await slsFetch(`${MLS_URL}/filesystem/${fsSessionId}/status`);
@@ -4874,6 +4974,22 @@ async function connectToCloud() {
                 const data = await result.json();
                 terminalSharing.sendFileSystemResponse(sessionId, requestId, data, sourceAgent);
 
+                // ✅ After successful write operation, broadcast notification to ALL users
+                // This notifies everyone (including owner) that the file was saved
+                if (operation === 'write' && result.ok) {
+                    console.log('[FileSystem] Broadcasting write notification to all users after save');
+                    terminalSharing.sendFileSystemNotification(
+                        sessionId,
+                        'write',
+                        {
+                            path: params.path,
+                            name: params.path.split('/').pop() || params.path,
+                            savedBy: sourceAgent
+                        }
+                        // No targetAgent = broadcast to all
+                    );
+                }
+
             } catch (error) {
                 console.error('[FileSystem] Error handling request:', error);
                 terminalSharing.sendFileSystemResponse(sessionId, requestId, {
@@ -4883,21 +4999,88 @@ async function connectToCloud() {
             }
         };
 
-        /**
-         * Handle file system responses from owner (owner → viewer)
-         * Viewer receives results from owner's proxy requests
-         */
-        terminalSharing.onFileSystemResponse = (sessionId, requestId, data, sourceAgent) => {
-            console.log('[FileSystem] Received response from:', sourceAgent, 'requestId:', requestId);
+/**
+ * Handle file system responses from owner (owner → viewer)
+ * Viewer receives results from owner's proxy requests
+ */
+terminalSharing.onFileSystemResponse = (sessionId, requestId, data, sourceAgent) => {
+    console.log('[FileSystem] Received response from:', sourceAgent, 'requestId:', requestId);
 
-            // Resolve the pending promise for this request
-            const pending = pendingFileSystemRequests.get(requestId);
-            if (pending) {
-                pending.resolve(data); // This also clears the timeout timer
-            } else {
-                console.warn('[FileSystem] No pending callback for requestId:', requestId);
-            }
-        };
+    // Resolve the pending promise for this request
+    const resolve = pendingFileSystemRequests.get(requestId);
+    if (resolve) {
+        pendingFileSystemRequests.delete(requestId); // Clear the pending request
+        resolve(data); // Resolve the promise with the data
+    } else {
+        console.warn('[FileSystem] No pending callback for requestId:', requestId);
+    }
+};
+
+/**
+ * Handle file system navigation from viewer (viewer navigates, owner sees update)
+ * Owner receives navigation updates from viewers
+ */
+terminalSharing.onFileSystemNavigate = (sessionId, path, sourceAgent) => {
+    console.log('[FileSystem] Viewer navigated:', sourceAgent, 'session:', sessionId, 'path:', path);
+
+    // If file explorer is currently showing this session, sync the navigation
+    if (fileExplorer && fileExplorer.terminalSessionId === sessionId) {
+        console.log('[FileSystem] Syncing navigation from viewer to owner');
+        // Update file explorer to show the same path (without triggering another sync)
+        fileExplorer.navigateTo(path, false); // false = don't trigger sync event
+
+        // Show subtle notification
+        showToast('info', '📁 Viewer Navigating', `${sourceAgent} → ${path}`, 3000);
+    }
+};
+
+/**
+ * Handle file system notifications from viewer (viewer performs action, owner gets notified)
+ * Owner receives notifications when viewers perform file operations
+ */
+terminalSharing.onFileSystemNotification = (sessionId, operation, details, sourceAgent) => {
+    console.log('[FileSystem] Received notification from:', sourceAgent, 'op:', operation, 'details:', details);
+
+    const session = sessions.get(sessionId);
+    const sessionName = session?.name || 'Terminal';
+
+    // Map operations to user-friendly messages
+    const messages = {
+        'read': `📄 ${sourceAgent} opened: ${details.path}`,
+        'write': `💾 ${sourceAgent} saved: ${details.path}`,
+        'delete': `🗑️ ${sourceAgent} deleted: ${details.path}`,
+        'mkdir': `📁 ${sourceAgent} created folder: ${details.path}`,
+        'rename': `✏️ ${sourceAgent} renamed: ${details.oldPath} → ${details.newPath}`,
+        'navigate': `📂 ${sourceAgent} browsing: ${details.path}`
+    };
+
+    const message = messages[operation] || `${sourceAgent} performed ${operation}`;
+
+    // Show notification to owner
+    showToast('info', `🔔 File System Activity`, message, 4000);
+
+    // ✅ If someone saved a file, check if we have it open in file editor
+    if (operation === 'write' && window.fileEditor && details.path) {
+        console.log('[FileSystem] File saved notification - triggering reload check');
+        console.log('[FileSystem] Details:', {
+            sessionId,
+            path: details.path,
+            name: details.name,
+            savedBy: details.savedBy || sourceAgent,
+            fullDetails: details
+        });
+        console.log('[FileSystem] Calling fileEditor.showReloadNotification with:', sessionId, details.path, sourceAgent);
+        window.fileEditor.showReloadNotification(sessionId, details.path, sourceAgent);
+    }
+
+    // If file explorer is open for this session, refresh the view
+    if (fileExplorer && fileExplorer.terminalSessionId === sessionId && operation !== 'read' && operation !== 'navigate') {
+        console.log('[FileSystem] Refreshing file explorer after viewer action');
+        setTimeout(() => {
+            fileExplorer.refresh();
+        }, 500);
+    }
+};
 
         // Listen for agent connection events to update agents list
         terminalSharing.onUserJoining = (event) => {
@@ -5433,6 +5616,14 @@ function createSharedTerminalSession(sessionId, sessionInfo, ownerAgent) {
             sessionId: sessionId
         });
         console.log('[Terminal] Notified owner that we joined session:', sessionId);
+    }
+
+    // Update file explorer button if this is the active session
+    if (activeSessionId === sessionId) {
+        const session = sessions.get(sessionId);
+        if (session) {
+            updateFileExplorerButtonState(session);
+        }
     }
 
     console.log('[Terminal] Created view-only session for shared session:', sessionId, 'from:', ownerAgent);
@@ -6508,9 +6699,10 @@ async function duplicateNote(noteId) {
     }
 }
 
-// Initialize notes on page load
+// Initialize notes on page load (only when SLS comes online)
+// NOTE: loadNotes() is now called via sls-online event listener below
+// This prevents errors when SLS is offline on initial page load
 window.addEventListener('DOMContentLoaded', () => {
-    loadNotes();
 
     // Set up notes context menu (fallback in case loadNotes fails)
     // This ensures context menu works even if notes list is empty or fails to load
@@ -6577,11 +6769,24 @@ function toggleFileExplorerPanel() {
 window.toggleSftpPanel = toggleFileExplorerPanel;
 window.toggleFileExplorerPanel = toggleFileExplorerPanel;
 
+// Track last click time to prevent rapid clicks
+let lastFileExplorerClickTime = 0;
+
 /**
  * Open File Explorer for the currently active tab (called from left sidebar button)
  * Opens on demand and keeps consistent with active session
  */
 function openFileExplorerForActiveTab() {
+    // Debounce: Prevent multiple rapid clicks (300ms cooldown)
+    const now = Date.now();
+    if (now - lastFileExplorerClickTime < 300) {
+        console.log('[FileExplorer] Click ignored - too fast (debounced)');
+        return;
+    }
+    lastFileExplorerClickTime = now;
+
+    console.log('[FileExplorer] Button clicked - activeSessionId:', activeSessionId);
+
     if (!activeSessionId) {
         showToast('warning', 'No Active Session', 'Open a terminal session first to use File Explorer.');
         return;
@@ -6596,6 +6801,14 @@ function openFileExplorerForActiveTab() {
     if (!sessionSupportsFileExplorer(session)) {
         showToast('warning', 'File Explorer Unavailable',
             'File Explorer requires an SSH, local terminal, or remote shared session.');
+        return;
+    }
+
+    // ✅ Check if file explorer is already open for this session
+    if (fileExplorer && fileExplorer.terminalSessionId === activeSessionId && fileExplorer.isConnected) {
+        console.log('[FileExplorer] Already open for this session - just switching to files tab');
+        // Just switch to the files tab without reopening
+        switchSidebarTab('files');
         return;
     }
 
@@ -6933,6 +7146,11 @@ window.addEventListener('load', async () => {
             }));
             console.log('[SLS] 🟢 Initial state: ONLINE - Event dispatched');
 
+            // ✅ Load notes immediately on initial page load (before event listener is set up)
+            // This fixes the race condition where notes wouldn't load on first page load
+            console.log('[SLS] Loading notes on initial page load');
+            loadNotes().catch(err => console.warn('[Notes] Failed to load notes on initial load:', err));
+
             updateSlsDependentButtons(true);
         } catch (error) {
             console.warn('⚠️ SLS is offline');
@@ -7018,9 +7236,15 @@ window.addEventListener('load', async () => {
         // Re-enable terminal creation buttons
         updateSlsDependentButtons(true);
 
+        // ✅ Load notes when SLS comes online
+        const { previousState } = event.detail;
+        if (previousState !== 'online') {
+            console.log('[SLS Event] Loading notes after SLS came online');
+            loadNotes().catch(err => console.warn('[Notes] Failed to load notes:', err));
+        }
+
         // When SLS just came online (from offline/null), restore tabs that weren't
         // loaded yet and reload the sidebar. Guard against re-entrant calls.
-        const { previousState } = event.detail;
         if (previousState !== 'online' && !_slsOnlineRestoring) {
             _slsOnlineRestoring = true;
             console.log('[SLS Event] SLS came online from:', previousState, '— restoring tabs + sidebar');

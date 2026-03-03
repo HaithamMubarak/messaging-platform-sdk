@@ -182,6 +182,14 @@ public interface IFileSystem {
     String getCurrentDirectory() throws FileSystemException;
 
     /**
+     * Get the home directory for this file system
+     *
+     * @return Home directory path (e.g., /root, /home/username)
+     * @throws FileSystemException if operation fails
+     */
+    String getHomeDirectory() throws FileSystemException;
+
+    /**
      * Change the current working directory
      *
      * @param path New working directory path

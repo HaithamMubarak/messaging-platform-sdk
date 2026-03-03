@@ -33,6 +33,27 @@ class FileExplorer {
     }
 
     /**
+     * Send file system notification to owner (for remote sessions)
+     * @param {string} operation - Operation type (read, write, delete, mkdir, rename, navigate)
+     * @param {object} details - Operation details (path, oldPath, newPath, etc.)
+     */
+    sendFileSystemNotification(operation, details) {
+        // Check if this is a remote session
+        if (window.isRemoteFileSystem && window.isRemoteFileSystem(this.terminalSessionId)) {
+            const session = window.sessions?.get(this.terminalSessionId);
+            if (session && session.owner && window.terminalSharing) {
+                console.log('[FileExplorer] Sending notification to owner:', operation, details);
+                window.terminalSharing.sendFileSystemNotification(
+                    this.terminalSessionId,
+                    operation,
+                    details,
+                    session.owner
+                );
+            }
+        }
+    }
+
+    /**
      * Create all DOM elements for the SFTP browser
      */
     createDomElements() {
@@ -523,8 +544,10 @@ class FileExplorer {
 
     /**
      * Navigate to path
+     * @param {string} path - Path to navigate to
+     * @param {boolean} sendSync - Whether to send sync message to owner (default: true)
      */
-    async navigateTo(path) {
+    async navigateTo(path, sendSync = true) {
         if (!path || path.trim() === '') {
             this.onToast('warning', 'Invalid Path', 'Please enter a valid path');
             return;
@@ -537,6 +560,15 @@ class FileExplorer {
 
         try {
             await this.loadDirectory(path);
+
+            // ✅ Send navigation sync to owner if this is a remote session and sendSync is true
+            if (sendSync && window.isRemoteFileSystem && window.isRemoteFileSystem(this.terminalSessionId)) {
+                const session = window.sessions?.get(this.terminalSessionId);
+                if (session && session.owner && window.terminalSharing) {
+                    console.log('[FileExplorer] Sending navigation sync to owner:', session.owner);
+                    window.terminalSharing.sendFileSystemNavigate(this.terminalSessionId, path, session.owner);
+                }
+            }
 
             // ✅ Immediately update path bar with the new currentPath
             // (after loadDirectory completes and currentPath is updated)
@@ -585,8 +617,16 @@ class FileExplorer {
                 throw new Error(result.error);
             }
 
-            const homePath = result.currentDirectory || '/';
-            console.log('[FileSystem] Home directory:', homePath);
+            // ✅ Extract homeDirectory from message field (format: "homeDirectory:/path/to/home")
+            let homePath = result.currentDirectory || '/'; // Fallback to currentDirectory
+
+            if (result.message && result.message.startsWith('homeDirectory:')) {
+                homePath = result.message.substring('homeDirectory:'.length);
+                console.log('[FileSystem] Home directory from status:', homePath);
+            } else {
+                console.warn('[FileSystem] No homeDirectory in response, using currentDirectory');
+            }
+
             await this.navigateTo(homePath);
         } catch (error) {
             console.warn('[FileSystem] Could not get home directory, using /:', error);
@@ -728,6 +768,11 @@ class FileExplorer {
                     }
                 );
 
+                if (!response.ok) {
+                    const errorText = await response.text();
+                    throw new Error(`Upload failed: ${response.status} ${response.statusText} - ${errorText}`);
+                }
+
                 const result = await response.json();
 
                 if (result.error) {
@@ -738,6 +783,12 @@ class FileExplorer {
                 progressBar.style.width = '100%';
 
                 this.onToast('success', 'Upload Complete', `${file.name} uploaded successfully`);
+
+                // Send notification to owner for remote sessions
+                this.sendFileSystemNotification('write', {
+                    path: remotePath,
+                    name: file.name
+                });
 
             } catch (error) {
                 console.error('[SFTP] Upload error:', error);
@@ -770,19 +821,35 @@ class FileExplorer {
         if (!confirm(confirmMsg)) return;
 
         try {
-            // Use unified file system API - session ID in URL, params in query string
-            const response = await fetch(
-                `${this.mlsUrl}/filesystem/${encodeURIComponent(this.terminalSessionId)}/delete?path=${encodeURIComponent(this.selectedFile.path)}&recursive=${this.selectedFile.isDirectory}`,
-                { method: 'DELETE' }
-            );
+            let result;
 
-            const result = await response.json();
+            // Check if this is a remote/shared session
+            if (window.isRemoteFileSystem && window.isRemoteFileSystem(this.terminalSessionId)) {
+                result = await window.proxyFileSystemRequest(this.terminalSessionId, 'delete', {
+                    path: this.selectedFile.path,
+                    recursive: this.selectedFile.isDirectory
+                });
+            } else {
+                // Use unified file system API - session ID in URL, params in query string
+                const response = await fetch(
+                    `${this.mlsUrl}/filesystem/${encodeURIComponent(this.terminalSessionId)}/delete?path=${encodeURIComponent(this.selectedFile.path)}&recursive=${this.selectedFile.isDirectory}`,
+                    { method: 'DELETE' }
+                );
+                result = await response.json();
+            }
 
             if (result.error) {
                 throw new Error(result.error);
             }
 
             this.onToast('success', 'Deleted', `${this.selectedFile.name} deleted`);
+
+            // Send notification to owner
+            this.sendFileSystemNotification('delete', {
+                path: this.selectedFile.path,
+                name: this.selectedFile.name
+            });
+
             this.selectedFile = null;
             await this.refresh();
 
@@ -804,26 +871,42 @@ class FileExplorer {
             : this.currentPath + '/' + name;
 
         try {
-            // Use write endpoint to create empty file
-            const response = await fetch(
-                `${this.mlsUrl}/filesystem/${encodeURIComponent(this.terminalSessionId)}/write`,
-                {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        path: path,
-                        content: ''  // Empty file
-                    })
-                }
-            );
+            let result;
 
-            const result = await response.json();
+            // Check if this is a remote/shared session
+            if (window.isRemoteFileSystem && window.isRemoteFileSystem(this.terminalSessionId)) {
+                result = await window.proxyFileSystemRequest(this.terminalSessionId, 'write', {
+                    path: path,
+                    content: ''  // Empty file
+                });
+            } else {
+                // Use write endpoint to create empty file
+                const response = await fetch(
+                    `${this.mlsUrl}/filesystem/${encodeURIComponent(this.terminalSessionId)}/write`,
+                    {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            path: path,
+                            content: ''  // Empty file
+                        })
+                    }
+                );
+                result = await response.json();
+            }
 
             if (result.error) {
                 throw new Error(result.error);
             }
 
             this.onToast('success', 'File Created', `${name} created`);
+
+            // Send notification to owner
+            this.sendFileSystemNotification('write', {
+                path: path,
+                name: name
+            });
+
             await this.refresh();
 
             // Open the new file in editor
@@ -847,19 +930,34 @@ class FileExplorer {
             : this.currentPath + '/' + name;
 
         try {
-            // Use mkdir endpoint with path in query string
-            const response = await fetch(
-                `${this.mlsUrl}/filesystem/${encodeURIComponent(this.terminalSessionId)}/mkdir?path=${encodeURIComponent(path)}`,
-                { method: 'POST' }
-            );
+            let result;
 
-            const result = await response.json();
+            // Check if this is a remote/shared session
+            if (window.isRemoteFileSystem && window.isRemoteFileSystem(this.terminalSessionId)) {
+                result = await window.proxyFileSystemRequest(this.terminalSessionId, 'mkdir', {
+                    path: path
+                });
+            } else {
+                // Use mkdir endpoint with path in query string
+                const response = await fetch(
+                    `${this.mlsUrl}/filesystem/${encodeURIComponent(this.terminalSessionId)}/mkdir?path=${encodeURIComponent(path)}`,
+                    { method: 'POST' }
+                );
+                result = await response.json();
+            }
 
             if (result.error) {
                 throw new Error(result.error);
             }
 
             this.onToast('success', 'Folder Created', `${name} created`);
+
+            // Send notification to owner
+            this.sendFileSystemNotification('mkdir', {
+                path: path,
+                name: name
+            });
+
             await this.refresh();
 
         } catch (error) {
@@ -882,19 +980,37 @@ class FileExplorer {
         const newPath = parentPath + '/' + newName;
 
         try {
-            // Use rename endpoint with paths in query string
-            const response = await fetch(
-                `${this.mlsUrl}/filesystem/${encodeURIComponent(this.terminalSessionId)}/rename?oldPath=${encodeURIComponent(oldPath)}&newPath=${encodeURIComponent(newPath)}`,
-                { method: 'POST' }
-            );
+            let result;
 
-            const result = await response.json();
+            // Check if this is a remote/shared session
+            if (window.isRemoteFileSystem && window.isRemoteFileSystem(this.terminalSessionId)) {
+                result = await window.proxyFileSystemRequest(this.terminalSessionId, 'rename', {
+                    oldPath: oldPath,
+                    newPath: newPath
+                });
+            } else {
+                // Use rename endpoint with paths in query string
+                const response = await fetch(
+                    `${this.mlsUrl}/filesystem/${encodeURIComponent(this.terminalSessionId)}/rename?oldPath=${encodeURIComponent(oldPath)}&newPath=${encodeURIComponent(newPath)}`,
+                    { method: 'POST' }
+                );
+                result = await response.json();
+            }
 
             if (result.error) {
                 throw new Error(result.error);
             }
 
             this.onToast('success', 'Renamed', `Renamed to ${newName}`);
+
+            // Send notification to owner
+            this.sendFileSystemNotification('rename', {
+                oldPath: oldPath,
+                newPath: newPath,
+                oldName: this.selectedFile.name,
+                newName: newName
+            });
+
             await this.refresh();
 
         } catch (error) {

@@ -278,14 +278,16 @@ body {
     position: absolute;
     top: 4px;
     right: 4px;
-    background: var(--accent-red, #f87171);
-    color: white;
+    background: #fbbf24; /* Bright yellow/gold */
+    color: #0f0f1a; /* Very dark text for maximum contrast */
     font-size: 9px;
-    font-weight: 600;
-    padding: 2px 4px;
+    font-weight: 700; /* Bolder for better visibility */
+    padding: 2px 5px;
     border-radius: 8px;
-    min-width: 14px;
+    min-width: 16px;
     text-align: center;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.4); /* Subtle shadow for depth */
+    border: 1px solid rgba(0, 0, 0, 0.2); /* Slight border for definition */
 }
 
 /* Sidebar Content Panels */

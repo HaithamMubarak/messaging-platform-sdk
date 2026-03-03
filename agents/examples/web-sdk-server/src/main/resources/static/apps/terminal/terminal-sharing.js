@@ -76,6 +76,8 @@ class TerminalSharing extends UserConnectionBase {
         this.onDisconnect = null;            // (reason) => {} - called when cloud connection is lost
         this.onFileSystemRequest = null;     // (sessionId, operation, params, sourceAgent, requestId) => {}
         this.onFileSystemResponse = null;    // (sessionId, requestId, data, sourceAgent) => {}
+        this.onFileSystemNavigate = null;    // (sessionId, path, sourceAgent) => {}
+        this.onFileSystemNotification = null; // (sessionId, operation, details, sourceAgent) => {}
     }
 
     /**
@@ -1210,6 +1212,88 @@ class TerminalSharing extends UserConnectionBase {
         } else {
             console.warn('[TerminalSharing] No onFileSystemResponse handler defined');
         }
+    }
+
+    /**
+     * Handle file system navigation sync (viewer navigates, owner receives update)
+     */
+    handleFileSystemNavigate(msg, src) {
+        console.log('[TerminalSharing] Received FS navigate from:', src, msg);
+
+        const { sessionId, path } = msg;
+
+        // Call user-defined callback
+        if (this.onFileSystemNavigate) {
+            this.onFileSystemNavigate(sessionId, path, src);
+        } else {
+            console.warn('[TerminalSharing] No onFileSystemNavigate handler defined');
+        }
+    }
+
+    /**
+     * Handle file system notification (viewer performs action, owner receives notification)
+     */
+    handleFileSystemNotification(msg, src) {
+        console.log('[TerminalSharing] Received FS notification from:', src, msg);
+
+        const { sessionId, operation, details } = msg;
+
+        // Call user-defined callback
+        if (this.onFileSystemNotification) {
+            this.onFileSystemNotification(sessionId, operation, details, src);
+        } else {
+            console.warn('[TerminalSharing] No onFileSystemNotification handler defined');
+        }
+    }
+
+    /**
+     * Send file system navigation sync to owner
+     */
+    sendFileSystemNavigate(sessionId, path, targetAgent) {
+        if (!this.connected) {
+            console.warn('[TerminalSharing] Not connected, cannot send FS navigate');
+            return false;
+        }
+
+        const message = {
+            type: 'fs-navigate',
+            sessionId,
+            path
+        };
+
+        console.log('[TerminalSharing] Sending FS navigate to:', targetAgent, 'path:', path);
+        this.sendData(message, targetAgent);
+        return true;
+    }
+
+    /**
+     * Send file system notification to specific user or broadcast to all
+     * @param {string} sessionId - Session ID
+     * @param {string} operation - Operation type (read, write, delete, etc.)
+     * @param {Object} details - Operation details (path, name, etc.)
+     * @param {string} [targetAgent] - Target agent name (optional - if not provided, broadcasts to all)
+     */
+    sendFileSystemNotification(sessionId, operation, details, targetAgent) {
+        if (!this.connected) {
+            console.warn('[TerminalSharing] Not connected, cannot send FS notification');
+            return false;
+        }
+
+        const message = {
+            type: 'fs-notification',
+            sessionId,
+            operation,
+            details
+        };
+
+        if (targetAgent) {
+            console.log('[TerminalSharing] Sending FS notification to:', targetAgent, 'op:', operation);
+        } else {
+            console.log('[TerminalSharing] Broadcasting FS notification to all users, op:', operation);
+        }
+
+        this.sendData(message, targetAgent);  // No targetAgent = broadcast
+        return true;
     }
 }
 

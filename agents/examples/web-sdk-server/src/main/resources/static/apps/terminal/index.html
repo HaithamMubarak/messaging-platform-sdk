@@ -365,14 +365,14 @@
                     <span class="sidebar-tab-icon">📝</span>
                     <span class="sidebar-tab-badge" id="notesBadge" style="display: none;">0</span>
                 </button>
-                <button class="sidebar-tab sls-dependent" onclick="openFileExplorerForActiveTab()" title="File Explorer" data-tab="files">
+                <button class="sidebar-tab" id="filesTabBtn" onclick="openFileExplorerForActiveTab()" title="File Explorer - Select a terminal session" data-tab="files" style="pointer-events: none; opacity: 0.5;">
                     <span class="sidebar-tab-icon">📁</span>
                 </button>
                 <button class="sidebar-tab" onclick="switchSidebarTab('shared')" title="Shared with You" data-tab="shared">
                     <span class="sidebar-tab-icon">📡</span>
                     <span class="sidebar-tab-badge" id="sharedBadge" style="display: none;">0</span>
                 </button>
-                <button class="sidebar-tab" onclick="switchSidebarTab('myshares')" title="My Shared Terminals" data-tab="myshares">
+                <button class="sidebar-tab sls-dependent" onclick="switchSidebarTab('myshares')" title="My Shared Terminals" data-tab="myshares">
                     <span class="sidebar-tab-icon">📤</span>
                     <span class="sidebar-tab-badge" id="mysharesBadge" style="display: none;">0</span>
                 </button>

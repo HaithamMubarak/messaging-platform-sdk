@@ -21,6 +21,7 @@ public class LocalFileSystem extends AbstractFileSystem {
 
     private Path currentDirectory;
     private final Path rootPath;
+    private final Path homeDirectory; // ✅ Store home directory separately
     private boolean connected = true;
 
     /**
@@ -37,8 +38,9 @@ public class LocalFileSystem extends AbstractFileSystem {
      */
     public LocalFileSystem(Path rootPath) {
         this.rootPath = rootPath.toAbsolutePath().normalize();
+        this.homeDirectory = this.rootPath; // ✅ Home is the initial root path
         this.currentDirectory = this.rootPath;
-        log.info("[LocalFS] Initialized with root: {}", this.rootPath);
+        log.info("[LocalFS] Initialized with root: {}, home: {}", this.rootPath, this.homeDirectory);
     }
 
     /**
@@ -534,6 +536,11 @@ public class LocalFileSystem extends AbstractFileSystem {
     @Override
     public String getCurrentDirectory() {
         return currentDirectory.toString();
+    }
+
+    @Override
+    public String getHomeDirectory() {
+        return homeDirectory.toString();
     }
 
     @Override

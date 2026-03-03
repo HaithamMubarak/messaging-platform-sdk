@@ -3,7 +3,6 @@ package com.hmdev.sdk.local.filesystem;
 import lombok.extern.slf4j.Slf4j;
 
 import java.io.*;
-import java.nio.charset.StandardCharsets;
 import java.nio.file.*;
 import java.util.ArrayList;
 import java.util.List;
@@ -177,16 +176,6 @@ public class NotesFileSystem extends AbstractFileSystem {
     }
 
     @Override
-    public String getCurrentDirectory() {
-        return notesDirectory.toString();
-    }
-
-    @Override
-    public void changeDirectory(String path) throws FileSystemException {
-        throw new FileSystemException("Not supported", FileSystemException.ErrorCode.NOT_SUPPORTED);
-    }
-
-    @Override
     public long getTotalSpace() {
         try {
             return Files.getFileStore(notesDirectory).getTotalSpace();
@@ -233,21 +222,37 @@ public class NotesFileSystem extends AbstractFileSystem {
     private FileInfo pathToFileInfo(Path path, String noteId) {
         try {
             return FileInfo.builder()
-                .name(noteId + config.getNoteFileExtension())
-                .path(config.getNotePathPrefix() + noteId)
-                .directory(false)
-                .size(Files.size(path))
-                .lastModified(Files.getLastModifiedTime(path).toInstant())
-                .readable(Files.isReadable(path))
-                .writable(Files.isWritable(path))
-                .executable(false)
-                .hidden(false)
-                .mimeType("text/plain")
-                .build();
+                    .name(noteId + config.getNoteFileExtension())
+                    .path(config.getNotePathPrefix() + noteId)
+                    .directory(false)
+                    .size(Files.size(path))
+                    .lastModified(Files.getLastModifiedTime(path).toInstant())
+                    .readable(Files.isReadable(path))
+                    .writable(Files.isWritable(path))
+                    .executable(false)
+                    .hidden(false)
+                    .mimeType("text/plain")
+                    .build();
         } catch (IOException e) {
             log.error("{} Error: {}", config.getNotesLogTag(), e.getMessage());
             return null;
         }
+    }
+
+    @Override
+    public String getCurrentDirectory() {
+        return notesDirectory.toString();
+    }
+
+    @Override
+    public String getHomeDirectory() {
+        return notesDirectory.toString();
+    }
+
+    @Override
+    public void changeDirectory(String path) {
+        // Notes filesystem doesn't support navigation - always in notes directory
+        log.debug("{} changeDirectory called but not supported for notes", config.getNotesLogTag());
     }
 }
 

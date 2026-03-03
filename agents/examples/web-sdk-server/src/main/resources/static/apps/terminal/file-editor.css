@@ -75,9 +75,9 @@
 .file-editor-pinned {
     display: none;
     position: fixed;
-    top: 60px;
+    top: 30px;
     right: 0;
-    bottom: 0;
+    bottom: 30px;
     width: 600px;
     background: var(--editor-bg);
     border-left: 2px solid var(--editor-border);
@@ -473,3 +473,69 @@
     opacity: 0.7;
 }
 
+/* ================================================
+   RELOAD NOTIFICATION BAR
+   ================================================ */
+
+.file-editor-reload-bar {
+    display: none;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 10px 16px;
+    background: linear-gradient(135deg, #ff9800 0%, #f57c00 100%);
+    color: #ffffff;
+    border-bottom: 1px solid rgba(0, 0, 0, 0.2);
+    animation: slideDown 0.3s ease-out;
+}
+
+@keyframes slideDown {
+    from {
+        transform: translateY(-100%);
+        opacity: 0;
+    }
+    to {
+        transform: translateY(0);
+        opacity: 1;
+    }
+}
+
+.file-editor-reload-bar .reload-message {
+    flex: 1;
+    font-weight: 500;
+    font-size: 13px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.file-editor-reload-bar .file-editor-btn {
+    font-size: 12px;
+    padding: 6px 12px;
+    border-radius: 4px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s;
+    border: none;
+    white-space: nowrap;
+}
+
+.file-editor-reload-bar .file-editor-btn.primary {
+    background: #ffffff;
+    color: #f57c00;
+}
+
+.file-editor-reload-bar .file-editor-btn.primary:hover {
+    background: #f5f5f5;
+    transform: translateY(-1px);
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+}
+
+.file-editor-reload-bar .file-editor-btn.secondary {
+    background: rgba(0, 0, 0, 0.2);
+    color: #ffffff;
+}
+
+.file-editor-reload-bar .file-editor-btn.secondary:hover {
+    background: rgba(0, 0, 0, 0.3);
+}

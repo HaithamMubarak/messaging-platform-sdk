@@ -7,6 +7,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile;
 
 import java.util.Base64;
 import java.util.List;
@@ -83,6 +84,41 @@ public class FileSystemController {
 
         } catch (FileSystemException e) {
             log.error("[FileSystem] Error getting file info: {}", e.getMessage());
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(
+                    FileSystemResponse.error(e.getMessage(), e.getErrorCode().name())
+            );
+        }
+    }
+
+    /**
+     * Get file system status (current directory, home directory, space info)
+     * GET /filesystem/{sessionId}/status
+     */
+    @GetMapping("/{sessionId}/status")
+    public ResponseEntity<FileSystemResponse> getStatus(@PathVariable String sessionId) {
+        try {
+            IFileSystem fs = fileSystemService.getOrCreateFileSystem(sessionId);
+            if (fs == null) {
+                return ResponseEntity.status(HttpStatus.NOT_FOUND).body(
+                        FileSystemResponse.error("File system session not found", "SESSION_NOT_FOUND")
+                );
+            }
+
+            String currentDir = fs.getCurrentDirectory();
+            String homeDir = fs.getHomeDirectory();
+            long totalSpace = fs.getTotalSpace();
+            long freeSpace = fs.getFreeSpace();
+
+            return ResponseEntity.ok(FileSystemResponse.builder()
+                    .success(true)
+                    .currentDirectory(currentDir)
+                    .message("homeDirectory:" + homeDir) // Store homeDirectory in message field
+                    .totalSpace(totalSpace)
+                    .freeSpace(freeSpace)
+                    .build());
+
+        } catch (FileSystemException e) {
+            log.error("[FileSystem] Error getting status: {}", e.getMessage());
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(
                     FileSystemResponse.error(e.getMessage(), e.getErrorCode().name())
             );
@@ -493,12 +529,17 @@ public class FileSystemController {
         }
     }
 
+
     /**
-     * Get current directory and disk space
-     * GET /filesystem/{sessionId}/status
+     * Upload a file
+     * POST /filesystem/{sessionId}/upload?path=/remote/path/filename
+     * Body: multipart file
      */
-    @GetMapping("/{sessionId}/status")
-    public ResponseEntity<FileSystemResponse> getStatus(@PathVariable String sessionId) {
+    @PostMapping("/{sessionId}/upload")
+    public ResponseEntity<FileSystemResponse> uploadFile(
+            @PathVariable String sessionId,
+            @RequestParam String path,
+            @RequestParam("file") MultipartFile file) {
         try {
             IFileSystem fs = fileSystemService.getOrCreateFileSystem(sessionId);
             if (fs == null) {
@@ -507,17 +548,33 @@ public class FileSystemController {
                 );
             }
 
+            if (file.isEmpty()) {
+                return ResponseEntity.badRequest().body(
+                        FileSystemResponse.error("File is empty", "EMPTY_FILE")
+                );
+            }
+
+            // Read file bytes and write to file system
+            byte[] fileBytes = file.getBytes();
+            fs.writeFileBytes(path, fileBytes);
+
+            log.info("[FileSystem] File uploaded successfully: {} ({} bytes)", path, fileBytes.length);
+
             return ResponseEntity.ok(FileSystemResponse.builder()
                     .success(true)
-                    .currentDirectory(fs.getCurrentDirectory())
-                    .totalSpace(fs.getTotalSpace())
-                    .freeSpace(fs.getFreeSpace())
+                    .message("File uploaded successfully")
+                    .bytesProcessed((long) fileBytes.length)
                     .build());
 
         } catch (FileSystemException e) {
-            log.error("[FileSystem] Error getting status: {}", e.getMessage());
+            log.error("[FileSystem] Error uploading file: {}", e.getMessage());
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(
                     FileSystemResponse.error(e.getMessage(), e.getErrorCode().name())
+            );
+        } catch (Exception e) {
+            log.error("[FileSystem] Unexpected error uploading file: {}", e.getMessage(), e);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(
+                    FileSystemResponse.error("Failed to upload file: " + e.getMessage(), "UPLOAD_ERROR")
             );
         }
     }

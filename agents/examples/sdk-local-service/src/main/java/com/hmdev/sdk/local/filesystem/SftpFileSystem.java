@@ -19,6 +19,7 @@ public class SftpFileSystem extends AbstractFileSystem {
     private final Session sshSession;
     private final ChannelSftp sftpChannel;
     private String currentDirectory;
+    private String homeDirectory; // ✅ Store home directory separately
     private boolean connected = false;
 
     /**
@@ -48,10 +49,11 @@ public class SftpFileSystem extends AbstractFileSystem {
             sftpChannel.connect(10000);
 
             currentDirectory = sftpChannel.pwd();
+            homeDirectory = currentDirectory; // ✅ Store initial directory as home
             connected = true;
 
-            log.info("[SftpFS] Connected to {}:{} as {} (current dir: {})",
-                    host, port, username, currentDirectory);
+            log.info("[SftpFS] Connected to {}:{} as {} (current dir: {}, home: {})",
+                    host, port, username, currentDirectory, homeDirectory);
 
         } catch (JSchException | SftpException e) {
             throw new FileSystemException(
@@ -78,8 +80,10 @@ public class SftpFileSystem extends AbstractFileSystem {
 
         try {
             this.currentDirectory = sftpChannel.pwd();
+            this.homeDirectory = this.currentDirectory; // ✅ Store initial directory as home
             this.connected = true;
-            log.info("[SftpFS] Initialized with existing channel (current dir: {})", currentDirectory);
+            log.info("[SftpFS] Initialized with existing channel (current dir: {}, home: {})",
+                    currentDirectory, homeDirectory);
         } catch (SftpException e) {
             throw new FileSystemException(
                     "Failed to get current directory",
@@ -541,6 +545,11 @@ public class SftpFileSystem extends AbstractFileSystem {
     @Override
     public String getCurrentDirectory() {
         return currentDirectory;
+    }
+
+    @Override
+    public String getHomeDirectory() {
+        return homeDirectory;
     }
 
     @Override
