@@ -111,7 +111,7 @@ class FileExplorer {
             </div>
 
             <div class="sftp-path-bar">
-                <input type="text" id="sftpPathInput" placeholder="/path/to/directory" onkeypress="if(event.key==='Enter') fileExplorer.navigateTo(this.value)">
+                <input type="text" id="sftpPathInput" placeholder="/path/to/directory" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" onkeypress="if(event.key==='Enter') fileExplorer.navigateTo(this.value)">
                 <button class="sftp-path-go-btn" onclick="fileExplorer.navigateTo(document.getElementById('sftpPathInput').value)">Go</button>
             </div>
 
@@ -127,15 +127,7 @@ class FileExplorer {
                 <span id="sftpConnectionStatus">Disconnected</span>
             </div>
 
-            <!-- Hidden file input for uploads -->
-            <input type="file" id="sftpFileUpload" style="display: none" multiple onchange="fileExplorer.handleFileUpload(this.files)">
-
-            <!-- Drop overlay -->
-            <div class="sftp-drop-overlay" id="sftpDropOverlay">
-                <div class="sftp-drop-text">Drop files here to upload</div>
-            </div>
-
-            <!-- Upload progress -->
+            <!-- Upload progress - inside the panel -->
             <div class="sftp-upload-progress" id="sftpUploadProgress">
                 <div class="sftp-upload-info">
                     <span class="sftp-upload-filename" id="sftpUploadFilename">file.txt</span>
@@ -144,6 +136,14 @@ class FileExplorer {
                 <div class="sftp-upload-bar">
                     <div class="sftp-upload-bar-fill" id="sftpUploadBarFill" style="width: 0%"></div>
                 </div>
+            </div>
+
+            <!-- Hidden file input for uploads -->
+            <input type="file" id="sftpFileUpload" style="display: none" multiple onchange="fileExplorer.handleFileUpload(this.files)">
+
+            <!-- Drop overlay -->
+            <div class="sftp-drop-overlay" id="sftpDropOverlay">
+                <div class="sftp-drop-text">Drop files here to upload</div>
             </div>
         `;
 
@@ -253,6 +253,8 @@ class FileExplorer {
 
         this.terminalSessionId = terminalSessionId;
         this.connectionInfo = connectionInfo;
+        this.isRemote = connectionInfo.isRemote || false; // ✅ Track if this is a remote/shared session
+        this.remoteOwner = connectionInfo.remoteOwner || null; // ✅ Track the owner for proxying
         this.panel.classList.add('visible');
 
         // Update header with connection name
@@ -283,23 +285,30 @@ class FileExplorer {
      *
      * ✅ For SSH: Backend returns the default home directory from sftpChannel.pwd()
      * ✅ For Local: Backend returns user.home directory
+     * ✅ For Remote (Host B): Uses proxy to request from owner (Host A)
      */
     async connect() {
         try {
             this.showLoading('Loading files...');
 
-            // Backend auto-creates file system session using terminal session ID
-            // First request will return the default directory (home for SSH, user.home for local)
+            let result;
 
-            // List "." - backend will use its default directory and return it in currentDirectory
-            const response = await fetch(
-                `${this.mlsUrl}/filesystem/${encodeURIComponent(this.terminalSessionId)}/list?path=.`
-            );
+            // ✅ For remote sessions (Host B - viewer): Use proxy
+            if (this.isRemote && window.proxyFileSystemRequest) {
+                console.log('[FileExplorer] Remote session - using proxy for initial load');
+                result = await window.proxyFileSystemRequest(this.terminalSessionId, 'list', { path: '.' });
+            } else {
+                // ✅ For local/owner sessions (Host A): Direct API call
+                // Backend auto-creates file system session using terminal session ID
+                // First request will return the default directory (home for SSH, user.home for local)
+                const response = await fetch(
+                    `${this.mlsUrl}/filesystem/${encodeURIComponent(this.terminalSessionId)}/list?path=.`
+                );
+                result = await response.json();
+            }
 
-            const result = await response.json();
-
-            if (result.error) {
-                throw new Error(result.error);
+            if (result.error || !result.success) {
+                throw new Error(result.error || 'Failed to connect');
             }
 
             // ✅ Backend returns its default directory (SSH home or local user.home)
@@ -360,6 +369,8 @@ class FileExplorer {
 
     /**
      * Load directory contents
+     * ✅ For remote sessions (Host B): Uses proxy to request from owner
+     * ✅ For local/owner sessions (Host A): Direct API call
      */
     async loadDirectory(path = null, triggerEvent = true) {
         if (!this.isConnected) return;
@@ -367,18 +378,26 @@ class FileExplorer {
         const targetPath = path || this.currentPath;
         const previousPath = this.currentPath; // Save previous path for recovery
 
-        console.log('[FileExplorer] loadDirectory:', targetPath, 'triggerEvent:', triggerEvent);
+        console.log('[FileExplorer] loadDirectory:', targetPath, 'triggerEvent:', triggerEvent, 'isRemote:', this.isRemote);
 
         try {
             this.showLoading('Loading...');
 
-            // Use unified file system API (with increased timeout for slow connections)
-            const response = await fetch(
-                `${this.mlsUrl}/filesystem/${encodeURIComponent(this.terminalSessionId)}/list?path=${encodeURIComponent(targetPath)}`,
-                { signal: AbortSignal.timeout(30000) } // 30 second timeout (increased from 10s)
-            );
+            let result;
 
-            const result = await response.json();
+            // ✅ For remote sessions (Host B - viewer): Use proxy
+            if (this.isRemote && window.proxyFileSystemRequest) {
+                console.log('[FileExplorer] Remote session - using proxy for directory load');
+                result = await window.proxyFileSystemRequest(this.terminalSessionId, 'list', { path: targetPath });
+            } else {
+                // ✅ For local/owner sessions (Host A): Direct API call
+                // Use unified file system API (with increased timeout for slow connections)
+                const response = await fetch(
+                    `${this.mlsUrl}/filesystem/${encodeURIComponent(this.terminalSessionId)}/list?path=${encodeURIComponent(targetPath)}`,
+                    { signal: AbortSignal.timeout(30000) } // 30 second timeout (increased from 10s)
+                );
+                result = await response.json();
+            }
 
             console.log('[FileSystem] Backend response:', JSON.stringify(result, null, 2));
             console.log('[FileSystem] Requested path:', targetPath);
@@ -730,23 +749,49 @@ class FileExplorer {
     /**
      * Download selected file
      */
-    downloadSelected() {
+    async downloadSelected() {
         if (!this.selectedFile || this.selectedFile.isDirectory) {
             this.onToast('warning', 'No Selection', 'Please select a file to download');
             return;
         }
 
-        const url = `${this.mlsUrl}/filesystem/${encodeURIComponent(this.terminalSessionId)}/read-binary?path=${encodeURIComponent(this.selectedFile.path)}`;
+        try {
+            // Use fetch to download the file without navigating away
+            const url = `${this.mlsUrl}/filesystem/${encodeURIComponent(this.terminalSessionId)}/download?path=${encodeURIComponent(this.selectedFile.path)}`;
 
-        // Create hidden link and click it
-        const link = document.createElement('a');
-        link.href = url;
-        link.download = this.selectedFile.name;
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
+            this.onToast('info', 'Downloading...', `Downloading ${this.selectedFile.name}`);
 
-        this.onToast('info', 'Download Started', `Downloading ${this.selectedFile.name}`);
+            const response = await fetch(url);
+
+            if (!response.ok) {
+                throw new Error(`Download failed: ${response.status}`);
+            }
+
+            // Get the blob from response
+            const blob = await response.blob();
+
+            // Create a temporary URL for the blob
+            const blobUrl = window.URL.createObjectURL(blob);
+
+            // Create hidden link and trigger download
+            const link = document.createElement('a');
+            link.href = blobUrl;
+            link.download = this.selectedFile.name;
+            link.style.display = 'none';
+            document.body.appendChild(link);
+            link.click();
+
+            // Clean up
+            setTimeout(() => {
+                document.body.removeChild(link);
+                window.URL.revokeObjectURL(blobUrl);
+            }, 100);
+
+            this.onToast('success', 'Download Complete', `Downloaded ${this.selectedFile.name}`);
+        } catch (error) {
+            console.error('[FileExplorer] Download error:', error);
+            this.onToast('error', 'Download Failed', error.message || 'Failed to download file');
+        }
     }
 
     /**

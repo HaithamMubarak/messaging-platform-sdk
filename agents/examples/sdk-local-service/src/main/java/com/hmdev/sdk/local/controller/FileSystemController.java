@@ -4,11 +4,17 @@ import com.hmdev.sdk.local.dto.filesystem.*;
 import com.hmdev.sdk.local.filesystem.*;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.core.io.ByteArrayResource;
+import org.springframework.core.io.Resource;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
+import java.net.URLEncoder;
+import java.nio.charset.StandardCharsets;
 import java.util.Base64;
 import java.util.List;
 
@@ -188,6 +194,108 @@ public class FileSystemController {
                     FileSystemResponse.error(e.getMessage(), e.getErrorCode().name())
             );
         }
+    }
+
+    /**
+     * Download a file directly (returns file as downloadable resource)
+     * GET /filesystem/{sessionId}/download?path=/some/file.txt
+     * Returns the file with proper Content-Disposition headers for download
+     */
+    @GetMapping("/{sessionId}/download")
+    public ResponseEntity<Resource> downloadFile(
+            @PathVariable String sessionId,
+            @RequestParam String path) {
+        try {
+            IFileSystem fs = fileSystemService.getOrCreateFileSystem(sessionId);
+            if (fs == null) {
+                log.error("[FileSystem] Download failed - session not found: {}", sessionId);
+                return ResponseEntity.status(HttpStatus.NOT_FOUND).build();
+            }
+
+            // Get file info for filename
+            FileInfo fileInfo = fs.getFileInfo(path);
+            if (fileInfo.isDirectory()) {
+                log.error("[FileSystem] Cannot download directory: {}", path);
+                return ResponseEntity.badRequest().build();
+            }
+
+            // Read file bytes
+            byte[] bytes = fs.readFileBytes(path);
+            Resource resource = new ByteArrayResource(bytes);
+
+            // Determine content type
+            String contentType = determineContentType(fileInfo.getName());
+
+            // Encode filename for Content-Disposition header (handles special characters)
+            String encodedFilename = URLEncoder.encode(fileInfo.getName(), StandardCharsets.UTF_8.toString())
+                    .replaceAll("\\+", "%20");
+
+            log.info("[FileSystem] File downloaded: {} ({} bytes)", path, bytes.length);
+
+            // Return file with proper headers
+            return ResponseEntity.ok()
+                    .contentType(MediaType.parseMediaType(contentType))
+                    .header(HttpHeaders.CONTENT_DISPOSITION,
+                            "attachment; filename=\"" + fileInfo.getName() + "\"; filename*=UTF-8''" + encodedFilename)
+                    .contentLength(bytes.length)
+                    .body(resource);
+
+        } catch (FileSystemException e) {
+            log.error("[FileSystem] Error downloading file: {}", e.getMessage());
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
+        } catch (Exception e) {
+            log.error("[FileSystem] Unexpected error downloading file: {}", e.getMessage(), e);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
+        }
+    }
+
+    /**
+     * Determine content type based on file extension
+     */
+    private String determineContentType(String filename) {
+        String lower = filename.toLowerCase();
+
+        // Text files
+        if (lower.endsWith(".txt")) return "text/plain";
+        if (lower.endsWith(".log")) return "text/plain";
+        if (lower.endsWith(".md")) return "text/markdown";
+        if (lower.endsWith(".json")) return "application/json";
+        if (lower.endsWith(".xml")) return "application/xml";
+        if (lower.endsWith(".yaml") || lower.endsWith(".yml")) return "text/yaml";
+        if (lower.endsWith(".csv")) return "text/csv";
+
+        // Code files
+        if (lower.endsWith(".java")) return "text/x-java";
+        if (lower.endsWith(".js")) return "text/javascript";
+        if (lower.endsWith(".py")) return "text/x-python";
+        if (lower.endsWith(".sh")) return "text/x-shellscript";
+        if (lower.endsWith(".bat") || lower.endsWith(".cmd")) return "text/x-bat";
+        if (lower.endsWith(".html") || lower.endsWith(".htm")) return "text/html";
+        if (lower.endsWith(".css")) return "text/css";
+
+        // Archives
+        if (lower.endsWith(".zip")) return "application/zip";
+        if (lower.endsWith(".tar")) return "application/x-tar";
+        if (lower.endsWith(".gz")) return "application/gzip";
+        if (lower.endsWith(".7z")) return "application/x-7z-compressed";
+        if (lower.endsWith(".rar")) return "application/x-rar-compressed";
+
+        // Images
+        if (lower.endsWith(".jpg") || lower.endsWith(".jpeg")) return "image/jpeg";
+        if (lower.endsWith(".png")) return "image/png";
+        if (lower.endsWith(".gif")) return "image/gif";
+        if (lower.endsWith(".svg")) return "image/svg+xml";
+        if (lower.endsWith(".ico")) return "image/x-icon";
+
+        // Documents
+        if (lower.endsWith(".pdf")) return "application/pdf";
+        if (lower.endsWith(".doc")) return "application/msword";
+        if (lower.endsWith(".docx")) return "application/vnd.openxmlformats-officedocument.wordprocessingml.document";
+        if (lower.endsWith(".xls")) return "application/vnd.ms-excel";
+        if (lower.endsWith(".xlsx")) return "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
+
+        // Default
+        return "application/octet-stream";
     }
 
     /**
@@ -599,5 +707,4 @@ public class FileSystemController {
         }
     }
 }
-
 

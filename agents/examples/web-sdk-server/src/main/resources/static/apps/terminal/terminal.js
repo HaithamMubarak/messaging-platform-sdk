@@ -1612,6 +1612,9 @@ async function refreshConnections() {
     await _renderSessionList(container);
 }
 
+// Make function globally accessible
+window.refreshConnections = refreshConnections;
+
 function escapeHtml(str) {
     if (!str) return '';
     return str.replace(/[&<>"']/g, m => ({
@@ -4111,6 +4114,16 @@ async function checkForAuthUrl() {
  */
 function promptForAgentName(channelName) {
     return new Promise((resolve) => {
+        // ✅ Check localStorage first - if username exists, auto-connect without showing modal
+        const storedUsername = localStorage.getItem('terminal_cloudAgentName');
+        if (storedUsername && storedUsername.trim()) {
+            console.log('[Terminal] Found stored username, auto-connecting:', storedUsername);
+            resolve(storedUsername.trim());
+            return;
+        }
+
+        console.log('[Terminal] No stored username found, showing modal');
+
         // Create modal overlay
         const overlay = document.createElement('div');
         overlay.style.cssText = `
@@ -4154,40 +4167,30 @@ function promptForAgentName(channelName) {
                     50% { transform: translateY(-10px); }
                 }
             </style>
-            <div style="${iconStyle}">💻</div>
-            <h2 style="margin: 0 0 16px 0; font-size: 24px; color: var(--text-primary); text-align: center; font-weight: 700;">
+            <div style="${iconStyle}">🖥️</div>
+            <h2 style="margin: 0 0 12px 0; font-size: 24px; color: var(--text-primary); text-align: center; font-weight: 700;">
                 Join Shared Terminal
             </h2>
-            <p style="margin: 0 0 24px 0; font-size: 14px; color: var(--text-secondary); line-height: 1.7; text-align: center;">
-                You're joining <strong style="color: var(--accent-cyan); font-weight: 600;">${channelName}</strong>
+            <p style="margin: 0 0 20px 0; font-size: 14px; color: var(--text-secondary); line-height: 1.7; text-align: center;">
+                Enter your name to connect to the shared terminal
                 <br>
-                <span style="font-size: 13px; opacity: 0.8;">Enter your agent name or skip to use terminal offline</span>
+                <span style="font-size: 13px; opacity: 0.8;">Channel: <strong style="color: var(--accent-cyan); font-weight: 600;">${channelName}</strong></span>
             </p>
-            <div style="margin-bottom: 24px;">
-                <label style="display: block; margin-bottom: 8px; font-size: 13px; color: var(--text-secondary); font-weight: 500;">
-                    Your Agent Name
+            <div style="margin-bottom: 20px;">
+                <label style="display: block; margin-bottom: 8px; font-size: 14px; color: var(--text-primary); font-weight: 600;">
+                    Your Name <span style="color: var(--accent-red);">*</span>
                 </label>
-                <input type="text" id="agent-name-input" placeholder="e.g., Swift-Tiger-1234" 
+                <input type="text" id="agent-name-input" placeholder="Enter your name" required
                        style="width: 100%; padding: 14px; border: 2px solid var(--border-color); 
                               border-radius: 8px; background: var(--bg-darker); color: var(--text-primary); 
                               font-size: 15px; box-sizing: border-box; transition: all 0.2s;
                               font-family: 'Consolas', 'Monaco', monospace;"
                        onfocus="this.style.borderColor='var(--accent-blue)'; this.style.boxShadow='0 0 0 3px rgba(74, 158, 255, 0.1)';"
                        onblur="this.style.borderColor='var(--border-color)'; this.style.boxShadow='none';">
-                <div style="margin-top: 8px; font-size: 12px; color: var(--text-muted);">
-                    💡 A unique name has been generated for you
-                </div>
+
             </div>
             <div style="display: flex; gap: 12px; justify-content: stretch;">
-                <button id="agent-name-skip" style="flex: 1; padding: 12px 20px; border: 2px solid var(--border-color); 
-                                                      border-radius: 8px; background: transparent; 
-                                                      color: var(--text-secondary); cursor: pointer; font-size: 14px;
-                                                      font-weight: 600; transition: all 0.2s;"
-                        onmouseover="this.style.background='var(--bg-darker)'; this.style.borderColor='var(--accent-blue)';"
-                        onmouseout="this.style.background='transparent'; this.style.borderColor='var(--border-color)';">
-                    ⏭️ Skip
-                </button>
-                <button id="agent-name-confirm" style="flex: 2; padding: 12px 24px; border: none; border-radius: 8px; 
+                <button id="agent-name-confirm" style="width: 100%; padding: 14px 24px; border: none; border-radius: 8px; 
                                                         background: linear-gradient(135deg, var(--accent-blue), var(--accent-purple)); 
                                                         color: white; cursor: pointer; font-size: 14px; font-weight: 700;
                                                         box-shadow: 0 4px 12px rgba(74, 158, 255, 0.3); transition: all 0.2s;"
@@ -4203,12 +4206,9 @@ function promptForAgentName(channelName) {
 
         const input = dialog.querySelector('#agent-name-input');
         const confirmBtn = dialog.querySelector('#agent-name-confirm');
-        const skipBtn = dialog.querySelector('#agent-name-skip');
 
-        // Generate unique default name (guaranteed unique with timestamp)
-        const defaultName = generateAgentName();
-        input.value = defaultName;
-        input.select();
+        // ✅ Username field starts EMPTY - user must enter their name
+        input.value = '';
         input.focus();
 
         const cleanup = () => {
@@ -4220,34 +4220,37 @@ function promptForAgentName(channelName) {
             }, 200);
             // NOTE: Do NOT clear the hash — preserve the shared link URL so the
             // user can copy/reshare it, and so page refresh reconnects to the same channel.
-            // window.history.replaceState(null, '', window.location.pathname + window.location.search);
         };
 
         const confirm = () => {
             const name = input.value.trim();
             if (name) {
+                // ✅ Save username to localStorage for future auto-connect
+                localStorage.setItem('terminal_cloudAgentName', name);
+                console.log('[Terminal] Saved username to localStorage:', name);
                 cleanup();
                 resolve(name);
             } else {
                 input.focus();
                 input.style.borderColor = 'var(--accent-red)';
-                showToast('warning', 'Name Required', 'Please enter your agent name');
+                showToast('warning', 'Name Required', 'Please enter your name to connect');
                 setTimeout(() => {
                     input.style.borderColor = 'var(--border-color)';
                 }, 2000);
             }
         };
 
-        const skip = () => {
-            cleanup();
-            resolve(null);
-            showToast('info', '⏭️ Skipped', 'You can connect to cloud manually later');
+        confirmBtn.onclick = confirm;
+
+        // Enter key to confirm
+        input.onkeypress = (e) => {
+            if (e.key === 'Enter') {
+                e.preventDefault();
+                confirm();
+            }
         };
 
-        confirmBtn.onclick = confirm;
-        skipBtn.onclick = skip;
-
-        // Prevent closing by clicking outside (intentional)
+        // Prevent closing by clicking outside
         overlay.onclick = (e) => {
             if (e.target === overlay) {
                 // Shake animation to indicate it can't be closed
@@ -4561,6 +4564,24 @@ function regenerateAgentName() {
             const newName = generateAgentName();
             showToast('success', 'Name Regenerated', `New agent name: ${newName}`);
         }
+    }
+}
+
+/**
+ * Toggle Channel Password visibility
+ */
+function toggleCloudPasswordVisibility() {
+    const passwordInput = document.getElementById('cloudChannelPassword');
+    const toggleButton = document.getElementById('cloudPasswordToggle');
+
+    if (passwordInput.type === 'password') {
+        passwordInput.type = 'text';
+        toggleButton.textContent = '🙈'; // closed eye
+        toggleButton.title = 'Hide password';
+    } else {
+        passwordInput.type = 'password';
+        toggleButton.textContent = '👁️'; // open eye
+        toggleButton.title = 'Show password';
     }
 }
 
@@ -4896,6 +4917,44 @@ terminalSharing.onFileSystemRequest = async (sessionId, operation, params, sourc
         }, sourceAgent);
         return;
     }
+
+    // ✅ SECURITY: Validate permission for the requester
+    // Get the permission for this specific agent (or use session default)
+    const requesterPermission = session.agentPermissions?.get(sourceAgent) || session.permission;
+
+    console.log('[FileSystem] Requester:', sourceAgent, 'permission:', requesterPermission);
+
+    // ✅ SECURITY: Define which operations require write permission
+    const WRITE_OPERATIONS = ['write', 'delete', 'mkdir', 'rename', 'copy', 'append', 'write-at', 'upload'];
+    const READ_OPERATIONS = ['list', 'read', 'info', 'status', 'read-binary', 'read-range'];
+
+    // ✅ SECURITY: Block write operations if requester only has readonly permission
+    if (WRITE_OPERATIONS.includes(operation) && requesterPermission === 'readonly') {
+        console.warn('[FileSystem] ❌ BLOCKED: Write operation denied for readonly user:', sourceAgent, 'op:', operation);
+        terminalSharing.sendFileSystemResponse(sessionId, requestId, {
+            success: false,
+            error: 'Permission denied - you only have read-only access',
+            errorCode: 'PERMISSION_DENIED'
+        }, sourceAgent);
+
+        // ✅ Notify owner about blocked attempt
+        showToast('warning', '🚫 Blocked Request',
+            `${sourceAgent} tried to perform write operation "${operation}" with readonly permission`, 5000);
+        return;
+    }
+
+    // ✅ Validate operation is known
+    if (!WRITE_OPERATIONS.includes(operation) && !READ_OPERATIONS.includes(operation)) {
+        console.warn('[FileSystem] ❌ Unknown operation:', operation);
+        terminalSharing.sendFileSystemResponse(sessionId, requestId, {
+            success: false,
+            error: 'Unknown operation: ' + operation,
+            errorCode: 'INVALID_OPERATION'
+        }, sourceAgent);
+        return;
+    }
+
+    console.log('[FileSystem] ✅ Permission validated - proceeding with operation:', operation);
 
     // Get file system session ID (may not be explicitly set, so use terminal session ID as fallback)
     // Backend auto-creates file system sessions using terminal session ID
@@ -5248,6 +5307,16 @@ terminalSharing.onFileSystemNotification = (sessionId, operation, details, sourc
                     console.log('[Terminal] Updating file explorer button after permission update');
                     window.updateFileExplorerButtonState(session);
                 }
+
+                // ✅ Close file explorer if permission changed to readonly
+                // Read-only viewers cannot access file system
+                if (newPermission === 'readonly' && fileExplorer && fileExplorer.isConnected &&
+                    fileExplorer.terminalSessionId === sessionId) {
+                    console.log('[Terminal] Closing file explorer - permission changed to readonly');
+                    fileExplorer.close();
+                    showToast('info', '📁 File Explorer Closed',
+                        'File system access requires write permission', 3000);
+                }
             }
         };
 
@@ -5276,8 +5345,11 @@ terminalSharing.onFileSystemNotification = (sessionId, operation, details, sourc
             // Update UI to show disconnected state
             const statusDot = document.getElementById('cloudStatus');
             const statusText = document.getElementById('cloudStatusText');
+            const hostIndicator = document.getElementById('cloudHostIndicator');
+
             if (statusDot) statusDot.className = 'status-dot offline';
             if (statusText) statusText.textContent = 'Disconnected (connection lost)';
+            if (hostIndicator) hostIndicator.style.display = 'none';
 
             const connectBtn = document.getElementById('cloudConnectBtn');
             if (connectBtn) {
@@ -5381,6 +5453,8 @@ terminalSharing.onFileSystemNotification = (sessionId, operation, details, sourc
         // Update status display
         const statusDot = document.getElementById('cloudStatus');
         const statusText = document.getElementById('cloudStatusText');
+        const hostIndicator = document.getElementById('cloudHostIndicator');
+
         if (statusDot) {
             statusDot.className = 'status-dot online';
             console.log('[Messaging] Status dot updated to online');
@@ -5388,6 +5462,11 @@ terminalSharing.onFileSystemNotification = (sessionId, operation, details, sourc
         if (statusText) {
             statusText.textContent = `Connected as ${agentName}`;
             console.log('[Messaging] Status text updated to Connected');
+        }
+
+        // Show host indicator initially (will be updated as sessions are shared)
+        if (hostIndicator) {
+            hostIndicator.style.display = 'flex';
         }
 
         updateAgentsList();
@@ -5469,6 +5548,12 @@ function disconnectFromCloud() {
     document.getElementById('cloudActionsRow').style.display = 'none';
     document.getElementById('cloudAgentsSection').style.display = 'none';
 
+    // Hide host indicator
+    const hostIndicator = document.getElementById('cloudHostIndicator');
+    if (hostIndicator) {
+        hostIndicator.style.display = 'none';
+    }
+
     // Disable the Sharing tab
     disableSharingTab();
 
@@ -5483,6 +5568,7 @@ function disconnectFromCloud() {
     document.getElementById('cloudAgentName').disabled = false;
     document.getElementById('cloudStatus').className = 'status-dot offline';
     document.getElementById('cloudStatusText').textContent = 'Disconnected';
+
 
     updateAgentsList();
     updateSharedTerminalsList();

@@ -12,7 +12,6 @@
     border-left: 1px solid var(--border-color);
     display: none;
     flex-direction: column;
-    resize: horizontal;
     overflow: hidden;
 }
 
