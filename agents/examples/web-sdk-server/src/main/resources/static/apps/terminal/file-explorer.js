@@ -747,7 +747,7 @@ class FileExplorer {
     */
 
     /**
-     * Download selected file
+     * Download selected file with chunking support for large files
      */
     async downloadSelected() {
         if (!this.selectedFile || this.selectedFile.isDirectory) {
@@ -756,19 +756,45 @@ class FileExplorer {
         }
 
         try {
-            // Use fetch to download the file without navigating away
-            const url = `${this.mlsUrl}/filesystem/${encodeURIComponent(this.terminalSessionId)}/download?path=${encodeURIComponent(this.selectedFile.path)}`;
-
             this.onToast('info', 'Downloading...', `Downloading ${this.selectedFile.name}`);
 
-            const response = await fetch(url);
+            let blob;
 
-            if (!response.ok) {
-                throw new Error(`Download failed: ${response.status}`);
+            // ✅ Check if this is a remote/shared session (Host B viewing Host A's terminal)
+            if (this.isRemote && window.proxyFileSystemRequest) {
+                console.log('[FileExplorer] Remote session - using FileTransferProxy for download');
+
+                // Use FileTransferProxy for chunked download
+                if (!window.fileTransferProxy) {
+                    window.fileTransferProxy = new FileTransferProxy({
+                        proxyRequestFn: window.proxyFileSystemRequest,
+                        onToast: this.onToast
+                    });
+                }
+
+                // FileTransferProxy handles file info fetch and chunking decision
+                blob = await window.fileTransferProxy.downloadFile(
+                    this.terminalSessionId,
+                    this.selectedFile.path,
+                    this.selectedFile.size,
+                    (progress) => {
+                        // Could add progress indicator here if needed
+                        console.log(`[FileExplorer] Download progress: ${progress}%`);
+                    }
+                );
+            } else {
+                // ✅ Owner: Direct HTTP download
+                console.log('[FileExplorer] Local/owner session - direct HTTP download');
+
+                const url = `${this.mlsUrl}/filesystem/${encodeURIComponent(this.terminalSessionId)}/download?path=${encodeURIComponent(this.selectedFile.path)}`;
+                const response = await fetch(url);
+
+                if (!response.ok) {
+                    throw new Error(`Download failed: ${response.status}`);
+                }
+
+                blob = await response.blob();
             }
-
-            // Get the blob from response
-            const blob = await response.blob();
 
             // Create a temporary URL for the blob
             const blobUrl = window.URL.createObjectURL(blob);
@@ -795,6 +821,55 @@ class FileExplorer {
     }
 
     /**
+     * Download file in chunks for large file support
+     * @param {string} filePath - Path of file to download
+     * @param {number} fileSize - Total file size in bytes
+     * @param {number} chunkSize - Size of each chunk
+     * @returns {Promise<Blob>} Downloaded file as Blob
+     */
+    async downloadFileChunked(filePath, fileSize, chunkSize) {
+        const totalChunks = Math.ceil(fileSize / chunkSize);
+        const chunks = [];
+
+        console.log(`[FileExplorer] Downloading in ${totalChunks} chunks (${chunkSize} bytes each)`);
+
+        for (let chunkIndex = 0; chunkIndex < totalChunks; chunkIndex++) {
+            const start = chunkIndex * chunkSize;
+            const end = Math.min(start + chunkSize, fileSize);
+
+            // Request chunk from owner
+            const result = await window.proxyFileSystemRequest(
+                this.terminalSessionId,
+                'download-chunk',
+                {
+                    path: filePath,
+                    start: start,
+                    end: end
+                }
+            );
+
+            if (!result.success || result.error) {
+                throw new Error(result.error || `Failed to download chunk ${chunkIndex + 1}/${totalChunks}`);
+            }
+
+            // Decode Base64 chunk
+            const binaryString = atob(result.chunkData);
+            const bytes = new Uint8Array(binaryString.length);
+            for (let i = 0; i < binaryString.length; i++) {
+                bytes[i] = binaryString.charCodeAt(i);
+            }
+
+            chunks.push(bytes);
+
+            const progress = Math.round(((chunkIndex + 1) / totalChunks) * 100);
+            console.log(`[FileExplorer] Downloaded chunk ${chunkIndex + 1}/${totalChunks} (${progress}%)`);
+        }
+
+        // Combine all chunks into single Blob
+        return new Blob(chunks, { type: 'application/octet-stream' });
+    }
+
+    /**
      * Open file upload dialog
      */
     uploadFile() {
@@ -802,7 +877,7 @@ class FileExplorer {
     }
 
     /**
-     * Handle file upload
+     * Handle file upload with chunking support for large files
      */
     async handleFileUpload(files) {
         if (!this.isConnected || files.length === 0) return;
@@ -819,33 +894,61 @@ class FileExplorer {
                 progressPercent.textContent = '0%';
                 progressBar.style.width = '0%';
 
-                const formData = new FormData();
-                formData.append('file', file);
-
                 const remotePath = this.currentPath.endsWith('/')
                     ? this.currentPath + file.name
                     : this.currentPath + '/' + file.name;
 
-                // Note: For real progress tracking, you'd need XHR with progress events
-                // This is a simplified version
-                progressPercent.textContent = 'Uploading...';
-                progressBar.style.width = '50%';
+                let result;
 
-                const response = await fetch(
-                    `${this.mlsUrl}/filesystem/${encodeURIComponent(this.terminalSessionId)}/upload?path=${encodeURIComponent(remotePath)}`,
-                    {
-                        method: 'POST',
-                        body: formData
+                // ✅ Check if this is a remote/shared session (Host B viewing Host A's terminal)
+                if (this.isRemote && window.proxyFileSystemRequest) {
+                    console.log('[FileExplorer] Remote session - using FileTransferProxy for upload');
+
+                    // Use FileTransferProxy for chunked upload with progress tracking
+                    if (!window.fileTransferProxy) {
+                        window.fileTransferProxy = new FileTransferProxy({
+                            proxyRequestFn: window.proxyFileSystemRequest,
+                            onToast: this.onToast
+                        });
                     }
-                );
 
-                if (!response.ok) {
-                    const errorText = await response.text();
-                    throw new Error(`Upload failed: ${response.status} ${response.statusText} - ${errorText}`);
+                    result = await window.fileTransferProxy.uploadFile(
+                        this.terminalSessionId,
+                        file,
+                        remotePath,
+                        (progress) => {
+                            // Update progress UI
+                            progressPercent.textContent = `${progress}%`;
+                            progressBar.style.width = `${progress}%`;
+                        }
+                    );
+                } else {
+                    // ✅ Owner: Direct HTTP upload with progress tracking
+                    console.log('[FileExplorer] Local/owner session - direct HTTP upload');
+
+                    progressPercent.textContent = 'Uploading...';
+                    progressBar.style.width = '50%';
+
+                    const formData = new FormData();
+                    formData.append('file', file);
+
+                    const response = await fetch(
+                        `${this.mlsUrl}/filesystem/${encodeURIComponent(this.terminalSessionId)}/upload?path=${encodeURIComponent(remotePath)}`,
+                        {
+                            method: 'POST',
+                            body: formData
+                        }
+                    );
+
+                    if (!response.ok) {
+                        const errorText = await response.text();
+                        throw new Error(`Upload failed: ${response.status} ${response.statusText} - ${errorText}`);
+                    }
+
+                    result = await response.json();
                 }
 
-                const result = await response.json();
-
+                // Check for errors in result
                 if (result.error) {
                     throw new Error(result.error);
                 }
@@ -853,7 +956,13 @@ class FileExplorer {
                 progressPercent.textContent = '100%';
                 progressBar.style.width = '100%';
 
-                this.onToast('success', 'Upload Complete', `${file.name} uploaded successfully`);
+                const fileSizeStr = window.fileTransferProxy
+                    ? window.fileTransferProxy.formatFileSize(file.size)
+                    : (file.size > 1024 * 1024
+                        ? `${(file.size / 1024 / 1024).toFixed(2)} MB`
+                        : `${(file.size / 1024).toFixed(1)} KB`);
+
+                this.onToast('success', 'Upload Complete', `${file.name} (${fileSizeStr}) uploaded successfully`);
 
                 // Send notification to owner for remote sessions
                 this.sendFileSystemNotification('write', {
@@ -862,7 +971,7 @@ class FileExplorer {
                 });
 
             } catch (error) {
-                console.error('[SFTP] Upload error:', error);
+                console.error('[FileExplorer] Upload error:', error);
                 this.onToast('error', 'Upload Failed', `${file.name}: ${error.message}`);
             }
         }
@@ -874,6 +983,143 @@ class FileExplorer {
 
         // Refresh directory
         await this.refresh();
+    }
+
+    /**
+     * Upload file in chunks for large file support
+     * @param {File} file - File to upload
+     * @param {string} remotePath - Destination path on remote system
+     * @param {Function} progressCallback - Called with progress percentage (0-100)
+     * @returns {Promise<object>} Upload result
+     */
+    async uploadFileChunked(file, remotePath, progressCallback) {
+        const CHUNK_SIZE = 64 * 1024; // 64KB chunks (safe for WebRTC DataChannel)
+        const totalChunks = Math.ceil(file.size / CHUNK_SIZE);
+        const uploadId = `upload-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+
+        console.log(`[FileExplorer] Uploading ${file.name} in ${totalChunks} chunks (${CHUNK_SIZE} bytes each)`);
+
+        try {
+            // Step 1: Initialize upload on owner's side
+            const initResult = await window.proxyFileSystemRequest(
+                this.terminalSessionId,
+                'upload-init',
+                {
+                    uploadId: uploadId,
+                    fileName: file.name,
+                    filePath: remotePath,
+                    fileSize: file.size,
+                    totalChunks: totalChunks,
+                    chunkSize: CHUNK_SIZE
+                }
+            );
+
+            if (!initResult.success) {
+                throw new Error(initResult.error || 'Failed to initialize upload');
+            }
+
+            console.log('[FileExplorer] Upload initialized:', uploadId);
+
+            // Step 2: Upload chunks sequentially
+            for (let chunkIndex = 0; chunkIndex < totalChunks; chunkIndex++) {
+                const start = chunkIndex * CHUNK_SIZE;
+                const end = Math.min(start + CHUNK_SIZE, file.size);
+                const chunk = file.slice(start, end);
+
+                // Read chunk as Base64
+                const chunkData = await this.readChunkAsBase64(chunk);
+
+                // Send chunk to owner
+                const chunkResult = await window.proxyFileSystemRequest(
+                    this.terminalSessionId,
+                    'upload-chunk',
+                    {
+                        uploadId: uploadId,
+                        chunkIndex: chunkIndex,
+                        chunkData: chunkData,
+                        chunkSize: chunk.size
+                    }
+                );
+
+                if (!chunkResult.success) {
+                    throw new Error(chunkResult.error || `Failed to upload chunk ${chunkIndex + 1}/${totalChunks}`);
+                }
+
+                // Update progress
+                const progress = Math.round(((chunkIndex + 1) / totalChunks) * 100);
+                if (progressCallback) {
+                    progressCallback(progress);
+                }
+
+                console.log(`[FileExplorer] Uploaded chunk ${chunkIndex + 1}/${totalChunks} (${progress}%)`);
+            }
+
+            // Step 3: Finalize upload (assemble chunks on owner's side)
+            const finalizeResult = await window.proxyFileSystemRequest(
+                this.terminalSessionId,
+                'upload-finalize',
+                {
+                    uploadId: uploadId,
+                    fileName: file.name,
+                    filePath: remotePath
+                }
+            );
+
+            if (!finalizeResult.success) {
+                throw new Error(finalizeResult.error || 'Failed to finalize upload');
+            }
+
+            console.log('[FileExplorer] Upload finalized successfully');
+            return finalizeResult;
+
+        } catch (error) {
+            // Cleanup on error
+            try {
+                await window.proxyFileSystemRequest(
+                    this.terminalSessionId,
+                    'upload-cancel',
+                    { uploadId: uploadId }
+                );
+            } catch (cleanupError) {
+                console.warn('[FileExplorer] Failed to cleanup after error:', cleanupError);
+            }
+            throw error;
+        }
+    }
+
+    /**
+     * Read file chunk as Base64
+     * @param {Blob} chunk - File chunk to read
+     * @returns {Promise<string>} Base64 encoded chunk
+     */
+    readChunkAsBase64(chunk) {
+        return new Promise((resolve, reject) => {
+            const reader = new FileReader();
+            reader.onload = () => {
+                const base64 = reader.result.split(',')[1];
+                resolve(base64);
+            };
+            reader.onerror = reject;
+            reader.readAsDataURL(chunk);
+        });
+    }
+
+    /**
+     * Read file as Base64 for remote transmission (legacy - for small files)
+     * @param {File} file - File to read
+     * @returns {Promise<string>} Base64 encoded file content
+     */
+    readFileAsBase64(file) {
+        return new Promise((resolve, reject) => {
+            const reader = new FileReader();
+            reader.onload = () => {
+                // Remove data URL prefix (e.g., "data:image/png;base64,")
+                const base64 = reader.result.split(',')[1];
+                resolve(base64);
+            };
+            reader.onerror = reject;
+            reader.readAsDataURL(file);
+        });
     }
 
     /**

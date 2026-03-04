@@ -4925,8 +4925,8 @@ terminalSharing.onFileSystemRequest = async (sessionId, operation, params, sourc
     console.log('[FileSystem] Requester:', sourceAgent, 'permission:', requesterPermission);
 
     // ✅ SECURITY: Define which operations require write permission
-    const WRITE_OPERATIONS = ['write', 'delete', 'mkdir', 'rename', 'copy', 'append', 'write-at', 'upload'];
-    const READ_OPERATIONS = ['list', 'read', 'info', 'status', 'read-binary', 'read-range'];
+    const WRITE_OPERATIONS = ['write', 'delete', 'mkdir', 'rename', 'copy', 'append', 'write-at', 'upload', 'upload-init', 'upload-chunk', 'upload-finalize', 'upload-cancel'];
+    const READ_OPERATIONS = ['list', 'read', 'info', 'status', 'read-binary', 'read-range', 'download', 'download-chunk'];
 
     // ✅ SECURITY: Block write operations if requester only has readonly permission
     if (WRITE_OPERATIONS.includes(operation) && requesterPermission === 'readonly') {
@@ -5023,6 +5023,259 @@ terminalSharing.onFileSystemRequest = async (sessionId, operation, params, sourc
                             showToast('info', `✏️ ${sourceAgent}`, `Renamed: ${oldName} → ${newName}`);
                         }
                         break;
+                    case 'upload':
+                        // ✅ Handle file upload from remote viewer
+                        console.log('[FileSystem] Processing upload request from:', sourceAgent, 'file:', params.fileName);
+
+                        // Decode Base64 file data
+                        const binaryString = atob(params.fileData);
+                        const bytes = new Uint8Array(binaryString.length);
+                        for (let i = 0; i < binaryString.length; i++) {
+                            bytes[i] = binaryString.charCodeAt(i);
+                        }
+                        const blob = new Blob([bytes], { type: 'application/octet-stream' });
+
+                        // Create FormData for backend upload
+                        const formData = new FormData();
+                        formData.append('file', blob, params.fileName);
+
+                        // Upload to backend
+                        result = await fetch(
+                            `${MLS_URL}/filesystem/${encodeURIComponent(fsSessionId)}/upload?path=${encodeURIComponent(params.path)}`,
+                            {
+                                method: 'POST',
+                                headers: getSlsHeaders(),
+                                body: formData
+                            }
+                        );
+
+                        // ✅ Notify owner that viewer uploaded a file
+                        if (result.ok) {
+                            const fileName = params.fileName;
+                            const fileSize = params.fileSize ? `(${(params.fileSize / 1024).toFixed(1)} KB)` : '';
+                            showToast('success', `📤 ${sourceAgent}`, `Uploaded: ${fileName} ${fileSize}`);
+                        }
+                        break;
+                    case 'download':
+                        // ✅ Handle file download from remote viewer
+                        console.log('[FileSystem] Processing download request from:', sourceAgent, 'path:', params.path);
+
+                        // Fetch file from backend
+                        const downloadUrl = `${MLS_URL}/filesystem/${encodeURIComponent(fsSessionId)}/download?path=${encodeURIComponent(params.path)}`;
+                        const downloadResponse = await fetch(downloadUrl, {
+                            headers: getSlsHeaders()
+                        });
+
+                        if (!downloadResponse.ok) {
+                            throw new Error(`Download failed: ${downloadResponse.status}`);
+                        }
+
+                        // Read file as binary
+                        const fileBlob = await downloadResponse.blob();
+                        const arrayBuffer = await fileBlob.arrayBuffer();
+                        const uint8Array = new Uint8Array(arrayBuffer);
+
+                        // Convert to Base64 for transmission via WebRTC
+                        let binaryStr = '';
+                        for (let i = 0; i < uint8Array.length; i++) {
+                            binaryStr += String.fromCharCode(uint8Array[i]);
+                        }
+                        const base64Data = btoa(binaryStr);
+
+                        // Send response with Base64 data
+                        terminalSharing.sendFileSystemResponse(sessionId, requestId, {
+                            success: true,
+                            fileData: base64Data
+                        }, sourceAgent);
+
+                        // ✅ Notify owner that viewer downloaded a file
+                        const downloadFileName = params.path.split('/').pop() || params.path;
+                        showToast('info', `📥 ${sourceAgent}`, `Downloaded: ${downloadFileName}`);
+
+                        // Return early since we already sent the response
+                        return;
+
+                    // ========== CHUNKED UPLOAD OPERATIONS ==========
+                    case 'upload-init':
+                        // Initialize chunked upload
+                        console.log('[FileSystem] Initializing chunked upload:', params.uploadId, 'file:', params.fileName,
+                                    `size: ${(params.fileSize / 1024 / 1024).toFixed(2)} MB, chunks: ${params.totalChunks}`);
+
+                        if (!window.activeUploads) {
+                            window.activeUploads = new Map();
+                        }
+
+                        window.activeUploads.set(params.uploadId, {
+                            fileName: params.fileName,
+                            filePath: params.filePath,
+                            fileSize: params.fileSize,
+                            totalChunks: params.totalChunks,
+                            chunkSize: params.chunkSize,
+                            chunks: new Map(),
+                            startTime: Date.now()
+                        });
+
+                        terminalSharing.sendFileSystemResponse(sessionId, requestId, {
+                            success: true,
+                            message: 'Upload initialized'
+                        }, sourceAgent);
+
+                        showToast('info', `📤 ${sourceAgent}`, `Starting upload: ${params.fileName}`);
+                        return;
+
+                    case 'upload-chunk':
+                        // Receive and store chunk
+                        console.log('[FileSystem] Receiving chunk:', params.chunkIndex, 'for upload:', params.uploadId);
+
+                        if (!window.activeUploads || !window.activeUploads.has(params.uploadId)) {
+                            throw new Error('Upload session not found - please restart upload');
+                        }
+
+                        const upload = window.activeUploads.get(params.uploadId);
+
+                        // Store chunk data
+                        upload.chunks.set(params.chunkIndex, params.chunkData);
+
+                        const progress = Math.round((upload.chunks.size / upload.totalChunks) * 100);
+                        console.log(`[FileSystem] Chunk ${params.chunkIndex + 1}/${upload.totalChunks} received (${progress}%)`);
+
+                        terminalSharing.sendFileSystemResponse(sessionId, requestId, {
+                            success: true,
+                            chunksReceived: upload.chunks.size,
+                            totalChunks: upload.totalChunks,
+                            progress: progress
+                        }, sourceAgent);
+                        return;
+
+                    case 'upload-finalize':
+                        // Assemble chunks and upload to backend
+                        console.log('[FileSystem] Finalizing chunked upload:', params.uploadId);
+
+                        if (!window.activeUploads || !window.activeUploads.has(params.uploadId)) {
+                            throw new Error('Upload session not found');
+                        }
+
+                        const finalUpload = window.activeUploads.get(params.uploadId);
+
+                        // Verify all chunks received
+                        if (finalUpload.chunks.size !== finalUpload.totalChunks) {
+                            throw new Error(`Missing chunks: received ${finalUpload.chunks.size}/${finalUpload.totalChunks}`);
+                        }
+
+                        // Assemble all chunks in order
+                        const allChunks = [];
+                        for (let i = 0; i < finalUpload.totalChunks; i++) {
+                            if (!finalUpload.chunks.has(i)) {
+                                throw new Error(`Missing chunk ${i}`);
+                            }
+                            allChunks.push(finalUpload.chunks.get(i));
+                        }
+
+                        // Decode all Base64 chunks and combine
+                        const binaryChunks = allChunks.map(base64Chunk => {
+                            const binaryString = atob(base64Chunk);
+                            const bytes = new Uint8Array(binaryString.length);
+                            for (let i = 0; i < binaryString.length; i++) {
+                                bytes[i] = binaryString.charCodeAt(i);
+                            }
+                            return bytes;
+                        });
+
+                        // Combine all binary chunks
+                        const combinedBlob = new Blob(binaryChunks, { type: 'application/octet-stream' });
+
+                        // Upload to backend
+                        const uploadFormData = new FormData();
+                        uploadFormData.append('file', combinedBlob, finalUpload.fileName);
+
+                        const uploadResponse = await fetch(
+                            `${MLS_URL}/filesystem/${encodeURIComponent(fsSessionId)}/upload?path=${encodeURIComponent(finalUpload.filePath)}`,
+                            {
+                                method: 'POST',
+                                headers: getSlsHeaders(),
+                                body: uploadFormData
+                            }
+                        );
+
+                        if (!uploadResponse.ok) {
+                            throw new Error(`Backend upload failed: ${uploadResponse.status}`);
+                        }
+
+                        const uploadResult = await uploadResponse.json();
+
+                        // Cleanup
+                        window.activeUploads.delete(params.uploadId);
+
+                        const duration = ((Date.now() - finalUpload.startTime) / 1000).toFixed(1);
+                        const fileSize = (finalUpload.fileSize / 1024 / 1024).toFixed(2);
+
+                        console.log(`[FileSystem] Upload completed in ${duration}s: ${finalUpload.fileName} (${fileSize} MB)`);
+
+                        terminalSharing.sendFileSystemResponse(sessionId, requestId, {
+                            success: true,
+                            message: 'Upload completed',
+                            duration: duration,
+                            fileSize: finalUpload.fileSize
+                        }, sourceAgent);
+
+                        showToast('success', `📤 ${sourceAgent}`, `Uploaded: ${finalUpload.fileName} (${fileSize} MB in ${duration}s)`);
+                        return;
+
+                    case 'upload-cancel':
+                        // Cancel and cleanup upload
+                        console.log('[FileSystem] Cancelling upload:', params.uploadId);
+
+                        if (window.activeUploads) {
+                            window.activeUploads.delete(params.uploadId);
+                        }
+
+                        terminalSharing.sendFileSystemResponse(sessionId, requestId, {
+                            success: true,
+                            message: 'Upload cancelled'
+                        }, sourceAgent);
+                        return;
+
+                    // ========== CHUNKED DOWNLOAD OPERATIONS ==========
+                    case 'download-chunk':
+                        // Download file chunk
+                        console.log('[FileSystem] Downloading chunk from:', params.start, 'to:', params.end, 'path:', params.path);
+
+                        // Fetch full file from backend
+                        const chunkDownloadUrl = `${MLS_URL}/filesystem/${encodeURIComponent(fsSessionId)}/download?path=${encodeURIComponent(params.path)}`;
+                        const chunkDownloadResponse = await fetch(chunkDownloadUrl, {
+                            headers: getSlsHeaders()
+                        });
+
+                        if (!chunkDownloadResponse.ok) {
+                            throw new Error(`Download failed: ${chunkDownloadResponse.status}`);
+                        }
+
+                        // Read file as binary
+                        const chunkFileBlob = await chunkDownloadResponse.blob();
+                        const chunkArrayBuffer = await chunkFileBlob.arrayBuffer();
+                        const chunkUint8Array = new Uint8Array(chunkArrayBuffer);
+
+                        // Extract requested chunk
+                        const chunkSlice = chunkUint8Array.slice(params.start, params.end);
+
+                        // Convert to Base64
+                        let chunkBinaryStr = '';
+                        for (let i = 0; i < chunkSlice.length; i++) {
+                            chunkBinaryStr += String.fromCharCode(chunkSlice[i]);
+                        }
+                        const chunkBase64Data = btoa(chunkBinaryStr);
+
+                        console.log(`[FileSystem] Sending chunk: ${params.start}-${params.end} (${chunkSlice.length} bytes)`);
+
+                        terminalSharing.sendFileSystemResponse(sessionId, requestId, {
+                            success: true,
+                            chunkData: chunkBase64Data,
+                            start: params.start,
+                            end: params.end,
+                            chunkSize: chunkSlice.length
+                        }, sourceAgent);
+                        return;
+
                     case 'status':
                         result = await slsFetch(`${MLS_URL}/filesystem/${fsSessionId}/status`);
                         break;
