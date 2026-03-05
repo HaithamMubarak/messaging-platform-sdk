@@ -47,106 +47,11 @@ if (TEST_MODE_NO_SLS) {
     console.warn('🧪 TEST MODE: SLS service disabled - viewer-only mode (shared sessions only)');
 }
 
-/**
- * Toggle test mode (disable SLS for testing)
- *
- * Test Mode Purpose:
- * - Simulates SLS (local service) being offline/unavailable
- * - Perfect for testing tab sharing functionality between multiple browser instances
- * - Allows viewing shared sessions from cloud without requiring SLS
- * - Use case: Open 2 browser windows - one with SLS (shares), one in test mode (views)
- *
- * Usage from console:
- *   enableTestMode()  // Enable test mode
- *   disableTestMode() // Disable test mode
- *   toggleTestMode()  // Toggle current state
- */
-function toggleTestMode() {
-    const newMode = !TEST_MODE_NO_SLS;
-    localStorage.setItem('test_mode_no_sls', newMode.toString());
-    console.log(`🧪 Test mode ${newMode ? 'ENABLED' : 'DISABLED'} - Reload page to apply`);
-    showToast('info', 'Test Mode', `${newMode ? 'Enabled' : 'Disabled'} - Reload page to apply`);
-
-    // Show helpful instructions
-    if (newMode) {
-        console.log('📌 TEST MODE ENABLED:');
-        console.log('  ✓ SLS service disabled (viewer-only mode)');
-        console.log('  ✓ Local/SSH terminals disabled');
-        console.log('  ✓ Cloud connection enabled (to view shared sessions)');
-        console.log('  ✓ Perfect for testing tab sharing!');
-        console.log('');
-        console.log('💡 TESTING TIP:');
-        console.log('  1. Open this page in another browser/tab WITH SLS running');
-        console.log('  2. In that window, create terminals and share them');
-        console.log('  3. In THIS window (test mode), connect to cloud and view shared sessions');
-    } else {
-        console.log('✅ TEST MODE DISABLED - Normal operation restored');
-        console.log('  ✓ SLS service enabled');
-        console.log('  ✓ Local/SSH terminals enabled');
-    }
-
-    return newMode;
-}
-
-/**
- * Enable test mode (for console usage)
- */
-function enableTestMode() {
-    if (TEST_MODE_NO_SLS) {
-        console.log('🧪 Test mode is already enabled');
-        return;
-    }
-    localStorage.setItem('test_mode_no_sls', 'true');
-    console.log('🧪 Test mode ENABLED - Reload page to apply');
-    showToast('info', 'Test Mode', 'Test mode enabled - Reload page to apply');
-}
-
-/**
- * Disable test mode (for console usage)
- */
-function disableTestMode() {
-    if (!TEST_MODE_NO_SLS) {
-        console.log('✅ Test mode is already disabled');
-        return;
-    }
-    localStorage.setItem('test_mode_no_sls', 'false');
-    console.log('✅ Test mode DISABLED - Reload page to apply');
-    showToast('info', 'Test Mode', 'Test mode disabled - Reload page to apply');
-}
-
-/**
- * Update SLS port configuration
- * @param {number} port - New port number
- */
-function updateSlsPort(port) {
-    SLS_PORT = port;
-    MLS_URL = `http://localhost:${SLS_PORT}`;
-    MLS_WS_URL = `ws://localhost:${SLS_PORT}`;
-    localStorage.setItem('sls-port', port.toString());
-    console.log(`✅ SLS port updated to: ${port}`);
-}
-
 // UI & Timing Constants
 const TOAST_DURATION = 5000;
 const HEALTH_CHECK_INTERVAL = 30000;
-const TERMINAL_RESIZE_DELAY = 100;
-const TOKEN_MAX_AGE_HOURS = 23;
 
-// Terminal control banners - must match Java backend constants
-// Format: <<BANNER_NAME>> to avoid conflicts with normal terminal output
-const BANNER_SSH_DISCONNECTED = '<<SSH_DISCONNECTED>>';
-const BANNER_STREAM_CLOSED = '<<STREAM_CLOSED>>';
-
-// Icons
-const SHELL_ICONS = {
-    cmd: '💻',
-    bash: '🐧',
-    powershell: '⚡',
-    ssh: '🌐',
-    remote: '📡',
-    default: '💻'
-};
-
+// Toast icons for different message types
 const TOAST_ICONS = {
     success: '✓',
     error: '✕',
@@ -155,8 +60,18 @@ const TOAST_ICONS = {
 };
 
 // ========================================
-// TabSessionManager - Centralized Tab & Session Management
+// SECTION 2: STATE VARIABLES
 // ========================================
+// Security & Authentication
+let slsSecurityToken = null;
+
+// SLS state tracking: null (initial), 'online', or 'offline'
+let slsCurrentState = null;
+
+// ========================================
+// SECTION 3: CLASSES
+// ========================================
+// TabSessionManager - Centralized Tab & Session Management
 /**
  * TabSessionManager - Manages all tab switching and session tracking
  * Provides better encapsulation for tab/session operations
@@ -391,12 +306,12 @@ class TabSessionManager {
 const tabSessionManager = new TabSessionManager();
 
 // ========================================
-// SECTION 2: SECURITY & AUTHENTICATION
+// FUNCTIONS START HERE
 // ========================================
-let slsSecurityToken = null;
 
-// SLS state tracking: null (initial), 'online', or 'offline'
-let slsCurrentState = null;
+// ========================================
+// Security & Authentication Functions
+// ========================================
 
 /**
  * Enable/disable SLS-dependent toolbar buttons based on SLS state
@@ -523,7 +438,13 @@ function sessionSupportsFileExplorer(session) {
 
     // ✅ Remote shared sessions support file explorer ONLY with write permission
     // Read-only viewers cannot access file system (they can only view terminal output)
-    const isRemoteShared = session.type === 'remote' && session.owner && session.permission === 'readwrite';
+    const hasWritePermission = session.permission &&
+                               (session.permission === 'readwrite' ||
+                                session.permission === 'write' ||
+                                session.permission.includes('write'));
+    const isRemoteShared = session.type === 'remote' && session.owner && hasWritePermission;
+
+    console.log('[FileExplorer] Permission check - type:', session.type, 'owner:', session.owner, 'permission:', session.permission, 'hasWrite:', hasWritePermission);
 
     return isSsh || isLocalTerminal || isRemoteShared;
 }
@@ -551,8 +472,9 @@ function updateFileExplorerButtonState(session) {
         if (session.type === 'ssh') {
             filesTabBtn.title = 'File Explorer (Remote Files via SFTP)';
         } else if (session.type === 'remote') {
+            const hasWriteAccess = session.permission === 'readwrite' || session.permission === 'write';
             filesTabBtn.title = 'File Explorer (Shared Session - ' +
-                               (session.permission === 'readwrite' ? 'Read-Write' : 'Read-Only') + ')';
+                               (hasWriteAccess ? 'Read-Write' : 'Read-Only') + ')';
         } else {
             filesTabBtn.title = 'File Explorer (Local Files)';
         }
@@ -793,6 +715,89 @@ class CloudTerminalDataSender {
     }
 }
 
+// ========================================
+// SECTION 4: FUNCTIONS - Configuration & Setup
+// ========================================
+
+/**
+ * Toggle test mode (disable SLS for testing)
+ *
+ * Test Mode Purpose:
+ * - Simulates SLS (local service) being offline/unavailable
+ * - Perfect for testing tab sharing functionality between multiple browser instances
+ * - Allows viewing shared sessions from cloud without requiring SLS
+ * - Use case: Open 2 browser windows - one with SLS (shares), one in test mode (views)
+ *
+ * Usage from console:
+ *   enableTestMode()  // Enable test mode
+ *   disableTestMode() // Disable test mode
+ *   toggleTestMode()  // Toggle current state
+ */
+function toggleTestMode() {
+    const newMode = !TEST_MODE_NO_SLS;
+    localStorage.setItem('test_mode_no_sls', newMode.toString());
+    console.log(`🧪 Test mode ${newMode ? 'ENABLED' : 'DISABLED'} - Reload page to apply`);
+    showToast('info', 'Test Mode', `${newMode ? 'Enabled' : 'Disabled'} - Reload page to apply`);
+
+    // Show helpful instructions
+    if (newMode) {
+        console.log('📌 TEST MODE ENABLED:');
+        console.log('  ✓ SLS service disabled (viewer-only mode)');
+        console.log('  ✓ Local/SSH terminals disabled');
+        console.log('  ✓ Cloud connection enabled (to view shared sessions)');
+        console.log('  ✓ Perfect for testing tab sharing!');
+        console.log('');
+        console.log('💡 TESTING TIP:');
+        console.log('  1. Open this page in another browser/tab WITH SLS running');
+        console.log('  2. In that window, create terminals and share them');
+        console.log('  3. In THIS window (test mode), connect to cloud and view shared sessions');
+    } else {
+        console.log('✅ TEST MODE DISABLED - Normal operation restored');
+        console.log('  ✓ SLS service enabled');
+        console.log('  ✓ Local/SSH terminals enabled');
+    }
+
+    return newMode;
+}
+
+/**
+ * Enable test mode (for console usage)
+ */
+function enableTestMode() {
+    if (TEST_MODE_NO_SLS) {
+        console.log('🧪 Test mode is already enabled');
+        return;
+    }
+    localStorage.setItem('test_mode_no_sls', 'true');
+    console.log('🧪 Test mode ENABLED - Reload page to apply');
+    showToast('info', 'Test Mode', 'Test mode enabled - Reload page to apply');
+}
+
+/**
+ * Disable test mode (for console usage)
+ */
+function disableTestMode() {
+    if (!TEST_MODE_NO_SLS) {
+        console.log('✅ Test mode is already disabled');
+        return;
+    }
+    localStorage.setItem('test_mode_no_sls', 'false');
+    console.log('✅ Test mode DISABLED - Reload page to apply');
+    showToast('info', 'Test Mode', 'Test mode disabled - Reload page to apply');
+}
+
+/**
+ * Update SLS port configuration
+ * @param {number} port - New port number
+ */
+function updateSlsPort(port) {
+    SLS_PORT = port;
+    MLS_URL = `http://localhost:${SLS_PORT}`;
+    MLS_WS_URL = `ws://localhost:${SLS_PORT}`;
+    localStorage.setItem('sls-port', port.toString());
+    console.log(`✅ SLS port updated to: ${port}`);
+}
+
 /**
  * Factory function to create appropriate TerminalDataSender
  * @param {string} type - 'websocket' or 'cloud'
@@ -811,7 +816,7 @@ function createTerminalDataSender(type, params) {
 }
 
 // ========================================
-// SECTION 4: COMMON PERMISSION HELPERS
+// SECTION 5: FUNCTIONS - Permission & UI Helpers
 // ========================================
 
 /**
@@ -2035,6 +2040,11 @@ function updateMySharesList() {
     });
 
     container.innerHTML = html;
+
+    // ✅ Update host indicator whenever the shares list changes
+    if (typeof updateCloudHostIndicator === 'function') {
+        updateCloudHostIndicator();
+    }
 }
 
 // ========================================
@@ -2622,7 +2632,7 @@ async function handleDisconnectionBanner(sessionId, session) {
 
         if (!alive) {
             // REAL DISCONNECTION: Session is dead
-            console.error('[WS] Session is NOT alive - real SSH disconnection');
+            console.warn('⚠️ [WS] Session is NOT alive - real SSH disconnection');
             markSessionDisconnected(sessionId, session, 'SSH Disconnected', 'SSH connection lost. Press R to reconnect.');
             return true;
         }
@@ -2630,7 +2640,7 @@ async function handleDisconnectionBanner(sessionId, session) {
         // FALSE ALARM: Session is alive - this was just file content
         return false;
     } catch (err) {
-        console.error('[WS] Failed to check session alive:', err);
+        console.warn('⚠️ [WS] Failed to check session alive:', err.message || 'Unknown error');
         // On error, assume disconnection to be safe
         markSessionDisconnected(sessionId, session, 'Connection Error', 'Press R to reconnect.');
         return true;
@@ -2749,7 +2759,7 @@ async function handleWebSocketClose(event, sessionId, session) {
                         reconnectSession(sessionId);
                     }
                 } catch (err) {
-                    console.error('[WS] Auto-reconnect check failed:', err);
+                    console.warn('⚠️ [WS] Auto-reconnect check failed:', err.message || 'Unknown error');
                     // Will be retried by the next handleWebSocketClose if it fails again
                 }
             }, delay);
@@ -2775,7 +2785,7 @@ async function handleWebSocketClose(event, sessionId, session) {
             showToast('warning', 'Connection Closed', 'WebSocket closed. Press R to reconnect.');
         }
     } catch (err) {
-        console.error('[WS] Failed to check session alive:', err);
+        console.warn('⚠️ [WS] Failed to check session alive:', err.message || 'Unknown error');
         showReconnectOverlay(sessionId);
         showToast('warning', 'Connection Closed', 'Press R to reconnect.');
     }
@@ -2796,7 +2806,7 @@ function connectWebSocket(sessionId) {
     // ⏱️ Set connection timeout to detect offline SLS faster
     const connectionTimeout = setTimeout(() => {
         if (ws.readyState === WebSocket.CONNECTING) {
-            console.error('[WS] Connection timeout - SLS not responding');
+            console.warn('⚠️ [WS] Connection timeout - SLS not responding');
             ws.close(1000, 'Connection timeout');
             
             session.terminal.clear();
@@ -2896,7 +2906,7 @@ function connectWebSocket(sessionId) {
 
             if (!isAlive) {
                 // REAL DISCONNECTION: Session is dead
-                console.error('[WS] Confirmed: Session is dead');
+                console.warn('⚠️ [WS] Confirmed: Session is dead');
                 session.connected = false;
                 session.dataSender = null;
                 updateTab(sessionId, true);
@@ -2923,12 +2933,12 @@ function connectWebSocket(sessionId) {
         // Clear timeout - error already occurred
         clearTimeout(connectionTimeout);
         
-        console.error('[WS] WebSocket error for session:', sessionId, error);
+        console.warn('⚠️ [WS] WebSocket error for session:', sessionId, error.message || error.type || 'Unknown');
 
         // Show user-friendly error based on connection state
         if (!session.connected) {
             // Connection never established - likely SLS is offline
-            console.error('[WS] Failed to establish connection - SLS may be offline');
+            console.warn('⚠️ [WS] Failed to establish connection - SLS may be offline');
             session.terminal.writeln('');
             session.terminal.writeln('\x1b[1;31m✖ Connection failed\x1b[0m');
             session.terminal.writeln('\x1b[33mCannot connect to SDK Local Service\x1b[0m');
@@ -2987,7 +2997,7 @@ async function checkSessionAlive(sessionId) {
         });
         return response.ok; // 200 = alive, 404 = not found
     } catch (error) {
-        console.error('[CheckAlive] Failed to check session status:', error);
+        console.warn('⚠️ [CheckAlive] Failed to check session status:', error.message || 'Service unavailable');
         return false;
     }
 }
@@ -3091,7 +3101,7 @@ async function reconnectSession(sessionId) {
         }
 
     } catch (error) {
-        console.error('[Reconnect] Failed:', error);
+        console.warn('⚠️ [Reconnect] Failed:', error.message || 'Unknown error');
 
         let errorMsg = error.message || 'Unknown error';
         if (error.name === 'TimeoutError' || error.name === 'AbortError') {
@@ -3132,6 +3142,7 @@ async function closeSession(sessionId) {
         console.log(`[Close] Notifying viewers that session is closing: ${sessionId}`);
         terminalSharing.notifyOwnerDisconnect(sessionId);
         terminalSharing.unshareSession(sessionId);
+        updateCloudHostIndicator(); // ✅ Update host indicator (might no longer be a host)
     }
 
     // ✅ If this is a remote session we're viewing, notify owner we're leaving
@@ -4510,6 +4521,26 @@ function toggleShareSection() {
 /**
  * Generate share URL for the current channel
  */
+/**
+ * Update cloud host indicator visibility based on actual host status
+ * Shows indicator only when user has shared sessions (is actually a host)
+ */
+function updateCloudHostIndicator() {
+    const hostIndicator = document.getElementById('cloudHostIndicator');
+    if (!hostIndicator) return;
+
+    // Show indicator only if we're connected AND have shared sessions
+    const isHost = terminalSharing && cloudConnected && terminalSharing.isHost();
+
+    if (isHost) {
+        hostIndicator.style.display = 'flex';
+        console.log('[Messaging] Host indicator shown - user has shared sessions');
+    } else {
+        hostIndicator.style.display = 'none';
+        console.log('[Messaging] Host indicator hidden - no shared sessions');
+    }
+}
+
 function generateShareUrl() {
     const channelName = document.getElementById('cloudChannelName').value.trim();
     const channelPassword = document.getElementById('cloudChannelPassword').value.trim();
@@ -5667,7 +5698,7 @@ terminalSharing.onFileSystemNotification = (sessionId, operation, details, sourc
             const statusText = document.getElementById('cloudStatusText');
             const hostIndicator = document.getElementById('cloudHostIndicator');
 
-            if (statusDot) statusDot.className = 'status-dot offline';
+            if (statusDot) statusDot.cflassName = 'status-dot offline';
             if (statusText) statusText.textContent = 'Disconnected (connection lost)';
             if (hostIndicator) hostIndicator.style.display = 'none';
 
@@ -5795,10 +5826,8 @@ terminalSharing.onFileSystemNotification = (sessionId, operation, details, sourc
             console.log('[Messaging] Status text updated to Connected');
         }
 
-        // Show host indicator initially (will be updated as sessions are shared)
-        if (hostIndicator) {
-            hostIndicator.style.display = 'flex';
-        }
+        // ✅ Update host indicator based on actual host status (not just connection)
+        updateCloudHostIndicator();
 
         updateAgentsList();
         updateSharedTerminalsList();
@@ -5851,6 +5880,7 @@ function disconnectFromCloud() {
                 updateTabSharedIndicator(sessionId, false);
             }
         });
+        updateCloudHostIndicator(); // ✅ Update host indicator (no longer a host after disconnecting)
     }
 
     if (terminalSharing) {
@@ -6543,6 +6573,7 @@ function shareTerminal(sessionId, permission = 'readonly') {
         updateAgentsList(); // Refresh agents list
         updateSharedTerminalsList(); // Refresh shared terminals list
         updateSidebarBadges(); // Update sidebar badges
+        updateCloudHostIndicator(); // ✅ Update host indicator (now we're a host)
         updateMySharesList(); // Update my shares list
 
         const permLabel = permission === 'readwrite' ? 'Read-Write' : 'Read-Only';
@@ -6590,6 +6621,7 @@ function unshareTerminal(sessionId) {
         updateSharedTerminalsList(); // Refresh shared terminals list
         updateSidebarBadges(); // Update sidebar badges
         updateMySharesList(); // Update my shares list
+        updateCloudHostIndicator(); // ✅ Update host indicator (might no longer be a host)
     }
 
     updateTabSharedIndicator(sessionId, false);  // Hide shared badge

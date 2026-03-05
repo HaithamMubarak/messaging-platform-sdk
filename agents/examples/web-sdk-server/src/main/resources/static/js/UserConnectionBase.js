@@ -43,6 +43,7 @@ class UserConnectionBase {
                 ordered: false,
                 maxRetransmits: 0
             },
+            enableHostIndicator: true,           // Show host indicator in UI (subclass must implement updateHostIndicator)
             ...options
         };
 
@@ -1425,6 +1426,10 @@ class UserConnectionBase {
      * Update host indicator visibility based on current host status
      */
     updateHostIndicator() {
+        if (!this.options.enableHostIndicator)
+        {
+            return;
+        }
         if (this.isHost()) {
             this.showHostIndicator();
         } else {

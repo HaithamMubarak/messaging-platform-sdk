@@ -18,7 +18,8 @@ class TerminalSharing extends UserConnectionBase {
             customType: 'terminal-sharing',
             usePubKey: false,
             autoCreateDataChannel: true,
-            supportsPauseResume: false
+            supportsPauseResume: false,
+            enableHostIndicator: false
         });
 
         // Shared sessions tracking (sessionId = backend terminal session ID)
@@ -713,18 +714,6 @@ class TerminalSharing extends UserConnectionBase {
 
         console.log(`[TerminalSharing] Unshared ${count} session(s)`);
         return count;
-    }
-
-    /**
-     * Generate random agent name
-     */
-    generateAgentName() {
-        const adjectives = ['swift', 'bright', 'cool', 'dark', 'fast', 'blue', 'red', 'green', 'brave', 'wise', 'bold', 'calm'];
-        const nouns = ['hawk', 'wolf', 'eagle', 'lion', 'tiger', 'bear', 'fox', 'owl', 'shark', 'dragon', 'phoenix', 'falcon'];
-        const randomAdj = adjectives[Math.floor(Math.random() * adjectives.length)];
-        const randomNoun = nouns[Math.floor(Math.random() * nouns.length)];
-        const randomNum = Math.floor(Math.random() * 100);
-        return `${randomAdj}-${randomNoun}-${randomNum}`;
     }
 
 
