@@ -697,11 +697,16 @@ class CloudTerminalDataSender {
     }
 
     send(data) {
+        console.log(`[CloudTerminalDataSender] Sending input to session: ${this.sessionId}, owner: ${this.ownerAgent}, connected: ${this.terminalSharing?.connected}`);
+
         if (!this.terminalSharing || !this.terminalSharing.connected) {
-            console.warn('[TerminalDataSender] Not connected to cloud');
+            console.warn('[CloudTerminalDataSender] Not connected to cloud - cannot send input');
             return false;
         }
-        return this.terminalSharing.sendInputToSession(this.sessionId, data, this.ownerAgent);
+
+        const result = this.terminalSharing.sendInputToSession(this.sessionId, data, this.ownerAgent);
+        console.log(`[CloudTerminalDataSender] Input sent result:`, result);
+        return result;
     }
 
     close() {
@@ -2475,14 +2480,22 @@ function initTerminal(sessionId) {
         if (sess && sess.connected) {
             const cols = terminal.cols;
             const rows = terminal.rows;
-            // Only send if dimensions are reasonable (not 80x2 or similar)
-            if (cols > 0 && rows > 10) {
+
+            // ✅ Only send resize for LOCAL sessions we own (not remote/shared)
+            const isRemoteSession = sess.owner || sess.type === 'remote';
+
+            // Only send if dimensions are reasonable (not 80x2 or similar) AND it's a local session
+            if (cols > 0 && rows > 10 && !isRemoteSession) {
                 console.log(`[Terminal] Initial fit complete: ${cols}x${rows}`);
                 fetch(`${MLS_URL}/terminal/${sessionId}/resize`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ cols, rows })
-                }).catch(() => {});
+                }).catch(err => {
+                    console.warn('[Terminal] Initial resize failed (ignored):', err.message);
+                });
+            } else if (isRemoteSession) {
+                console.log(`[Terminal] Skipping initial resize for remote/shared session: ${sessionId}`);
             } else {
                 console.warn(`[Terminal] Skipping resize with invalid dimensions: ${cols}x${rows}`);
             }
@@ -4979,25 +4992,40 @@ async function connectToCloud() {
 
         // Called when receiving input for our shared session (from viewer to owner)
         terminalSharing.onSessionInput = (sessionId, data, sourceAgent) => {
+            console.log('[Terminal] ========================================');
             console.log('[Terminal] Received input from:', sourceAgent, 'for session:', sessionId);
+            console.log('[Terminal] Data length:', data?.length, 'bytes');
 
             // If we own this session (no owner = local) and it's shared, send input to local terminal
             const session = sessions.get(sessionId);
+            console.log('[Terminal] Session exists:', !!session);
+            console.log('[Terminal] Session.isShared:', session?.isShared);
+            console.log('[Terminal] Session.owner:', session?.owner);
+            console.log('[Terminal] Session.dataSender:', !!session?.dataSender);
+            console.log('[Terminal] Session.permission (global):', session?.permission);
+            console.log('[Terminal] Session.agentPermissions:', session?.agentPermissions);
+
             if (session && session.isShared && !session.owner && session.dataSender) {
                 // ✅ Check per-agent permission first, then fall back to global permission
                 const agentPerm = session.agentPermissions?.[sourceAgent];
                 const effectivePerm = agentPerm || session.permission || 'readonly';
 
+                console.log('[Terminal] Agent-specific permission:', agentPerm);
+                console.log('[Terminal] Effective permission:', effectivePerm);
+
                 if (effectivePerm !== 'readwrite') {
-                    console.warn('[Terminal] Blocked input from', sourceAgent, '- permission:', effectivePerm);
+                    console.warn('[Terminal] ❌ BLOCKED input from', sourceAgent, '- permission:', effectivePerm);
+                    console.warn('[Terminal] Required permission: readwrite, Got:', effectivePerm);
                     return;
                 }
 
-                console.log('[Terminal] Forwarding input to local terminal dataSender');
+                console.log('[Terminal] ✅ ALLOWED - Forwarding input to local terminal dataSender');
                 session.dataSender.send(data);
             } else {
                 console.warn('[Terminal] Received input for non-owned or non-shared session:', sessionId);
+                console.log('[Terminal] Conditions: isShared:', session?.isShared, 'owner:', session?.owner, 'dataSender:', !!session?.dataSender);
             }
+            console.log('[Terminal] ========================================');
         };
 
         // ========================================
@@ -6269,9 +6297,15 @@ window.respondToPermission = function respondToPermission(sessionId, granted, re
  * @param {string} permission - 'readonly' or 'readwrite'
  */
 function updateSessionPermissionUI(sessionId, permission) {
+    console.log('[updateSessionPermissionUI] sessionId:', sessionId, 'permission:', permission);
+
     const session = sessions.get(sessionId);
     if (session) {
+        console.log('[updateSessionPermissionUI] Before update - session.permission:', session.permission);
         session.permission = permission;
+        console.log('[updateSessionPermissionUI] After update - session.permission:', session.permission);
+    } else {
+        console.warn('[updateSessionPermissionUI] Session not found:', sessionId);
     }
 
     // Use common helper to update all UI (badge, styling, lists)
