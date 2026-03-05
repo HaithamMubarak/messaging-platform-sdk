@@ -24,6 +24,9 @@ class FileExplorer {
         this.contextMenu = null;
         this.editorOverlay = null;
 
+        // Upload control
+        this.uploadAbortController = null;
+
         // Callbacks
         this.onToast = options.onToast || (() => {});
 
@@ -31,6 +34,9 @@ class FileExplorer {
         this.createDomElements();
         this.attachEventListeners();
     }
+
+    // Note: Storage operations now delegated to storageManager (storage-manager.js)
+    // Use: storageManager.getFileExplorerPath(sessionId) and storageManager.setFileExplorerPath(sessionId, path)
 
     /**
      * Send file system notification to owner (for remote sessions)
@@ -115,6 +121,11 @@ class FileExplorer {
                 <button class="sftp-path-go-btn" onclick="fileExplorer.navigateTo(document.getElementById('sftpPathInput').value)">Go</button>
             </div>
 
+            <div class="sftp-filter-bar">
+                <input type="text" id="sftpFilterInput" placeholder="🔍 Filter files..." autocomplete="off" oninput="fileExplorer.filterFiles(this.value)" title="Filter files by name (highlights matching files)">
+                <button class="sftp-filter-clear" onclick="fileExplorer.clearFilter()" title="Clear filter">✕</button>
+            </div>
+
             <div class="sftp-file-list" id="sftpFileList">
                 <div class="sftp-empty">
                     <div class="sftp-empty-icon">📂</div>
@@ -132,6 +143,7 @@ class FileExplorer {
                 <div class="sftp-upload-info">
                     <span class="sftp-upload-filename" id="sftpUploadFilename">file.txt</span>
                     <span class="sftp-upload-percent" id="sftpUploadPercent">0%</span>
+                    <button class="sftp-upload-cancel" id="sftpUploadCancel" title="Cancel upload">✕</button>
                 </div>
                 <div class="sftp-upload-bar">
                     <div class="sftp-upload-bar-fill" id="sftpUploadBarFill" style="width: 0%"></div>
@@ -325,10 +337,29 @@ class FileExplorer {
 
             console.log('[FileExplorer] Connected - backend default directory:', defaultPath);
 
-            // Set state
+            // Set connection state first
+            this.isConnected = true;
+
+            // ✅ Check localStorage for last visited path for this session
+            const savedPath = storageManager.getFileExplorerPath(this.terminalSessionId);
+
+            if (savedPath) {
+                console.log('[FileExplorer] Found saved path in localStorage:', savedPath);
+                // Navigate to saved path (will load files from that directory)
+                await this.navigateTo(savedPath);
+
+                // Update connection status
+                this.updateConnectionStatus('Connected');
+                this.onToast('success', 'Connected', `Connected to ${this.connectionInfo?.name || 'file system'}`);
+                return; // navigateTo already handled all UI updates
+            }
+
+            // Set state for default path
             this.currentPath = defaultPath;
             this.files = mappedFiles;
-            this.isConnected = true;
+
+            // Save initial path to localStorage
+            storageManager.setFileExplorerPath(this.terminalSessionId, this.currentPath);
 
             // Update UI
             this.updateConnectionStatus('Connected');
@@ -467,8 +498,7 @@ class FileExplorer {
      * Update navigation state and optionally share with other agents
      * This centralizes all navigation state updates and sharing logic
      *
-     * ✅ BACKEND PERSISTS CURRENT DIRECTORY IN SESSION!
-     * No need for localStorage - backend remembers path automatically
+     * ✅ Saves current path to localStorage for persistence across page reloads
      */
     updateNavigationState(path, files, triggerEvent = true) {
         console.log('[FileExplorer] updateNavigationState:', path, 'files:', files.length, 'triggerEvent:', triggerEvent);
@@ -476,36 +506,25 @@ class FileExplorer {
         this.currentPath = path;
         this.files = files;
 
-        // Update UI
-        this.updatePathBar();
-        this.renderFileList();
-
-        // Save to in-memory session cache (for quick switching between tabs)
+        // ✅ Save current path to localStorage for this session
         if (this.terminalSessionId) {
+            storageManager.setFileExplorerPath(this.terminalSessionId, this.currentPath);
+            console.log('[FileExplorer] Saved path to localStorage:', this.currentPath);
+
+            // Also save to in-memory session cache (for quick switching between tabs)
             this.sessionCache.set(this.terminalSessionId, {
-                fsSessionId: this.terminalSessionId,
                 lastPath: this.currentPath,
                 connectionInfo: this.connectionInfo
             });
         }
 
-        // Share navigation with other agents (only if this is a local action)
-        if (triggerEvent && window.terminalSharing) {
-            // Extract SSH session ID from SFTP session ID (format: sftp-{sshId})
-            const sshSessionId = this.terminalSessionId ? this.terminalSessionId.replace('sftp-', '') : this.terminalSessionId;
-            if (sshSessionId) {
-                window.terminalSharing.shareFileSystemNavigation(sshSessionId, path, files);
-                console.log('[FileExplorer] Shared navigation update to other agents');
-            }
-        }
+        // Update UI
+        this.updatePathBar();
+        this.renderFileList();
 
-        // Show sync toast only if this came from remote
-        if (!triggerEvent) {
-            console.log('[SFTP Browser] Synced to remote navigation:', path);
-            if (this.onToast) {
-                this.onToast('info', '📁 SFTP Synced', `Following owner to: ${path}`, 2000);
-            }
-        }
+        // ✅ REMOVED: No longer share navigation with other agents
+        // Navigation is a personal preference and shouldn't sync across shared sessions
+        // Only actual file changes (write/delete/mkdir) should notify the owner
     }
 
     /**
@@ -580,9 +599,8 @@ class FileExplorer {
     /**
      * Navigate to path
      * @param {string} path - Path to navigate to
-     * @param {boolean} sendSync - Whether to send sync message to owner (default: true)
      */
-    async navigateTo(path, sendSync = true) {
+    async navigateTo(path) {
         if (!path || path.trim() === '') {
             this.onToast('warning', 'Invalid Path', 'Please enter a valid path');
             return;
@@ -591,32 +609,21 @@ class FileExplorer {
         // Trim whitespace
         path = path.trim();
 
-        console.log('[SFTP] Navigating to:', path, 'sendSync:', sendSync);
+        console.log('[FileExplorer] Navigating to:', path);
 
         try {
-            await this.loadDirectory(path, sendSync); // ✅ Pass sendSync to loadDirectory
+            await this.loadDirectory(path, true); // triggerEvent=true for UI consistency
 
-            // ✅ Send navigation sync to owner if this is a remote session and sendSync is true
-            if (sendSync && window.isRemoteFileSystem && window.isRemoteFileSystem(this.terminalSessionId)) {
-                const session = window.sessions?.get(this.terminalSessionId);
-                if (session && session.owner && window.terminalSharing) {
-                    console.log('[FileExplorer] Sending navigation sync to owner:', session.owner);
-                    window.terminalSharing.sendFileSystemNavigate(this.terminalSessionId, path, session.owner);
-                }
-            }
-
-            // ✅ Immediately update path bar with the new currentPath
-            // (after loadDirectory completes and currentPath is updated)
+            // ✅ Update path bar with the new currentPath
             this.updatePathBar();
 
             // ✅ Also update again after a short delay to ensure consistency
-            // (in case any async operations are still pending)
             setTimeout(() => {
                 this.updatePathBar();
             }, 50);
 
         } catch (error) {
-            console.error('[SFTP] Navigation failed:', error);
+            console.error('[FileExplorer] Navigation failed:', error);
             this.onToast('error', 'Navigation Failed', error.message || 'Failed to navigate to path');
 
             // Path was already restored in loadDirectory, update UI to show it
@@ -886,9 +893,26 @@ class FileExplorer {
         const progressFilename = this.panel.querySelector('#sftpUploadFilename');
         const progressPercent = this.panel.querySelector('#sftpUploadPercent');
         const progressBar = this.panel.querySelector('#sftpUploadBarFill');
+        const cancelBtn = this.panel.querySelector('#sftpUploadCancel');
+
+        // Setup cancel button
+        cancelBtn.onclick = () => {
+            if (this.uploadAbortController) {
+                console.log('[FileExplorer] Cancelling upload...');
+                this.uploadAbortController.abort();
+                this.uploadAbortController = null;
+                progressContainer.classList.remove('visible');
+                if (this.onToast) {
+                    this.onToast('info', '🚫 Upload Cancelled', 'File upload was cancelled');
+                }
+            }
+        };
 
         for (const file of files) {
             try {
+                // Create new abort controller for this upload
+                this.uploadAbortController = new AbortController();
+
                 progressContainer.classList.add('visible');
                 progressFilename.textContent = file.name;
                 progressPercent.textContent = '0%';
@@ -920,7 +944,8 @@ class FileExplorer {
                             // Update progress UI
                             progressPercent.textContent = `${progress}%`;
                             progressBar.style.width = `${progress}%`;
-                        }
+                        },
+                        this.uploadAbortController.signal
                     );
                 } else {
                     // ✅ Owner: Direct HTTP upload with progress tracking
@@ -936,7 +961,8 @@ class FileExplorer {
                         `${this.mlsUrl}/filesystem/${encodeURIComponent(this.terminalSessionId)}/upload?path=${encodeURIComponent(remotePath)}`,
                         {
                             method: 'POST',
-                            body: formData
+                            body: formData,
+                            signal: this.uploadAbortController.signal
                         }
                     );
 
@@ -971,8 +997,18 @@ class FileExplorer {
                 });
 
             } catch (error) {
+                // Check if upload was cancelled
+                if (error.name === 'AbortError') {
+                    console.log('[FileExplorer] Upload cancelled by user');
+                    // Don't show error toast for user-initiated cancellation
+                    break; // Stop processing remaining files
+                }
+
                 console.error('[FileExplorer] Upload error:', error);
                 this.onToast('error', 'Upload Failed', `${file.name}: ${error.message}`);
+            } finally {
+                // Clean up abort controller
+                this.uploadAbortController = null;
             }
         }
 
@@ -1503,6 +1539,65 @@ Accessed: ${this.formatDate(info.atime)}
         };
 
         return icons[type] || '📄';
+    }
+
+    /**
+     * Filter files by name (highlights matching files)
+     */
+    filterFiles(query) {
+        if (!this.fileList) return;
+
+        query = query.trim().toLowerCase();
+        const fileItems = this.fileList.querySelectorAll('.sftp-file-item');
+
+        fileItems.forEach(item => {
+            const filename = item.querySelector('.sftp-file-name')?.textContent.toLowerCase() || '';
+
+            if (!query) {
+                // No filter - show all files normally
+                item.style.display = '';
+                item.classList.remove('filtered-match');
+            } else if (filename.includes(query)) {
+                // Match - highlight it
+                item.style.display = '';
+                item.classList.add('filtered-match');
+            } else {
+                // No match - dim it but keep visible
+                item.style.display = '';
+                item.classList.remove('filtered-match');
+                item.style.opacity = '0.3';
+            }
+        });
+
+        // Show clear button if filter is active
+        const clearBtn = this.panel.querySelector('.sftp-filter-clear');
+        if (clearBtn) {
+            clearBtn.style.display = query ? 'flex' : 'none';
+        }
+    }
+
+    /**
+     * Clear file filter
+     */
+    clearFilter() {
+        const filterInput = this.panel.querySelector('#sftpFilterInput');
+        if (filterInput) {
+            filterInput.value = '';
+        }
+
+        // Reset all file items
+        const fileItems = this.fileList.querySelectorAll('.sftp-file-item');
+        fileItems.forEach(item => {
+            item.style.display = '';
+            item.style.opacity = '';
+            item.classList.remove('filtered-match');
+        });
+
+        // Hide clear button
+        const clearBtn = this.panel.querySelector('.sftp-filter-clear');
+        if (clearBtn) {
+            clearBtn.style.display = 'none';
+        }
     }
 
     /**

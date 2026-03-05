@@ -1848,12 +1848,15 @@ function updateStatusBar() {
             // Show tab name + type detail
             let activeInfo = session.name || 'Unknown';
 
-            // For remote (shared) sessions, show who owns it
-            if (session.type === 'remote' && session.owner) {
-                activeInfo = `${session.name}  ·  via ${session.owner}`;
+            // ✅ Add permission indicator for remote (shared) sessions
+            if (session.type === 'remote' && session.permission) {
+                const permIcon = session.permission === 'readwrite' ? '✏️' : '👁️';
+                activeInfo = `${permIcon} ${activeInfo}`;
             }
-            // Note: For SSH sessions, session.name already contains proper format like "root@host (host)"
-            // so we don't need to append anything
+
+            // Note: For remote (shared) sessions, session.name already includes owner in format:
+            // "session-name (Owner-Name)" so we don't need to append "via owner" again
+            // For SSH sessions, session.name already contains proper format like "root@host (host)"
 
             statusActive.textContent = activeInfo;
         } else {
@@ -4116,6 +4119,72 @@ function promptForAgentName(channelName) {
         const storedUsername = localStorage.getItem('terminal_cloudAgentName');
         if (storedUsername && storedUsername.trim()) {
             console.log('[Terminal] Found stored username, auto-connecting:', storedUsername);
+
+            // Show connecting loader overlay
+            const loaderOverlay = document.createElement('div');
+            loaderOverlay.id = 'shared-terminal-loader';
+            loaderOverlay.style.cssText = `
+                position: fixed;
+                inset: 0;
+                background: rgba(0, 0, 0, 0.75);
+                backdrop-filter: blur(8px);
+                z-index: 100000;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                animation: fadeIn 0.2s ease-out;
+            `;
+
+            const loaderContent = document.createElement('div');
+            loaderContent.style.cssText = `
+                background: var(--bg-panel);
+                padding: 40px;
+                border-radius: 16px;
+                box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
+                text-align: center;
+                max-width: 400px;
+            `;
+
+            loaderContent.innerHTML = `
+                <div style="font-size: 48px; margin-bottom: 20px; animation: pulse 1.5s ease-in-out infinite;">🔗</div>
+                <h3 style="margin: 0 0 12px 0; font-size: 20px; color: var(--text-primary); font-weight: 600;">
+                    Connecting to Shared Terminal
+                </h3>
+                <p style="margin: 0; font-size: 14px; color: var(--text-secondary); line-height: 1.6;">
+                    Connecting as <strong style="color: var(--accent-cyan);">${storedUsername}</strong>
+                    <br>
+                    <span style="font-size: 13px; opacity: 0.8;">Channel: <strong style="color: var(--accent-purple);">${channelName}</strong></span>
+                </p>
+                <div style="margin-top: 20px;">
+                    <div style="width: 100%; height: 4px; background: rgba(255,255,255,0.1); border-radius: 2px; overflow: hidden;">
+                        <div style="width: 100%; height: 100%; background: linear-gradient(90deg, var(--accent-blue), var(--accent-purple)); 
+                                    animation: progress 1.5s ease-in-out infinite;"></div>
+                    </div>
+                </div>
+                <style>
+                    @keyframes pulse {
+                        0%, 100% { transform: scale(1); opacity: 1; }
+                        50% { transform: scale(1.1); opacity: 0.8; }
+                    }
+                    @keyframes progress {
+                        0% { transform: translateX(-100%); }
+                        100% { transform: translateX(100%); }
+                    }
+                </style>
+            `;
+
+            loaderOverlay.appendChild(loaderContent);
+            document.body.appendChild(loaderOverlay);
+
+            // Auto-remove loader after 10 seconds (in case connection fails)
+            setTimeout(() => {
+                const loader = document.getElementById('shared-terminal-loader');
+                if (loader && document.body.contains(loader)) {
+                    loader.style.animation = 'fadeOut 0.2s ease-out';
+                    setTimeout(() => document.body.removeChild(loader), 200);
+                }
+            }, 10000);
+
             resolve(storedUsername.trim());
             return;
         }
@@ -5662,6 +5731,17 @@ terminalSharing.onFileSystemNotification = (sessionId, operation, details, sourc
         cloudConnected = true;
         cloudAgentName = agentName;
 
+        // Remove shared terminal loader if it exists
+        const loader = document.getElementById('shared-terminal-loader');
+        if (loader && document.body.contains(loader)) {
+            loader.style.animation = 'fadeOut 0.2s ease-out';
+            setTimeout(() => {
+                if (document.body.contains(loader)) {
+                    document.body.removeChild(loader);
+                }
+            }, 200);
+        }
+
         connectBtn.textContent = 'Connected';
         connectBtn.classList.add('active');
         connectBtn.disabled = true;
@@ -5738,6 +5818,18 @@ terminalSharing.onFileSystemNotification = (sessionId, operation, details, sourc
 
     } catch (error) {
         console.error('[Terminal] Connection failed:', error);
+
+        // Remove shared terminal loader if it exists
+        const loader = document.getElementById('shared-terminal-loader');
+        if (loader && document.body.contains(loader)) {
+            loader.style.animation = 'fadeOut 0.2s ease-out';
+            setTimeout(() => {
+                if (document.body.contains(loader)) {
+                    document.body.removeChild(loader);
+                }
+            }, 200);
+        }
+
         showToast('error', 'Connection Failed', error.message);
         terminalSharing = null;
         cloudConnected = false;

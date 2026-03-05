@@ -149,6 +149,58 @@
     filter: brightness(1.1);
 }
 
+/* ========== Filter Bar ========== */
+.sftp-filter-bar {
+    display: flex;
+    gap: 6px;
+    padding: 8px 12px;
+    background: var(--bg-darker);
+    border-bottom: 1px solid var(--border-color);
+    align-items: center;
+}
+
+.sftp-filter-bar input {
+    flex: 1;
+    padding: 6px 10px;
+    background: var(--bg-panel);
+    border: 1px solid var(--border-color);
+    border-radius: 4px;
+    color: var(--text-primary);
+    font-size: 11px;
+    transition: border-color 0.2s;
+}
+
+.sftp-filter-bar input:focus {
+    outline: none;
+    border-color: var(--accent-cyan);
+    box-shadow: 0 0 0 2px rgba(34, 211, 238, 0.1);
+}
+
+.sftp-filter-bar input::placeholder {
+    color: var(--text-muted);
+}
+
+.sftp-filter-clear {
+    display: none;
+    align-items: center;
+    justify-content: center;
+    width: 24px;
+    height: 24px;
+    padding: 0;
+    background: transparent;
+    border: none;
+    color: var(--text-muted);
+    cursor: pointer;
+    border-radius: 4px;
+    font-size: 12px;
+    transition: all 0.2s;
+}
+
+.sftp-filter-clear:hover {
+    background: rgba(248, 113, 113, 0.2);
+    color: var(--accent-red);
+}
+
 /* ========== File List ========== */
 .sftp-file-list {
     flex: 1;
@@ -195,6 +247,18 @@
 .sftp-file-item.selected {
     background: rgba(74, 158, 255, 0.2);
     border-color: var(--accent-blue);
+}
+
+.sftp-file-item.filtered-match {
+    background: rgba(34, 211, 238, 0.15);
+    border-color: var(--accent-cyan);
+    animation: filterPulse 0.3s ease-out;
+}
+
+@keyframes filterPulse {
+    0% { transform: scale(1); }
+    50% { transform: scale(1.02); }
+    100% { transform: scale(1); }
 }
 
 .sftp-file-item.directory {
@@ -554,8 +618,10 @@
 .sftp-upload-info {
     display: flex;
     justify-content: space-between;
+    align-items: center;
     margin-bottom: 8px;
     font-size: 11px;
+    gap: 8px;
 }
 
 .sftp-upload-filename {
@@ -563,11 +629,30 @@
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
-    max-width: 200px;
+    flex: 1;
+    min-width: 0;
 }
 
 .sftp-upload-percent {
     color: var(--accent-blue);
+    flex-shrink: 0;
+}
+
+.sftp-upload-cancel {
+    background: transparent;
+    border: none;
+    color: var(--text-muted);
+    cursor: pointer;
+    padding: 4px 8px;
+    border-radius: 4px;
+    font-size: 14px;
+    transition: all 0.2s;
+    flex-shrink: 0;
+}
+
+.sftp-upload-cancel:hover {
+    background: rgba(255, 100, 100, 0.2);
+    color: var(--accent-red);
 }
 
 .sftp-upload-bar {
