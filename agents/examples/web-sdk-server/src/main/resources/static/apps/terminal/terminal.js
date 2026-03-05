@@ -1845,17 +1845,15 @@ function updateStatusBar() {
     if (statusActive && activeSessionId) {
         const session = sessions.get(activeSessionId);
         if (session) {
-            // Show tab name + type detail (e.g. "Local CMD  |  C:\Users\admin>" or "SSH  user@host")
+            // Show tab name + type detail
             let activeInfo = session.name || 'Unknown';
 
-            // For SSH sessions, append user@host
-            if (session.type === 'ssh' && session.config) {
-                const user = session.config.username || 'user';
-                const host = session.config.host || 'unknown';
-                activeInfo = `${session.name}  ·  ${user}@${host}`;
-            } else if (session.type === 'remote' && session.owner) {
+            // For remote (shared) sessions, show who owns it
+            if (session.type === 'remote' && session.owner) {
                 activeInfo = `${session.name}  ·  via ${session.owner}`;
             }
+            // Note: For SSH sessions, session.name already contains proper format like "root@host (host)"
+            // so we don't need to append anything
 
             statusActive.textContent = activeInfo;
         } else {
@@ -4920,7 +4918,7 @@ terminalSharing.onFileSystemRequest = async (sessionId, operation, params, sourc
 
     // ✅ SECURITY: Validate permission for the requester
     // Get the permission for this specific agent (or use session default)
-    const requesterPermission = session.agentPermissions?.get(sourceAgent) || session.permission;
+    const requesterPermission = session.agentPermissions?.[sourceAgent] || session.permission;
 
     console.log('[FileSystem] Requester:', sourceAgent, 'permission:', requesterPermission);
 
