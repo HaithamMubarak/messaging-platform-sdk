@@ -51,6 +51,11 @@ if (TEST_MODE_NO_SLS) {
 const TOAST_DURATION = 5000;
 const HEALTH_CHECK_INTERVAL = 30000;
 
+// Terminal control banners - must match Java backend constants
+// Format: <<BANNER_NAME>> to avoid conflicts with normal terminal output
+const BANNER_SSH_DISCONNECTED = '<<SSH_DISCONNECTED>>';
+const BANNER_STREAM_CLOSED = '<<STREAM_CLOSED>>';
+
 // Toast icons for different message types
 const TOAST_ICONS = {
     success: '✓',
