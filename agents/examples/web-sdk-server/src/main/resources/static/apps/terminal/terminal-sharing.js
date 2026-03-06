@@ -768,7 +768,8 @@ class TerminalSharing extends UserConnectionBase {
                     shell: session.shell,
                     type: session.type,
                     owner: this.username,
-                    permission: session.permission || 'readonly'
+                    permission: session.permission || 'readonly',
+                    detectedPrompt: session.detectedPrompt || null
                 }
             }))
         }, targetAgent);

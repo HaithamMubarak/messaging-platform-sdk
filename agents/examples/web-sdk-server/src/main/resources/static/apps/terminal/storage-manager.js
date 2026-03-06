@@ -22,7 +22,10 @@ class LocalStorageManager {
             OPEN_TABS: 'terminal_open_tabs',
 
             // File explorer (per-session)
-            FILE_EXPLORER_PATH: (sessionId) => `fileExplorer_path_${sessionId}`
+            FILE_EXPLORER_PATH: (sessionId) => `fileExplorer_path_${sessionId}`,
+
+            // Detected prompt (per-session)
+            DETECTED_PROMPT: (sessionId) => `prompt_${sessionId}`
         };
     }
 
@@ -241,6 +244,32 @@ class LocalStorageManager {
         return keysToRemove.length;
     }
 
+    // Detected Prompt (per session) — last known shell prompt, updated live
+    getDetectedPrompt(sessionId) {
+        if (!sessionId) return null;
+        return this.getItem(this.KEYS.DETECTED_PROMPT(sessionId));
+    }
+
+    setDetectedPrompt(sessionId, prompt) {
+        if (!sessionId || !prompt) return false;
+        return this.setItem(this.KEYS.DETECTED_PROMPT(sessionId), prompt);
+    }
+
+    clearDetectedPrompt(sessionId) {
+        if (!sessionId) return false;
+        return this.removeItem(this.KEYS.DETECTED_PROMPT(sessionId));
+    }
+
+    clearAllDetectedPrompts() {
+        const keysToRemove = [];
+        for (let i = 0; i < localStorage.length; i++) {
+            const key = localStorage.key(i);
+            if (key && key.startsWith('prompt_')) keysToRemove.push(key);
+        }
+        keysToRemove.forEach(key => this.removeItem(key));
+        return keysToRemove.length;
+    }
+
     /**
      * Clear all terminal-related storage
      * Useful for debugging or "reset to defaults"
@@ -249,6 +278,7 @@ class LocalStorageManager {
         const keys = Object.values(this.KEYS).filter(k => typeof k === 'string');
         keys.forEach(key => this.removeItem(key));
         this.clearAllFileExplorerPaths();
+        this.clearAllDetectedPrompts();
         console.log('[Storage] Cleared all terminal storage');
     }
 
@@ -266,6 +296,7 @@ class LocalStorageManager {
             const key = localStorage.key(i);
             if (key && (key.startsWith('terminal_') ||
                         key.startsWith('fileExplorer_') ||
+                        key.startsWith('prompt_') ||
                         key.startsWith('sls-') ||
                         key === 'test_mode_no_sls')) {
                 info.terminal++;

@@ -1248,10 +1248,15 @@ async function restoreTab(dbSession) {
                 terminal.writeln(`\x1b[36mHost: ${config.username}@${config.host}:${config.port}\x1b[0m`);
             }
 
-            // Auto-connect WebSocket after brief delay
-            setTimeout(() => {
-                connectWebSocket(sessionId);
-            }, 100);
+            // Seed detectedPrompt from localStorage (updated live by writeTerminalData)
+            const storedPrompt = storageManager.getDetectedPrompt(sessionId);
+            if (storedPrompt) {
+                const session = sessions.get(sessionId);
+                if (session) session.detectedPrompt = storedPrompt;
+                terminal.write(storedPrompt);
+            }
+
+            setTimeout(() => connectWebSocket(sessionId), 100);
         } else {
             // ❌ Backend connection is DEAD — tab persisted in DB, show simple disconnect hint
             console.log('[TabRestore] Backend connection dead, tab persisted:', sessionId);
@@ -2429,7 +2434,7 @@ async function connectToSsh(connectionId, name, host, port, username) {
 // ========================================
 // Initialize xterm.js Terminal
 // ========================================
-function initTerminal(sessionId) {
+function initTerminal(sessionId, options = {}) {
     const savedFontSize = parseInt(localStorage.getItem('terminal_fontSize') || '14', 10);
     const terminal = new Terminal({
         cursorBlink: true,
@@ -2604,7 +2609,11 @@ function initTerminal(sessionId) {
     // Store handler on session for cleanup on close
     if (session) session._resizeHandler = resizeHandler;
 
-    terminal.writeln('\x1b[1;33mSDK Local Service\x1b[0m - Connecting...');
+    if (options.shared) {
+        terminal.writeln('\x1b[1;36mShared Terminal\x1b[0m - Connecting...');
+    } else {
+        terminal.writeln('\x1b[1;33mSDK Local Service\x1b[0m - Connecting...');
+    }
     terminal.writeln('');
 
     return terminal;
@@ -2667,26 +2676,35 @@ async function handleDisconnectionBanner(sessionId, session) {
  * @param {string} rawData - Raw data from WebSocket
  * @param {string} sessionId - Terminal session ID (for cloud broadcasting)
  */
+// Matches real shell prompts — last line of output chunk wins (handles docker/su/etc)
+const PROMPT_RE = /^\[?\S+@\S+[^\]]*\]?[#$%>]\s*$|^PS\s+\S.*>\s*$|^[#$%>]\s*$/;
+
 function writeTerminalData(session, rawData, sessionId) {
     try {
-        // Filter out invalid control characters that cause xterm parsing errors
-        // Remove DEL (127/0x7F) and other problematic control chars
-        let data = rawData.replace(/[\x7F]/g, ''); // Remove DEL character
-
-        // Clean bash output - strip leading spaces per line
+        let data = rawData.replace(/[\x7F]/g, '');
         const shell = session.config?.shell || 'cmd';
         data = cleanOutput(data, shell);
+        if (data.length > 0) session.terminal.write(data);
 
-        // Only write if we have valid data
-        if (data.length > 0) {
-            session.terminal.write(data);
+        // Sniff prompt — strip ANSI, scan lines, last match wins
+        const plain = rawData.replace(/\x1b\[[0-9;]*[A-Za-z]/g, '').replace(/[\x00-\x08\x0e-\x1f\x7f]/g, '');
+        const rawLines   = rawData.split(/\r?\n|\r/);
+        const plainLines = plain.split(/\r?\n|\r/);
+        for (let i = 0; i < plainLines.length; i++) {
+            const t = plainLines[i].trim();
+            if (t && PROMPT_RE.test(t)) {
+                const prompt = rawLines[i] + '\r\n';
+                session.detectedPrompt = prompt;
+                storageManager.setDetectedPrompt(sessionId, prompt);
+            }
         }
 
-        // ✅ If this terminal is shared, broadcast the output to other agents
+        // If shared — broadcast output and keep sharedSessions entry in sync
         if (session.isShared && cloudConnected && terminalSharing) {
-            const sent = terminalSharing.sendOutputFromSession(sessionId, rawData);
-            if (sent) {
-                console.log('[Terminal] Broadcasted output, bytes:', rawData.length);
+            terminalSharing.sendOutputFromSession(sessionId, rawData);
+            if (session.detectedPrompt) {
+                const shared = terminalSharing.sharedSessions.get(sessionId);
+                if (shared) shared.detectedPrompt = session.detectedPrompt;
             }
         }
     } catch (e) {
@@ -3247,6 +3265,7 @@ async function closeSession(sessionId) {
 
     // Remove from localStorage tracking (so it won't restore on refresh)
     untrackOpenTab(sessionId);
+    storageManager.clearDetectedPrompt(sessionId);
 
     // Switch to another session if this was active
     if (activeSessionId === sessionId) {
@@ -6081,6 +6100,7 @@ function disconnectFromCloud() {
 
     document.getElementById('cloudActionsRow').style.display = 'none';
     document.getElementById('cloudAgentsSection').style.display = 'none';
+    _updateAgentCountBadge(0);
 
     // Hide host indicator
     const hostIndicator = document.getElementById('cloudHostIndicator');
@@ -6122,33 +6142,48 @@ function updateAgentsList() {
 
     if (!terminalSharing || !cloudConnected) {
         agentsList.innerHTML = '<div class="cloud-agent-item">No other agents connected</div>';
+        _updateAgentCountBadge(0);
         return;
     }
 
     const agents = terminalSharing.getConnectedUsers();
+    // Filter out ourselves
+    const otherAgents = agents.filter(a => a !== cloudAgentName);
 
     console.log('[AgentsList] Connected agents:', agents);
     console.log('[AgentsList] My agent name:', cloudAgentName);
 
-    if (agents.length === 0) {
+    // Update toolbar badge
+    _updateAgentCountBadge(otherAgents.length);
+
+    if (otherAgents.length === 0) {
         agentsList.innerHTML = '<div class="cloud-agent-item">No other agents connected</div>';
         return;
     }
 
     let html = '';
-
-    // Show connected agents only (agents is array of strings)
-    agents.forEach(agentName => {
-        // Don't show yourself in the list
-        if (agentName !== cloudAgentName) {
-            html += `<div class="cloud-agent-item">
-                <div class="cloud-agent-dot"></div>
-                <span>${agentName}</span>
-            </div>`;
-        }
+    otherAgents.forEach(agentName => {
+        html += `<div class="cloud-agent-item">
+            <div class="cloud-agent-dot"></div>
+            <span>${agentName}</span>
+        </div>`;
     });
 
-    agentsList.innerHTML = html || '<div class="cloud-agent-item">No other agents connected</div>';
+    agentsList.innerHTML = html;
+}
+
+function _updateAgentCountBadge(count) {
+    const badge = document.getElementById('agentCountBadge');
+    const btn   = document.getElementById('messagingToolbarBtn');
+    if (!badge) return;
+    if (count > 0) {
+        badge.textContent = count;
+        badge.style.display = 'block';
+        if (btn) btn.title = `Remote Share — ${count} agent${count !== 1 ? 's' : ''} connected`;
+    } else {
+        badge.style.display = 'none';
+        if (btn) btn.title = 'Connect to Messaging Platform for Terminal Sharing';
+    }
 }
 
 /**
@@ -6241,7 +6276,7 @@ function createSharedTerminalSession(sessionId, sessionInfo, ownerAgent) {
     createTerminalPanel(sessionId);
 
     // Initialize terminal (view-only)
-    const terminal = initTerminal(sessionId);
+    const terminal = initTerminal(sessionId, { shared: true });
 
     // Store session with CloudTerminalDataSender wrapper
     sessions.set(sessionId, {
@@ -6274,10 +6309,15 @@ function createSharedTerminalSession(sessionId, sessionInfo, ownerAgent) {
     // be hidden by ws.onopen since there is no WebSocket for these sessions.
     hideConnectingOverlay(sessionId);
 
-    // Replace "SDK Local Service - Connecting..." with shared terminal connected message
-    terminal.write('\x1b[1A\x1b[2K'); // erase the initTerminal "SDK Local Service - Connecting..." line
+    // Replace "Shared Terminal - Connecting..." with connected success message
+    terminal.write('\x1b[1A\x1b[2K'); // erase the "Shared Terminal - Connecting..." line
     terminal.writeln(`\x1b[1;36mShared Terminal\x1b[0m - \x1b[1;32mConnected ✓\x1b[0m`);
     terminal.writeln('');
+
+    // Show last known prompt immediately so the terminal isn't blank
+    if (sessionInfo.detectedPrompt) {
+        terminal.write(sessionInfo.detectedPrompt);
+    }
 
     updateEmptyState();
     updateSessionCount();
@@ -6701,11 +6741,15 @@ function shareTerminal(sessionId, permission = 'readonly') {
     const sessionName = session.name || getTabTitle(sessionId) || 'Terminal Session';
 
     // Share via TerminalSharing
+    const storedPrompt = storageManager.getDetectedPrompt(sessionId);
+    if (storedPrompt) session.detectedPrompt = storedPrompt;
+
     const success = terminalSharing.shareSession(sessionId, {
         name: sessionName,
         shell: session.config?.shell || session.type || 'cmd',
         type: session.type,
-        permission: permission
+        permission: permission,
+        detectedPrompt: session.detectedPrompt || null
     });
 
     console.log('[ShareTerminal] Share result:', success);
@@ -7743,30 +7787,33 @@ window.addEventListener('load', async () => {
         testBanner.id = 'testModeBanner';
         testBanner.style.cssText = `
             position: fixed;
-            top: 0;
-            left: 0;
-            right: 0;
+            top: 8px;
+            left: 50%;
+            transform: translateX(-50%);
             background: linear-gradient(90deg, #f97316, #ea580c);
             color: white;
-            padding: 8px 16px;
+            padding: 5px 14px;
             text-align: center;
-            font-size: 13px;
+            font-size: 12px;
             font-weight: 600;
-            z-index: 9999;
-            box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+            z-index: 9998;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.4);
+            border-radius: 20px;
+            white-space: nowrap;
+            pointer-events: auto;
         `;
         testBanner.innerHTML = `
-            🧪 TEST MODE: SLS Disabled - Viewer Only 
-            <button onclick="toggleTestMode()" style="margin-left: 12px; padding: 4px 12px; border: 1px solid white; 
-                    border-radius: 4px; background: rgba(255,255,255,0.2); color: white; cursor: pointer; font-size: 11px;">
+            🧪 TEST MODE: SLS Disabled - Viewer Only
+            <button onclick="toggleTestMode()" style="margin-left: 10px; padding: 2px 10px; border: 1px solid white; 
+                    border-radius: 10px; background: rgba(255,255,255,0.2); color: white; cursor: pointer; font-size: 10px;">
                 Disable Test Mode
             </button>
         `;
         document.body.prepend(testBanner);
 
-        // Adjust terminal wrapper top margin
+        // No padding push needed — banner is floating/centered, not full-width
         const wrapper = document.getElementById('terminalWrapper');
-        if (wrapper) wrapper.style.paddingTop = '40px';
+        if (wrapper) wrapper.style.paddingTop = '';
 
         // Disable SLS-dependent buttons in test mode
         updateSlsDependentButtons(false);
