@@ -2,7 +2,9 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=yes">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <meta name="format-detection" content="telephone=no">
+    <meta name="touch-callout" content="none">
 
     <!-- PWA Configuration -->
     <meta name="mobile-web-app-capable" content="yes">
@@ -197,9 +199,19 @@
         <div class="menu-item" onclick="showInstallGuide()">Install</div>
         <div class="menu-item" onclick="showAbout()">About</div>
         <div class="menu-spacer"></div>
-        <div class="menu-status">
-            <div class="status-dot" id="mlsStatus"></div>
-            <span id="mlsStatusText">Local Service: Checking...</span>
+        <!-- Combined top-right status indicators -->
+        <div class="top-status-bar">
+            <div class="top-status-indicator" id="slsIndicatorGroup" title="SDK Local Service status">
+                <span class="top-status-dot" id="mlsStatus"></span>
+                <span class="top-status-icon">⚙</span>
+                <span class="top-status-label" id="mlsStatusText">Local</span>
+            </div>
+            <div class="top-status-divider"></div>
+            <div class="top-status-indicator" id="cloudIndicatorGroup" title="Remote Share – Disconnected" onclick="openMessagingModal()" style="cursor:pointer;">
+                <span class="top-status-dot" id="cloudStatusDot"></span>
+                <span class="top-status-icon">🔗</span>
+                <span class="top-status-label" id="cloudStatusLabel">Remote</span>
+            </div>
         </div>
     </div>
 
@@ -587,11 +599,6 @@
 
             <!-- Status Bar -->
             <div class="status-bar" id="statusBar">
-                <div class="status-bar-item">
-                    <span class="status-bar-label">MLS:</span>
-                    <span class="status-bar-value" id="statusMls">localhost:8088</span>
-                </div>
-                <div class="status-bar-separator">|</div>
                 <div class="status-bar-item">
                     <span class="status-bar-label">Sessions:</span>
                     <span class="status-bar-value" id="statusSessions">0</span>

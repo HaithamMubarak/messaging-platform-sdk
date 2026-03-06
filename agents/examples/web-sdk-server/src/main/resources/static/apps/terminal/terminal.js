@@ -1248,23 +1248,14 @@ async function restoreTab(dbSession) {
                 connectWebSocket(sessionId);
             }, 100);
         } else {
-            // ❌ Backend connection is DEAD (session not in memory)
-            // But tab metadata persists in DB - show reconnect overlay
-            console.log('[TabRestore] Backend connection dead, tab persisted. Showing reconnect overlay:', sessionId);
-            showReconnectOverlay(sessionId);
+            // ❌ Backend connection is DEAD — tab persisted in DB, show simple disconnect hint
+            console.log('[TabRestore] Backend connection dead, tab persisted:', sessionId);
             terminal.clear();
-            terminal.writeln('\x1b[36m╔══════════════════════════════════════════════╗\x1b[0m');
-            terminal.writeln('\x1b[36m║\x1b[0m   \x1b[1;33mTab Restored from Database\x1b[0m             \x1b[36m║\x1b[0m');
-            terminal.writeln('\x1b[36m╚══════════════════════════════════════════════╝\x1b[0m');
-            terminal.writeln('');
-            terminal.writeln(`\x1b[36mTab:\x1b[0m ${name}`);
             if (type === 'ssh' && config.host) {
-                terminal.writeln(`\x1b[36mHost:\x1b[0m ${config.username}@${config.host}:${config.port}`);
-            } else if (type === 'ssh' && config.error) {
-                terminal.writeln(`\x1b[33mWarning:\x1b[0m ${config.error}`);
+                terminal.writeln(`\x1b[2m${config.username}@${config.host}:${config.port}\x1b[0m`);
             }
             terminal.writeln('');
-            terminal.writeln('\x1b[33mConnection inactive. Press \x1b[1;32mR\x1b[0m\x1b[33m to reconnect.\x1b[0m');
+            terminal.writeln('\x1b[1;31m✖ Disconnected\x1b[0m  \x1b[2mPress \x1b[0m\x1b[1;32mR\x1b[0m\x1b[2m to reconnect\x1b[0m');
             terminal.writeln('');
         }
     } catch (error) {
@@ -1324,9 +1315,6 @@ async function updateSessionReferences(oldSessionId, newSessionId) {
     // Update overlays
     const connectingDiv = document.getElementById(`connecting-${oldSessionId}`);
     if (connectingDiv) connectingDiv.id = `connecting-${newSessionId}`;
-
-    const reconnectDiv = document.getElementById(`reconnect-${oldSessionId}`);
-    if (reconnectDiv) reconnectDiv.id = `reconnect-${newSessionId}`;
 
     // Update sessions map
     sessions.delete(oldSessionId);
@@ -1450,17 +1438,24 @@ async function checkMlsHealth(showNotification = false) {
     const statusDot = document.getElementById('mlsStatus');
     const statusText = document.getElementById('mlsStatusText');
 
+    // Helper to update the SLS indicator group tooltip
+    const setSlsTitle = (msg) => {
+        const grp = document.getElementById('slsIndicatorGroup');
+        if (grp) grp.title = msg;
+    };
+
     // In test mode, show special status
     if (TEST_MODE_NO_SLS) {
-        statusDot.className = 'status-dot offline';
-        statusText.textContent = 'Local Service: Test Mode';
-        statusText.title = 'Test mode enabled - SLS disabled';
+        if (statusDot) statusDot.className = 'top-status-dot offline';
+        if (statusText) statusText.textContent = 'Local';
+        setSlsTitle('Test Mode – SLS disabled');
         console.log('🧪 TEST MODE: Skipping SLS health check');
         return false;
     }
 
-    statusDot.className = 'status-dot checking';
-    statusText.textContent = 'Local Service: Checking...';
+    if (statusDot) statusDot.className = 'top-status-dot checking';
+    if (statusText) statusText.textContent = 'Local';
+    setSlsTitle('Local Service: Checking…');
 
     try {
         // Health endpoint is public - use regular fetch (no auth needed)
@@ -1472,9 +1467,9 @@ async function checkMlsHealth(showNotification = false) {
         });
 
         if (response.ok) {
-            statusDot.className = 'status-dot online';
-            statusText.textContent = 'Local Service: Online';
-            statusText.title = `SDK Local Service running on port ${SLS_PORT}`;
+            if (statusDot) statusDot.className = 'top-status-dot online';
+            if (statusText) statusText.textContent = 'Local';
+            setSlsTitle(`Local Service: Online (port ${SLS_PORT})`);
 
             // Check if state changed: null→online or offline→online
             const previousState = slsCurrentState;
@@ -1500,9 +1495,9 @@ async function checkMlsHealth(showNotification = false) {
         // Non-OK response (4xx, 5xx)
         throw new Error(`Health check failed with status: ${response.status}`);
     } catch (error) {
-        statusDot.className = 'status-dot offline';
-        statusText.textContent = 'Local Service: Offline';
-        statusText.title = `Cannot connect to SLS on localhost:${SLS_PORT}`;
+        if (statusDot) statusDot.className = 'top-status-dot offline';
+        if (statusText) statusText.textContent = 'SLS';
+        setSlsTitle(`Local Service: Offline – cannot connect on localhost:${SLS_PORT}`);
 
         console.warn('[Health] SLS health check failed:', error.message);
 
@@ -1843,11 +1838,6 @@ function updateEmptyState() {
  * Update the bottom status bar with current session info
  */
 function updateStatusBar() {
-    // Update MLS info
-    const statusMls = document.getElementById('statusMls');
-    if (statusMls) {
-        statusMls.textContent = `localhost:${SLS_PORT}`;
-    }
 
     // Update session count
     const statusSessions = document.getElementById('statusSessions');
@@ -2133,15 +2123,6 @@ function createTerminalPanel(sessionId) {
             <div class="connecting-text">Connecting...</div>
             <div class="connecting-subtext">Establishing connection to remote server</div>
         </div>
-        <div class="reconnect-overlay" id="reconnect-${sessionId}">
-            <div class="reconnect-icon">⚠️</div>
-            <div class="reconnect-title">Connection Lost</div>
-            <div class="reconnect-message">The session has been disconnected.</div>
-            <div class="reconnect-hint">
-                <span class="reconnect-key">R</span>
-                <span class="reconnect-hint-text">Press <strong>R</strong> to reconnect</span>
-            </div>
-        </div>
     `;
 
     // Deactivate other panels
@@ -2169,7 +2150,7 @@ async function createLocalTerminal(shell = 'cmd') {
         return;
     }
 
-    const healthy = await checkMlsHealth();
+    const healthy = await checkMlsHealth(false, true);
     if (!healthy) {
         showToast('error', 'SLS Unavailable', 'Please start SDK Local Service first');
         return;
@@ -2261,7 +2242,7 @@ async function connectToSsh(connectionId, name, host, port, username) {
         return;
     }
 
-    const healthy = await checkMlsHealth();
+    const healthy = await checkMlsHealth(false, true);
     if (!healthy) {
         showToast('error', 'SLS Unavailable', 'Please start SDK Local Service first');
         return;
@@ -2471,6 +2452,10 @@ function initTerminal(sessionId) {
     const fitAddon = new FitAddon.FitAddon();
     terminal.loadAddon(fitAddon);
     terminal.open(document.getElementById(`terminal-${sessionId}`));
+
+    // ✅ Disable text suggestions/autocomplete/autocorrect on mobile keyboards
+    const xtermTextarea = document.querySelector(`#terminal-${sessionId} .xterm-helper-textarea`);
+    applyNoSuggestionAttrs(xtermTextarea);
 
     // Delay fit to ensure container is rendered properly
     setTimeout(() => {
@@ -2790,21 +2775,15 @@ async function handleWebSocketClose(event, sessionId, session) {
         session._reconnectAttempts = 0; // Reset for future manual reconnect
     }
 
-    // Check if session is still alive before showing reconnect overlay
+    // Check if session is still alive before showing disconnect message
     try {
         const alive = await checkSessionAlive(sessionId);
         console.log('[WS] Session alive check on close:', alive);
-
-        if (!alive) {
-            showReconnectOverlay(sessionId);
-            showToast('warning', 'Session Disconnected', 'Connection lost. Press R to reconnect.');
-        } else {
-            showReconnectOverlay(sessionId);
-            showToast('warning', 'Connection Closed', 'WebSocket closed. Press R to reconnect.');
-        }
+        writeDisconnectMessage(sessionId);
+        showToast('warning', alive ? 'Connection Closed' : 'Session Disconnected', 'Press R to reconnect.');
     } catch (err) {
         console.warn('⚠️ [WS] Failed to check session alive:', err.message || 'Unknown error');
-        showReconnectOverlay(sessionId);
+        writeDisconnectMessage(sessionId);
         showToast('warning', 'Connection Closed', 'Press R to reconnect.');
     }
 }
@@ -2928,7 +2907,7 @@ function connectWebSocket(sessionId) {
                 session.connected = false;
                 session.dataSender = null;
                 updateTab(sessionId, true);
-                showReconnectOverlay(sessionId);
+                writeDisconnectMessage(sessionId);
 
                 const message = bannerType === 'SSH_DISCONNECTED'
                     ? 'SSH connection lost. Press R to reconnect.'
@@ -2987,20 +2966,23 @@ function hideConnectingOverlay(sessionId) {
 }
 
 function showReconnectOverlay(sessionId) {
-    const overlay = document.getElementById(`reconnect-${sessionId}`);
-    if (overlay) overlay.classList.add('visible');
-
-    const session = sessions.get(sessionId);
-    if (session && session.terminal) {
-        session.terminal.writeln('');
-        session.terminal.writeln('\x1b[1;31m⚠ Connection lost\x1b[0m');
-        session.terminal.writeln('\x1b[33mPress R to reconnect...\x1b[0m');
-    }
+    // No overlay — write disconnect message directly into terminal
+    writeDisconnectMessage(sessionId);
 }
 
 function hideReconnectOverlay(sessionId) {
-    const overlay = document.getElementById(`reconnect-${sessionId}`);
-    if (overlay) overlay.classList.remove('visible');
+    // No-op — overlay removed; terminal is cleared before reconnecting
+}
+
+/**
+ * Write disconnection message directly into the terminal (no overlay modal).
+ */
+function writeDisconnectMessage(sessionId) {
+    const session = sessions.get(sessionId);
+    const term = session?.terminal;
+    if (!term) return;
+    term.writeln('');
+    term.writeln('\x1b[1;31m✖ Disconnected\x1b[0m  \x1b[2mPress \x1b[0m\x1b[1;32mR\x1b[0m\x1b[2m to reconnect\x1b[0m');
 }
 
 /**
@@ -3283,12 +3265,8 @@ document.addEventListener('keydown', (e) => {
 
         const session = sessions.get(activeSessionId);
         if (session && !session.connected) {
-            const overlay = document.getElementById(`reconnect-${activeSessionId}`);
-            // If reconnect overlay exists and is visible OR just tab is focused, reconnect
-            if (overlay && (overlay.classList.contains('visible') || document.activeElement.closest('.terminal-panel'))) {
-                e.preventDefault();
-                reconnectSession(activeSessionId);
-            }
+            e.preventDefault();
+            reconnectSession(activeSessionId);
         }
     }
 });
@@ -3531,8 +3509,8 @@ window.saveSlsPortSettings = async function() {
 // ========================================
 window.showInstallGuide = function() {
     document.getElementById('helpModalOverlay').classList.add('visible');
-    // Default to installation tab
-    switchHelpTab('installation');
+    // Default to Local Service Setup tab
+    switchHelpTab('quickstart');
 }
 
 // Alias for backward compatibility
@@ -4485,11 +4463,6 @@ function openCloudModal() {
         window.switchCloudTab('connection');
     }
 
-    // Update messaging toolbar button to indicate it's active (only if connected)
-    const messagingBtn = document.getElementById('messagingToolbarBtn');
-    if (messagingBtn && cloudConnected) {
-        messagingBtn.classList.add('active');
-    }
     // Also support old ID for compatibility
     const cloudBtn = document.getElementById('cloudToolbarBtn');
     if (cloudBtn && cloudConnected) {
@@ -5731,7 +5704,7 @@ terminalSharing.onFileSystemNotification = (sessionId, operation, details, sourc
             const statusText = document.getElementById('cloudStatusText');
             const hostIndicator = document.getElementById('cloudHostIndicator');
 
-            if (statusDot) statusDot.cflassName = 'status-dot offline';
+            if (statusDot) statusDot.className = 'status-dot offline';
             if (statusText) statusText.textContent = 'Disconnected (connection lost)';
             if (hostIndicator) hostIndicator.style.display = 'none';
 
@@ -5742,11 +5715,13 @@ terminalSharing.onFileSystemNotification = (sessionId, operation, details, sourc
                 connectBtn.disabled = false;
             }
 
-            // Reset toolbar button
+            // Reset toolbar button title + status dot
             const messagingBtn = document.getElementById('messagingToolbarBtn');
-            if (messagingBtn) {
-                messagingBtn.classList.remove('active');
-            }
+            if (messagingBtn) messagingBtn.title = 'Connect to Messaging Platform for Terminal Sharing';
+            const cloudStatusDotDisc = document.getElementById('cloudStatusDot');
+            if (cloudStatusDotDisc) cloudStatusDotDisc.className = 'top-status-dot offline';
+            const cloudIndicatorGrpLost = document.getElementById('cloudIndicatorGroup');
+            if (cloudIndicatorGrpLost) cloudIndicatorGrpLost.title = 'Remote Share – Connection lost';
 
             // Mark all remote sessions as disconnected
             sessions.forEach((session, sid) => {
@@ -5811,12 +5786,17 @@ terminalSharing.onFileSystemNotification = (sessionId, operation, details, sourc
         connectBtn.disabled = true;
         connectBtn.title = `Connected as ${agentName}`;
 
-        // Highlight the messaging toolbar button
+        // Highlight the messaging toolbar button + update status dot
         const messagingBtn = document.getElementById('messagingToolbarBtn');
         if (messagingBtn) {
-            messagingBtn.classList.add('active');
             messagingBtn.title = `Messaging Platform Connected as ${agentName}`;
         }
+        const cloudStatusDot = document.getElementById('cloudStatusDot');
+        if (cloudStatusDot) cloudStatusDot.className = 'top-status-dot online';
+        const cloudStatusLabel = document.getElementById('cloudStatusLabel');
+        if (cloudStatusLabel) cloudStatusLabel.textContent = 'Remote';
+        const cloudIndicatorGroup = document.getElementById('cloudIndicatorGroup');
+        if (cloudIndicatorGroup) cloudIndicatorGroup.title = `Remote Share: Connected as ${agentName}`;
         // Also support old ID for compatibility
         let cloudBtn = document.getElementById('cloudToolbarBtn');
         if (cloudBtn) {
@@ -5929,20 +5909,17 @@ function disconnectFromCloud() {
     connectBtn.disabled = false;
     connectBtn.title = 'Connect to Messaging Platform';
 
-    // Reset messaging toolbar button
+    // Reset messaging toolbar button + status dot
     const messagingBtn = document.getElementById('messagingToolbarBtn');
     if (messagingBtn) {
-        messagingBtn.classList.remove('active');
-        messagingBtn.style.background = '';
         messagingBtn.title = 'Connect to Messaging Platform for Terminal Sharing';
     }
-    // Also support old ID for compatibility
-    const cloudBtn = document.getElementById('cloudToolbarBtn');
-    if (cloudBtn) {
-        cloudBtn.classList.remove('active');
-        cloudBtn.style.background = '';
-        cloudBtn.title = 'Connect to Messaging Platform for Terminal Sharing';
-    }
+    const cloudStatusDotManual = document.getElementById('cloudStatusDot');
+    if (cloudStatusDotManual) cloudStatusDotManual.className = 'top-status-dot'; // grey = not connected
+    const cloudStatusLabelDisc = document.getElementById('cloudStatusLabel');
+    if (cloudStatusLabelDisc) cloudStatusLabelDisc.textContent = 'Remote';
+    const cloudIndicatorGrpDisc = document.getElementById('cloudIndicatorGroup');
+    if (cloudIndicatorGrpDisc) cloudIndicatorGrpDisc.title = 'Remote Share – Disconnected';
 
     // Re-enable regenerate button when disconnected
     const regenBtn = document.getElementById('cloudRegenBtn');
@@ -7777,7 +7754,7 @@ window.addEventListener('load', async () => {
 
     // Now proceed with normal initialization (skip SLS checks in test mode)
     if (!TEST_MODE_NO_SLS) {
-        await checkMlsHealth();
+        await checkMlsHealth(false, true);
         await refreshConnections();
     } else {
         console.log('🧪 TEST MODE: Skipping SLS health check and connection refresh');
@@ -7896,8 +7873,8 @@ window.addEventListener('load', async () => {
         disableSharingTab();
     }
 
-    // Start health check interval
-    setInterval(() => checkMlsHealth(), 30000);
+    // Start health check interval — silent=true so it never flashes "Checking..."
+    setInterval(() => checkMlsHealth(false, true), 30000);
 
     // Refresh token every 23 hours (before 24h expiry)
     setInterval(() => {
@@ -8077,6 +8054,31 @@ function handleMobileBackButton(event) {
 }
 
 /**
+ * Apply no-suggestion attributes to a textarea element
+ * Used to prevent mobile keyboards from showing autocomplete/autocorrect
+ */
+function applyNoSuggestionAttrs(el) {
+    if (!el) return;
+    el.setAttribute('autocomplete', 'off');
+    el.setAttribute('autocorrect', 'off');
+    el.setAttribute('autocapitalize', 'off');
+    el.setAttribute('spellcheck', 'false');
+    el.setAttribute('data-gramm', 'false');
+    el.setAttribute('data-gramm_editor', 'false');
+    el.setAttribute('data-enable-grammarly', 'false');
+    el.setAttribute('inputmode', 'text');
+}
+
+/**
+ * Disable text suggestions on all existing xterm helper textareas
+ */
+function disableMobileTextSuggestions() {
+    document.querySelectorAll('.xterm-helper-textarea').forEach(ta => {
+        applyNoSuggestionAttrs(ta);
+    });
+}
+
+/**
  * Initialize mobile features
  */
 function initMobileFeatures() {
@@ -8088,6 +8090,25 @@ function initMobileFeatures() {
 
     // ✅ Setup modal overlay click handlers to close modals
     setupModalOverlayHandlers();
+
+    // ✅ Disable text suggestions on all existing xterm textareas
+    disableMobileTextSuggestions();
+
+    // ✅ Watch for new xterm textareas and disable suggestions on them too
+    const observer = new MutationObserver((mutations) => {
+        for (const mutation of mutations) {
+            for (const node of mutation.addedNodes) {
+                if (node.nodeType === 1) {
+                    const textareas = node.querySelectorAll ? node.querySelectorAll('.xterm-helper-textarea') : [];
+                    textareas.forEach(ta => applyNoSuggestionAttrs(ta));
+                    if (node.classList && node.classList.contains('xterm-helper-textarea')) {
+                        applyNoSuggestionAttrs(node);
+                    }
+                }
+            }
+        }
+    });
+    observer.observe(document.body, { childList: true, subtree: true });
 
     // Close sidebar when clicking overlay (on body::before)
     document.body.addEventListener('click', (e) => {

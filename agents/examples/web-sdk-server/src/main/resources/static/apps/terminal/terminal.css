@@ -79,44 +79,116 @@ body {
     flex: 1;
 }
 
-.menu-status {
+/* ── Combined top-right status bar (SLS + Remote Share) ── */
+.top-status-bar {
     display: flex;
     align-items: center;
-    gap: 6px;
-    font-size: 11px;
-    color: var(--text-muted);
-    padding-right: 10px;
+    gap: 2px;
+    padding: 3px 6px;
+    background: rgba(0, 0, 0, 0.25);
+    border-radius: 12px;
+    border: 1px solid rgba(255, 255, 255, 0.06);
+    margin-right: 4px;
 }
 
+.top-status-indicator {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    padding: 2px 7px;
+    border-radius: 8px;
+    transition: background 0.15s;
+    user-select: none;
+    -webkit-user-select: none;
+}
+
+.top-status-indicator:hover {
+    background: rgba(255, 255, 255, 0.07);
+}
+
+.top-status-divider {
+    width: 1px;
+    height: 14px;
+    background: rgba(255, 255, 255, 0.12);
+    margin: 0 2px;
+}
+
+.top-status-label {
+    font-size: 10px;
+    font-weight: 600;
+    color: var(--text-muted);
+    letter-spacing: 0.03em;
+    text-transform: uppercase;
+}
+
+.top-status-icon {
+    font-size: 11px;
+    line-height: 1;
+    opacity: 0.7;
+}
+
+/* ── Dot shared by both indicators ── */
+.top-status-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: var(--text-muted);   /* grey = unknown / disconnected */
+    flex-shrink: 0;
+    transition: background 0.3s;
+}
+
+.top-status-dot.online {
+    background: #22c55e;
+    box-shadow: 0 0 0 0 rgba(34, 197, 94, 0.7);
+    animation: top-dot-pulse 2s ease-in-out infinite;
+}
+
+.top-status-dot.offline {
+    background: var(--accent-yellow);
+    box-shadow: 0 0 4px var(--accent-yellow);
+    animation: none;
+}
+
+.top-status-dot.checking {
+    background: var(--accent-orange);
+    animation: top-dot-blink 0.8s ease-in-out infinite;
+}
+
+@keyframes top-dot-pulse {
+    0%   { box-shadow: 0 0 0 0   rgba(34, 197, 94, 0.7); }
+    50%  { box-shadow: 0 0 0 5px rgba(34, 197, 94, 0);   }
+    100% { box-shadow: 0 0 0 0   rgba(34, 197, 94, 0);   }
+}
+
+@keyframes top-dot-blink {
+    0%, 100% { opacity: 1; }
+    50%       { opacity: 0.35; }
+}
+
+/* Legacy .status-dot kept for modal internals (cloud-modal status row) */
 .status-dot {
     width: 8px;
     height: 8px;
     border-radius: 50%;
     background: var(--text-muted);
 }
-
 .status-dot.online {
     background: var(--accent-green);
     box-shadow: 0 0 6px var(--accent-green);
 }
-
 .status-dot.offline {
     background: var(--accent-yellow);
     box-shadow: 0 0 6px var(--accent-yellow);
 }
-
 .status-dot.checking {
     background: var(--accent-orange);
-    animation: pulse 1s infinite;
+    animation: top-dot-blink 0.8s ease-in-out infinite;
 }
 
+
 @keyframes pulse {
-    0%, 100% {
-        opacity: 1;
-    }
-    50% {
-        opacity: 0.4;
-    }
+    0%, 100% { opacity: 1; }
+    50%       { opacity: 0.4; }
 }
 
 /* ========== Toolbar ========== */
@@ -164,6 +236,24 @@ body {
 
 .toolbar-btn.active .icon {
     animation: iconPulse 2s ease-in-out infinite;
+}
+
+/* Remote Share button: suppress active glow — dot in top-right bar is sufficient */
+#messagingToolbarBtn.active {
+    background: transparent;
+    border-color: transparent;
+    box-shadow: none;
+}
+#messagingToolbarBtn.active:hover {
+    background: rgba(74, 158, 255, 0.15);
+    border-color: var(--accent-blue);
+}
+#messagingToolbarBtn.active .label {
+    color: inherit;
+    font-weight: inherit;
+}
+#messagingToolbarBtn.active .icon {
+    animation: none;
 }
 
 @keyframes iconPulse {
@@ -903,24 +993,7 @@ body {
     height: 100%;
 }
 
-/* ========== Reconnection Overlay ========== */
-.reconnect-overlay {
-    position: absolute;
-    top: 0;
-    left: 0;
-    right: 0;
-    bottom: 0;
-    background: rgba(0, 0, 0, 0.85);
-    display: none;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    z-index: 100;
-}
 
-.reconnect-overlay.visible {
-    display: flex;
-}
 
 /* ========== Connecting Loader Overlay ========== */
 .connecting-overlay {
@@ -972,53 +1045,6 @@ body {
     color: var(--text-muted);
 }
 
-.reconnect-icon {
-    font-size: 48px;
-    margin-bottom: 16px;
-    color: var(--accent-orange);
-}
-
-.reconnect-title {
-    font-size: 18px;
-    font-weight: 600;
-    margin-bottom: 8px;
-    color: var(--text-primary);
-}
-
-.reconnect-message {
-    font-size: 13px;
-    color: var(--text-secondary);
-    margin-bottom: 20px;
-    text-align: center;
-}
-
-.reconnect-hint {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    padding: 12px 20px;
-    background: rgba(74, 158, 255, 0.2);
-    border-radius: 8px;
-    border: 1px solid var(--accent-blue);
-}
-
-.reconnect-key {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    width: 32px;
-    height: 32px;
-    background: var(--accent-blue);
-    color: white;
-    font-weight: 700;
-    font-size: 16px;
-    border-radius: 6px;
-}
-
-.reconnect-hint-text {
-    font-size: 13px;
-    color: var(--text-primary);
-}
 
 /* ========== Status Bar ========== */
 .status-bar {
@@ -1896,7 +1922,7 @@ body {
 /* ========================================
    XTERM.JS MOBILE KEYBOARD FIX
    ======================================== */
-/* Ensure xterm.js hidden textarea works on mobile */
+/* Ensure xterm.js hidden textarea works on mobile - NO text suggestions */
 .xterm-helper-textarea {
     /* Allow mobile keyboard to appear */
     position: absolute !important;
@@ -1911,198 +1937,184 @@ body {
     /* Enable mobile keyboard */
     -webkit-user-select: text !important;
     user-select: text !important;
+    /* Text suggestion attributes are set via JavaScript (applyNoSuggestionAttrs) */
+    -webkit-text-security: none !important;
 }
 
-/* Ensure terminal container allows touch */
+/* Ensure terminal container allows touch and is fully responsive */
 .terminal-content {
     touch-action: manipulation;
     -webkit-tap-highlight-color: transparent;
+    -webkit-touch-callout: none;
+}
+
+/* ✅ xterm.js full responsive - fill container completely */
+.xterm {
+    height: 100% !important;
+    width: 100% !important;
+}
+
+.xterm-screen {
+    width: 100% !important;
+}
+
+.xterm-viewport {
+    overflow-y: auto !important;
+    -webkit-overflow-scrolling: touch;
 }
 
 /* ========================================
    MOBILE RESPONSIVE STYLES
+   Complete responsive overhaul for phones/tablets
    ======================================== */
 
-/* Tablet (Portrait & Landscape) - 768px to 1024px */
+/* ── Global: Disable text suggestions on ALL terminal inputs (via JS attrs) ── */
+/* Note: autocomplete/autocorrect/autocapitalize are HTML attributes, set via JS */
+.xterm-helper-textarea,
+.terminal-content textarea,
+.terminal-content input {
+    -webkit-text-security: none;
+}
+
+/* ── Tablet: 768px–1024px ── */
 @media (max-width: 1024px) {
     .sidebar {
         width: 200px;
         min-width: 120px;
     }
-
     .toolbar-btn {
         padding: 4px 8px;
         min-width: 50px;
     }
-
     .toolbar-btn .label {
         font-size: 9px;
     }
-
     .modal {
         width: 90vw;
         max-width: 500px;
     }
 }
 
-/* Mobile (Landscape) - 481px to 767px */
+/* ── Mid-size mobile: 481px–767px ── */
 @media (max-width: 767px) {
     .menu-bar {
         height: auto;
+        min-height: 28px;
         flex-wrap: wrap;
         padding: 2px 4px;
     }
-
     .menu-item {
         padding: 3px 8px;
         font-size: 11px;
     }
-
     .toolbar {
         padding: 4px 6px;
         gap: 4px;
         overflow-x: auto;
         flex-wrap: nowrap;
+        -webkit-overflow-scrolling: touch;
+        scrollbar-width: none;
     }
-
+    .toolbar::-webkit-scrollbar { display: none; }
     .toolbar-btn {
         padding: 4px 6px;
         min-width: 45px;
+        flex-shrink: 0;
     }
-
-    .toolbar-btn .icon {
-        font-size: 16px;
-    }
-
-    .toolbar-btn .label {
-        font-size: 8px;
-    }
-
+    .toolbar-btn .icon { font-size: 16px; }
+    .toolbar-btn .label { font-size: 8px; }
     .sidebar {
         width: 150px;
         min-width: 100px;
     }
-
     .sidebar-header {
         font-size: 10px;
         padding: 8px 10px;
     }
-
-    .session-item {
-        padding: 6px 8px;
-    }
-
+    .session-item { padding: 6px 8px; }
     .session-icon {
         width: 28px;
         height: 28px;
         font-size: 14px;
     }
-
-    .session-name {
-        font-size: 11px;
-    }
-
-    .session-info {
-        font-size: 9px;
-    }
-
+    .session-name { font-size: 11px; }
+    .session-info { font-size: 9px; }
     .tab {
         min-width: 100px;
         max-width: 150px;
         padding: 0 10px;
         font-size: 11px;
     }
-
-    .tab-title {
-        font-size: 11px;
-    }
-
+    .tab-title { font-size: 11px; }
     .status-bar {
         font-size: 10px;
         padding: 0 8px;
         height: 20px;
     }
-
     .modal {
         width: 95vw;
         max-height: 85vh;
     }
-
-    .modal-header {
-        padding: 12px 16px;
-    }
-
-    .modal-title {
-        font-size: 14px;
-    }
-
-    .modal-body {
-        padding: 16px;
-    }
-
+    .modal-header { padding: 12px 16px; }
+    .modal-title { font-size: 14px; }
+    .modal-body { padding: 16px; }
     .context-menu {
         min-width: 160px;
         font-size: 12px;
     }
-
-    .context-menu-item {
-        padding: 6px 12px;
-    }
+    .context-menu-item { padding: 8px 12px; }
 }
 
-/* Mobile (Portrait) - up to 480px */
+/* ══════════════════════════════════════════
+   MOBILE PORTRAIT ≤ 480px  (Primary phone)
+   ══════════════════════════════════════════ */
 @media (max-width: 480px) {
-    /* ✅ Mobile Menu Toggle Button */
+
+    /* ── Show mobile hamburger ── */
     .mobile-menu-toggle {
-        display: flex !important; /* Show menu button on mobile */
+        display: flex !important;
         background: rgba(74, 158, 255, 0.2);
         border: 1px solid var(--accent-blue);
     }
 
-    /* ✅ Hide sidebar by default on small phones - can toggle */
+    /* ── Sidebar = fixed drawer ── */
     .sidebar {
-        position: fixed; /* Changed from absolute to fixed */
-        left: 0;
-        top: 0;
-        bottom: 0;
-        width: 240px; /* Wider for better touch */
-        z-index: 2000; /* Above everything */
+        position: fixed;
+        left: 0; top: 0; bottom: 0;
+        width: 280px;
+        max-width: 80vw;
+        z-index: 2000;
         transform: translateX(-100%);
-        transition: transform 0.3s ease;
+        transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
         box-shadow: none;
+        overflow-y: auto;
+        -webkit-overflow-scrolling: touch;
     }
-
     .sidebar.mobile-visible {
         transform: translateX(0);
-        box-shadow: 4px 0 20px rgba(0, 0, 0, 0.7);
+        box-shadow: 4px 0 24px rgba(0, 0, 0, 0.7);
     }
 
-    /* ✅ Overlay when sidebar is open */
+    /* Overlay behind sidebar */
     body::before {
         content: '';
         position: fixed;
-        top: 0;
-        left: 0;
-        right: 0;
-        bottom: 0;
-        background: rgba(0, 0, 0, 0.5);
+        inset: 0;
+        background: rgba(0, 0, 0, 0.55);
         z-index: 1999;
         opacity: 0;
         pointer-events: none;
         transition: opacity 0.3s ease;
     }
-
     body.sidebar-open::before {
         opacity: 1;
         pointer-events: auto;
     }
 
-    /* Hide resize handle on mobile */
-    .resize-handle {
-        display: none;
-    }
+    /* Kill resize handle */
+    .resize-handle { display: none !important; }
 
-    /* Make terminal area full width */
+    /* ── Terminal area full-width ── */
     .terminal-area {
         width: 100% !important;
         margin-left: 0 !important;
@@ -2111,34 +2123,7 @@ body {
         overflow: hidden;
     }
 
-    /* ✅ Fix modal widths for mobile */
-    .modal {
-        width: 95vw !important;
-        max-width: 95vw !important;
-        max-height: 90vh;
-        margin: 5vh auto;
-    }
-
-    .modal.cloud-modal {
-        width: 95vw !important;
-        max-width: 95vw !important;
-    }
-
-    /* ✅ Smaller modal padding on mobile */
-    .modal-body {
-        padding: 12px !important;
-    }
-
-    .modal-header {
-        padding: 12px !important;
-        flex-wrap: wrap;
-    }
-
-    .modal-title {
-        font-size: 14px !important;
-    }
-
-    /* ✅ Enable scrolling for terminal wrapper and content */
+    /* ── Terminal wrapper / content scrollable ── */
     .terminal-wrapper {
         flex: 1;
         min-height: 0;
@@ -2146,317 +2131,229 @@ body {
         overflow-x: hidden;
         -webkit-overflow-scrolling: touch;
         scrollbar-width: thin;
-        scrollbar-color: rgba(255, 255, 255, 0.2) transparent;
+        scrollbar-color: rgba(255,255,255,0.2) transparent;
     }
-
-    /* Webkit scrollbar styling for mobile */
-    .terminal-wrapper::-webkit-scrollbar {
-        width: 4px;
-    }
-
-    .terminal-wrapper::-webkit-scrollbar-track {
-        background: transparent;
-    }
-
-    .terminal-wrapper::-webkit-scrollbar-thumb {
-        background: rgba(255, 255, 255, 0.2);
-        border-radius: 2px;
-    }
-
-    .terminal-wrapper::-webkit-scrollbar-thumb:hover {
-        background: rgba(255, 255, 255, 0.3);
-    }
+    .terminal-wrapper::-webkit-scrollbar { width: 3px; }
+    .terminal-wrapper::-webkit-scrollbar-track { background: transparent; }
+    .terminal-wrapper::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.2); border-radius: 2px; }
 
     .terminal-panel {
         display: flex;
         flex-direction: column;
         min-height: 100%;
     }
-
     .terminal-content {
         flex: 1;
         min-height: 0;
-        overflow-y: auto; /* Auto = scrollbar only when needed */
+        overflow-y: auto;
         overflow-x: hidden;
         -webkit-overflow-scrolling: touch;
-        scrollbar-width: thin;
-        scrollbar-color: rgba(255, 255, 255, 0.2) transparent;
     }
+    .terminal-content::-webkit-scrollbar { width: 3px; }
+    .terminal-content::-webkit-scrollbar-track { background: transparent; }
+    .terminal-content::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.2); border-radius: 2px; }
 
-    /* Webkit scrollbar styling for terminal content */
-    .terminal-content::-webkit-scrollbar {
-        width: 4px;
-    }
-
-    .terminal-content::-webkit-scrollbar-track {
-        background: transparent;
-    }
-
-    .terminal-content::-webkit-scrollbar-thumb {
-        background: rgba(255, 255, 255, 0.2);
-        border-radius: 2px;
-    }
-
-    .terminal-content::-webkit-scrollbar-thumb:hover {
-        background: rgba(255, 255, 255, 0.3);
-    }
-
-    /* Smaller toolbar icons */
+    /* ── Toolbar: horizontal scroll, no wrap ── */
     .toolbar {
         gap: 2px;
         padding: 2px 4px;
+        overflow-x: auto;
+        overflow-y: hidden;
+        flex-wrap: nowrap;
+        -webkit-overflow-scrolling: touch;
+        scrollbar-width: none;
     }
-
+    .toolbar::-webkit-scrollbar { display: none; }
     .toolbar-btn {
         padding: 3px 5px;
         min-width: 40px;
+        flex-shrink: 0;
     }
+    .toolbar-btn .icon { font-size: 14px; margin-bottom: 1px; }
+    .toolbar-btn .label { font-size: 7px; }
+    .toolbar-separator { height: 28px; margin: 0 3px; flex-shrink: 0; }
 
-    .toolbar-btn .icon {
-        font-size: 14px;
-        margin-bottom: 1px;
+    /* ── Tabs: scroll, compact ── */
+    .tab-bar-container {
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+        scrollbar-width: none;
     }
+    .tab-bar-container::-webkit-scrollbar { display: none; }
+    .tab { min-width: 80px; max-width: 120px; padding: 0 8px; height: 24px; flex-shrink: 0; }
+    .tab-icon { font-size: 12px; }
+    .tab-title { font-size: 10px; }
+    .tab-close { width: 16px; height: 16px; font-size: 12px; }
+    .tab-add { width: 32px; height: 32px; font-size: 16px; }
 
-    .toolbar-btn .label {
-        font-size: 7px;
-    }
+    /* ── Status bar: compact ── */
+    .status-bar { font-size: 9px; padding: 0 6px; height: 18px; gap: 4px; }
+    .status-bar-separator { margin: 0 2px; }
 
-    .toolbar-separator {
-        height: 28px;
-        margin: 0 3px;
-    }
-
-    /* Smaller tabs */
-    .tab {
-        min-width: 80px;
-        max-width: 120px;
-        padding: 0 8px;
-        height: 24px;
-    }
-
-    .tab-icon {
-        font-size: 12px;
-    }
-
-    .tab-title {
-        font-size: 10px;
-    }
-
-    .tab-close {
-        width: 16px;
-        height: 16px;
-        font-size: 12px;
-    }
-
-    .tab-add {
-        width: 32px;
-        height: 32px;
-        font-size: 16px;
-    }
-
-    /* Compact status bar */
-    .status-bar {
-        font-size: 9px;
-        padding: 0 6px;
-        height: 18px;
-        gap: 4px;
-    }
-
-    /* ✅ Prevent zoom on input focus - set minimum font size to 16px */
-    input,
-    textarea,
-    select {
+    /* ══ CRITICAL: Prevent zoom on ALL inputs (16px minimum) ══ */
+    /* Note: autocomplete/autocorrect/autocapitalize are HTML attrs, set via JS */
+    input, textarea, select {
         font-size: 16px !important;
     }
 
-    /* ✅ Improve touch targets for mobile */
-    button,
-    .btn,
-    .context-menu-item,
-    .sidebar-tab,
-    .session-item,
-    .note-item {
-        min-height: 44px; /* Apple HIG recommended minimum */
+    /* ── Touch targets ≥ 44px (Apple HIG) ── */
+    button, .btn, .context-menu-item,
+    .sidebar-tab, .session-item, .note-item {
+        min-height: 44px;
         display: flex;
         align-items: center;
         justify-content: center;
     }
 
-    /* ✅ Cloud modal tabs on mobile */
-    .cloud-tab {
+    /* ── Modals: fullscreen on phones ── */
+    .modal {
+        width: 100vw !important;
+        height: 100vh !important;
+        height: 100dvh !important;
+        max-width: 100vw !important;
+        max-height: 100vh !important;
+        max-height: 100dvh !important;
+        border-radius: 0 !important;
+        margin: 0 !important;
+    }
+    .modal.cloud-modal {
+        width: 100vw !important;
+        max-width: 100vw !important;
+    }
+    .modal-body {
+        padding: 12px !important;
+        overflow-y: auto;
+        -webkit-overflow-scrolling: touch;
+    }
+    .modal-header {
         padding: 10px 12px !important;
-        font-size: 12px !important;
+        flex-wrap: wrap;
+    }
+    .modal-title { font-size: 14px !important; }
+    .modal-footer { padding: 10px 12px; }
+
+    /* ── Buttons ── */
+    .btn {
+        padding: 10px 16px;
+        font-size: 14px;
+        min-height: 44px;
     }
 
-    /* ✅ Form groups in modals */
-    .form-group {
-        margin-bottom: 12px !important;
-    }
-
-    .form-group label {
-        font-size: 11px !important;
-        margin-bottom: 6px !important;
-    }
-
+    /* ── Form groups ── */
+    .form-group { margin-bottom: 12px !important; }
+    .form-group label { font-size: 12px !important; margin-bottom: 6px !important; }
     .form-group input,
     .form-group textarea,
     .form-group select {
-        font-size: 16px !important; /* Prevent zoom */
-        padding: 10px !important;
+        font-size: 16px !important;
+        padding: 12px !important;
+        border-radius: 8px;
     }
 
-    .status-bar-separator {
-        margin: 0 2px;
+    /* ── Cloud / help tabs ── */
+    .cloud-tab, .help-tab {
+        padding: 10px 12px !important;
+        font-size: 12px !important;
+        flex: 1;
+        text-align: center;
     }
 
-    /* Full screen modals */
-    .modal {
-        width: 100vw;
-        height: 100vh;
-        max-width: 100vw;
-        max-height: 100vh;
-        border-radius: 0;
-    }
-
-    .modal-header {
-        padding: 10px 12px;
-    }
-
-    .modal-title {
-        font-size: 13px;
-    }
-
-    .modal-body {
-        padding: 12px;
-    }
-
-    .modal-footer {
-        padding: 10px 12px;
-    }
-
-    /* Smaller buttons */
-    .btn {
-        padding: 6px 16px;
-        font-size: 12px;
-    }
-
-    /* Form adjustments */
-    .form-group {
-        margin-bottom: 12px;
-    }
-
-    .form-group label {
-        font-size: 11px;
-    }
-
-    .form-group input,
-    .form-group textarea {
-        padding: 8px 10px;
-        font-size: 12px;
-    }
-
-    /* Cloud modal tabs */
-    .cloud-tab {
-        padding: 10px 12px;
-        font-size: 12px;
-    }
-
-    /* Toast notifications */
+    /* ── Toast ── */
     .toast {
-        max-width: calc(100vw - 20px);
+        max-width: calc(100vw - 20px) !important;
+        min-width: auto !important;
         font-size: 12px;
-        padding: 8px 12px;
+        padding: 10px 14px;
     }
 
-    /* Context menu */
-    .context-menu {
-        min-width: 140px;
-        font-size: 11px;
-    }
+    /* ── Context menu: bigger tap targets ── */
+    .context-menu { min-width: 200px; max-width: calc(100vw - 20px); font-size: 14px; }
+    .context-menu-item { padding: 12px 16px; min-height: 44px; }
 
-    .context-menu-item {
-        padding: 5px 10px;
-    }
+    /* ── Sidebar tabs ── */
+    .sidebar-tab { padding: 10px 6px; }
+    .sidebar-tab-icon { font-size: 16px; }
 
-    /* Help modal tabs */
-    .help-tab {
-        padding: 10px 12px;
-        font-size: 12px;
-    }
-
-    /* Sidebar tabs */
-    .sidebar-tab {
-        padding: 8px 6px;
-    }
-
-    .sidebar-tab-icon {
-        font-size: 14px;
-    }
-
-    /* Menu bar - stack vertically if needed */
+    /* ── Menu bar ── */
     .menu-bar {
-        flex-direction: column;
-        align-items: flex-start;
+        flex-direction: row;
+        flex-wrap: wrap;
+        align-items: center;
         height: auto;
+        min-height: 28px;
         padding: 4px;
+        gap: 2px;
     }
-
+    .menu-item {
+        padding: 4px 8px;
+        font-size: 11px;
+        min-height: 28px;
+        display: flex;
+        align-items: center;
+    }
     .menu-status {
         width: 100%;
         justify-content: center;
-        padding: 4px 0;
+        padding: 2px 0;
+        font-size: 10px;
+    }
+    /* compact top-status-bar on mobile */
+    .top-status-bar { gap: 1px; padding: 2px 4px; }
+    .top-status-indicator { padding: 2px 4px; gap: 4px; }
+    .top-status-label { display: none; }
+    .top-status-icon  { display: none; } /* dots only on mobile */
+
+    /* ── File Explorer: fullscreen overlay ── */
+    .sftp-panel {
+        width: 100% !important;
+        max-width: 100% !important;
+        position: fixed !important;
+        inset: 0 !important;
+        z-index: 2500 !important;
+        border-left: none !important;
+    }
+
+    /* ── File Editor: fullscreen overlay ── */
+    .file-editor-pinned {
+        width: 100% !important;
+        position: fixed !important;
+        inset: 0 !important;
+        z-index: 2500 !important;
+        border-left: none !important;
     }
 }
 
-/* Extra Small Phones - up to 360px */
+/* ── Extra-small phones ≤ 360px ── */
 @media (max-width: 360px) {
-    .toolbar-btn .label {
-        display: none; /* Hide labels on very small screens */
-    }
-
-    .toolbar-btn {
-        min-width: 36px;
-    }
-
-    .tab {
-        min-width: 70px;
-        max-width: 100px;
-    }
-
-    .status-bar-item .status-bar-label {
-        display: none; /* Hide labels, show only values */
-    }
-
-    .modal-title {
-        font-size: 12px;
-    }
+    .toolbar-btn .label { display: none; }
+    .toolbar-btn { min-width: 36px; padding: 3px 4px; }
+    .toolbar-btn .icon { font-size: 16px; }
+    .tab { min-width: 70px; max-width: 100px; }
+    .status-bar-item .status-bar-label { display: none; }
+    .modal-title { font-size: 12px !important; }
+    .menu-item { padding: 3px 5px; font-size: 10px; }
+    .sidebar-tab-icon { font-size: 14px; }
 }
 
-/* Landscape orientation adjustments */
+/* ══════════════════════════════════════════
+   LANDSCAPE ≤ 500px height
+   ══════════════════════════════════════════ */
 @media (max-height: 500px) and (orientation: landscape) {
-    /*
-     * ✅ MOBILE LANDSCAPE SCROLLING FIX
-     * When device is in landscape mode (height < width), ensure terminal content
-     * is scrollable vertically. Critical for mobile usability.
-     */
-    /* CRITICAL: Fix scroll issue on mobile landscape */
     html, body {
         height: 100vh;
+        height: 100dvh;
         max-height: 100vh;
         overflow: hidden;
     }
-
     body {
         display: flex;
         flex-direction: column;
     }
-
     .main-container {
         flex: 1;
-        min-height: 0; /* Important: allows flex child to shrink */
+        min-height: 0;
         overflow: hidden;
     }
-
     .terminal-area {
         height: 100%;
         max-height: 100%;
@@ -2464,145 +2361,110 @@ body {
         display: flex;
         flex-direction: column;
     }
-
     .terminal-wrapper {
         flex: 1;
         min-height: 0;
-        overflow-y: auto; /* ✅ Auto = scrollbar only when needed */
+        overflow-y: auto;
         overflow-x: hidden;
-        scrollbar-width: thin; /* Firefox: thin scrollbar */
-        scrollbar-color: rgba(255, 255, 255, 0.2) transparent;
+        scrollbar-width: thin;
+        scrollbar-color: rgba(255,255,255,0.2) transparent;
     }
-
-    /* Webkit scrollbar styling */
-    .terminal-wrapper::-webkit-scrollbar {
-        width: 4px;
-    }
-
-    .terminal-wrapper::-webkit-scrollbar-track {
-        background: transparent;
-    }
-
-    .terminal-wrapper::-webkit-scrollbar-thumb {
-        background: rgba(255, 255, 255, 0.2);
-        border-radius: 2px;
-    }
-
+    .terminal-wrapper::-webkit-scrollbar { width: 4px; }
+    .terminal-wrapper::-webkit-scrollbar-track { background: transparent; }
+    .terminal-wrapper::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.2); border-radius: 2px; }
     .terminal-panel {
         height: 100%;
         max-height: 100%;
         display: flex;
         flex-direction: column;
     }
-
     .terminal-content {
         flex: 1;
-        min-height: 0; /* Important: allows scrolling */
-        overflow-y: auto; /* ✅ Auto = scrollbar only when needed */
+        min-height: 0;
+        overflow-y: auto;
         overflow-x: hidden;
         scrollbar-width: thin;
-        scrollbar-color: rgba(255, 255, 255, 0.2) transparent;
     }
+    .terminal-content::-webkit-scrollbar { width: 4px; }
+    .terminal-content::-webkit-scrollbar-track { background: transparent; }
+    .terminal-content::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.2); border-radius: 2px; }
 
-    /* Webkit scrollbar styling for terminal content */
-    .terminal-content::-webkit-scrollbar {
-        width: 4px;
-    }
+    /* Compact chrome */
+    .menu-bar { height: 22px; padding: 2px 4px; font-size: 10px; }
+    .toolbar { padding: 2px 4px; min-height: 30px; }
+    .tab-bar-container { min-height: 22px; }
+    .tab { height: 22px; padding: 0 8px; font-size: 10px; }
+    .status-bar { height: 14px; font-size: 9px; padding: 0 6px; }
+    .modal { max-height: 90vh; overflow-y: auto; }
 
-    .terminal-content::-webkit-scrollbar-track {
-        background: transparent;
-    }
-
-    .terminal-content::-webkit-scrollbar-thumb {
-        background: rgba(255, 255, 255, 0.2);
-        border-radius: 2px;
-    }
-
-    /* Compact UI for landscape */
-    .menu-bar {
-        height: 24px;
-        padding: 2px 4px;
-        font-size: 10px;
-    }
-
-    .toolbar {
-        padding: 2px 4px;
-        min-height: 32px;
-    }
-
-    .tab-bar-container {
-        min-height: 24px;
-    }
-
-    .tab {
-        height: 24px;
-        padding: 0 8px;
-        font-size: 10px;
-    }
-
-    .status-bar {
-        height: 14px;
-        font-size: 9px;
-        padding: 0 6px;
-    }
-
-    .modal {
-        max-height: 90vh;
-        overflow-y: auto;
-    }
-
-    /* Hide sidebar by default in landscape to save space */
+    /* Sidebar hidden by default */
     .sidebar {
-        position: absolute;
-        left: 0;
-        top: 0;
-        bottom: 0;
+        position: fixed;
+        left: 0; top: 0; bottom: 0;
         width: 200px;
-        z-index: 1000;
+        z-index: 2000;
         transform: translateX(-100%);
         transition: transform 0.3s ease;
     }
-
     .sidebar.mobile-visible {
         transform: translateX(0);
-        box-shadow: 2px 0 10px rgba(0, 0, 0, 0.5);
+        box-shadow: 2px 0 10px rgba(0,0,0,0.5);
     }
 }
 
-/* Touch device improvements */
+/* ══════════════════════════════════════════
+   TOUCH DEVICES (no hover, coarse pointer)
+   ══════════════════════════════════════════ */
 @media (hover: none) and (pointer: coarse) {
-    /* Larger tap targets for touch */
-    .toolbar-btn,
-    .tab,
-    .session-item,
-    .menu-item {
-        min-height: 44px; /* iOS recommended minimum */
+    /* Larger tap targets */
+    .toolbar-btn, .tab, .session-item, .menu-item {
+        min-height: 44px;
     }
-
     .btn {
         min-height: 44px;
         padding: 10px 20px;
     }
-
     .tab-close {
-        min-width: 24px;
-        min-height: 24px;
+        min-width: 28px;
+        min-height: 28px;
     }
 
-    /* Remove hover states on touch devices */
+    /* Remove hover effects (they stick on touch) */
     .toolbar-btn:hover,
     .tab:hover,
     .session-item:hover,
     .menu-item:hover {
         background: transparent;
     }
+
+    /* Better active states for touch feedback */
+    .toolbar-btn:active,
+    .tab:active,
+    .session-item:active,
+    .menu-item:active,
+    .btn:active {
+        opacity: 0.7;
+        transform: scale(0.97);
+        transition: transform 0.1s ease, opacity 0.1s ease;
+    }
+
+    /* Prevent text selection on UI elements */
+    .toolbar, .tab-bar-container, .sidebar, .menu-bar, .status-bar {
+        -webkit-user-select: none;
+        user-select: none;
+        -webkit-touch-callout: none;
+    }
+
+    /* Scrollbar thin on touch */
+    * {
+        scrollbar-width: thin;
+    }
 }
 
-/* ========================================
-   Mobile Portrait Mode (Phones)
-   ======================================== */
+/* ══════════════════════════════════════════
+   PORTRAIT MODE ≤ 768px
+   ══════════════════════════════════════════ */
 @media (max-width: 768px) and (orientation: portrait) {
-    /* Fix toolbar buttons to display horizontally */
     .toolbar {
         padding: 4px 6px;
         gap: 4px;
@@ -2610,114 +2472,64 @@ body {
         overflow-y: hidden;
         white-space: nowrap;
         -webkit-overflow-scrolling: touch;
+        scrollbar-width: none;
     }
-
+    .toolbar::-webkit-scrollbar { display: none; }
     .toolbar-btn {
         min-width: 50px;
         padding: 4px 8px;
-        flex-shrink: 0; /* Prevent buttons from shrinking */
-    }
-
-    .toolbar-btn .icon {
-        font-size: 18px;
-        margin-bottom: 1px;
-    }
-
-    .toolbar-btn .label {
-        font-size: 9px;
-    }
-
-    .toolbar-separator {
-        height: 28px;
         flex-shrink: 0;
-        margin: 0 2px;
     }
+    .toolbar-btn .icon { font-size: 18px; margin-bottom: 1px; }
+    .toolbar-btn .label { font-size: 9px; }
+    .toolbar-separator { height: 28px; flex-shrink: 0; margin: 0 2px; }
 
-    /* Keep sidebar visible on mobile portrait */
+    /* Sidebar: visible but compact */
     .sidebar {
-        width: 200px;
-        min-width: 150px;
-        max-width: 40%;
-        position: relative; /* ✅ Make sidebar visible by default */
+        width: 180px;
+        min-width: 120px;
+        max-width: 35%;
+        position: relative;
         transform: none;
     }
+    .menu-bar { padding: 2px 6px; height: 28px; gap: 2px; }
+    .menu-item { padding: 4px 8px; font-size: 11px; }
+    .tab-bar-container { min-height: 28px; }
+    .tab { height: 28px; padding: 0 10px; font-size: 11px; }
+    .tab-close { width: 20px; height: 20px; }
+    .status-bar { height: 16px; font-size: 10px; padding: 0 8px; }
+    .modal { max-width: 95%; max-height: 85vh; margin: 20px; }
+    .modal-overlay { padding: 10px; }
+}
 
-    /* Compact menu bar */
-    .menu-bar {
-        padding: 2px 6px;
-        height: 28px;
-        gap: 2px;
+/* ── Duplicate ≤480 portrait override: sidebar becomes drawer ── */
+@media (max-width: 480px) and (orientation: portrait) {
+    .sidebar {
+        position: fixed;
+        max-width: 80vw;
+        width: 280px;
+        transform: translateX(-100%);
     }
-
-    .menu-item {
-        padding: 4px 8px;
-        font-size: 11px;
-    }
-
-    /* Compact tabs */
-    .tab-bar-container {
-        min-height: 28px;
-    }
-
-    .tab {
-        height: 28px;
-        padding: 0 10px;
-        font-size: 11px;
-    }
-
-    .tab-close {
-        width: 20px;
-        height: 20px;
-    }
-
-    /* Compact status bar */
-    .status-bar {
-        height: 16px;
-        font-size: 10px;
-        padding: 0 8px;
-    }
-
-    /* Modal improvements for mobile */
-    .modal {
-        max-width: 95%;
-        max-height: 85vh;
-        margin: 20px;
-    }
-
-    .modal-overlay {
-        padding: 10px;
+    .sidebar.mobile-visible {
+        transform: translateX(0);
     }
 }
 
-/* ========================================
-   Small Mobile (< 480px)
-   ======================================== */
-@media (max-width: 480px) {
-    .toolbar-btn {
-        min-width: 45px;
-        padding: 4px 6px;
-    }
-
-    .toolbar-btn .icon {
-        font-size: 16px;
-    }
-
-    .toolbar-btn .label {
-        font-size: 8px;
-    }
-
-    .sidebar {
-        width: 150px;
-        max-width: 35%;
-    }
-
+/* ══════════════════════════════════════════
+   iOS SAFE AREA INSETS (notch devices)
+   ══════════════════════════════════════════ */
+@supports (padding: env(safe-area-inset-top)) {
     .menu-bar {
-        height: 26px;
+        padding-top: max(2px, env(safe-area-inset-top));
+        padding-left: max(4px, env(safe-area-inset-left));
+        padding-right: max(4px, env(safe-area-inset-right));
     }
-
-    .menu-item {
-        padding: 3px 6px;
-        font-size: 10px;
+    .status-bar {
+        padding-bottom: max(0px, env(safe-area-inset-bottom));
+    }
+    .toolbar {
+        padding-left: max(4px, env(safe-area-inset-left));
+        padding-right: max(4px, env(safe-area-inset-right));
     }
 }
 
