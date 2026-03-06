@@ -74,7 +74,6 @@ class FileExplorer {
                     <span>File Explorer</span>
                     <span id="sftpConnectionName" style="font-weight: normal; color: var(--text-muted);"></span>
                 </div>
-                <div class="sftp-header-close" onclick="fileExplorer.close()" title="Close">✕</div>
             </div>
 
             <div class="sftp-toolbar">

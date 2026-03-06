@@ -1855,7 +1855,8 @@ function updateStatusBar() {
 
             // ✅ Add permission indicator for remote (shared) sessions
             if (session.type === 'remote' && session.permission) {
-                const permIcon = session.permission === 'readwrite' ? '✏️' : '👁️';
+                const hasWriteAccess = session.permission === 'readwrite' || session.permission === 'write';
+                const permIcon = hasWriteAccess ? '✏️' : '👁️';
                 activeInfo = `${permIcon} ${activeInfo}`;
             }
 
@@ -2016,8 +2017,9 @@ function updateMySharesList() {
                 // Per-agent permission (defaults to global)
                 const agentPerm = session.agentPermissions?.[agent] || globalPerm;
                 const hasCustomPerm = !!session.agentPermissions?.[agent];
-                const agentPermIcon = agentPerm === 'readwrite' ? '✏️' : '👁️';
-                const permLabel = agentPerm === 'readwrite' ? 'Read-Write' : 'Read-Only';
+                const hasWriteAccess = agentPerm === 'readwrite' || agentPerm === 'write';
+                const agentPermIcon = hasWriteAccess ? '✏️' : '👁️';
+                const permLabel = hasWriteAccess ? 'Read-Write' : 'Read-Only';
                 const customBadge = hasCustomPerm ? ' (custom)' : '';
 
                 html += `
@@ -3676,17 +3678,16 @@ function showTabContextMenu(e, sessionId) {
     const isMySharedSession = session && session.isShared && !session.owner;
 
     if (shareText) {
-        shareText.textContent = session && session.isShared ? 'Unshare Session' : 'Share Session';
+        // Show "Unshare" only when actually actively shared (connected + isShared)
+        // When disconnected, isShared flag is preserved for auto-reconnect but session isn't live
+        shareText.textContent = (session && session.isShared && cloudConnected) ? 'Unshare Session' : 'Share Session';
     }
 
-    // Disable share option for received shares or if not connected to cloud
+    // Disable share option only for received shares
     if (shareMenuItem) {
         if (isReceivedShare) {
             shareMenuItem.classList.add('disabled');
             shareMenuItem.title = 'Cannot share a received session';
-        } else if (!cloudConnected || !terminalSharing) {
-            shareMenuItem.classList.add('disabled');
-            shareMenuItem.title = 'Connect to cloud messaging first';
         } else {
             shareMenuItem.classList.remove('disabled');
             shareMenuItem.title = '';
@@ -3818,8 +3819,10 @@ function tabContextMenuAction(action) {
 
             // Check if cloud connected before allowing share/unshare
             if (!cloudConnected || !terminalSharing) {
-                console.warn('[TabContextMenu] Not connected - showing toast');
-                showToast('warning', 'Not Connected', 'Connect to cloud messaging first to share');
+                console.warn('[TabContextMenu] Not connected - opening modal with session to share');
+                showToast('warning', '🔌 Not Connected', 'Connect to Messaging Platform to share this session');
+                // Open the modal to connection tab and pass the session to share
+                openMessagingModal(sessionId);
                 return;
             }
 
@@ -3846,6 +3849,8 @@ function tabContextMenuAction(action) {
                     console.log('[TabContextMenu] Calling shareTerminal');
                     shareTerminal(sessionId);
                 }
+
+                updateTabContextMenu();
             }
             break;
         }
@@ -4418,8 +4423,8 @@ function updateShareButton() {
         return;
     }
 
-    // Update button based on share state
-    if (session.isShared) {
+    // Update button based on share state (only show Unshare when actively sharing = connected + isShared)
+    if (session.isShared && cloudConnected) {
         shareBtn.textContent = '🛑 Unshare Session';
         shareBtn.disabled = false;
         shareBtn.title = 'Stop sharing this session';
@@ -4437,11 +4442,22 @@ function updateShareButton() {
 // Cloud Panel Functions
 // ========================================
 
+// Global variable to store session to share after connection
+let pendingSessionToShare = null;
+
 /**
  * Open cloud connection modal
+ * @param {string} sessionToShare - Optional session ID to share after connection
  */
-function openCloudModal() {
+function openCloudModal(sessionToShare = null) {
     console.log('[Messaging] Opening messaging platform modal...');
+
+    // Store session to share after connection
+    if (sessionToShare) {
+        pendingSessionToShare = sessionToShare;
+        console.log('[Messaging] Will share session after connection:', sessionToShare);
+    }
+
     const overlay = document.getElementById('cloudModalOverlay');
 
     if (!overlay) {
@@ -4471,8 +4487,8 @@ function openCloudModal() {
 }
 
 // Alias for better naming
-function openMessagingModal() {
-    openCloudModal();
+function openMessagingModal(sessionToShare = null) {
+    openCloudModal(sessionToShare);
 }
 
 /**
@@ -5851,6 +5867,44 @@ terminalSharing.onFileSystemNotification = (sessionId, operation, details, sourc
         // Enable the Sharing tab
         enableSharingTab();
 
+        // ✅ Share pending session if user tried to share before connecting
+        if (pendingSessionToShare) {
+            const pendingSession = sessions.get(pendingSessionToShare);
+            if (pendingSession) {
+                // Clean the session state before sharing (in case it was marked from a previous attempt)
+                pendingSession.isShared = false;
+                pendingSession.owner = null;
+                pendingSession.permission = null;
+
+                console.log('[Terminal] Sharing pending session:', pendingSessionToShare, pendingSession.name);
+                shareTerminal(pendingSessionToShare);
+            } else {
+                console.warn('[Terminal] Pending session not found:', pendingSessionToShare);
+            }
+            // Clear the pending session
+            pendingSessionToShare = null;
+        }
+
+        // ✅ Auto-share: Re-share sessions that were previously shared before disconnection
+        let autoSharedCount = 0;
+        sessions.forEach((session, sessionId) => {
+            // Only re-share sessions that were marked as shared
+            if (session.isShared && !session.owner && session.type !== 'remote') {
+                // Skip sessions already registered in sharedSessions (e.g. just shared via pendingSessionToShare)
+                if (terminalSharing && terminalSharing.isSessionShared(sessionId)) {
+                    console.log('[Terminal] Auto-share: skipping already-shared session:', sessionId);
+                    return;
+                }
+                console.log('[Terminal] Auto-sharing session:', sessionId, session.name);
+                shareTerminal(sessionId);
+                autoSharedCount++;
+            }
+        });
+
+        if (autoSharedCount > 0) {
+            console.log(`[Terminal] Auto-shared ${autoSharedCount} session(s)`);
+        }
+
         // Automatically switch to Sharing tab after successful connection
         window.switchCloudTab('sharing');
 
@@ -5875,21 +5929,26 @@ terminalSharing.onFileSystemNotification = (sessionId, operation, details, sourc
         showToast('error', 'Connection Failed', error.message);
         terminalSharing = null;
         cloudConnected = false;
+        pendingSessionToShare = null; // Clear pending session on error
         connectBtn.textContent = 'Connect to Cloud';
         connectBtn.disabled = false;
     }
 }
 
 function disconnectFromCloud() {
+    // Clear pending session to share
+    pendingSessionToShare = null;
+
     // Unshare all currently shared sessions before disconnecting
+    // ✅ Keep session.isShared = true so the auto-share loop can restore them on reconnect
     if (terminalSharing && cloudConnected) {
-        console.log('[Messaging] Unsharing all sessions before disconnect...');
+        console.log('[Messaging] Unsharing all sessions before disconnect (preserving isShared flag for reconnect)...');
         sessions.forEach((session, sessionId) => {
             if (session.isShared && !session.owner) {
-                // This is our shared session - unshare it
-                console.log('[Messaging] Unsharing session:', sessionId);
+                // Remove from messaging layer but keep isShared=true so we can re-share on reconnect
+                console.log('[Messaging] Unsharing session (will re-share on reconnect):', sessionId);
                 terminalSharing.unshareSession(sessionId);
-                session.isShared = false;
+                // ✅ Do NOT set session.isShared = false here — auto-share needs it on reconnect
                 updateTabSharedIndicator(sessionId, false);
             }
         });
@@ -6295,42 +6354,9 @@ function updateSessionPermissionUI(sessionId, permission) {
  * @param {string} permission - 'readonly' or 'readwrite'
  */
 function updateSessionBadge(sessionId, permission) {
-    const panel = document.getElementById(`panel-${sessionId}`);
-    if (!panel) return;
-
-    // Find or create badge element
-    let badge = panel.querySelector('.session-badge');
-
-    if (!badge) {
-        badge = document.createElement('div');
-        badge.className = 'session-badge';
-        badge.style.cssText = `
-            position: absolute;
-            top: 8px;
-            right: 12px;
-            padding: 4px 10px;
-            border-radius: 12px;
-            font-size: 10px;
-            font-weight: 600;
-            z-index: 100;
-            display: flex;
-            align-items: center;
-            gap: 4px;
-        `;
-        panel.appendChild(badge);
-    }
-
-    if (permission === 'readwrite') {
-        badge.style.background = 'rgba(34, 197, 94, 0.2)';
-        badge.style.color = 'var(--accent-green)';
-        badge.style.border = '1px solid var(--accent-green)';
-        badge.innerHTML = '✏️ Read-Write';
-    } else {
-        badge.style.background = 'rgba(74, 158, 255, 0.2)';
-        badge.style.color = 'var(--accent-blue)';
-        badge.style.border = '1px solid var(--accent-blue)';
-        badge.innerHTML = '👁️ Read-Only';
-    }
+    // ✅ Badge removed - permission is now shown in the footer status bar
+    // This function is kept for compatibility but does nothing
+    return;
 }
 
 /**
@@ -6584,7 +6610,12 @@ function shareTerminal(sessionId, permission = 'readonly') {
 
     console.log('[ShareTerminal] Share result:', success);
 
-    if (success) {
+    if (success || terminalSharing.isSessionShared(sessionId)) {
+        // Session is shared (either just now, or was already in sharedSessions)
+        session.isShared = true;
+        session.owner = null;
+        session.permission = permission;
+
         updateTabSharedIndicator(sessionId, true);  // Show shared badge
         updateAgentsList(); // Refresh agents list
         updateSharedTerminalsList(); // Refresh shared terminals list
@@ -6592,17 +6623,21 @@ function shareTerminal(sessionId, permission = 'readonly') {
         updateCloudHostIndicator(); // ✅ Update host indicator (now we're a host)
         updateMySharesList(); // Update my shares list
 
-        const permLabel = permission === 'readwrite' ? 'Read-Write' : 'Read-Only';
-        const connectedCount = (terminalSharing && cloudConnected)
-            ? terminalSharing.getConnectedUsers().filter(a => a !== cloudAgentName).length
-            : 0;
-        const viewersMsg = connectedCount > 0
-            ? ` — ${connectedCount} viewer${connectedCount > 1 ? 's' : ''} connected`
-            : ' — No viewers yet';
+        if (success) {
+            const permLabel = permission === 'readwrite' ? 'Read-Write' : 'Read-Only';
+            const connectedCount = (terminalSharing && cloudConnected)
+                ? terminalSharing.getConnectedUsers().filter(a => a !== cloudAgentName).length
+                : 0;
+            const viewersMsg = connectedCount > 0
+                ? ` — ${connectedCount} viewer${connectedCount > 1 ? 's' : ''} connected`
+                : ' — No viewers yet';
 
-        showToast('success', '📤 Terminal Shared',
-            `"${session.name}" is now shared (${permLabel})${viewersMsg}`, 5000);
-        console.log('[Terminal] Shared session:', sessionId, session.name);
+            showToast('success', '📤 Terminal Shared',
+                `"${session.name}" is now shared (${permLabel})${viewersMsg}`, 5000);
+            console.log('[Terminal] Shared session:', sessionId, session.name);
+        } else {
+            console.log('[Terminal] Session already shared (skipped duplicate):', sessionId);
+        }
     } else {
         session.isShared = false;
         session.owner = null;

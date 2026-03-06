@@ -39,22 +39,6 @@
     color: var(--text-primary);
 }
 
-.sftp-header-close {
-    width: 24px;
-    height: 24px;
-    border-radius: 4px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    cursor: pointer;
-    color: var(--text-muted);
-    transition: all 0.15s;
-}
-
-.sftp-header-close:hover {
-    background: var(--accent-red);
-    color: white;
-}
 
 /* ========== SFTP Toolbar ========== */
 .sftp-toolbar {
