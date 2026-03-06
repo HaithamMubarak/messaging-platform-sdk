@@ -859,7 +859,8 @@ function updatePermissionUI(sessionId, permission, options = {}) {
         updateBadge = true,
         updateTabStyling = true,
         updateMyShares = true,
-        updateShared = true
+        updateShared = true,
+        updateStatus = true
     } = options;
 
     if (updateBadge) {
@@ -876,6 +877,11 @@ function updatePermissionUI(sessionId, permission, options = {}) {
 
     if (updateShared) {
         updateSharedTerminalsList();
+    }
+
+    // ✅ Always refresh the bottom status bar so the permission icon (👁️/✏️) stays in sync
+    if (updateStatus && typeof updateStatusBar === 'function') {
+        updateStatusBar();
     }
 }
 
@@ -6193,6 +6199,9 @@ function createSharedTerminalSession(sessionId, sessionInfo, ownerAgent) {
 
     // Add session badge showing permission mode
     updateSessionBadge(sessionId, sessionInfo.permission || 'readonly');
+
+    // ✅ Refresh status bar so bottom permission icon (👁️/✏️) reflects initial permission
+    if (typeof updateStatusBar === 'function') updateStatusBar();
 
     // ✅ Notify owner that we're viewing this session
     if (terminalSharing && terminalSharing.connected) {
