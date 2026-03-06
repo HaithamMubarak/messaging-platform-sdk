@@ -153,6 +153,33 @@
         </div>
     </div>
 
+    <!-- Terminal Right-Click Context Menu -->
+    <div class="context-menu" id="terminalContextMenu">
+        <div class="context-menu-item" onclick="terminalContextMenuAction('copy')">
+            <span class="icon">📋</span> Copy
+        </div>
+        <div class="context-menu-item" onclick="terminalContextMenuAction('paste')">
+            <span class="icon">📌</span> Paste
+        </div>
+        <div class="context-menu-item" onclick="terminalContextMenuAction('selectAll')">
+            <span class="icon">🔲</span> Select All
+        </div>
+        <div class="context-menu-separator"></div>
+        <div class="context-menu-item" onclick="terminalContextMenuAction('clear')">
+            <span class="icon">🧹</span> Clear
+        </div>
+        <div class="context-menu-separator"></div>
+        <div class="context-menu-item" onclick="terminalContextMenuAction('fontIncrease')">
+            <span class="icon">🔡</span> Increase Font Size
+        </div>
+        <div class="context-menu-item" onclick="terminalContextMenuAction('fontDecrease')">
+            <span class="icon">🔠</span> Decrease Font Size
+        </div>
+        <div class="context-menu-item" onclick="terminalContextMenuAction('fontReset')">
+            <span class="icon">↩️</span> Reset Font Size
+        </div>
+    </div>
+
     <!-- Tab Context Menu -->
     <div class="context-menu" id="tabContextMenu">
         <div class="context-menu-item" onclick="tabContextMenuAction('rename')">

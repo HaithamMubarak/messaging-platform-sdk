@@ -1244,7 +1244,6 @@ async function restoreTab(dbSession) {
             // ✅ Backend connection is ALIVE! Auto-reconnect WebSocket
             console.log('[TabRestore] Backend connection alive, auto-connecting WebSocket:', sessionId);
             terminal.clear();
-            terminal.writeln(`\x1b[32m✓ Connection alive, reconnecting...\x1b[0m`);
             if (type === 'ssh' && config.host) {
                 terminal.writeln(`\x1b[36mHost: ${config.username}@${config.host}:${config.port}\x1b[0m`);
             }
@@ -2137,6 +2136,9 @@ function createTerminalPanel(sessionId) {
     wrapper.querySelectorAll('.terminal-panel').forEach(p => p.classList.remove('active'));
     wrapper.appendChild(panel);
 
+    // Attach right-click context menu after DOM is ready
+    setTimeout(() => attachTerminalContextMenu(sessionId), 0);
+
     return panel;
 }
 
@@ -2428,9 +2430,10 @@ async function connectToSsh(connectionId, name, host, port, username) {
 // Initialize xterm.js Terminal
 // ========================================
 function initTerminal(sessionId) {
+    const savedFontSize = parseInt(localStorage.getItem('terminal_fontSize') || '14', 10);
     const terminal = new Terminal({
         cursorBlink: true,
-        fontSize: 14,
+        fontSize: (savedFontSize >= 8 && savedFontSize <= 28) ? savedFontSize : 14,
         fontFamily: '"Cascadia Code", "Fira Code", Consolas, monospace',
         theme: {
             background: '#0a0a14',
@@ -2601,7 +2604,6 @@ function initTerminal(sessionId) {
     // Store handler on session for cleanup on close
     if (session) session._resizeHandler = resizeHandler;
 
-    // Welcome message - simple and clean
     terminal.writeln('\x1b[1;33mSDK Local Service\x1b[0m - Connecting...');
     terminal.writeln('');
 
@@ -2846,10 +2848,18 @@ function connectWebSocket(sessionId) {
         hideReconnectOverlay(sessionId);
         updateTab(sessionId, false);
 
-        // Clear welcome message and show connected
-        session.terminal.clear();
-        session.terminal.writeln('\x1b[1;32m✓ Connected\x1b[0m');
+        // Show connected status in terminal
+        const isReconnect = (session._reconnectAttempts ?? 0) > 0 || session._hasConnectedBefore;
+        if (!isReconnect) {
+            // First connect: replace the "Connecting..." line in-place
+            session.terminal.write('\x1b[1A\x1b[2K'); // move up one line, erase it
+            session.terminal.writeln('\x1b[1;33mSDK Local Service\x1b[0m - \x1b[1;32mConnected ✓\x1b[0m');
+        } else {
+            // Reconnect: append success after the "Reconnecting..." line
+            session.terminal.writeln('\x1b[1;32m✓ Reconnected\x1b[0m');
+        }
         session.terminal.writeln('');
+        session._hasConnectedBefore = true;
 
         console.log('[WS] Terminal should now accept input for session:', sessionId);
 
@@ -3605,7 +3615,83 @@ function hideContextMenus() {
     document.getElementById('tabContextMenu')?.classList.remove('visible');
     document.getElementById('sessionContextMenu')?.classList.remove('visible');
     document.getElementById('viewerContextMenu')?.classList.remove('visible');
+    document.getElementById('terminalContextMenu')?.classList.remove('visible');
 }
+
+// ========================================
+// Terminal Right-Click Context Menu
+// ========================================
+let _terminalCtxSessionId = null;
+
+function attachTerminalContextMenu(sessionId) {
+    const termEl = document.getElementById(`terminal-${sessionId}`);
+    if (!termEl) return;
+    termEl.addEventListener('contextmenu', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        _terminalCtxSessionId = sessionId;
+        const menu = document.getElementById('terminalContextMenu');
+        if (!menu) return;
+        // Position — keep inside viewport
+        const x = Math.min(e.clientX, window.innerWidth - 180);
+        const y = Math.min(e.clientY, window.innerHeight - 250);
+        menu.style.left = x + 'px';
+        menu.style.top  = y + 'px';
+        hideContextMenus();
+        menu.classList.add('visible');
+    });
+}
+
+async function terminalContextMenuAction(action) {
+    hideContextMenus();
+    const sessionId = _terminalCtxSessionId;
+    const session   = sessionId ? sessions.get(sessionId) : null;
+    const terminal  = session?.terminal;
+
+    switch (action) {
+        case 'copy': {
+            const selection = terminal?.getSelection?.();
+            if (selection) {
+                try { await navigator.clipboard.writeText(selection); } catch (_) {}
+            }
+            break;
+        }
+        case 'paste': {
+            try {
+                const text = await navigator.clipboard.readText();
+                if (text && session?.connected && session?.dataSender?.isReady) {
+                    session.dataSender.send(text);
+                }
+            } catch (_) {}
+            break;
+        }
+        case 'selectAll':
+            terminal?.selectAll?.();
+            break;
+        case 'clear':
+            terminal?.clear?.();
+            break;
+        case 'fontIncrease':
+        case 'fontDecrease':
+        case 'fontReset': {
+            const DEFAULT_FONT = 14;
+            // Apply to all sessions so it feels global
+            sessions.forEach(s => {
+                if (!s.terminal) return;
+                const cur = s.terminal.options.fontSize || DEFAULT_FONT;
+                let next = action === 'fontIncrease' ? Math.min(cur + 1, 28)
+                         : action === 'fontDecrease' ? Math.max(cur - 1, 8)
+                         : DEFAULT_FONT;
+                s.terminal.options.fontSize = next;
+                s.fitAddon?.fit();
+            });
+            // Persist
+            try { localStorage.setItem('terminal_fontSize', sessions.values().next().value?.terminal?.options?.fontSize ?? DEFAULT_FONT); } catch (_) {}
+            break;
+        }
+    }
+}
+window.terminalContextMenuAction = terminalContextMenuAction;
 
 // Dismiss any open context menu on outside click
 document.addEventListener('click', () => hideContextMenus());
@@ -6187,6 +6273,11 @@ function createSharedTerminalSession(sessionId, sessionInfo, ownerAgent) {
     // so the "Connecting..." overlay must be hidden immediately — it will never
     // be hidden by ws.onopen since there is no WebSocket for these sessions.
     hideConnectingOverlay(sessionId);
+
+    // Replace "SDK Local Service - Connecting..." with shared terminal connected message
+    terminal.write('\x1b[1A\x1b[2K'); // erase the initTerminal "SDK Local Service - Connecting..." line
+    terminal.writeln(`\x1b[1;36mShared Terminal\x1b[0m - \x1b[1;32mConnected ✓\x1b[0m`);
+    terminal.writeln('');
 
     updateEmptyState();
     updateSessionCount();
