@@ -1248,12 +1248,11 @@ async function restoreTab(dbSession) {
                 terminal.writeln(`\x1b[36mHost: ${config.username}@${config.host}:${config.port}\x1b[0m`);
             }
 
-            // Seed detectedPrompt from localStorage (updated live by writeTerminalData)
+            // Seed detectedPrompt in memory only (for sharing), don't write to terminal on restore
             const storedPrompt = storageManager.getDetectedPrompt(sessionId);
             if (storedPrompt) {
                 const session = sessions.get(sessionId);
                 if (session) session.detectedPrompt = storedPrompt;
-                terminal.write(storedPrompt);
             }
 
             setTimeout(() => connectWebSocket(sessionId), 100);
@@ -2676,8 +2675,9 @@ async function handleDisconnectionBanner(sessionId, session) {
  * @param {string} rawData - Raw data from WebSocket
  * @param {string} sessionId - Terminal session ID (for cloud broadcasting)
  */
-// Matches real shell prompts — last line of output chunk wins (handles docker/su/etc)
-const PROMPT_RE = /^\[?\S+@\S+[^\]]*\]?[#$%>]\s*$|^PS\s+\S.*>\s*$|^[#$%>]\s*$/;
+// Matches real shell prompts — last line wins (handles docker/su/etc)
+// Covers: user@host:~#  root@host:~$  [user@host dir]$  PS C:\>  bare $/#
+const PROMPT_RE = /^(\[?[\w.-]+@[\w.-]+[^\]]*\]?|PS\s+\S.*)[#$%>]\s*$|^[#$%>]\s*$/;
 
 function writeTerminalData(session, rawData, sessionId) {
     try {
@@ -2686,17 +2686,25 @@ function writeTerminalData(session, rawData, sessionId) {
         data = cleanOutput(data, shell);
         if (data.length > 0) session.terminal.write(data);
 
-        // Sniff prompt — strip ANSI, scan lines, last match wins
-        const plain = rawData.replace(/\x1b\[[0-9;]*[A-Za-z]/g, '').replace(/[\x00-\x08\x0e-\x1f\x7f]/g, '');
-        const rawLines   = rawData.split(/\r?\n|\r/);
+        // Strip OSC title sequences (\x1b]0;...\x07) + CSI + other control chars
+        const plain = rawData
+            .replace(/\x1b\][^\x07]*\x07/g, '')           // OSC e.g. ]0;root@host: ~\x07
+            .replace(/\x1b\[[0-9;?]*[A-Za-z]/g, '')       // CSI sequences
+            .replace(/[\x00-\x08\x0e-\x1f\x7f]/g, '');   // other control chars
+
+        // Only check the last non-empty line — prompt is always last
         const plainLines = plain.split(/\r?\n|\r/);
-        for (let i = 0; i < plainLines.length; i++) {
-            const t = plainLines[i].trim();
-            if (t && PROMPT_RE.test(t)) {
-                const prompt = rawLines[i] + '\r\n';
-                session.detectedPrompt = prompt;
-                storageManager.setDetectedPrompt(sessionId, prompt);
+        const rawLines   = rawData.split(/\r?\n|\r/);
+        for (let i = plainLines.length - 1; i >= 0; i--) {
+            const lineToCheck = plainLines[i].trim();
+            if (!lineToCheck) continue;
+            if (PROMPT_RE.test(lineToCheck)) {
+                // Store clean — no \r\n, callers add it when writing to terminal
+                session.detectedPrompt = lineToCheck;
+                storageManager.setDetectedPrompt(sessionId, lineToCheck);
+                console.debug('[Prompt] Detected:', lineToCheck);
             }
+            break; // only last non-empty line matters
         }
 
         // If shared — broadcast output and keep sharedSessions entry in sync
@@ -6314,9 +6322,10 @@ function createSharedTerminalSession(sessionId, sessionInfo, ownerAgent) {
     terminal.writeln(`\x1b[1;36mShared Terminal\x1b[0m - \x1b[1;32mConnected ✓\x1b[0m`);
     terminal.writeln('');
 
-    // Show last known prompt immediately so the terminal isn't blank
+    // Show last known prompt once — only on first connect, never replayed
     if (sessionInfo.detectedPrompt) {
         terminal.write(sessionInfo.detectedPrompt);
+        sessionInfo.detectedPrompt = null; // clear so it won't replay on reconnect
     }
 
     updateEmptyState();
@@ -6768,16 +6777,6 @@ function shareTerminal(sessionId, permission = 'readonly') {
         updateMySharesList(); // Update my shares list
 
         if (success) {
-            const permLabel = permission === 'readwrite' ? 'Read-Write' : 'Read-Only';
-            const connectedCount = (terminalSharing && cloudConnected)
-                ? terminalSharing.getConnectedUsers().filter(a => a !== cloudAgentName).length
-                : 0;
-            const viewersMsg = connectedCount > 0
-                ? ` — ${connectedCount} viewer${connectedCount > 1 ? 's' : ''} connected`
-                : ' — No viewers yet';
-
-            showToast('success', '📤 Terminal Shared',
-                `"${session.name}" is now shared (${permLabel})${viewersMsg}`, 5000);
             console.log('[Terminal] Shared session:', sessionId, session.name);
         } else {
             console.log('[Terminal] Session already shared (skipped duplicate):', sessionId);

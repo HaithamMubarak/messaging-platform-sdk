@@ -293,13 +293,14 @@
                 <div style="display: flex; align-items: center; gap: 15px;">
                     <!-- Status Indicator (includes host badge inside) -->
                     <div class="cloud-panel-status" style="display: flex; align-items: center; gap: 8px; padding: 6px 12px; background: var(--bg-panel, #0f0f1a); border-radius: 20px; font-size: 11px;">
+
+                        <div class="status-dot" id="cloudStatus"></div>
+                        <span id="cloudStatusText" style="font-weight: 500;">Disconnected</span>
                         <!-- Host Indicator (inline badge) -->
                         <div id="cloudHostIndicator" style="display: none; align-items: center; gap: 3px; padding: 2px 7px; background: linear-gradient(135deg, rgba(255, 215, 0, 0.15), rgba(255, 165, 0, 0.15)); border: 1px solid rgba(255, 215, 0, 0.3); border-radius: 10px; font-size: 10px; font-weight: 700; color: #ffd700; letter-spacing: 0.3px;">
                             <span style="font-size: 10px;">👑</span>
                             <span>HOST</span>
                         </div>
-                        <div class="status-dot" id="cloudStatus"></div>
-                        <span id="cloudStatusText" style="font-weight: 500;">Disconnected</span>
                     </div>
                     <div class="modal-close" onclick="closeCloudModal()" style="font-size: 20px; width: 32px; height: 32px;">✕</div>
                 </div>
@@ -372,17 +373,6 @@
             <!-- Sharing Tab Content -->
             <div class="cloud-tab-content" id="cloud-content-sharing" style="padding: 24px;">
 
-                <!-- Connected Agents (moved from Connection tab) -->
-                <div class="cloud-agents" id="cloudAgentsSection"
-                     style="display: none; margin-bottom: 20px; padding-bottom: 20px; border-bottom: 1px solid var(--border-color, #2a2a4a);">
-                    <div class="cloud-agents-title" style="font-size: 12px; font-weight: 600; color: var(--text-secondary, #8888aa); margin-bottom: 10px; text-transform: uppercase; letter-spacing: 0.5px;">
-                        👥 Connected Agents
-                    </div>
-                    <div id="cloudAgentsList" style="display: flex; flex-direction: column; gap: 6px;">
-                        <!-- Agents will be populated here -->
-                    </div>
-                </div>
-
                 <div style="font-size: 13px; color: #d0d0d0; margin-bottom: 20px; padding: 14px; background: rgba(74, 158, 255, 0.08); border-radius: 6px; border-left: 3px solid var(--accent-blue, #4a9eff); line-height: 1.6;">
                     💡 Share this link with others to connect and share terminal sessions in real-time via Messaging Platform.
                 </div>
@@ -414,6 +404,17 @@
                                              background: white; border-radius: 8px;
                                              box-shadow: 0 4px 12px rgba(0,0,0,0.15); max-width: fit-content;">
                     <!-- QR code will be generated here -->
+                </div>
+
+                <!-- Connected Agents (moved from Connection tab) -->
+                <div class="cloud-agents" id="cloudAgentsSection"
+                     style="display: none; margin-bottom: 20px; padding-bottom: 20px; border-bottom: 1px solid var(--border-color, #2a2a4a);">
+                    <div class="cloud-agents-title" style="font-size: 12px; font-weight: 600; color: var(--text-secondary, #8888aa); margin-bottom: 10px; text-transform: uppercase; letter-spacing: 0.5px;">
+                        👥 Connected Agents
+                    </div>
+                    <div id="cloudAgentsList" style="display: flex; flex-direction: column; gap: 6px;">
+                        <!-- Agents will be populated here -->
+                    </div>
                 </div>
             </div>
         </div>
@@ -583,8 +584,8 @@
 
                         <div style="border-top: 1px solid var(--border-color); margin: 20px 0;"></div>
 
-                        <!-- Database Access -->
-                        <div class="settings-section">
+                        <!-- Database Access is hidden for now, can be enabled for advanced users later -->
+                        <div class="settings-section" style="display: none">
                             <h3 style="margin: 0 0 10px 0; font-size: 14px;">💾 Database Console</h3>
                             <p style="font-size: 11px; color: var(--text-muted); margin: 0 0 10px 0;">
                                 Access H2 database console for advanced debugging.

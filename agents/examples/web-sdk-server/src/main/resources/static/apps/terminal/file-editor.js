@@ -75,7 +75,7 @@ class FileEditor {
                         <button class="file-editor-btn secondary small" onclick="fileEditor.pinToSide()" title="Pin to right side">
                             📌 Pin
                         </button>
-                        <button class="file-editor-btn secondary small" onclick="fileEditor.close()">
+                        <button class="file-editor-btn secondary small" onclick="fileEditor.close()" style="margin-left: auto;">
                             ✕ Close
                         </button>
                     </div>
@@ -129,7 +129,7 @@ class FileEditor {
                     <button class="file-editor-btn secondary small" onclick="fileEditor.unpinToPopup()" title="Unpin to popup">
                         ⬅️
                     </button>
-                    <button class="file-editor-btn secondary small" onclick="fileEditor.close()">
+                    <button class="file-editor-btn secondary small" onclick="fileEditor.close()" style="margin-left: auto;">
                         ✕
                     </button>
                 </div>

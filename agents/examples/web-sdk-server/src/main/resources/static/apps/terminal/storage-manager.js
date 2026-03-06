@@ -252,7 +252,7 @@ class LocalStorageManager {
 
     setDetectedPrompt(sessionId, prompt) {
         if (!sessionId || !prompt) return false;
-        return this.setItem(this.KEYS.DETECTED_PROMPT(sessionId), prompt);
+        return this.setItem(this.KEYS.DETECTED_PROMPT(sessionId), prompt.replace(/[\r\n]+$/, ''));
     }
 
     clearDetectedPrompt(sessionId) {
