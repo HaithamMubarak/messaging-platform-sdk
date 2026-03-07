@@ -1576,14 +1576,9 @@ async function fetchAvailableShells() {
     } catch (error) {
         console.error('[Shell Detection] Failed to fetch shells:', error);
 
-        // Fallback: Assume bash for unknown OS
-        availableShells = [{
-            name: 'bash',
-            label: 'Bash',
-            available: true,
-            icon: '🐚'
-        }];
-        detectedOS = 'Unknown';
+        // When SLS is offline, return empty array (don't show fallback shells)
+        availableShells = [];
+        detectedOS = null;
 
         return availableShells;
     }
@@ -1679,34 +1674,38 @@ async function _renderSessionList(container) {
     const shells = await fetchAvailableShells();
     const connections = await loadSshConnections();
 
-    // Render Quick Actions with dynamic shell list
-    let html = `
-        <div class="session-group">
-            <div class="session-group-title">Quick Actions${detectedOS ? ` (${detectedOS})` : ''}</div>
-    `;
+    let html = '';
 
-    // Render each available shell
-    shells.forEach((shell, index) => {
-        const colors = [
-            'linear-gradient(135deg, #4a9eff, #22d3ee)',
-            'linear-gradient(135deg, #22d3ee, #059669)',
-            'linear-gradient(135deg, #a78bfa, #7c3aed)',
-            'linear-gradient(135deg, #fb923c, #f97316)'
-        ];
-        const color = colors[index % colors.length];
-
+    // Render Quick Actions only if shells are available (SLS is online)
+    if (shells.length > 0) {
         html += `
-            <div class="session-item" onclick="createLocalTerminal('${shell.name}')">
-                <div class="session-icon local" style="background: ${color};">${shell.icon || '💻'}</div>
-                <div class="session-details">
-                    <div class="session-name">${shell.label}</div>
-                    <div class="session-info">${shell.name}</div>
-                </div>
-            </div>
+            <div class="session-group">
+                <div class="session-group-title">Quick Actions${detectedOS ? ` (${detectedOS})` : ''}</div>
         `;
-    });
 
-    html += `</div>`;
+        // Render each available shell
+        shells.forEach((shell, index) => {
+            const colors = [
+                'linear-gradient(135deg, #4a9eff, #22d3ee)',
+                'linear-gradient(135deg, #22d3ee, #059669)',
+                'linear-gradient(135deg, #a78bfa, #7c3aed)',
+                'linear-gradient(135deg, #fb923c, #f97316)'
+            ];
+            const color = colors[index % colors.length];
+
+            html += `
+                <div class="session-item" onclick="createLocalTerminal('${shell.name}')">
+                    <div class="session-icon local" style="background: ${color};">${shell.icon || '💻'}</div>
+                    <div class="session-details">
+                        <div class="session-name">${shell.label}</div>
+                        <div class="session-info">${shell.name}</div>
+                    </div>
+                </div>
+            `;
+        });
+
+        html += `</div>`;
+    }
 
     // Render SSH Connections
     if (connections.length > 0) {
@@ -8236,6 +8235,10 @@ window.addEventListener('load', async () => {
     // Listen for SLS offline event
     window.addEventListener('sls-offline', (event) => {
         console.log('[SLS Event] 🔴 SLS is now OFFLINE', event.detail);
+
+        // Clear shell cache so it refetches when SLS comes back online
+        availableShells = null;
+        detectedOS = null;
 
         // Disable terminal creation buttons
         updateSlsDependentButtons(false);

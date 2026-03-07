@@ -36,6 +36,7 @@ public class SecurityProperties {
         "/index.html",        // Index page
         "/terminal/stream",   // WebSocket streaming (sessionId auth)
         "/cloud/connection",  // Cloud configuration
+        "/terminal/shells",  // List available shells (no auth, used by UI to populate shell options)
         "/h2-console",        // H2 Database Console (localhost only)
         "/h2-console/**"      // H2 Console resources
     );
