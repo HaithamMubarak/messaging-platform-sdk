@@ -13,46 +13,24 @@
     const MiniGameUtils = {
         /**
          * Setup cleanup on page unload/navigation
-         * Ensures proper disconnect when user closes tab or navigates away
          *
+         * NOTE: This function is now DEPRECATED and does nothing!
+         *
+         * Cleanup is handled automatically by web-agent.js using beacon API.
+         * All AgentConnection instances are automatically disconnected when the page closes.
+         *
+         * This function is kept for backward compatibility with existing code,
+         * but it's no longer necessary to call it.
+         *
+         * @deprecated Use web-agent.js automatic cleanup instead
          * @param {Object|Function} channelOrGetter - The AgentConnection instance or function that returns it
          * @param {string} context - Optional context name for logging (e.g., 'Whiteboard', 'Chat', 'Storage')
          */
         setupCleanupOnUnload: function(channelOrGetter, context) {
-            if (!channelOrGetter) {
-                console.warn('[Cleanup] Cannot setup cleanup: channelOrGetter is null');
-                return;
-            }
-
+            // No longer needed - web-agent.js handles cleanup automatically with beacon API!
+            // Keeping this function for backward compatibility (does nothing)
             const contextName = context || 'Page';
-
-            const cleanupBeforeUnload = () => {
-                try {
-                    // Get channel (support both direct reference and getter function)
-                    const channel = typeof channelOrGetter === 'function' ? channelOrGetter() : channelOrGetter;
-
-                    if (channel && typeof channel.disconnect === 'function') {
-                        // Use beacon API for disconnect during unload (best-effort)
-                        channel.disconnect({ useBeacon: true });
-                        console.log(`[${contextName}] Requested channel disconnect with beacon`);
-                    }
-                } catch (err) {
-                    console.warn(`[${contextName}] Error while calling channel.disconnect({useBeacon:true}) during unload:`, err);
-                }
-            };
-
-            // Register cleanup handlers
-            // NOTE: Using BOTH 'unload' and 'pagehide' for maximum compatibility:
-            // - 'unload': Works on desktop browsers
-            // - 'pagehide': More reliable on mobile browsers and handles bfcache
-            // - Both only fire when page actually closes (not during warning dialog)
-            try {
-                window.addEventListener('unload', cleanupBeforeUnload);
-                window.addEventListener('pagehide', cleanupBeforeUnload);
-                console.log(`[${contextName}] ✅ Cleanup handlers registered for page unload`);
-            } catch (e) {
-                console.warn(`[${contextName}] Could not register cleanup handlers:`, e);
-            }
+            console.log(`[${contextName}] ℹ️  setupCleanupOnUnload called but no longer needed - web-agent.js handles cleanup automatically`);
         },
 
         /**

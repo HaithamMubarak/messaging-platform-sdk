@@ -1,0 +1,1870 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <meta name="format-detection" content="telephone=no">
+    <meta name="touch-callout" content="none">
+
+    <!--
+        🌐 Messaging Platform - Shared Terminal
+
+        GitHub Repository: https://github.com/HaithamMubarak/messaging-platform-sdk
+        Terminal App Path: /agents/examples/web-sdk-server/src/main/resources/static/apps/terminal
+        Direct Link: https://github.com/HaithamMubarak/messaging-platform-sdk/tree/main/agents/examples/web-sdk-server/src/main/resources/static/apps/terminal
+
+        Discussions: https://github.com/HaithamMubarak/messaging-platform-sdk/discussions
+    -->
+
+    <!-- PWA Configuration -->
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="theme-color" content="#1a1a2e">
+    <link rel="manifest" href="manifest.json">
+
+    <!-- App Description -->
+    <meta name="description" content="Web-based terminal emulator with SSH, SFTP, and real-time terminal sharing via Messaging Platform">
+    <meta name="author" content="HM Dev">
+
+    <!-- Favicons & App Icons -->
+    <link rel="icon" type="image/png" sizes="192x192" href="icons/icon-192x192.png">
+    <link rel="apple-touch-icon" sizes="192x192" href="icons/icon-192x192.png">
+
+    <title>Messaging Platform - Shared Terminal</title>
+
+    <!-- xterm.js - Local Libraries -->
+    <link rel="stylesheet" href="lib/xterm.css"/>
+    <script src="lib/xterm.js"></script>
+    <script src="lib/xterm-addon-fit.js"></script>
+
+    <link rel="stylesheet" href="terminal.css"/>
+
+    <!-- File Explorer Component -->
+    <link rel="stylesheet" href="file-explorer.css"/>
+
+    <!-- Note Editor Component -->
+    <link rel="stylesheet" href="note-editor.css"/>
+
+    <!-- CodeMirror (Code Editor) - Local Files -->
+    <link rel="stylesheet" href="libs/codemirror/css/codemirror.min.css"/>
+    <link rel="stylesheet" href="libs/codemirror/theme/monokai.min.css"/>
+    <script src="libs/codemirror/js/codemirror.min.js"></script>
+
+    <!-- CodeMirror Language Modes -->
+    <script src="libs/codemirror/mode/javascript/javascript.min.js"></script>
+    <script src="libs/codemirror/mode/xml/xml.min.js"></script>
+    <script src="libs/codemirror/mode/css/css.min.js"></script>
+    <script src="libs/codemirror/mode/htmlmixed/htmlmixed.min.js"></script>
+    <script src="libs/codemirror/mode/python/python.min.js"></script>
+    <script src="libs/codemirror/mode/markdown/markdown.min.js"></script>
+    <script src="libs/codemirror/mode/yaml/yaml.min.js"></script>
+    <script src="libs/codemirror/mode/shell/shell.min.js"></script>
+    <script src="libs/codemirror/mode/sql/sql.min.js"></script>
+    <script src="libs/codemirror/mode/clike/clike.min.js"></script>
+    <script src="libs/codemirror/mode/php/php.min.js"></script>
+    <script src="libs/codemirror/mode/ruby/ruby.min.js"></script>
+    <script src="libs/codemirror/mode/go/go.min.js"></script>
+    <script src="libs/codemirror/mode/swift/swift.min.js"></script>
+    <script src="libs/codemirror/mode/properties/properties.min.js"></script>
+
+    <!-- CodeMirror Addons -->
+    <script src="libs/codemirror/addon/edit/matchbrackets.min.js"></script>
+    <script src="libs/codemirror/addon/edit/closebrackets.min.js"></script>
+    <script src="libs/codemirror/addon/selection/active-line.min.js"></script>
+    <script src="libs/codemirror/addon/scroll/annotatescrollbar.min.js"></script>
+    <script src="libs/codemirror/addon/search/searchcursor.min.js"></script>
+    <link rel="stylesheet" href="libs/codemirror/addon/search/matchesonscrollbar.css"/>
+    <script src="libs/codemirror/addon/search/match-highlighter.min.js"></script>
+    <script src="libs/codemirror/addon/search/matchesonscrollbar.min.js"></script>
+
+    <!-- File Editor Component (Multi-Tab) -->
+    <link rel="stylesheet" href="file-editor.css"/>
+
+    <!-- Toast notifications -->
+    <link rel="stylesheet" href="../../css/toast.css"/>
+
+    <!-- Cloud Connection Component -->
+    <link rel="stylesheet" href="../../css/cloud-connection.css"/>
+
+    <!-- Storage Manager (centralized localStorage management) -->
+    <script src="storage-manager.js"></script>
+
+    <!-- File Explorer -->
+    <script src="file-explorer.js"></script>
+
+    <!-- Note Editor -->
+    <script src="note-editor.js"></script>
+
+    <!-- File Editor (Multi-Tab) -->
+    <script src="file-editor.js"></script>
+
+    <!-- QR Code library (for cloud modal share section) -->
+    <script src="../../lib/qrcode.min.js"></script>
+
+    <!-- Config Loader -->
+    <script src="../../js/config-loader.js"></script>
+
+    <!-- Web Agent SDK for cloud connection -->
+    <script src="../../generated-web-agent-js/js/web-agent.libs.js"></script>
+    <script src="../../generated-web-agent-js/js/web-agent.js"></script>
+    <script src="../../generated-web-agent-js/js/web-agent.webrtc.js"></script> <!-- ✅ WebRTC Helper -->
+
+    <!-- UserConnectionBase for terminal sharing -->
+    <script src="../../js/UserConnectionBase.js"></script>
+    <script src="terminal-sharing.js"></script>
+
+    <!-- File Transfer Proxy for chunked upload/download -->
+    <script src="FileTransferProxy.js"></script>
+
+    <!-- Terminal JavaScript Logic (includes TerminalDataSender) -->
+    <script src="terminal.js"></script>
+
+</head>
+<body>
+    <!-- Toast Container -->
+    <div class="toast-container" id="toastContainer"></div>
+
+    <!-- Session Context Menu (for sidebar) -->
+    <div class="context-menu" id="sessionContextMenu">
+        <div class="context-menu-item" onclick="contextMenuAction('open')">
+            <span class="icon">▶️</span> Open Connection
+        </div>
+        <div class="context-menu-item" onclick="contextMenuAction('openInNewTab')">
+            <span class="icon">➕</span> Open in New Tab
+        </div>
+        <div class="context-menu-item" onclick="contextMenuAction('openSftp')" id="openSftpMenuItem">
+            <span class="icon">📁</span> Open SFTP
+        </div>
+        <div class="context-menu-separator"></div>
+        <div class="context-menu-item" onclick="contextMenuAction('edit')">
+            <span class="icon">✏️</span> Edit Connection
+        </div>
+        <div class="context-menu-item" onclick="contextMenuAction('duplicate')">
+            <span class="icon">📋</span> Duplicate Connection
+        </div>
+        <div class="context-menu-separator"></div>
+        <div class="context-menu-item danger" onclick="contextMenuAction('delete')">
+            <span class="icon">🗑️</span> Delete Connection
+        </div>
+    </div>
+
+    <!-- Viewer Context Menu (for managing agent permissions in "My Shares" list) -->
+    <div class="context-menu" id="viewerContextMenu">
+        <div class="context-menu-item" onclick="viewerContextMenuAction('readonly')">
+            <span class="icon">👁️</span> Set Read-Only
+        </div>
+        <div class="context-menu-item" onclick="viewerContextMenuAction('readwrite')">
+            <span class="icon">✏️</span> Set Read-Write
+        </div>
+        <div class="context-menu-separator"></div>
+        <div class="context-menu-item" onclick="viewerContextMenuAction('reset')">
+            <span class="icon">🔄</span> Reset to Global
+        </div>
+    </div>
+
+    <!-- Terminal Right-Click Context Menu -->
+    <div class="context-menu" id="terminalContextMenu">
+        <div class="context-menu-item" onclick="terminalContextMenuAction('copy')">
+            <span class="icon">📋</span> Copy
+        </div>
+        <div class="context-menu-item" onclick="terminalContextMenuAction('paste')">
+            <span class="icon">📌</span> Paste
+        </div>
+        <div class="context-menu-item" onclick="terminalContextMenuAction('selectAll')">
+            <span class="icon">🔲</span> Select All
+        </div>
+        <div class="context-menu-separator"></div>
+        <div class="context-menu-item" onclick="terminalContextMenuAction('clear')">
+            <span class="icon">🧹</span> Clear
+        </div>
+        <div class="context-menu-separator"></div>
+        <div class="context-menu-item" onclick="terminalContextMenuAction('fontIncrease')">
+            <span class="icon">🔡</span> Increase Font Size
+        </div>
+        <div class="context-menu-item" onclick="terminalContextMenuAction('fontDecrease')">
+            <span class="icon">🔠</span> Decrease Font Size
+        </div>
+        <div class="context-menu-item" onclick="terminalContextMenuAction('fontReset')">
+            <span class="icon">↩️</span> Reset Font Size
+        </div>
+    </div>
+
+    <!-- Tab Context Menu -->
+    <div class="context-menu" id="tabContextMenu">
+        <div class="context-menu-item" onclick="tabContextMenuAction('rename')">
+            <span class="icon">✏️</span> Rename Tab
+        </div>
+        <div class="context-menu-item" onclick="tabContextMenuAction('duplicate')">
+            <span class="icon">📋</span> Duplicate Tab
+        </div>
+        <div class="context-menu-separator"></div>
+        <div class="context-menu-item" onclick="tabContextMenuAction('toggleShare')" id="shareMenuItem">
+            <span class="icon">🌐</span> <span id="shareMenuText">Share Session</span>
+        </div>
+        <div class="context-menu-item" onclick="tabContextMenuAction('togglePermission')" id="permissionMenuItem" style="display: none;">
+            <span class="icon">🔒</span> <span class="permission-text">Enable Write Access</span>
+        </div>
+        <div class="context-menu-item" onclick="tabContextMenuAction('resetPermissions')" id="resetPermissionsMenuItem" style="display: none;">
+            <span class="icon">🔄</span> Reset All Permissions
+        </div>
+        <div class="context-menu-item" onclick="tabContextMenuAction('requestPermission')" id="requestPermissionMenuItem" style="display: none;">
+            <span class="icon">✋</span> Request Write Access
+        </div>
+        <div class="context-menu-separator"></div>
+        <div class="context-menu-item" onclick="tabContextMenuAction('close')">
+            <span class="icon">✖️</span> Close Tab
+        </div>
+        <div class="context-menu-item" onclick="tabContextMenuAction('closeOthers')">
+            <span class="icon">🔄</span> Close Other Tabs
+        </div>
+        <div class="context-menu-item" onclick="tabContextMenuAction('closeToRight')">
+            <span class="icon">➡️</span> Close Tabs to Right
+        </div>
+        <div class="context-menu-item" onclick="tabContextMenuAction('closeToLeft')">
+            <span class="icon">⬅️</span> Close Tabs to Left
+        </div>
+        <div class="context-menu-separator"></div>
+        <div class="context-menu-item danger" onclick="tabContextMenuAction('closeAll')">
+            <span class="icon">🗑️</span> Close All Tabs
+        </div>
+    </div>
+
+    <!-- Menu Bar -->
+    <div class="menu-bar">
+        <div class="menu-item sls-dependent" onclick="showSettings()">Settings</div>
+        <div class="menu-item" onclick="showInstallGuide()">Install</div>
+        <div class="menu-item" onclick="showAbout()">About</div>
+        <div class="menu-spacer"></div>
+        <!-- Combined top-right status indicators -->
+        <div class="top-status-bar">
+            <div class="top-status-indicator" id="slsIndicatorGroup" title="SDK Local Service - click to open Settings" onclick="showSettings()" style="cursor:pointer;">
+                <span class="top-status-dot" id="mlsStatus"></span>
+                <span class="top-status-icon">⚙</span>
+                <span class="top-status-label" id="mlsStatusText">Local</span>
+            </div>
+            <div class="top-status-divider"></div>
+            <div class="top-status-indicator" id="cloudIndicatorGroup" title="Remote Share – Disconnected" onclick="openMessagingModal()" style="cursor:pointer;">
+                <span class="top-status-dot" id="cloudStatusDot"></span>
+                <span class="top-status-icon">🔗</span>
+                <span class="top-status-label" id="cloudStatusLabel">Remote</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- Toolbar -->
+    <div class="toolbar">
+        <!-- Mobile Menu Toggle Button (visible only on mobile) -->
+        <button class="toolbar-btn mobile-menu-toggle" onclick="toggleMobileSidebar()" title="Toggle Menu" id="mobileMenuBtn" style="display: none;">
+            <span class="icon">☰</span>
+            <span class="label">Menu</span>
+        </button>
+        <button class="toolbar-btn sls-dependent" id="cmdToolbarBtn" onclick="createLocalTerminal('cmd')" title="New CMD Terminal">
+            <span class="icon">💻</span>
+            <span class="label">CMD</span>
+        </button>
+        <button class="toolbar-btn sls-dependent" id="bashToolbarBtn" onclick="createLocalTerminal('bash')" title="New Bash Terminal (WSL/Git)">
+            <span class="icon">🐧</span>
+            <span class="label">Bash</span>
+        </button>
+        <button class="toolbar-btn sls-dependent" id="powershellToolbarBtn" onclick="createLocalTerminal('powershell')" title="New PowerShell Terminal">
+            <span class="icon">⚡</span>
+            <span class="label">PowerShell</span>
+        </button>
+        <button class="toolbar-btn sls-dependent" onclick="showSshModal()" title="Add SSH Connection">
+            <span class="icon">🌐</span>
+            <span class="label">SSH</span>
+        </button>
+        <div class="toolbar-separator"></div>
+        <button class="toolbar-btn" onclick="openMessagingModal()" title="Connect to Messaging Platform for Terminal Sharing"
+                id="messagingToolbarBtn" style="position: relative;">
+            <span class="icon">🔗</span>
+            <span class="label">Remote Share</span>
+            <span id="agentCountBadge" style="display: none; position: absolute; top: 4px; right: 4px;
+                  background: var(--accent-cyan, #22d3ee); color: #0a0a14; border-radius: 8px;
+                  font-size: 9px; font-weight: 700; min-width: 14px; height: 14px;
+                  line-height: 14px; text-align: center; padding: 0 3px;">0</span>
+        </button>
+        <div class="toolbar-separator"></div>
+        <button class="toolbar-btn" onclick="refreshConnections()" title="Refresh Connections & Check SLS Health">
+            <span class="icon">🔄</span>
+            <span class="label">Refresh</span>
+        </button>
+    </div>
+
+    <!-- Cloud Connection Modal -->
+    <div class="modal-overlay" id="cloudModalOverlay">
+        <div class="modal cloud-modal" id="cloudModal" style="width: 520px; max-height: 90vh; overflow-y: auto;">
+            <div class="modal-header" style="background: linear-gradient(135deg, rgba(74, 158, 255, 0.1), rgba(167, 139, 250, 0.1)); border-bottom: 1px solid var(--border-color, #2a2a4a); padding: 20px;">
+                <div class="modal-title" style="display: flex; align-items: center; gap: 10px; font-size: 18px;">
+                    <span style="font-size: 24px;">💬</span>
+                    <span>Messaging Platform</span>
+                </div>
+                <div style="display: flex; align-items: center; gap: 15px;">
+                    <!-- Status Indicator (includes host badge inside) -->
+                    <div class="cloud-panel-status" style="display: flex; align-items: center; gap: 8px; padding: 6px 12px; background: var(--bg-panel, #0f0f1a); border-radius: 20px; font-size: 11px;">
+
+                        <div class="status-dot" id="cloudStatus"></div>
+                        <span id="cloudStatusText" style="font-weight: 500;">Disconnected</span>
+                        <!-- Host Indicator (inline badge) -->
+                        <div id="cloudHostIndicator" style="display: none; align-items: center; gap: 3px; padding: 2px 7px; background: linear-gradient(135deg, rgba(255, 215, 0, 0.15), rgba(255, 165, 0, 0.15)); border: 1px solid rgba(255, 215, 0, 0.3); border-radius: 10px; font-size: 10px; font-weight: 700; color: #ffd700; letter-spacing: 0.3px;">
+                            <span style="font-size: 10px;">👑</span>
+                            <span>HOST</span>
+                        </div>
+                    </div>
+                    <div class="modal-close" onclick="closeCloudModal()" style="font-size: 20px; width: 32px; height: 32px;">✕</div>
+                </div>
+            </div>
+
+            <!-- Tab Navigation -->
+            <div style="display: flex; border-bottom: 1px solid var(--border-color); background: var(--bg-panel);">
+                <div class="cloud-tab active" onclick="switchCloudTab('connection')" id="cloud-tab-connection"
+                     style="flex: 1; padding: 12px 20px; text-align: center; cursor: pointer; font-size: 13px; font-weight: 500; color: var(--text-muted); border-bottom: 2px solid transparent; transition: all 0.2s;">
+                    🔌 Connection
+                </div>
+                <div class="cloud-tab" onclick="switchCloudTab('sharing')" id="cloud-tab-sharing"
+                     style="flex: 1; padding: 12px 20px; text-align: center; cursor: pointer; font-size: 13px; font-weight: 500; color: var(--text-muted); border-bottom: 2px solid transparent; transition: all 0.2s;">
+                    🔗 Sharing
+                </div>
+            </div>
+
+            <!-- Connection Tab Content -->
+            <div class="cloud-tab-content active" id="cloud-content-connection" style="padding: 24px;">
+                <div class="cloud-form-row" style="margin-bottom: 16px;">
+                    <label for="cloudAgentName" style="font-size: 12px; font-weight: 600; color: var(--text-secondary, #8888aa); margin-bottom: 8px; display: block; text-transform: uppercase; letter-spacing: 0.5px;">Your Name</label>
+                    <input type="text" id="cloudAgentName" placeholder="Auto-generated if empty"
+                           style="width: 100%; padding: 12px; font-size: 13px; border-radius: 6px; border: 1px solid var(--border-color, #2a2a4a); background: var(--bg-panel, #0f0f1a); color: var(--text-primary, #e0e0e0); transition: border-color 0.2s;">
+                </div>
+                <div style="margin-bottom: 16px; padding: 10px; background: rgba(74, 158, 255, 0.1); border-left: 3px solid var(--accent-blue, #4a9eff); border-radius: 4px; font-size: 12px; color: var(--text-secondary); line-height: 1.5;">
+                    💡 <strong>Tip:</strong> Channel name and password are freely chosen by you. Pick any values you like, then share them with others to connect together.
+                </div>
+                <div class="cloud-form-row" style="margin-bottom: 16px;">
+                    <label for="cloudChannelName" style="font-size: 12px; font-weight: 600; color: var(--text-secondary, #8888aa); margin-bottom: 8px; display: block; text-transform: uppercase; letter-spacing: 0.5px;">Channel Name</label>
+                    <input type="text" id="cloudChannelName" placeholder="my-terminal-channel" value="terminal-share"
+                           style="width: 100%; padding: 12px; font-size: 13px; border-radius: 6px; border: 1px solid var(--border-color, #2a2a4a); background: var(--bg-panel, #0f0f1a); color: var(--text-primary, #e0e0e0); transition: border-color 0.2s;">
+                </div>
+                <div class="cloud-form-row" style="margin-bottom: 20px;">
+                    <label for="cloudChannelPassword" style="font-size: 12px; font-weight: 600; color: var(--text-secondary, #8888aa); margin-bottom: 8px; display: block; text-transform: uppercase; letter-spacing: 0.5px;">Channel Password</label>
+                    <div style="position: relative; display: flex; align-items: center;">
+                        <input type="password" id="cloudChannelPassword" placeholder="Channel password" value="terminal123"
+                               style="width: 100%; padding: 12px 42px 12px 12px; font-size: 13px; border-radius: 6px; border: 1px solid var(--border-color, #2a2a4a); background: var(--bg-panel, #0f0f1a); color: var(--text-primary, #e0e0e0); transition: border-color 0.2s;">
+                        <button type="button" id="cloudPasswordToggle" onclick="toggleCloudPasswordVisibility()"
+                                style="position: absolute; right: 8px; background: transparent; border: none; cursor: pointer; padding: 6px; font-size: 16px; color: var(--text-secondary); transition: color 0.2s;"
+                                onmouseover="this.style.color='var(--text-primary)'"
+                                onmouseout="this.style.color='var(--text-secondary)'"
+                                title="Toggle password visibility">
+                            👁️
+                        </button>
+                    </div>
+                </div>
+
+                <div class="cloud-actions" style="margin-top: 20px;">
+                    <div class="cloud-actions-row" style="display: flex; gap: 8px; margin-bottom: 8px;">
+                        <button type="button" class="cloud-btn" id="cloudConnectBtn" onclick="connectToCloud()"
+                                style="flex: 2; padding: 10px 16px; font-size: 13px; font-weight: 600; border-radius: 6px; transition: all 0.2s;">
+                            Connect
+                        </button>
+                        <button type="button" class="cloud-btn cloud-btn-secondary" id="cloudRegenBtn" onclick="regenerateConnection()"
+                                title="Regenerate channel name and password"
+                                style="flex: 0 0 42px; padding: 10px; font-size: 16px; border-radius: 6px; transition: all 0.2s;">
+                            🔄
+                        </button>
+                    </div>
+                    <div class="cloud-actions-row" id="cloudActionsRow" style="display: none; gap: 8px;">
+                        <button type="button" class="cloud-btn cloud-btn-small disconnect" id="cloudDisconnectBtn" onclick="disconnectFromCloud()"
+                                style="flex: 1; padding: 10px 16px; font-size: 13px; font-weight: 600; border-radius: 6px;">
+                            Disconnect
+                        </button>
+                    </div>
+                </div>
+
+            </div>
+
+            <!-- Sharing Tab Content -->
+            <div class="cloud-tab-content" id="cloud-content-sharing" style="padding: 24px;">
+
+                <div style="font-size: 13px; color: #d0d0d0; margin-bottom: 20px; padding: 14px; background: rgba(74, 158, 255, 0.08); border-radius: 6px; border-left: 3px solid var(--accent-blue, #4a9eff); line-height: 1.6;">
+                    💡 Share this link with others to connect and share terminal sessions in real-time via Messaging Platform.
+                </div>
+
+                <div class="cloud-form-row" style="margin-bottom: 16px;">
+                    <label style="font-size: 12px; font-weight: 600; color: var(--text-secondary, #8888aa); margin-bottom: 8px; display: block; text-transform: uppercase; letter-spacing: 0.5px;">📋 Share Link</label>
+                    <div class="cloud-input-group" style="display: flex; gap: 8px; margin-bottom: 8px;">
+                        <input type="text" id="shareUrlInput" readonly
+                               style="flex: 1; font-size: 11px; background: var(--bg-darker, #08080d);
+                                      color: var(--text-primary, #e0e0e0);
+                                      border: 1px solid var(--border-color, #2a2a4a);
+                                      padding: 10px 12px; border-radius: 6px; font-family: monospace;">
+                        <button type="button" class="cloud-regen-btn" onclick="copyShareUrl()"
+                                title="Copy to clipboard"
+                                style="min-width: 44px; height: 40px; border-radius: 6px; font-size: 16px;">
+                            📋
+                        </button>
+                    </div>
+                </div>
+
+                <button type="button" class="cloud-btn cloud-btn-secondary"
+                        onclick="toggleQrCode()"
+                        id="qrToggleBtn"
+                        style="width: 100%; margin-bottom: 16px; font-size: 12px; padding: 12px; border-radius: 8px; font-weight: 600;">
+                    <span id="qrToggleIcon">📱</span> <span id="qrToggleText">Show QR Code</span>
+                </button>
+
+                <div id="shareQrCode" style="display: none; text-align: center; margin: 0 auto; padding: 20px;
+                                             background: white; border-radius: 8px;
+                                             box-shadow: 0 4px 12px rgba(0,0,0,0.15); max-width: fit-content;">
+                    <!-- QR code will be generated here -->
+                </div>
+
+                <!-- Connected Agents (moved from Connection tab) -->
+                <div class="cloud-agents" id="cloudAgentsSection"
+                     style="display: none; margin-bottom: 20px; padding-bottom: 20px; border-bottom: 1px solid var(--border-color, #2a2a4a);">
+                    <div class="cloud-agents-title" style="font-size: 12px; font-weight: 600; color: var(--text-secondary, #8888aa); margin-bottom: 10px; text-transform: uppercase; letter-spacing: 0.5px;">
+                        👥 Connected Agents
+                    </div>
+                    <div id="cloudAgentsList" style="display: flex; flex-direction: column; gap: 6px;">
+                        <!-- Agents will be populated here -->
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Main Container -->
+    <div class="main-container">
+        <!-- Sidebar with Tabs -->
+        <div class="sidebar" id="sidebar">
+            <div class="sidebar-tabs">
+                <button class="sidebar-tab active sls-dependent" onclick="switchSidebarTab('sessions')" title="Terminal Sessions" data-tab="sessions">
+                    <span class="sidebar-tab-icon">🖥️</span>
+                </button>
+                <button class="sidebar-tab sls-dependent" onclick="switchSidebarTab('notes')" title="Notes" data-tab="notes">
+                    <span class="sidebar-tab-icon">📝</span>
+                    <span class="sidebar-tab-badge" id="notesBadge" style="display: none; position: absolute; top: 4px; right: 4px;
+                          background: var(--accent-cyan, #22d3ee); color: #0a0a14; border-radius: 8px;
+                          font-size: 9px; font-weight: 700; min-width: 14px; height: 14px;
+                          line-height: 14px; text-align: center; padding: 0 3px;">0</span>
+                </button>
+                <button class="sidebar-tab" id="filesTabBtn" onclick="openFileExplorerForActiveTab()" title="File Explorer - Select a terminal session" data-tab="files" style="pointer-events: none; opacity: 0.5;">
+                    <span class="sidebar-tab-icon">📁</span>
+                </button>
+                <button class="sidebar-tab" onclick="switchSidebarTab('shared')" title="Shared with You" data-tab="shared">
+                    <span class="sidebar-tab-icon">📡</span>
+                    <span class="sidebar-tab-badge" id="sharedBadge" style="display: none;">0</span>
+                </button>
+                <button class="sidebar-tab sls-dependent" onclick="switchSidebarTab('myshares')" title="My Shared Terminals" data-tab="myshares">
+                    <span class="sidebar-tab-icon">📤</span>
+                    <span class="sidebar-tab-badge" id="mysharesBadge" style="display: none;">0</span>
+                </button>
+                <button class="sidebar-tab sls-dependent" onclick="switchSidebarTab('settings')" title="Settings & Backup" data-tab="settings">
+                    <span class="sidebar-tab-icon">⚙️</span>
+                </button>
+            </div>
+
+            <div class="sidebar-content">
+                <!-- Sessions Tab -->
+                <div class="sidebar-panel active" id="panel-sessions">
+                    <div class="sidebar-header">
+                        <span>Terminal Sessions</span>
+                        <button class="sidebar-header-btn" onclick="refreshConnections()" title="Refresh">🔄</button>
+                    </div>
+                    <div class="session-list" id="sessionList">
+                        <!-- Sessions will be populated here -->
+                    </div>
+                </div>
+
+                <!-- Notes Tab -->
+                <div class="sidebar-panel" id="panel-notes">
+                    <div class="sidebar-header">
+                        <span>📝 Notes</span>
+                        <button class="sidebar-header-btn" onclick="createNewNote()" title="New Note">➕</button>
+                    </div>
+                    <div class="notes-list" id="notesList">
+                        <!-- Notes will be populated here -->
+                    </div>
+                </div>
+
+                <!-- File Explorer Tab -->
+                <div class="sidebar-panel" id="panel-files">
+                    <div class="sidebar-header">
+                        <span>File Explorer</span>
+                        <button class="sidebar-header-btn" onclick="closeFileExplorerPanel()" title="Close">✖️</button>
+                    </div>
+                    <div id="fileExplorerPanelContainer" style="flex: 1; overflow: auto;">
+                        <!-- File Explorer will be mounted here -->
+                    </div>
+                </div>
+
+                <!-- Shared with You Tab -->
+                <div class="sidebar-panel" id="panel-shared">
+                    <div class="sidebar-header">
+                        <span>Shared with You</span>
+                        <button class="sidebar-header-btn" onclick="refreshSharedSessions()" title="Refresh">🔄</button>
+                    </div>
+                    <div class="shared-session-list" id="sharedSessionList">
+                        <!-- Shared sessions from other agents will appear here -->
+                        <div style="padding: 20px; text-align: center; color: var(--text-muted); font-size: 11px;">
+                            No shared terminals yet.<br>
+                            Connect to cloud to see shared sessions.
+                        </div>
+                    </div>
+                </div>
+
+                <!-- My Shared Terminals Tab -->
+                <div class="sidebar-panel" id="panel-myshares">
+                    <div class="sidebar-header">
+                        <span>My Shared Terminals</span>
+                        <button class="sidebar-header-btn" onclick="refreshMyShares()" title="Refresh">🔄</button>
+                    </div>
+                    <div class="myshares-list" id="mysharesList">
+                        <!-- My shared sessions will appear here -->
+                        <div style="padding: 20px; text-align: center; color: var(--text-muted); font-size: 11px;">
+                            No shared terminals yet.<br>
+                            Share a terminal to see it here.
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Settings Tab -->
+                <div class="sidebar-panel" id="panel-settings">
+                    <div class="sidebar-header">
+                        <span>Settings</span>
+                    </div>
+                    <div class="settings-container" style="padding: 15px;">
+                        <div style="text-align: center; padding: 30px 20px; color: var(--text-muted);">
+                            <div style="font-size: 48px; margin-bottom: 15px;">⚙️</div>
+                            <p style="font-size: 13px; margin-bottom: 20px;">
+                                Click the <strong>Local</strong> badge at the top right to access advanced settings including backup & restore.
+                            </p>
+                            <button class="sidebar-btn primary" onclick="showSettings()" style="width: 100%;">
+                                Open Settings
+                            </button>
+                        </div>
+
+                        <!-- Database Access is hidden for now, can be enabled for advanced users later -->
+                        <div class="settings-section" style="display: none">
+                            <h3 style="margin: 0 0 10px 0; font-size: 14px;">💾 Database Console</h3>
+                            <p style="font-size: 11px; color: var(--text-muted); margin: 0 0 10px 0;">
+                                Access H2 database console for advanced debugging.
+                            </p>
+                            <button class="sidebar-btn secondary" onclick="window.open('http://localhost:8088/h2-console', '_blank')" style="width: 100%;">
+                                🔍 Open H2 Console
+                            </button>
+                            <div style="font-size: 10px; color: var(--text-muted); margin-top: 5px;">
+                                Username: admin | Password: changeme
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Resize Handle -->
+        <div class="resize-handle" id="resizeHandle"></div>
+
+        <!-- Terminal Area -->
+        <div class="terminal-area">
+            <!-- Tab Bar -->
+            <div class="tab-bar-container">
+                <button class="tab-scroll-btn" id="tabScrollLeft" onclick="scrollTabsLeft()" title="Scroll Left">
+                    ◀
+                </button>
+                <div class="tab-bar" id="tabBar">
+                    <div class="tab-add" onclick="createLocalTerminal()" title="New Tab">+</div>
+                </div>
+                <button class="tab-scroll-btn" id="tabScrollRight" onclick="scrollTabsRight()" title="Scroll Right">
+                    ▶
+                </button>
+            </div>
+
+            <!-- Terminal Panels -->
+            <div class="terminal-wrapper" id="terminalWrapper">
+                <!-- Empty state shown when no tabs -->
+                <div class="empty-state" id="emptyState">
+                    <div class="empty-state-icon">🖥️</div>
+                    <div class="empty-state-title">No Active Sessions</div>
+                    <div class="empty-state-message">
+                        Click <strong>Local</strong> to start a terminal, or select an SSH connection from the sidebar
+                    </div>
+                </div>
+            </div>
+
+            <!-- Status Bar -->
+            <div class="status-bar" id="statusBar">
+                <div class="status-bar-item">
+                    <span class="status-bar-label">Sessions:</span>
+                    <span class="status-bar-value" id="statusSessions">0</span>
+                </div>
+                <div class="status-bar-separator">|</div>
+                <div class="status-bar-item">
+                    <span class="status-bar-label">Active:</span>
+                    <span class="status-bar-value" id="statusActive">None</span>
+                </div>
+                <!-- Typing indicator (shown when someone types in a shared session) -->
+                <span class="status-bar-typing" id="statusTyping" style="display: none;"></span>
+            </div>
+        </div>
+
+        <!-- File Browser Panel (hidden, controlled by sidebar) -->
+        <!-- Moved to sidebar -->
+    </div>
+
+
+    <!-- Settings Modal -->
+    <div class="modal-overlay" id="settingsModalOverlay">
+        <div class="modal" style="width: 500px;">
+            <div class="modal-header">
+                <div class="modal-title">⚙️ Settings</div>
+                <div class="modal-close" onclick="closeSettingsModal()">✕</div>
+            </div>
+            <div class="modal-body">
+                <div class="form-group">
+                    <label for="slsPortInput">SDK Local Service Port</label>
+                    <div style="display: flex; gap: 10px; align-items: center;">
+                        <input type="number" id="slsPortInput" min="1024" max="65535"
+                               style="flex: 1; padding: 8px; border: 1px solid var(--border-color);
+                                          border-radius: 4px; background: var(--bg-input); color: var(--text-primary);">
+                        <button type="button" class="btn btn-secondary"
+                                onclick="resetSlsPort()"
+                                style="padding: 8px 16px;">
+                            Reset to Default
+                        </button>
+                    </div>
+                    <small style="color: var(--text-secondary); display: block; margin-top: 5px;">
+                        Default: 8088. Change this if SLS is running on a different port.
+                    </small>
+                </div>
+
+                <div style="margin-top: 20px; padding: 12px; background: var(--bg-panel);
+                                border-left: 3px solid var(--accent-blue); border-radius: 4px;">
+                    <div style="font-weight: 500; margin-bottom: 5px;">ℹ️ Current Configuration</div>
+                    <div style="color: var(--text-secondary); font-size: 13px;">
+                        <div>HTTP URL: <code style="color: var(--accent-green);">http://localhost:<span
+                                id="currentPortDisplay"></span></code></div>
+                        <div>WebSocket URL: <code style="color: var(--accent-green);">ws://localhost:<span
+                                id="currentWsPortDisplay"></span></code></div>
+                    </div>
+                </div>
+
+                <div style="margin-top: 15px; padding: 10px; background: var(--bg-sidebar);
+                                border-radius: 4px; font-size: 13px; color: var(--text-secondary);">
+                    ⚠️ <strong>Note:</strong> Changing the port will clear the current security token.
+                    You'll need to reconnect to the new service instance.
+                </div>
+
+                <!-- Configuration Backup/Restore Section -->
+                <div style="margin-top: 30px; padding-top: 20px; border-top: 1px solid var(--border-color);">
+                    <h3 style="font-size: 14px; font-weight: 600; margin-bottom: 15px; color: var(--text-primary);">
+                        💾 Backup & Restore Configuration
+                    </h3>
+
+                    <!-- Export Configuration -->
+                    <div style="margin-bottom: 20px;">
+                        <div style="font-weight: 500; margin-bottom: 8px; font-size: 13px;">Export Configuration</div>
+                        <div style="display: flex; gap: 10px; margin-bottom: 10px;">
+                            <select id="exportFormat" style="padding: 8px; border: 1px solid var(--border-color);
+                                    border-radius: 4px; background: var(--bg-input); color: var(--text-primary); flex: 1;">
+                                <option value="xml">XML (Plain)</option>
+                                <option value="zip">ZIP (Compressed)</option>
+                                <option value="zip-protected">ZIP (Password Protected)</option>
+                            </select>
+                        </div>
+                        <div id="exportPasswordContainer" style="display: none; margin-bottom: 10px;">
+                            <input type="password" id="exportPassword" placeholder="Enter password for protection"
+                                   style="width: 100%; padding: 8px; border: 1px solid var(--border-color);
+                                          border-radius: 4px; background: var(--bg-input); color: var(--text-primary);">
+                        </div>
+                        <div style="display: flex; gap: 8px; margin-bottom: 10px; flex-wrap: wrap; font-size: 12px;">
+                            <label style="display: flex; align-items: center; gap: 5px; cursor: pointer;">
+                                <input type="checkbox" id="exportSsh" checked> SSH Connections
+                            </label>
+                            <label style="display: flex; align-items: center; gap: 5px; cursor: pointer;">
+                                <input type="checkbox" id="exportSessions"> Terminal Sessions
+                            </label>
+                            <label style="display: flex; align-items: center; gap: 5px; cursor: pointer;">
+                                <input type="checkbox" id="exportNotes"> Notes
+                            </label>
+                        </div>
+                        <button type="button" class="btn btn-primary" onclick="exportConfiguration()" style="width: 100%;">
+                            📤 Export Configuration
+                        </button>
+                    </div>
+
+                    <!-- Import Configuration -->
+                    <div>
+                        <div style="font-weight: 500; margin-bottom: 8px; font-size: 13px;">Import Configuration</div>
+                        <div style="margin-bottom: 10px;">
+                            <input type="file" id="importFile" accept=".xml,.zip"
+                                   style="width: 100%; padding: 8px; border: 1px solid var(--border-color);
+                                          border-radius: 4px; background: var(--bg-input); color: var(--text-primary);">
+                        </div>
+                        <div id="importPasswordContainer" style="display: none; margin-bottom: 10px;">
+                            <input type="password" id="importPassword" placeholder="Enter password to decrypt"
+                                   style="width: 100%; padding: 8px; border: 1px solid var(--border-color);
+                                          border-radius: 4px; background: var(--bg-input); color: var(--text-primary);">
+                        </div>
+                        <label style="display: flex; align-items: center; gap: 8px; margin-bottom: 10px; font-size: 13px; cursor: pointer;">
+                            <input type="checkbox" id="importOverwrite">
+                            <span>Overwrite existing items</span>
+                        </label>
+                        <button type="button" class="btn btn-success" onclick="importConfiguration()" style="width: 100%;">
+                            📥 Import Configuration
+                        </button>
+                    </div>
+
+                    <div style="margin-top: 12px; padding: 10px; background: var(--bg-panel);
+                                border-left: 3px solid var(--accent-cyan); border-radius: 4px; font-size: 12px;">
+                        <strong>ℹ️ Backup includes:</strong>
+                        <ul style="margin: 8px 0 0 20px; line-height: 1.6;">
+                            <li>SSH connection credentials</li>
+                            <li>Application settings</li>
+                            <li>Optional: Notes and terminal sessions</li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" onclick="closeSettingsModal()">Cancel</button>
+                <button type="button" class="btn btn-primary" onclick="saveSlsPortSettings()">Apply & Reconnect</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- SSH Modal -->
+    <div class="modal-overlay" id="sshModalOverlay">
+        <div class="modal">
+            <div class="modal-header">
+                <div class="modal-title">➕ Add SSH Connection</div>
+                <div class="modal-close" onclick="closeSshModal()">✕</div>
+            </div>
+            <form id="sshForm" onsubmit="saveSshConnection(event)">
+                <div class="modal-body">
+                    <div class="form-group">
+                        <label for="sshName">Connection Name *</label>
+                        <div class="input-group">
+                            <input type="text" id="sshName" required placeholder="e.g., Production Server">
+                            <button type="button" class="regen-btn" onclick="generateSshConnectionName()"
+                                    title="Generate random connection name">
+                                🔄
+                            </button>
+                        </div>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="sshHost">Host *</label>
+                            <input type="text" id="sshHost" required placeholder="server.example.com">
+                        </div>
+                        <div class="form-group" style="max-width: 100px;">
+                            <label for="sshPort">Port</label>
+                            <input type="number" id="sshPort" value="22">
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label for="sshUsername">Username *</label>
+                        <input type="text" id="sshUsername" required placeholder="admin">
+                    </div>
+                    <div class="form-group">
+                        <label for="sshPassword">Password</label>
+                        <input type="password" id="sshPassword" placeholder="Leave empty for key auth">
+                    </div>
+                    <div class="form-group">
+                        <label for="sshPrivateKey">Private Key (optional)</label>
+                        <textarea id="sshPrivateKey" placeholder="-----BEGIN RSA PRIVATE KEY-----"></textarea>
+                    </div>
+                    <div class="form-group">
+                        <label for="sshDescription">Description</label>
+                        <input type="text" id="sshDescription" placeholder="Optional description">
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" onclick="cancelSshModal()">Cancel</button>
+                    <button type="button" class="btn btn-info" onclick="testSshConnection()" id="testSshBtn"
+                            style="margin-right: auto;">
+                        🔌 Test Connection
+                    </button>
+                    <button type="submit" class="btn btn-primary">Save Connection</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Help Modal -->
+    <div class="modal-overlay" id="helpModalOverlay">
+        <div class="modal" style="width: 900px; max-width: 95vw; max-height: 90vh; overflow-y: auto;">
+            <div class="modal-header">
+                <div class="modal-title">📲 Install & Setup Guide</div>
+                <div class="modal-close" onclick="closeHelpModal()">✕</div>
+            </div>
+            <div class="modal-body" style="padding: 0;">
+
+                <!-- Tab Navigation -->
+                <div style="display: flex; border-bottom: 1px solid var(--border-color); background: var(--bg-panel);">
+                    <div class="help-tab active" onclick="switchHelpTab('quickstart')" id="tab-quickstart">
+                        🚀 Local Service Setup
+                    </div>
+                    <div class="help-tab" onclick="switchHelpTab('installation')" id="tab-installation">
+                        📲 Install App
+                    </div>
+                    <div class="help-tab" onclick="switchHelpTab('shortcuts')" id="tab-shortcuts">
+                        ⌨️ Shortcuts
+                    </div>
+                    <div class="help-tab" onclick="switchHelpTab('api')" id="tab-api">
+                        🔌 API Reference
+                    </div>
+                </div>
+
+                <!-- Installation Tab -->
+                <div class="help-content" id="content-installation" style="padding: 24px;">
+                    <h3 style="font-size: 16px; color: var(--accent-cyan); margin-bottom: 16px;">📲 Install as Progressive Web App (PWA)</h3>
+
+                    <div style="background: linear-gradient(135deg, rgba(74, 158, 255, 0.1) 0%, rgba(34, 211, 238, 0.1) 100%); padding: 20px; border-radius: 8px; border: 1px solid var(--accent-blue); margin-bottom: 24px;">
+                        <h4 style="font-size: 15px; color: var(--text-primary); margin-bottom: 12px; text-align: center;">
+                            ✨ Why Install as an App?
+                        </h4>
+                        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 12px; font-size: 13px;">
+                            <div style="padding: 10px;">
+                                <div style="color: var(--accent-green); margin-bottom: 4px;">✅ Works Offline</div>
+                                <div style="color: var(--text-secondary); font-size: 12px;">Access UI even without internet</div>
+                            </div>
+                            <div style="padding: 10px;">
+                                <div style="color: var(--accent-green); margin-bottom: 4px;">✅ Faster Loading</div>
+                                <div style="color: var(--text-secondary); font-size: 12px;">Instant startup from cache</div>
+                            </div>
+                            <div style="padding: 10px;">
+                                <div style="color: var(--accent-green); margin-bottom: 4px;">✅ Desktop Icon</div>
+                                <div style="color: var(--text-secondary); font-size: 12px;">Launch from Start Menu/Dock</div>
+                            </div>
+                            <div style="padding: 10px;">
+                                <div style="color: var(--accent-green); margin-bottom: 4px;">✅ Auto Updates</div>
+                                <div style="color: var(--text-secondary); font-size: 12px;">Always get latest features</div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Quick Install Button -->
+                    <div style="text-align: center; margin-bottom: 24px;">
+                        <button class="btn btn-primary" id="pwaInstallBtnModal" onclick="promptPWAInstall()"
+                                style="display: none; padding: 8px 20px; font-size: 14px; background: linear-gradient(135deg, var(--accent-blue), var(--accent-cyan)); border: none; border-radius: 6px; font-weight: 600;">
+                            <span style="font-size: 16px; margin-right: 6px;">📲</span>
+                            Install Now
+                        </button>
+                        <div id="pwaInstallMessageModal" style="display: none; color: var(--text-muted); font-size: 13px; margin-top: 8px;">
+                            Already installed or use browser menu to install
+                        </div>
+                    </div>
+
+                    <!-- Chrome/Edge Installation -->
+                    <div style="margin-bottom: 24px;">
+                        <h4 style="font-size: 14px; color: var(--text-primary); margin-bottom: 12px; display: flex; align-items: center; gap: 8px;">
+                            <span style="font-size: 20px;">🌐</span> Chrome / Edge / Brave
+                        </h4>
+                        <div style="background: var(--bg-panel); padding: 16px; border-radius: 8px; border-left: 3px solid var(--accent-blue);">
+                            <ol style="font-size: 13px; line-height: 2; color: var(--text-secondary); padding-left: 20px;">
+                                <li>Click the <strong style="color: var(--accent-green);">📲 Install Now</strong> button above</li>
+                                <li><strong>OR</strong> click the <strong style="color: var(--text-primary);">⊕</strong> icon in the address bar</li>
+                                <li>Click <strong style="color: var(--accent-green);">"Install"</strong> to add to your system</li>
+                                <li>The app will appear in your Start Menu/Applications folder</li>
+                            </ol>
+                        </div>
+                    </div>
+
+                    <!-- Mobile Installation -->
+                    <div style="margin-bottom: 24px;">
+                        <h4 style="font-size: 14px; color: var(--text-primary); margin-bottom: 12px; display: flex; align-items: center; gap: 8px;">
+                            <span style="font-size: 20px;">📱</span> Mobile (Android / iOS)
+                        </h4>
+
+                        <!-- Android -->
+                        <div style="background: var(--bg-panel); padding: 16px; border-radius: 8px; margin-bottom: 12px;">
+                            <div style="font-weight: 600; color: var(--accent-green); margin-bottom: 8px;">🤖 Android (Chrome)</div>
+                            <ol style="font-size: 13px; line-height: 2; color: var(--text-secondary); padding-left: 20px;">
+                                <li>Tap the menu button (⋮) in top-right corner</li>
+                                <li>Select <strong style="color: var(--text-primary);">"Add to Home Screen"</strong> or <strong>"Install app"</strong></li>
+                                <li>Confirm installation</li>
+                                <li>Icon will appear on your home screen</li>
+                            </ol>
+                        </div>
+
+                        <!-- iOS -->
+                        <div style="background: var(--bg-panel); padding: 16px; border-radius: 8px;">
+                            <div style="font-weight: 600; color: var(--accent-blue); margin-bottom: 8px;">🍎 iOS (Safari)</div>
+                            <ol style="font-size: 13px; line-height: 2; color: var(--text-secondary); padding-left: 20px;">
+                                <li>Tap the <strong style="color: var(--text-primary);">Share</strong> button (□↑) at the bottom</li>
+                                <li>Scroll down and tap <strong style="color: var(--text-primary);">"Add to Home Screen"</strong></li>
+                                <li>Tap <strong style="color: var(--accent-green);">"Add"</strong> in the top-right</li>
+                                <li>The app icon will appear on your home screen</li>
+                            </ol>
+                        </div>
+                    </div>
+
+                    <!-- Requirements -->
+                    <div style="margin-bottom: 24px;">
+                        <h4 style="font-size: 14px; color: var(--text-primary); margin-bottom: 12px;">⚙️ Requirements</h4>
+                        <div style="background: var(--bg-panel); padding: 16px; border-radius: 8px; border-left: 3px solid var(--accent-orange);">
+                            <div style="font-size: 13px; color: var(--text-secondary); margin-bottom: 12px;">
+                                To use terminals, you need <strong style="color: var(--text-primary);">SDK Local Service</strong> running:
+                            </div>
+                            <pre style="background: var(--bg-dark); padding: 12px; border-radius: 6px; font-size: 12px; color: var(--accent-green); margin-bottom: 12px; overflow-x: auto;">java -jar sdk-local-service.jar</pre>
+                            <div style="font-size: 12px; color: var(--text-muted);">
+                                💡 <strong>Note:</strong> The PWA works offline for UI, but terminal features require SLS running on <code style="background: var(--bg-dark); padding: 2px 6px; border-radius: 3px;">localhost:8088</code>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Verify Installation -->
+                    <div style="margin-bottom: 24px;">
+                        <h4 style="font-size: 14px; color: var(--text-primary); margin-bottom: 12px;">✅ Verify Installation</h4>
+                        <ul style="font-size: 13px; line-height: 2; color: var(--text-secondary); padding-left: 20px;">
+                            <li>App opens in <strong style="color: var(--text-primary);">standalone window</strong> (no browser UI)</li>
+                            <li>Icon appears in <strong style="color: var(--text-primary);">Start Menu</strong> / <strong>Applications</strong> / <strong>Home Screen</strong></li>
+                            <li>Can launch even when <strong style="color: var(--accent-orange);">offline</strong> (UI only)</li>
+                            <li>Loads <strong style="color: var(--accent-green);">instantly</strong> from cache</li>
+                        </ul>
+                    </div>
+
+                    <!-- Uninstall -->
+                    <div>
+                        <h4 style="font-size: 14px; color: var(--text-primary); margin-bottom: 12px;">🗑️ Uninstall</h4>
+                        <div style="background: var(--bg-panel); padding: 12px; border-radius: 6px; font-size: 13px; color: var(--text-secondary);">
+                            <strong style="color: var(--text-primary);">Desktop:</strong> Right-click app in Start Menu → Uninstall<br>
+                            <strong style="color: var(--text-primary);">Mobile:</strong> Long-press icon → Remove from Home Screen
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Local Service Setup Tab -->
+                <div class="help-content active" id="content-quickstart" style="padding: 24px;">
+                    <h3 style="font-size: 16px; color: var(--accent-cyan); margin-bottom: 16px;">🚀 Local Service Setup</h3>
+
+                    <!-- Download Section - GitHub Links -->
+                    <div style="background: linear-gradient(135deg, rgba(74, 222, 128, 0.1) 0%, rgba(34, 211, 238, 0.1) 100%); padding: 20px; border-radius: 8px; border: 1px solid var(--accent-green); margin-bottom: 24px;">
+                        <h4 style="font-size: 15px; color: var(--text-primary); margin-bottom: 16px; text-align: center;">⬇️
+                            Download SDK Local Service</h4>
+
+                        <div style="display: flex; gap: 10px; justify-content: center; flex-wrap: wrap; margin-bottom: 12px;">
+                            <a href="https://raw.githubusercontent.com/HaithamMubarak/messaging-platform-sdk/develop/agents/examples/sdk-local-service/build/libs/sdk-local-service.jar" target="_blank"
+                               download
+                               style="display: inline-flex; align-items: center; gap: 6px; padding: 8px 16px; background: var(--accent-green); color: #000; text-decoration: none; border-radius: 5px; font-weight: 600; font-size: 12px; transition: all 0.2s;">
+                                <span style="font-size: 14px;">📦</span> sdk-local-service.jar
+                            </a>
+                            <a href="https://raw.githubusercontent.com/HaithamMubarak/messaging-platform-sdk/develop/agents/examples/sdk-local-service/src/main/resources/application.properties" target="_blank"
+                               download
+                               style="display: inline-flex; align-items: center; gap: 6px; padding: 8px 16px; background: var(--accent-blue); color: #fff; text-decoration: none; border-radius: 5px; font-weight: 600; font-size: 12px; transition: all 0.2s;">
+                                <span style="font-size: 14px;">⚙️</span> application.properties
+                            </a>
+                        </div>
+
+                        <div style="text-align: center; font-size: 12px; color: var(--text-secondary); line-height: 1.8;">
+                            <div><strong>Requires Java 11+</strong> • Run: <code
+                                    style="background: var(--bg-dark); padding: 2px 6px; border-radius: 3px;">java -jar
+                                sdk-local-service.jar</code></div>
+                            <div style="margin-top: 6px;">⚙️ Customize <strong>port, database, logging</strong> in
+                                application.properties
+                            </div>
+                            <div style="margin-top: 6px; font-size: 11px; color: var(--text-muted);">📥 Downloads from GitHub
+                                - always latest version
+                            </div>
+                        </div>
+                    </div>
+
+                    <div style="margin-bottom: 24px;">
+                        <div style="background: var(--bg-panel); padding: 16px; border-radius: 8px; border-left: 3px solid var(--accent-blue); margin-bottom: 16px;">
+                            <div style="font-size: 13px; color: var(--text-secondary);">
+                                <strong style="color: var(--accent-blue);">📋 Requirement:</strong> SDK Local Service must be
+                                running on <code style="background: var(--bg-dark); padding: 2px 6px; border-radius: 3px;">localhost:8088</code>
+                            </div>
+                        </div>
+
+                        <h4 style="font-size: 14px; color: var(--text-primary); margin-bottom: 12px;">Step 1: Start SDK
+                            Local Service</h4>
+                        <pre style="background: var(--bg-dark); padding: 12px; border-radius: 6px; font-size: 12px; color: var(--accent-green); margin-bottom: 16px; overflow-x: auto;">java -jar sdk-local-service.jar</pre>
+
+                        <h4 style="font-size: 14px; color: var(--text-primary); margin-bottom: 12px;">Step 2: Create
+                            Terminal Sessions</h4>
+                        <ul style="font-size: 13px; line-height: 2; color: var(--text-secondary); padding-left: 20px; margin-bottom: 16px;">
+                            <li>Click <strong style="color: var(--text-primary);">CMD/Bash/PowerShell</strong> to open a
+                                local terminal
+                            </li>
+                            <li>Click <strong style="color: var(--text-primary);">SSH</strong> to add a remote server
+                                connection
+                            </li>
+                            <li>Saved connections appear in the left sidebar</li>
+                            <li>Use <strong style="color: var(--text-primary);">tabs</strong> to manage multiple sessions
+                            </li>
+                        </ul>
+
+                        <h4 style="font-size: 14px; color: var(--text-primary); margin-bottom: 12px;">Features</h4>
+                        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 12px;">
+                            <div style="background: var(--bg-panel); padding: 12px; border-radius: 6px;">
+                                <div style="font-size: 16px; margin-bottom: 4px;">💻</div>
+                                <div style="font-size: 12px; font-weight: bold; color: var(--text-primary);">Local
+                                    Terminals
+                                </div>
+                                <div style="font-size: 11px; color: var(--text-secondary);">CMD, Bash, PowerShell</div>
+                            </div>
+                            <div style="background: var(--bg-panel); padding: 12px; border-radius: 6px;">
+                                <div style="font-size: 16px; margin-bottom: 4px;">🌐</div>
+                                <div style="font-size: 12px; font-weight: bold; color: var(--text-primary);">SSH
+                                    Connections
+                                </div>
+                                <div style="font-size: 11px; color: var(--text-secondary);">Save & manage servers</div>
+                            </div>
+                            <div style="background: var(--bg-panel); padding: 12px; border-radius: 6px;">
+                                <div style="font-size: 16px; margin-bottom: 4px;">📁</div>
+                                <div style="font-size: 12px; font-weight: bold; color: var(--text-primary);">File Browser
+                                </div>
+                                <div style="font-size: 11px; color: var(--text-secondary);">File transfer & management</div>
+                            </div>
+                            <div style="background: var(--bg-panel); padding: 12px; border-radius: 6px;">
+                                <div style="font-size: 16px; margin-bottom: 4px;">💬</div>
+                                <div style="font-size: 12px; font-weight: bold; color: var(--text-primary);">Remote Collaboration
+                                </div>
+                                <div style="font-size: 11px; color: var(--text-secondary);">Share terminals & collaborate live</div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div style="margin-top: 24px; padding-top: 20px; border-top: 1px solid var(--border-color);">
+                        <h4 style="font-size: 14px; color: var(--text-primary); margin-bottom: 12px;">💻 Source Code &
+                            Documentation</h4>
+                        <div style="display: flex; flex-wrap: wrap; gap: 12px;">
+                            <a href="https://github.com/HaithamMubarak/messaging-platform-sdk" target="_blank"
+                               style="color: var(--accent-purple); text-decoration: none; font-size: 13px; display: inline-flex; align-items: center; gap: 6px; padding: 8px 12px; background: var(--bg-panel); border-radius: 6px; border: 1px solid var(--border-color);">
+                                <span>⭐</span> View on GitHub
+                            </a>
+                            <a href="https://github.com/HaithamMubarak/messaging-platform-sdk/blob/main/README.md"
+                               target="_blank"
+                               style="color: var(--accent-blue); text-decoration: none; font-size: 13px; display: inline-flex; align-items: center; gap: 6px; padding: 8px 12px; background: var(--bg-panel); border-radius: 6px; border: 1px solid var(--border-color);">
+                                <span>📖</span> README
+                            </a>
+                            <a href="https://github.com/HaithamMubarak/messaging-platform-sdk/blob/main/DEVELOPER-GUIDE.md"
+                               target="_blank"
+                               style="color: var(--accent-blue); text-decoration: none; font-size: 13px; display: inline-flex; align-items: center; gap: 6px; padding: 8px 12px; background: var(--bg-panel); border-radius: 6px; border: 1px solid var(--border-color);">
+                                <span>👨‍💻</span> Dev Guide
+                            </a>
+                            <a href="https://github.com/HaithamMubarak/messaging-platform-sdk/blob/main/WEB-AGENT-GUIDE.md"
+                               target="_blank"
+                               style="color: var(--accent-blue); text-decoration: none; font-size: 13px; display: inline-flex; align-items: center; gap: 6px; padding: 8px 12px; background: var(--bg-panel); border-radius: 6px; border: 1px solid var(--border-color);">
+                                <span>🌐</span> Web Guide
+                            </a>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Shortcuts Tab -->
+                <div class="help-content" id="content-shortcuts" style="padding: 24px;">
+                    <h3 style="font-size: 16px; color: var(--accent-cyan); margin-bottom: 16px;">⌨️ Keyboard Shortcuts</h3>
+
+                    <div style="margin-bottom: 20px;">
+                        <h4 style="font-size: 14px; color: var(--text-primary); margin-bottom: 12px;">Terminal
+                            Shortcuts</h4>
+                        <div style="display: grid; grid-template-columns: auto 1fr; gap: 12px; font-size: 13px;">
+                            <kbd style="background: var(--bg-panel); padding: 6px 12px; border-radius: 4px; font-family: monospace;">Ctrl+C</kbd>
+                            <span style="color: var(--text-secondary);">Interrupt current command</span>
+
+                            <kbd style="background: var(--bg-panel); padding: 6px 12px; border-radius: 4px; font-family: monospace;">Ctrl+L</kbd>
+                            <span style="color: var(--text-secondary);">Clear terminal screen</span>
+
+                            <kbd style="background: var(--bg-panel); padding: 6px 12px; border-radius: 4px; font-family: monospace;">Ctrl+D</kbd>
+                            <span style="color: var(--text-secondary);">Exit terminal (EOF)</span>
+
+                            <kbd style="background: var(--bg-panel); padding: 6px 12px; border-radius: 4px; font-family: monospace;">↑
+                                / ↓</kbd>
+                            <span style="color: var(--text-secondary);">Navigate command history</span>
+
+                            <kbd style="background: var(--bg-panel); padding: 6px 12px; border-radius: 4px; font-family: monospace;">Tab</kbd>
+                            <span style="color: var(--text-secondary);">Auto-complete commands/paths</span>
+                        </div>
+                    </div>
+
+                    <div style="margin-bottom: 20px;">
+                        <h4 style="font-size: 14px; color: var(--text-primary); margin-bottom: 12px;">Tab Management</h4>
+                        <ul style="font-size: 13px; line-height: 2; color: var(--text-secondary); padding-left: 20px;">
+                            <li><strong style="color: var(--text-primary);">Right-click tab</strong> - Context menu (rename,
+                                duplicate, close)
+                            </li>
+                            <li><strong style="color: var(--text-primary);">Middle-click tab</strong> - Close tab</li>
+                            <li><strong style="color: var(--text-primary);">Drag tab</strong> - Reorder tabs</li>
+                        </ul>
+                    </div>
+
+                    <div>
+                        <h4 style="font-size: 14px; color: var(--text-primary); margin-bottom: 12px;">Session Actions</h4>
+                        <ul style="font-size: 13px; line-height: 2; color: var(--text-secondary); padding-left: 20px;">
+                            <li><strong style="color: var(--text-primary);">R key</strong> - Reconnect to disconnected
+                                session
+                            </li>
+                            <li><strong style="color: var(--text-primary);">Right-click connection</strong> - Edit,
+                                duplicate, or delete
+                            </li>
+                        </ul>
+                    </div>
+                </div>
+
+                <!-- API Reference Tab -->
+                <div class="help-content" id="content-api" style="padding: 24px;">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
+                        <h3 style="font-size: 16px; color: var(--accent-cyan); margin: 0;">🔌 SDK Local Service REST API</h3>
+                        <a href="http://localhost:8088/health" target="_blank"
+                           style="color: var(--accent-green); text-decoration: none; font-size: 12px; display: inline-flex; align-items: center; gap: 6px; padding: 6px 12px; background: rgba(74, 222, 128, 0.1); border-radius: 6px; border: 1px solid rgba(74, 222, 128, 0.3);">
+                            <span>🔗</span> Test API (Health Check)
+                        </a>
+                    </div>
+                    <div style="font-size: 12px; color: var(--text-secondary); margin-bottom: 20px;">
+                        Base URL: <code style="background: var(--bg-dark); padding: 2px 6px; border-radius: 3px;">http://localhost:8088</code>
+                        <span style="margin-left: 12px; color: var(--text-muted);">•</span>
+                        <span style="margin-left: 12px;">Requires SLS security token (auto-managed)</span>
+                    </div>
+
+                    <!-- Terminal Operations -->
+                    <div class="api-section">
+                        <h4 class="api-section-title">Terminal Operations</h4>
+
+                        <div class="api-endpoint">
+                            <div class="api-method post">POST</div>
+                            <div class="api-path">/terminal/create</div>
+                            <div class="api-desc">Create a new terminal session (local or SSH)</div>
+                        </div>
+                        <pre class="api-example">// Local terminal:
+{ "type": "local", "shell": "bash" }
+
+// SSH terminal:
+{ "type": "ssh", "connectionId": 1 }
+
+// With session restore:
+{ "type": "local", "shell": "cmd", "sessionId": "uuid" }</pre>
+
+                        <div class="api-endpoint">
+                            <div class="api-method post">POST</div>
+                            <div class="api-path">/terminal/{sessionId}/input</div>
+                            <div class="api-desc">Send input to terminal</div>
+                        </div>
+                        <pre class="api-example">{ "data": "ls -la\n" }</pre>
+
+                        <div class="api-endpoint">
+                            <div class="api-method post">POST</div>
+                            <div class="api-path">/terminal/{sessionId}/resize</div>
+                            <div class="api-desc">Resize terminal window</div>
+                        </div>
+                        <pre class="api-example">{ "cols": 120, "rows": 40 }</pre>
+
+                        <div class="api-endpoint">
+                            <div class="api-method get">GET</div>
+                            <div class="api-path">/terminal/sessions</div>
+                            <div class="api-desc">Get all active sessions</div>
+                        </div>
+
+                        <div class="api-endpoint">
+                            <div class="api-method get">GET</div>
+                            <div class="api-path">/terminal/session/{sessionId}</div>
+                            <div class="api-desc">Get session info</div>
+                        </div>
+
+                        <div class="api-endpoint">
+                            <div class="api-method delete">DELETE</div>
+                            <div class="api-path">/terminal/{sessionId}</div>
+                            <div class="api-desc">Close terminal session</div>
+                        </div>
+
+                        <div class="api-endpoint">
+                            <div class="api-method ws">WS</div>
+                            <div class="api-path">/terminal/stream/{sessionId}</div>
+                            <div class="api-desc">WebSocket stream for real-time output</div>
+                        </div>
+                    </div>
+
+                    <!-- SSH Connection Management -->
+                    <div class="api-section">
+                        <h4 class="api-section-title">SSH Connection Management</h4>
+
+                        <div class="api-endpoint">
+                            <div class="api-method get">GET</div>
+                            <div class="api-path">/terminal/ssh-connections</div>
+                            <div class="api-desc">List all saved SSH connections</div>
+                        </div>
+
+                        <div class="api-endpoint">
+                            <div class="api-method post">POST</div>
+                            <div class="api-path">/terminal/ssh-connections</div>
+                            <div class="api-desc">Save new SSH connection</div>
+                        </div>
+                        <pre class="api-example">{
+  "name": "production-server",
+  "host": "example.com",
+  "port": 22,
+  "username": "admin",
+  "password": "***"
+}</pre>
+
+                        <div class="api-endpoint">
+                            <div class="api-method get">GET</div>
+                            <div class="api-path">/terminal/ssh-connections/{id}</div>
+                            <div class="api-desc">Get SSH connection by ID</div>
+                        </div>
+
+                        <div class="api-endpoint">
+                            <div class="api-method put">PUT</div>
+                            <div class="api-path">/terminal/ssh-connections/{id}</div>
+                            <div class="api-desc">Update SSH connection</div>
+                        </div>
+
+                        <div class="api-endpoint">
+                            <div class="api-method delete">DELETE</div>
+                            <div class="api-path">/terminal/ssh-connections/{id}</div>
+                            <div class="api-desc">Delete SSH connection</div>
+                        </div>
+
+                        <div class="api-endpoint">
+                            <div class="api-method post">POST</div>
+                            <div class="api-path">/terminal/ssh-connections/test</div>
+                            <div class="api-desc">Test SSH connection before saving</div>
+                        </div>
+                        <pre class="api-example">{
+  "host": "example.com",
+  "port": 22,
+  "username": "admin",
+  "password": "***"
+}</pre>
+                    </div>
+
+                    <!-- File System Operations -->
+                    <div class="api-section">
+                        <h4 class="api-section-title">File System Operations</h4>
+
+                        <div class="api-endpoint">
+                            <div class="api-method get">GET</div>
+                            <div class="api-path">/filesystem/{terminalSessionId}/list</div>
+                            <div class="api-desc">List files in a directory (path param)</div>
+                        </div>
+                        <pre class="api-example">GET /filesystem/abc-123/list?path=/home/user</pre>
+
+                        <div class="api-endpoint">
+                            <div class="api-method post">POST</div>
+                            <div class="api-path">/filesystem/{terminalSessionId}/read</div>
+                            <div class="api-desc">Read file content</div>
+                        </div>
+                        <pre class="api-example">{ "path": "/home/user/file.txt" }</pre>
+
+                        <div class="api-endpoint">
+                            <div class="api-method post">POST</div>
+                            <div class="api-path">/filesystem/{terminalSessionId}/write</div>
+                            <div class="api-desc">Write file content</div>
+                        </div>
+                        <pre class="api-example">{
+  "path": "/home/user/file.txt",
+  "content": "base64-encoded-content"
+}</pre>
+
+                        <div class="api-endpoint">
+                            <div class="api-method post">POST</div>
+                            <div class="api-path">/filesystem/{terminalSessionId}/create-file</div>
+                            <div class="api-desc">Create a new file</div>
+                        </div>
+                        <pre class="api-example">{ "path": "/home/user/newfile.txt" }</pre>
+
+                        <div class="api-endpoint">
+                            <div class="api-method post">POST</div>
+                            <div class="api-path">/filesystem/{terminalSessionId}/create-directory</div>
+                            <div class="api-desc">Create a new directory</div>
+                        </div>
+                        <pre class="api-example">{ "path": "/home/user/newfolder" }</pre>
+
+                        <div class="api-endpoint">
+                            <div class="api-method post">POST</div>
+                            <div class="api-path">/filesystem/{terminalSessionId}/delete</div>
+                            <div class="api-desc">Delete file or directory</div>
+                        </div>
+                        <pre class="api-example">{ "path": "/home/user/oldfile.txt" }</pre>
+
+                        <div class="api-endpoint">
+                            <div class="api-method post">POST</div>
+                            <div class="api-path">/filesystem/{terminalSessionId}/rename</div>
+                            <div class="api-desc">Rename/move file or directory</div>
+                        </div>
+                        <pre class="api-example">{
+  "oldPath": "/home/user/old.txt",
+  "newPath": "/home/user/new.txt"
+}</pre>
+                    </div>
+
+                    <!-- Notes Management -->
+                    <div class="api-section">
+                        <h4 class="api-section-title">Notes Management</h4>
+
+                        <div class="api-endpoint">
+                            <div class="api-method get">GET</div>
+                            <div class="api-path">/api/notes</div>
+                            <div class="api-desc">Get all notes</div>
+                        </div>
+
+                        <div class="api-endpoint">
+                            <div class="api-method get">GET</div>
+                            <div class="api-path">/api/notes/{id}</div>
+                            <div class="api-desc">Get specific note by ID</div>
+                        </div>
+
+                        <div class="api-endpoint">
+                            <div class="api-method post">POST</div>
+                            <div class="api-path">/api/notes</div>
+                            <div class="api-desc">Create a new note</div>
+                        </div>
+                        <pre class="api-example">{
+  "title": "My Note",
+  "content": "# Note content",
+  "shared": false
+}</pre>
+
+                        <div class="api-endpoint">
+                            <div class="api-method put">PUT</div>
+                            <div class="api-path">/api/notes/{id}</div>
+                            <div class="api-desc">Update an existing note</div>
+                        </div>
+
+                        <div class="api-endpoint">
+                            <div class="api-method delete">DELETE</div>
+                            <div class="api-path">/api/notes/{id}</div>
+                            <div class="api-desc">Delete a note</div>
+                        </div>
+
+                        <div class="api-endpoint">
+                            <div class="api-method get">GET</div>
+                            <div class="api-path">/api/notes/shared</div>
+                            <div class="api-desc">Get all shared notes</div>
+                        </div>
+                    </div>
+
+                    <!-- Authentication -->
+                    <div class="api-section">
+                        <h4 class="api-section-title">Authentication</h4>
+
+                        <div class="api-endpoint">
+                            <div class="api-method post">POST</div>
+                            <div class="api-path">/auth/token</div>
+                            <div class="api-desc">Generate security token for web clients</div>
+                        </div>
+                        <pre class="api-example">{
+  "origin": "http://localhost:8080",
+  "expiryHours": 24
+}</pre>
+
+                        <div class="api-endpoint">
+                            <div class="api-method post">POST</div>
+                            <div class="api-path">/auth/validate</div>
+                            <div class="api-desc">Validate security token</div>
+                        </div>
+                        <pre class="api-example">{ "token": "your-token-here" }</pre>
+                    </div>
+
+                    <!-- System -->
+                    <div class="api-section">
+                        <h4 class="api-section-title">System</h4>
+
+                        <div class="api-endpoint">
+                            <div class="api-method get">GET</div>
+                            <div class="api-path">/health</div>
+                            <div class="api-desc">Health check endpoint (no auth required)</div>
+                        </div>
+                        <pre class="api-example">// Response:
+{
+  "status": "UP",
+  "service": "SDK Local Service",
+  "version": "1.0.0",
+  "uptime": "2h 15m"
+}</pre>
+                    </div>
+
+                    <!-- Usage Notes -->
+                    <div style="background: rgba(255, 193, 7, 0.1); padding: 16px; border-radius: 8px; border-left: 3px solid var(--accent-yellow); margin-top: 24px;">
+                        <h4 style="font-size: 13px; color: var(--accent-yellow); margin-bottom: 8px;">📝 Important Notes</h4>
+                        <ul style="font-size: 12px; line-height: 1.8; color: var(--text-secondary); margin: 0; padding-left: 20px;">
+                            <li><strong>Security Token:</strong> Most endpoints require an <code>X-Security-Token</code> header (auto-managed by UI)</li>
+                            <li><strong>File System:</strong> Auto-creates sessions based on terminal session ID</li>
+                            <li><strong>WebSocket:</strong> Use binary frames for terminal output, text frames for control messages</li>
+                            <li><strong>Session Restore:</strong> Include <code>sessionId</code> in create request to restore previous session</li>
+                            <li><strong>Base64 Encoding:</strong> File content must be base64-encoded in write operations</li>
+                        </ul>
+                    </div>
+                </div>
+
+                <!-- Documentation Tab -->
+                <div class="help-content" id="content-docs" style="padding: 24px;">
+                    <h3 style="font-size: 16px; color: var(--accent-cyan); margin-bottom: 16px;">📚 References</h3>
+
+                    <div style="margin-bottom: 20px;">
+                        <h4 style="font-size: 14px; color: var(--text-primary); margin-bottom: 12px;">SDK Local Service</h4>
+                        <div style="display: flex; flex-direction: column; gap: 10px;">
+                            <a href="https://raw.githubusercontent.com/HaithamMubarak/messaging-platform-sdk/develop/agents/examples/sdk-local-service/build/libs/sdk-local-service.jar"
+                               download
+                               style="color: var(--accent-green); text-decoration: none; font-size: 13px; display: flex; align-items: center; gap: 8px;">
+                                <span>⬇️</span> Download SDK Local Service JAR
+                            </a>
+                            <a href="http://localhost:8088/health" target="_blank"
+                               style="color: var(--accent-cyan); text-decoration: none; font-size: 13px; display: flex; align-items: center; gap: 8px;">
+                                <span>❤️</span> Health Check Endpoint
+                            </a>
+                        </div>
+                    </div>
+
+                    <div style="margin-bottom: 20px;">
+                        <h4 style="font-size: 14px; color: var(--text-primary); margin-bottom: 12px;">Messaging Platform
+                            SDK</h4>
+                        <div style="display: flex; flex-direction: column; gap: 10px;">
+                            <a href="../../index.html" target="_blank"
+                               style="color: var(--accent-blue); text-decoration: none; font-size: 13px; display: flex; align-items: center; gap: 8px;">
+                                <span>🏠</span> SDK Examples Home
+                            </a>
+                            <a href="https://github.com/HaithamMubarak/messaging-platform-sdk/blob/main/README.md"
+                               target="_blank"
+                               style="color: var(--accent-blue); text-decoration: none; font-size: 13px; display: flex; align-items: center; gap: 8px;">
+                                <span>📖</span> SDK Main Documentation (README)
+                            </a>
+                            <a href="https://github.com/HaithamMubarak/messaging-platform-sdk/blob/main/DEVELOPER-GUIDE.md"
+                               target="_blank"
+                               style="color: var(--accent-blue); text-decoration: none; font-size: 13px; display: flex; align-items: center; gap: 8px;">
+                                <span>👨‍💻</span> Developer Guide
+                            </a>
+                            <a href="https://github.com/HaithamMubarak/messaging-platform-sdk/blob/main/USER-GUIDE.md"
+                               target="_blank"
+                               style="color: var(--accent-blue); text-decoration: none; font-size: 13px; display: flex; align-items: center; gap: 8px;">
+                                <span>📘</span> User Guide
+                            </a>
+                            <a href="https://github.com/HaithamMubarak/messaging-platform-sdk/blob/main/WEB-AGENT-GUIDE.md"
+                               target="_blank"
+                               style="color: var(--accent-blue); text-decoration: none; font-size: 13px; display: flex; align-items: center; gap: 8px;">
+                                <span>🌐</span> Web Agent Guide
+                            </a>
+                        </div>
+                    </div>
+
+                    <div style="margin-bottom: 20px;">
+                        <h4 style="font-size: 14px; color: var(--text-primary); margin-bottom: 12px;">Additional
+                            Documentation</h4>
+                        <div style="display: flex; flex-direction: column; gap: 10px;">
+                            <a href="https://github.com/HaithamMubarak/messaging-platform-sdk/blob/main/ROADMAP.md"
+                               target="_blank"
+                               style="color: var(--accent-blue); text-decoration: none; font-size: 13px; display: flex; align-items: center; gap: 8px;">
+                                <span>🗺️</span> Project Roadmap
+                            </a>
+                            <a href="https://github.com/HaithamMubarak/messaging-platform-sdk/blob/main/CONTRIBUTING.md"
+                               target="_blank"
+                               style="color: var(--accent-blue); text-decoration: none; font-size: 13px; display: flex; align-items: center; gap: 8px;">
+                                <span>🤝</span> Contributing Guidelines
+                            </a>
+                            <a href="https://github.com/HaithamMubarak/messaging-platform-sdk/tree/main/agents/examples/web-sdk-server"
+                               target="_blank"
+                               style="color: var(--accent-purple); text-decoration: none; font-size: 13px; display: flex; align-items: center; gap: 8px;">
+                                <span>📂</span> Web SDK Server Source Code
+                            </a>
+                        </div>
+                    </div>
+
+                    <div style="margin-bottom: 20px;">
+                        <h4 style="font-size: 14px; color: var(--text-primary); margin-bottom: 12px;">Source Code</h4>
+                        <div style="display: flex; flex-direction: column; gap: 10px;">
+                            <a href="https://github.com/HaithamMubarak/messaging-platform-sdk" target="_blank"
+                               style="color: var(--accent-purple); text-decoration: none; font-size: 13px; display: flex; align-items: center; gap: 8px;">
+                                <span>⭐</span> GitHub Repository - SDK Source Code
+                            </a>
+                        </div>
+                    </div>
+
+                    <div style="margin-bottom: 20px;">
+                        <h4 style="font-size: 14px; color: var(--text-primary); margin-bottom: 12px;">External
+                            Resources</h4>
+                        <div style="display: flex; flex-direction: column; gap: 10px;">
+                            <a href="https://xtermjs.org/" target="_blank"
+                               style="color: var(--accent-blue); text-decoration: none; font-size: 13px; display: flex; align-items: center; gap: 8px;">
+                                <span>🔗</span> xterm.js Documentation
+                            </a>
+                            <a href="https://spring.io/projects/spring-boot" target="_blank"
+                               style="color: var(--accent-blue); text-decoration: none; font-size: 13px; display: flex; align-items: center; gap: 8px;">
+                                <span>🍃</span> Spring Boot Documentation
+                            </a>
+                        </div>
+                    </div>
+
+                    <div style="background: var(--bg-panel); padding: 16px; border-radius: 8px; border-left: 3px solid var(--accent-cyan);">
+                        <h4 style="font-size: 13px; color: var(--text-primary); margin-bottom: 8px;">💡 Need Help?</h4>
+                        <div style="font-size: 12px; color: var(--text-secondary); line-height: 1.6;">
+                            Check the status indicator in the top-right corner. If SDK Local Service is offline, make sure
+                            it's running on <code style="background: var(--bg-dark); padding: 2px 6px; border-radius: 3px;">localhost:8088</code>
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" onclick="closeHelpModal()">Close</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- About Modal -->
+    <div class="modal-overlay" id="aboutModalOverlay">
+        <div class="modal" style="width: 700px; max-width: 95vw; max-height: 90vh; overflow-y: auto;">
+            <div class="modal-header">
+                <div class="modal-title">ℹ️ About SDK Terminal</div>
+                <div class="modal-close" onclick="closeAboutModal()">✕</div>
+            </div>
+            <div class="modal-body" style="padding: 24px;">
+
+                <!-- App Info -->
+                <div style="text-align: center; margin-bottom: 24px;">
+                    <h2 style="color: var(--accent-cyan); margin-bottom: 8px; font-size: 24px;">💬 Messaging Platform</h2>
+                    <h3 style="color: var(--text-primary); margin-bottom: 4px; font-size: 18px;">Shared Terminal</h3>
+                    <p style="color: var(--text-secondary); font-size: 14px;">Version 1.0.0</p>
+                </div>
+
+                <!-- Description -->
+                <div style="background: linear-gradient(135deg, rgba(74, 158, 255, 0.1) 0%, rgba(34, 211, 238, 0.1) 100%); padding: 16px; border-radius: 8px; border: 1px solid var(--accent-blue); margin-bottom: 24px;">
+                    <p style="color: var(--text-secondary); font-size: 13px; line-height: 1.6; margin: 0;">
+                        A web-based terminal emulator with real-time collaboration features. Connect to local terminals,
+                        SSH servers, and share your sessions with others through WebRTC. Built with modern web technologies
+                        and Spring Boot microservices.
+                    </p>
+                </div>
+
+                <!-- Backend Technologies -->
+                <div style="margin-bottom: 20px;">
+                    <h4 style="color: var(--accent-green); font-size: 14px; margin-bottom: 12px; display: flex; align-items: center; gap: 8px;">
+                        <span>🔧</span> Backend Technologies
+                    </h4>
+                    <div style="background: var(--bg-panel); padding: 12px; border-radius: 6px; font-size: 12px; line-height: 1.8;">
+                        <div style="display: grid; grid-template-columns: 140px 1fr; gap: 8px; color: var(--text-secondary);">
+                            <strong style="color: var(--text-primary);">Framework:</strong>
+                            <span>Spring Boot 2.7.14</span>
+
+                            <strong style="color: var(--text-primary);">Language:</strong>
+                            <span>Java 11</span>
+
+                            <strong style="color: var(--text-primary);">Build Tool:</strong>
+                            <span>Gradle 8.14</span>
+
+                            <strong style="color: var(--text-primary);">WebSocket:</strong>
+                            <span>Spring WebSocket + STOMP</span>
+
+                            <strong style="color: var(--text-primary);">Database:</strong>
+                            <span>H2 (Embedded)</span>
+
+                            <strong style="color: var(--text-primary);">SSH Client:</strong>
+                            <span>JSch 0.1.55</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Frontend Technologies -->
+                <div style="margin-bottom: 20px;">
+                    <h4 style="color: var(--accent-blue); font-size: 14px; margin-bottom: 12px; display: flex; align-items: center; gap: 8px;">
+                        <span>🎨</span> Frontend Technologies
+                    </h4>
+                    <div style="background: var(--bg-panel); padding: 12px; border-radius: 6px; font-size: 12px; line-height: 1.8;">
+                        <div style="display: grid; grid-template-columns: 140px 1fr; gap: 8px; color: var(--text-secondary);">
+                            <strong style="color: var(--text-primary);">Terminal Emulator:</strong>
+                            <span>xterm.js 5.x</span>
+
+                            <strong style="color: var(--text-primary);">Code Editor:</strong>
+                            <span>CodeMirror 5.65.x</span>
+
+                            <strong style="color: var(--text-primary);">UI Framework:</strong>
+                            <span>Vanilla JavaScript + CSS3</span>
+
+                            <strong style="color: var(--text-primary);">WebRTC:</strong>
+                            <span>Native WebRTC API</span>
+
+                            <strong style="color: var(--text-primary);">PWA:</strong>
+                            <span>Service Worker + Manifest</span>
+
+                            <strong style="color: var(--text-primary);">Icons:</strong>
+                            <span>Unicode Emoji</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Key Libraries -->
+                <div style="margin-bottom: 20px;">
+                    <h4 style="color: var(--accent-cyan); font-size: 14px; margin-bottom: 12px; display: flex; align-items: center; gap: 8px;">
+                        <span>📦</span> Key Libraries & Addons
+                    </h4>
+                    <div style="background: var(--bg-panel); padding: 12px; border-radius: 6px; font-size: 12px; line-height: 1.8;">
+                        <div style="display: grid; grid-template-columns: 140px 1fr; gap: 8px; color: var(--text-secondary);">
+                            <strong style="color: var(--text-primary);">xterm-addon-fit:</strong>
+                            <span>Terminal auto-sizing</span>
+
+                            <strong style="color: var(--text-primary);">xterm-addon-web-links:</strong>
+                            <span>Clickable URLs</span>
+
+                            <strong style="color: var(--text-primary);">xterm-addon-search:</strong>
+                            <span>Text search in terminal</span>
+
+                            <strong style="color: var(--text-primary);">CodeMirror modes:</strong>
+                            <span>JavaScript, Python, Java, CSS, HTML, Markdown, Shell</span>
+
+                            <strong style="color: var(--text-primary);">CodeMirror addons:</strong>
+                            <span>Search, Match Highlighter, Scrollbar Matches, Closebrackets</span>
+
+                            <strong style="color: var(--text-primary);">Lombok:</strong>
+                            <span>Java code generation</span>
+
+                            <strong style="color: var(--text-primary);">SLF4J + Logback:</strong>
+                            <span>Logging framework</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Features -->
+                <div style="margin-bottom: 20px;">
+                    <h4 style="color: var(--accent-yellow); font-size: 14px; margin-bottom: 12px; display: flex; align-items: center; gap: 8px;">
+                        <span>✨</span> Features
+                    </h4>
+                    <div style="background: var(--bg-panel); padding: 12px; border-radius: 6px;">
+                        <ul style="font-size: 12px; line-height: 1.8; color: var(--text-secondary); margin: 0; padding-left: 20px;">
+                            <li>Local terminal sessions (CMD, Bash, PowerShell)</li>
+                            <li>SSH connection management with saved profiles</li>
+                            <li>Real-time terminal sharing via WebRTC</li>
+                            <li>File explorer with SFTP support</li>
+                            <li>Integrated code editor with syntax highlighting</li>
+                            <li>Notes management with Markdown support</li>
+                            <li>Session persistence and restoration</li>
+                            <li>Multi-tab interface with drag & drop</li>
+                            <li>Progressive Web App (PWA) support</li>
+                            <li>Dark/Light theme switching</li>
+                        </ul>
+                    </div>
+                </div>
+
+                <!-- Credits -->
+                <div style="margin-bottom: 20px;">
+                    <h4 style="color: var(--accent-purple); font-size: 14px; margin-bottom: 12px; display: flex; align-items: center; gap: 8px;">
+                        <span>👏</span> Credits & Open Source
+                    </h4>
+                    <div style="background: var(--bg-panel); padding: 12px; border-radius: 6px;">
+                        <p style="font-size: 12px; line-height: 1.6; color: var(--text-secondary); margin: 0 0 8px 0;">
+                            Built with amazing open source projects:
+                        </p>
+                        <ul style="font-size: 12px; line-height: 1.6; color: var(--text-secondary); margin: 0; padding-left: 20px;">
+                            <li><strong style="color: var(--text-primary);">xterm.js</strong> by xtermjs team</li>
+                            <li><strong style="color: var(--text-primary);">CodeMirror</strong> by Marijn Haverbeke</li>
+                            <li><strong style="color: var(--text-primary);">Spring Boot</strong> by Pivotal/VMware</li>
+                            <li><strong style="color: var(--text-primary);">JSch</strong> by JCraft</li>
+                        </ul>
+                    </div>
+                </div>
+
+                <!-- License & Copyright -->
+                <div style="border-top: 1px solid var(--border-color); padding-top: 16px; text-align: center;">
+                    <p style="color: var(--text-secondary); font-size: 12px; margin: 0 0 8px 0;">
+                        Part of <a href="https://github.com/HaithamMubarak/messaging-platform-sdk" target="_blank"
+                                   style="color: var(--accent-cyan); text-decoration: none; font-weight: 600;">
+                            <strong>Messaging Platform SDK</strong>
+                        </a>
+                    </p>
+                    <p style="color: var(--text-muted); font-size: 11px; margin: 0 0 12px 0;">
+                        © 2026 - Open Source Project
+                    </p>
+
+                    <!-- GitHub Links -->
+                    <div style="display: flex; gap: 8px; justify-content: center; flex-wrap: wrap; margin-bottom: 12px;">
+                        <!-- Frontend Source -->
+                        <a href="https://github.com/HaithamMubarak/messaging-platform-sdk/tree/main/agents/examples/web-sdk-server/src/main/resources/static/apps/terminal"
+                           target="_blank"
+                           style="display: inline-flex; align-items: center; gap: 5px; padding: 8px 12px; background: linear-gradient(135deg, rgba(74, 158, 255, 0.2), rgba(34, 211, 238, 0.2)); border: 1px solid var(--accent-cyan); border-radius: 6px; color: var(--accent-cyan); text-decoration: none; font-size: 11px; font-weight: 600; transition: all 0.2s ease;">
+                            <span>🎨</span>
+                            <span>Frontend</span>
+                            <span style="font-size: 9px;">↗</span>
+                        </a>
+                        <!-- Backend Source -->
+                        <a href="https://github.com/HaithamMubarak/messaging-platform-sdk/tree/main/agents/examples/sdk-local-service"
+                           target="_blank"
+                           title="SDK Local Service - Backend API"
+                           style="display: inline-flex; align-items: center; gap: 5px; padding: 8px 12px; background: linear-gradient(135deg, rgba(139, 92, 246, 0.2), rgba(99, 102, 241, 0.2)); border: 1px solid var(--accent-purple); border-radius: 6px; color: var(--accent-purple); text-decoration: none; font-size: 11px; font-weight: 600; transition: all 0.2s ease;">
+                            <span>⚙️</span>
+                            <span>Backend</span>
+                            <span style="font-size: 9px;">↗</span>
+                        </a>
+                        <!-- SDK Repo -->
+                        <a href="https://github.com/HaithamMubarak/messaging-platform-sdk"
+                           target="_blank"
+                           style="display: inline-flex; align-items: center; gap: 5px; padding: 8px 12px; background: linear-gradient(135deg, rgba(34, 211, 238, 0.2), rgba(16, 185, 129, 0.2)); border: 1px solid var(--accent-green); border-radius: 6px; color: var(--accent-green); text-decoration: none; font-size: 11px; font-weight: 600; transition: all 0.2s ease;">
+                            <span>⭐</span>
+                            <span>SDK Repo</span>
+                            <span style="font-size: 9px;">↗</span>
+                        </a>
+                    </div>
+
+                    <!-- Report Issue Button -->
+                    <a href="https://github.com/HaithamMubarak/messaging-platform-sdk/issues/new?title=[Terminal%20App]%20&body=**Terminal%20App%20Issue/Feedback**%0A%0A**Description:**%0A%3C!--%20Describe%20your%20issue%20or%20feedback%20here%20--%3E%0A%0A**Environment:**%0A-%20Browser:%20%3C!--%20e.g.,%20Chrome%20120%20--%3E%0A-%20OS:%20%3C!--%20e.g.,%20Windows%2011%20--%3E%0A-%20Terminal%20App%20Version:%201.0.0%0A%0A**Steps%20to%20Reproduce:**%0A1.%20%0A2.%20%0A3.%20%0A%0A**Expected%20Behavior:**%0A%3C!--%20What%20should%20happen%20--%3E%0A%0A**Actual%20Behavior:**%0A%3C!--%20What%20actually%20happens%20--%3E%0A%0A**Additional%20Context:**%0A%3C!--%20Screenshots,%20logs,%20or%20other%20information%20--%3E"
+                       target="_blank"
+                       style="display: inline-flex; align-items: center; gap: 8px; padding: 10px 18px;
+                              background: linear-gradient(135deg, rgba(251, 146, 60, 0.2), rgba(239, 68, 68, 0.2));
+                              border: 1px solid rgba(251, 146, 60, 0.5); border-radius: 8px; color: #fb923c;
+                              text-decoration: none; font-size: 12px; font-weight: 600; transition: all 0.2s ease;">
+                        <span>🐛</span>
+                        <span>Report Issue / Feedback</span>
+                        <span style="font-size: 10px;">↗</span>
+                    </a>
+                </div>
+
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" onclick="closeAboutModal()">Close</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- PWA Service Worker Registration -->
+    <script>
+        // Register service worker ONLY when PWA is installed (standalone mode)
+        // This prevents unnecessary caching when using in browser
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', async () => {
+                // Check if app is running in standalone mode (PWA installed)
+                const isStandalone = window.matchMedia('(display-mode: standalone)').matches
+                    || window.navigator.standalone  // iOS Safari
+                    || document.referrer.includes('android-app://'); // Android TWA
+
+                if (isStandalone) {
+                    // PWA is installed - register service worker for offline support
+                    navigator.serviceWorker.register('./sw.js')
+                        .then((registration) => {
+                            console.log('✅ PWA: Service Worker registered (standalone mode):', registration.scope);
+
+                            // Check for updates
+                            registration.addEventListener('updatefound', () => {
+                                const newWorker = registration.installing;
+                                console.log('🔄 PWA: New service worker found, installing...');
+
+                                newWorker.addEventListener('statechange', () => {
+                                    if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
+                                        console.log('✨ PWA: New version available! Reload to update.');
+                                        // Show toast notification
+                                        if (typeof showToast === 'function') {
+                                            showToast('info', '🔄 Update Available',
+                                                'A new version is available. Reload to update.', 8000);
+                                        }
+                                    }
+                                });
+                            });
+                        })
+                        .catch((error) => {
+                            console.warn('⚠️ PWA: Service Worker registration failed:', error);
+                        });
+
+                    // Listen for service worker controlling the page
+                    navigator.serviceWorker.addEventListener('controllerchange', () => {
+                        console.log('🔄 PWA: Service Worker controller changed - reloading...');
+                        window.location.reload();
+                    });
+                } else {
+                    // Running in browser - UNREGISTER service worker if exists
+                    const registration = await navigator.serviceWorker.getRegistration();
+                    if (registration) {
+                        console.log('🧹 PWA: Unregistering service worker (browser mode)...');
+                        await registration.unregister();
+                        console.log('✅ PWA: Service Worker unregistered');
+
+                        // Clear all caches
+                        const cacheNames = await caches.keys();
+                        await Promise.all(cacheNames.map(name => caches.delete(name)));
+                        console.log('✅ PWA: All caches cleared');
+
+                        console.log('ℹ️ PWA: Running in browser mode - Always loads fresh from server');
+                        console.log('💡 Install the app to enable offline support and faster loading!');
+                    } else {
+                        console.log('ℹ️ PWA: Running in browser mode - Service Worker not registered');
+                        console.log('💡 Install the app to enable offline support and faster loading!');
+                    }
+                }
+            });
+        } else {
+            console.warn('⚠️ PWA: Service Workers not supported in this browser');
+        }
+
+        // Handle install prompt
+        let deferredPrompt;
+        window.addEventListener('beforeinstallprompt', (e) => {
+            // Prevent the mini-infobar from appearing on mobile
+            e.preventDefault();
+            // Stash the event so it can be triggered later
+            deferredPrompt = e;
+            console.log('💡 PWA: Install prompt available');
+
+            // Show the install button in the modal
+            const installBtn = document.getElementById('pwaInstallBtnModal');
+            const installMessage = document.getElementById('pwaInstallMessageModal');
+            if (installBtn) {
+                installBtn.style.display = 'inline-block';
+            }
+            if (installMessage) {
+                installMessage.style.display = 'none';
+            }
+
+            // Don't show notification - user can find install button in the Install menu
+        });
+
+        // Optional: Function to trigger install prompt
+        window.promptPWAInstall = function() {
+            if (deferredPrompt) {
+                deferredPrompt.prompt();
+                deferredPrompt.userChoice.then((choiceResult) => {
+                    if (choiceResult.outcome === 'accepted') {
+                        console.log('✅ PWA: User accepted the install prompt');
+                        // Hide the install button in modal and show message
+                        const installBtn = document.getElementById('pwaInstallBtnModal');
+                        const installMessage = document.getElementById('pwaInstallMessageModal');
+                        if (installBtn) {
+                            installBtn.style.display = 'none';
+                        }
+                        if (installMessage) {
+                            installMessage.style.display = 'block';
+                            installMessage.textContent = '✅ App installed successfully!';
+                            installMessage.style.color = 'var(--accent-green)';
+                        }
+                        if (typeof showToast === 'function') {
+                            showToast('success', '✅ App Installed',
+                                'SDK Terminal has been installed successfully!', 4000);
+                        }
+                    } else {
+                        console.log('❌ PWA: User dismissed the install prompt');
+                    }
+                    deferredPrompt = null;
+                });
+            } else {
+                // Already installed or not available
+                if (window.matchMedia('(display-mode: standalone)').matches ||
+                    window.navigator.standalone === true) {
+                    if (typeof showToast === 'function') {
+                        showToast('info', 'ℹ️ Already Installed',
+                            'SDK Terminal is already installed!', 3000);
+                    }
+                } else {
+                    if (typeof showToast === 'function') {
+                        showToast('warning', '⚠️ Not Available',
+                            'Install prompt is not available. Use browser menu to install (⊕ icon in address bar).', 5000);
+                    }
+                }
+            }
+        };
+
+        // Detect if running as installed PWA
+        window.addEventListener('load', () => {
+            if (window.matchMedia('(display-mode: standalone)').matches ||
+                window.navigator.standalone === true) {
+                console.log('✅ PWA: Running as installed app');
+                document.body.classList.add('pwa-installed');
+                // Hide install button and show message if already installed
+                const installBtn = document.getElementById('pwaInstallBtnModal');
+                const installMessage = document.getElementById('pwaInstallMessageModal');
+                if (installBtn) {
+                    installBtn.style.display = 'none';
+                }
+                if (installMessage) {
+                    installMessage.style.display = 'block';
+                    installMessage.textContent = '✅ App is already installed';
+                    installMessage.style.color = 'var(--accent-green)';
+                }
+            }
+        });
+    </script>
+</body>
+</html>
+

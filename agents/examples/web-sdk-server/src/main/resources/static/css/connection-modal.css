@@ -41,6 +41,7 @@
     width: calc(100% - 32px);
     max-width: 500px;
     transition: all 0.2s ease;
+    /* Removed: cursor pointer - header is not clickable, only button is */
 }
 
 .connection-modal.collapsed .collapsed-header {
@@ -49,9 +50,7 @@
     gap: 8px;
 }
 
-.connection-modal .collapsed-header:hover {
-    box-shadow: 0 6px 16px rgba(0, 0, 0, 0.15);
-}
+/* Removed: hover effect on header - only button should have hover effect */
 
 /* Header row with title and toggle */
 .connection-modal .ch-header-row {
@@ -93,6 +92,16 @@
     font-size: 12px;
     color: #1e40af;
     font-weight: 500;
+}
+
+/* Username label in collapsed header */
+.connection-modal .quick-username-label {
+    display: block;
+    font-size: 12px;
+    font-weight: 600;
+    color: #1f2937;
+    margin-bottom: 4px;
+    width: 100%;
 }
 
 /* Username input row (full width) */
@@ -190,19 +199,30 @@
 }
 
 .connection-modal .modal-toggle-btn {
-    background: transparent;
-    border: none;
-    color: #6b7280;
+    background: #f3f4f6;
+    border: 1px solid #d1d5db;
+    color: #1f2937;
     font-size: 18px;
     cursor: pointer;
-    padding: 4px 8px;
+    padding: 6px 10px;
     transition: all 0.2s ease;
+    min-width: 36px;
+    min-height: 36px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 6px;
 }
 
 .connection-modal .modal-toggle-btn:hover {
-    color: #1f2937;
-    background: #f3f4f6;
-    border-radius: 6px;
+    color: #111827;
+    background: #e5e7eb;
+    border-color: #9ca3af;
+}
+
+.connection-modal .modal-toggle-btn:active {
+    background: #d1d5db;
+    transform: scale(0.95);
 }
 
 /* Full modal content */
@@ -274,7 +294,7 @@
 .connection-modal form {
     display: flex;
     flex-direction: column;
-    gap: 12px;
+    gap: 4px;
 }
 
 .connection-modal input[type="text"],
@@ -287,6 +307,7 @@
     color: #111827;
     background: #ffffff;
     transition: border-color 0.2s ease;
+    margin-bottom: 8px;
 }
 
 .connection-modal input[type="text"]::placeholder,
@@ -469,6 +490,16 @@
     font-weight: 600;
     color: #1f2937;
     margin-bottom: 4px;
+}
+
+/* Visible form labels */
+.form-label-visible {
+    display: block;
+    font-size: 13px;
+    font-weight: 600;
+    color: #1f2937;
+    margin-bottom: 6px;
+    margin-top: 4px;
 }
 
 /* Disconnect button */

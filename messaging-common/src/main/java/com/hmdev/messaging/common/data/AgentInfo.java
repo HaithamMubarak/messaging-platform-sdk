@@ -12,6 +12,20 @@ import java.util.HashMap;
 public class AgentInfo {
 
     private String agentName;
+
+    /**
+     * Agent alias (display name/nickname) - DEPRECATED
+     *
+     * Display names are now managed entirely in the frontend.
+     * This field is kept for backward compatibility but should not be used.
+     *
+     * @deprecated Display names should be managed in frontend only via DataChannel P2P sync.
+     *             Backend no longer tracks or validates display names.
+     *             Will be removed in a future version.
+     */
+    @Deprecated
+    private String agentAlias;
+
     /**
      * Agent type (e.g., "JAVA-AGENT", "PYTHON-AGENT", "WEB-AGENT")
      */
@@ -63,6 +77,7 @@ public class AgentInfo {
 
     public AgentInfo(String agentName, Map<String, String> metadata) {
         this.agentName = agentName;
+        this.agentAlias = agentName;  // Default: alias = name
         this.metadata = metadata != null ? metadata : new HashMap<>();
         this.role = null;
         this.customEventType = null;
@@ -74,6 +89,7 @@ public class AgentInfo {
      */
     public AgentInfo(String agentName, Map<String, String> metadata, String role) {
         this.agentName = agentName;
+        this.agentAlias = agentName;  // Default: alias = name
         this.metadata = metadata != null ? metadata : new HashMap<>();
         this.role = role;
         this.customEventType = null;
@@ -88,6 +104,7 @@ public class AgentInfo {
                      Map<String, String> metadata, String role, String customEventType,
                      java.util.Set<Capability> restrictedCapabilities, Long connectionTime) {
         this.agentName = agentName;
+        this.agentAlias = agentName;  // Default: alias = name
         this.agentType = agentType;
         this.descriptor = descriptor;
         this.ipAddress = ipAddress;
@@ -157,6 +174,24 @@ public class AgentInfo {
      */
     public static AgentInfo fromContextMap(String agentName, Map<String, String> agentContext, String role,
                                           String customEventType, java.util.Set<Capability> restrictedCapabilities) {
+        return fromContextMap(agentName, null, agentContext, role, customEventType, restrictedCapabilities);
+    }
+
+    /**
+     * Factory method: Create AgentInfo from request metadata map with optional agentAlias.
+     * Extracts common fields from the metadata map and creates an AgentInfo with those fields set directly.
+     * Remaining custom fields stay in the metadata map.
+     *
+     * @param agentName The permanent agent identifier
+     * @param agentAlias The display name (if null, defaults to agentName)
+     * @param agentContext The metadata map from the connect request
+     * @param role Optional role (null for normal agents)
+     * @param customEventType Optional custom event type filter
+     * @param restrictedCapabilities Optional restricted capabilities from temporary key
+     * @return AgentInfo with extracted fields and cleaned metadata
+     */
+    public static AgentInfo fromContextMap(String agentName, String agentAlias, Map<String, String> agentContext, String role,
+                                          String customEventType, java.util.Set<Capability> restrictedCapabilities) {
         // Extract common fields from metadata
         String agentType = agentContext != null ? agentContext.get("agentType") : null;
         String descriptor = agentContext != null ? agentContext.get("descriptor") : null;
@@ -187,12 +222,19 @@ public class AgentInfo {
         Long connectionTime = System.currentTimeMillis();
 
         // Create AgentInfo with all fields including customEventType, restrictedCapabilities, and connectionTime
-        return new AgentInfo(agentName, agentType, descriptor, ipAddress, customMetadata, role,
+        AgentInfo agentInfo = new AgentInfo(agentName, agentType, descriptor, ipAddress, customMetadata, role,
                            customEventType, restrictedCapabilities, connectionTime);
+
+        // Set agentAlias if provided, otherwise it defaults to agentName (set in constructor)
+        if (agentAlias != null && !agentAlias.trim().isEmpty()) {
+            agentInfo.setAgentAlias(agentAlias);
+        }
+
+        return agentInfo;
     }
 
     /**
-     * Factory method: Create AgentInfo from request metadata map (with role and customEventType).
+     * Factory method: Create AgentInfo from request metadata map (without agentAlias).
      *
      * @param agentName The agent name
      * @param agentContext The metadata map from the connect request
@@ -226,5 +268,68 @@ public class AgentInfo {
     public static AgentInfo fromContextMap(String agentName, Map<String, String> requestMetadata) {
         return fromContextMap(agentName, requestMetadata, null);
     }
-}
 
+    /**
+     * Factory method: Create a new AgentInfo with a different agent name, copying all other fields.
+     * Used for agent name change operations.
+     *
+     * @param original The original AgentInfo to copy from
+     * @param newAgentName The new agent name
+     * @return New AgentInfo with updated name and all other fields preserved
+     * @deprecated Use withNewAlias instead - agent name should remain permanent
+     */
+    @Deprecated
+    public static AgentInfo withNewName(AgentInfo original, String newAgentName) {
+        if (original == null) {
+            throw new IllegalArgumentException("Original AgentInfo cannot be null");
+        }
+        if (newAgentName == null || newAgentName.trim().isEmpty()) {
+            throw new IllegalArgumentException("New agent name cannot be null or empty");
+        }
+
+        // Create new AgentInfo with same fields but new name
+        // Keep original connectionTime to maintain session continuity
+        return new AgentInfo(
+            newAgentName,
+            original.getAgentType(),
+            original.getDescriptor(),
+            original.getIpAddress(),
+            original.getMetadata() != null ? new HashMap<>(original.getMetadata()) : null,
+            original.getRole(),
+            original.getCustomEventType(),
+            original.getRestrictedCapabilities(),
+            original.getConnectionTime()
+        );
+    }
+
+    /**
+     * Factory method: Create a new AgentInfo with a different agent alias (display name).
+     * Agent name remains unchanged (permanent identifier).
+     *
+     * @param original The original AgentInfo to copy from
+     * @param newAgentAlias The new agent alias/display name
+     * @return New AgentInfo with updated alias and all other fields preserved
+     */
+    public static AgentInfo withNewAlias(AgentInfo original, String newAgentAlias) {
+        if (original == null) {
+            throw new IllegalArgumentException("Original AgentInfo cannot be null");
+        }
+        if (newAgentAlias == null || newAgentAlias.trim().isEmpty()) {
+            throw new IllegalArgumentException("New agent alias cannot be null or empty");
+        }
+
+        AgentInfo updated = new AgentInfo(
+            original.getAgentName(),  // Keep original name (permanent)
+            original.getAgentType(),
+            original.getDescriptor(),
+            original.getIpAddress(),
+            original.getMetadata() != null ? new HashMap<>(original.getMetadata()) : null,
+            original.getRole(),
+            original.getCustomEventType(),
+            original.getRestrictedCapabilities(),
+            original.getConnectionTime()
+        );
+        updated.setAgentAlias(newAgentAlias);  // Update alias only
+        return updated;
+    }
+}

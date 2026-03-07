@@ -1,0 +1,56 @@
+plugins {
+    id 'java'
+    id 'org.springframework.boot' version '2.7.14'
+    id 'io.spring.dependency-management' version '1.1.0'
+}
+
+group = 'com.hmdev.sdk'
+version = '1.0.0'
+sourceCompatibility = '11'
+
+// Set the base name for the JAR
+bootJar {
+    archiveBaseName = 'sdk-local-service'
+    archiveVersion = '1.0.0'
+    archiveFileName = 'sdk-local-service.jar'
+    mainClass = 'com.hmdev.sdk.local.SdkLocalServiceApplication'
+}
+
+repositories {
+    mavenCentral()
+    maven { url 'https://jitpack.io' }
+    maven { url 'https://www.jetbrains.com/intellij-repository/releases' }
+}
+
+dependencies {
+
+    // messaging-common as a Gradle module dependency
+    implementation project(':messaging-common')
+
+    // Spring Boot
+    implementation 'org.springframework.boot:spring-boot-starter-web'
+    implementation 'org.springframework.boot:spring-boot-starter-websocket'
+
+    // H2 Database (replaces SQLite - better Hibernate support)
+    runtimeOnly 'com.h2database:h2'
+    implementation 'org.springframework.boot:spring-boot-starter-data-jpa'
+
+    // JNA for native process support (optional, for advanced terminal features)
+    implementation 'net.java.dev.jna:jna:5.12.1'
+    implementation 'net.java.dev.jna:jna-platform:5.12.1'
+
+    // SSH support
+    implementation 'com.jcraft:jsch:0.1.55'
+
+    // Lombok
+    compileOnly 'org.projectlombok:lombok'
+    annotationProcessor 'org.projectlombok:lombok'
+
+    // Testing
+    testImplementation 'org.springframework.boot:spring-boot-starter-test'
+}
+
+tasks.named('test') {
+    useJUnitPlatform()
+}
+

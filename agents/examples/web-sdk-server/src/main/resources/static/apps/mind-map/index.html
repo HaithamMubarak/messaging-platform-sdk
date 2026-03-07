@@ -1,0 +1,154 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5, user-scalable=yes">
+    <meta name="theme-color" content="#0891b2">
+    <title>🗺️ Mind Map - Collaborative Builder</title>
+
+    <!-- Common Styles -->
+    <link rel="stylesheet" href="../../css/toast.css">
+    <link rel="stylesheet" href="../../css/connection-modal.css">
+    <link rel="stylesheet" href="../../css/share-modal.css">
+
+    <!-- App Styles -->
+    <link rel="stylesheet" href="mind-map.css">
+</head>
+<body>
+    <!-- Share Button -->
+    <button id="shareBtn" class="share-btn" onclick="mindMapApp?.openShareModal()" style="display: none;">
+        📤 Share
+    </button>
+
+    <!-- Connection Status -->
+    <div id="connectionStatus" class="connection-status">
+        <span id="statusDot" class="status-dot"></span>
+        <span id="statusText">Disconnected</span>
+    </div>
+
+    <!-- App Container -->
+    <div id="appContainer" class="app-container hidden">
+        <!-- Header -->
+        <div class="app-header">
+            <div class="header-left">
+                <h1>🗺️ Mind Map</h1>
+                <span id="roomName" class="room-badge"></span>
+            </div>
+            <div class="header-right">
+                <span id="nodeCount" class="node-count">
+                    📦 <span id="nodeCountNum">0</span> nodes
+                </span>
+                <span id="userCount" class="user-count">
+                    👥 <span id="userCountNum">0</span>
+                </span>
+            </div>
+        </div>
+
+        <!-- Toolbar -->
+        <div class="toolbar">
+            <div class="toolbar-group">
+                <button class="toolbar-btn" onclick="mindMapApp?.addNode()" title="Add Node (A)">
+                    ➕ Add Node
+                </button>
+                <button class="toolbar-btn" onclick="mindMapApp?.deleteSelected()" title="Delete (Del)">
+                    🗑️ Delete
+                </button>
+            </div>
+
+            <div class="toolbar-separator"></div>
+
+            <div class="toolbar-group">
+                <button class="toolbar-btn" onclick="mindMapApp?.zoomIn()" title="Zoom In (+)">
+                    🔍+
+                </button>
+                <button class="toolbar-btn" onclick="mindMapApp?.zoomOut()" title="Zoom Out (-)">
+                    🔍-
+                </button>
+                <button class="toolbar-btn" onclick="mindMapApp?.resetView()" title="Reset View (0)">
+                    ↺ Reset
+                </button>
+            </div>
+
+            <div class="toolbar-separator"></div>
+
+            <div class="toolbar-group">
+                <button class="toolbar-btn" onclick="mindMapApp?.clearAll()" title="Clear All">
+                    🗑️ Clear
+                </button>
+                <button class="toolbar-btn" onclick="mindMapApp?.exportImage()" title="Export PNG">
+                    💾 Export
+                </button>
+                <button class="toolbar-btn" onclick="mindMapApp?.exportJSON()" title="Export JSON">
+                    📄 JSON
+                </button>
+            </div>
+        </div>
+
+        <!-- Canvas Area -->
+        <div class="canvas-container">
+            <canvas id="mindMapCanvas"></canvas>
+
+            <!-- Remote Cursors Container -->
+            <div id="cursorsContainer" class="cursors-container"></div>
+
+            <!-- Context Menu -->
+            <div id="contextMenu" class="context-menu hidden">
+                <button onclick="mindMapApp?.contextMenuAction('edit')">✏️ Edit Text</button>
+                <button onclick="mindMapApp?.contextMenuAction('color')">🎨 Change Color</button>
+                <button onclick="mindMapApp?.contextMenuAction('connect')">🔗 Connect Nodes</button>
+                <button onclick="mindMapApp?.contextMenuAction('delete')">🗑️ Delete</button>
+            </div>
+
+            <!-- Color Picker Dialog -->
+            <div id="colorPickerDialog" class="color-picker-dialog hidden">
+                <h3>Choose Node Color</h3>
+                <div class="color-grid">
+                    <button class="color-option" data-color="#3b82f6" style="background: #3b82f6"></button>
+                    <button class="color-option" data-color="#ef4444" style="background: #ef4444"></button>
+                    <button class="color-option" data-color="#10b981" style="background: #10b981"></button>
+                    <button class="color-option" data-color="#f59e0b" style="background: #f59e0b"></button>
+                    <button class="color-option" data-color="#8b5cf6" style="background: #8b5cf6"></button>
+                    <button class="color-option" data-color="#ec4899" style="background: #ec4899"></button>
+                    <button class="color-option" data-color="#06b6d4" style="background: #06b6d4"></button>
+                    <button class="color-option" data-color="#84cc16" style="background: #84cc16"></button>
+                </div>
+                <button onclick="mindMapApp?.closeColorPicker()">Cancel</button>
+            </div>
+        </div>
+
+        <!-- Users Panel -->
+        <div class="users-panel">
+            <h3>👥 Collaborators</h3>
+            <div id="usersList" class="users-list"></div>
+        </div>
+    </div>
+
+    <!-- Text Edit Modal -->
+    <div id="textEditModal" class="text-edit-modal hidden">
+        <div class="modal-content">
+            <h3>Edit Node Text</h3>
+            <input type="text" id="nodeTextInput" placeholder="Enter node text..." maxlength="100">
+            <div class="modal-actions">
+                <button class="btn-primary" onclick="mindMapApp?.saveNodeText()">Save</button>
+                <button class="btn-secondary" onclick="mindMapApp?.cancelNodeEdit()">Cancel</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Include Libraries -->
+    <script src="../../js/config-loader.js"></script>
+    <script src="../../lib/qrcode.min.js"></script>
+    <script src="../../generated-web-agent-js/messaging-web-agent.js"></script>
+    <script src="../../js/UserConnectionBase.js"></script>
+    <script src="../../js/MiniGameUtils.js"></script>
+
+    <!-- App Logic -->
+    <script src="mind-map.js"></script>
+
+    <!-- Connection Modal & Share -->
+    <script src="../../js/common-utils.js"></script>
+    <script src="../../js/connection-modal.js"></script>
+    <script src="../../js/share-modal.js"></script>
+</body>
+</html>
+

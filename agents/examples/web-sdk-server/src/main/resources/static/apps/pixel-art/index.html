@@ -1,0 +1,169 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5, user-scalable=yes">
+    <meta name="theme-color" content="#ec4899">
+    <title>🎨 Pixel Art Editor - Collaborative</title>
+
+    <!-- Common Styles -->
+    <link rel="stylesheet" href="../../css/toast.css">
+    <link rel="stylesheet" href="../../css/connection-modal.css">
+    <link rel="stylesheet" href="../../css/share-modal.css">
+
+    <!-- App Styles -->
+    <link rel="stylesheet" href="pixel-art.css">
+</head>
+<body>
+    <!-- Share Button -->
+    <button id="shareBtn" class="share-btn" onclick="pixelArtApp?.openShareModal()" style="display: none;">
+        📤 Share
+    </button>
+
+    <!-- Connection Status -->
+    <div id="connectionStatus" class="connection-status">
+        <span id="statusDot" class="status-dot"></span>
+        <span id="statusText">Disconnected</span>
+    </div>
+
+    <!-- App Container -->
+    <div id="appContainer" class="app-container hidden">
+        <!-- Header -->
+        <div class="app-header">
+            <div class="header-left">
+                <h1>🎨 Pixel Art Editor</h1>
+                <span id="roomName" class="room-badge"></span>
+            </div>
+            <div class="header-right">
+                <span id="gridSize" class="grid-info">32x32</span>
+                <span id="userCount" class="user-count">
+                    👥 <span id="userCountNum">0</span>
+                </span>
+            </div>
+        </div>
+
+        <!-- Main Layout -->
+        <div class="main-layout">
+            <!-- Left Toolbar -->
+            <div class="toolbar-left">
+                <!-- Tools -->
+                <div class="tool-section">
+                    <h3>🛠️ Tools</h3>
+                    <div class="tool-buttons">
+                        <button class="tool-btn active" data-tool="pen" title="Pen (P)">
+                            ✏️
+                        </button>
+                        <button class="tool-btn" data-tool="eraser" title="Eraser (E)">
+                            🧹
+                        </button>
+                        <button class="tool-btn" data-tool="fill" title="Fill (F)">
+                            🪣
+                        </button>
+                        <button class="tool-btn" data-tool="eyedropper" title="Eyedropper (I)">
+                            💧
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Colors -->
+                <div class="tool-section">
+                    <h3>🎨 Colors</h3>
+                    <div class="color-palette">
+                        <!-- Primary colors -->
+                        <button class="color-swatch active" data-color="#000000" style="background: #000000"></button>
+                        <button class="color-swatch" data-color="#ffffff" style="background: #ffffff"></button>
+                        <button class="color-swatch" data-color="#ff0000" style="background: #ff0000"></button>
+                        <button class="color-swatch" data-color="#00ff00" style="background: #00ff00"></button>
+                        <button class="color-swatch" data-color="#0000ff" style="background: #0000ff"></button>
+                        <button class="color-swatch" data-color="#ffff00" style="background: #ffff00"></button>
+                        <button class="color-swatch" data-color="#ff00ff" style="background: #ff00ff"></button>
+                        <button class="color-swatch" data-color="#00ffff" style="background: #00ffff"></button>
+
+                        <!-- Extended palette -->
+                        <button class="color-swatch" data-color="#ff6b6b" style="background: #ff6b6b"></button>
+                        <button class="color-swatch" data-color="#4ecdc4" style="background: #4ecdc4"></button>
+                        <button class="color-swatch" data-color="#45b7d1" style="background: #45b7d1"></button>
+                        <button class="color-swatch" data-color="#96ceb4" style="background: #96ceb4"></button>
+                        <button class="color-swatch" data-color="#ffeaa7" style="background: #ffeaa7"></button>
+                        <button class="color-swatch" data-color="#dfe6e9" style="background: #dfe6e9"></button>
+                        <button class="color-swatch" data-color="#74b9ff" style="background: #74b9ff"></button>
+                        <button class="color-swatch" data-color="#a29bfe" style="background: #a29bfe"></button>
+                    </div>
+
+                    <div class="color-picker-custom">
+                        <input type="color" id="customColor" value="#000000">
+                        <label for="customColor">Custom</label>
+                    </div>
+
+                    <div class="current-color">
+                        <div class="color-display" id="currentColorDisplay" style="background: #000000"></div>
+                        <span id="currentColorHex">#000000</span>
+                    </div>
+                </div>
+
+                <!-- Grid Size -->
+                <div class="tool-section">
+                    <h3>📐 Grid Size</h3>
+                    <select id="gridSizeSelect" class="grid-select">
+                        <option value="16">16x16</option>
+                        <option value="32" selected>32x32</option>
+                        <option value="64">64x64</option>
+                        <option value="128">128x128</option>
+                    </select>
+                </div>
+
+                <!-- Actions -->
+                <div class="tool-section">
+                    <h3>⚡ Actions</h3>
+                    <button class="action-btn" onclick="pixelArtApp?.clearCanvas()">
+                        🗑️ Clear All
+                    </button>
+                    <button class="action-btn" onclick="pixelArtApp?.exportImage()">
+                        💾 Export PNG
+                    </button>
+                </div>
+            </div>
+
+            <!-- Canvas Area -->
+            <div class="canvas-area">
+                <div class="canvas-wrapper">
+                    <canvas id="pixelCanvas"></canvas>
+                    <div id="gridOverlay" class="grid-overlay"></div>
+                </div>
+
+                <!-- Zoom Controls -->
+                <div class="zoom-controls">
+                    <button onclick="pixelArtApp?.zoomIn()">🔍+</button>
+                    <span id="zoomLevel">100%</span>
+                    <button onclick="pixelArtApp?.zoomOut()">🔍-</button>
+                    <button onclick="pixelArtApp?.resetZoom()">↺</button>
+                </div>
+            </div>
+
+            <!-- Right Panel: Users & Cursors -->
+            <div class="sidebar-right">
+                <div class="users-panel">
+                    <h3>👥 Artists</h3>
+                    <div id="usersList" class="users-list"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Include Libraries -->
+    <script src="../../js/config-loader.js"></script>
+    <script src="../../lib/qrcode.min.js"></script>
+    <script src="../../generated-web-agent-js/messaging-web-agent.js"></script>
+    <script src="../../js/UserConnectionBase.js"></script>
+    <script src="../../js/MiniGameUtils.js"></script>
+
+    <!-- Game Logic -->
+    <script src="pixel-art.js"></script>
+
+    <!-- Connection Modal & Share -->
+    <script src="../../js/common-utils.js"></script>
+    <script src="../../js/connection-modal.js"></script>
+    <script src="../../js/share-modal.js"></script>
+</body>
+</html>
+

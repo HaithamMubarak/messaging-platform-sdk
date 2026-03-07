@@ -49,4 +49,20 @@ public final class CommonUtils {
         }
         return false;
     }
+
+    public static Object checkMapKey(Map<String, Object> map, String key) {
+        Object value = map.get(key);
+        if (CommonUtils.isEmpty(value)) {
+            return null;
+        }
+        return value;
+    }
+
+    public static <E> E checkMapKey(Map<String, Object> map, String key, Class<E> clazz) {
+        Object value = checkMapKey(map, key);
+        if (clazz.isInstance(value)) {
+            return clazz.cast(value);
+        }
+        return null;
+    }
 }

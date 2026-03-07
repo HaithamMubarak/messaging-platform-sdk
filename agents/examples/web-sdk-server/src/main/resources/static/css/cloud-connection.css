@@ -1,0 +1,372 @@
+/**
+ * Messaging Platform Cloud Connection Component
+ * Reusable CSS for cloud connectivity UI
+ *
+ * Usage:
+ * <link rel="stylesheet" href="../css/cloud-connection.css">
+ *
+ * Version: 1.0
+ * Date: February 14, 2026
+ */
+
+/* ========== Cloud Connection Panel ========== */
+.cloud-panel {
+    background: var(--bg-sidebar, #12121f);
+    border-bottom: 1px solid var(--border-color, #2a2a4a);
+    overflow: hidden;
+    transition: max-height 0.3s ease;
+    max-height: 0;
+}
+
+.cloud-panel.expanded {
+    max-height: 400px;
+}
+
+.cloud-panel-header {
+    padding: 10px 12px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    background: linear-gradient(90deg, rgba(74, 158, 255, 0.1), rgba(167, 139, 250, 0.1));
+    border-bottom: 1px solid var(--border-color, #2a2a4a);
+    cursor: pointer;
+}
+
+.cloud-panel-header:hover {
+    background: linear-gradient(90deg, rgba(74, 158, 255, 0.15), rgba(167, 139, 250, 0.15));
+}
+
+.cloud-panel-title {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--text-primary, #e0e0e0);
+}
+
+.cloud-panel-status {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 11px;
+}
+
+.cloud-panel-body {
+    padding: 12px;
+}
+
+/* ========== Form Elements - Enhanced ========== */
+.cloud-form-row {
+    margin-bottom: 10px;
+}
+
+.cloud-form-row label {
+    display: block;
+    font-size: 11px;
+    color: var(--text-muted, #555577);
+    margin-bottom: 4px;
+}
+
+.cloud-form-row input {
+    width: 100%;
+    padding: 8px 10px;
+    background: var(--bg-panel, #0f0f1a);
+    border: 1px solid var(--border-color, #2a2a4a);
+    border-radius: 4px;
+    color: var(--text-primary, #e0e0e0);
+    font-size: 12px;
+    transition: border-color 0.2s, box-shadow 0.2s;
+}
+
+.cloud-form-row input:focus {
+    outline: none;
+    border-color: var(--accent-blue, #4a9eff);
+    box-shadow: 0 0 0 3px rgba(74, 158, 255, 0.1);
+}
+
+.cloud-form-row input:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+/* ========== Reusable Input Group with Regenerate Button ========== */
+.input-group,
+.cloud-input-group {
+    display: flex;
+    gap: 6px;
+    align-items: center;
+}
+
+.input-group input,
+.cloud-input-group input {
+    flex: 1;
+}
+
+.regen-btn,
+.cloud-regen-btn {
+    padding: 8px 12px;
+    background: var(--bg-tab, #1e1e3a);
+    border: 1px solid var(--border-color, #2a2a4a);
+    border-radius: 4px;
+    color: var(--text-secondary, #8888aa);
+    font-size: 14px;
+    cursor: pointer;
+    transition: all 0.2s;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 36px;
+    height: 36px;
+}
+
+.regen-btn:hover,
+.cloud-regen-btn:hover {
+    background: var(--accent-blue, #4a9eff);
+    color: white;
+    border-color: var(--accent-blue, #4a9eff);
+}
+
+.regen-btn:active,
+.cloud-regen-btn:active {
+    transform: scale(0.95);
+}
+
+.regen-btn:disabled,
+.cloud-regen-btn:disabled {
+    opacity: 0.3;
+    cursor: not-allowed;
+}
+
+/* ========== Buttons - Enhanced Modern Design ========== */
+.cloud-btn {
+    width: 100%;
+    padding: 10px;
+    background: linear-gradient(135deg, var(--accent-blue, #4a9eff), var(--accent-purple, #a78bfa));
+    border: none;
+    border-radius: 4px;
+    color: white;
+    font-size: 12px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    box-shadow: 0 2px 8px rgba(74, 158, 255, 0.2);
+    position: relative;
+    overflow: hidden;
+}
+
+.cloud-btn::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: -100%;
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(90deg, transparent, rgba(255,255,255,0.2), transparent);
+    transition: left 0.5s;
+}
+
+.cloud-btn:hover::before {
+    left: 100%;
+}
+
+.cloud-btn:hover {
+    filter: brightness(1.15);
+    transform: translateY(-2px);
+    box-shadow: 0 6px 16px rgba(74, 158, 255, 0.35);
+}
+
+.cloud-btn:active {
+    transform: translateY(0);
+    box-shadow: 0 2px 8px rgba(74, 158, 255, 0.2);
+}
+
+.cloud-btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+    transform: none;
+    box-shadow: none;
+}
+
+.cloud-btn:disabled:hover {
+    filter: none;
+    transform: none;
+}
+
+/* Small button variant */
+.cloud-btn-small {
+    padding: 8px 12px;
+    font-size: 11px;
+}
+
+/* Secondary button (Share Channel, Regenerate) */
+.cloud-btn-secondary {
+    background: linear-gradient(135deg, rgba(74, 158, 255, 0.15), rgba(167, 139, 250, 0.15));
+    border: 1px solid rgba(74, 158, 255, 0.4);
+    color: #ffffff;
+    box-shadow: 0 2px 6px rgba(74, 158, 255, 0.1);
+}
+
+.cloud-btn-secondary:hover {
+    background: linear-gradient(135deg, rgba(74, 158, 255, 0.25), rgba(167, 139, 250, 0.25));
+    border-color: rgba(74, 158, 255, 0.6);
+    color: #ffffff;
+    box-shadow: 0 4px 12px rgba(74, 158, 255, 0.25);
+}
+
+/* Disconnect button */
+.cloud-btn.disconnect {
+    background: linear-gradient(135deg, rgba(248, 113, 113, 0.2), rgba(251, 146, 60, 0.2));
+    border: 1px solid rgba(248, 113, 113, 0.5);
+    color: #ff9999;
+    box-shadow: 0 2px 6px rgba(248, 113, 113, 0.15);
+}
+
+.cloud-btn.disconnect:hover {
+    background: linear-gradient(135deg, rgba(248, 113, 113, 0.3), rgba(251, 146, 60, 0.3));
+    border-color: rgba(248, 113, 113, 0.7);
+    color: #ffaaaa;
+    box-shadow: 0 4px 12px rgba(248, 113, 113, 0.3);
+}
+
+/* Actions row */
+.cloud-actions-row {
+    display: flex;
+    gap: 8px;
+}
+
+/* ========== Share Section Toggle ========== */
+.cloud-share-section {
+    margin-top: 20px;
+    padding-top: 20px;
+    border-top: 1px solid var(--border-color, #2a2a4a);
+}
+
+.cloud-share-toggle {
+    width: 100%;
+    padding: 10px 12px;
+    background: rgba(74, 158, 255, 0.08);
+    border: 1px solid rgba(74, 158, 255, 0.3);
+    border-radius: 4px;
+    color: var(--text-primary, #e0e0e0);
+    font-size: 12px;
+    cursor: pointer;
+    transition: all 0.2s;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.cloud-share-toggle:hover {
+    background: rgba(74, 158, 255, 0.15);
+    border-color: rgba(74, 158, 255, 0.5);
+    transform: translateY(-1px);
+    box-shadow: 0 2px 8px rgba(74, 158, 255, 0.2);
+}
+
+.cloud-share-toggle:active {
+    transform: translateY(0);
+}
+
+.cloud-share-toggle .icon {
+    font-size: 14px;
+}
+
+.cloud-share-toggle .arrow {
+    margin-left: auto;
+    font-size: 10px;
+    transition: transform 0.2s;
+}
+
+.cloud-share-toggle.expanded .arrow {
+    transform: rotate(180deg);
+}
+
+/* ========== Connected Agents List ========== */
+.cloud-agents {
+    margin-top: 12px;
+    padding-top: 12px;
+    border-top: 1px solid var(--border-color, #2a2a4a);
+}
+
+.cloud-agents-title {
+    font-size: 11px;
+    color: var(--text-muted, #555577);
+    margin-bottom: 8px;
+}
+
+.cloud-agent-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 12px;
+    background: linear-gradient(135deg, rgba(74, 158, 255, 0.05), rgba(167, 139, 250, 0.05));
+    border: 1px solid rgba(74, 158, 255, 0.15);
+    border-radius: 6px;
+    margin-bottom: 6px;
+    font-size: 12px;
+    transition: all 0.2s ease;
+}
+
+.cloud-agent-item:hover {
+    background: linear-gradient(135deg, rgba(74, 158, 255, 0.1), rgba(167, 139, 250, 0.1));
+    border-color: rgba(74, 158, 255, 0.3);
+    transform: translateX(4px);
+}
+
+.cloud-agent-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: var(--accent-green, #4ade80);
+    box-shadow: 0 0 8px var(--accent-green, #4ade80);
+    animation: pulse-dot 2s infinite;
+}
+
+@keyframes pulse-dot {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.5; }
+}
+
+/* ========== Status Indicators ========== */
+.status-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: var(--text-muted, #555577);
+}
+
+.status-dot.online {
+    background: var(--accent-green, #4ade80);
+    box-shadow: 0 0 6px var(--accent-green, #4ade80);
+}
+
+.status-dot.offline {
+    background: var(--accent-red, #f87171);
+}
+
+.status-dot.checking {
+    background: var(--accent-orange, #fb923c);
+    animation: pulse 1s infinite;
+}
+
+@keyframes pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.4; }
+}
+
+/* ========== Responsive ========== */
+@media (max-width: 768px) {
+    .cloud-panel.expanded {
+        max-height: 500px;
+    }
+
+    .cloud-panel-body {
+        padding: 10px;
+    }
+
+    .cloud-form-row input {
+        font-size: 14px;
+    }
+}
+

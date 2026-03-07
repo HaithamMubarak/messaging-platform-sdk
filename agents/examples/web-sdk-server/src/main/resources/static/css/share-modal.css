@@ -8,6 +8,10 @@
     background: rgba(3, 6, 23, 0.6);
     z-index: 100000;
     backdrop-filter: blur(4px);
+}
+
+.modal.active {
+    display: flex;
     align-items: center;
     justify-content: center;
 }

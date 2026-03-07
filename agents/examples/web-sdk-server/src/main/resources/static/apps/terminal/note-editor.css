@@ -1,0 +1,249 @@
+/* ================================================
+   NOTE EDITOR - POPUP AND PINNED MODES
+   ================================================ */
+
+/* Popup Overlay */
+.note-editor-overlay {
+    display: none;
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0, 0, 0, 0.7);
+    z-index: 10000;
+    backdrop-filter: blur(4px);
+}
+
+.note-editor-overlay.visible {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+/* Popup Modal */
+.note-editor-modal {
+    background: var(--bg-primary);
+    border-radius: 12px;
+    box-shadow: 0 10px 40px rgba(0, 0, 0, 0.5);
+    width: 90%;
+    max-width: 900px;
+    height: 80vh;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+}
+
+/* Pinned Side Panel */
+.note-editor-pinned {
+    display: none;
+    position: fixed;
+    top: 60px;  /* Below header */
+    right: 0;
+    bottom: 0;
+    width: 500px;
+    background: var(--bg-primary);
+    border-left: 2px solid var(--border-color);
+    box-shadow: -5px 0 20px rgba(0, 0, 0, 0.3);
+    z-index: 9000;
+    flex-direction: column;
+}
+
+.note-editor-pinned.visible {
+    display: flex;
+}
+
+/* Resizer for Pinned Mode */
+.note-editor-resizer {
+    position: absolute;
+    left: 0;
+    top: 0;
+    bottom: 0;
+    width: 6px;
+    cursor: ew-resize;
+    background: transparent;
+    transition: background 0.2s;
+}
+
+.note-editor-resizer:hover {
+    background: var(--accent-color);
+}
+
+.note-editor-pinned-content {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    margin-left: 6px;  /* Space for resizer */
+}
+
+/* Header */
+.note-editor-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 16px 20px;
+    background: var(--bg-secondary);
+    border-bottom: 1px solid var(--border-color);
+}
+
+.note-editor-title-section {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    flex: 1;
+}
+
+.note-editor-icon {
+    font-size: 24px;
+}
+
+.note-editor-title-input {
+    flex: 1;
+    font-size: 18px;
+    font-weight: 600;
+    background: transparent;
+    border: none;
+    color: var(--text-primary);
+    outline: none;
+    padding: 8px 12px;
+    border-radius: 6px;
+    transition: background 0.2s;
+}
+
+.note-editor-title-input:hover {
+    background: rgba(255, 255, 255, 0.05);
+}
+
+.note-editor-title-input:focus {
+    background: rgba(255, 255, 255, 0.1);
+}
+
+.note-editor-actions {
+    display: flex;
+    gap: 8px;
+}
+
+/* Body - Textarea */
+.note-editor-body {
+    flex: 1;
+    padding: 20px;
+    overflow: hidden;
+    display: flex;
+}
+
+.note-editor-textarea {
+    width: 100%;
+    height: 100%;
+    background: transparent;
+    border: none;
+    color: var(--text-primary);
+    font-size: 15px;
+    line-height: 1.6;
+    resize: none;
+    outline: none;
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+}
+
+.note-editor-textarea::placeholder {
+    color: var(--text-muted);
+}
+
+/* Footer */
+.note-editor-footer {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 12px 20px;
+    background: var(--bg-secondary);
+    border-top: 1px solid var(--border-color);
+}
+
+.note-editor-status {
+    font-size: 13px;
+    color: var(--text-muted);
+}
+
+.note-editor-status.modified {
+    color: var(--warning-color);
+    font-weight: 600;
+}
+
+.note-editor-status.saved {
+    color: var(--success-color);
+    font-weight: 600;
+}
+
+.note-editor-footer-actions {
+    display: flex;
+    gap: 8px;
+}
+
+/* Buttons */
+.note-editor-btn {
+    padding: 8px 16px;
+    border: none;
+    border-radius: 6px;
+    font-size: 14px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.2s;
+    background: var(--bg-tertiary);
+    color: var(--text-primary);
+}
+
+.note-editor-btn:hover {
+    background: var(--bg-hover);
+    transform: translateY(-1px);
+}
+
+.note-editor-btn:active {
+    transform: translateY(0);
+}
+
+.note-editor-btn.primary {
+    background: var(--accent-color);
+    color: white;
+}
+
+.note-editor-btn.primary:hover {
+    background: var(--accent-hover);
+}
+
+.note-editor-btn.secondary {
+    background: var(--bg-secondary);
+}
+
+.note-editor-btn.small {
+    padding: 6px 12px;
+    font-size: 13px;
+}
+
+.note-editor-btn.shared {
+    background: var(--success-color);
+    color: white;
+}
+
+/* Responsive - Smaller screens */
+@media (max-width: 768px) {
+    .note-editor-modal {
+        width: 95%;
+        height: 90vh;
+    }
+
+    .note-editor-pinned {
+        width: 100%;
+        border-left: none;
+    }
+
+    .note-editor-resizer {
+        display: none;
+    }
+}
+
+/* Dark mode adjustments */
+@media (prefers-color-scheme: dark) {
+    .note-editor-overlay {
+        background: rgba(0, 0, 0, 0.85);
+    }
+}
+

@@ -425,20 +425,24 @@
 
             <!-- Primary CTAs -->
             <div style="display: flex; justify-content: center; gap: 16px; flex-wrap: wrap; margin-bottom: 20px;">
-                <a href="examples/whiteboard/index.html" style="display: inline-flex; align-items: center; gap: 10px; padding: 16px 32px; background: linear-gradient(135deg, var(--accent) 0%, var(--accent-2) 100%); color: white; text-decoration: none; border-radius: 10px; font-weight: 700; font-size: 16px; box-shadow: 0 8px 24px rgba(79, 70, 229, 0.35); transition: all 0.3s ease;">
+                <a href="apps/whiteboard/index.html" style="display: inline-flex; align-items: center; gap: 10px; padding: 16px 32px; background: linear-gradient(135deg, var(--accent) 0%, var(--accent-2) 100%); color: white; text-decoration: none; border-radius: 10px; font-weight: 700; font-size: 16px; box-shadow: 0 8px 24px rgba(79, 70, 229, 0.35); transition: all 0.3s ease;">
                     🎨 Try Whiteboard Demo
                     <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
                     </svg>
                 </a>
+                <a href="index-new.html" style="display: inline-flex; align-items: center; gap: 10px; padding: 16px 32px; background: rgba(156, 163, 175, 0.1); border: 2px dashed rgba(156, 163, 175, 0.4); color: var(--muted); text-decoration: none; border-radius: 10px; font-weight: 700; font-size: 16px; transition: all 0.3s ease; cursor: pointer; opacity: 0.8;">
+                    ✨ Try New UI
+                    <span style="font-size: 11px; padding: 2px 8px; background: rgba(245, 158, 11, 0.2); border: 1px solid rgba(245, 158, 11, 0.4); border-radius: 12px; color: #f59e0b; font-weight: 600;">In Progress</span>
+                </a>
             </div>
 
             <!-- Secondary Featured Games -->
             <div style="display: flex; justify-content: center; gap: 12px; flex-wrap: wrap; margin-bottom: 20px;">
-                <a href="examples/mini-games/air-hockey/index.html" style="display: inline-flex; align-items: center; gap: 8px; padding: 10px 20px; background: rgba(79, 70, 229, 0.15); border: 1px solid rgba(79, 70, 229, 0.3); color: var(--text); text-decoration: none; border-radius: 8px; font-weight: 600; font-size: 14px; transition: all 0.3s ease;">
+                <a href="apps/mini-games/air-hockey/index.html" style="display: inline-flex; align-items: center; gap: 8px; padding: 10px 20px; background: rgba(79, 70, 229, 0.15); border: 1px solid rgba(79, 70, 229, 0.3); color: var(--text); text-decoration: none; border-radius: 8px; font-weight: 600; font-size: 14px; transition: all 0.3s ease;">
                     🏒 Air Hockey
                 </a>
-                <a href="examples/quickshare/quickshare.html" style="display: inline-flex; align-items: center; gap: 8px; padding: 10px 20px; background: rgba(6, 182, 212, 0.15); border: 1px solid rgba(6, 182, 212, 0.3); color: var(--text); text-decoration: none; border-radius: 8px; font-weight: 600; font-size: 14px; transition: all 0.3s ease;">
+                <a href="apps/quickshare/quickshare.html" style="display: inline-flex; align-items: center; gap: 8px; padding: 10px 20px; background: rgba(6, 182, 212, 0.15); border: 1px solid rgba(6, 182, 212, 0.3); color: var(--text); text-decoration: none; border-radius: 8px; font-weight: 600; font-size: 14px; transition: all 0.3s ease;">
                     📁 Quick Share
                 </a>
             </div>
@@ -466,7 +470,7 @@
                 <button onclick="showRequestModal()" class="quick-link" style="display: inline-flex; align-items: center; gap: 6px; padding: 6px 14px; background: rgba(6, 182, 212, 0.2); border: 1px solid rgba(6, 182, 212, 0.4); border-radius: 20px; color: var(--text); font-size: 12px; font-weight: 500; cursor: pointer; transition: all 0.2s; white-space: nowrap;">
                     🔑 Request API Key
                 </button>
-                <a href="examples/test-api-key/index.html" class="quick-link" style="display: inline-flex; align-items: center; gap: 6px; padding: 6px 14px; background: rgba(245, 158, 11, 0.2); border: 1px solid rgba(245, 158, 11, 0.4); border-radius: 20px; color: var(--text); text-decoration: none; font-size: 12px; font-weight: 500; transition: all 0.2s; white-space: nowrap;">
+                <a href="apps/test-api-key/index.html" class="quick-link" style="display: inline-flex; align-items: center; gap: 6px; padding: 6px 14px; background: rgba(245, 158, 11, 0.2); border: 1px solid rgba(245, 158, 11, 0.4); border-radius: 20px; color: var(--text); text-decoration: none; font-size: 12px; font-weight: 500; transition: all 0.2s; white-space: nowrap;">
                     🔑 Test API Key
                 </a>
 
@@ -604,7 +608,7 @@ agent.<span style="color: #60a5fa;">onMessage</span> = (msg) <span style="color:
                             <li>Pan, zoom, undo/redo</li>
                             <li>Shareable room links</li>
                         </ul>
-                        <a href="examples/whiteboard/index.html" class="card-link">
+                        <a href="apps/whiteboard/index.html" class="card-link">
                             Try Whiteboard Demo
                             <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
@@ -627,7 +631,7 @@ agent.<span style="color: #60a5fa;">onMessage</span> = (msg) <span style="color:
                             <li>Real-time progress tracking</li>
                             <li>Multi-peer file sharing</li>
                         </ul>
-                        <a href="examples/quickshare/quickshare.html" class="card-link">
+                        <a href="apps/quickshare/quickshare.html" class="card-link">
                             Try Quick Share
                             <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
@@ -651,7 +655,7 @@ agent.<span style="color: #60a5fa;">onMessage</span> = (msg) <span style="color:
                             <li>Multi-agent connectivity</li>
                             <li>QR code room sharing</li>
                         </ul>
-                        <a href="examples/chat.html" class="card-link">
+                        <a href="apps/chat.html" class="card-link">
                             Open Chat Demo
                             <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
@@ -675,7 +679,7 @@ agent.<span style="color: #60a5fa;">onMessage</span> = (msg) <span style="color:
                             <li>Screen sharing</li>
                             <li>TURN/STUN support</li>
                         </ul>
-                        <a href="examples/webrtc.html" class="card-link">
+                        <a href="apps/webrtc.html" class="card-link">
                             Open Video Demo
                             <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
@@ -695,7 +699,7 @@ agent.<span style="color: #60a5fa;">onMessage</span> = (msg) <span style="color:
                             <li>Verify ICE candidates</li>
                             <li>Debug connection issues</li>
                         </ul>
-                        <a href="examples/turn-stun-test.html" class="card-link">
+                        <a href="apps/turn-stun-test.html" class="card-link">
                             Open Test Tool
                             <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
@@ -715,7 +719,7 @@ agent.<span style="color: #60a5fa;">onMessage</span> = (msg) <span style="color:
                             <li>Survives across sessions</li>
                             <li>Perfect for game saves</li>
                         </ul>
-                        <a href="examples/storage-demo.html" class="card-link">
+                        <a href="apps/storage-demo.html" class="card-link">
                             Open Storage Demo
                             <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
@@ -737,6 +741,116 @@ agent.<span style="color: #60a5fa;">onMessage</span> = (msg) <span style="color:
                         </ul>
                         <a href="developer/index.html" class="card-link">
                             Open Developer Portal
+                            <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
+                            </svg>
+                        </a>
+                    </div>
+
+                    <!-- NEW: Pictionary (Localhost Only) -->
+                    <div class="example-card localhost-only" style="position: relative; display: none;">
+                        <div style="position: absolute; top: 12px; right: 12px; background: #10b981; color: white; padding: 4px 10px; border-radius: 6px; font-size: 10px; font-weight: 700;">🆕 NEW</div>
+                        <div class="card-icon">🎨</div>
+                        <h2 class="card-title">Pictionary</h2>
+                        <p class="card-description">
+                            Drawing guessing game! One player draws while others guess the word. Real-time multiplayer fun.
+                        </p>
+                        <ul class="card-features">
+                            <li>Turn-based drawing</li>
+                            <li>Word guessing mechanics</li>
+                            <li>Score tracking</li>
+                            <li>Configurable rounds</li>
+                        </ul>
+                        <a href="apps/pictionary/index.html" class="card-link">
+                            Play Pictionary
+                            <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
+                            </svg>
+                        </a>
+                    </div>
+
+                    <!-- NEW: Chess (Localhost Only) -->
+                    <div class="example-card localhost-only" style="position: relative; display: none;">
+                        <div style="position: absolute; top: 12px; right: 12px; background: #10b981; color: white; padding: 4px 10px; border-radius: 6px; font-size: 10px; font-weight: 700;">🆕 NEW</div>
+                        <div class="card-icon">♟️</div>
+                        <h2 class="card-title">Chess</h2>
+                        <p class="card-description">
+                            Classic multiplayer chess with spectator mode. Full game logic with move validation.
+                        </p>
+                        <ul class="card-features">
+                            <li>2-player chess game</li>
+                            <li>Spectator mode</li>
+                            <li>Move history</li>
+                            <li>Captured pieces display</li>
+                        </ul>
+                        <a href="apps/chess/index.html" class="card-link">
+                            Play Chess
+                            <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
+                            </svg>
+                        </a>
+                    </div>
+
+                    <!-- NEW: Pixel Art (Localhost Only) -->
+                    <div class="example-card localhost-only" style="position: relative; display: none;">
+                        <div style="position: absolute; top: 12px; right: 12px; background: #10b981; color: white; padding: 4px 10px; border-radius: 6px; font-size: 10px; font-weight: 700;">🆕 NEW</div>
+                        <div class="card-icon">🎨</div>
+                        <h2 class="card-title">Pixel Art Editor</h2>
+                        <p class="card-description">
+                            Collaborative pixel art creation. Perfect for game developers creating sprites together.
+                        </p>
+                        <ul class="card-features">
+                            <li>Grid-based drawing</li>
+                            <li>Multiple canvas sizes</li>
+                            <li>Export as PNG</li>
+                            <li>Real-time sync</li>
+                        </ul>
+                        <a href="apps/pixel-art/index.html" class="card-link">
+                            Open Pixel Art
+                            <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
+                            </svg>
+                        </a>
+                    </div>
+
+                    <!-- NEW: Collaborative Document (Localhost Only) -->
+                    <div class="example-card localhost-only" style="position: relative; display: none;">
+                        <div style="position: absolute; top: 12px; right: 12px; background: #10b981; color: white; padding: 4px 10px; border-radius: 6px; font-size: 10px; font-weight: 700;">🆕 NEW</div>
+                        <div class="card-icon">📝</div>
+                        <h2 class="card-title">Collaborative Document</h2>
+                        <p class="card-description">
+                            Google Docs-style real-time markdown editor with live preview and export options.
+                        </p>
+                        <ul class="card-features">
+                            <li>Real-time editing</li>
+                            <li>Markdown support</li>
+                            <li>Live preview</li>
+                            <li>Export MD/HTML</li>
+                        </ul>
+                        <a href="apps/collab-doc/index.html" class="card-link">
+                            Open Document
+                            <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
+                            </svg>
+                        </a>
+                    </div>
+
+                    <!-- NEW: Mind Map (Localhost Only) -->
+                    <div class="example-card localhost-only" style="position: relative; display: none;">
+                        <div style="position: absolute; top: 12px; right: 12px; background: #10b981; color: white; padding: 4px 10px; border-radius: 6px; font-size: 10px; font-weight: 700;">🆕 NEW</div>
+                        <div class="card-icon">🗺️</div>
+                        <h2 class="card-title">Mind Map Builder</h2>
+                        <p class="card-description">
+                            Visual collaboration tool for brainstorming. Create and connect ideas in real-time.
+                        </p>
+                        <ul class="card-features">
+                            <li>Drag & drop nodes</li>
+                            <li>Connect ideas visually</li>
+                            <li>Export PNG/JSON</li>
+                            <li>Multi-user editing</li>
+                        </ul>
+                        <a href="apps/mind-map/index.html" class="card-link">
+                            Open Mind Map
                             <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
                             </svg>
@@ -1719,7 +1833,7 @@ agent.onError = (err) => console.error('Error:', err);
                                 <li>Score tracking & animations</li>
                                 <li>Ultra-low latency P2P</li>
                             </ul>
-                            <a href="examples/mini-games/air-hockey/index.html" class="card-link">
+                            <a href="apps/mini-games/air-hockey/index.html" class="card-link">
                                 Play Air Hockey
                                 <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
@@ -1743,7 +1857,7 @@ agent.onError = (err) => console.error('Error:', err);
                                 <li>Timed questions</li>
                                 <li>Leaderboard</li>
                             </ul>
-                            <a href="examples/mini-games/quiz-battle/index.html" class="card-link">
+                            <a href="apps/mini-games/quiz-battle/index.html" class="card-link">
                                 Play Quiz Battle
                                 <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
@@ -1791,8 +1905,32 @@ agent.onError = (err) => console.error('Error:', err);
                                 <li>80 items & 30 questions</li>
                                 <li>Liar celebration effects</li>
                             </ul>
-                            <a href="examples/mini-games/find-the-liar/index.html" class="card-link">
+                            <a href="apps/mini-games/find-the-liar/index.html" class="card-link">
                                 Play Find the Liar
+                                <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
+                                </svg>
+                            </a>
+                        </div>
+
+                        <!-- NEW: Party Physics (Localhost Only) -->
+                        <div class="example-card localhost-only" style="position: relative;">
+                            <div style="position: absolute; top: 12px; right: 12px; background: #10b981; color: white; padding: 4px 10px; border-radius: 6px; font-size: 10px; font-weight: 700;">🆕 NEW</div>
+                            <div class="card-icon">🎉</div>
+                            <h2 class="card-title">Party Physics Brawl</h2>
+                            <p class="card-description">
+                                Multiplayer physics-based party game! Battle with unique characters in arenas.
+                                Host-authoritative with Rapier physics and Three.js graphics.
+                            </p>
+                            <ul class="card-features">
+                                <li>2-8 players real-time combat</li>
+                                <li>5 unique character archetypes</li>
+                                <li>Fight Mode (MVP complete)</li>
+                                <li>Mobile touch controls</li>
+                                <li>HP & stamina system</li>
+                            </ul>
+                            <a href="apps/mini-games/party-physics/index.html" class="card-link">
+                                Play Party Physics
                                 <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
                                 </svg>
@@ -2734,7 +2872,7 @@ agent.connect({
 
                         <div style="margin-top: 20px; padding: 16px; background: rgba(79, 70, 229, 0.1); border-left: 3px solid var(--accent); border-radius: 4px;">
                             <p style="font-size: 13px; color: var(--muted); margin: 0;">
-                                <strong style="color: var(--text);">Try it now:</strong> Check out the <a href="examples/storage-demo.html" style="color: var(--accent);">Storage Demo</a> to see the Channel Storage API in action with the Web Agent.
+                                <strong style="color: var(--text);">Try it now:</strong> Check out the <a href="apps/storage-demo.html" style="color: var(--accent);">Storage Demo</a> to see the Channel Storage API in action with the Web Agent.
                             </p>
                         </div>
                     </div>
@@ -2859,6 +2997,17 @@ agent.connect({
             // Update URL hash
             if (updateHash) {
                 history.pushState(null, null, '#' + tabName);
+
+                // Also scroll to nav-tabs when clicking tab links
+                setTimeout(() => {
+                    const navTabs = document.querySelector('.nav-tabs');
+                    if (navTabs) {
+                        const rect = navTabs.getBoundingClientRect();
+                        const scrollTop = window.pageYOffset || document.documentElement.scrollTop;
+                        const targetY = rect.top + scrollTop - 20;
+                        window.scrollTo({top: targetY, behavior: 'smooth'});
+                    }
+                }, 50);
             }
         }
 
@@ -2866,14 +3015,47 @@ agent.connect({
         function handleHashNavigation() {
             const hash = window.location.hash.replace('#', '');
             const validTabs = ['demos', 'architecture', 'games', 'code', 'features', 'plans', 'roadmap'];
+
+            // Only switch tabs and scroll if there's a valid hash
             if (hash && validTabs.includes(hash)) {
                 switchTab(hash, false);
+
+                // Scroll to nav-tabs area so content is visible below
+                setTimeout(() => {
+                    const navTabs = document.querySelector('.nav-tabs');
+                    if (navTabs) {
+                        // Get position and add small margin above nav tabs
+                        const rect = navTabs.getBoundingClientRect();
+                        const scrollTop = window.pageYOffset || document.documentElement.scrollTop;
+                        const targetY = rect.top + scrollTop - 20; // 20px margin above nav tabs
+                        window.scrollTo({top: targetY, behavior: 'smooth'});
+                    }
+                }, 150);
             }
+            // If no hash or invalid hash, do nothing - stay at current position
         }
 
         // Initialize on page load
         window.addEventListener('DOMContentLoaded', handleHashNavigation);
         window.addEventListener('hashchange', handleHashNavigation);
+
+        // Show localhost-only apps when on localhost
+        window.addEventListener('DOMContentLoaded', function() {
+            const hostname = window.location.hostname;
+            const isLocalhost = hostname === 'localhost' || hostname === '127.0.0.1' || hostname === '';
+
+            if (isLocalhost) {
+                console.log('[Index] Localhost detected - showing new experimental apps');
+                document.querySelectorAll('.localhost-only').forEach(card => {
+                    card.style.display = '';
+                });
+            } else {
+                console.log('[Index] Production environment - hiding experimental apps');
+                document.querySelectorAll('.localhost-only').forEach(card => {
+                    card.style.display = 'none';
+                });
+            }
+        });
 
         function copyCode(button) {
             const codeBlock = button.nextElementSibling.nextElementSibling;
@@ -3004,6 +3186,16 @@ agent.connect({
                 submitLoader.style.display = 'none';
             }
         }
+    </script>
+
+    <!-- ===== UI Preference Management ===== -->
+    <script>
+        // UI Preference system removed - both UIs accessible independently
+        // Access original UI: http://localhost:8084/index.html
+        // Access new UI: http://localhost:8084/index-new.html
+
+        // UI Preference removed - Users can manually navigate to index.html or index-new.html
+        // No auto-redirect - both UIs are accessible independently
     </script>
 </body>
 </html>

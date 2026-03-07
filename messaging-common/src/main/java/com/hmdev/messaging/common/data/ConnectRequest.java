@@ -16,6 +16,26 @@ public class ConnectRequest extends SessionRequest {
     private String agentName;
 
     /**
+     * Machine ID for persistent identity (optional)
+     * Format: MID_abc123def456 (16 hex chars)
+     * Used to enforce agent name limits per machine (max 5 agents)
+     * If provided, this machine ID will be registered with the agent name
+     */
+    private String machineId;
+
+    /**
+     * Agent alias (display name) - DEPRECATED
+     *
+     * Display names are now managed entirely in the frontend via P2P DataChannel sync.
+     * This field is kept for backward compatibility but should not be used.
+     *
+     * @deprecated Use frontend display name management instead of backend agentAlias.
+     *             Will be removed in a future version.
+     */
+    @Deprecated
+    private String agentAlias;
+
+    /**
      * Agent context map (agent metadata)
      * Can include: agentType, descriptor, ipAddress, customEventType, and other custom fields
      *
@@ -42,4 +62,3 @@ public class ConnectRequest extends SessionRequest {
     @Builder.Default
     private String apiKeyScope = "private"; // default: private (API key-specific channels)
 }
-

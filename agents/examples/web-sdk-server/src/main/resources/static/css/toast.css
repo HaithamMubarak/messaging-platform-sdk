@@ -1,5 +1,5 @@
 /* ============================================
-   TOAST NOTIFICATIONS
+   TOAST NOTIFICATIONS - MODERN GRADIENT STYLE
    ============================================ */
 
 .toast-container,
@@ -9,29 +9,179 @@
     right: 20px;
     display: flex;
     flex-direction: column;
-    gap: 10px;
+    gap: 12px;
     z-index: 100002; /* Higher than share modal (100001) */
+    pointer-events: none; /* Allow clicks through container */
 }
 
 .toast {
-    padding: 12px 20px;
-    border-radius: 8px;
+    pointer-events: all; /* But toasts themselves are clickable */
+    padding: 14px 18px;
+    border-radius: 12px;
     color: white;
     font-weight: 500;
-    animation: slideIn 0.3s ease;
-    max-width: 300px;
+    font-size: 14px;
+    line-height: 1.5;
+    animation: slideInBounce 0.5s cubic-bezier(0.68, -0.55, 0.265, 1.55);
+    max-width: 380px;
+    min-width: 280px;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.25), 0 4px 8px rgba(0, 0, 0, 0.15);
+    backdrop-filter: blur(10px);
+    position: relative;
+    overflow: hidden;
+    border: 1px solid rgba(255, 255, 255, 0.15);
+    cursor: pointer;
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
 }
 
+.toast:hover {
+    transform: translateX(-4px) scale(1.02);
+    box-shadow: 0 12px 32px rgba(0, 0, 0, 0.3), 0 6px 12px rgba(0, 0, 0, 0.2);
+}
+
+/* Glassmorphism overlay pattern */
+.toast::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background:
+        radial-gradient(circle at 20% 50%, rgba(255, 255, 255, 0.1) 0%, transparent 50%),
+        radial-gradient(circle at 80% 80%, rgba(255, 255, 255, 0.08) 0%, transparent 50%);
+    pointer-events: none;
+    z-index: 1;
+}
+
+.toast > * {
+    position: relative;
+    z-index: 2;
+}
+
+/* Support for HTML content in toasts */
+.toast h1,
+.toast h2,
+.toast h3,
+.toast h4,
+.toast h5,
+.toast h6 {
+    margin: 0;
+    font-weight: 700;
+    font-size: 15px;
+    letter-spacing: -0.02em;
+}
+
+.toast p {
+    margin: 0;
+    opacity: 0.95;
+}
+
+.toast code {
+    background: rgba(0, 0, 0, 0.3);
+    padding: 3px 8px;
+    border-radius: 4px;
+    font-family: 'Consolas', 'Monaco', 'Courier New', monospace;
+    font-size: 12px;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+/* Toast Types with Beautiful Gradients */
+
+/* Info - Blue Sky Gradient */
 .toast-info {
-    background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    max-width: 420px;
 }
 
+.toast-info::after {
+    content: '';
+    position: absolute;
+    top: 0;
+    right: 0;
+    width: 100px;
+    height: 100%;
+    background: linear-gradient(90deg, transparent 0%, rgba(118, 75, 162, 0.3) 100%);
+    pointer-events: none;
+}
+
+/* Success - Rich Dark Green Gradient */
 .toast-success {
-    background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+    background: linear-gradient(135deg, #0f7c6f 0%, #1ea870 100%);
 }
 
+.toast-success::after {
+    content: '';
+    position: absolute;
+    top: 0;
+    right: 0;
+    width: 100px;
+    height: 100%;
+    background: linear-gradient(90deg, transparent 0%, rgba(30, 168, 112, 0.3) 100%);
+    pointer-events: none;
+}
+
+/* Error - Warm Red Gradient */
 .toast-error {
-    background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
+    background: linear-gradient(135deg, #ee0979 0%, #ff6a00 100%);
+}
+
+.toast-error::after {
+    content: '';
+    position: absolute;
+    top: 0;
+    right: 0;
+    width: 100px;
+    height: 100%;
+    background: linear-gradient(90deg, transparent 0%, rgba(255, 106, 0, 0.3) 100%);
+    pointer-events: none;
+}
+
+/* Warning - Dark Amber/Orange Gradient for Better Contrast */
+.toast-warning {
+    background: linear-gradient(135deg, #d97706 0%, #ea580c 100%);
+    color: #ffffff;
+    font-weight: 600;
+}
+
+.toast-warning::after {
+    content: '';
+    position: absolute;
+    top: 0;
+    right: 0;
+    width: 100px;
+    height: 100%;
+    background: linear-gradient(90deg, transparent 0%, rgba(234, 88, 12, 0.3) 100%);
+    pointer-events: none;
+}
+
+/* Ensure warning toast text has maximum contrast */
+.toast-warning h1,
+.toast-warning h2,
+.toast-warning h3,
+.toast-warning h4,
+.toast-warning h5,
+.toast-warning h6,
+.toast-warning p,
+.toast-warning span,
+.toast-warning div {
+    color: #ffffff;
+    text-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
+}
+
+/* Animations */
+@keyframes slideInBounce {
+    0% {
+        opacity: 0;
+        transform: translateX(120px) scale(0.8);
+    }
+    50% {
+        transform: translateX(-10px) scale(1.05);
+    }
+    100% {
+        opacity: 1;
+        transform: translateX(0) scale(1);
+    }
 }
 
 @keyframes slideIn {
@@ -46,7 +196,18 @@
 }
 
 .toast.fade-out {
-    animation: fadeOut 0.3s ease forwards;
+    animation: fadeOutSlide 0.4s ease forwards;
+}
+
+@keyframes fadeOutSlide {
+    0% {
+        opacity: 1;
+        transform: translateX(0) scale(1);
+    }
+    100% {
+        opacity: 0;
+        transform: translateX(120px) scale(0.9);
+    }
 }
 
 @keyframes fadeOut {
@@ -55,3 +216,72 @@
         transform: translateX(100px);
     }
 }
+
+/* Toast Counter Badge */
+.toast-counter {
+    background: linear-gradient(135deg, #434343 0%, #000000 100%) !important;
+    border: 1px solid rgba(255, 255, 255, 0.2) !important;
+    font-size: 12px !important;
+    font-weight: 700 !important;
+    letter-spacing: 0.5px;
+    text-align: center;
+    padding: 10px 14px !important;
+}
+
+.toast-counter::before {
+    background: radial-gradient(circle at 50% 50%, rgba(255, 255, 255, 0.1) 0%, transparent 70%) !important;
+}
+
+/* Close button (optional - for manually closeable toasts) */
+.toast-close {
+    position: absolute;
+    top: 8px;
+    right: 8px;
+    background: rgba(255, 255, 255, 0.2);
+    border: none;
+    border-radius: 50%;
+    width: 24px;
+    height: 24px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    color: white;
+    font-size: 16px;
+    font-weight: bold;
+    opacity: 0.7;
+    transition: all 0.2s ease;
+    z-index: 3;
+}
+
+.toast-close:hover {
+    opacity: 1;
+    background: rgba(255, 255, 255, 0.3);
+    transform: scale(1.1);
+}
+
+/* Responsive design for mobile */
+@media (max-width: 768px) {
+    .toast-container,
+    #toast-container {
+        bottom: 10px;
+        right: 10px;
+        left: 10px;
+        max-width: calc(100vw - 20px);
+    }
+
+    .toast {
+        max-width: 100%;
+        min-width: auto;
+        font-size: 13px;
+        padding: 12px 16px;
+    }
+}
+
+/* Dark theme support */
+@media (prefers-color-scheme: dark) {
+    .toast {
+        box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4), 0 4px 8px rgba(0, 0, 0, 0.3);
+    }
+}
+
