@@ -393,13 +393,18 @@ class FileEditor {
 
             let result;
 
-            // Notes use filesystem/notes session — same as any other filesystem session
-            // Fetch file content from backend
-            const response = await fetch(
-                `${this.mlsUrl}/filesystem/${encodeURIComponent(terminalSessionId)}/read?path=${encodeURIComponent(backendPath)}`
-            );
-            if (!response.ok) throw new Error('Failed to load file');
-            result = await response.json();
+            // Remote/shared sessions must go via cloud proxy — never direct SLS
+            if (window.isRemoteFileSystem && window.isRemoteFileSystem(terminalSessionId)) {
+                result = await window.proxyFileSystemRequest(terminalSessionId, 'read', { path: backendPath });
+            } else {
+                // Local or notes session — direct SLS fetch
+                const response = await fetch(
+                    `${this.mlsUrl}/filesystem/${encodeURIComponent(terminalSessionId)}/read?path=${encodeURIComponent(backendPath)}`
+                );
+                if (!response.ok) throw new Error('Failed to load file');
+                result = await response.json();
+            }
+
             if (!result.success) throw new Error(result.message || 'Failed to load file');
 
             // Create new tab
