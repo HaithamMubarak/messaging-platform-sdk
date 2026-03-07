@@ -21,6 +21,30 @@
 
 ---
 
+## 🌐 Supported Applications
+
+SDK Local Service powers multiple web applications with local system access:
+
+### 1. **Shared Terminal** 🖥️
+**Path:** `/apps/terminal`  
+**Live App:** [http://localhost:8084/apps/terminal](http://localhost:8084/apps/terminal) *(requires web-sdk-server running)*  
+**GitHub Source:** [Terminal App Source Code](https://github.com/HaithamMubarak/messaging-platform-sdk/tree/main/agents/examples/web-sdk-server/src/main/resources/static/apps/terminal)  
+**Web Server:** [web-sdk-server](https://github.com/HaithamMubarak/messaging-platform-sdk/tree/main/agents/examples/web-sdk-server)
+
+A modern web-based terminal emulator with advanced features:
+- Local terminal sessions (CMD, Bash, PowerShell)
+- SSH connection management with saved profiles
+- Real-time terminal sharing via WebRTC
+- SFTP file browser integration
+- Session persistence and auto-restore
+- Integrated code editor (CodeMirror)
+- Notes management
+- Configuration backup/restore
+
+**Tech Stack:** xterm.js, CodeMirror, Vanilla JavaScript, Spring Boot, JSch
+
+---
+
 ## 🚀 Quick Start
 
 ### 1. Build
@@ -43,10 +67,27 @@ Or:
 
 ### 3. Access
 
-- **Terminal UI:** http://localhost:8088
+- **SLS API:** http://localhost:8088
 - **Health Check:** http://localhost:8088/health
+- **H2 Console:** http://localhost:8088/h2-console *(disabled by default)*
 
-### 4. Get Security Token
+### 4. Access Terminal UI
+
+The terminal web application is served by the **web-sdk-server** (separate project):
+
+```bash
+# In a separate terminal, navigate to web-sdk-server
+cd ../web-sdk-server
+./gradlew bootRun
+```
+
+Then access:
+- **Terminal App:** http://localhost:8084/apps/terminal
+- **Web SDK Server:** [GitHub Link](https://github.com/HaithamMubarak/messaging-platform-sdk/tree/main/agents/examples/web-sdk-server)
+
+> **Note:** Both SLS (port 8088) and web-sdk-server (port 8084) must be running for the terminal app to work.
+
+### 5. Get Security Token
 
 **IMPORTANT:** All API endpoints (except public ones) require a security token.
 

@@ -6,6 +6,16 @@
     <meta name="format-detection" content="telephone=no">
     <meta name="touch-callout" content="none">
 
+    <!--
+        🌐 Messaging Platform - Shared Terminal
+
+        GitHub Repository: https://github.com/HaithamMubarak/messaging-platform-sdk
+        Terminal App Path: /agents/examples/web-sdk-server/src/main/resources/static/apps/terminal
+        Direct Link: https://github.com/HaithamMubarak/messaging-platform-sdk/tree/main/agents/examples/web-sdk-server/src/main/resources/static/apps/terminal
+
+        Discussions: https://github.com/HaithamMubarak/messaging-platform-sdk/discussions
+    -->
+
     <!-- PWA Configuration -->
     <meta name="mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-capable" content="yes">
@@ -518,74 +528,18 @@
                 <!-- Settings Tab -->
                 <div class="sidebar-panel" id="panel-settings">
                     <div class="sidebar-header">
-                        <span>Settings & Backup</span>
+                        <span>Settings</span>
                     </div>
                     <div class="settings-container" style="padding: 15px;">
-
-                        <!-- Export Configuration -->
-                        <div class="settings-section">
-                            <h3 style="margin: 0 0 10px 0; font-size: 14px;">📦 Export Configuration</h3>
-                            <p style="font-size: 11px; color: var(--text-muted); margin: 0 0 10px 0;">
-                                Export your settings, SSH connections, and notes as a password-protected ZIP file.
+                        <div style="text-align: center; padding: 30px 20px; color: var(--text-muted);">
+                            <div style="font-size: 48px; margin-bottom: 15px;">⚙️</div>
+                            <p style="font-size: 13px; margin-bottom: 20px;">
+                                Click the <strong>Local</strong> badge at the top right to access advanced settings including backup & restore.
                             </p>
-
-                            <!-- Export Options -->
-                            <div style="margin: 10px 0;">
-                                <label style="display: block; margin: 5px 0; font-size: 12px;">
-                                    <input type="checkbox" id="exportSSH" checked> SSH Connections
-                                </label>
-                                <label style="display: block; margin: 5px 0; font-size: 12px;">
-                                    <input type="checkbox" id="exportNotes" checked> Notes
-                                </label>
-                                <label style="display: block; margin: 5px 0; font-size: 12px;">
-                                    <input type="checkbox" id="exportSettings" checked> Application Settings
-                                </label>
-                            </div>
-
-                            <!-- Password for export -->
-                            <input type="password"
-                                   id="exportPassword"
-                                   placeholder="Password (optional)"
-                                   style="width: 100%; padding: 8px; margin: 10px 0; border: 1px solid var(--border-color); border-radius: 4px; background: var(--bg-primary); color: var(--text-primary);">
-
-                            <button class="sidebar-btn primary" onclick="exportConfiguration()" style="width: 100%;">
-                                📥 Export Backup
+                            <button class="sidebar-btn primary" onclick="showSettings()" style="width: 100%;">
+                                Open Settings
                             </button>
                         </div>
-
-                        <div style="border-top: 1px solid var(--border-color); margin: 20px 0;"></div>
-
-                        <!-- Import Configuration -->
-                        <div class="settings-section">
-                            <h3 style="margin: 0 0 10px 0; font-size: 14px;">📤 Import Configuration</h3>
-                            <p style="font-size: 11px; color: var(--text-muted); margin: 0 0 10px 0;">
-                                Import settings from a backup file (ZIP or XML).
-                            </p>
-
-                            <input type="file"
-                                   id="importFileInput"
-                                   accept=".zip,.xml"
-                                   style="display: none;"
-                                   onchange="handleImportFile(event)">
-
-                            <button class="sidebar-btn secondary" onclick="document.getElementById('importFileInput').click()" style="width: 100%;">
-                                📂 Choose Backup File
-                            </button>
-
-                            <!-- Password for import (shown when file selected) -->
-                            <div id="importPasswordSection" style="display: none; margin-top: 10px;">
-                                <input type="password"
-                                       id="importPassword"
-                                       placeholder="Password (if protected)"
-                                       style="width: 100%; padding: 8px; margin: 10px 0; border: 1px solid var(--border-color); border-radius: 4px; background: var(--bg-primary); color: var(--text-primary);">
-
-                                <button class="sidebar-btn primary" onclick="importConfiguration()" style="width: 100%;">
-                                    ✅ Import Backup
-                                </button>
-                            </div>
-                        </div>
-
-                        <div style="border-top: 1px solid var(--border-color); margin: 20px 0;"></div>
 
                         <!-- Database Access is hidden for now, can be enabled for advanced users later -->
                         <div class="settings-section" style="display: none">
@@ -696,6 +650,77 @@
                                 border-radius: 4px; font-size: 13px; color: var(--text-secondary);">
                     ⚠️ <strong>Note:</strong> Changing the port will clear the current security token.
                     You'll need to reconnect to the new service instance.
+                </div>
+
+                <!-- Configuration Backup/Restore Section -->
+                <div style="margin-top: 30px; padding-top: 20px; border-top: 1px solid var(--border-color);">
+                    <h3 style="font-size: 14px; font-weight: 600; margin-bottom: 15px; color: var(--text-primary);">
+                        💾 Backup & Restore Configuration
+                    </h3>
+
+                    <!-- Export Configuration -->
+                    <div style="margin-bottom: 20px;">
+                        <div style="font-weight: 500; margin-bottom: 8px; font-size: 13px;">Export Configuration</div>
+                        <div style="display: flex; gap: 10px; margin-bottom: 10px;">
+                            <select id="exportFormat" style="padding: 8px; border: 1px solid var(--border-color);
+                                    border-radius: 4px; background: var(--bg-input); color: var(--text-primary); flex: 1;">
+                                <option value="xml">XML (Plain)</option>
+                                <option value="zip">ZIP (Compressed)</option>
+                                <option value="zip-protected">ZIP (Password Protected)</option>
+                            </select>
+                        </div>
+                        <div id="exportPasswordContainer" style="display: none; margin-bottom: 10px;">
+                            <input type="password" id="exportPassword" placeholder="Enter password for protection"
+                                   style="width: 100%; padding: 8px; border: 1px solid var(--border-color);
+                                          border-radius: 4px; background: var(--bg-input); color: var(--text-primary);">
+                        </div>
+                        <div style="display: flex; gap: 8px; margin-bottom: 10px; flex-wrap: wrap; font-size: 12px;">
+                            <label style="display: flex; align-items: center; gap: 5px; cursor: pointer;">
+                                <input type="checkbox" id="exportSsh" checked> SSH Connections
+                            </label>
+                            <label style="display: flex; align-items: center; gap: 5px; cursor: pointer;">
+                                <input type="checkbox" id="exportSessions"> Terminal Sessions
+                            </label>
+                            <label style="display: flex; align-items: center; gap: 5px; cursor: pointer;">
+                                <input type="checkbox" id="exportNotes"> Notes
+                            </label>
+                        </div>
+                        <button type="button" class="btn btn-primary" onclick="exportConfiguration()" style="width: 100%;">
+                            📤 Export Configuration
+                        </button>
+                    </div>
+
+                    <!-- Import Configuration -->
+                    <div>
+                        <div style="font-weight: 500; margin-bottom: 8px; font-size: 13px;">Import Configuration</div>
+                        <div style="margin-bottom: 10px;">
+                            <input type="file" id="importFile" accept=".xml,.zip"
+                                   style="width: 100%; padding: 8px; border: 1px solid var(--border-color);
+                                          border-radius: 4px; background: var(--bg-input); color: var(--text-primary);">
+                        </div>
+                        <div id="importPasswordContainer" style="display: none; margin-bottom: 10px;">
+                            <input type="password" id="importPassword" placeholder="Enter password to decrypt"
+                                   style="width: 100%; padding: 8px; border: 1px solid var(--border-color);
+                                          border-radius: 4px; background: var(--bg-input); color: var(--text-primary);">
+                        </div>
+                        <label style="display: flex; align-items: center; gap: 8px; margin-bottom: 10px; font-size: 13px; cursor: pointer;">
+                            <input type="checkbox" id="importOverwrite">
+                            <span>Overwrite existing items</span>
+                        </label>
+                        <button type="button" class="btn btn-success" onclick="importConfiguration()" style="width: 100%;">
+                            📥 Import Configuration
+                        </button>
+                    </div>
+
+                    <div style="margin-top: 12px; padding: 10px; background: var(--bg-panel);
+                                border-left: 3px solid var(--accent-cyan); border-radius: 4px; font-size: 12px;">
+                        <strong>ℹ️ Backup includes:</strong>
+                        <ul style="margin: 8px 0 0 20px; line-height: 1.6;">
+                            <li>SSH connection credentials</li>
+                            <li>Application settings</li>
+                            <li>Optional: Notes and terminal sessions</li>
+                        </ul>
+                    </div>
                 </div>
             </div>
             <div class="modal-footer">
@@ -1627,15 +1652,56 @@
 
                 <!-- License & Copyright -->
                 <div style="border-top: 1px solid var(--border-color); padding-top: 16px; text-align: center;">
-                    <p style="color: var(--text-secondary); font-size: 12px; margin: 0 0 4px 0;">
+                    <p style="color: var(--text-secondary); font-size: 12px; margin: 0 0 8px 0;">
                         Part of <a href="https://github.com/HaithamMubarak/messaging-platform-sdk" target="_blank"
                                    style="color: var(--accent-cyan); text-decoration: none; font-weight: 600;">
                             <strong>Messaging Platform SDK</strong>
                         </a>
                     </p>
-                    <p style="color: var(--text-muted); font-size: 11px; margin: 0;">
+                    <p style="color: var(--text-muted); font-size: 11px; margin: 0 0 12px 0;">
                         © 2026 - Open Source Project
                     </p>
+
+                    <!-- GitHub Links -->
+                    <div style="display: flex; gap: 8px; justify-content: center; flex-wrap: wrap; margin-bottom: 12px;">
+                        <!-- Frontend Source -->
+                        <a href="https://github.com/HaithamMubarak/messaging-platform-sdk/tree/main/agents/examples/web-sdk-server/src/main/resources/static/apps/terminal"
+                           target="_blank"
+                           style="display: inline-flex; align-items: center; gap: 5px; padding: 8px 12px; background: linear-gradient(135deg, rgba(74, 158, 255, 0.2), rgba(34, 211, 238, 0.2)); border: 1px solid var(--accent-cyan); border-radius: 6px; color: var(--accent-cyan); text-decoration: none; font-size: 11px; font-weight: 600; transition: all 0.2s ease;">
+                            <span>🎨</span>
+                            <span>Frontend</span>
+                            <span style="font-size: 9px;">↗</span>
+                        </a>
+                        <!-- Backend Source -->
+                        <a href="https://github.com/HaithamMubarak/messaging-platform-sdk/tree/main/agents/examples/sdk-local-service"
+                           target="_blank"
+                           title="SDK Local Service - Backend API"
+                           style="display: inline-flex; align-items: center; gap: 5px; padding: 8px 12px; background: linear-gradient(135deg, rgba(139, 92, 246, 0.2), rgba(99, 102, 241, 0.2)); border: 1px solid var(--accent-purple); border-radius: 6px; color: var(--accent-purple); text-decoration: none; font-size: 11px; font-weight: 600; transition: all 0.2s ease;">
+                            <span>⚙️</span>
+                            <span>Backend</span>
+                            <span style="font-size: 9px;">↗</span>
+                        </a>
+                        <!-- SDK Repo -->
+                        <a href="https://github.com/HaithamMubarak/messaging-platform-sdk"
+                           target="_blank"
+                           style="display: inline-flex; align-items: center; gap: 5px; padding: 8px 12px; background: linear-gradient(135deg, rgba(34, 211, 238, 0.2), rgba(16, 185, 129, 0.2)); border: 1px solid var(--accent-green); border-radius: 6px; color: var(--accent-green); text-decoration: none; font-size: 11px; font-weight: 600; transition: all 0.2s ease;">
+                            <span>⭐</span>
+                            <span>SDK Repo</span>
+                            <span style="font-size: 9px;">↗</span>
+                        </a>
+                    </div>
+
+                    <!-- Report Issue Button -->
+                    <a href="https://github.com/HaithamMubarak/messaging-platform-sdk/issues/new?title=[Terminal%20App]%20&body=**Terminal%20App%20Issue/Feedback**%0A%0A**Description:**%0A%3C!--%20Describe%20your%20issue%20or%20feedback%20here%20--%3E%0A%0A**Environment:**%0A-%20Browser:%20%3C!--%20e.g.,%20Chrome%20120%20--%3E%0A-%20OS:%20%3C!--%20e.g.,%20Windows%2011%20--%3E%0A-%20Terminal%20App%20Version:%201.0.0%0A%0A**Steps%20to%20Reproduce:**%0A1.%20%0A2.%20%0A3.%20%0A%0A**Expected%20Behavior:**%0A%3C!--%20What%20should%20happen%20--%3E%0A%0A**Actual%20Behavior:**%0A%3C!--%20What%20actually%20happens%20--%3E%0A%0A**Additional%20Context:**%0A%3C!--%20Screenshots,%20logs,%20or%20other%20information%20--%3E"
+                       target="_blank"
+                       style="display: inline-flex; align-items: center; gap: 8px; padding: 10px 18px;
+                              background: linear-gradient(135deg, rgba(251, 146, 60, 0.2), rgba(239, 68, 68, 0.2));
+                              border: 1px solid rgba(251, 146, 60, 0.5); border-radius: 8px; color: #fb923c;
+                              text-decoration: none; font-size: 12px; font-weight: 600; transition: all 0.2s ease;">
+                        <span>🐛</span>
+                        <span>Report Issue / Feedback</span>
+                        <span style="font-size: 10px;">↗</span>
+                    </a>
                 </div>
 
             </div>

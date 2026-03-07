@@ -137,9 +137,11 @@
     pointer-events: none;
 }
 
-/* Warning - Golden Amber Gradient */
+/* Warning - Dark Amber/Orange Gradient for Better Contrast */
 .toast-warning {
-    background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+    background: linear-gradient(135deg, #d97706 0%, #ea580c 100%);
+    color: #ffffff;
+    font-weight: 600;
 }
 
 .toast-warning::after {
@@ -149,8 +151,22 @@
     right: 0;
     width: 100px;
     height: 100%;
-    background: linear-gradient(90deg, transparent 0%, rgba(245, 87, 108, 0.3) 100%);
+    background: linear-gradient(90deg, transparent 0%, rgba(234, 88, 12, 0.3) 100%);
     pointer-events: none;
+}
+
+/* Ensure warning toast text has maximum contrast */
+.toast-warning h1,
+.toast-warning h2,
+.toast-warning h3,
+.toast-warning h4,
+.toast-warning h5,
+.toast-warning h6,
+.toast-warning p,
+.toast-warning span,
+.toast-warning div {
+    color: #ffffff;
+    text-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
 }
 
 /* Animations */

@@ -9,6 +9,10 @@
  * - Session persistence and auto-restore
  * - Real-time synchronization
  *
+ * GitHub Repository: https://github.com/HaithamMubarak/messaging-platform-sdk
+ * Terminal App Path: /agents/examples/web-sdk-server/src/main/resources/static/apps/terminal
+ * Direct Link: https://github.com/HaithamMubarak/messaging-platform-sdk/tree/main/agents/examples/web-sdk-server/src/main/resources/static/apps/terminal
+ *
  * TABLE OF CONTENTS:
  * 1. Configuration & Constants
  * 2. Security & Authentication
@@ -1508,7 +1512,7 @@ async function checkMlsHealth(showNotification = false) {
         throw new Error(`Health check failed with status: ${response.status}`);
     } catch (error) {
         if (statusDot) statusDot.className = 'top-status-dot offline';
-        if (statusText) statusText.textContent = 'SLS';
+        //if (statusText) statusText.textContent = 'Lo';
         setSlsTitle(`Local Service: Offline – cannot connect on localhost:${SLS_PORT}`);
 
         console.warn('[Health] SLS health check failed:', error.message);
@@ -3531,6 +3535,205 @@ window.saveSlsPortSettings = async function() {
         console.error('Failed to connect with new port:', error);
     }
 }
+
+// ========================================
+// Configuration Backup/Restore Functions
+// ========================================
+
+// Show/hide password fields based on format selection
+document.addEventListener('DOMContentLoaded', () => {
+    const exportFormat = document.getElementById('exportFormat');
+    const importFile = document.getElementById('importFile');
+
+    if (exportFormat) {
+        exportFormat.addEventListener('change', (e) => {
+            const passwordContainer = document.getElementById('exportPasswordContainer');
+            if (e.target.value === 'zip-protected') {
+                passwordContainer.style.display = 'block';
+            } else {
+                passwordContainer.style.display = 'none';
+            }
+        });
+    }
+
+    if (importFile) {
+        importFile.addEventListener('change', (e) => {
+            const file = e.target.files[0];
+            const passwordContainer = document.getElementById('importPasswordContainer');
+
+            if (file && file.name.endsWith('.zip')) {
+                // Show password field for ZIP files (might be encrypted)
+                passwordContainer.style.display = 'block';
+            } else {
+                passwordContainer.style.display = 'none';
+            }
+        });
+    }
+});
+
+window.exportConfiguration = async function() {
+    try {
+        const format = document.getElementById('exportFormat').value;
+        const password = document.getElementById('exportPassword').value;
+        const includeSsh = document.getElementById('exportSsh').checked;
+        const includeSessions = document.getElementById('exportSessions').checked;
+        const includeNotes = document.getElementById('exportNotes').checked;
+
+        // Validate password for protected format
+        if (format === 'zip-protected' && (!password || password.length < 6)) {
+            showToast('error', 'Invalid Password', 'Password must be at least 6 characters long');
+            return;
+        }
+
+        // Build query parameters
+        const params = new URLSearchParams({
+            format: format === 'zip-protected' ? 'zip' : format,
+            includeSshConnections: includeSsh,
+            includeSessions: includeSessions,
+            includeNotes: includeNotes
+        });
+
+        if (format === 'zip-protected' && password) {
+            params.append('password', password);
+        }
+
+        showToast('info', 'Exporting', 'Preparing configuration backup...');
+
+        // Download the file
+        const response = await slsFetch(`${MLS_URL}/config/backup/export?${params.toString()}`);
+
+        if (!response.ok) {
+            throw new Error(`Export failed: ${response.statusText}`);
+        }
+
+        const blob = await response.blob();
+        const contentDisposition = response.headers.get('Content-Disposition');
+        let filename = 'sls-config.xml';
+
+        if (contentDisposition) {
+            const filenameMatch = contentDisposition.match(/filename="?(.+)"?/);
+            if (filenameMatch) {
+                filename = filenameMatch[1];
+            }
+        }
+
+        // Create download link
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = filename;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        window.URL.revokeObjectURL(url);
+
+        showToast('success', 'Export Complete', `Configuration exported as ${filename}`);
+
+        // Clear password field
+        document.getElementById('exportPassword').value = '';
+
+    } catch (error) {
+        console.error('[ConfigBackup] Export failed:', error);
+        showToast('error', 'Export Failed', error.message || 'Failed to export configuration');
+    }
+};
+
+window.importConfiguration = async function() {
+    try {
+        const fileInput = document.getElementById('importFile');
+        const password = document.getElementById('importPassword').value;
+        const overwrite = document.getElementById('importOverwrite').checked;
+
+        if (!fileInput.files || fileInput.files.length === 0) {
+            showToast('error', 'No File Selected', 'Please select a configuration file to import');
+            return;
+        }
+
+        const file = fileInput.files[0];
+
+        // Validate file type
+        if (!file.name.endsWith('.xml') && !file.name.endsWith('.zip')) {
+            showToast('error', 'Invalid File', 'Please select a valid XML or ZIP configuration file');
+            return;
+        }
+
+        showToast('info', 'Importing', 'Processing configuration file...');
+
+        // Create FormData
+        const formData = new FormData();
+        formData.append('file', file);
+        formData.append('overwriteExisting', overwrite);
+
+        if (password) {
+            formData.append('password', password);
+        }
+
+        // Upload and import
+        const response = await slsFetch(`${MLS_URL}/config/backup/import`, {
+            method: 'POST',
+            body: formData,
+            // Don't set Content-Type header, browser will set it with boundary for FormData
+            headers: {}
+        });
+
+        if (!response.ok) {
+            const error = await response.json();
+            throw new Error(error.error || 'Import failed');
+        }
+
+        const result = await response.json();
+
+        if (!result.success) {
+            throw new Error(result.error || 'Import failed');
+        }
+
+        // Show success message with details
+        const sshCount = result.sshConnectionsImported || 0;
+        const sshSkipped = result.sshConnectionsSkipped || 0;
+        const configCount = result.configEntriesImported || 0;
+
+        let message = `Imported: ${sshCount} SSH connection(s)`;
+        if (sshSkipped > 0) {
+            message += `, ${sshSkipped} skipped (already exists)`;
+        }
+        if (configCount > 0) {
+            message += `, ${configCount} config entry(s)`;
+        }
+
+        showToast('success', 'Import Complete', message);
+
+        // Show errors if any
+        if (result.errors && result.errors.length > 0) {
+            console.warn('[ConfigBackup] Import errors:', result.errors);
+            setTimeout(() => {
+                showToast('warning', 'Import Warnings', `${result.errors.length} item(s) had issues. Check console for details.`);
+            }, 2000);
+        }
+
+        // Clear form
+        fileInput.value = '';
+        document.getElementById('importPassword').value = '';
+        document.getElementById('importOverwrite').checked = false;
+
+        // Refresh SSH connections
+        setTimeout(() => {
+            refreshConnections();
+        }, 1000);
+
+    } catch (error) {
+        console.error('[ConfigBackup] Import failed:', error);
+
+        // Provide more helpful error messages
+        let errorMsg = error.message;
+        if (errorMsg.includes('password') || errorMsg.includes('Decryption')) {
+            errorMsg = 'Incorrect password or corrupted file';
+        } else if (errorMsg.includes('parse') || errorMsg.includes('XML')) {
+            errorMsg = 'Invalid configuration file format';
+        }
+
+        showToast('error', 'Import Failed', errorMsg);
+    }
+};
 
 // ========================================
 // Help Modal Functions
