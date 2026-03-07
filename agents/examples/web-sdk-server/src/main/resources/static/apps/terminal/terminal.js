@@ -2901,7 +2901,12 @@ function connectWebSocket(sessionId) {
 
         console.log('[WS] Terminal should now accept input for session:', sessionId);
 
-        // Send initial terminal size — fast path at 300ms, refresh at 800ms for page reload / late DOM
+        // Update file explorer button if this is the active session (fixes page refresh issue)
+        if (sessionId === activeSessionId) {
+            updateFileExplorerButtonState(session);
+        }
+
+        // Send initial terminal size — fast path at 300ms
         sendTerminalResize(sessionId, 300, { refresh: true });
 
         // NOTE: We intentionally do NOT send Enter (\r) on connect/reconnect.
