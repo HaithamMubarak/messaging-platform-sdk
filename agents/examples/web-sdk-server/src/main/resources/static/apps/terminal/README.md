@@ -449,7 +449,7 @@ The terminal app requires **TWO components** working together:
 
 **Official Download:**
 ```
-https://hmdevonline.com/downloads/sdk-local-service.jar
+https://raw.githubusercontent.com/HaithamMubarak/messaging-platform-sdk/develop/agents/examples/sdk-local-service/build/libs/sdk-local-service.jar
 ```
 
 **Alternative (GitHub Releases):**
@@ -695,7 +695,7 @@ Frontend available at: `http://localhost:8084/apps/terminal`
 2. **Download & Run SDK Local Service**:
    ```bash
    # Download
-   curl -O https://hmdevonline.com/downloads/sdk-local-service.jar
+   curl -O https://raw.githubusercontent.com/HaithamMubarak/messaging-platform-sdk/develop/agents/examples/sdk-local-service/build/libs/sdk-local-service.jar
    
    # Run
    java -jar sdk-local-service.jar

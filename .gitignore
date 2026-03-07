@@ -15,20 +15,21 @@ gradle-app.setting
 *.ipr 
 out/ 
  
-# Build output 
-/build/ 
-build/ 
-**/build/ 
-**/build/** 
-build/classes/ 
+# Build output
+/build/
+build/classes/
 /build/classes/ 
-**/build/classes/ 
-**/build/classes/** 
- 
-# Agents build outputs 
-agents/build/ 
-agents/build/** 
- 
+
+# Agents build outputs - but allow sdk-local-service JAR
+agents/build/
+agents/*/build/
+agents/*/*/build/
+# Exception: sdk-local-service JAR is tracked
+!agents/examples/sdk-local-service/build/
+!agents/examples/sdk-local-service/build/libs/
+!agents/examples/sdk-local-service/build/libs/sdk-local-service.jar
+
+
 # Ensure sdk/libs is not ignored 
 !/libs/ 
 !/libs/** 
