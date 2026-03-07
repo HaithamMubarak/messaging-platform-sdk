@@ -3914,7 +3914,7 @@ function tabContextMenuAction(action) {
             // Check if cloud connected before allowing share/unshare
             if (!cloudConnected || !terminalSharing) {
                 console.warn('[TabContextMenu] Not connected - opening modal with session to share');
-                showToast('warning', '🔌 Not Connected', 'Connect to Messaging Platform to share this session');
+
                 // Open the modal to connection tab and pass the session to share
                 openMessagingModal(sessionId);
                 return;
