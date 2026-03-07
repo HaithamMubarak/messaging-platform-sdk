@@ -430,7 +430,6 @@ class FileEditor {
             this.renderTabs();
             this.loadTabContent(tabId);
 
-            this.onToast('success', '📁 File Opened', this.getFileName(filePath));
 
             // Send notification to owner if this is a remote session
             if (window.isRemoteFileSystem && window.isRemoteFileSystem(terminalSessionId)) {
@@ -787,6 +786,9 @@ class FileEditor {
                 this.onToast('success', '💾 Saved', this.getFileName(tab.filePath));
             }
 
+            console.log('[FileEditor] File saved successfully:', tab.filePath);
+            fileExplorer.refresh()
+
             // ✅ Broadcast notification to ALL users in the session (not just owner)
             // This allows everyone who has the same file open to see the reload notification
             if (window.terminalSharing && window.terminalSharing.connected) {
@@ -1072,49 +1074,25 @@ class FileEditor {
      * Show reload notification bar when file is modified by another user
      */
     showReloadNotification(terminalId, filePath, userName) {
-        console.log('[FileEditor] showReloadNotification called:', {
-            terminalId,
-            filePath,
-            userName,
-            openTabs: this.tabs.length,
-            tabs: this.tabs.map(t => ({ id: t.id, terminalId: t.terminalId, filePath: t.filePath, backendPath: t.backendPath }))
-        });
-
-        // Find if we have this file open
         const tab = this.tabs.find(t =>
             t.terminalId === terminalId &&
             (t.filePath === filePath || t.backendPath === filePath)
         );
+        if (!tab) return;
 
-        if (!tab) {
-            console.log('[FileEditor] File not open, no reload notification needed');
-            console.log('[FileEditor] Looking for terminalId:', terminalId, 'filePath:', filePath);
-            console.log('[FileEditor] Available tabs:', this.tabs.map(t => `${t.terminalId}:${t.filePath}`));
-            return;
-        }
-
-        console.log('[FileEditor] Found tab for reload notification:', tab);
-
-        console.log('[FileEditor] Showing reload notification for:', filePath, 'by:', userName);
-
-        // Mark tab as needing reload
         tab.needsReload = true;
         tab.modifiedBy = userName;
 
-        // Show reload bar
         const reloadBar = this.mode === 'popup'
             ? document.getElementById('fileEditorReloadBar')
             : document.getElementById('fileEditorReloadBarPinned');
 
         if (reloadBar) {
             const message = reloadBar.querySelector('.reload-message');
-            if (message) {
-                message.textContent = `📝 This file was modified by ${userName}`;
-            }
+            if (message) message.textContent = `📝 This file was modified by ${userName}`;
             reloadBar.style.display = 'flex';
         }
 
-        // Show toast notification
         this.onToast('warning', '⚠️ File Modified', `${this.getFileName(filePath)} was saved by ${userName}`);
     }
 
@@ -1125,72 +1103,45 @@ class FileEditor {
         const tab = this.tabs.find(t => t.id === this.activeTabId);
         if (!tab) return;
 
-        // Check if user has unsaved changes
         if (tab.modified && !tab.needsReload) {
-            const confirm = window.confirm(
-                'You have unsaved changes. Reloading will discard them. Continue?'
-            );
-            if (!confirm) return;
+            if (!window.confirm('You have unsaved changes. Reloading will discard them. Continue?')) return;
         }
-
-        // If file was modified by someone else, show confirmation
         if (tab.needsReload && tab.modifiedBy) {
-            const confirm = window.confirm(
-                `This file was modified by ${tab.modifiedBy}. Reload to see their changes?\n\n` +
-                `Warning: Your unsaved changes will be lost.`
-            );
-            if (!confirm) return;
+            if (!window.confirm(`This file was modified by ${tab.modifiedBy}. Reload to see their changes?\n\nWarning: Your unsaved changes will be lost.`)) return;
         }
 
         try {
             const status = this.mode === 'popup'
                 ? document.getElementById('fileEditorStatus')
                 : document.getElementById('fileEditorStatusPinned');
-
             status.textContent = 'Reloading...';
 
-            // Fetch latest content
             const pathToRead = tab.backendPath || tab.filePath;
-
             let result;
+
             if (window.isRemoteFileSystem && window.isRemoteFileSystem(tab.terminalId)) {
-                result = await window.proxyFileSystemRequest(tab.terminalId, 'read', {
-                    path: pathToRead
-                });
+                result = await window.proxyFileSystemRequest(tab.terminalId, 'read', { path: pathToRead });
             } else {
                 const response = await fetch(
                     `${this.mlsUrl}/filesystem/${encodeURIComponent(tab.terminalId)}/read?path=${encodeURIComponent(pathToRead)}`
                 );
-
-                if (!response.ok) {
-                    throw new Error('Failed to reload file');
-                }
-
+                if (!response.ok) throw new Error('Failed to reload file');
                 result = await response.json();
             }
 
-            if (!result.success) {
-                throw new Error(result.message || 'Failed to reload file');
-            }
+            if (!result.success) throw new Error(result.message || 'Failed to reload file');
 
-            // Update tab content
             tab.content = result.content || '';
             tab.modified = false;
             tab.needsReload = false;
             tab.modifiedBy = null;
 
-            // Reload in editor
             this.loadTabContent(tab.id);
             this.renderTabs();
-
-            // Hide reload bar
             this.dismissReload();
 
             status.textContent = '🔄 Reloaded';
-            setTimeout(() => {
-                status.textContent = 'Ready';
-            }, 2000);
-
+            setTimeout(() => { status.textContent = 'Ready'; }, 2000);
             this.onToast('success', '🔄 Reloaded', this.getFileName(tab.filePath));
 
         } catch (error) {
@@ -1206,20 +1157,12 @@ class FileEditor {
         const reloadBar = this.mode === 'popup'
             ? document.getElementById('fileEditorReloadBar')
             : document.getElementById('fileEditorReloadBarPinned');
+        if (reloadBar) reloadBar.style.display = 'none';
 
-        if (reloadBar) {
-            reloadBar.style.display = 'none';
-        }
-
-        // Clear needsReload flag from active tab
         const tab = this.tabs.find(t => t.id === this.activeTabId);
-        if (tab) {
-            tab.needsReload = false;
-            tab.modifiedBy = null;
-        }
+        if (tab) { tab.needsReload = false; tab.modifiedBy = null; }
     }
 }
 
-// Export for global use
 window.FileEditor = FileEditor;
 

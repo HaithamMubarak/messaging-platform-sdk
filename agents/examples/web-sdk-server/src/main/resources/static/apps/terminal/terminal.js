@@ -166,6 +166,9 @@ class TabSessionManager {
         const session = this.sessions.get(sessionId);
         if (!session) return;
 
+        // Update file explorer button state for this session
+        updateFileExplorerButtonState(session);
+
         // Update status bar
         if (typeof updateStatusBar === 'function') {
             updateStatusBar();
@@ -3621,6 +3624,39 @@ function hideContextMenus() {
 }
 
 // ========================================
+// Context Menu Positioning Utility
+// ========================================
+/**
+ * Position a context menu so it stays fully inside the viewport.
+ * Works for both pre-existing DOM menus and dynamically created ones.
+ * Must be called AFTER the menu is in the DOM and visible (or temporarily visible).
+ * @param {HTMLElement} menu  - the menu element
+ * @param {number}      x     - desired left (clientX)
+ * @param {number}      y     - desired top  (clientY)
+ */
+function positionContextMenu(menu, x, y) {
+    // Make it briefly visible off-screen so the browser calculates its size
+    const prevVisibility = menu.style.visibility;
+    const prevDisplay    = menu.style.display;
+    menu.style.visibility = 'hidden';
+    menu.style.display    = 'block';
+
+    const mw = menu.offsetWidth  || 200;
+    const mh = menu.offsetHeight || 100;
+    const vw = window.innerWidth;
+    const vh = window.innerHeight;
+
+    // Clamp: if menu would overflow right/bottom, flip it
+    const left = (x + mw > vw) ? Math.max(0, x - mw) : x;
+    const top  = (y + mh > vh) ? Math.max(0, y - mh) : y;
+
+    menu.style.visibility = prevVisibility || '';
+    menu.style.display    = prevDisplay    || '';
+    menu.style.left = left + 'px';
+    menu.style.top  = top  + 'px';
+}
+
+// ========================================
 // Terminal Right-Click Context Menu
 // ========================================
 let _terminalCtxSessionId = null;
@@ -3634,13 +3670,9 @@ function attachTerminalContextMenu(sessionId) {
         _terminalCtxSessionId = sessionId;
         const menu = document.getElementById('terminalContextMenu');
         if (!menu) return;
-        // Position — keep inside viewport
-        const x = Math.min(e.clientX, window.innerWidth - 180);
-        const y = Math.min(e.clientY, window.innerHeight - 250);
-        menu.style.left = x + 'px';
-        menu.style.top  = y + 'px';
         hideContextMenus();
         menu.classList.add('visible');
+        positionContextMenu(menu, e.clientX, e.clientY);
     });
 }
 
@@ -3708,9 +3740,8 @@ function showSessionContextMenu(e, connectionId, name, host, port, username) {
     contextMenuTarget = { connectionId, name, host, port, username };
 
     const menu = document.getElementById('sessionContextMenu');
-    menu.style.left = e.clientX + 'px';
-    menu.style.top = e.clientY + 'px';
     menu.classList.add('visible');
+    positionContextMenu(menu, e.clientX, e.clientY);
 
     // Hide tab context menu if open
     document.getElementById('tabContextMenu').classList.remove('visible');
@@ -3820,11 +3851,10 @@ function showTabContextMenu(e, sessionId) {
         }
     }
 
-    // Position and show the menu (keep it on screen)
+    // Position and show the menu
     const menu = document.getElementById('tabContextMenu');
-    menu.style.left = e.clientX + 'px';
-    menu.style.top = e.clientY + 'px';
     menu.classList.add('visible');
+    positionContextMenu(menu, e.clientX, e.clientY);
 
     // Hide session context menu if open
     document.getElementById('sessionContextMenu').classList.remove('visible');
@@ -3943,8 +3973,6 @@ function tabContextMenuAction(action) {
                     console.log('[TabContextMenu] Calling shareTerminal');
                     shareTerminal(sessionId);
                 }
-
-                updateTabContextMenu();
             }
             break;
         }
@@ -5578,24 +5606,6 @@ terminalSharing.onFileSystemNavigate = (sessionId, path, sourceAgent) => {
 terminalSharing.onFileSystemNotification = (sessionId, operation, details, sourceAgent) => {
     console.log('[FileSystem] Received notification from:', sourceAgent, 'op:', operation, 'details:', details);
 
-    const session = sessions.get(sessionId);
-    const sessionName = session?.name || 'Terminal';
-
-    // Map operations to user-friendly messages
-    const messages = {
-        'read': `📄 ${sourceAgent} opened: ${details.path}`,
-        'write': `💾 ${sourceAgent} saved: ${details.path}`,
-        'delete': `🗑️ ${sourceAgent} deleted: ${details.path}`,
-        'mkdir': `📁 ${sourceAgent} created folder: ${details.path}`,
-        'rename': `✏️ ${sourceAgent} renamed: ${details.oldPath} → ${details.newPath}`,
-        'navigate': `📂 ${sourceAgent} browsing: ${details.path}`
-    };
-
-    const message = messages[operation] || `${sourceAgent} performed ${operation}`;
-
-    // Show notification to owner
-    showToast('info', `🔔 File System Activity`, message, 4000);
-
     // ✅ If someone ELSE saved a file, check if we have it open in file editor
     // Don't show reload button if we are the one who saved it
     // Use details.savedBy (actual saver) instead of sourceAgent (message relayer/owner)
@@ -6580,11 +6590,8 @@ function showViewerContextMenu(event, sessionId, agentName) {
 
     const menu = document.getElementById('viewerContextMenu');
     if (!menu) return;
-
-    // Position menu at cursor
-    menu.style.left = `${event.pageX}px`;
-    menu.style.top = `${event.pageY}px`;
     menu.classList.add('visible');
+    positionContextMenu(menu, event.clientX, event.clientY);
 
     console.log('[ViewerContextMenu] Opened for:', agentName, 'session:', sessionId);
 }
@@ -7152,12 +7159,9 @@ function showNoteContextMenu(event, noteId) {
         existingMenu.remove();
     }
 
-    console.log('[Notes] Creating menu at position:', event.clientX, event.clientY);
     const menu = document.createElement('div');
-    menu.className = 'note-context-menu context-menu visible';  // ✅ Add 'visible' class!
+    menu.className = 'note-context-menu context-menu visible';
     menu.style.position = 'fixed';
-    menu.style.left = event.clientX + 'px';
-    menu.style.top = event.clientY + 'px';
     menu.style.zIndex = '10000';
 
     menu.innerHTML = `
@@ -7176,11 +7180,9 @@ function showNoteContextMenu(event, noteId) {
         </div>
     `;
 
-    console.log('[Notes] Appending menu to body:', menu);
     document.body.appendChild(menu);
-    console.log('[Notes] Menu appended, checking if visible...');
-    console.log('[Notes] Menu element:', menu);
-    console.log('[Notes] Menu computed style:', window.getComputedStyle(menu).display, window.getComputedStyle(menu).visibility);
+    // Position after append so offsetWidth/Height are available
+    positionContextMenu(menu, event.clientX, event.clientY);
 
     // Remove on click outside
     setTimeout(() => {
