@@ -1543,6 +1543,111 @@ async function checkMlsHealth(showNotification = false) {
 }
 
 // ========================================
+// Shell Detection & Management
+// ========================================
+
+/**
+ * Available shells cache (fetched from backend based on OS)
+ */
+let availableShells = null;
+let detectedOS = null;
+
+/**
+ * Fetch available shells from backend (OS-aware)
+ */
+async function fetchAvailableShells() {
+    if (availableShells !== null) {
+        return availableShells; // Return cached
+    }
+
+    try {
+        const response = await slsFetch(`${MLS_URL}/terminal/shells`);
+        if (!response.ok) {
+            throw new Error('Failed to fetch available shells');
+        }
+
+        const data = await response.json();
+        availableShells = data.shells || [];
+        detectedOS = data.os || 'Unknown';
+
+        console.log(`[Shell Detection] OS: ${detectedOS}, Available shells:`, availableShells);
+        return availableShells;
+
+    } catch (error) {
+        console.error('[Shell Detection] Failed to fetch shells:', error);
+
+        // Fallback: Assume bash for unknown OS
+        availableShells = [{
+            name: 'bash',
+            label: 'Bash',
+            available: true,
+            icon: '🐚'
+        }];
+        detectedOS = 'Unknown';
+
+        return availableShells;
+    }
+}
+
+/**
+ * Update toolbar buttons based on available shells
+ * Enable/disable CMD, Bash, PowerShell buttons based on OS and availability
+ */
+async function updateToolbarButtons() {
+    const shells = await fetchAvailableShells();
+
+    // Create a map of available shell names
+    const availableShellNames = new Set(shells.map(s => s.name));
+
+    // Update each toolbar button
+    const cmdBtn = document.getElementById('cmdToolbarBtn');
+    const bashBtn = document.getElementById('bashToolbarBtn');
+    const powershellBtn = document.getElementById('powershellToolbarBtn');
+
+    // CMD button
+    if (cmdBtn) {
+        if (availableShellNames.has('cmd')) {
+            cmdBtn.disabled = false;
+            cmdBtn.style.opacity = '1';
+            cmdBtn.title = 'New CMD Terminal';
+        } else {
+            cmdBtn.disabled = true;
+            cmdBtn.style.opacity = '0.5';
+            cmdBtn.title = 'CMD not available on this OS';
+        }
+    }
+
+    // Bash button
+    if (bashBtn) {
+        if (availableShellNames.has('bash')) {
+            bashBtn.disabled = false;
+            bashBtn.style.opacity = '1';
+            const shell = shells.find(s => s.name === 'bash');
+            bashBtn.title = shell ? `New ${shell.label} Terminal` : 'New Bash Terminal';
+        } else {
+            bashBtn.disabled = true;
+            bashBtn.style.opacity = '0.5';
+            bashBtn.title = 'Bash not available on this OS';
+        }
+    }
+
+    // PowerShell button
+    if (powershellBtn) {
+        if (availableShellNames.has('powershell')) {
+            powershellBtn.disabled = false;
+            powershellBtn.style.opacity = '1';
+            powershellBtn.title = 'New PowerShell Terminal';
+        } else {
+            powershellBtn.disabled = true;
+            powershellBtn.style.opacity = '0.5';
+            powershellBtn.title = 'PowerShell not available on this OS';
+        }
+    }
+
+    console.log('[Toolbar] Updated shell buttons based on available shells:', Array.from(availableShellNames));
+}
+
+// ========================================
 // Session List (Sidebar)
 // ========================================
 async function loadSshConnections() {
@@ -1563,35 +1668,41 @@ async function loadSshConnections() {
  */
 async function _renderSessionList(container) {
     if (!container) return;
+
+    // Fetch available shells from backend (OS-aware)
+    const shells = await fetchAvailableShells();
     const connections = await loadSshConnections();
 
+    // Render Quick Actions with dynamic shell list
     let html = `
         <div class="session-group">
-            <div class="session-group-title">Quick Actions</div>
-            <div class="session-item" onclick="createLocalTerminal('cmd')">
-                <div class="session-icon local">💻</div>
-                <div class="session-details">
-                    <div class="session-name">CMD Terminal</div>
-                    <div class="session-info">Windows Command Prompt</div>
-                </div>
-            </div>
-            <div class="session-item" onclick="createLocalTerminal('bash')">
-                <div class="session-icon local" style="background: linear-gradient(135deg, #22d3ee, #059669);">🐧</div>
-                <div class="session-details">
-                    <div class="session-name">Bash Terminal</div>
-                    <div class="session-info">WSL / Git Bash</div>
-                </div>
-            </div>
-            <div class="session-item" onclick="createLocalTerminal('powershell')">
-                <div class="session-icon local" style="background: linear-gradient(135deg, #a78bfa, #7c3aed);">⚡</div>
-                <div class="session-details">
-                    <div class="session-name">PowerShell</div>
-                    <div class="session-info">Windows PowerShell</div>
-                </div>
-            </div>
-        </div>
+            <div class="session-group-title">Quick Actions${detectedOS ? ` (${detectedOS})` : ''}</div>
     `;
 
+    // Render each available shell
+    shells.forEach((shell, index) => {
+        const colors = [
+            'linear-gradient(135deg, #4a9eff, #22d3ee)',
+            'linear-gradient(135deg, #22d3ee, #059669)',
+            'linear-gradient(135deg, #a78bfa, #7c3aed)',
+            'linear-gradient(135deg, #fb923c, #f97316)'
+        ];
+        const color = colors[index % colors.length];
+
+        html += `
+            <div class="session-item" onclick="createLocalTerminal('${shell.name}')">
+                <div class="session-icon local" style="background: ${color};">${shell.icon || '💻'}</div>
+                <div class="session-details">
+                    <div class="session-name">${shell.label}</div>
+                    <div class="session-info">${shell.name}</div>
+                </div>
+            </div>
+        `;
+    });
+
+    html += `</div>`;
+
+    // Render SSH Connections
     if (connections.length > 0) {
         html += `
             <div class="session-group">
@@ -5303,7 +5414,10 @@ async function connectToCloud() {
             // Write to the specific shared session terminal
             const session = sessions.get(sessionId);
             if (session && session.terminal && session.owner === sourceAgent) {
-                session.terminal.write(data);
+                // Apply cleanOutput formatting for bash shells (handles carriage returns)
+                const shell = session.config?.shell || 'bash';
+                const cleanedData = cleanOutput(data, shell);
+                session.terminal.write(cleanedData);
             } else {
                 console.warn('[Terminal] No matching session found for session:', sessionId, 'from:', sourceAgent);
             }
@@ -7974,6 +8088,9 @@ window.addEventListener('load', async () => {
             loadNotes().catch(err => console.warn('[Notes] Failed to load notes on initial load:', err));
 
             updateSlsDependentButtons(true);
+
+            // Update toolbar shell buttons based on available shells
+            updateToolbarButtons().catch(err => console.warn('[Toolbar] Failed to update shell buttons on init:', err));
         } catch (error) {
             console.warn('⚠️ SLS is offline');
 
@@ -8055,10 +8172,13 @@ window.addEventListener('load', async () => {
     window.addEventListener('sls-online', (event) => {
         console.log('[SLS Event] 🟢 SLS is now ONLINE', event.detail);
 
-        // Re-enable terminal creation buttons
-        updateSlsDependentButtons(true);
+    // Re-enable terminal creation buttons
+    updateSlsDependentButtons(true);
 
-        // ✅ Load notes when SLS comes online
+    // Update toolbar shell buttons based on available shells
+    updateToolbarButtons().catch(err => console.warn('[Toolbar] Failed to update shell buttons:', err));
+
+    // ✅ Load notes when SLS comes online
         const { previousState } = event.detail;
         if (previousState !== 'online') {
             console.log('[SLS Event] Loading notes after SLS came online');

@@ -60,7 +60,7 @@ class FileExplorer {
     }
 
     /**
-     * Create all DOM elements for the SFTP browser
+     * Create all DOM elements for the File browser
      */
     createDomElements() {
         // Create main panel

@@ -259,15 +259,15 @@
             <span class="icon">☰</span>
             <span class="label">Menu</span>
         </button>
-        <button class="toolbar-btn sls-dependent" onclick="createLocalTerminal('cmd')" title="New CMD Terminal">
+        <button class="toolbar-btn sls-dependent" id="cmdToolbarBtn" onclick="createLocalTerminal('cmd')" title="New CMD Terminal">
             <span class="icon">💻</span>
             <span class="label">CMD</span>
         </button>
-        <button class="toolbar-btn sls-dependent" onclick="createLocalTerminal('bash')" title="New Bash Terminal (WSL/Git)">
+        <button class="toolbar-btn sls-dependent" id="bashToolbarBtn" onclick="createLocalTerminal('bash')" title="New Bash Terminal (WSL/Git)">
             <span class="icon">🐧</span>
             <span class="label">Bash</span>
         </button>
-        <button class="toolbar-btn sls-dependent" onclick="createLocalTerminal('powershell')" title="New PowerShell Terminal">
+        <button class="toolbar-btn sls-dependent" id="powershellToolbarBtn" onclick="createLocalTerminal('powershell')" title="New PowerShell Terminal">
             <span class="icon">⚡</span>
             <span class="label">PowerShell</span>
         </button>
@@ -605,7 +605,7 @@
             </div>
         </div>
 
-        <!-- SFTP File Browser Panel (hidden, controlled by sidebar) -->
+        <!-- File Browser Panel (hidden, controlled by sidebar) -->
         <!-- Moved to sidebar -->
     </div>
 
@@ -942,12 +942,12 @@
                             Download SDK Local Service</h4>
 
                         <div style="display: flex; gap: 10px; justify-content: center; flex-wrap: wrap; margin-bottom: 12px;">
-                            <a href="https://raw.githubusercontent.com/HaithamMubarak/messaging-platform-sdk/develop/agents/examples/sdk-local-service/build/libs/sdk-local-service.jar"
+                            <a href="https://raw.githubusercontent.com/HaithamMubarak/messaging-platform-sdk/develop/agents/examples/sdk-local-service/build/libs/sdk-local-service.jar" target="_blank"
                                download
                                style="display: inline-flex; align-items: center; gap: 6px; padding: 8px 16px; background: var(--accent-green); color: #000; text-decoration: none; border-radius: 5px; font-weight: 600; font-size: 12px; transition: all 0.2s;">
                                 <span style="font-size: 14px;">📦</span> sdk-local-service.jar
                             </a>
-                            <a href="https://raw.githubusercontent.com/HaithamMubarak/messaging-platform-sdk/develop/agents/examples/sdk-local-service/src/main/resources/application.properties"
+                            <a href="https://raw.githubusercontent.com/HaithamMubarak/messaging-platform-sdk/develop/agents/examples/sdk-local-service/src/main/resources/application.properties" target="_blank"
                                download
                                style="display: inline-flex; align-items: center; gap: 6px; padding: 8px 16px; background: var(--accent-blue); color: #fff; text-decoration: none; border-radius: 5px; font-weight: 600; font-size: 12px; transition: all 0.2s;">
                                 <span style="font-size: 14px;">⚙️</span> application.properties
@@ -1011,7 +1011,7 @@
                             </div>
                             <div style="background: var(--bg-panel); padding: 12px; border-radius: 6px;">
                                 <div style="font-size: 16px; margin-bottom: 4px;">📁</div>
-                                <div style="font-size: 12px; font-weight: bold; color: var(--text-primary);">SFTP Browser
+                                <div style="font-size: 12px; font-weight: bold; color: var(--text-primary);">File Browser
                                 </div>
                                 <div style="font-size: 11px; color: var(--text-secondary);">File transfer & management</div>
                             </div>

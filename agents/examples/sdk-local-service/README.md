@@ -27,7 +27,7 @@ SDK Local Service powers multiple web applications with local system access:
 
 ### 1. **Shared Terminal** 🖥️
 **Path:** `/apps/terminal`  
-**Live App:** [http://localhost:8084/apps/terminal](http://localhost:8084/apps/terminal) *(requires web-sdk-server running)*  
+**Live App:** [https://hmdevonline.com/messaging-platform/sdk/apps/terminal/index.html](https://hmdevonline.com/messaging-platform/sdk/apps/terminal/index.html) *(requires SDK Local Service running)*  
 **GitHub Source:** [Terminal App Source Code](https://github.com/HaithamMubarak/messaging-platform-sdk/tree/main/agents/examples/web-sdk-server/src/main/resources/static/apps/terminal)  
 **Web Server:** [web-sdk-server](https://github.com/HaithamMubarak/messaging-platform-sdk/tree/main/agents/examples/web-sdk-server)
 
@@ -82,7 +82,7 @@ cd ../web-sdk-server
 ```
 
 Then access:
-- **Terminal App:** http://localhost:8084/apps/terminal
+- **Terminal App:** https://hmdevonline.com/messaging-platform/sdk/apps/terminal/index.html
 - **Web SDK Server:** [GitHub Link](https://github.com/HaithamMubarak/messaging-platform-sdk/tree/main/agents/examples/web-sdk-server)
 
 > **Note:** Both SLS (port 8088) and web-sdk-server (port 8084) must be running for the terminal app to work.

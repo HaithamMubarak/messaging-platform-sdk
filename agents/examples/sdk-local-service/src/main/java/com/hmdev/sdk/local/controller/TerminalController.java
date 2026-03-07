@@ -5,6 +5,7 @@ import com.hmdev.sdk.local.dto.SshTestResponse;
 import com.hmdev.sdk.local.model.SshConnection;
 import com.hmdev.sdk.local.model.TerminalSession;
 import com.hmdev.sdk.local.terminal.TerminalService;
+import com.hmdev.sdk.local.terminal.config.ShellConfig;
 import com.hmdev.sdk.local.terminal.util.TerminalStringUtils;
 import com.hmdev.sdk.local.terminal.websocket.TerminalWebSocketHandler;
 import lombok.RequiredArgsConstructor;
@@ -15,6 +16,7 @@ import org.springframework.web.bind.annotation.*;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
+import java.util.stream.Collectors;
 
 @RestController
 @RequestMapping("/terminal")
@@ -24,6 +26,44 @@ public class TerminalController {
 
     private final TerminalService terminalService;
     private final TerminalWebSocketHandler terminalWebSocketHandler;
+
+    /**
+     * Get available shell types for the current OS
+     * Uses unified ShellConfig for consistency
+     */
+    @GetMapping("/shells")
+    public ResponseEntity<?> getAvailableShells() {
+        try {
+            List<ShellConfig.ShellInfo> shells = ShellConfig.getAvailableShells();
+
+            // Convert to API response format
+            List<Map<String, Object>> shellsResponse = new java.util.ArrayList<>();
+            for (ShellConfig.ShellInfo shell : shells) {
+                if (shell.isAvailable()) {
+                    Map<String, Object> shellMap = new java.util.HashMap<>();
+                    shellMap.put("name", shell.getName());
+                    shellMap.put("label", shell.getLabel());
+                    shellMap.put("available", true);
+                    shellMap.put("icon", shell.getIcon());
+                    shellsResponse.add(shellMap);
+                }
+            }
+
+            log.info("Available shells for OS '{}': {} shells", ShellConfig.getOSName(), shellsResponse.size());
+
+            Map<String, Object> response = new java.util.HashMap<>();
+            response.put("os", ShellConfig.getOSName());
+            response.put("shells", shellsResponse);
+            response.put("defaultShell", ShellConfig.getDefaultShell());
+
+            return ResponseEntity.ok(response);
+
+        } catch (Exception e) {
+            log.error("Failed to get available shells: {}", e.getMessage(), e);
+            return ResponseEntity.internalServerError()
+                .body(Map.of("error", e.getMessage()));
+        }
+    }
 
     /**
      * Create terminal session (local or SSH)
