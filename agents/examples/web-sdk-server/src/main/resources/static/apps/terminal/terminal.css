@@ -912,6 +912,68 @@ body {
     filter: grayscale(60%);
 }
 
+/* ========== Disabled Shell Buttons with Hover Tooltip ========== */
+.toolbar-btn[disabled]:not(.sls-disabled) {
+    opacity: 0.5;
+    cursor: not-allowed;
+    pointer-events: all; /* Allow hover for tooltip */
+    filter: grayscale(40%);
+    position: relative;
+}
+
+/* Show enhanced visual feedback on hover for disabled shell buttons */
+.toolbar-btn[disabled]:not(.sls-disabled):hover {
+    background: rgba(248, 113, 113, 0.1);
+    border-color: rgba(248, 113, 113, 0.3);
+    transform: none; /* Don't scale */
+}
+
+/* Tooltip on hover for disabled buttons */
+.toolbar-btn[disabled]:not(.sls-disabled):hover::after {
+    content: attr(title);
+    position: absolute;
+    bottom: 100%;
+    left: 0;
+    margin-bottom: 8px;
+    padding: 8px 12px;
+    background: #2d2d5a;
+    border: 1px solid rgba(248, 113, 113, 0.6);
+    border-radius: 6px;
+    color: #ffffff;
+    font-size: 12px;
+    font-weight: 500;
+    white-space: nowrap;
+    z-index: 1000;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.6), 0 0 20px rgba(248, 113, 113, 0.4);
+    pointer-events: none;
+    animation: tooltipFadeIn 0.2s ease-out;
+}
+
+/* Tooltip arrow */
+.toolbar-btn[disabled]:not(.sls-disabled):hover::before {
+    content: '';
+    position: absolute;
+    bottom: 100%;
+    left: 20px;
+    margin-bottom: 2px;
+    border: 6px solid transparent;
+    border-top-color: rgba(248, 113, 113, 0.6);
+    z-index: 999;
+    pointer-events: none;
+    animation: tooltipFadeIn 0.2s ease-out;
+}
+
+@keyframes tooltipFadeIn {
+    from {
+        opacity: 0;
+        transform: translateY(5px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
 /* ========== Viewer List (My Shares Sidebar) ========== */
 .viewer-list {
     margin-top: 4px;

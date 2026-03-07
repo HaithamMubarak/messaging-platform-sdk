@@ -1609,10 +1609,12 @@ async function updateToolbarButtons() {
         if (availableShellNames.has('cmd')) {
             cmdBtn.disabled = false;
             cmdBtn.style.opacity = '1';
+            cmdBtn.style.cursor = 'pointer';
             cmdBtn.title = 'New CMD Terminal';
         } else {
             cmdBtn.disabled = true;
             cmdBtn.style.opacity = '0.5';
+            cmdBtn.style.cursor = 'not-allowed';
             cmdBtn.title = 'CMD not available on this OS';
         }
     }
@@ -1622,11 +1624,13 @@ async function updateToolbarButtons() {
         if (availableShellNames.has('bash')) {
             bashBtn.disabled = false;
             bashBtn.style.opacity = '1';
+            bashBtn.style.cursor = 'pointer';
             const shell = shells.find(s => s.name === 'bash');
             bashBtn.title = shell ? `New ${shell.label} Terminal` : 'New Bash Terminal';
         } else {
             bashBtn.disabled = true;
             bashBtn.style.opacity = '0.5';
+            bashBtn.style.cursor = 'not-allowed';
             bashBtn.title = 'Bash not available on this OS';
         }
     }
@@ -1636,10 +1640,12 @@ async function updateToolbarButtons() {
         if (availableShellNames.has('powershell')) {
             powershellBtn.disabled = false;
             powershellBtn.style.opacity = '1';
+            powershellBtn.style.cursor = 'pointer';
             powershellBtn.title = 'New PowerShell Terminal';
         } else {
             powershellBtn.disabled = true;
             powershellBtn.style.opacity = '0.5';
+            powershellBtn.style.cursor = 'not-allowed';
             powershellBtn.title = 'PowerShell not available on this OS';
         }
     }
@@ -2270,6 +2276,17 @@ function createTerminalPanel(sessionId) {
 const MAX_SESSIONS = 20; // Maximum concurrent terminal sessions
 
 async function createLocalTerminal(shell = 'cmd') {
+    // Check if the button for this shell is disabled
+    const shellBtnMap = { 'cmd': 'cmdToolbarBtn', 'bash': 'bashToolbarBtn', 'powershell': 'powershellToolbarBtn' };
+    const btnId = shellBtnMap[shell];
+    if (btnId) {
+        const btn = document.getElementById(btnId);
+        if (btn && btn.disabled) {
+            console.warn(`[Terminal] ${shell} is not available on this OS`);
+            return; // Silently ignore - user already sees disabled state and tooltip
+        }
+    }
+
     if (TEST_MODE_NO_SLS) {
         showToast('warning', '🧪 Test Mode', 'Local terminals disabled in test mode. Connect to cloud to view shared sessions.');
         console.warn('🧪 TEST MODE: Local terminal creation disabled');
