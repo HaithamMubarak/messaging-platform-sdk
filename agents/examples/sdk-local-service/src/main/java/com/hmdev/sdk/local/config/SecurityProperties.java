@@ -36,8 +36,6 @@ public class SecurityProperties {
         "/index.html",        // Index page
         "/terminal/stream",   // WebSocket streaming (sessionId auth)
         "/cloud/connection",  // Cloud configuration
-        "/api/notes",         // Notes API (all methods)
-        "/api/notes/**",      // Notes API with IDs
         "/h2-console",        // H2 Database Console (localhost only)
         "/h2-console/**"      // H2 Console resources
     );

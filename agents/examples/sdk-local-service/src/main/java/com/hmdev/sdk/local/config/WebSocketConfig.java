@@ -32,7 +32,7 @@ public class WebSocketConfig implements WebSocketConfigurer {
                 .toArray(new String[0]);
 
         registry.addHandler(terminalWebSocketHandler, "/terminal/stream/*")
-                .setAllowedOrigins(allowedOrigins);
+                .setAllowedOriginPatterns(allowedOrigins);
     }
 }
 

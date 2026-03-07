@@ -50,9 +50,9 @@ public class DataDirectoryInitializer {
         try {
             Path dataPath = Paths.get(dataDirectory);
 
-            log.info("╔════════════════════════════════════════════════════════════════╗");
-            log.info("║       SLS Data Directory Initialization                       ║");
-            log.info("╚════════════════════════════════════════════════════════════════╝");
+            log.info("+----------------------------------------------------------------+");
+            log.info("|       SLS Data Directory Initialization                        |");
+            log.info("+----------------------------------------------------------------+");
             log.info("Data directory: {}", dataPath.toAbsolutePath());
 
             // Create main data directory
@@ -68,18 +68,18 @@ public class DataDirectoryInitializer {
             // Create README file with directory information
             createReadmeFile(dataPath);
 
-            log.info("✅ Data directory structure initialized successfully");
-            log.info("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
-            log.info("📁 Location: {}", dataPath.toAbsolutePath());
-            log.info("💾 Database: {}/{}/", dataPath.toAbsolutePath(), fsConfig.getDatabaseDirectoryName());
-            log.info("📋 Logs:     {}/{}/", dataPath.toAbsolutePath(), fsConfig.getLogsDirectoryName());
-            log.info("⚙️  Config:   {}/{}/", dataPath.toAbsolutePath(), fsConfig.getConfigDirectoryName());
-            log.info("📝 Notes:    {}/{}/", dataPath.toAbsolutePath(), fsConfig.getNotesDirectoryName());
-            log.info("🗂️  Temp:     {}/{}/", dataPath.toAbsolutePath(), fsConfig.getTempDirectoryName());
-            log.info("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
+            log.info("[OK] Data directory structure initialized successfully");
+            log.info("----------------------------------------------------------------");
+            log.info("[DIR] Location: {}", dataPath.toAbsolutePath());
+            log.info("[DB]  Database: {}/{}/", dataPath.toAbsolutePath(), fsConfig.getDatabaseDirectoryName());
+            log.info("[LOG] Logs:     {}/{}/", dataPath.toAbsolutePath(), fsConfig.getLogsDirectoryName());
+            log.info("[CFG] Config:   {}/{}/", dataPath.toAbsolutePath(), fsConfig.getConfigDirectoryName());
+            log.info("[TXT] Notes:    {}/{}/", dataPath.toAbsolutePath(), fsConfig.getNotesDirectoryName());
+            log.info("[TMP] Temp:     {}/{}/", dataPath.toAbsolutePath(), fsConfig.getTempDirectoryName());
+            log.info("----------------------------------------------------------------");
 
         } catch (IOException e) {
-            log.error("❌ Failed to initialize data directory: {}", e.getMessage(), e);
+            log.error("[ERROR] Failed to initialize data directory: {}", e.getMessage(), e);
             throw new RuntimeException("Failed to initialize data directory", e);
         }
     }
@@ -87,9 +87,9 @@ public class DataDirectoryInitializer {
     private void createDirectoryIfNotExists(Path directory, String description) throws IOException {
         if (!Files.exists(directory)) {
             Files.createDirectories(directory);
-            log.info("✅ Created: {} - {}", description, directory.toAbsolutePath());
+            log.info("[CREATED] {} - {}", description, directory.toAbsolutePath());
         } else {
-            log.info("✓  Exists:  {} - {}", description, directory.toAbsolutePath());
+            log.info("[EXISTS]  {} - {}", description, directory.toAbsolutePath());
         }
     }
 
@@ -99,7 +99,7 @@ public class DataDirectoryInitializer {
             if (!Files.exists(readmePath)) {
                 String content = buildReadmeContent();
                 Files.write(readmePath, content.getBytes());
-                log.info("✅ Created README.txt");
+                log.info("[CREATED] README.txt");
             }
         } catch (IOException e) {
             log.warn("Failed to create README.txt: {}", e.getMessage());

@@ -6870,10 +6870,7 @@ function generateNoteUUID() {
 // Load notes from backend (filesystem)
 async function loadNotes() {
     try {
-        // List all note files from filesystem
-        const response = await fetch(`${MLS_URL}/filesystem/notes/list?path=.`, {
-            headers: { 'X-SLS-Token': localStorage.getItem('sls-token') }
-        });
+        const response = await slsFetch(`${MLS_URL}/filesystem/notes/list?path=.`);
 
         if (!response.ok) {
             console.error('[Notes] Failed to load notes list');
@@ -6885,17 +6882,10 @@ async function loadNotes() {
         if (result.success && result.files) {
             notes.clear();
 
-            // Load each note file to get title and preview
             const loadPromises = result.files.map(async (fileInfo) => {
                 try {
-                    // Extract noteId from path (note://abc-123 → abc-123)
-                    const noteId = fileInfo.path.replace('note://', '');
-
-                    // Read file content to extract title
-                    const readResponse = await fetch(
-                        `${MLS_URL}/filesystem/notes/read?path=note://${noteId}`,
-                        { headers: { 'X-SLS-Token': localStorage.getItem('sls-token') } }
-                    );
+                    const noteId = fileInfo.path ? fileInfo.path.replace('note://', '') : fileInfo.name?.replace('.txt', '');
+                    const readResponse = await slsFetch(`${MLS_URL}/filesystem/notes/read?path=note://${noteId}`);
 
                     let title = 'Untitled Note';
                     let content = '';
@@ -6911,31 +6901,27 @@ async function loadNotes() {
                         }
                     }
 
-                    const note = {
+                    notes.set(noteId, {
                         id: noteId,
-                        title: title,
-                        content: content,
+                        title,
+                        content,
                         shared: false,
                         createdAt: fileInfo.lastModified || new Date().toISOString(),
                         updatedAt: fileInfo.lastModified || new Date().toISOString()
-                    };
-
-                    notes.set(note.id, note);
-                } catch (error) {
-                    console.warn('[Notes] Failed to load note:', fileInfo.path, error);
+                    });
+                } catch (e) {
+                    console.warn('[Notes] Failed to load note:', fileInfo, e);
                 }
             });
 
             await Promise.all(loadPromises);
-
-            updateNotesList();
-            updateNotesBadge();
-
-            // Set up context menu event delegation (one-time setup)
-            setupNotesContextMenu();
-
-            console.log('[Notes] Loaded notes from filesystem:', notes.size);
         }
+
+        updateNotesList();
+        updateNotesBadge();
+        setupNotesContextMenu();
+
+        console.log('[Notes] Loaded notes:', notes.size);
     } catch (error) {
         console.error('[Notes] Failed to load notes:', error);
     }
@@ -6944,58 +6930,26 @@ async function loadNotes() {
 // Create a new note
 async function createNewNote() {
     try {
-        // Generate new note ID
         const noteId = generateNoteUUID();
-        const timestamp = new Date().toISOString();
         const title = 'Untitled Note';
-
-        // Create note object in memory
-        const note = {
-            id: noteId,
-            title: title,
-            content: '',
-            shared: false,
-            createdAt: timestamp,
-            updatedAt: timestamp
-        };
-
-        // Create file with title as first line via filesystem API
         const initialContent = `# TITLE: ${title}\n`;
 
-        const response = await fetch(`${MLS_URL}/filesystem/notes/write`, {
+        const response = await slsFetch(`${MLS_URL}/filesystem/notes/write`, {
             method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'X-SLS-Token': localStorage.getItem('sls-token')
-            },
-            body: JSON.stringify({
-                path: `note://${noteId}`,
-                content: initialContent
-            })
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ path: `note://${noteId}`, content: initialContent })
         });
 
-        if (!response.ok) {
-            const errorText = await response.text();
-            console.error('[Notes] Failed to create note file:', errorText);
-            throw new Error('Failed to create note file');
-        }
-
+        if (!response.ok) throw new Error('Failed to create note');
         const result = await response.json();
-        if (!result.success) {
-            console.error('[Notes] Note creation failed:', result.error);
-            throw new Error(result.error || 'Failed to create note file');
-        }
+        if (!result.success) throw new Error(result.error || 'Failed to create note');
 
-        console.log('[Notes] Note file created successfully:', noteId);
-
-        // Add to notes collection
-        notes.set(note.id, note);
+        const note = { id: noteId, title, content: '', shared: false,
+            createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() };
+        notes.set(noteId, note);
         updateNotesList();
         updateNotesBadge();
-
-        // Open in editor (file now exists!)
-        openNote(note.id);
-
+        openNote(noteId);
         showToast('success', '📝 Note Created', 'New note created successfully');
     } catch (error) {
         console.error('[Notes] Failed to create note:', error);
@@ -7048,49 +7002,27 @@ async function updateNoteTitle(noteId, newTitle) {
 
     note.title = newTitle;
     note.updatedAt = new Date().toISOString();
-
-    // Update sidebar list
     notes.set(noteId, note);
     updateNotesList();
 
     try {
-        // Read current content
-        const readResponse = await fetch(
-            `${MLS_URL}/filesystem/notes/read?path=note://${noteId}`,
-            { headers: { 'X-SLS-Token': localStorage.getItem('sls-token') } }
-        );
-
-        if (readResponse.ok) {
-            const readResult = await readResponse.json();
-            let content = readResult.content || '';
-
-            // Remove old title line if exists
-            const lines = content.split('\n');
-            if (lines[0] && lines[0].startsWith('# TITLE: ')) {
-                lines.shift(); // Remove old title
-            }
-
-            // Add new title as first line
+        // Read current content, update title line, write back
+        const readResp = await slsFetch(`${MLS_URL}/filesystem/notes/read?path=note://${noteId}`);
+        if (readResp.ok) {
+            const readResult = await readResp.json();
+            let lines = (readResult.content || '').split('\n');
+            if (lines[0]?.startsWith('# TITLE: ')) lines.shift();
             const newContent = `# TITLE: ${newTitle}\n${lines.join('\n')}`;
-
-            // Write back
-            await fetch(`${MLS_URL}/filesystem/notes/write`, {
+            await slsFetch(`${MLS_URL}/filesystem/notes/write`, {
                 method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'X-SLS-Token': localStorage.getItem('sls-token')
-                },
-                body: JSON.stringify({
-                    path: `note://${noteId}`,
-                    content: newContent
-                })
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ path: `note://${noteId}`, content: newContent })
             });
         }
+        console.log('[Notes] Note title updated:', noteId, newTitle);
     } catch (error) {
-        console.error('[Notes] Failed to save title to file:', error);
+        console.error('[Notes] Failed to save title:', error);
     }
-
-    console.log('[Notes] Note title updated:', noteId, newTitle);
 }
 
 // Rename note via prompt (for sidebar context menu)
@@ -7125,35 +7057,20 @@ async function deleteNote(noteId) {
     if (!confirm('Are you sure you want to delete this note?')) return;
 
     try {
-        // Delete via filesystem API
-        const response = await fetch(`${MLS_URL}/filesystem/notes/delete?path=note://${noteId}`, {
-            method: 'DELETE',
-            headers: { 'X-SLS-Token': localStorage.getItem('sls-token') }
-        });
+        const response = await slsFetch(`${MLS_URL}/filesystem/notes/delete?path=note://${noteId}`, { method: 'DELETE' });
 
-        if (!response.ok) {
-            throw new Error('Failed to delete note file');
-        }
-
+        if (!response.ok) throw new Error('Failed to delete note');
         const result = await response.json();
-        if (!result.success) {
-            throw new Error(result.error || 'Failed to delete note');
-        }
+        if (!result.success) throw new Error(result.error || 'Failed to delete note');
 
-        // Remove from memory
         notes.delete(noteId);
 
-        // Close editor if this note is currently open
+        // Close editor tab if open
         if (window.fileEditor) {
-            // Close any tabs for this note (check both filePath and backendPath)
-            const tabsToClose = window.fileEditor.tabs.filter(tab => {
-                if (tab.terminalId !== 'notes') return false;
-                // Check if filePath contains noteId (format: note://{title}/{noteId})
-                if (tab.filePath && tab.filePath.includes(noteId)) return true;
-                // Check backendPath (format: note://{noteId})
-                if (tab.backendPath && tab.backendPath === `note://${noteId}`) return true;
-                return false;
-            });
+            const tabsToClose = window.fileEditor.tabs.filter(tab =>
+                tab.terminalId === 'notes' &&
+                (tab.filePath?.includes(noteId) || tab.backendPath === `note://${noteId}`)
+            );
             tabsToClose.forEach(tab => window.fileEditor.closeTab(tab.id));
         }
 

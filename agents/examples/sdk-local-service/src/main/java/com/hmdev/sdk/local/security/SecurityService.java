@@ -56,7 +56,7 @@ public class SecurityService {
 
         tokenRepository.save(securityToken);
 
-        log.info("🔑 Generated new security token (expires in {} hours) for origin: {}",
+        log.info("[Token] Generated new security token (expires in {} hours) for origin: {}",
                  actualExpiryHours, allowedOrigin);
 
         return token;
@@ -70,14 +70,14 @@ public class SecurityService {
      */
     public boolean validateToken(String token, String origin) {
         if (token == null || token.trim().isEmpty()) {
-            log.warn("⚠️ Token validation failed: Empty token");
+            log.warn("[Token] Validation failed: Empty token");
             return false;
         }
 
         Optional<SecurityToken> tokenOpt = tokenRepository.findByTokenAndActiveTrue(token);
 
         if (tokenOpt.isEmpty()) {
-            log.warn("⚠️ Token validation failed: Token not found or inactive");
+            log.warn("[Token] Validation failed: Token not found or inactive");
             return false;
         }
 
@@ -85,7 +85,7 @@ public class SecurityService {
 
         // Check expiry
         if (LocalDateTime.now().isAfter(securityToken.getExpiresAt())) {
-            log.warn("⚠️ Token validation failed: Token expired at {}", securityToken.getExpiresAt());
+            log.warn("[Token] Validation failed: Token expired at {}", securityToken.getExpiresAt());
             deactivateToken(token);
             return false;
         }
@@ -93,7 +93,7 @@ public class SecurityService {
         // Check origin (if specified)
         if (origin != null && securityToken.getAllowedOrigin() != null) {
             if (!originMatches(origin, securityToken.getAllowedOrigin())) {
-                log.warn("⚠️ Token validation failed: Origin mismatch. Expected: {}, Got: {}",
+                log.warn("[Token] Validation failed: Origin mismatch. Expected: {}, Got: {}",
                          securityToken.getAllowedOrigin(), origin);
                 return false;
             }
@@ -144,7 +144,7 @@ public class SecurityService {
         tokenRepository.findByTokenAndActiveTrue(token).ifPresent(t -> {
             t.setActive(false);
             tokenRepository.save(t);
-            log.info("🔒 Deactivated token");
+            log.info("[Token] Deactivated token");
         });
     }
 
@@ -154,7 +154,7 @@ public class SecurityService {
     @Transactional
     public void cleanupExpiredTokens() {
         tokenRepository.deleteByExpiresAtBefore(LocalDateTime.now());
-        log.info("🧹 Cleaned up expired tokens");
+        log.info("[Token] Cleaned up expired tokens");
     }
 
     /**
@@ -167,6 +167,8 @@ public class SecurityService {
             .count();
     }
 }
+
+
 
 
 

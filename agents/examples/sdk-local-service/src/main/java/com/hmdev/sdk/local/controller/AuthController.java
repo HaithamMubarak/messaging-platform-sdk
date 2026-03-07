@@ -32,7 +32,7 @@ public class AuthController {
 
             String token = securityService.generateToken(origin, expiryHours);
 
-            log.info("✅ Generated new token for origin: {}", origin != null ? origin : "default");
+            log.info("[Auth] Generated new token for origin: {}", origin != null ? origin : "default");
 
             TokenGenerationResponse response = new TokenGenerationResponse(
                 token,
@@ -44,7 +44,7 @@ public class AuthController {
             return ResponseEntity.ok(response);
 
         } catch (Exception e) {
-            log.error("❌ Failed to generate token: {}", e.getMessage(), e);
+            log.error("[Auth] Failed to generate token: {}", e.getMessage(), e);
             return ResponseEntity.internalServerError()
                 .body(ErrorResponse.of(e.getMessage()));
         }
@@ -81,7 +81,7 @@ public class AuthController {
             }
 
         } catch (Exception e) {
-            log.error("❌ Error validating token: {}", e.getMessage(), e);
+            log.error("[Auth] Error validating token: {}", e.getMessage(), e);
             return ResponseEntity.internalServerError()
                 .body(ErrorResponse.of(e.getMessage()));
         }
@@ -109,7 +109,7 @@ public class AuthController {
             return ResponseEntity.ok(response);
 
         } catch (Exception e) {
-            log.error("❌ Error getting security status: {}", e.getMessage(), e);
+            log.error("[Auth] Error getting security status: {}", e.getMessage(), e);
             SecurityStatusResponse errorResponse = SecurityStatusResponse.builder()
                 .message("Error: " + e.getMessage())
                 .build();
@@ -117,4 +117,3 @@ public class AuthController {
         }
     }
 }
-

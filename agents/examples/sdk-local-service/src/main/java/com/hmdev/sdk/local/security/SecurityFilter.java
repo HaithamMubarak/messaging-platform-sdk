@@ -60,7 +60,7 @@ public class SecurityFilter extends OncePerRequestFilter {
         // If security is disabled (for development), allow all
         if (!securityProperties.isEnabled()) {
             if (securityProperties.isEnableLogging()) {
-                log.debug("⚠️ Security disabled - allowing request to: {}", path);
+                log.debug("[Security] Disabled - allowing request to: {}", path);
             }
             filterChain.doFilter(request, response);
             return;
@@ -69,7 +69,7 @@ public class SecurityFilter extends OncePerRequestFilter {
         // Validate Origin header
         if (!isValidOrigin(origin, referer)) {
             if (securityProperties.isEnableLogging()) {
-                log.warn("🚨 SECURITY: Blocked request with invalid origin. Path: {}, Origin: {}, IP: {}",
+                log.warn("[Security] Blocked request with invalid origin. Path: {}, Origin: {}, IP: {}",
                          path, origin, request.getRemoteAddr());
             }
             response.setStatus(HttpServletResponse.SC_FORBIDDEN);
@@ -83,7 +83,7 @@ public class SecurityFilter extends OncePerRequestFilter {
 
         if (token == null || !securityService.validateToken(token, origin)) {
             if (securityProperties.isEnableLogging()) {
-                log.warn("🚨 SECURITY: Blocked request with invalid/missing token. Path: {}, Origin: {}, IP: {}",
+                log.warn("[Security] Blocked request with invalid/missing token. Path: {}, Origin: {}, IP: {}",
                          path, origin != null ? origin : "null", request.getRemoteAddr());
             }
             response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
@@ -94,7 +94,7 @@ public class SecurityFilter extends OncePerRequestFilter {
 
         // Token is valid, proceed
         if (securityProperties.isEnableLogging()) {
-            log.debug("✅ Security check passed for: {}", path);
+            log.debug("[Security] Check passed for: {}", path);
         }
         filterChain.doFilter(request, response);
     }

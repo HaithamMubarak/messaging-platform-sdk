@@ -385,32 +385,25 @@ class FileEditor {
                 return;
             }
 
-            // For notes, extract the noteId from the path format: note://{title}/{noteId}
-            // Backend expects: note://{noteId}
             let backendPath = filePath;
             if (filePath.startsWith('note://')) {
-                const parts = filePath.substring(7).split('/'); // Remove 'note://' and split
+                const parts = filePath.substring(7).split('/');
                 if (parts.length === 2) {
-                    // Format is note://{title}/{noteId}, extract noteId for backend
                     const noteId = parts[1];
                     backendPath = `note://${noteId}`;
                 }
             }
 
+            let result;
+
+            // Notes use filesystem/notes session — same as any other filesystem session
             // Fetch file content from backend
             const response = await fetch(
                 `${this.mlsUrl}/filesystem/${encodeURIComponent(terminalSessionId)}/read?path=${encodeURIComponent(backendPath)}`
             );
-
-            if (!response.ok) {
-                throw new Error('Failed to load file');
-            }
-
-            const result = await response.json();
-
-            if (!result.success) {
-                throw new Error(result.message || 'Failed to load file');
-            }
+            if (!response.ok) throw new Error('Failed to load file');
+            result = await response.json();
+            if (!result.success) throw new Error(result.message || 'Failed to load file');
 
             // Create new tab
             const tabId = `${terminalSessionId}:${filePath}:${Date.now()}`;
@@ -744,7 +737,7 @@ class FileEditor {
 
             let result;
 
-            // Check if this is a remote/shared session
+            // Notes use filesystem/notes session — same write endpoint as any file
             if (window.isRemoteFileSystem && window.isRemoteFileSystem(tab.terminalId)) {
                 console.log('[FileEditor] Using proxy for remote session save:', tab.terminalId);
                 result = await window.proxyFileSystemRequest(tab.terminalId, 'write', {

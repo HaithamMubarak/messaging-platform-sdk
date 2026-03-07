@@ -110,7 +110,7 @@ public class LocalTerminalSession implements ITerminalSession {
                 File file = new File(path);
                 if (file.exists()) {
                     if (file.canExecute()) {
-                        log.info("[LocalTerminal] ✓ Found bash at: {}", path);
+                        log.info("[LocalTerminal] Found bash at: {}", path);
                         return path;
                     } else {
                         log.debug("[LocalTerminal] Found but not executable: {}", path);
@@ -133,7 +133,7 @@ public class LocalTerminalSession implements ITerminalSession {
                 String bashPath = line.trim();
                 File file = new File(bashPath);
                 if (file.exists()) {
-                    log.info("[LocalTerminal] ✓ Found bash in PATH: {}", bashPath);
+                    log.info("[LocalTerminal] Found bash in PATH: {}", bashPath);
                     return bashPath;
                 }
             } else {
@@ -143,7 +143,7 @@ public class LocalTerminalSession implements ITerminalSession {
             log.debug("[LocalTerminal] Could not search PATH: {}", e.getMessage());
         }
 
-        log.warn("[LocalTerminal] ✗ Bash not found. Please install Git Bash from https://git-scm.com/ or enable WSL.");
+        log.warn("[LocalTerminal] Bash not found. Please install Git Bash from https://git-scm.com/ or enable WSL.");
         return null;
     }
 
