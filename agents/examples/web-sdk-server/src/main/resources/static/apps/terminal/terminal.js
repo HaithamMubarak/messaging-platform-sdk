@@ -2433,6 +2433,46 @@ async function connectToSsh(connectionId, name, host, port, username) {
 // ========================================
 // Initialize xterm.js Terminal
 // ========================================
+
+/**
+ * Send terminal resize to backend.
+ * @param {string} sessionId
+ * @param {number} [delay=0]      - ms to wait before sending
+ * @param {Object} [options={}]
+ * @param {boolean} [options.refresh=false] - if true: send cols-1 first then restore real size
+ *                                            to force backend PTY redraw and prompt reprint
+ */
+function sendTerminalResize(sessionId, delay = 0, { refresh = false } = {}) {
+    const doResize = () => {
+        const sess = sessions.get(sessionId);
+        if (!sess || !sess.fitAddon || !sess.connected) return;
+        sess.fitAddon.fit();
+        const cols = sess.terminal?.cols;
+        const rows = sess.terminal?.rows;
+        if (!(cols > 0 && rows > 10)) return;
+
+        const post = (c, r) => slsFetch(`${MLS_URL}/terminal/${sessionId}/resize`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ cols: c, rows: r })
+        }).catch(() => {});
+
+        if (refresh) {
+            // Nudge cols-1 first, then restore — forces backend to redraw prompt
+            post(cols - 1, rows);
+            setTimeout(() => {
+                if (sessions.get(sessionId)?.connected) post(cols, rows);
+            }, 120);
+            console.log(`[Resize] ${sessionId}: ${cols - 1}x${rows} -> ${cols}x${rows} (refresh)`);
+        } else {
+            post(cols, rows);
+            console.log(`[Resize] ${sessionId}: ${cols}x${rows}`);
+        }
+    };
+    if (delay > 0) setTimeout(doResize, delay);
+    else doResize();
+}
+
 function initTerminal(sessionId, options = {}) {
     const savedFontSize = parseInt(localStorage.getItem('terminal_fontSize') || '14', 10);
     const terminal = new Terminal({
@@ -2475,32 +2515,11 @@ function initTerminal(sessionId, options = {}) {
     // Delay fit to ensure container is rendered properly
     setTimeout(() => {
         fitAddon.fit();
-        // If already connected, send the size immediately
         const sess = sessions.get(sessionId);
-        if (sess && sess.connected) {
-            const cols = terminal.cols;
-            const rows = terminal.rows;
-
-            // ✅ Only send resize for LOCAL sessions we own (not remote/shared)
-            const isRemoteSession = sess.owner || sess.type === 'remote';
-
-            // Only send if dimensions are reasonable (not 80x2 or similar) AND it's a local session
-            if (cols > 0 && rows > 10 && !isRemoteSession) {
-                console.log(`[Terminal] Initial fit complete: ${cols}x${rows}`);
-                fetch(`${MLS_URL}/terminal/${sessionId}/resize`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ cols, rows })
-                }).catch(err => {
-                    console.warn('[Terminal] Initial resize failed (ignored):', err.message);
-                });
-            } else if (isRemoteSession) {
-                console.log(`[Terminal] Skipping initial resize for remote/shared session: ${sessionId}`);
-            } else {
-                console.warn(`[Terminal] Skipping resize with invalid dimensions: ${cols}x${rows}`);
-            }
+        if (sess && sess.connected && !sess.owner && sess.type !== 'remote') {
+            sendTerminalResize(sessionId);
         }
-    }, 150); // Increased from 50ms to 150ms
+    }, 150);
 
     // Store fitAddon for resizing
     const session = sessions.get(sessionId);
@@ -2589,19 +2608,9 @@ function initTerminal(sessionId, options = {}) {
 
     // Handle resize
     const resizeHandler = () => {
-        if (sessions.has(sessionId)) {
-            const sess = sessions.get(sessionId);
-            if (sess.fitAddon) {
-                sess.fitAddon.fit();
-                // Notify backend of resize
-                if (sess.connected) {
-                    fetch(`${MLS_URL}/terminal/${sessionId}/resize`, {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ cols: terminal.cols, rows: terminal.rows })
-                    }).catch(() => {});
-                }
-            }
+        const sess = sessions.get(sessionId);
+        if (sess?.fitAddon && sess?.connected) {
+            sendTerminalResize(sessionId);
         }
     };
     window.addEventListener('resize', resizeHandler);
@@ -2889,43 +2898,9 @@ function connectWebSocket(sessionId) {
 
         console.log('[WS] Terminal should now accept input for session:', sessionId);
 
-        // Send initial terminal size to backend (important for SSH!)
-        setTimeout(() => {
-            if (session.terminal && session.connected && session.fitAddon) {
-                // Ensure terminal is properly sized first
-                session.fitAddon.fit();
+        // Send initial terminal size — fast path at 300ms, refresh at 800ms for page reload / late DOM
+        sendTerminalResize(sessionId, 300, { refresh: true });
 
-                const cols = session.terminal.cols;
-                const rows = session.terminal.rows;
-
-                // Only send if dimensions are reasonable
-                if (cols > 0 && rows > 10) {
-                    console.log(`[WS] Sending initial terminal size: ${cols}x${rows}`);
-                    fetch(`${MLS_URL}/terminal/${sessionId}/resize`, {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ cols, rows })
-                    }).catch(err => console.error('[Resize] Failed:', err));
-                } else {
-                    console.warn(`[WS] Skipping resize with invalid dimensions: ${cols}x${rows}`);
-                    // Retry after a bit more time
-                    setTimeout(() => {
-                        session.fitAddon.fit();
-                        const retryRows = session.terminal.rows;
-                        if (retryRows > 10) {
-                            fetch(`${MLS_URL}/terminal/${sessionId}/resize`, {
-                                method: 'POST',
-                                headers: { 'Content-Type': 'application/json' },
-                                body: JSON.stringify({
-                                    cols: session.terminal.cols,
-                                    rows: retryRows
-                                })
-                            }).catch(() => {});
-                        }
-                    }, 500);
-                }
-            }
-        }, 200);
         // NOTE: We intentionally do NOT send Enter (\r) on connect/reconnect.
         // Sending \r would submit any stale input the backend buffer had from before
         // a page refresh (e.g. user typed "di", refreshed, we'd send "di\n" accidentally).
@@ -5739,6 +5714,8 @@ terminalSharing.onFileSystemNotification = (sessionId, operation, details, sourc
         terminalSharing.onViewerJoin = (sessionId, agentName) => {
             console.log('[Terminal] Viewer joined:', agentName, 'session:', sessionId);
             updateMySharesList();
+            // Trigger resize so backend redraws the prompt for the new viewer
+            sendTerminalResize(sessionId, 300, { refresh: true });
         };
 
         // ✅ Called when a viewer leaves a shared session
@@ -6871,56 +6848,30 @@ function generateNoteUUID() {
 async function loadNotes() {
     try {
         const response = await slsFetch(`${MLS_URL}/filesystem/notes/list?path=.`);
-
-        if (!response.ok) {
-            console.error('[Notes] Failed to load notes list');
-            return;
-        }
+        if (!response.ok) { console.error('[Notes] Failed to load notes list'); return; }
 
         const result = await response.json();
-
         if (result.success && result.files) {
             notes.clear();
-
-            const loadPromises = result.files.map(async (fileInfo) => {
-                try {
-                    const noteId = fileInfo.path ? fileInfo.path.replace('note://', '') : fileInfo.name?.replace('.txt', '');
-                    const readResponse = await slsFetch(`${MLS_URL}/filesystem/notes/read?path=note://${noteId}`);
-
-                    let title = 'Untitled Note';
-                    let content = '';
-
-                    if (readResponse.ok) {
-                        const readResult = await readResponse.json();
-                        content = readResult.content || '';
-
-                        // Extract title from first line if present
-                        const lines = content.split('\n');
-                        if (lines[0] && lines[0].startsWith('# TITLE: ')) {
-                            title = lines[0].substring(9); // Remove "# TITLE: "
-                        }
-                    }
-
-                    notes.set(noteId, {
-                        id: noteId,
-                        title,
-                        content,
-                        shared: false,
-                        createdAt: fileInfo.lastModified || new Date().toISOString(),
-                        updatedAt: fileInfo.lastModified || new Date().toISOString()
-                    });
-                } catch (e) {
-                    console.warn('[Notes] Failed to load note:', fileInfo, e);
-                }
+            result.files.forEach(fileInfo => {
+                // noteId = filename without .txt = title
+                const noteId = fileInfo.path ? fileInfo.path.replace('note://', '')
+                                             : (fileInfo.name || '').replace('.txt', '');
+                if (!noteId) return;
+                notes.set(noteId, {
+                    id: noteId,
+                    title: noteId,
+                    content: '',   // loaded lazily when opened in editor
+                    shared: false,
+                    createdAt: fileInfo.lastModified || new Date().toISOString(),
+                    updatedAt: fileInfo.lastModified || new Date().toISOString()
+                });
             });
-
-            await Promise.all(loadPromises);
         }
 
         updateNotesList();
         updateNotesBadge();
         setupNotesContextMenu();
-
         console.log('[Notes] Loaded notes:', notes.size);
     } catch (error) {
         console.error('[Notes] Failed to load notes:', error);
@@ -6930,27 +6881,21 @@ async function loadNotes() {
 // Create a new note
 async function createNewNote() {
     try {
-        const noteId = generateNoteUUID();
-        const title = 'Untitled Note';
-        const initialContent = `# TITLE: ${title}\n`;
-
-        const response = await slsFetch(`${MLS_URL}/filesystem/notes/write`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ path: `note://${noteId}`, content: initialContent })
-        });
-
+        // Backend generates unique name (UntitledNote#1..#10 then random)
+        const response = await slsFetch(`${MLS_URL}/filesystem/notes/create`, { method: 'POST' });
         if (!response.ok) throw new Error('Failed to create note');
         const result = await response.json();
         if (!result.success) throw new Error(result.error || 'Failed to create note');
 
-        const note = { id: noteId, title, content: '', shared: false,
-            createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() };
+        const noteId = result.message; // noteId = filename = title (e.g. "UntitledNote#1")
+
+        const note = { id: noteId, title: noteId, content: '',
+            shared: false, createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() };
         notes.set(noteId, note);
         updateNotesList();
         updateNotesBadge();
         openNote(noteId);
-        showToast('success', '📝 Note Created', 'New note created successfully');
+        showToast('success', '📝 Note Created', noteId);
     } catch (error) {
         console.error('[Notes] Failed to create note:', error);
         showToast('error', 'Create Failed', 'Failed to create note');
@@ -6966,13 +6911,10 @@ function openNote(noteId) {
 
     // ✅ NEW: Open in file editor (same as files) - unified editing experience
     if (window.fileEditor) {
-        // Use note title as display name in the path for better tab labels
-        const noteTitle = note.title || 'Untitled Note';
-        // Use format: note://{title}/{noteId} so getFileName extracts the title
         fileEditor.openFile(
-            'notes',  // Special session ID for notes
-            'Notes',  // Session name
-            `note://${noteTitle}/${noteId}`  // Virtual file path with title for display
+            'notes',
+            'Notes',
+            `note://${noteId}`  // noteId = title = filename
         );
     } else {
         console.error('[Notes] File editor not initialized');
@@ -6995,33 +6937,33 @@ function createNoteTab(noteId, note) {
 }
 */
 
-// Update note title (saved as first line in file with marker)
+// Update note title = rename the file
 async function updateNoteTitle(noteId, newTitle) {
     const note = notes.get(noteId);
     if (!note) return;
-
-    note.title = newTitle;
-    note.updatedAt = new Date().toISOString();
-    notes.set(noteId, note);
-    updateNotesList();
+    if (newTitle === noteId) return; // no change
 
     try {
-        // Read current content, update title line, write back
-        const readResp = await slsFetch(`${MLS_URL}/filesystem/notes/read?path=note://${noteId}`);
-        if (readResp.ok) {
-            const readResult = await readResp.json();
-            let lines = (readResult.content || '').split('\n');
-            if (lines[0]?.startsWith('# TITLE: ')) lines.shift();
-            const newContent = `# TITLE: ${newTitle}\n${lines.join('\n')}`;
-            await slsFetch(`${MLS_URL}/filesystem/notes/write`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ path: `note://${noteId}`, content: newContent })
-            });
-        }
-        console.log('[Notes] Note title updated:', noteId, newTitle);
+        const response = await slsFetch(`${MLS_URL}/filesystem/notes/rename`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ oldPath: `note://${noteId}`, newPath: `note://${newTitle}` })
+        });
+        if (!response.ok) throw new Error('Failed to rename note');
+        const result = await response.json();
+        if (!result.success) throw new Error(result.message || 'Name already exists');
+
+        // Update in-memory map: remove old key, add new key
+        notes.delete(noteId);
+        note.id = newTitle;
+        note.title = newTitle;
+        note.updatedAt = new Date().toISOString();
+        notes.set(newTitle, note);
+        updateNotesList();
+        console.log('[Notes] Renamed:', noteId, '->', newTitle);
     } catch (error) {
-        console.error('[Notes] Failed to save title:', error);
+        console.error('[Notes] Failed to rename:', error);
+        showToast('error', 'Rename Failed', error.message || 'Failed to rename note');
     }
 }
 
@@ -7087,11 +7029,11 @@ async function deleteNote(noteId) {
 
 // OLD: Close note tab - NO LONGER NEEDED (notes use popup/pinned editor)
 // Notes don't have tabs anymore!
-/*
+
 function closeNoteTab(tabId, event) {
     // ...old tab closing logic removed...
+    console.log('[Notes] Notes no longer use tabs, closeNoteTab is not needed');
 }
-*/
 
 // Set up context menu event delegation for notes (call once on init)
 let notesContextMenuSetup = false;

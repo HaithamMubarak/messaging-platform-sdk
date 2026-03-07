@@ -2,6 +2,7 @@ package com.hmdev.sdk.local.controller;
 
 import com.hmdev.sdk.local.dto.filesystem.*;
 import com.hmdev.sdk.local.filesystem.*;
+import com.hmdev.sdk.local.filesystem.NotesFileSystem;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.core.io.ByteArrayResource;
@@ -492,6 +493,34 @@ public class FileSystemController {
 
         } catch (FileSystemException e) {
             log.error("[FileSystem] Error creating directory: {}", e.getMessage());
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(
+                    FileSystemResponse.error(e.getMessage(), e.getErrorCode().name())
+            );
+        }
+    }
+
+    /**
+     * Create a new note with a unique generated name.
+     * POST /filesystem/notes/create
+     * Returns: { success: true, noteId: "UntitledNote#1", path: "note://UntitledNote#1" }
+     */
+    @PostMapping("/notes/create")
+    public ResponseEntity<FileSystemResponse> createNote() {
+        try {
+            IFileSystem fs = fileSystemService.getOrCreateFileSystem("notes");
+            if (!(fs instanceof NotesFileSystem)) {
+                return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(
+                        FileSystemResponse.error("Notes filesystem not available", "SESSION_NOT_FOUND")
+                );
+            }
+            String noteId = ((NotesFileSystem) fs).createNote();
+            return ResponseEntity.ok(FileSystemResponse.builder()
+                    .success(true)
+                    .message(noteId)  // noteId returned in message field
+                    .currentDirectory("note://" + noteId)
+                    .build());
+        } catch (FileSystemException e) {
+            log.error("[FileSystem] Error creating note: {}", e.getMessage());
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(
                     FileSystemResponse.error(e.getMessage(), e.getErrorCode().name())
             );

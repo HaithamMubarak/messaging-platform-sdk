@@ -6,6 +6,7 @@ import java.io.*;
 import java.nio.file.*;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Random;
 import java.util.stream.Stream;
 
 /**
@@ -31,6 +32,37 @@ public class NotesFileSystem extends AbstractFileSystem {
         }
 
         log.info("{} Initialized: {}", config.getNotesLogTag(), notesDirectory.toAbsolutePath());
+    }
+
+    /**
+     * Create a new note with a unique generated name.
+     * Tries UntitledNote_1 .. _10, then random numbers until unique.
+     * Returns the generated noteId (= filename without .txt).
+     */
+    public String createNote() throws FileSystemException {
+        String noteId = generateUniqueNoteName();
+        Path notePath = getNotePath(noteId);
+        try {
+            Files.write(notePath, new byte[0], StandardOpenOption.CREATE_NEW);
+            log.info("{} Created note: {}", config.getNotesLogTag(), noteId);
+            return noteId;
+        } catch (IOException e) {
+            throw new FileSystemException("Failed to create note", FileSystemException.ErrorCode.IO_ERROR, e);
+        }
+    }
+
+    private String generateUniqueNoteName() {
+        // Try UntitledNote_1 through _10
+        for (int i = 1; i <= 10; i++) {
+            String candidate = "UntitledNote_" + i;
+            if (!Files.exists(getNotePath(candidate))) return candidate;
+        }
+        // Fall back to random numbers
+        Random rnd = new Random();
+        while (true) {
+            String candidate = "UntitledNote_" + (rnd.nextInt(9000) + 11);
+            if (!Files.exists(getNotePath(candidate))) return candidate;
+        }
     }
 
     @Override
@@ -156,7 +188,23 @@ public class NotesFileSystem extends AbstractFileSystem {
 
     @Override
     public void rename(String oldPath, String newPath) throws FileSystemException {
-        throw new FileSystemException("Not supported", FileSystemException.ErrorCode.NOT_SUPPORTED);
+        String oldId = extractNoteId(oldPath);
+        String newId = extractNoteId(newPath);
+        Path src = getNotePath(oldId);
+        Path dst = getNotePath(newId);
+
+        if (!Files.exists(src)) {
+            throw new FileSystemException("Note not found: " + oldId, FileSystemException.ErrorCode.NOT_FOUND);
+        }
+        if (Files.exists(dst)) {
+            throw new FileSystemException("A note named '" + newId + "' already exists", FileSystemException.ErrorCode.ALREADY_EXISTS);
+        }
+        try {
+            Files.move(src, dst, StandardCopyOption.ATOMIC_MOVE);
+            log.info("{} Renamed: {} -> {}", config.getNotesLogTag(), oldId, newId);
+        } catch (IOException e) {
+            throw new FileSystemException("Failed to rename note", FileSystemException.ErrorCode.IO_ERROR, e);
+        }
     }
 
     @Override

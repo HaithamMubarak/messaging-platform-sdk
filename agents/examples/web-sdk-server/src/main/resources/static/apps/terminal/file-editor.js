@@ -387,11 +387,8 @@ class FileEditor {
 
             let backendPath = filePath;
             if (filePath.startsWith('note://')) {
-                const parts = filePath.substring(7).split('/');
-                if (parts.length === 2) {
-                    const noteId = parts[1];
-                    backendPath = `note://${noteId}`;
-                }
+                // Path is simply note://{noteId} — noteId is also the display title
+                backendPath = filePath;
             }
 
             let result;
