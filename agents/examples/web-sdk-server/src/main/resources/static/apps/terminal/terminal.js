@@ -8188,11 +8188,15 @@ window.addEventListener('load', async () => {
     window.addEventListener('sls-online', (event) => {
         console.log('[SLS Event] 🟢 SLS is now ONLINE', event.detail);
 
-    // Re-enable terminal creation buttons
-    updateSlsDependentButtons(true);
+        // Clear shell cache to force re-fetch from backend
+        availableShells = null;
+        detectedOS = null;
 
-    // Update toolbar shell buttons based on available shells
-    updateToolbarButtons().catch(err => console.warn('[Toolbar] Failed to update shell buttons:', err));
+        // Re-enable terminal creation buttons
+        updateSlsDependentButtons(true);
+
+        // Update toolbar shell buttons based on available shells (will fetch fresh data)
+        updateToolbarButtons().catch(err => console.warn('[Toolbar] Failed to update shell buttons:', err));
 
     // ✅ Load notes when SLS comes online
         const { previousState } = event.detail;
