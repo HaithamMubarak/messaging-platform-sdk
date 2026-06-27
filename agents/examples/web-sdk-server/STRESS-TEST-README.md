@@ -226,7 +226,7 @@ The stress test specifically validates the Redis lock TTL fix:
 **What to monitor:**
 ```bash
 # In another terminal, watch messaging service logs
-cd C:\Users\admin\dev\messaging\messaging-platform-services\docker
+cd C:\Users\admin\dev\messaging\<services-repo>\docker
 docker-compose logs -f messaging-service | findstr /i "unlock lock"
 ```
 

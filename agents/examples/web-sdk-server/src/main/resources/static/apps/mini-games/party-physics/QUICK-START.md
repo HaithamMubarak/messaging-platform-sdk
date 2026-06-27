@@ -11,7 +11,7 @@
 
 ```bash
 # Terminal 1: Start Messaging Platform Services
-cd messaging-platform-services
+cd <services-repo>
 ./gradlew bootRun
 
 # Terminal 2: Start Web SDK Server
