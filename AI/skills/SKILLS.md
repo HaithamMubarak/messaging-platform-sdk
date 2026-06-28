@@ -51,6 +51,7 @@ messages, control **offsets / poll source** for history, authenticate with an
 | Skill | Use it when you need to… | Folder |
 |-------|--------------------------|--------|
 | **sdk-local-service** | Work on the local service app (terminal, SSH, filesystem, cloud connection, WebSocket) | `sdk-local-service/` |
+| **git-workflow** | Push/pull either repo, understand the two-remote setup (SDK: private origin + public; services: private only) | `git-workflow/` |
 
 ## How to use a skill
 
