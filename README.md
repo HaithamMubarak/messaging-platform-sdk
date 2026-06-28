@@ -99,24 +99,23 @@ Real-time messaging SDK for building multiplayer games, collaborative apps, and 
 ### Java
 
 ```java
-import com.hmdev.messaging.agent.AgentConnection;
+import com.hmdev.messaging.agent.core.AgentConnection;
+import com.hmdev.messaging.agent.core.ConnectConfig;
 
 public class QuickChat {
-    public static void main(String[] args) {
+    public static void main(String[] args) throws Exception {
         AgentConnection agent = new AgentConnection();
-        
+
         agent.setOnMessage(msg -> {
             System.out.println(msg.getFrom() + ": " + msg.getContent());
         });
-        
-        agent.connect(
-            "https://hmdevonline.com/messaging-platform/api",
-            "your-api-key",
-            "my-channel",
-            "secret123",
-            "java-user"
-        );
-        
+
+        agent.connect(ConnectConfig.builder()
+            .channelName("my-channel")
+            .channelPassword("secret123")
+            .agentName("java-user")
+            .build());
+
         agent.sendMessage("Hello from Java!");
     }
 }

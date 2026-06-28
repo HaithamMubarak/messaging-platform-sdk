@@ -1,142 +1,24 @@
 # Messaging Platform SDK - Developer Guide
 
 **Version:** 1.0.0  
-**Last Updated:** January 25, 2026  
-**Repository:** [messaging-platform-sdk](https://github.com/your-org/messaging-platform-sdk)
+**Focus:** Repository structure, build system, per-agent library reference, contributing.
+
+> For SDK usage and quick-start examples, see [USER-GUIDE.md](USER-GUIDE.md).  
+> For Web/JS deep dive, see [WEB-AGENT-GUIDE.md](WEB-AGENT-GUIDE.md).
 
 ---
 
 ## Table of Contents
 
-1. [Overview](#overview)
-2. [Quick Start](#quick-start)
-3. [Repository Structure](#repository-structure)
-4. [Build System](#build-system)
-5. [Agent Libraries](#agent-libraries)
+1. [Repository Structure](#repository-structure)
+2. [Build System](#build-system)
+3. [Agent Libraries](#agent-libraries)
    - [Web Agent (JavaScript)](#web-agent-javascript)
    - [Java Agent](#java-agent)
    - [Python Agent](#python-agent)
-6. [Examples](#examples)
-7. [API Reference](#api-reference)
-8. [Contributing](#contributing)
-9. [Troubleshooting](#troubleshooting)
-
----
-
-## Overview
-
-The Messaging Platform SDK provides cross-platform client libraries for building real-time messaging applications. It supports:
-
-- **Real-time messaging** - WebSocket-based communication with high-performance message broker
-- **WebRTC streaming** - Audio/video streaming with built-in SFU support
-- **Multi-platform** - JavaScript/Web, Java, and Python agents
-- **Secure communication** - AES encryption, temporary API keys
-- **Flexible filtering** - Target specific agents with filter queries
-
-### Architecture
-
-```
-┌─────────────────────────────────────────────────────────────┐
-│                     Your Application                         │
-├─────────────┬─────────────────┬─────────────────────────────┤
-│  Web Agent  │   Java Agent    │       Python Agent          │
-│ (JavaScript)│   (JVM/Android) │      (Scripts/ML)           │
-├─────────────┴─────────────────┴─────────────────────────────┤
-│                  Messaging Platform API                      │
-│            (REST + WebSocket + WebRTC SFU)                  │
-└─────────────────────────────────────────────────────────────┘
-```
-
----
-
-## Quick Start
-
-### Prerequisites
-
-| Agent | Requirements |
-|-------|--------------|
-| **Web** | Modern browser (Chrome, Firefox, Safari, Edge) |
-| **Java** | Java 11+ |
-| **Python** | Python 3.8+ |
-
-### 5-Minute Setup
-
-#### Web Agent (Fastest)
-
-```html
-<!DOCTYPE html>
-<html>
-<head>
-    <title>Quick Chat</title>
-    <!-- Include SDK -->
-    <script src="https://your-cdn.com/js/web-agent.libs.js"></script>
-    <script src="https://your-cdn.com/js/web-agent.js"></script>
-</head>
-<body>
-    <div id="messages"></div>
-    <input id="input" placeholder="Type message...">
-    <button onclick="send()">Send</button>
-
-    <script>
-        const agent = new AgentConnection({ usePubKey: false });
-
-        agent.onMessage = (msg) => {
-            document.getElementById('messages').innerHTML += 
-                `<p><b>${msg.from}:</b> ${msg.content}</p>`;
-        };
-
-        agent.connect({
-            channelName: 'quick-chat',
-            channelPassword: 'demo123',
-            agentName: 'user-' + Math.random().toString(36).substr(2, 5),
-            api: 'https://hmdevonline.com/messaging-platform/api',
-            apiKey: 'your-api-key',
-            autoReceive: true
-        });
-
-        function send() {
-            const input = document.getElementById('input');
-            agent.sendTextMessage(input.value);
-            input.value = '';
-        }
-    </script>
-</body>
-</html>
-```
-
-#### Java Agent
-
-```java
-import com.hmdev.messaging.agent.core.AgentConnection;
-
-public class QuickStart {
-    public static void main(String[] args) throws Exception {
-        AgentConnection agent = new AgentConnection(
-            "https://hmdevonline.com/messaging-platform/api", 
-            "your-api-key"
-        );
-        
-        agent.connect("quick-chat", "demo123", "java-user");
-        agent.sendTextMessage("Hello from Java!");
-        agent.disconnect();
-    }
-}
-```
-
-#### Python Agent
-
-```python
-from hmdev.messaging.agent.core.agent_connection import AgentConnection
-
-agent = AgentConnection.with_api_key(
-    "https://hmdevonline.com/messaging-platform/api", 
-    "your-api-key"
-)
-
-agent.connect("quick-chat", "demo123", "python-user")
-agent.send_text_message("Hello from Python!")
-agent.disconnect()
-```
+4. [Examples](#examples)
+5. [Contributing](#contributing)
+6. [Troubleshooting](#troubleshooting)
 
 ---
 
@@ -145,52 +27,43 @@ agent.disconnect()
 ```
 messaging-platform-sdk/
 ├── README.md                   # Project overview
-├── DEVELOPER-GUIDE.md          # This file
-├── USER-GUIDE.md               # End-user documentation
-├── WEB-AGENT-GUIDE.md          # Web agent detailed guide
+├── USER-GUIDE.md               # SDK feature overview & quick-start (all languages)
+├── WEB-AGENT-GUIDE.md          # Web agent deep dive
+├── DEVELOPER-GUIDE.md          # This file — architecture & contribution
 ├── build.gradle                # Root Gradle build
 ├── settings.gradle             # Gradle settings
 │
-├── agents/                     # Agent implementations
+├── agents/
 │   ├── web-agent-js/           # JavaScript/Web client
-│   │   ├── js/
-│   │   │   ├── web-agent.js         # Main agent class
-│   │   │   ├── web-agent.libs.js    # Dependencies
-│   │   │   └── web-agent.webrtc.js  # WebRTC helper
-│   │   └── package.json
+│   │   └── js/
+│   │       ├── web-agent.js         # Main agent class
+│   │       ├── web-agent.libs.js    # Bundled dependencies
+│   │       └── web-agent.webrtc.js  # WebRTC helper
 │   │
 │   ├── java-agent/             # Java client
-│   │   ├── src/main/java/
-│   │   │   └── com/hmdev/messaging/agent/
-│   │   │       ├── core/
-│   │   │       │   └── AgentConnection.java   # Main class
-│   │   │       ├── api/
-│   │   │       ├── util/
-│   │   │       └── webrtc/
-│   │   └── build.gradle
+│   │   └── src/main/java/com/hmdev/messaging/agent/
+│   │       ├── core/
+│   │       │   ├── AgentConnection.java   # Main class
+│   │       │   └── ConnectConfig.java     # Connection config builder
+│   │       ├── api/
+│   │       ├── util/
+│   │       └── webrtc/
 │   │
 │   ├── python-agent/           # Python client
-│   │   ├── hmdev/messaging/agent/
-│   │   │   ├── core/
-│   │   │   │   └── agent_connection.py  # Main class
-│   │   │   ├── api/
-│   │   │   ├── security/
-│   │   │   └── util/
-│   │   ├── setup.py
-│   │   └── requirements.txt
+│   │   └── hmdev/messaging/agent/
+│   │       ├── core/agent_connection.py   # Main class
+│   │       ├── api/
+│   │       ├── security/
+│   │       └── util/
 │   │
-│   └── examples/               # Example applications
-│       ├── web-sdk-server/     # Spring Boot SDK server (docs, demos, examples)
-│       ├── java-agent-chat/    # Java chat example
-│       └── python-agent-chat/  # Python chat example
+│   └── examples/
+│       ├── web-sdk-server/     # Spring Boot demo server
+│       ├── java-agent-chat/    # Java CLI chat example
+│       └── python-agent-chat/  # Python CLI chat example
 │
-├── libs/                       # Compiled JARs
-│   ├── agents-1.0.0.jar
-│   └── messaging-common-1.0.0.jar
-│
-└── AI/                         # AI-assisted documentation
-    ├── AI-CODING-INSTRUCTIONS.md
-    └── mini-games/             # Mini-game development guides
+├── messaging-common/           # Shared JAR (data models, crypto)
+└── AI/                         # AI skills and documentation
+    └── skills/
 ```
 
 ---
@@ -199,50 +72,43 @@ messaging-platform-sdk/
 
 ### Prerequisites
 
-- **Gradle 7.x+** (wrapper included)
-- **Java 11+** (for Java agent and demo server)
-- **Node.js 16+** (optional, for web agent npm tasks)
-- **Python 3.8+** (for Python agent)
+| Tool | Version | Purpose |
+|------|---------|---------|
+| Java | 11+ | Java agent, demo server, build |
+| Gradle | 7.x+ | Build orchestration (wrapper included) |
+| Python | 3.8+ | Python agent |
+| Node.js | 16+ (optional) | Web agent npm tasks |
 
-### Building All Agents
+### Common Commands
 
 ```bash
-cd messaging-platform-sdk
+# Build everything
 ./gradlew clean build
-```
 
-### Building Individual Agents
-
-```bash
-# Java Agent only
+# Build specific agent
 ./gradlew :agents:java-agent:build
-
-# Web SDK Server
 ./gradlew :agents:examples:web-sdk-server:build
+
+# Run tests
+./gradlew test
+./gradlew :agents:java-agent:test
+
+# Run demo server
+./gradlew :agents:examples:web-sdk-server:bootRun
+# Then open http://localhost:8084
 ```
 
-### Running the Web SDK Server
-
-```bash
-cd agents/examples/web-sdk-server
-./gradlew bootRun
-
-# Or use the script
-./start.sh
-```
-
-Then open: http://localhost:8084
-
-### Python Agent Installation
+### Python Agent
 
 ```bash
 cd agents/python-agent
 
-# Development install
+# Development install (editable)
 pip install -e .
 
-# Or production install
-pip install .
+# Run tests
+pytest
+pytest --cov=messaging_agent
 ```
 
 ---
@@ -251,272 +117,189 @@ pip install .
 
 ### Web Agent (JavaScript)
 
-The Web Agent is a browser-compatible JavaScript library.
+Browser-compatible JavaScript library with no external dependencies.
 
-#### Installation
+**Files:**
+- `web-agent.js` — `AgentConnection` class, messaging, channel storage
+- `web-agent.libs.js` — bundled dependencies (SockJS, etc.)
+- `web-agent.webrtc.js` — optional `WebRtcHelper` class
 
-```html
-<!-- Required files -->
-<script src="js/web-agent.libs.js"></script>
-<script src="js/web-agent.js"></script>
-
-<!-- Optional: WebRTC support -->
-<script src="js/web-agent.webrtc.js"></script>
-```
-
-#### Creating a Connection
+**Quick reference:**
 
 ```javascript
-// Create agent instance
 const agent = new AgentConnection({ usePubKey: false });
 
-// Configure event handlers
-agent.onMessage = (msg) => {
-    console.log(`${msg.from}: ${msg.content}`);
-};
+agent.onMessage = (msg) => console.log(`${msg.from}: ${msg.content}`);
 
-agent.onChannelConnect = () => {
-    console.log('Connected!');
-};
-
-agent.onChannelDisconnect = () => {
-    console.log('Disconnected');
-};
-
-agent.onError = (error) => {
-    console.error('Error:', error);
-};
-
-// Connect
 agent.connect({
     channelName: 'my-channel',
     channelPassword: 'secret123',
     agentName: 'my-agent',
     api: 'https://hmdevonline.com/messaging-platform/api',
     apiKey: 'your-api-key',
-    autoReceive: true  // Auto-poll for messages
+    autoReceive: true
 });
+
+agent.sendTextMessage('Hello!');
+agent.disconnect();
 ```
 
-#### Sending Messages
+Full guide: **[WEB-AGENT-GUIDE.md](WEB-AGENT-GUIDE.md)**
 
-```javascript
-// Text message
-agent.sendTextMessage('Hello World!');
-
-// Data message (JSON)
-agent.sendDataMessage({
-    type: 'game-state',
-    position: { x: 100, y: 200 },
-    health: 100
-});
-
-// Message with filter (target specific agents)
-agent.sendTextMessage('Team message', null, 'team=blue');
-
-// Binary data
-agent.sendBinaryMessage(arrayBuffer);
-```
-
-#### WebRTC Streaming
-
-```javascript
-// Include WebRTC helper
-const webrtc = new WebRtcHelper(agent);
-
-// Start broadcasting
-const stream = await navigator.mediaDevices.getUserMedia({ 
-    video: true, 
-    audio: true 
-});
-await webrtc.startStreamBroadcast('my-stream', stream);
-
-// Receive streams
-webrtc.on('stream-added', (streamId, mediaStream) => {
-    document.getElementById('video').srcObject = mediaStream;
-});
-```
+---
 
 ### Java Agent
 
-The Java Agent supports JVM applications and Android.
+JVM-compatible client supporting desktop apps, server-side bots, and Android.
 
-#### Gradle Dependency
+**Package:** `com.hmdev.messaging.agent.core`
 
+**Gradle dependency:**
 ```gradle
 dependencies {
     implementation 'com.hmdev.messaging:java-agent:1.0.0'
 }
 ```
 
-#### Creating a Connection
+**Key classes:**
+
+| Class | Purpose |
+|-------|---------|
+| `AgentConnection` | Main connection class |
+| `ConnectConfig` | Builder-pattern connection config |
+| `EventMessage` | Received message |
+| `EventMessageResult` | Result of message queries |
+
+**Quick reference:**
 
 ```java
 import com.hmdev.messaging.agent.core.AgentConnection;
+import com.hmdev.messaging.agent.core.ConnectConfig;
 
-// Create with API key
-AgentConnection agent = new AgentConnection(
-    "https://hmdevonline.com/messaging-platform/api",
-    "your-api-key"
+AgentConnection agent = new AgentConnection();
+
+agent.setOnMessage(msg ->
+    System.out.println(msg.getFrom() + ": " + msg.getContent())
 );
 
-// Or without (for temporary key flow)
-AgentConnection agent = new AgentConnection("https://hmdevonline.com/messaging-platform/api");
-```
+agent.connect(ConnectConfig.builder()
+    .channelName("my-channel")
+    .channelPassword("secret123")
+    .agentName("java-bot")
+    .build());
 
-#### Connecting & Sending
+agent.sendTextMessage("Hello from Java!");
 
-```java
-// Connect to channel
-boolean connected = agent.connect(
-    "my-channel",      // channel name
-    "secret123",       // password
-    "java-agent"       // agent name
-);
+// Receive messages (pull)
+EventMessageResult result = agent.receiveMessages(0L, 100L, 50);
+result.getEvents().forEach(msg -> System.out.println(msg.getContent()));
 
-if (connected) {
-    // Send text
-    agent.sendTextMessage("Hello from Java!");
-    
-    // Send data (JSON object)
-    JSONObject data = new JSONObject();
-    data.put("type", "update");
-    data.put("value", 42);
-    agent.sendDataMessage(data);
-}
+// Receive messages (async push)
+agent.startReceiving(messages -> messages.forEach(this::process));
 
-// Always disconnect when done
 agent.disconnect();
 ```
 
-#### Receiving Messages
+**Key methods:**
 
-```java
-// Sync receive
-EventMessageResult result = agent.receive(new ReceiveConfig(0, 0, 20));
-for (EventMessage msg : result.getMessages()) {
-    System.out.println(msg.getFrom() + ": " + msg.getContent());
-}
+| Method | Description |
+|--------|-------------|
+| `connect(ConnectConfig)` | Connect to channel |
+| `disconnect()` | Close connection |
+| `sendTextMessage(content)` | Send text |
+| `sendDataMessage(JSONObject)` | Send JSON |
+| `receiveMessages(start, end, limit)` | Pull messages by offset |
+| `startReceiving(callback)` | Begin async receive |
+| `stopReceiving()` | Stop async receive |
+| `setApiKeyScope(scope)` | `"private"` (default) or `"public"` |
+| `setDebug(true)` | Enable debug logging |
 
-// Async receive with callback
-agent.startReceiving((messages) -> {
-    for (EventMessage msg : messages) {
-        processMessage(msg);
-    }
-});
-
-// Stop async receiving
-agent.stopReceiving();
-```
+---
 
 ### Python Agent
 
-The Python Agent is ideal for scripts, bots, and ML integrations.
+Ideal for scripts, bots, automation, and ML integrations.
 
-#### Installation
+**Package:** `hmdev.messaging.agent.core`
 
+**Install:**
 ```bash
-pip install hmdev-messaging-agent
-# Or from source
-pip install -e ./agents/python-agent
+pip install messaging-platform-python-agent
+# or from source:
+cd agents/python-agent && pip install -e .
 ```
 
-#### Creating a Connection
+**Key classes:**
+
+| Class | Purpose |
+|-------|---------|
+| `AgentConnection` | Main connection class |
+| `ReceiveConfig` | Message receive configuration |
+| `EventMessage` | Received message |
+
+**Quick reference:**
 
 ```python
 from hmdev.messaging.agent.core.agent_connection import AgentConnection
+from hmdev.messaging.agent.api.models import ReceiveConfig
 
-# With API key
-agent = AgentConnection.with_api_key(
-    "https://hmdevonline.com/messaging-platform/api",
-    "your-api-key"
-)
+agent = AgentConnection(api_url="https://hmdevonline.com/messaging-platform/api")
 
-# Without API key
-agent = AgentConnection("https://hmdevonline.com/messaging-platform/api")
-```
-
-#### Connecting & Sending
-
-```python
-# Connect
 connected = agent.connect(
     channel_name="my-channel",
     channel_password="secret123",
-    agent_name="python-agent"
+    agent_name="python-bot"
 )
 
-if connected:
-    # Send text
-    agent.send_text_message("Hello from Python!")
-    
-    # Send data (dict)
-    agent.send_data_message({
-        "type": "status",
-        "online": True
-    })
+agent.send_text_message("Hello from Python!")
 
-# Disconnect
-agent.disconnect()
-```
-
-#### Receiving Messages
-
-```python
-from hmdev.messaging.agent.api.models import ReceiveConfig
-
-# Sync receive
-result = agent.receive(ReceiveConfig(
-    globalOffset=0,
-    localOffset=0,
-    limit=20
-))
-
+# Pull messages
+result = agent.receive(ReceiveConfig(global_offset=0, local_offset=0, limit=50))
 for msg in result.messages:
     print(f"{msg.sender}: {msg.content}")
 
-# Async receive with handler
-def on_message(messages):
-    for msg in messages:
-        process_message(msg)
+# Async receive
+agent.start_receiving(lambda msgs: [process(m) for m in msgs])
 
-agent.start_receiving(on_message)
-
-# Stop async
-agent.stop_receiving()
+agent.disconnect()
 ```
+
+**Key methods:**
+
+| Method | Description |
+|--------|-------------|
+| `connect(channel_name, channel_password, agent_name)` | Connect |
+| `disconnect()` | Close connection |
+| `send_text_message(content)` | Send text |
+| `send_data_message(dict)` | Send JSON |
+| `receive(ReceiveConfig)` | Pull messages |
+| `start_receiving(callback)` | Async receive |
+| `stop_receiving()` | Stop async receive |
 
 ---
 
 ## Examples
 
-### Web Demos Server
+### Web SDK Demo Server
 
-A Spring Boot server with SDK documentation, demos, and examples:
+Spring Boot app hosting interactive demos and documentation.
 
 ```bash
 cd agents/examples/web-sdk-server
 ./gradlew bootRun
+# Open http://localhost:8084
 ```
 
-**Features:**
-- SDK Documentation
-- Interactive code examples
-- Chat demo
-- WebRTC video streaming
-- Collaborative whiteboard
-- Mini-games (Race Balls, Air Hockey, Quiz Battle, etc.)
-- Storage demo
-- Mini-games
+Includes: chat, WebRTC video, whiteboard, leaderboard, storage demo, mini-games, developer console.
 
-### Java Chat Example
+### Java CLI Chat
 
 ```bash
 cd agents/examples/java-agent-chat
 ./gradlew run
 ```
 
-### Python Chat Example
+### Python CLI Chat
 
 ```bash
 cd agents/examples/python-agent-chat
@@ -525,133 +308,72 @@ python chat.py --channel my-room --name user1
 
 ---
 
-## API Reference
-
-### AgentConnection Methods
-
-| Method | Web | Java | Python | Description |
-|--------|-----|------|--------|-------------|
-| `connect()` | ✅ | ✅ | ✅ | Connect to channel |
-| `disconnect()` | ✅ | ✅ | ✅ | Disconnect from channel |
-| `sendTextMessage(text)` | ✅ | ✅ | ✅ | Send text message |
-| `sendDataMessage(data)` | ✅ | ✅ | ✅ | Send JSON data |
-| `receive(config)` | ✅ | ✅ | ✅ | Pull messages |
-| `startReceiving(cb)` | ✅ | ✅ | ✅ | Start async receive |
-| `stopReceiving()` | ✅ | ✅ | ✅ | Stop async receive |
-| `updateAgentMetadata(meta)` | ✅ | ✅ | ✅ | Update agent metadata |
-| `isHost()` | ✅ | ✅ | ✅ | Check if host (first connected) |
-
-### Event Handlers (Web Agent)
-
-| Handler | Description |
-|---------|-------------|
-| `onMessage` | Received new message |
-| `onChannelConnect` | Connected to channel |
-| `onChannelDisconnect` | Disconnected from channel |
-| `onAgentJoin` | Another agent joined |
-| `onAgentLeave` | Another agent left |
-| `onError` | Error occurred |
-
-### Message Types
-
-| Type | Description |
-|------|-------------|
-| `TEXT` | Plain text message |
-| `DATA` | JSON data message |
-| `BINARY` | Binary data |
-| `WEBRTC` | WebRTC signaling |
-| `COMMAND` | System command |
-
----
-
 ## Contributing
 
 ### Code Style
 
-- **Java**: Follow standard Java conventions, use SLF4J logging
-- **Python**: Follow PEP 8, use type hints
-- **JavaScript**: ES6+, consistent with existing code
-
-### Testing
-
-```bash
-# Run all tests
-./gradlew test
-
-# Java agent tests
-./gradlew :agents:java-agent:test
-
-# Python tests
-cd agents/python-agent
-pytest
-```
+**Java:** standard Java conventions, SLF4J for logging, Javadoc on public APIs  
+**Python:** PEP 8, type hints, snake_case, docstrings on public functions  
+**JavaScript:** ES6+, camelCase, JSDoc on public APIs
 
 ### Pull Request Process
 
 1. Fork the repository
-2. Create a feature branch (`git checkout -b feature/amazing-feature`)
+2. Create a feature branch: `git checkout -b feature/my-feature`
 3. Write tests for new functionality
-4. Ensure all tests pass
-5. Submit pull request with clear description
+4. Ensure all tests pass: `./gradlew test`
+5. Update relevant docs ([USER-GUIDE.md](USER-GUIDE.md), [WEB-AGENT-GUIDE.md](WEB-AGENT-GUIDE.md), or this file)
+6. Submit pull request with a clear description of changes and rationale
+
+### Adding New Features
+
+1. Implement in the relevant agent (`java-agent`, `python-agent`, or `web-agent-js`)
+2. Add tests
+3. Add example to `/agents/examples/` if user-facing
+4. Update docs:
+   - **User-facing feature** → [USER-GUIDE.md](USER-GUIDE.md)
+   - **Web-specific feature** → [WEB-AGENT-GUIDE.md](WEB-AGENT-GUIDE.md)
+   - **Architecture change** → this file
 
 ---
 
 ## Troubleshooting
 
-### Connection Issues
+### Build Fails
 
-**Problem:** Cannot connect to channel
+```bash
+# Check Java version
+java -version   # must be 11+
 
-**Solutions:**
-1. Verify API key is valid
-2. Check server URL is correct
-3. Ensure channel name doesn't contain special characters
-4. Check network/firewall settings
+# Clear caches
+./gradlew clean
+rm -rf ~/.gradle/caches && ./gradlew build
 
-### Message Not Received
+# Verify libs/ folder
+ls libs/
+```
 
-**Problem:** Messages sent but not received
+### Connection Refused
 
-**Solutions:**
-1. Ensure `autoReceive: true` or call `startReceiving()`
-2. Verify channel name/password match between agents
-3. Check filter queries if using targeted messages
+```bash
+# Check messaging service is running
+docker ps
+curl http://localhost:8082/messaging-platform/api/v1/messaging-service/health
+```
 
-### WebRTC Issues
+### Tests Failing
 
-**Problem:** Video stream not working
+```bash
+# Run with output
+./gradlew cleanTest test --info
 
-**Solutions:**
-1. Ensure HTTPS is used (required for WebRTC)
+# Python tests
+cd agents/python-agent && pytest -v
+```
+
+### WebRTC Not Working in Demos
+
+1. Verify HTTPS (required for camera in production)
 2. Grant camera/microphone permissions
-3. Check if WebRTC SFU service is running
-4. Verify TURN server configuration for NAT traversal
-
-### Build Issues
-
-**Problem:** Gradle build fails
-
-**Solutions:**
-1. Ensure Java 11+ is installed: `java -version`
-2. Clear Gradle cache: `./gradlew clean`
-3. Check `libs/` folder contains required JARs
-
----
-
-## Support
-
-- **Documentation:** [USER-GUIDE.md](USER-GUIDE.md)
-- **Web Agent Guide:** [WEB-AGENT-GUIDE.md](WEB-AGENT-GUIDE.md)
-- **Issues:** GitHub Issues
-- **Discussions:** GitHub Discussions
-
----
-
-## License
-
-[MIT License](LICENSE)
-
----
-
-*Built with ❤️ for the developer community*
-
+3. Check TURN server is configured and reachable
+4. Inspect browser console for WebRTC errors
