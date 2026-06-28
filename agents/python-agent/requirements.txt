@@ -1,3 +1,6 @@
 requests>=2.28.0
 cryptography>=42.0.0
 pycryptodome>=3.20.0
+
+# Required for scripts/ai_channel_agent.py
+anthropic>=0.112.0

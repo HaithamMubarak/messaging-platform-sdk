@@ -1,50 +1,61 @@
 ---
 name: agents-integrations
-description: Build a client ("agent") in JavaScript, Java, Python, or C++, or integrate the SDK into a game or app. Covers which client to pick, where each lives, and the shared connect→send/receive→disconnect lifecycle.
-when_to_use: Use when starting a new integration, choosing a client language, locating example agents, or wiring the SDK into a multiplayer game.
+description: Navigator skill — pick a client language (JS/Java/Python/C++) and find the right detailed skill. Covers the shared connect→send/receive→disconnect lifecycle and when to use each client.
+when_to_use: Use as the entry point when starting a new integration or choosing a language. Then follow the link to the language-specific skill for implementation details.
 ---
 
 # Agents & Integrations
 
 ## Concept
 
-An **agent** is any client that connects to a channel. The four official clients
-share the same lifecycle — `connect → send/receive → disconnect` — so concepts
-transfer between languages.
+An **agent** is any client that connects to a channel. All four clients share the same lifecycle — `connect → send/receive → disconnect` — and the same connect parameters. See the language-specific skill for implementation details.
 
-## Where each client lives
+## Choose your client
 
-| Language | Location | Notes |
-|----------|----------|-------|
-| JavaScript (Web) | `WEB-AGENT-GUIDE.md`, `agents/web-agent-js/` | Browser; `AgentConnection` API |
-| Java | `agents/java-agent/` | JVM and Android |
-| Python | `agents/examples/python-agent-chat/` | Bots, scripts, automation |
-| C++ | `agents/cpp-agent/` | Native (experimental) |
+| Language | Skill | Source | Best for |
+|----------|-------|--------|----------|
+| JavaScript (Browser) | [[web-agent-js]] | `agents/web-agent-js/js/web-agent.js` | Browser apps, collaborative tools, games |
+| Java | [[java-agent]] | `agents/java-agent/` | JVM servers, Android, bots |
+| Python | [[python-agent]] | `agents/python-agent/hmdev/` | Scripts, automation bots, data pipelines |
+| C++ | *(experimental)* | `agents/cpp-agent/` | Native games, embedded systems |
 
-Runnable examples:
-- `agents/examples/java-agent-chat/` — text chat + WebRTC video example
-- `agents/examples/python-agent-chat/` — minimal chat bot
-- `agents/examples/web-sdk-server/` — server hosting the web SDK + sample apps
-- `agents/examples/sdk-local-service/` — local service wrapper
+## Examples to run
+
+| Example | Location | What it shows |
+|---------|----------|---------------|
+| Java chat | `agents/examples/java-agent-chat/` | Text chat + WebRTC video |
+| Python chat | `agents/examples/python-agent-chat/` | Minimal bot |
+| Web SDK server | `agents/examples/web-sdk-server/` | Spring Boot server hosting the web SDK + sample apps |
+| SDK local service | `agents/examples/sdk-local-service/` | Local terminal/SSH/filesystem service — see [[sdk-local-service]] |
 
 ## Game integration
 
-Start at `agents/GAME-DEV-INDEX.md` and `agents/GETTING-STARTED-GAMES.md`.
-`agents/INTEGRATION-COMPARISON.txt` compares approaches (WebSocket vs WebRTC
-relay vs HTTP) so you can pick by latency and topology needs.
+Start at `agents/GETTING-STARTED-GAMES.md`. For approach comparison (WebSocket vs WebRTC relay vs HTTP polling), see `agents/INTEGRATION-COMPARISON.txt`.
 
-## Lifecycle (any language)
+## Shared lifecycle (any language)
 
 1. Construct the client with `remoteUrl` (+ optional `developerApiKey`).
-2. `connect({ channelName, channelPassword, agentName, ... })`.
-3. Register an `onMessage` handler and/or poll with `receive(...)`.
-4. `send(eventType, payload)` to publish.
-5. `disconnect(sessionId)` to leave.
+2. `connect({ channelName, channelPassword, agentName, apiKeyScope, pollSource, ... })`.
+3. Register an `onMessage` / `receiveAsync` handler or poll with `receive(config)`.
+4. `sendMessage(content)` / `send(...)` to publish.
+5. `disconnect()` to leave.
+
+## Connect parameters (all languages)
+
+| Parameter | Type | Notes |
+|-----------|------|-------|
+| `channelName` | string | Channel identifier |
+| `channelPassword` | string | No `* , / \` or spaces |
+| `agentName` | string | Your identity in the channel |
+| `apiKeyScope` | `"private"` / `"public"` | Use `"public"` in browsers — see [[authentication]] |
+| `pollSource` | `"AUTO"` / `"CACHE"` / `"KAFKA"` / `"DATABASE"` | See [[offsets]] |
+| `enableWebrtcRelay` | bool | Opt into WebRTC P2P relay |
+| `channelId` | string | Connect by ID instead of name |
+| `sessionId` | string | Reconnect with existing session |
 
 ## Notes for assistants
 
-- Recommend the client matching the host environment (browser → JS, server bot →
-  Python/Java, native game → C++).
-- For real-time games, point to the WebRTC relay path (`enableWebrtcRelay`) and
-  the game guides above rather than re-deriving an architecture.
-- The C++ client is marked experimental — flag that when recommending it.
+- Browser → `"public"` scope; server-side → `"private"` scope. See [[authentication]].
+- For real-time games, recommend `enableWebrtcRelay: true` with COTURN for NAT traversal.
+- Flag C++ as experimental when recommending it.
+- `isHostAgent()` (Java/JS) returns `true` for the earliest-connected agent — useful for P2P leader election.

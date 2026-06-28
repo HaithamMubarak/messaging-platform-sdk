@@ -16,13 +16,41 @@ messages, control **offsets / poll source** for history, authenticate with an
 
 ## Skills in this set
 
+### Generate code, docs, or run an AI agent ← start here for any "create/run" request
+
 | Skill | Use it when you need to… | Folder |
 |-------|--------------------------|--------|
-| **messaging** | Send and receive event messages; understand `EventMessage` / event types; WebSocket vs HTTP/UDP transport | `messaging/` |
+| **code-generator** | Generate runnable connection code (default: Python) or docs for any language, or run the AI agent on a channel | `code-generator/` |
+
+### Quick copy-paste snippets
+
+| Skill | Use it when you need to… | Folder |
+|-------|--------------------------|--------|
+| **connect** | Static copy-paste snippets for JS, Java, Python, and C++ — no script needed | `connect/` |
+
+### Core concepts (language-agnostic)
+
+| Skill | Use it when you need to… | Folder |
+|-------|--------------------------|--------|
+| **messaging** | Send and receive event messages; `EventMessage` shape / event types; WebSocket vs HTTP/UDP transport | `messaging/` |
 | **channels** | Connect, disconnect, list active/system agents, manage channel lifecycle and per-channel storage | `channels/` |
-| **offsets** | Reason about message history, `PollSource` (CACHE/KAFKA/DATABASE/AUTO), and `ChannelOffsetInfo` | `offsets/` |
-| **authentication** | Use developer API keys, `apiKeyScope` (private/public), and channel passwords | `authentication/` |
-| **agents-integrations** | Build a client in JS/Java/Python/C++ or wire the SDK into a game/app | `agents-integrations/` |
+| **offsets** | Message history, `PollSource` (CACHE/KAFKA/DATABASE/AUTO), and `ChannelOffsetInfo` counters | `offsets/` |
+| **authentication** | Developer API keys, `apiKeyScope` (private/public), channel passwords | `authentication/` |
+| **agents-integrations** | Choose a language, understand shared lifecycle, find examples | `agents-integrations/` |
+
+### Language-specific clients
+
+| Skill | Use it when you need to… | Folder |
+|-------|--------------------------|--------|
+| **web-agent-js** | Build a browser agent — callbacks, storage, WebRTC, encryption, FileSystem helper | `web-agent-js/` |
+| **java-agent** | Build a Java/Android agent — `ConnectConfig`, `AgentConnection`, async receive, UDP | `java-agent/` |
+| **python-agent** | Build a Python bot or script — `AgentConnection`, `receive_async`, UDP, AES | `python-agent/` |
+
+### Apps & examples
+
+| Skill | Use it when you need to… | Folder |
+|-------|--------------------------|--------|
+| **sdk-local-service** | Work on the local service app (terminal, SSH, filesystem, cloud connection, WebSocket) | `sdk-local-service/` |
 
 ## How to use a skill
 
