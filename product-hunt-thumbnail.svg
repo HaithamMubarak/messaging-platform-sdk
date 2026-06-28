@@ -1,0 +1,97 @@
+<svg width="240" height="240" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#0a0e1a"/>
+      <stop offset="100%" stop-color="#0d1526"/>
+    </linearGradient>
+    <linearGradient id="accent" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#6366f1"/>
+      <stop offset="100%" stop-color="#06b6d4"/>
+    </linearGradient>
+    <linearGradient id="accent2" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#818cf8"/>
+      <stop offset="100%" stop-color="#22d3ee"/>
+    </linearGradient>
+    <filter id="glow1">
+      <feGaussianBlur stdDeviation="6" result="b"/>
+      <feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+    <filter id="glow2">
+      <feGaussianBlur stdDeviation="3" result="b"/>
+      <feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+    <radialGradient id="centerGlow" cx="50%" cy="45%" r="50%">
+      <stop offset="0%" stop-color="#6366f1" stop-opacity="0.15"/>
+      <stop offset="100%" stop-color="#6366f1" stop-opacity="0"/>
+    </radialGradient>
+  </defs>
+
+  <!-- Background -->
+  <rect width="240" height="240" fill="url(#bg)" rx="28"/>
+
+  <!-- Subtle background radial glow -->
+  <circle cx="120" cy="105" r="90" fill="url(#centerGlow)"/>
+
+  <!-- Outer border -->
+  <rect x="3" y="3" width="234" height="234" rx="26" fill="none"
+        stroke="url(#accent)" stroke-width="1.5" opacity="0.25"/>
+
+  <!-- ===== Central Chat Bubble ===== -->
+  <rect x="78" y="62" width="84" height="58" rx="14" fill="url(#accent)" filter="url(#glow1)"/>
+  <polygon points="98,120 112,120 94,138" fill="#6366f1"/>
+
+  <!-- Three dots inside bubble (messaging) -->
+  <circle cx="102" cy="91" r="5.5" fill="#fff" opacity="0.95"/>
+  <circle cx="120" cy="91" r="5.5" fill="#fff" opacity="0.95"/>
+  <circle cx="138" cy="91" r="5.5" fill="#fff" opacity="0.95"/>
+
+  <!-- ===== Broadcast arcs (real-time) ===== -->
+  <!-- Left arcs -->
+  <path d="M 60 74 Q 38 100 60 126" fill="none" stroke="#818cf8"
+        stroke-width="2.5" stroke-linecap="round" opacity="0.5" filter="url(#glow2)"/>
+  <path d="M 48 82 Q 28 100 48 118" fill="none" stroke="#818cf8"
+        stroke-width="2" stroke-linecap="round" opacity="0.3"/>
+
+  <!-- Right arcs -->
+  <path d="M 180 74 Q 202 100 180 126" fill="none" stroke="#22d3ee"
+        stroke-width="2.5" stroke-linecap="round" opacity="0.5" filter="url(#glow2)"/>
+  <path d="M 192 82 Q 212 100 192 118" fill="none" stroke="#22d3ee"
+        stroke-width="2" stroke-linecap="round" opacity="0.3"/>
+
+  <!-- ===== Floating agent nodes (connected clients) ===== -->
+  <!-- Top-left -->
+  <circle cx="48" cy="50" r="6" fill="#818cf8" opacity="0.7" filter="url(#glow2)"/>
+  <line x1="48" y1="50" x2="82" y2="70" stroke="#818cf8" stroke-width="1" opacity="0.3"/>
+
+  <!-- Top-right -->
+  <circle cx="192" cy="50" r="6" fill="#22d3ee" opacity="0.7" filter="url(#glow2)"/>
+  <line x1="192" y1="50" x2="158" y2="70" stroke="#22d3ee" stroke-width="1" opacity="0.3"/>
+
+  <!-- Bottom-right -->
+  <circle cx="188" cy="148" r="5" fill="#06b6d4" opacity="0.6" filter="url(#glow2)"/>
+  <line x1="188" y1="148" x2="158" y2="118" stroke="#06b6d4" stroke-width="1" opacity="0.25"/>
+
+  <!-- Bottom-left -->
+  <circle cx="52" cy="148" r="5" fill="#a78bfa" opacity="0.6" filter="url(#glow2)"/>
+  <line x1="52" y1="148" x2="82" y2="118" stroke="#a78bfa" stroke-width="1" opacity="0.25"/>
+
+  <!-- Tiny ambient dots -->
+  <circle cx="34" cy="100" r="2.5" fill="#818cf8" opacity="0.35"/>
+  <circle cx="206" cy="100" r="2.5" fill="#22d3ee" opacity="0.35"/>
+  <circle cx="120" cy="40" r="2.5" fill="#a78bfa" opacity="0.3"/>
+  <circle cx="68" cy="160" r="2" fill="#6366f1" opacity="0.25"/>
+  <circle cx="172" cy="160" r="2" fill="#06b6d4" opacity="0.25"/>
+
+  <!-- ===== Text ===== -->
+  <text x="120" y="182" font-family="'Segoe UI', system-ui, -apple-system, sans-serif"
+        font-size="19" font-weight="700" fill="url(#accent2)" text-anchor="middle"
+        letter-spacing="0.5">Messaging</text>
+  <text x="120" y="200" font-family="'Segoe UI', system-ui, -apple-system, sans-serif"
+        font-size="11.5" font-weight="600" fill="#94a3b8" text-anchor="middle"
+        letter-spacing="3">PLATFORM SDK</text>
+
+  <!-- Subtle tagline -->
+  <text x="120" y="222" font-family="'Segoe UI', system-ui, -apple-system, sans-serif"
+        font-size="8" font-weight="400" fill="#64748b" text-anchor="middle"
+        letter-spacing="1.5">REAL-TIME  ·  CROSS-PLATFORM  ·  OPEN</text>
+</svg>
