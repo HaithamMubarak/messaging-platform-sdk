@@ -121,3 +121,6 @@ sls-data*
 !gradle-wrapper.jar
 !agents/examples/sdk-local-service/build/libs/sdk-local-service.jar
 
+
+# Generated MCP knowledge cache (build via mcp/build_knowledge.py)
+AI/knowledge/cache.json
