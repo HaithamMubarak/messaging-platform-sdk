@@ -199,25 +199,40 @@
 
         /* Drop Zone */
         .drop-zone {
-            border: 3px dashed #d0d0d0;
-            border-radius: 16px;
-            padding: 50px 30px;
+            border: 2.5px dashed #cdd3e6;
+            border-radius: 18px;
+            padding: 54px 30px;
             text-align: center;
-            transition: all 0.3s;
+            transition: all 0.25s cubic-bezier(0.22, 1, 0.36, 1);
             cursor: pointer;
-            background: #fafafa;
+            background: linear-gradient(180deg, #fbfcff 0%, #f4f6ff 100%);
         }
 
-        .drop-zone:hover,
+        .drop-zone:hover {
+            border-color: #667eea;
+            background: #f4f6ff;
+            transform: translateY(-2px);
+            box-shadow: 0 12px 30px -14px rgba(102, 126, 234, 0.5);
+        }
+
         .drop-zone.dragover {
             border-color: #667eea;
-            background: #f8f9ff;
+            border-style: solid;
+            background: #eef1ff;
+            transform: scale(1.01);
+            box-shadow: 0 0 0 5px rgba(102, 126, 234, 0.16);
         }
 
         .drop-zone-icon {
             font-size: 56px;
             margin-bottom: 12px;
+            transition: transform 0.25s cubic-bezier(0.22, 1, 0.36, 1);
         }
+
+        .drop-zone:hover .drop-zone-icon { transform: translateY(-4px) scale(1.05); }
+        .drop-zone.dragover .drop-zone-icon { transform: scale(1.15); animation: qs-bob 0.9s ease-in-out infinite; }
+
+        @keyframes qs-bob { 50% { transform: scale(1.15) translateY(-6px); } }
 
         .drop-zone-text {
             color: #555;
@@ -293,8 +308,17 @@
             height: 100%;
             background: linear-gradient(90deg, #667eea, #764ba2);
             border-radius: 3px;
-            transition: width 0.3s;
+            transition: width 0.3s ease;
         }
+
+        /* Animated barber-pole shimmer while a transfer is in flight. */
+        .transfer-progress-bar.active {
+            background-image: linear-gradient(90deg, #667eea, #764ba2),
+                repeating-linear-gradient(45deg, rgba(255,255,255,0.25) 0, rgba(255,255,255,0.25) 8px, transparent 8px, transparent 16px);
+            background-blend-mode: overlay;
+            animation: qs-stripe 0.7s linear infinite;
+        }
+        @keyframes qs-stripe { to { background-position: 0 0, 32px 0; } }
 
         .transfer-status {
             font-size: 13px;

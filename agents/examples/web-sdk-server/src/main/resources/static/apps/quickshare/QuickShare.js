@@ -1025,6 +1025,47 @@ function updateUsersList() {
 }
 
 /**
+ * Pick an emoji icon from a filename's extension — makes the transfer list
+ * scannable at a glance instead of a wall of identical paper icons.
+ */
+function fileIcon(name) {
+    const ext = (name || '').split('.').pop().toLowerCase();
+    const map = {
+        jpg: '🖼️', jpeg: '🖼️', png: '🖼️', gif: '🖼️', webp: '🖼️', svg: '🖼️', bmp: '🖼️',
+        mp4: '🎬', mov: '🎬', webm: '🎬', avi: '🎬', mkv: '🎬',
+        mp3: '🎵', wav: '🎵', flac: '🎵', ogg: '🎵', m4a: '🎵',
+        pdf: '📕', doc: '📘', docx: '📘', txt: '📝', md: '📝', rtf: '📝',
+        xls: '📊', xlsx: '📊', csv: '📊',
+        ppt: '📽️', pptx: '📽️',
+        zip: '🗜️', rar: '🗜️', '7z': '🗜️', tar: '🗜️', gz: '🗜️',
+        js: '💻', ts: '💻', html: '💻', css: '💻', json: '💻', py: '💻', java: '💻',
+        exe: '⚙️', dmg: '⚙️', apk: '📱',
+    };
+    return map[ext] || '📄';
+}
+
+// Per-transfer speed sampler: remembers the last (time, bytes) so the render
+// pass can show live throughput + ETA without the SDK reporting either.
+const _speedSamples = new Map();
+function transferRate(t) {
+    const now = Date.now();
+    const bytes = (t.progress / 100) * (t.fileSize || 0);
+    const prev = _speedSamples.get(t.transferId);
+    _speedSamples.set(t.transferId, { t: now, bytes });
+    if (!prev || now === prev.t) return null;
+    const bps = (bytes - prev.bytes) / ((now - prev.t) / 1000);
+    if (bps <= 0 || !isFinite(bps)) return null;
+    const remaining = (t.fileSize || 0) - bytes;
+    const eta = remaining / bps;
+    return { bps, eta };
+}
+function fmtEta(s) {
+    if (!isFinite(s) || s < 0) return '';
+    if (s < 60) return `${Math.ceil(s)}s left`;
+    return `${Math.floor(s / 60)}m ${Math.ceil(s % 60)}s left`;
+}
+
+/**
  * Update transfers list
  */
 function updateTransfersList() {
@@ -1036,27 +1077,33 @@ function updateTransfersList() {
 
     if (transfers.length === 0) {
         section.style.display = 'none';
+        _speedSamples.clear();
         return;
     }
 
     section.style.display = 'block';
 
-    list.innerHTML = transfers.map(t => `
+    list.innerHTML = transfers.map(t => {
+        const done = t.progress >= 100;
+        const rate = done ? null : transferRate(t);
+        const rateStr = rate ? ` • ${formatSize(rate.bps)}/s • ${fmtEta(rate.eta)}` : '';
+        const peers = t.direction === 'outgoing'
+            ? `To: ${t.recipients?.join(', ') || 'All'}` : `From: ${t.from}`;
+        return `
         <div class="transfer-item" data-transfer-id="${t.transferId}">
-            <div class="transfer-icon">${t.direction === 'outgoing' ? '📤' : '📥'}</div>
+            <div class="transfer-icon">${fileIcon(t.fileName)}</div>
             <div class="transfer-info">
                 <div class="transfer-name">${t.fileName}</div>
                 <div class="transfer-details">
-                    ${formatSize(t.fileSize)} •
-                    ${t.direction === 'outgoing' ? `To: ${t.recipients?.join(', ') || 'All'}` : `From: ${t.from}`}
+                    ${formatSize(t.fileSize)} • ${peers}${rateStr}
                 </div>
                 <div class="transfer-progress">
-                    <div class="transfer-progress-bar" style="width: ${t.progress}%"></div>
+                    <div class="transfer-progress-bar${done ? '' : ' active'}" style="width: ${t.progress}%"></div>
                 </div>
             </div>
-            <div class="transfer-status ${t.status}">${Math.round(t.progress)}%</div>
-        </div>
-    `).join('');
+            <div class="transfer-status ${t.status}">${done ? '✓' : Math.round(t.progress) + '%'}</div>
+        </div>`;
+    }).join('');
 }
 
 /**
@@ -1091,12 +1138,12 @@ function updateReceivedList() {
 
     list.innerHTML = files.map(f => `
         <div class="received-item">
-            <div class="transfer-icon">📄</div>
+            <div class="transfer-icon">${fileIcon(f.fileName)}</div>
             <div class="transfer-info">
                 <div class="transfer-name">${f.fileName}</div>
                 <div class="transfer-details">${formatSize(f.fileSize)} • From: ${f.from}</div>
             </div>
-            <button class="download-btn" onclick="downloadFile('${f.transferId}')">Download</button>
+            <button class="download-btn" onclick="downloadFile('${f.transferId}')">⬇ Download</button>
         </div>
     `).join('');
 }

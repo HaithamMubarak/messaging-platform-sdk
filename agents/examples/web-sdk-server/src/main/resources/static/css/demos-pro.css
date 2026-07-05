@@ -1,0 +1,279 @@
+/* ==========================================================================
+   demos-pro.css — professional design layer for the SDK demos.
+
+   ADDITIVE + NAMESPACED. Every rule targets a `.pro-*` class or lives under a
+   `.pro-scope` root, so linking this file into an existing demo cannot restyle
+   its bare tags or break its layout. Opt in element by element.
+
+   Usage:
+     <body class="pro-scope pro-bg">          animated aurora background
+       <div class="pro-card"> ... </div>       glass card
+       <button class="pro-btn pro-btn--primary">Save</button>
+       <span class="pro-badge pro-badge--ok">Connected</span>
+   ========================================================================== */
+
+:root {
+    --pro-accent:        #6366f1;
+    --pro-accent-2:      #8b5cf6;
+    --pro-accent-3:      #06b6d4;
+    --pro-accent-ink:    #4338ca;
+    --pro-success:       #10b981;
+    --pro-warning:       #f59e0b;
+    --pro-danger:        #ef4444;
+
+    --pro-ink:           #0f172a;
+    --pro-ink-soft:      #475569;
+    --pro-ink-faint:     #94a3b8;
+    --pro-line:          rgba(15, 23, 42, 0.10);
+    --pro-surface:       rgba(255, 255, 255, 0.82);
+    --pro-surface-solid: #ffffff;
+    --pro-field:         #ffffff;
+
+    --pro-r-sm: 8px;
+    --pro-r:    14px;
+    --pro-r-lg: 20px;
+    --pro-r-pill: 999px;
+
+    --pro-shadow-sm: 0 1px 2px rgba(15, 23, 42, 0.06), 0 1px 3px rgba(15, 23, 42, 0.10);
+    --pro-shadow:    0 10px 30px -12px rgba(15, 23, 42, 0.25), 0 4px 10px -6px rgba(15, 23, 42, 0.12);
+    --pro-shadow-lg: 0 24px 60px -20px rgba(15, 23, 42, 0.35);
+    --pro-ring:      0 0 0 4px rgba(99, 102, 241, 0.18);
+
+    --pro-ease:  cubic-bezier(0.22, 1, 0.36, 1);
+    --pro-fast:  140ms var(--pro-ease);
+    --pro-med:   240ms var(--pro-ease);
+}
+
+/* Dark variant — set class="pro-dark" on a scope or <html>. */
+.pro-dark {
+    --pro-ink:           #e6eef8;
+    --pro-ink-soft:      #b6c2d4;
+    --pro-ink-faint:     #7c8aa0;
+    --pro-line:          rgba(255, 255, 255, 0.10);
+    --pro-surface:       rgba(17, 25, 40, 0.72);
+    --pro-surface-solid: #0f172a;
+    --pro-field:         rgba(255, 255, 255, 0.04);
+}
+
+.pro-scope {
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    color: var(--pro-ink);
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+}
+
+/* --------------------------------------------------- Animated aurora bg --- */
+.pro-bg {
+    position: relative;
+    background:
+        radial-gradient(1200px 600px at 12% -8%, rgba(139, 92, 246, 0.30), transparent 60%),
+        radial-gradient(1000px 700px at 108% 10%, rgba(6, 182, 212, 0.22), transparent 55%),
+        linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    background-attachment: fixed;
+}
+.pro-bg::before {
+    content: "";
+    position: fixed;
+    inset: -20%;
+    z-index: 0;
+    pointer-events: none;
+    background:
+        radial-gradient(420px 420px at 20% 30%, rgba(99, 102, 241, 0.35), transparent 60%),
+        radial-gradient(520px 520px at 80% 60%, rgba(6, 182, 212, 0.28), transparent 60%),
+        radial-gradient(480px 480px at 55% 85%, rgba(236, 72, 153, 0.22), transparent 60%);
+    filter: blur(30px);
+    animation: pro-drift 22s ease-in-out infinite alternate;
+}
+.pro-bg > * { position: relative; z-index: 1; }
+
+@keyframes pro-drift {
+    0%   { transform: translate3d(0, 0, 0) scale(1); }
+    50%  { transform: translate3d(2%, -2%, 0) scale(1.06); }
+    100% { transform: translate3d(-2%, 2%, 0) scale(1.03); }
+}
+
+/* ------------------------------------------------------------- Headings --- */
+.pro-title {
+    font-size: clamp(1.7rem, 3.2vw, 2.5rem);
+    font-weight: 800;
+    letter-spacing: -0.02em;
+    color: #fff;
+    text-shadow: 0 2px 20px rgba(0, 0, 0, 0.25);
+    display: flex; align-items: center; gap: 12px;
+}
+.pro-subtitle { color: rgba(255, 255, 255, 0.88); font-size: 1.02rem; margin-top: 4px; }
+
+/* ---------------------------------------------------------------- Cards --- */
+.pro-card {
+    background: var(--pro-surface);
+    backdrop-filter: blur(18px) saturate(140%);
+    -webkit-backdrop-filter: blur(18px) saturate(140%);
+    border: 1px solid rgba(255, 255, 255, 0.35);
+    border-radius: var(--pro-r-lg);
+    box-shadow: var(--pro-shadow);
+    padding: 22px 24px;
+    transition: transform var(--pro-med), box-shadow var(--pro-med);
+}
+.pro-dark .pro-card { border-color: var(--pro-line); }
+.pro-card--hover:hover { transform: translateY(-3px); box-shadow: var(--pro-shadow-lg); }
+
+.pro-card__title {
+    display: flex; align-items: center; gap: 10px;
+    font-size: 1.05rem; font-weight: 700; color: var(--pro-ink);
+    margin-bottom: 14px;
+}
+.pro-card__hint { color: var(--pro-ink-soft); font-size: 0.86rem; margin: -6px 0 14px; }
+
+/* -------------------------------------------------------------- Buttons --- */
+.pro-btn {
+    --_bg: var(--pro-surface-solid);
+    --_fg: var(--pro-ink);
+    display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+    padding: 10px 16px;
+    font: inherit; font-weight: 600; font-size: 0.9rem; line-height: 1;
+    color: var(--_fg);
+    background: var(--_bg);
+    border: 1px solid var(--pro-line);
+    border-radius: var(--pro-r-sm);
+    cursor: pointer;
+    transition: transform var(--pro-fast), box-shadow var(--pro-fast), filter var(--pro-fast), background var(--pro-fast);
+    box-shadow: var(--pro-shadow-sm);
+    user-select: none;
+}
+.pro-btn:hover:not(:disabled) { transform: translateY(-2px); box-shadow: var(--pro-shadow); }
+.pro-btn:active:not(:disabled) { transform: translateY(0) scale(0.98); }
+.pro-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+.pro-btn:focus-visible { outline: none; box-shadow: var(--pro-ring); }
+
+.pro-btn--primary {
+    --_fg: #fff;
+    background: linear-gradient(135deg, var(--pro-accent) 0%, var(--pro-accent-2) 100%);
+    border-color: transparent;
+}
+.pro-btn--primary:hover:not(:disabled) { filter: brightness(1.06); }
+.pro-btn--ghost { --_bg: transparent; box-shadow: none; }
+.pro-btn--danger  { --_fg: #fff; background: var(--pro-danger);  border-color: transparent; }
+.pro-btn--success { --_fg: #fff; background: var(--pro-success); border-color: transparent; }
+.pro-btn--sm { padding: 6px 11px; font-size: 0.8rem; }
+.pro-btn--block { width: 100%; }
+
+/* ---------------------------------------------------- Inputs / fields ----- */
+.pro-field {
+    width: 100%;
+    padding: 11px 13px;
+    font: inherit; font-size: 0.9rem;
+    color: var(--pro-ink);
+    background: var(--pro-field);
+    border: 1.5px solid var(--pro-line);
+    border-radius: var(--pro-r-sm);
+    transition: border-color var(--pro-fast), box-shadow var(--pro-fast);
+}
+.pro-field::placeholder { color: var(--pro-ink-faint); }
+.pro-field:focus { outline: none; border-color: var(--pro-accent); box-shadow: var(--pro-ring); }
+textarea.pro-field { resize: vertical; min-height: 84px; font-family: 'JetBrains Mono', 'SF Mono', ui-monospace, 'Courier New', monospace; }
+.pro-field--invalid { border-color: var(--pro-danger); box-shadow: 0 0 0 4px rgba(239, 68, 68, 0.14); }
+
+.pro-label { display: block; font-weight: 600; font-size: 0.82rem; color: var(--pro-ink-soft); margin-bottom: 6px; }
+.pro-field-msg { font-size: 0.78rem; margin-top: 6px; min-height: 1em; }
+.pro-field-msg--err { color: var(--pro-danger); }
+.pro-field-msg--ok  { color: var(--pro-success); }
+
+/* --------------------------------------------------- Badges / statuses --- */
+.pro-badge {
+    display: inline-flex; align-items: center; gap: 6px;
+    padding: 4px 11px; border-radius: var(--pro-r-pill);
+    font-size: 0.76rem; font-weight: 700; letter-spacing: 0.01em;
+    background: rgba(99, 102, 241, 0.12); color: var(--pro-accent-ink);
+}
+.pro-badge--ok   { background: rgba(16, 185, 129, 0.14); color: #047857; }
+.pro-badge--warn { background: rgba(245, 158, 11, 0.16); color: #b45309; }
+.pro-badge--err  { background: rgba(239, 68, 68, 0.14);  color: #b91c1c; }
+
+.pro-dot { width: 9px; height: 9px; border-radius: 50%; background: var(--pro-ink-faint); display: inline-block; }
+.pro-dot--live { background: var(--pro-success); box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.5); animation: pro-pulse 1.8s infinite; }
+.pro-dot--busy { background: var(--pro-warning); }
+.pro-dot--off  { background: var(--pro-danger); }
+
+@keyframes pro-pulse {
+    0%   { box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.5); }
+    70%  { box-shadow: 0 0 0 8px rgba(16, 185, 129, 0); }
+    100% { box-shadow: 0 0 0 0 rgba(16, 185, 129, 0); }
+}
+
+/* Connection pill (floating top-right status). */
+.pro-conn {
+    display: inline-flex; align-items: center; gap: 8px;
+    padding: 8px 14px; border-radius: var(--pro-r-pill);
+    background: var(--pro-surface); backdrop-filter: blur(12px);
+    border: 1px solid rgba(255, 255, 255, 0.35);
+    box-shadow: var(--pro-shadow-sm);
+    font-size: 0.82rem; font-weight: 600; color: var(--pro-ink);
+}
+
+/* --------------------------------------------------------- Copy button --- */
+.pro-copy {
+    display: inline-flex; align-items: center; gap: 5px;
+    padding: 4px 9px; border-radius: var(--pro-r-sm);
+    font-size: 0.74rem; font-weight: 600; cursor: pointer;
+    color: var(--pro-ink-soft); background: transparent;
+    border: 1px solid var(--pro-line);
+    transition: all var(--pro-fast);
+}
+.pro-copy:hover { color: var(--pro-accent); border-color: var(--pro-accent); }
+.pro-copy--done { color: var(--pro-success); border-color: var(--pro-success); }
+
+/* ------------------------------------------------------- Empty states --- */
+.pro-empty {
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    gap: 8px; padding: 32px 16px; text-align: center;
+    color: var(--pro-ink-faint);
+}
+.pro-empty__icon { font-size: 2rem; opacity: 0.7; }
+.pro-empty__text { font-size: 0.88rem; }
+
+/* ----------------------------------------------------- Skeleton shimmer --- */
+.pro-skel {
+    border-radius: var(--pro-r-sm);
+    background: linear-gradient(100deg, rgba(148,163,184,0.15) 30%, rgba(148,163,184,0.30) 50%, rgba(148,163,184,0.15) 70%);
+    background-size: 200% 100%;
+    animation: pro-shimmer 1.4s infinite;
+}
+@keyframes pro-shimmer { to { background-position: -200% 0; } }
+
+/* --------------------------------------------------------------- Toasts --- */
+.pro-toasts {
+    position: fixed; right: 18px; bottom: 18px; z-index: 100000;
+    display: flex; flex-direction: column; gap: 10px; pointer-events: none;
+}
+.pro-toast {
+    pointer-events: auto;
+    min-width: 220px; max-width: 340px;
+    padding: 12px 16px; border-radius: var(--pro-r);
+    background: var(--pro-surface-solid); color: var(--pro-ink);
+    border-left: 4px solid var(--pro-accent);
+    box-shadow: var(--pro-shadow-lg);
+    font-size: 0.86rem; font-weight: 500;
+    display: flex; align-items: center; gap: 10px;
+    animation: pro-toast-in var(--pro-med);
+}
+.pro-toast--ok   { border-left-color: var(--pro-success); }
+.pro-toast--err  { border-left-color: var(--pro-danger); }
+.pro-toast--warn { border-left-color: var(--pro-warning); }
+.pro-toast--leaving { animation: pro-toast-out 200ms var(--pro-ease) forwards; }
+
+@keyframes pro-toast-in  { from { opacity: 0; transform: translateY(12px) scale(0.96); } }
+@keyframes pro-toast-out { to   { opacity: 0; transform: translateX(20px); } }
+
+/* Micro-interaction: subtle attention pop. */
+.pro-pop { animation: pro-pop 320ms var(--pro-ease); }
+@keyframes pro-pop { 0% { transform: scale(1); } 40% { transform: scale(1.06); } 100% { transform: scale(1); } }
+
+/* Fade/slide-in for appended list rows. */
+.pro-enter { animation: pro-enter 300ms var(--pro-ease) both; }
+@keyframes pro-enter { from { opacity: 0; transform: translateY(10px); } }
+
+@media (prefers-reduced-motion: reduce) {
+    .pro-bg::before, .pro-dot--live, .pro-skel,
+    .pro-toast, .pro-pop, .pro-enter { animation: none !important; }
+    .pro-btn, .pro-card { transition: none !important; }
+}

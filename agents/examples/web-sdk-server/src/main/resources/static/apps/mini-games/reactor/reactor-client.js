@@ -909,6 +909,14 @@ class ReactorGame extends UserConnectionBase {
         this.updateLeaderboard();
         this.showToast(message, 'success');
 
+        // Winner celebration — extra confetti if the winner is me.
+        if (data.winner && window.GameKit) {
+            GameKit.Confetti.burst({
+                count: data.winner === this.username ? 160 : 100,
+                duration: 2.0,
+            });
+        }
+
         // Show control panel again
         const controlPanel = document.getElementById('controlPanel') || document.querySelector('.control-panel');
         if (controlPanel) controlPanel.classList.remove('hidden');
@@ -1637,6 +1645,35 @@ class ReactorGame extends UserConnectionBase {
     }
 
     updateScore(playerId, delta) {
+        // Physical feedback on MY score changes: a penalty shakes the page
+        // and flashes red; a gain gives the arena a quick green edge pulse.
+        // Consecutive gains build a streak — reaction games live on momentum.
+        if (playerId === this.username && document.body.animate) {
+            if (delta < 0) {
+                this.myStreak = 0;
+                document.body.animate([
+                    { transform: 'translateX(0)' },
+                    { transform: 'translateX(-10px)' },
+                    { transform: 'translateX(10px)' },
+                    { transform: 'translateX(-6px)' },
+                    { transform: 'translateX(6px)' },
+                    { transform: 'translateX(0)' },
+                ], { duration: 350, easing: 'ease-in-out' });
+                this.flashScreen('rgba(220, 40, 40, 0.25)', 350);
+                if (window.GameKit) GameKit.Sfx.buzz();
+            } else if (delta > 0) {
+                this.myStreak = (this.myStreak || 0) + 1;
+                this.flashScreen('rgba(30, 200, 120, 0.15)', 300);
+                if (window.GameKit) {
+                    GameKit.Sfx.ding();
+                    if (this.myStreak >= 3) {
+                        GameKit.Confetti.burst({ count: 40, duration: 1.0 });
+                        this.showToast(`🔥 ${this.myStreak} in a row!`, 'success');
+                    }
+                }
+            }
+        }
+
         const currentScore = this.playerScores.get(playerId) || 0;
         const newScore = Math.max(0, currentScore + delta); // Don't go below 0
         this.playerScores.set(playerId, newScore);
@@ -1658,6 +1695,17 @@ class ReactorGame extends UserConnectionBase {
         this.playerScores.set(playerId, score);
         this.updateZoneDisplays();
         this.updateLeaderboard();
+    }
+
+    // Full-screen color flash (penalties, rewards). Self-removing overlay.
+    flashScreen(color, durationMs) {
+        const el = document.createElement('div');
+        el.style.cssText =
+            `position:fixed;inset:0;pointer-events:none;z-index:9999;` +
+            `background:${color};transition:opacity ${durationMs}ms ease-out;`;
+        document.body.appendChild(el);
+        requestAnimationFrame(() => { el.style.opacity = '0'; });
+        setTimeout(() => el.remove(), durationMs + 100);
     }
 
     // ============================================

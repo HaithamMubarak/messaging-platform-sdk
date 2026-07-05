@@ -699,18 +699,31 @@ class GameAuthority {
             const dist = Math.sqrt(dx * dx + dz * dz);
 
             if (dist < 2) { // Punch range
-                // Apply damage
-                targetPlayer.hp -= damage;
+                // Distance falloff: a point-blank punch hits full force, a
+                // fingertip graze at max range does ~40% — rewards commitment.
+                const falloff = 1 - (dist / 2) * 0.6;
 
-                // Apply knockback
+                // Apply damage
+                targetPlayer.hp -= damage * falloff;
+
+                // Apply knockback: harder launch + upward pop scaling with
+                // strength, so heavy archetypes send victims properly flying.
                 const knockback = {
-                    x: (dx / dist) * archetype.strength * 20,
-                    y: 5,
-                    z: (dz / dist) * archetype.strength * 20
+                    x: (dx / dist) * archetype.strength * 26 * falloff,
+                    y: (4 + archetype.strength * 3) * falloff,
+                    z: (dz / dist) * archetype.strength * 26 * falloff
                 };
                 targetPhysics.body.applyImpulse(knockback, true);
 
-                console.log('[GameAuthority] Punch hit:', targetPlayer.name, 'damage:', damage);
+                // Brief hit spin makes the ragdoll tumble readable.
+                targetPhysics.body.applyTorqueImpulse({
+                    x: (Math.random() - 0.5) * 4 * falloff,
+                    y: (Math.random() - 0.5) * 6 * falloff,
+                    z: (Math.random() - 0.5) * 4 * falloff
+                }, true);
+
+                console.log('[GameAuthority] Punch hit:', targetPlayer.name,
+                    'damage:', (damage * falloff).toFixed(1), 'falloff:', falloff.toFixed(2));
             }
         });
     }

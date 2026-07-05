@@ -69,8 +69,14 @@ class GameClient {
         // Create renderer
         this.renderer = new THREE.WebGLRenderer({ antialias: true });
         this.renderer.setSize(this.container.clientWidth, this.container.clientHeight);
+        this.renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
         this.renderer.shadowMap.enabled = true;
         this.renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+        // Filmic tone mapping softens the plasticky look (guarded for old three).
+        if (THREE.ACESFilmicToneMapping !== undefined) {
+            this.renderer.toneMapping = THREE.ACESFilmicToneMapping;
+            this.renderer.toneMappingExposure = 1.05;
+        }
         this.container.appendChild(this.renderer.domElement);
 
         // Lighting
@@ -144,12 +150,13 @@ class GameClient {
      * Setup scene lighting
      */
     setupLighting() {
-        // Ambient light
-        const ambient = new THREE.AmbientLight(0xffffff, 0.6);
+        // Ambient floor kept low — the hemisphere provides the soft fill, so
+        // characters keep contrast instead of looking uniformly lit.
+        const ambient = new THREE.AmbientLight(0xffffff, 0.35);
         this.scene.add(ambient);
 
-        // Directional light (sun)
-        const sun = new THREE.DirectionalLight(0xffffff, 0.8);
+        // Directional light (sun) — slightly warm for a party-day feel.
+        const sun = new THREE.DirectionalLight(0xfff2dd, 1.0);
         sun.position.set(20, 40, 20);
         sun.castShadow = true;
         sun.shadow.camera.left = -50;
@@ -160,11 +167,17 @@ class GameClient {
         sun.shadow.camera.far = 100;
         sun.shadow.mapSize.width = 2048;
         sun.shadow.mapSize.height = 2048;
+        sun.shadow.bias = -0.0004;   // avoids shadow acne on the round bodies
         this.scene.add(sun);
 
-        // Hemisphere light
-        const hemi = new THREE.HemisphereLight(0x87CEEB, 0x545454, 0.4);
+        // Hemisphere light (sky blue / warm ground bounce).
+        const hemi = new THREE.HemisphereLight(0x87CEEB, 0x8a7a5a, 0.5);
         this.scene.add(hemi);
+
+        // Cool rim light from behind — separates characters from the floor.
+        const rim = new THREE.DirectionalLight(0xa8c8ff, 0.35);
+        rim.position.set(-25, 20, -25);
+        this.scene.add(rim);
     }
 
     /**

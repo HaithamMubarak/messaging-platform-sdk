@@ -613,10 +613,23 @@ class QuizBattleGame extends UserConnectionBase {
     }
 
     updateTimerUI() {
-        document.getElementById('timeLeft').textContent = `${this.timeLeft}s`;
+        const label = document.getElementById('timeLeft');
+        label.textContent = `${this.timeLeft}s`;
         const progress = document.getElementById('timerProgress');
         if (progress) {
             progress.style.width = `${(this.timeLeft / 10) * 100}%`;
+            // Urgency: the bar turns amber then red as the clock runs out,
+            // and the last 3 seconds pulse the countdown label.
+            progress.style.background =
+                this.timeLeft <= 3 ? '#ef4444' :
+                this.timeLeft <= 6 ? '#f59e0b' : '';
+        }
+        if (this.timeLeft <= 3 && this.timeLeft > 0 && label.animate) {
+            label.animate([
+                { transform: 'scale(1)', color: '#ef4444' },
+                { transform: 'scale(1.3)', color: '#ef4444' },
+                { transform: 'scale(1)', color: '' },
+            ], { duration: 320, easing: 'ease-out' });
         }
     }
 
@@ -671,13 +684,62 @@ class QuizBattleGame extends UserConnectionBase {
             const answerText = this.currentQuestionData.answers[index];
             if (answerText === this.currentQuestionData.correctAnswerText) {
                 btn.classList.add('correct');
+                // Pop the correct answer so the eye lands on it.
+                btn.animate([
+                    { transform: 'scale(1)' },
+                    { transform: 'scale(1.06)' },
+                    { transform: 'scale(1)' },
+                ], { duration: 450, easing: 'ease-out' });
+                // Confetti from the correct button when I got it right —
+                // and a bigger celebration the longer my streak runs.
+                if (correct && window.GameKit) {
+                    this.streak = (this.streak || 0) + 1;
+                    const r = btn.getBoundingClientRect();
+                    GameKit.Confetti.burst({
+                        x: r.left + r.width / 2,
+                        y: r.top + r.height / 2,
+                        count: this.streak >= 3 ? 150 : 90,
+                        duration: this.streak >= 3 ? 2.0 : 1.5,
+                    });
+                    GameKit.Sfx.ding();
+                    if (this.streak >= 3) {
+                        this.showStreakBadge(this.streak);
+                    }
+                }
             } else if (index === selectedIndex && !correct) {
                 btn.classList.add('wrong');
+                this.streak = 0;
+                if (window.GameKit) GameKit.Sfx.buzz();
+                // Head-shake on the wrong pick — instant "nope" feedback.
+                btn.animate([
+                    { transform: 'translateX(0)' },
+                    { transform: 'translateX(-8px)' },
+                    { transform: 'translateX(8px)' },
+                    { transform: 'translateX(-5px)' },
+                    { transform: 'translateX(5px)' },
+                    { transform: 'translateX(0)' },
+                ], { duration: 400, easing: 'ease-in-out' });
             }
         });
 
         // Update score display
         document.getElementById('yourScore').textContent = this.score;
+    }
+
+    // Floating "🔥 xN STREAK" badge that rises from the score and fades.
+    showStreakBadge(streak) {
+        const el = document.createElement('div');
+        el.textContent = `🔥 x${streak} STREAK!`;
+        el.style.cssText =
+            'position:fixed;left:50%;top:38%;transform:translateX(-50%);' +
+            'font-size:34px;font-weight:800;color:#f59e0b;z-index:99998;' +
+            'pointer-events:none;text-shadow:0 2px 12px rgba(0,0,0,0.5);';
+        document.body.appendChild(el);
+        el.animate([
+            { transform: 'translateX(-50%) translateY(0) scale(0.6)', opacity: 0 },
+            { transform: 'translateX(-50%) translateY(-20px) scale(1.15)', opacity: 1, offset: 0.25 },
+            { transform: 'translateX(-50%) translateY(-70px) scale(1)', opacity: 0 },
+        ], { duration: 1400, easing: 'ease-out' }).onfinish = () => el.remove();
     }
 
     nextQuestion() {

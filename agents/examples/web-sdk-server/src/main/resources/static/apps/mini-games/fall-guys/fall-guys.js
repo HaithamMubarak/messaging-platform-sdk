@@ -546,14 +546,24 @@ class PlayerCharacter {
             }
         }
 
+        // Track the last moment we stood on ground (drives coyote time).
+        if (this.isGrounded) {
+            this.lastGroundedTime = Date.now();
+        }
+
         // Manual jump handling (separate from rabbit hop)
         if (input.jump) {
             this.jumpBuffered = true;
             this.jumpBufferTimer = PHYSICS.jumpBufferTime;
         }
 
+        // Coyote time: a jump pressed just AFTER walking off a ledge still
+        // fires — feels fair instead of punishing by a few milliseconds.
+        const coyoteOk = !this.isJumping &&
+            (Date.now() - (this.lastGroundedTime || 0)) < PHYSICS.coyoteTime * 1000;
+
         // Execute manual jump if buffered and can jump (higher than rabbit hop)
-        if (this.jumpBuffered && this.canJump && this.jumpCooldown <= 0 && !this.isJumping) {
+        if (this.jumpBuffered && (this.canJump || coyoteOk) && this.jumpCooldown <= 0 && !this.isJumping) {
             // Manual jump is stronger than rabbit hop
             this.body.velocity.y = PHYSICS.jumpForce;
 
@@ -587,6 +597,9 @@ class PlayerCharacter {
      * Called when player lands on ground
      */
     onLanding() {
+        // Capture impact speed BEFORE it's absorbed — drives squash + dust.
+        const fallSpeed = this.body.velocity.y < 0 ? -this.body.velocity.y : 0;
+
         this.isJumping = false;
         this.canJump = true;
         this.lastGroundedTime = Date.now();
@@ -606,6 +619,12 @@ class PlayerCharacter {
             this.body.velocity.y = 0;
         }
 
+        // Landing juice: squash the character and kick up dust on hard falls.
+        this.landSquash = Math.min(1, fallSpeed / 18);
+        if (fallSpeed > 6) {
+            this.spawnLandingDust(fallSpeed);
+        }
+
         // Execute buffered jump immediately if player was holding jump while landing
         if (this.jumpBuffered && this.jumpBufferTimer > 0) {
             // Will be processed in next applyInput call
@@ -620,6 +639,58 @@ class PlayerCharacter {
         setTimeout(() => {
             this.isKicking = false;
         }, 200);
+    }
+
+    // Small dust puffs at the feet on a hard landing. Purely visual and
+    // local — each client spawns its own from the physics/observed landing.
+    spawnLandingDust(fallSpeed) {
+        if (!this.dust) this.dust = [];
+        const count = Math.min(10, 4 + Math.floor(fallSpeed * 0.4));
+        for (let i = 0; i < count; i++) {
+            const geo = new THREE.SphereGeometry(0.1 + Math.random() * 0.12, 6, 6);
+            const mat = new THREE.MeshBasicMaterial({
+                color: 0xd8d2c4,
+                transparent: true,
+                opacity: 0.7,
+            });
+            const mesh = new THREE.Mesh(geo, mat);
+            const ang = Math.random() * Math.PI * 2;
+            mesh.position.set(
+                this.group.position.x + Math.cos(ang) * 0.3,
+                this.group.position.y + 0.1,
+                this.group.position.z + Math.sin(ang) * 0.3
+            );
+            this.scene.add(mesh);
+            this.dust.push({
+                mesh,
+                vx: Math.cos(ang) * (1.5 + Math.random() * 2),
+                vy: 0.8 + Math.random() * 1.2,
+                vz: Math.sin(ang) * (1.5 + Math.random() * 2),
+                life: 1,
+            });
+        }
+    }
+
+    updateDust(deltaTime) {
+        if (!this.dust || this.dust.length === 0) return;
+        for (let i = this.dust.length - 1; i >= 0; i--) {
+            const d = this.dust[i];
+            d.mesh.position.x += d.vx * deltaTime;
+            d.mesh.position.y += d.vy * deltaTime;
+            d.mesh.position.z += d.vz * deltaTime;
+            d.vy -= 2.5 * deltaTime;          // gentle gravity on the puff
+            d.vx *= 0.97; d.vz *= 0.97;
+            d.life -= 2.2 * deltaTime;
+            d.mesh.material.opacity = Math.max(0, d.life * 0.7);
+            const s = 1 + (1 - d.life) * 1.6;  // puffs expand as they fade
+            d.mesh.scale.set(s, s, s);
+            if (d.life <= 0) {
+                this.scene.remove(d.mesh);
+                d.mesh.geometry.dispose();
+                d.mesh.material.dispose();
+                this.dust.splice(i, 1);
+            }
+        }
     }
 
     handlePlayerCollisions(otherPlayers) {
@@ -666,6 +737,22 @@ class PlayerCharacter {
         const vel = this.body.velocity;
         const horizontalSpeed = Math.sqrt(vel.x * vel.x + vel.z * vel.z);
         const moving = horizontalSpeed > 0.5;
+
+        // Squash & stretch: flatten on landing, elongate while flying upward.
+        // Applied on the whole group so every body part follows along.
+        if (this.landSquash > 0.01) {
+            const q = this.landSquash;
+            this.group.scale.set(1 + q * 0.25, 1 - q * 0.35, 1 + q * 0.25);
+            this.landSquash *= Math.max(0, 1 - 9 * deltaTime);
+        } else if (!this.isGrounded && vel.y > 4) {
+            const st = Math.min(0.18, (vel.y - 4) * 0.015);
+            this.group.scale.set(1 - st * 0.6, 1 + st, 1 - st * 0.6);
+        } else {
+            this.group.scale.set(1, 1, 1);
+        }
+
+        // Landing dust puffs (spawned in onLanding).
+        this.updateDust(deltaTime);
 
         // RABBIT HOP ANIMATION
         if (this.hopPhase === 'crouch' && this.isGrounded) {
@@ -896,6 +983,15 @@ class PlayerCharacter {
 
     dispose() {
         this.scene.remove(this.group);
+        // Remove any live dust puffs
+        if (this.dust) {
+            for (const d of this.dust) {
+                this.scene.remove(d.mesh);
+                d.mesh.geometry.dispose();
+                d.mesh.material.dispose();
+            }
+            this.dust.length = 0;
+        }
         // Remove physics body
         if (this.physicsWorld && this.body) {
             this.physicsWorld.removeBody(this.body);
@@ -1663,13 +1759,22 @@ class FallGuysGame extends UserConnectionBase {
         this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
         this.renderer.shadowMap.enabled = true;
         this.renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+        // Filmic tone mapping reads far less "plastic" (guarded for old three).
+        if (THREE.ACESFilmicToneMapping !== undefined) {
+            this.renderer.toneMapping = THREE.ACESFilmicToneMapping;
+            this.renderer.toneMappingExposure = 1.05;
+        }
         container.appendChild(this.renderer.domElement);
 
-        // Lights
-        const ambientLight = new THREE.AmbientLight(0xffffff, 0.6);
+        // Lights: sky/ground hemisphere bounce + a softer ambient floor +
+        // the shadow-casting sun. Reads like outdoor daylight, not a lab.
+        const hemiLight = new THREE.HemisphereLight(0xbfd9ff, 0x7a9a68, 0.55);
+        this.scene.add(hemiLight);
+
+        const ambientLight = new THREE.AmbientLight(0xffffff, 0.3);
         this.scene.add(ambientLight);
 
-        const directionalLight = new THREE.DirectionalLight(0xffffff, 0.8);
+        const directionalLight = new THREE.DirectionalLight(0xfff4e0, 0.9);
         directionalLight.position.set(50, 100, 50);
         directionalLight.castShadow = true;
         directionalLight.shadow.mapSize.width = 2048;
@@ -1680,6 +1785,7 @@ class FallGuysGame extends UserConnectionBase {
         directionalLight.shadow.camera.right = 100;
         directionalLight.shadow.camera.top = 100;
         directionalLight.shadow.camera.bottom = -100;
+        directionalLight.shadow.bias = -0.0005;   // kills shadow acne stripes
         this.scene.add(directionalLight);
 
         // Ground plane (for aesthetics, below kill zone)
@@ -2288,10 +2394,26 @@ class FallGuysGame extends UserConnectionBase {
         this.localPlayer.isGrounded = false;
         this.showToast('Respawned!', 'warning');
 
+        // Fall feedback: quick red vignette flash so the death reads clearly,
+        // plus a dust pop at the respawn point.
+        this.flashScreen('rgba(200, 30, 30, 0.35)', 400);
+        this.localPlayer.spawnLandingDust(12);
+
         // Cooldown to prevent spam
         setTimeout(() => {
             this.respawnCooldown = false;
         }, 1000);
+    }
+
+    // Full-screen color flash (deaths, big hits). Self-removing overlay div.
+    flashScreen(color, durationMs) {
+        const el = document.createElement('div');
+        el.style.cssText =
+            `position:fixed;inset:0;pointer-events:none;z-index:9999;` +
+            `background:${color};transition:opacity ${durationMs}ms ease-out;`;
+        document.body.appendChild(el);
+        requestAnimationFrame(() => { el.style.opacity = '0'; });
+        setTimeout(() => el.remove(), durationMs + 100);
     }
 
     handleKick(from, target, force) {

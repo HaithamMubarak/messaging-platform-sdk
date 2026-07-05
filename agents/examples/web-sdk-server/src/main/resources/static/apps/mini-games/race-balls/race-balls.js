@@ -2689,6 +2689,8 @@
             this._updateExpressions();
             this._updateLocalUI();
             this._updateRaceHUD();
+            this._updateBoostTrails(dtMs);
+            this._updateCheckpointFlash(dtMs);
 
             // Update stamina sprites and name labels
             for (const p of this.players.values()) {
@@ -3059,6 +3061,100 @@
 
         _showFinishOverlay(show) {
             if (this._ui.finishOverlay) this._ui.finishOverlay.classList.toggle('hidden', !show);
+            // Race over — shower the podium. Runs on every client that shows
+            // the overlay; GameKit is optional so the game works without it.
+            if (show && window.GameKit) {
+                GameKit.Confetti.burst({ count: 150, duration: 2.2 });
+            }
+        }
+
+        // Boost trail: fading orbs behind any fast-moving ball. Driven purely
+        // by observed mesh movement, so it works for remote players too (their
+        // boost input never reaches non-host clients — their speed does).
+        _updateBoostTrails(dtMs) {
+            if (!this._boostTrail) this._boostTrail = { parts: [], lastSpawnMs: 0 };
+            const bt = this._boostTrail;
+            const t = nowMs();
+
+            if (t - bt.lastSpawnMs > 45 && this._race.state === 'racing') {
+                bt.lastSpawnMs = t;
+                for (const p of this.players.values()) {
+                    if (!p.mesh) continue;
+                    if (!p._trailPrev) {
+                        p._trailPrev = { x: p.mesh.position.x, y: p.mesh.position.y, z: p.mesh.position.z, t };
+                        continue;
+                    }
+                    const dt = (t - p._trailPrev.t) / 1000;
+                    const dx = p.mesh.position.x - p._trailPrev.x;
+                    const dy = p.mesh.position.y - p._trailPrev.y;
+                    const dz = p.mesh.position.z - p._trailPrev.z;
+                    const speed = dt > 0 ? Math.sqrt(dx * dx + dy * dy + dz * dz) / dt : 0;
+                    p._trailPrev = { x: p.mesh.position.x, y: p.mesh.position.y, z: p.mesh.position.z, t };
+                    if (speed < 11) continue;   // only boosting-level speeds leave a trail
+
+                    const orb = new THREE.Mesh(
+                        new THREE.SphereGeometry(0.22, 8, 8),
+                        new THREE.MeshBasicMaterial({
+                            color: new THREE.Color(p.colorHex),
+                            transparent: true,
+                            opacity: 0.5,
+                        })
+                    );
+                    orb.position.copy(p.mesh.position);
+                    this.scene.add(orb);
+                    bt.parts.push({ mesh: orb, life: 1 });
+                }
+            }
+
+            for (let i = bt.parts.length - 1; i >= 0; i--) {
+                const q = bt.parts[i];
+                q.life -= dtMs / 420;
+                if (q.life <= 0) {
+                    this.scene.remove(q.mesh);
+                    q.mesh.geometry.dispose();
+                    q.mesh.material.dispose();
+                    bt.parts.splice(i, 1);
+                } else {
+                    q.mesh.material.opacity = q.life * 0.5;
+                    const s = 0.4 + q.life * 0.6;
+                    q.mesh.scale.set(s, s, s);
+                }
+            }
+        }
+
+        // Checkpoint pass: the gate I just cleared flares up for a moment and
+        // the HUD text pops — instant "that counted" feedback.
+        _updateCheckpointFlash(dtMs) {
+            if (!this._gateFlashes) this._gateFlashes = [];
+            const me = this.players.get(this.localPlayerId);
+            if (me) {
+                if (this._lastCpIdx === undefined) this._lastCpIdx = me.nextCheckpointIndex;
+                if (me.nextCheckpointIndex > this._lastCpIdx) {
+                    const gate = this._world.checkpoints[this._lastCpIdx];
+                    if (gate && gate.meshes) {
+                        this._gateFlashes.push({ meshes: gate.meshes, life: 1 });
+                    }
+                    if (this._ui.checkpointText && this._ui.checkpointText.animate) {
+                        this._ui.checkpointText.animate([
+                            { transform: 'scale(1)' },
+                            { transform: 'scale(1.35)' },
+                            { transform: 'scale(1)' },
+                        ], { duration: 400, easing: 'ease-out' });
+                    }
+                    this._lastCpIdx = me.nextCheckpointIndex;
+                } else if (me.nextCheckpointIndex < this._lastCpIdx) {
+                    this._lastCpIdx = me.nextCheckpointIndex;   // race restarted
+                }
+            }
+            for (let i = this._gateFlashes.length - 1; i >= 0; i--) {
+                const f = this._gateFlashes[i];
+                f.life -= dtMs / 650;
+                const intensity = f.life <= 0 ? 0.4 : 0.4 + f.life * 2.2;
+                for (const m of f.meshes) {
+                    if (m.material) m.material.emissiveIntensity = intensity;
+                }
+                if (f.life <= 0) this._gateFlashes.splice(i, 1);
+            }
         }
 
         _renderFinishResults(results) {

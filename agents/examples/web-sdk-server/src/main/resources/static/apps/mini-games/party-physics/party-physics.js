@@ -659,6 +659,12 @@ class PartyPhysicsGame extends UserConnectionBase {
 
         const localPlayer = this.authority.gameState.players.get(this.agentId);
         if (localPlayer) {
+            // Hit feedback: my HP just dropped → red flash + thud + HP shake.
+            if (this._prevHp !== undefined && localPlayer.hp < this._prevHp - 0.5) {
+                this.flashHit();
+            }
+            this._prevHp = localPlayer.hp;
+
             // Update HP bar
             const hpPercent = (localPlayer.hp / localPlayer.hpMax) * 100;
             document.getElementById('hpFill').style.width = hpPercent + '%';
@@ -677,6 +683,32 @@ class PartyPhysicsGame extends UserConnectionBase {
 
         // Update scoreboard
         this.updateScoreboard();
+    }
+
+    /**
+     * Hit feedback: red vignette flash, thud sound, and HP bar shake.
+     * Purely local — driven by observing my own HP drop in the game state.
+     */
+    flashHit() {
+        const el = document.createElement('div');
+        el.style.cssText =
+            'position:fixed;inset:0;pointer-events:none;z-index:9999;' +
+            'background:radial-gradient(ellipse at center, rgba(0,0,0,0) 55%, rgba(200,30,30,0.45) 100%);' +
+            'transition:opacity 380ms ease-out;';
+        document.body.appendChild(el);
+        requestAnimationFrame(() => { el.style.opacity = '0'; });
+        setTimeout(() => el.remove(), 480);
+
+        const hpBar = document.getElementById('hpFill');
+        if (hpBar && hpBar.animate) {
+            hpBar.animate([
+                { transform: 'translateX(0)' },
+                { transform: 'translateX(-5px)' },
+                { transform: 'translateX(5px)' },
+                { transform: 'translateX(0)' },
+            ], { duration: 250, easing: 'ease-in-out' });
+        }
+        if (window.GameKit) GameKit.Sfx.thud();
     }
 
     /**

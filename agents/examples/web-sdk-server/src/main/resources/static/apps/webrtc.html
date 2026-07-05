@@ -253,24 +253,74 @@
 
         .video-card {
             background: rgba(0, 0, 0, 0.4);
-            border-radius: 12px;
+            border-radius: 16px;
             overflow: hidden;
             border: 1px solid rgba(255, 255, 255, 0.1);
+            box-shadow: 0 10px 30px -14px rgba(0, 0, 0, 0.7);
+            transition: transform 0.25s cubic-bezier(0.22, 1, 0.36, 1), box-shadow 0.25s, border-color 0.25s;
+        }
+
+        .video-card:hover {
+            transform: translateY(-3px);
+            border-color: rgba(79, 70, 229, 0.5);
+            box-shadow: 0 18px 40px -16px rgba(0, 0, 0, 0.8), 0 0 0 1px rgba(79, 70, 229, 0.25);
         }
 
         .video-card h3 {
             margin: 0;
             padding: 12px 16px;
-            background: rgba(255, 255, 255, 0.05);
-            font-size: 16px;
+            background: linear-gradient(90deg, rgba(79, 70, 229, 0.18), rgba(6, 182, 212, 0.10));
+            font-size: 15px;
+            font-weight: 600;
             color: var(--text);
             border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+            display: flex;
+            align-items: center;
+            gap: 8px;
         }
 
         .video-wrapper {
             position: relative;
-            background: #000;
+            background: radial-gradient(circle at 50% 40%, #0b1220, #000);
             aspect-ratio: 16/9;
+        }
+
+        /* Live badge overlay for an active stream tile. */
+        .video-live {
+            position: absolute;
+            top: 10px; left: 10px; z-index: 5;
+            display: inline-flex; align-items: center; gap: 6px;
+            padding: 4px 10px; border-radius: 999px;
+            background: rgba(0, 0, 0, 0.55);
+            backdrop-filter: blur(6px);
+            font-size: 11px; font-weight: 700; letter-spacing: 0.04em; color: #fff;
+        }
+        .video-live::before {
+            content: ""; width: 7px; height: 7px; border-radius: 50%;
+            background: #ef4444; box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.6);
+            animation: rtc-live 1.6s infinite;
+        }
+        @keyframes rtc-live {
+            70%  { box-shadow: 0 0 0 7px rgba(239, 68, 68, 0); }
+            100% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0); }
+        }
+
+        /* Placeholder shown before a stream is attached. */
+        .video-placeholder {
+            position: absolute; inset: 0;
+            display: flex; flex-direction: column; align-items: center; justify-content: center;
+            gap: 10px; color: #64748b; font-size: 13px; pointer-events: none;
+        }
+        .video-placeholder .vp-ring {
+            width: 42px; height: 42px; border-radius: 50%;
+            border: 3px solid rgba(255,255,255,0.12);
+            border-top-color: rgba(79,70,229,0.9);
+            animation: rtc-spin 0.9s linear infinite;
+        }
+        @keyframes rtc-spin { to { transform: rotate(360deg); } }
+
+        @media (prefers-reduced-motion: reduce) {
+            .video-card, .video-live::before, .vp-ring { transition: none; animation: none; }
         }
 
         .remote-video-box {
@@ -839,10 +889,12 @@
         card.style.position = 'relative';
 
         card.innerHTML = `
-            <h3>📺 ${sourceAgent}</h3>
+            <h3><span>📺</span> ${sourceAgent}</h3>
             <div class="video-wrapper">
+                <div class="video-live">LIVE</div>
+                <div class="video-placeholder" id="placeholder-${streamId}"><div class="vp-ring"></div><span>Connecting stream…</span></div>
                 <div class="remote-video-box" style="position: relative;">
-                    <video id="remote-video-${streamId}" autoplay playsinline muted style="width: 100%; height: 100%; object-fit: cover;"></video>
+                    <video id="remote-video-${streamId}" autoplay playsinline muted style="width: 100%; height: 100%; object-fit: cover;" onloadeddata="var p=document.getElementById('placeholder-${streamId}'); if(p) p.style.display='none';"></video>
                 </div>
             </div>
             <div class="controls" style="padding: 8px; display: flex; gap: 8px; flex-wrap: wrap;">

@@ -48,7 +48,11 @@ public class MessagingChannelApi implements ConnectionChannelApi {
 
     public MessagingChannelApi(String remoteUrl, String developerApiKey) {
         this.client = new HttpClient(remoteUrl);
-        this.objectMapper = new ObjectMapper();
+        // Tolerate unknown fields in server responses: the backend may add new
+        // fields (e.g. agentAlias on ConnectResponse) that an older SDK build
+        // doesn't model yet. Without this the whole connect fails to deserialize.
+        this.objectMapper = new ObjectMapper()
+                .configure(com.fasterxml.jackson.databind.DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false);
 
         // If a developer API key was provided by the caller, attach it as a default header so all requests include X-Api-Key
         if (developerApiKey != null && !developerApiKey.isBlank()) {
@@ -169,12 +173,20 @@ public class MessagingChannelApi implements ConnectionChannelApi {
             HttpClientResult httpClientResult = this.client.request(HttpClient.RequestMethod.POST, getActionUrl("connect"), connectRequest);
 
             if (httpClientResult != null && httpClientResult.isHttpOk()) {
-                // Controller wraps connect response in { status: 'success', data: { ... } }
-                return objectMapper.readValue(
-                        httpClientResult.dataAsJsonObject().optJSONObject("data").toString(), ConnectResponse.class);
+                // Controller wraps connect response in { status: 'success', data: { ... } }.
+                // On error the body is { status:'error', statusMessage:'...', data:null } even
+                // with HTTP 200 — surface that message instead of NPE-ing on the null data.
+                org.json.JSONObject body = httpClientResult.dataAsJsonObject();
+                org.json.JSONObject data = body != null ? body.optJSONObject("data") : null;
+                if (data != null) {
+                    return objectMapper.readValue(data.toString(), ConnectResponse.class);
+                }
+                String statusMessage = body != null ? body.optString("statusMessage", "") : "";
+                logger.error("Connect rejected by server: {}",
+                        statusMessage.isBlank() ? "(no message; data was null)" : statusMessage);
             }
         } catch (Exception e) {
-            logger.error("Exception caught in connect operation {}", e.getLocalizedMessage());
+            logger.error("Exception caught in connect operation: {}", String.valueOf(e), e);
         }
         logger.debug("Unable to connect to the channel");
         return new ConnectResponse();

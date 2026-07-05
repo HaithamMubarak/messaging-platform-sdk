@@ -60,6 +60,19 @@ const GAME_CONFIG = {
     PUCK_MAX_SPEED: 30,             // Increased from 20 for faster, more exciting gameplay
     PUCK_FRICTION: 0.995,
 
+    // Physics feel (all tunable)
+    WALL_RESTITUTION: 0.85,         // bounciness of the boards
+    WALL_TANGENT_FRICTION: 0.985,   // grip along the board on a bounce
+    PADDLE_RESTITUTION: 1.15,       // >1 = lively arcade pop off the paddle
+    PADDLE_VEL_TRANSFER: 0.30,      // fraction of paddle velocity shoved into puck
+    PADDLE_ENGLISH: 0.25,           // sideways "english" from paddle swipe motion
+    PHYSICS_MAX_SUBSTEPS: 4,        // anti-tunneling substeps at high puck speed
+
+    // Visual juice (rendering only — never synced)
+    TRAIL_POINTS: 14,               // puck motion trail length
+    IMPACT_SHAKE: 5,                // screen shake magnitude on hard hits
+    GOAL_SHAKE: 12,                 // screen shake magnitude on goals
+
     // Paddle
     PADDLE_RADIUS: 30,
     PADDLE_MASS: 5,
@@ -1712,16 +1725,30 @@ class AirHockeyGame extends UserConnectionBase {
     }
 
     updatePhysics(dt) {
-        // Update puck position
-        this.puck.x += this.puck.vx * dt;
-        this.puck.y += this.puck.vy * dt;
+        // Substep integration: a fast puck moves in several small steps so it
+        // can never tunnel through a paddle or a board corner in one frame.
+        let puckSpeed = Math.sqrt(this.puck.vx ** 2 + this.puck.vy ** 2);
+        const travel = puckSpeed * dt;
+        const steps = Math.min(
+            GAME_CONFIG.PHYSICS_MAX_SUBSTEPS,
+            Math.max(1, Math.ceil(travel / this.puck.radius))
+        );
+        const stepDt = dt / steps;
 
-        // Apply friction
+        for (let i = 0; i < steps; i++) {
+            const prevX = this.puck.x, prevY = this.puck.y;
+            this.puck.x += this.puck.vx * stepDt;
+            this.puck.y += this.puck.vy * stepDt;
+            this.handleWallCollisions();
+            this.handlePaddleCollisions(prevX, prevY);
+        }
+
+        // Apply ice friction (per frame, as before)
         this.puck.vx *= GAME_CONFIG.PUCK_FRICTION;
         this.puck.vy *= GAME_CONFIG.PUCK_FRICTION;
 
         // Stop puck completely if moving very slowly (prevents micro-vibrations)
-        const puckSpeed = Math.sqrt(this.puck.vx ** 2 + this.puck.vy ** 2);
+        puckSpeed = Math.sqrt(this.puck.vx ** 2 + this.puck.vy ** 2);
         if (puckSpeed < 0.05) {
             this.puck.vx = 0;
             this.puck.vy = 0;
@@ -1732,12 +1759,6 @@ class AirHockeyGame extends UserConnectionBase {
             this.puck.vx = (this.puck.vx / puckSpeed) * GAME_CONFIG.PUCK_MAX_SPEED;
             this.puck.vy = (this.puck.vy / puckSpeed) * GAME_CONFIG.PUCK_MAX_SPEED;
         }
-
-        // Wall collisions
-        this.handleWallCollisions();
-
-        // Paddle collisions
-        this.handlePaddleCollisions();
 
         // Check for goals
         this.checkGoals();
@@ -1753,12 +1774,19 @@ class AirHockeyGame extends UserConnectionBase {
         const goalLeft = (w - goalWidth) / 2;
         const goalRight = (w + goalWidth) / 2;
 
+        // Board bounce: normal component reflects with restitution, tangential
+        // component keeps most of its speed (slight board grip) — feels like a
+        // real rink instead of a perfectly slippery mirror.
+        const bounce = -GAME_CONFIG.WALL_RESTITUTION;
+        const grip = GAME_CONFIG.WALL_TANGENT_FRICTION;
+
         // Left wall - open for goal area (puck goes through for goal)
         if (this.puck.x - r < 0) {
             // Only bounce if NOT in goal area
             if (this.puck.y < goalTop || this.puck.y > goalBottom) {
                 this.puck.x = r;
-                this.puck.vx *= -0.8;
+                this.puck.vx *= bounce;
+                this.puck.vy *= grip;
             }
             // If in goal area, let it through (goal will be detected)
         }
@@ -1767,7 +1795,8 @@ class AirHockeyGame extends UserConnectionBase {
         if (this.puck.x + r > w) {
             if (this.puck.y < goalTop || this.puck.y > goalBottom) {
                 this.puck.x = w - r;
-                this.puck.vx *= -0.8;
+                this.puck.vx *= bounce;
+                this.puck.vy *= grip;
             }
         }
 
@@ -1777,7 +1806,8 @@ class AirHockeyGame extends UserConnectionBase {
                 // Goal area - let through
             } else {
                 this.puck.y = r;
-                this.puck.vy *= -0.8;
+                this.puck.vy *= bounce;
+                this.puck.vx *= grip;
             }
         }
 
@@ -1787,97 +1817,46 @@ class AirHockeyGame extends UserConnectionBase {
                 // Goal area - let through
             } else {
                 this.puck.y = h - r;
-                this.puck.vy *= -0.8;
+                this.puck.vy *= bounce;
+                this.puck.vx *= grip;
             }
         }
     }
 
-    handlePaddleCollisions() {
+    handlePaddleCollisions(prevX, prevY) {
+        const minDist = this.puck.radius + GAME_CONFIG.PADDLE_RADIUS;
+        const px = prevX !== undefined ? prevX : this.puck.x;
+        const py = prevY !== undefined ? prevY : this.puck.y;
+
         this.players.forEach((player, playerId) => {
             const paddle = player.paddle;
 
-            // Current distance check
-            const dx = this.puck.x - paddle.x;
-            const dy = this.puck.y - paddle.y;
-            const dist = Math.sqrt(dx * dx + dy * dy);
-            const minDist = this.puck.radius + GAME_CONFIG.PADDLE_RADIUS;
-
-            // BULLET PHYSICS: Check if puck's trajectory crossed through paddle
-            // Calculate paddle's previous position (before last movement)
-            const prevPaddleX = paddle.lastX || paddle.x;
-            const prevPaddleY = paddle.lastY || paddle.y;
-
-            // Check if puck is moving fast and might have tunneled through paddle
-            const puckSpeed = Math.sqrt(this.puck.vx ** 2 + this.puck.vy ** 2);
-            const paddleSpeed = Math.sqrt((paddle.vx || 0) ** 2 + (paddle.vy || 0) ** 2);
-            const isFastMoving = puckSpeed > 5 || paddleSpeed > 5;
-
-            let collision = false;
-
-            if (isFastMoving) {
-                // Perform continuous collision detection
-                // Check line segment (puck's path) vs circle (paddle's path)
-                const puckPrevX = this.puck.x - this.puck.vx;
-                const puckPrevY = this.puck.y - this.puck.vy;
-
-                // Calculate closest point on puck's path to paddle center
-                const pathDx = this.puck.x - puckPrevX;
-                const pathDy = this.puck.y - puckPrevY;
-                const pathLen = Math.sqrt(pathDx * pathDx + pathDy * pathDy);
-
-                if (pathLen > 0) {
-                    const t = Math.max(0, Math.min(1,
-                        ((paddle.x - puckPrevX) * pathDx + (paddle.y - puckPrevY) * pathDy) / (pathLen * pathLen)
-                    ));
-
-                    const closestX = puckPrevX + t * pathDx;
-                    const closestY = puckPrevY + t * pathDy;
-                    const closestDist = Math.sqrt((closestX - paddle.x) ** 2 + (closestY - paddle.y) ** 2);
-
-                    if (closestDist < minDist) {
-                        // Collision detected along path
-                        collision = true;
-                        // Move puck to collision point
-                        this.puck.x = closestX;
-                        this.puck.y = closestY;
-                    }
-                }
+            // Continuous collision: did the puck's path this substep pass
+            // through the paddle? If so, rewind the puck to the crossing
+            // point so the impulse resolves from the correct contact.
+            const swept = GameKit.Physics.sweptCircleHit(
+                px, py, this.puck.x, this.puck.y,
+                paddle.x, paddle.y, minDist
+            );
+            if (swept) {
+                this.puck.x = swept.x;
+                this.puck.y = swept.y;
             }
 
-            // Standard collision check
-            if (!collision && dist < minDist && dist > 0) {
-                collision = true;
-            }
+            // Impulse resolution (separation + restitution + paddle velocity
+            // transfer + tangential "english" from a swiping paddle). Operates
+            // directly on the plain synced objects — no shape changes.
+            GameKit.Physics.circleImpulse(this.puck, paddle, {
+                radiusA: this.puck.radius,
+                radiusB: GAME_CONFIG.PADDLE_RADIUS,
+                restitution: GAME_CONFIG.PADDLE_RESTITUTION,
+                massA: 1,
+                massB: Infinity,   // paddles are player-driven, not shoved
+                transfer: GAME_CONFIG.PADDLE_VEL_TRANSFER,
+                english: GAME_CONFIG.PADDLE_ENGLISH,
+            });
 
-            if (collision && dist > 0) {
-                // Normalize collision vector
-                const nx = dx / dist;
-                const ny = dy / dist;
-
-                // Separate puck from paddle
-                this.puck.x = paddle.x + nx * minDist;
-                this.puck.y = paddle.y + ny * minDist;
-
-                // Calculate relative velocity
-                const dvx = this.puck.vx - (paddle.vx || 0);
-                const dvy = this.puck.vy - (paddle.vy || 0);
-
-                // Relative velocity in collision normal direction
-                const dvn = dvx * nx + dvy * ny;
-
-                // Only resolve if objects are approaching
-                if (dvn < 0) {
-                    // Collision response with restitution
-                    const restitution = 1.2;
-                    const impulse = -(1 + restitution) * dvn;
-
-                    // Reduced paddle velocity transfer (0.3 instead of 0.5) to minimize ball vibration
-                    this.puck.vx += impulse * nx + (paddle.vx || 0) * 0.3;
-                    this.puck.vy += impulse * ny + (paddle.vy || 0) * 0.3;
-                }
-            }
-
-            // Store paddle's current position for next frame's bullet physics check
+            // Store paddle's current position (kept for state compatibility)
             paddle.lastX = paddle.x;
             paddle.lastY = paddle.y;
         });
@@ -2172,18 +2151,64 @@ class AirHockeyGame extends UserConnectionBase {
         const w = GAME_CONFIG.CANVAS_WIDTH;
         const h = GAME_CONFIG.CANVAS_HEIGHT;
 
+        // Lazy-init render-only effect state (never synced over the network).
+        if (!this.fx) {
+            this.fx = new GameKit.ParticleSystem(300);
+            this.puckTrail = new GameKit.Trail(GAME_CONFIG.TRAIL_POINTS, 2.0);
+            this.shake = new GameKit.Shake();
+            this._fxPrev = { vx: 0, vy: 0 };
+            this._fxLast = performance.now();
+        }
+        const now = performance.now();
+        const fxDt = Math.min((now - this._fxLast) / 16.67, 3);
+        this._fxLast = now;
+
+        // Impact detection from OBSERVED puck velocity: a sharp change means
+        // a bounce happened (host physics or synced state — works for every
+        // client, no extra network messages).
+        const dvx = this.puck.vx - this._fxPrev.vx;
+        const dvy = this.puck.vy - this._fxPrev.vy;
+        const jolt = Math.sqrt(dvx * dvx + dvy * dvy);
+        if (jolt > 6 && this.gameStatus === 'playing') {
+            this.fx.burst(this.puck.x, this.puck.y, {
+                count: Math.min(18, 6 + jolt | 0),
+                color: ['#ffffff', '#9fd8ff', '#5eead4'],
+                speed: 2 + jolt * 0.25,
+                life: 0.45,
+                size: 2.5,
+            });
+            this.shake.trigger(Math.min(GAME_CONFIG.IMPACT_SHAKE, jolt * 0.25), 8);
+            GameKit.Sfx.hit(Math.min(3, jolt * 0.12));   // clack scales with force
+        }
+        this._fxPrev.vx = this.puck.vx;
+        this._fxPrev.vy = this.puck.vy;
+
+        // Puck trail from observed motion (speed-gated so an idle puck is clean).
+        const puckSpeed = Math.sqrt(this.puck.vx ** 2 + this.puck.vy ** 2);
+        this.puckTrail.push(this.puck.x, this.puck.y, puckSpeed);
+
         // Clear canvas
         ctx.fillStyle = '#1a2744';
         ctx.fillRect(0, 0, w, h);
 
+        this.shake.preDraw(ctx, fxDt / 60);
+
         // Draw rink
         this.drawRink();
+
+        // Trail under the puck, then game objects, then impact particles.
+        this.puckTrail.draw(ctx, this.puck.radius, '#8fd0ff');
 
         // Draw paddles
         this.drawPaddles();
 
         // Draw puck
         this.drawPuck();
+
+        this.fx.update(fxDt);
+        this.fx.draw(ctx);
+
+        this.shake.postDraw(ctx);
     }
 
     drawRink() {
@@ -2191,6 +2216,22 @@ class AirHockeyGame extends UserConnectionBase {
         const w = GAME_CONFIG.CANVAS_WIDTH;
         const h = GAME_CONFIG.CANVAS_HEIGHT;
         const goalWidth = GAME_CONFIG.GOAL_WIDTH;
+
+        // Ice surface: subtle vertical sheen so the rink reads as ice, not paint.
+        if (!this._iceGradient) {
+            const g = ctx.createLinearGradient(0, 0, 0, h);
+            g.addColorStop(0, '#20315a');
+            g.addColorStop(0.5, '#1a2744');
+            g.addColorStop(1, '#16203a');
+            this._iceGradient = g;
+        }
+        ctx.fillStyle = this._iceGradient;
+        ctx.fillRect(0, 0, w, h);
+
+        // Board edge glow (inner frame).
+        ctx.strokeStyle = 'rgba(0, 212, 255, 0.25)';
+        ctx.lineWidth = 6;
+        ctx.strokeRect(3, 3, w - 6, h - 6);
 
         // Center line (vertical - divides teams)
         ctx.strokeStyle = 'rgba(0, 212, 255, 0.3)';
@@ -2202,24 +2243,90 @@ class AirHockeyGame extends UserConnectionBase {
         ctx.stroke();
         ctx.setLineDash([]);
 
-        // Center circle
+        // Center circle + dot
         ctx.strokeStyle = 'rgba(0, 212, 255, 0.5)';
         ctx.lineWidth = 3;
         ctx.beginPath();
         ctx.arc(w / 2, h / 2, 80, 0, Math.PI * 2);
         ctx.stroke();
+        ctx.fillStyle = 'rgba(0, 212, 255, 0.4)';
+        ctx.beginPath();
+        ctx.arc(w / 2, h / 2, 6, 0, Math.PI * 2);
+        ctx.fill();
+
+        // Face-off circles + dots (rink furniture — pure decoration).
+        ctx.strokeStyle = 'rgba(0, 212, 255, 0.18)';
+        ctx.lineWidth = 2;
+        for (const [fx, fy] of [[w * 0.22, h * 0.25], [w * 0.22, h * 0.75],
+                                [w * 0.78, h * 0.25], [w * 0.78, h * 0.75]]) {
+            ctx.beginPath();
+            ctx.arc(fx, fy, 34, 0, Math.PI * 2);
+            ctx.stroke();
+            ctx.fillStyle = 'rgba(0, 212, 255, 0.25)';
+            ctx.beginPath();
+            ctx.arc(fx, fy, 4, 0, Math.PI * 2);
+            ctx.fill();
+        }
 
         // Goals - only left and right (team goals)
         const goalTop = (h - goalWidth) / 2;
         const goalBottom = (h + goalWidth) / 2;
 
+        // Goal creases (half-circle arcs in front of each goal mouth).
+        ctx.strokeStyle = 'rgba(0, 212, 255, 0.22)';
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.arc(0, h / 2, goalWidth * 0.75, -Math.PI / 2, Math.PI / 2);
+        ctx.stroke();
+        ctx.beginPath();
+        ctx.arc(w, h / 2, goalWidth * 0.75, Math.PI / 2, Math.PI * 1.5);
+        ctx.stroke();
+
+        // Goal nets: crosshatch behind each goal mouth so a shot visibly
+        // lands "in the net" instead of into a colored strip.
+        ctx.strokeStyle = 'rgba(255, 255, 255, 0.12)';
+        ctx.lineWidth = 1;
+        for (const gx of [0, w - 26]) {
+            for (let i = 0; i <= 5; i++) {
+                ctx.beginPath();
+                ctx.moveTo(gx, goalTop + (goalWidth / 5) * i);
+                ctx.lineTo(gx + 26, goalTop + (goalWidth / 5) * i);
+                ctx.stroke();
+            }
+            for (let i = 0; i <= 3; i++) {
+                ctx.beginPath();
+                ctx.moveTo(gx + (26 / 3) * i, goalTop);
+                ctx.lineTo(gx + (26 / 3) * i, goalBottom);
+                ctx.stroke();
+            }
+        }
+
+        // Corner vignette: darkens the edges so the play area pops. Cached.
+        if (!this._vignette) {
+            const g = ctx.createRadialGradient(w / 2, h / 2, h * 0.55, w / 2, h / 2, w * 0.72);
+            g.addColorStop(0, 'rgba(0,0,0,0)');
+            g.addColorStop(1, 'rgba(0,0,0,0.38)');
+            this._vignette = g;
+        }
+        ctx.fillStyle = this._vignette;
+        ctx.fillRect(0, 0, w, h);
+
+        // Goal mouths pulse gently so they read as "the important bits".
+        const pulse = 0.75 + Math.sin(performance.now() * 0.004) * 0.25;
+
         // Left goal (Team Left)
+        ctx.save();
+        ctx.globalAlpha = pulse;
+        ctx.shadowColor = this.getGoalColor('left');
+        ctx.shadowBlur = 18;
         ctx.fillStyle = this.getGoalColor('left');
         ctx.fillRect(0, goalTop, 10, goalWidth);
 
         // Right goal (Team Right)
+        ctx.shadowColor = this.getGoalColor('right');
         ctx.fillStyle = this.getGoalColor('right');
         ctx.fillRect(w - 10, goalTop, 10, goalWidth);
+        ctx.restore();
     }
 
     getGoalColor(side) {
@@ -2240,23 +2347,47 @@ class AirHockeyGame extends UserConnectionBase {
             const paddle = player.paddle;
             const isMe = playerId === this.username;
 
+            const R = GAME_CONFIG.PADDLE_RADIUS;
+
+            // Contact shadow on the ice grounds the paddle.
+            ctx.fillStyle = 'rgba(0, 0, 0, 0.30)';
+            ctx.beginPath();
+            ctx.ellipse(paddle.x + 3, paddle.y + 5, R * 0.95, R * 0.7, 0, 0, Math.PI * 2);
+            ctx.fill();
+
             // Glow effect
             ctx.shadowColor = player.color;
             ctx.shadowBlur = isMe ? 20 : 10;
 
-            // Paddle body
-            ctx.fillStyle = player.color;
+            // Paddle body: radial gradient (lit from upper-left) instead of flat.
+            const grad = ctx.createRadialGradient(
+                paddle.x - R * 0.35, paddle.y - R * 0.35, R * 0.1,
+                paddle.x, paddle.y, R
+            );
+            grad.addColorStop(0, '#ffffff');
+            grad.addColorStop(0.25, player.color);
+            grad.addColorStop(1, this.shadeColor(player.color, -35));
+            ctx.fillStyle = grad;
             ctx.beginPath();
-            ctx.arc(paddle.x, paddle.y, GAME_CONFIG.PADDLE_RADIUS, 0, Math.PI * 2);
-            ctx.fill();
-
-            // Inner circle
-            ctx.fillStyle = 'rgba(255, 255, 255, 0.3)';
-            ctx.beginPath();
-            ctx.arc(paddle.x, paddle.y, GAME_CONFIG.PADDLE_RADIUS * 0.5, 0, Math.PI * 2);
+            ctx.arc(paddle.x, paddle.y, R, 0, Math.PI * 2);
             ctx.fill();
 
             ctx.shadowBlur = 0;
+
+            // Rim light + handle knob (classic mallet look).
+            ctx.strokeStyle = 'rgba(255, 255, 255, 0.5)';
+            ctx.lineWidth = 2;
+            ctx.beginPath();
+            ctx.arc(paddle.x, paddle.y, R - 1.5, 0, Math.PI * 2);
+            ctx.stroke();
+            ctx.fillStyle = 'rgba(255, 255, 255, 0.35)';
+            ctx.beginPath();
+            ctx.arc(paddle.x, paddle.y, R * 0.42, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.fillStyle = 'rgba(255, 255, 255, 0.25)';
+            ctx.beginPath();
+            ctx.arc(paddle.x, paddle.y, R * 0.2, 0, Math.PI * 2);
+            ctx.fill();
 
             // Player name
             ctx.fillStyle = '#fff';
@@ -2270,26 +2401,56 @@ class AirHockeyGame extends UserConnectionBase {
         });
     }
 
+    // Darken (pct < 0) or lighten (pct > 0) a #rrggbb color by pct percent.
+    shadeColor(hex, pct) {
+        const n = parseInt(hex.slice(1), 16);
+        const amt = Math.round(2.55 * pct);
+        const r = Math.min(255, Math.max(0, (n >> 16) + amt));
+        const g = Math.min(255, Math.max(0, ((n >> 8) & 0xff) + amt));
+        const b = Math.min(255, Math.max(0, (n & 0xff) + amt));
+        return `rgb(${r},${g},${b})`;
+    }
+
     drawPuck() {
         const ctx = this.ctx;
+        const r = this.puck.radius;
+        const speed = Math.sqrt(this.puck.vx ** 2 + this.puck.vy ** 2);
 
-        // Glow
-        ctx.shadowColor = '#fff';
-        ctx.shadowBlur = 15;
-
-        // Puck body
-        ctx.fillStyle = '#fff';
+        // Contact shadow.
+        ctx.fillStyle = 'rgba(0, 0, 0, 0.35)';
         ctx.beginPath();
-        ctx.arc(this.puck.x, this.puck.y, this.puck.radius, 0, Math.PI * 2);
+        ctx.ellipse(this.puck.x + 2, this.puck.y + 4, r * 0.95, r * 0.7, 0, 0, Math.PI * 2);
         ctx.fill();
 
-        // Inner detail
-        ctx.fillStyle = '#333';
+        // Glow scales with speed — a screaming puck visibly burns.
+        ctx.shadowColor = speed > 15 ? '#9fd8ff' : '#fff';
+        ctx.shadowBlur = 12 + Math.min(24, speed * 1.2);
+
+        // Puck body: radial gradient for a domed look.
+        const grad = ctx.createRadialGradient(
+            this.puck.x - r * 0.3, this.puck.y - r * 0.3, r * 0.1,
+            this.puck.x, this.puck.y, r
+        );
+        grad.addColorStop(0, '#ffffff');
+        grad.addColorStop(0.6, '#e8eef7');
+        grad.addColorStop(1, '#b9c6da');
+        ctx.fillStyle = grad;
         ctx.beginPath();
-        ctx.arc(this.puck.x, this.puck.y, this.puck.radius * 0.4, 0, Math.PI * 2);
+        ctx.arc(this.puck.x, this.puck.y, r, 0, Math.PI * 2);
         ctx.fill();
 
         ctx.shadowBlur = 0;
+
+        // Inner detail ring + core.
+        ctx.strokeStyle = 'rgba(40, 50, 70, 0.5)';
+        ctx.lineWidth = 1.5;
+        ctx.beginPath();
+        ctx.arc(this.puck.x, this.puck.y, r * 0.62, 0, Math.PI * 2);
+        ctx.stroke();
+        ctx.fillStyle = '#2c3650';
+        ctx.beginPath();
+        ctx.arc(this.puck.x, this.puck.y, r * 0.4, 0, Math.PI * 2);
+        ctx.fill();
     }
 
     // ============================================
@@ -2551,6 +2712,22 @@ class AirHockeyGame extends UserConnectionBase {
         if (textEl) textEl.textContent = mainText;
         if (scorerEl) scorerEl.textContent = subText || '';
         if (overlay) overlay.classList.remove('hidden');
+
+        // Goal juice: this runs on EVERY client (host + peers both route goal
+        // events through here), so the burst and shake are seen by everyone.
+        if (this.fx) {
+            this.fx.burst(this.puck.x, this.puck.y, {
+                count: 60,
+                color: ['#ffd166', '#ef476f', '#06d6a0', '#118ab2', '#ffffff'],
+                speed: 9,
+                life: 1.0,
+                size: 4,
+                gravity: 0.15,
+            });
+            this.shake.trigger(GAME_CONFIG.GOAL_SHAKE, 4);
+            this.puckTrail.clear();
+            GameKit.Sfx.fanfare();
+        }
     }
 
     hideGoalOverlay() {

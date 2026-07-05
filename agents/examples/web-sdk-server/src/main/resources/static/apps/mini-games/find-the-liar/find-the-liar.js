@@ -2750,6 +2750,30 @@ class FindTheLiarGame extends UserConnectionBase {
         const container = document.getElementById('gameContainer');
         const { gameMode, voteThreshold, secretItem, voteResults, eliminatedPlayers, revealedLiars } = data;
 
+        // A catch is the payoff moment of the whole game — celebrate it.
+        // (Runs on every client; the reveal data is already broadcast.)
+        const caughtSomeone = (eliminatedPlayers && eliminatedPlayers.length > 0) ||
+            (revealedLiars && revealedLiars.length > 0);
+        if (caughtSomeone && window.GameKit) {
+            GameKit.Confetti.burst({ count: 140, duration: 2.0 });
+            GameKit.Sfx.fanfare();
+        }
+
+        // Stagger-reveal the vote rows once the screen below has rendered —
+        // results land one by one instead of appearing as a wall of text.
+        setTimeout(() => {
+            document.querySelectorAll('.vote-result, .vote-result-investigation')
+                .forEach((el, i) => {
+                    if (!el.animate) return;
+                    el.style.opacity = '0';
+                    el.animate([
+                        { opacity: 0, transform: 'translateY(14px)' },
+                        { opacity: 1, transform: 'translateY(0)' },
+                    ], { duration: 320, delay: i * 110, easing: 'ease-out', fill: 'forwards' })
+                        .onfinish = () => { el.style.opacity = ''; };
+                });
+        }, 60);
+
         // MODE-SPECIFIC VOTE DISPLAY
         let voteHtml = '';
         let voteResultMessage = '';

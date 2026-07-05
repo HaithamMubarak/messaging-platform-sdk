@@ -1279,4 +1279,53 @@ button[id*="disconnect"]:hover,
     }
 }
 
+/* ============================================================================
+   PRO POLISH (appended 2026-07-03) — additive refinements only. Each rule
+   layers onto existing classes without redefining their base, so nothing in
+   the established Excalidraw look is overridden or broken.
+   ============================================================================ */
+
+/* Active tool: gentle lift + accent ring so the current tool is unmistakable. */
+.tool-btn.active {
+    box-shadow: 0 4px 12px -3px rgba(99, 102, 241, 0.55);
+    transform: translateY(-1px);
+}
+.tool-btn:active { transform: scale(0.92); }
+
+/* Selected color gets a clear ring halo instead of just a border swap. */
+.color-btn.active {
+    box-shadow: 0 0 0 2px var(--bg), 0 0 0 4px var(--primary);
+    transform: scale(1.05);
+}
+
+/* Remote cursors: softer follow + a little pointer arrow. */
+.remote-cursor {
+    transition: left 0.08s linear, top 0.08s linear;
+}
+.remote-cursor::before {
+    content: "";
+    position: absolute;
+    top: -3px; left: -3px;
+    width: 0; height: 0;
+    border-left: 7px solid currentColor;
+    border-bottom: 7px solid transparent;
+    transform: rotate(-8deg);
+    opacity: 0.9;
+}
+.remote-cursor::after {
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.25);
+    letter-spacing: 0.01em;
+}
+
+/* Toolbar floats a touch more convincingly. */
+.toolbar {
+    backdrop-filter: blur(10px) saturate(140%);
+    -webkit-backdrop-filter: blur(10px) saturate(140%);
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .tool-btn.active, .tool-btn:active, .color-btn.active { transform: none; }
+    .remote-cursor { transition: none; }
+}
+
 

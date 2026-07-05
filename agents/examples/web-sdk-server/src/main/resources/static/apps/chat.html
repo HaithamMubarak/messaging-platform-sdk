@@ -521,30 +521,60 @@
         }
 
         .avatar {
-            width: 44px;
-            height: 44px;
-            border-radius: 10px;
+            width: 42px;
+            height: 42px;
+            flex: 0 0 42px;
+            border-radius: 12px;
             background: rgba(255, 255, 255, 0.02);
             display: flex;
             align-items: center;
             justify-content: center;
-            font-weight: 700
+            font-weight: 700;
+            color: #fff;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.25), inset 0 1px 0 rgba(255,255,255,0.15);
+            letter-spacing: 0.02em;
         }
 
         .bubble { /*max-width:65%;*/
-            padding: 12px 14px;
-            border-radius: 12px;
-            background: linear-gradient(180deg, #081225, #082036);
+            position: relative;
+            max-width: 68%;
+            padding: 11px 15px;
+            border-radius: 16px 16px 16px 4px;
+            background: linear-gradient(180deg, #0b1a30, #0a2138);
             color: #dbeafe;
             word-break: break-word;
             overflow-wrap: anywhere;
-            white-space: pre-wrap
+            white-space: pre-wrap;
+            box-shadow: 0 3px 12px -4px rgba(0, 0, 0, 0.4);
+            line-height: 1.5;
         }
 
         .bubble.me {
-            background: linear-gradient(90deg, var(--accent), var(--accent-2));
-            color: #071225
+            background: linear-gradient(135deg, var(--accent), var(--accent-2));
+            color: #071225;
+            border-radius: 16px 16px 4px 16px;
+            font-weight: 500;
         }
+
+        /* Smooth entrance for every new message. */
+        .msg-row { animation: msg-in 260ms cubic-bezier(0.22, 1, 0.36, 1); }
+        .msg-right .msg-col { align-items: flex-end; }
+        .msg-col { display: flex; flex-direction: column; }
+        @keyframes msg-in { from { opacity: 0; transform: translateY(8px); } }
+
+        /* Centered date divider between days. */
+        .date-divider {
+            align-self: center;
+            margin: 6px 0;
+            padding: 3px 12px;
+            font-size: 11px;
+            font-weight: 600;
+            color: var(--muted);
+            background: rgba(255, 255, 255, 0.04);
+            border-radius: 999px;
+        }
+
+        @media (prefers-reduced-motion: reduce) { .msg-row { animation: none; } }
 
         .meta {
             margin-top: 6px;
@@ -1540,12 +1570,38 @@
             } catch (e) { console.warn('refreshAgentsModalIfOpen', e); }
         }
 
+        // Deterministic avatar color from a name — same user always gets the
+        // same hue, so the eye can track speakers without reading names.
+        function avatarGradient(name) {
+            let h = 0;
+            const s = name || 'U';
+            for (let i = 0; i < s.length; i++) h = (h * 31 + s.charCodeAt(i)) % 360;
+            return `linear-gradient(135deg, hsl(${h}, 62%, 52%), hsl(${(h + 40) % 360}, 62%, 42%))`;
+        }
+
         function appendMessage(name, message, isMe, timestamp, opts) {
             const container = document.querySelector('.chat-body');
-            console.log('container=', container)
             if (!container) return;
             opts = opts || {forceScroll: true};
             const time = new Date(timestamp);
+
+            // Date divider when the day changes between messages.
+            try {
+                const dayKey = time.toDateString();
+                if (container._lastDayKey !== dayKey && !(opts && opts.welcome)) {
+                    const today = new Date().toDateString();
+                    const yday = new Date(Date.now() - 86400000).toDateString();
+                    const label = dayKey === today ? 'Today'
+                        : dayKey === yday ? 'Yesterday'
+                        : time.toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' });
+                    const div = document.createElement('div');
+                    div.className = 'date-divider';
+                    div.textContent = label;
+                    container.appendChild(div);
+                    container._lastDayKey = dayKey;
+                }
+            } catch (e) { /* no-op */ }
+
             const row = document.createElement('div');
             row.className = 'msg-row ' + (isMe ? 'msg-right' : 'msg-left');
             // Mark welcome/system message so it can be removed after first connection
@@ -1558,15 +1614,18 @@
             const avatar = document.createElement('div');
             avatar.className = 'avatar';
             avatar.textContent = (name || 'U').substring(0, 1).toUpperCase();
+            avatar.style.background = avatarGradient(name);
             // show full agent name on hover
             avatar.title = name || '';
             const col = document.createElement('div');
+            col.className = 'msg-col';
             const bubble = document.createElement('div');
             bubble.className = 'bubble ' + (isMe ? 'me' : '');
             bubble.textContent = message;
             const meta = document.createElement('div');
             meta.className = 'meta';
-            meta.textContent = formatTime(time) + ' — ' + new Date(time).toLocaleDateString();
+            meta.textContent = isMe ? formatTime(time) : (name || '') + ' · ' + formatTime(time);
+            meta.title = new Date(time).toLocaleString();
             col.append(bubble, meta);
             if (isMe) row.append(col, avatar); else row.append(avatar, col);
             container.appendChild(row);

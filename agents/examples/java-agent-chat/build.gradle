@@ -32,3 +32,13 @@ dependencies {
 application {
     mainClass = 'com.hmdev.messaging.agent.example.ExampleMain'
 }
+
+// Live two-agent messaging smoke test — verifies nothing is broken end-to-end.
+//   ./gradlew :agents:examples:java-agent-chat:liveSmokeTest \
+//       --args="--url=<URL> --api-key=<KEY>"
+tasks.register('liveSmokeTest', JavaExec) {
+    group = 'verification'
+    description = 'Live two-agent messaging smoke test (needs --args="--url=.. --api-key=..")'
+    classpath = sourceSets.main.runtimeClasspath
+    mainClass = 'com.hmdev.messaging.agent.example.LiveSmokeTest'
+}
