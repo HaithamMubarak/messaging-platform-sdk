@@ -216,6 +216,14 @@ public class MessagingChannelApi implements ConnectionChannelApi {
         return this.connect(null, null, agentName, sessionId, channelId, enableWebrtcRelay);
     }
 
+    // Extracts channelId from a create-channel response body. The server nests
+    // the channel owner (which itself references channels) deeply enough to
+    // exceed org.json's parse-depth limit, so pull channelId from the raw body
+    // instead of fully parsing it — otherwise connect proceeds without a
+    // channelId and fails to join (esp. for a 2nd agent / re-runs).
+    private static final java.util.regex.Pattern CHANNEL_ID_RE =
+            java.util.regex.Pattern.compile("\"channelId\"\\s*:\\s*\"([^\"]+)\"");
+
     // New helper: create channel on the server and return channelId if available
     private String createChannel(String name, String password) {
         try {
@@ -223,8 +231,20 @@ public class MessagingChannelApi implements ConnectionChannelApi {
                     getActionUrl("create-channel"), new CreateChannelRequest(name, password));
 
             if (res != null && res.isHttpOk()) {
-                // todo: use dto instead of manual parsing
-                return res.dataAsJsonObject().optJSONObject("data").optString("channelId", null);
+                // Prefer a lenient scan of the raw body (depth-limit safe).
+                String raw = res.getData();
+                if (raw != null) {
+                    java.util.regex.Matcher m = CHANNEL_ID_RE.matcher(raw);
+                    if (m.find()) {
+                        return m.group(1);
+                    }
+                }
+                // Fallback to structured parsing for small/simple responses.
+                try {
+                    return res.dataAsJsonObject().optJSONObject("data").optString("channelId", null);
+                } catch (Exception ignore) {
+                    logger.warn("create-channel: could not extract channelId from response");
+                }
             }
         } catch (Exception e) {
             logger.warn("create-channel failed: {}", e.getMessage());
