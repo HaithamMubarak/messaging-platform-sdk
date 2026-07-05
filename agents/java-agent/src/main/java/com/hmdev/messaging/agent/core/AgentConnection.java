@@ -250,6 +250,16 @@ public class AgentConnection {
     }
 
     /**
+     * The receive config captured at connect (where to start reading from —
+     * the channel tail — with a valid localOffset). Use this as the starting
+     * cursor for a synchronous pull loop instead of building one from scratch
+     * (globalOffset=0/localOffset=null is rejected by the server).
+     */
+    public ReceiveConfig getInitialReceiveConfig() {
+        return initialReceiveConfig;
+    }
+
+    /**
      * Gets all agents
      *
      * @return return the list of all agents

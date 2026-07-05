@@ -21,8 +21,10 @@ import java.util.concurrent.Executors;
  * Supported ops:
  * - connect: {"op":"connect","url"?,"channel","password","agentName"} or {"op":"connect","channelId", "agentName"}
  * - disconnect: {"op":"disconnect"}
- * - udpPush: {"op":"udpPush","content","destination"}
- * - udpPull: {"op":"udpPull","startOffset", "limit"}
+ * - udpPush: {"op":"udpPush","content","destination"}   (WebRTC-relay path)
+ * - udpPull: {"op":"udpPull","startOffset", "limit"}    (WebRTC-relay path)
+ * - send:    {"op":"send","content"}                    (HTTP message store)
+ * - pull:    {"op":"pull","startOffset","limit"}        (HTTP message store)
  */
 public class LocalTcpServer implements AutoCloseable {
     private static final Logger logger = LoggerFactory.getLogger(LocalTcpServer.class);
@@ -34,6 +36,10 @@ public class LocalTcpServer implements AutoCloseable {
     private volatile boolean running = false;
     private ServerSocket serverSocket;
     private final ExecutorService executor = Executors.newCachedThreadPool();
+
+    // Stateful cursor for the "pull" op: starts at the connect offset (channel
+    // tail) and advances each pull, so successive pulls stream new messages.
+    private ReceiveConfig pullCursor = null;
 
     public LocalTcpServer(int port, AgentConnection agent, ObjectMapper mapper) {
         this.port = port;
@@ -109,6 +115,9 @@ public class LocalTcpServer implements AutoCloseable {
                         configBuilder.channelName(channel).channelPassword(password);
                     }
                     ok = agent.connect(configBuilder.build());
+                    if (ok) {
+                        pullCursor = null;  // fresh pull stream for this session
+                    }
                     return ok ? okResp(null) : errResp("connect failed");
                 case "disconnect":
                     boolean disc = agent.disconnect();
@@ -127,6 +136,36 @@ public class LocalTcpServer implements AutoCloseable {
                     ObjectNode data = mapper.createObjectNode();
                     data.set("result", mapper.valueToTree(res));
                     return okResp(data);
+                case "send":
+                    // Regular message send via the HTTP message store (durable,
+                    // pull-retrievable) — unlike udpPush which is the relay path.
+                    String sendContent = req.path("content").asText("");
+                    boolean sendOk = agent.sendMessage(sendContent);
+                    return sendOk ? okResp(null) : errResp("send failed");
+                case "pull":
+                    // Regular receive from the HTTP message store; mirrors udpPull's
+                    // response shape ({result:{events,nextGlobalOffset}}). Stateful:
+                    // starts at the connect offset (tail) and advances each call, so
+                    // callers stream NEW messages without managing offsets themselves.
+                    if (pullCursor == null) {
+                        ReceiveConfig init = agent.getInitialReceiveConfig();
+                        if (init == null) {
+                            return errResp("pull before connect");
+                        }
+                        pullCursor = new ReceiveConfig(init);
+                    }
+                    EventMessageResult pRes = agent.receive(pullCursor);
+                    if (pRes != null) {
+                        if (pRes.getNextGlobalOffset() != null) {
+                            pullCursor.setGlobalOffset(pRes.getNextGlobalOffset());
+                        }
+                        if (pRes.getNextLocalOffset() != null) {
+                            pullCursor.setLocalOffset(pRes.getNextLocalOffset());
+                        }
+                    }
+                    ObjectNode pData = mapper.createObjectNode();
+                    pData.set("result", mapper.valueToTree(pRes));
+                    return okResp(pData);
                 default:
                     return errResp("unknown op: " + op);
             }
