@@ -170,7 +170,11 @@ class MessagingChannelApi(ConnectionChannelApi):
                     if isinstance(md, dict):
                         state = ChannelState(topicName=md.get('topicName'), channelId=md.get('channelId'),
                                                    channelName=md.get('channelName'), channelPassword=md.get('channelPassword'))
-                        channel_id_resp = state.channelId or data.get('channelId')
+                        # Prefer the response's TOP-LEVEL channelId (the real
+                        # channel_xxx string). state.channelId is the ChannelState
+                        # entity's numeric @Id (e.g. "275"), NOT the channel id —
+                        # using it first made agent.channel_id a bare number.
+                        channel_id_resp = data.get('channelId') or state.channelId
 
                 self.ready_state = True
                 self.session_id = session
