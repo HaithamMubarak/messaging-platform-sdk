@@ -93,10 +93,13 @@ public class LocalTcpServer implements AutoCloseable {
                     // legacy field names: "channel" and "password"
                     String password = req.path("password").asText(null);
                     String agentName = req.path("agentName").asText(null);
+                    // apiKeyScope: "public" for shared/test channels, "private" (default) for isolated
+                    String apiKeyScope = req.path("apiKeyScope").asText("private");
 
                     boolean ok;
                     ConnectConfig.ConnectConfigBuilder configBuilder = ConnectConfig.builder()
-                            .agentName(agentName);
+                            .agentName(agentName)
+                            .apiKeyScope(apiKeyScope);
 
                     if (channelId != null && !channelId.isEmpty()) {
                         // use new channelId-based connect
