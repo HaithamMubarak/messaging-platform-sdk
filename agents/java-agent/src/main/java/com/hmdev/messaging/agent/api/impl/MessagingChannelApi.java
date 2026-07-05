@@ -147,16 +147,17 @@ public class MessagingChannelApi implements ConnectionChannelApi {
                         MySecurity.deriveChannelSecret(channelName, channelPassword));
             }
 
-            if (channelId == null) {
-                if (hasChannelLogin) {
-                    // Create channel on server using channelName and passwordHash (protected password)
-                    channelId = createChannel(channelName, passwordHash);
-                }
-                else
-                {
-                    throw new RuntimeException("Missing channelId or channelName+channelPassword for connect operation");
-                }
+            if (channelId == null && !hasChannelLogin) {
+                throw new RuntimeException("Missing channelId or channelName+channelPassword for connect operation");
             }
+            // Skip the redundant create-channel round trip when we have
+            // name+password: /connect creates the channel from
+            // channelName + channelPassword(hash) + apiKeyScope + devApiKey and
+            // returns the channelId. The server derives channelId
+            // deterministically per (name, password, scope), so every agent
+            // still resolves to the SAME channel. Sending a pre-computed
+            // channelId here would IGNORE apiKeyScope (create-channel is
+            // scope-unaware), so letting connect compute it is faster + correct.
 
             // Build connect request: prefer channelId if known, but include name/password fields for compatibility
             ConnectRequest connectRequest = ConnectRequest.builder()

@@ -122,14 +122,18 @@ class MessagingChannelApi(ConnectionChannelApi):
             payload: Dict[str, Any] = {}
             if channel_id:
                 cid = channel_id
+            elif channel_name and channel_password:
+                # Skip the redundant create-channel round trip: /connect creates
+                # the channel from channelName + channelPassword(hash) +
+                # apiKeyScope + devApiKey and returns the channelId. The server
+                # derives channelId deterministically per (name, password, scope),
+                # so every agent still resolves to the SAME channel. Sending a
+                # pre-computed channelId here would actually IGNORE apiKeyScope
+                # (create-channel is scope-unaware), so letting connect compute it
+                # is both faster and more correct.
+                cid = None
             else:
-                # If channel_name+key provided derive secret and attempt create-channel to register the channel and get id
-                if channel_name and channel_password:
-                    # Create channel on server using channelName and passwordHash (protected password)
-                    cid = self._create_channel(channel_name, password_hash)
-                    # If create-channel fails (returns None), we'll proceed with just channelName/channelPassword
-                else:
-                    raise ValueError("Missing channelId or channelName+channelPassword for connect operation")
+                raise ValueError("Missing channelId or channelName+channelPassword for connect operation")
 
             # prefer sending channelId to server if known (only if not None)
             if cid:
