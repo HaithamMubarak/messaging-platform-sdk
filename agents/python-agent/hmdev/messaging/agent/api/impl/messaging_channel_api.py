@@ -1,5 +1,6 @@
 import json
 import logging
+import re
 from typing import Optional, List, Dict, Any
 from urllib.parse import urlparse
 import os
@@ -78,26 +79,34 @@ class MessagingChannelApi(ConnectionChannelApi):
             return False
         return True
 
+    # channelId appears early in the create-channel response, before the deeply
+    # nested owner block that blows json.loads' recursion limit.
+    _CHANNEL_ID_RE = re.compile(r'"channelId"\s*:\s*"([^"]+)"')
+
     def _create_channel(self, name: str, password: str) -> Optional[str]:
         try:
             payload = {"channelName": name, "channelPassword": password}
             txt = self.client.request("POST", self._url("create-channel"), json_body=payload)
-            # Try to parse JSON with increased recursion limit if needed
+            if not txt:
+                return None
+            # The server nests the channel owner (which references its channels)
+            # deeply enough to exceed Python's json recursion limit, so scan the
+            # raw body for channelId instead of fully parsing it. Without this,
+            # create-channel returns None and connect proceeds WITHOUT a
+            # channelId — which breaks message delivery for the receiving agent.
+            m = self._CHANNEL_ID_RE.search(txt)
+            if m:
+                return m.group(1)
+            # Fallback: structured parse for small/simple responses.
             try:
                 obj = json.loads(txt)
+                if isinstance(obj, dict) and str(obj.get('status')) == 'success':
+                    data = obj.get('data', {})
+                    if isinstance(data, dict):
+                        return data.get('channelId')
             except RecursionError:
-                # If we hit recursion limit, the response is malformed or too deeply nested
-                # Log truncated response and return None to fallback to connect with name/password
-                txt_preview = txt[:200] if txt and len(txt) > 200 else txt
-                logger.warning("create-channel returned deeply nested JSON (recursion error), preview: %s...", txt_preview)
-                return None
-
-            if isinstance(obj, dict) and str(obj.get('status')) == 'success':
-                data = obj.get('data', {})
-                if isinstance(data, dict):
-                    return data.get('channelId')
-        except RecursionError as re:
-            logger.warning("create-channel failed with recursion error: %s", re)
+                preview = txt[:200] if len(txt) > 200 else txt
+                logger.warning("create-channel deeply nested and no channelId in raw body, preview: %s...", preview)
         except Exception as e:
             logger.warning("create-channel failed: %s", e)
         return None
