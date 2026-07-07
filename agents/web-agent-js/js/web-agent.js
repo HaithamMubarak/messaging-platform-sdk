@@ -787,7 +787,7 @@
         return responseData;
     }
 
-    const AgentConnection = function({usePubKey = false, enableWebrtcRelay = false, useWebsocket = true} = {}){
+    const AgentConnection = function({usePubKey = false, enableWebrtcRelay = false, useWebsocket = false} = {}){
 
         this.agentName = null;
         this._connectedAgentsMap = {};  // Map agentName -> AgentInfo object (includes connectionTime)
