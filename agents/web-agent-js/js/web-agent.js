@@ -898,6 +898,15 @@
 
                 // Subscribe to receive messages for this session
                 _self._websocketSubscribe();
+
+                // One-shot catch-up pull over the socket (no polling loop): grabs
+                // anything sent between the HTTP connect and this subscription, and
+                // re-syncs after a reconnect. Ongoing delivery is via server push.
+                if (_self.autoReceive) {
+                    const range = _self._last_receive_range || _self.initialReceiveConfig ||
+                        { globalOffset: 0, localOffset: 0, limit: _self.defaultLimit || DEFAULT_RECEIVE_LIMIT };
+                    _self.receive(range);
+                }
             };
 
             _self._websocket.onmessage = function(event) {
@@ -1647,11 +1656,12 @@
                     _self._connectWebSocket();
                 }
 
-                // Start auto-receive if enabled
+                // Start auto-receive if enabled.
                 if(autoReceive){
                     _self.autoReceive = autoReceive;
-                    // If using WebSocket, messages will be pushed automatically
-                    // Otherwise, use HTTP polling
+                    // HTTP mode polls here. WebSocket mode does NOT poll: it catches
+                    // up with a single pull when the socket opens (see
+                    // _connectWebSocket) and then receives via server push.
                     if (!_self.useWebsocket) {
                         // Use _last_receive_range if set, otherwise use initialReceiveConfig as fallback
                         const fallbackRange = _self._last_receive_range || _self.initialReceiveConfig ||
@@ -1790,10 +1800,32 @@
             return;
         }
 
-        // If using WebSocket and connected, messages are pushed automatically
-        // No need for HTTP polling
+        // Clear any pending HTTP-polling tick (e.g. from before the socket came up).
+        clearTimeout(_self._receiveTimer);
+
+        // WebSocket mode: NO polling loop. Ongoing messages arrive via server
+        // push. We only pull ONCE here (over the socket, same 'pull' action +
+        // same server receive() + same handler as HTTP) to catch up on anything
+        // that raced the subscribe — e.g. a WebRTC offer sent the instant a peer
+        // joined, before its socket finished subscribing.
         if (useWebsocket && _self._websocketConnected) {
-            console.log('[WebSocket] Using WebSocket for receiving - messages will be pushed automatically');
+            const wsReceiveConfig = { ...range, pollSource: range.pollSource || _self.defaultPollSource };
+            _self._websocketSend('pull', { receiveConfig: wsReceiveConfig }, function(response) {
+                try {
+                    if (response && response.status === 'success' && response.data) {
+                        _self._processReceivedMessages(response);
+                        const d = response.data;
+                        _self._last_receive_range = {
+                            globalOffset: (d.nextGlobalOffset != null) ? d.nextGlobalOffset : range.globalOffset,
+                            localOffset: (d.nextLocalOffset != null) ? d.nextLocalOffset : range.localOffset,
+                            limit: range.limit,
+                        };
+                    }
+                } catch (e) {
+                    console.error('[WebSocket] Error processing pull response:', e);
+                }
+                // No setTimeout re-arm — push delivers the rest.
+            });
             return;
         }
 
@@ -1908,7 +1940,8 @@
                         + additionalTimeout;
 
                     console.log('Next receive timeout : '+timeout);
-                    setTimeout(function(){
+                    clearTimeout(_self._receiveTimer);
+                    _self._receiveTimer = setTimeout(function(){
                         _self.receive(_self._last_receive_range);
                     }, timeout);
                 }
@@ -2534,6 +2567,18 @@
             content: JSON.stringify(signalingMsg),
             sessionId: _self.sessionId,
         };
+
+        // Prefer the WebSocket transport when connected (same as sendMessage),
+        // fall back to HTTP push otherwise. Either way the server broadcasts it
+        // to the recipient's socket.
+        if (_self.useWebsocket && _self._websocketConnected) {
+            _self._websocketSend('push', payload, function(response) {
+                if (response && response.status !== 'success') {
+                    console.error('[Channel] Failed to send WebRTC signaling (ws):', response);
+                }
+            });
+            return;
+        }
 
         request({
             useSyncMode: _self.useSyncMode,
