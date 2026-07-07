@@ -620,6 +620,26 @@ class UserConnectionBase {
             return;
         }
 
+        // Guard against creating multiple offers to the same peer at once.
+        // agent-connect, the connect-event "existing agents" loop and the
+        // reconnect sweep can all fire within a few hundred ms; each extra offer
+        // makes another peer connection for the SAME agent, and the agent-keyed
+        // dataChannels map is then overwritten to the last (still-connecting) one,
+        // orphaning the channel that actually opened. One offer per peer at a time.
+        this._peersBeingInitiated = this._peersBeingInitiated || new Set();
+        if (this._peersBeingInitiated.has(agentName)) {
+            console.log(`[AgentSessionBase] DataChannel initiation already in progress for ${agentName}, skipping duplicate`);
+            return;
+        }
+        this._peersBeingInitiated.add(agentName);
+        // Failsafe release: if the connection never reports ready or fails, don't
+        // block a future re-initiation forever (stream-ready and agent-disconnect
+        // also release it — see _setupChannelEvents / stream-ready handler).
+        const releaseInitiationGuard = () => {
+            if (this._peersBeingInitiated) this._peersBeingInitiated.delete(agentName);
+        };
+        setTimeout(releaseInitiationGuard, 15000);
+
         // Use custom config if provided, otherwise use default from options
         const dataChannelConfig = config || {
             dataChannel: {
@@ -634,6 +654,7 @@ class UserConnectionBase {
                 console.log(`[AgentSessionBase] DataChannel offer sent to ${agentName}`);
             }).catch(err => {
             console.error(`[AgentSessionBase] Failed to create DataChannel with ${agentName}:`, err);
+            releaseInitiationGuard();  // allow retry on failure
         });
     }
 
@@ -746,6 +767,12 @@ class UserConnectionBase {
         this.channel.addEventListener('agent-disconnect', (ev) => {
             const agentName = ev.agentName;
 
+            // Release the initiation guard so this peer can be re-initiated if it
+            // rejoins.
+            if (this._peersBeingInitiated && agentName) {
+                this._peersBeingInitiated.delete(agentName);
+            }
+
             if (typeof this.onUserLeave === 'function') {
                 this.onUserLeave({
                     agentName,
@@ -854,6 +881,13 @@ class UserConnectionBase {
         });
 
         this.webrtcHelper.on('stream-ready', (streamId, remoteAgent, connectionTimeMs) => {
+            // Connection established — release the per-peer initiation guard. From
+            // here the reconnect sweep's own getActiveDataChannels() check prevents
+            // duplicates, and if this channel later drops it can be re-initiated.
+            if (this._peersBeingInitiated && remoteAgent) {
+                this._peersBeingInitiated.delete(remoteAgent);
+            }
+
             if (connectionTimeMs !== null && connectionTimeMs !== undefined) {
                 console.log(`[AgentSessionBase] ⏱️  Stream ready ${streamId} from ${remoteAgent} in ${connectionTimeMs}ms`);
             } else {
