@@ -787,7 +787,20 @@
         return responseData;
     }
 
-    const AgentConnection = function({usePubKey = false, enableWebrtcRelay = false, useWebsocket = false} = {}){
+    // Default transport is WebSocket. Set localStorage.sdkHttpPolling = 'true'
+    // (in the browser) to force HTTP polling by default instead — handy for
+    // comparing behaviour/message ordering between the two transports. An explicit
+    // useWebsocket option passed to the constructor always wins over this.
+    function _resolveUseWebsocketDefault() {
+        try {
+            if (typeof localStorage !== 'undefined' && localStorage.getItem('sdkHttpPolling') === 'true') {
+                return false;
+            }
+        } catch (e) { /* localStorage unavailable (non-browser) */ }
+        return true;
+    }
+
+    const AgentConnection = function({usePubKey = false, enableWebrtcRelay = false, useWebsocket = _resolveUseWebsocketDefault()} = {}){
 
         this.agentName = null;
         this._connectedAgentsMap = {};  // Map agentName -> AgentInfo object (includes connectionTime)
@@ -1031,8 +1044,31 @@
      * message triggers the exact same handling however it arrived.
      * @private
      */
+    // Debug aid: one greppable line per message so WS vs HTTP-polling behaviour
+    // (especially ordering) can be compared. Filter the console by [SDK-MSG].
+    // Fields: monotonic seq, direction, active transport, high-res timestamp,
+    // message type/from/to/date/offset/ephemeral, and — for webrtc-signaling —
+    // the inner offer/answer/ice type + streamSessionId.
+    AgentConnection.prototype._logSdkMessage = function(direction, item) {
+        try {
+            const _self = this;
+            const transport = (_self.useWebsocket && _self._websocketConnected) ? 'WS' : 'HTTP';
+            _self._sdkMsgSeq = (_self._sdkMsgSeq || 0) + 1;
+            const ts = (typeof performance !== 'undefined' && performance.now) ? performance.now() : Date.now();
+            let detail = '';
+            if (item && item.type === 'webrtc-signaling') {
+                try {
+                    const sig = typeof item.content === 'string' ? JSON.parse(item.content) : item.content;
+                    if (sig) detail = ` sig=${sig.type} stream=${sig.streamSessionId}`;
+                } catch (e) { /* content not JSON */ }
+            }
+            console.log(`[SDK-MSG] #${_self._sdkMsgSeq} ${direction} ${transport} t=${ts.toFixed(1)} type=${item && item.type} from=${item && item.from} to=${item && item.to} date=${item && item.date} offset=${item && item.offset} eph=${!!(item && item.ephemeral)}${detail}`);
+        } catch (e) { /* never let logging break the flow */ }
+    };
+
     AgentConnection.prototype._autoHandleReceivedItem = function(item) {
         const _self = this;
+        _self._logSdkMessage('RECV', item);
         // Auto-handle PASSWORD_REPLY encrypted to this agent using the pending private key
         // Only handle events that are newer than the connect time
         try{
@@ -2016,6 +2052,7 @@
 
         console.log('Sending payload : ');
         console.log(payload);
+        _self._logSdkMessage('SEND', payload);
 
         // Use WebSocket if enabled and connected
         if (useWebsocket && _self._websocketConnected) {
@@ -2567,6 +2604,8 @@
             content: JSON.stringify(signalingMsg),
             sessionId: _self.sessionId,
         };
+
+        _self._logSdkMessage('SEND', payload);
 
         // Prefer the WebSocket transport when connected (same as sendMessage),
         // fall back to HTTP push otherwise. Either way the server broadcasts it
