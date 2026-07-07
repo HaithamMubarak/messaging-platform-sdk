@@ -1016,6 +1016,169 @@
     };
 
     /**
+     * Per-item auto-handling shared by both receive transports: presence
+     * (connect/disconnect), WebRTC signaling and the password exchange. The HTTP
+     * polling receive() and the WebSocket push handler both call this so a
+     * message triggers the exact same handling however it arrived.
+     * @private
+     */
+    AgentConnection.prototype._autoHandleReceivedItem = function(item) {
+        const _self = this;
+        // Auto-handle PASSWORD_REPLY encrypted to this agent using the pending private key
+        // Only handle events that are newer than the connect time
+        try{
+            // for webrtc-signaling, we may need to handle even if date is older than connectTime
+            if (item.date > _self.connectTime || item.type === 'webrtc-signaling') {
+                // Auto-handle PASSWORD_REPLY encrypted to this agent using the pending private key
+                if (item.type === 'password-reply' && item.to === _self.agentName
+                    && !_self._channelSecret) {
+                    (async function() {
+                        const dec = await MySecurity.rsaDecrypt(_self._pending_password_key, item.content);
+                        // payload may be JSON with { channelName, channelPassword } or a plain password string
+                        let channelNameFromReply = null;
+                        let channelPasswordFromReply = dec;
+                        const parsed = JSON.parse(dec);
+                        if(parsed.channelPassword) channelPasswordFromReply = parsed.channelPassword;
+                        if(parsed.channelName) channelNameFromReply = parsed.channelName;
+
+                        // If server provided channelName in the reply, and we don't have one yet, use it
+                        if(channelNameFromReply && !_self._channelName){
+                            _self._channelName = channelNameFromReply;
+                        }
+
+                        // Set channel password from reply
+                        _self._channelPassword = channelPasswordFromReply;
+
+                        // Derive and set channel secret using known channel name and password
+                        if(_self._channelName && _self._channelPassword){
+                            MySecurity.deriveChannelSecret(_self._channelName, _self._channelPassword).then(secret => {
+                                _self._channelSecret = secret;
+                            }).catch(err => {
+                                console.error('Failed to derive channel secret from PASSWORD_REPLY', err);
+                            });
+                        }
+                    })();
+                }
+
+                    // Auto-handle PASSWORD_REQUEST: when another agent requests the channel password they
+                    // include their public key (PEM) in the event content. If we know the channel name/password
+                // respond by encrypting them with the provided public key and send a 'password-reply' to the requester.
+                else if (item.type === 'password-request' && item.content) {
+                    // don't reply to our own requests
+                    if (item.from === _self.agentName) {
+                        // ignore
+                    } else if (_self._channelName && _self._channelPassword) {
+                        const requesterPubKeyPem = JSON.parse(item.content).publicKeyPem;
+                        // Use WebCrypto RSA-OAEP so the recipient (which uses WebCrypto to decrypt) can decrypt
+                        (async function(){
+                            let allowed = true;
+                            if (typeof _self.onPasswordRequest === 'function') {
+                                // support sync or Promise-returning handlers
+                                const res = _self.onPasswordRequest(_self.channelId, item.from, requesterPubKeyPem);
+                                if (res && typeof res.then === 'function') {
+                                    allowed = await res;
+                                } else {
+                                    allowed = !!res;
+                                }
+                            }
+
+                            if (!allowed) {
+                                console.info('Password request from', item.from, 'was declined by onPasswordRequest handler');
+                                return;
+                            }
+
+                            const payloadObj = {
+                                channelName: _self._channelName,
+                                channelPassword: _self._channelPassword
+                            };
+                            const cipherB64 = await MySecurity.rsaEncrypt(requesterPubKeyPem,
+                                JSON.stringify(payloadObj));
+
+                            if (cipherB64) {
+                                _self.send({
+                                    type: 'password-reply',
+                                    to: item.from || '*',
+                                    encrypted: false,
+                                    content: cipherB64,
+                                    sessionId: _self.sessionId
+                                }, function(resp) {
+                                    // no-op callback
+                                });
+                            }
+
+                        })();
+                    }
+                }
+
+                // connect/disconnect notifications
+                else if (item.type === 'connect'){
+                    // Parse AgentInfo from content (includes connectionTime and metadata)
+                    let agentInfo = null;
+                    try {
+                        if (item.content) {
+                            agentInfo = JSON.parse(item.content);
+                        }
+                    } catch (e) {
+                        console.warn('Failed to parse AgentInfo from CONNECT event:', e);
+                    }
+
+                    // Store AgentInfo in _connectedAgentsMap
+                    if (agentInfo && typeof agentInfo === 'object') {
+                        _self._connectedAgentsMap[item.from] = agentInfo;
+                    } else {
+                        // Fallback: fetch from getActiveAgents if parsing failed
+                        _self.getActiveAgents(function(agentsRes){
+                            if (agentsRes.status === 'success') {
+                                const agents = agentsRes.data || [];
+                                const newAgentInfo = agents.find(a => {
+                                    const name = typeof a === 'object' ? (a.name || a.agentName) : a;
+                                    return name === item.from;
+                                });
+                                if (newAgentInfo && typeof newAgentInfo === 'object') {
+                                    _self._connectedAgentsMap[item.from] = newAgentInfo;
+                                } else {
+                                    _self._connectedAgentsMap[item.from] = {};
+                                }
+                            }
+                        });
+                    }
+
+                    _self._updateAgents();
+
+                    // Dispatch agent-connect event
+                    _self.dispatchEvent('agent-connect', {
+                        agentName: item.from,
+                        timestamp: item.date,
+                        systemEvent: item.systemEvent
+                    });
+                }
+                else if (item.type === 'disconnect'){
+                    delete _self._connectedAgentsMap[item.from];
+                    _self._updateAgents();
+                    // Dispatch agent-disconnect event (systemEvent false for normal agent disconnects)
+                    const parsedContent = JSON.parse(item.content);
+                    _self.dispatchEvent('agent-disconnect', {
+                        agentName: item.from,
+                        timestamp: item.date,
+                        systemEvent: item.systemEvent,
+                        agentContext: parsedContent?.agentContext || parsedContent?.metadata, // Support legacy metadata field
+                    });
+                }
+
+                // WebRTC video stream signaling
+                else if (item.type === 'webrtc-signaling') {
+                    const signalingMsg = JSON.parse(item.content);
+                    const streamId = signalingMsg.streamSessionId;
+                    const sourceAgent = item.from;
+                    _self._handleWebRtcSignaling(streamId, sourceAgent, signalingMsg);
+                }
+            }
+        } catch (err) {
+            console.error('Error auto processing event item', item, ', error: ', err);
+        }
+    };
+
+    /**
      * Process received messages (from WebSocket push)
      * @private
      */
@@ -1036,17 +1199,8 @@
             // Process the item (may decrypt if needed)
             item = _self.verifyAndDecryptMessage(item);
 
-            // Auto-handle WebRTC signaling
-            if (item.type === 'webrtc-signaling' && typeof _self.onWebRtcSignaling === 'function') {
-                _self.onWebRtcSignaling(item);
-            }
-
-            // Auto-handle agent-connect/disconnect
-            if (item.type === 'agent-connect') {
-                _self._onAgentConnectInternal(item.from, item);
-            } else if (item.type === 'agent-disconnect') {
-                _self._onAgentDisconnectInternal(item.from);
-            }
+            // Same handling as the HTTP polling receive() path.
+            _self._autoHandleReceivedItem(item);
 
             dataArray.push(item);
         }
@@ -1700,158 +1854,8 @@
                         // Process the item (may decrypt if needed)
                         item = _self.verifyAndDecryptMessage(item);
 
-                        // Auto-handle PASSWORD_REPLY encrypted to this agent using the pending private key
-                        // Only handle events that are newer than the connect time
-                        try{
-                            // for webrtc-signaling, we may need to handle even if date is older than connectTime
-                            if (item.date > _self.connectTime || item.type === 'webrtc-signaling') {
-                                // Auto-handle PASSWORD_REPLY encrypted to this agent using the pending private key
-                                if (item.type === 'password-reply' && item.to === _self.agentName
-                                    && !_self._channelSecret) {
-                                    (async function() {
-                                        const dec = await MySecurity.rsaDecrypt(_self._pending_password_key, item.content);
-                                        // payload may be JSON with { channelName, channelPassword } or a plain password string
-                                        let channelNameFromReply = null;
-                                        let channelPasswordFromReply = dec;
-                                        const parsed = JSON.parse(dec);
-                                        if(parsed.channelPassword) channelPasswordFromReply = parsed.channelPassword;
-                                        if(parsed.channelName) channelNameFromReply = parsed.channelName;
-
-                                        // If server provided channelName in the reply, and we don't have one yet, use it
-                                        if(channelNameFromReply && !_self._channelName){
-                                            _self._channelName = channelNameFromReply;
-                                        }
-
-                                        // Set channel password from reply
-                                        _self._channelPassword = channelPasswordFromReply;
-
-                                        // Derive and set channel secret using known channel name and password
-                                        if(_self._channelName && _self._channelPassword){
-                                            MySecurity.deriveChannelSecret(_self._channelName, _self._channelPassword).then(secret => {
-                                                _self._channelSecret = secret;
-                                            }).catch(err => {
-                                                console.error('Failed to derive channel secret from PASSWORD_REPLY', err);
-                                            });
-                                        }
-                                    })();
-                                }
-
-                                    // Auto-handle PASSWORD_REQUEST: when another agent requests the channel password they
-                                    // include their public key (PEM) in the event content. If we know the channel name/password
-                                // respond by encrypting them with the provided public key and send a 'password-reply' to the requester.
-                                else if (item.type === 'password-request' && item.content) {
-                                    // don't reply to our own requests
-                                    if (item.from === _self.agentName) {
-                                        // ignore
-                                    } else if (_self._channelName && _self._channelPassword) {
-                                        const requesterPubKeyPem = JSON.parse(item.content).publicKeyPem;
-                                        // Use WebCrypto RSA-OAEP so the recipient (which uses WebCrypto to decrypt) can decrypt
-                                        (async function(){
-                                            let allowed = true;
-                                            if (typeof _self.onPasswordRequest === 'function') {
-                                                // support sync or Promise-returning handlers
-                                                const res = _self.onPasswordRequest(_self.channelId, item.from, requesterPubKeyPem);
-                                                if (res && typeof res.then === 'function') {
-                                                    allowed = await res;
-                                                } else {
-                                                    allowed = !!res;
-                                                }
-                                            }
-
-                                            if (!allowed) {
-                                                console.info('Password request from', item.from, 'was declined by onPasswordRequest handler');
-                                                return;
-                                            }
-
-                                            const payloadObj = {
-                                                channelName: _self._channelName,
-                                                channelPassword: _self._channelPassword
-                                            };
-                                            const cipherB64 = await MySecurity.rsaEncrypt(requesterPubKeyPem,
-                                                JSON.stringify(payloadObj));
-
-                                            if (cipherB64) {
-                                                _self.send({
-                                                    type: 'password-reply',
-                                                    to: item.from || '*',
-                                                    encrypted: false,
-                                                    content: cipherB64,
-                                                    sessionId: _self.sessionId
-                                                }, function(resp) {
-                                                    // no-op callback
-                                                });
-                                            }
-
-                                        })();
-                                    }
-                                }
-
-                                // connect/disconnect notifications
-                                else if (item.type === 'connect'){
-                                    // Parse AgentInfo from content (includes connectionTime and metadata)
-                                    let agentInfo = null;
-                                    try {
-                                        if (item.content) {
-                                            agentInfo = JSON.parse(item.content);
-                                        }
-                                    } catch (e) {
-                                        console.warn('Failed to parse AgentInfo from CONNECT event:', e);
-                                    }
-
-                                    // Store AgentInfo in _connectedAgentsMap
-                                    if (agentInfo && typeof agentInfo === 'object') {
-                                        _self._connectedAgentsMap[item.from] = agentInfo;
-                                    } else {
-                                        // Fallback: fetch from getActiveAgents if parsing failed
-                                        _self.getActiveAgents(function(agentsRes){
-                                            if (agentsRes.status === 'success') {
-                                                const agents = agentsRes.data || [];
-                                                const newAgentInfo = agents.find(a => {
-                                                    const name = typeof a === 'object' ? (a.name || a.agentName) : a;
-                                                    return name === item.from;
-                                                });
-                                                if (newAgentInfo && typeof newAgentInfo === 'object') {
-                                                    _self._connectedAgentsMap[item.from] = newAgentInfo;
-                                                } else {
-                                                    _self._connectedAgentsMap[item.from] = {};
-                                                }
-                                            }
-                                        });
-                                    }
-
-                                    _self._updateAgents();
-
-                                    // Dispatch agent-connect event
-                                    _self.dispatchEvent('agent-connect', {
-                                        agentName: item.from,
-                                        timestamp: item.date,
-                                        systemEvent: item.systemEvent
-                                    });
-                                }
-                                else if (item.type === 'disconnect'){
-                                    delete _self._connectedAgentsMap[item.from];
-                                    _self._updateAgents();
-                                    // Dispatch agent-disconnect event (systemEvent false for normal agent disconnects)
-                                    const parsedContent = JSON.parse(item.content);
-                                    _self.dispatchEvent('agent-disconnect', {
-                                        agentName: item.from,
-                                        timestamp: item.date,
-                                        systemEvent: item.systemEvent,
-                                        agentContext: parsedContent?.agentContext || parsedContent?.metadata, // Support legacy metadata field
-                                    });
-                                }
-
-                                // WebRTC video stream signaling
-                                else if (item.type === 'webrtc-signaling') {
-                                    const signalingMsg = JSON.parse(item.content);
-                                    const streamId = signalingMsg.streamSessionId;
-                                    const sourceAgent = item.from;
-                                    _self._handleWebRtcSignaling(streamId, sourceAgent, signalingMsg);
-                                }
-                            }
-                        } catch (err) {
-                            console.error('Error auto processing event item', item, ', error: ', err);
-                        }
+                        // Same handling as the WebSocket push path.
+                        _self._autoHandleReceivedItem(item);
 
                         dataArray.push(item);
                     }
