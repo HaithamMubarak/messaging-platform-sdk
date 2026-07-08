@@ -969,7 +969,10 @@
         const subscribeMessage = {
             action: 'subscribe',
             sessionId: _self.sessionId,
-            offset: _self._last_receive_range ? _self._last_receive_range.globalOffset : 0
+            offset: _self._last_receive_range ? _self._last_receive_range.globalOffset : 0,
+            // Send the per-channel offset too: the server's push path reads the
+            // cache by localOffset, so it must seed that cursor, not just global.
+            localOffset: _self._last_receive_range ? _self._last_receive_range.localOffset : 0
         };
 
         _self._websocket.send(JSON.stringify(subscribeMessage));
