@@ -1,5 +1,7 @@
 package com.hmdev.messaging.agent.core;
 
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.hmdev.messaging.agent.webrtc.ISignalingMessageHandler;
 import com.hmdev.messaging.common.CommonUtils;
 import com.hmdev.messaging.common.data.AgentInfo;
@@ -15,7 +17,11 @@ import org.slf4j.LoggerFactory;
 
 import java.security.KeyPair;
 import java.security.PrivateKey;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 
 import com.hmdev.messaging.agent.util.Utils;
 
@@ -48,6 +54,11 @@ public class AgentConnection {
     private boolean enableWebrtcRelay = false;
 
     private final ConnectionChannelApi channelApi;
+    // Base API URL, kept so the (opt-in) WebSocket transport can derive its
+    // ws(s)://.../ws endpoint. Null when constructed via the test-friendly
+    // ConnectionChannelApi-injecting constructor — WS setup then just no-ops
+    // back to HTTP polling.
+    private final String apiUrl;
     private String agentName;
     private String sessionId;
 
@@ -92,6 +103,28 @@ public class AgentConnection {
     @Setter
     private ISignalingMessageHandler webRtcHandler;
 
+    // --- WebSocket transport (opt-in via ConnectConfig.useWebsocket) ---
+    private static final long WS_CONNECT_TIMEOUT_MS = 5000;
+    private static final long WS_REQUEST_TIMEOUT_MS = 15000;
+    private static final int WS_SEEN_SIGNATURES_MAX = 2000;
+
+    private WsChannelClient wsClient;
+    private boolean websocketActive = false;
+    private AgentConnectionEventHandler wsPushHandler;
+    private final ObjectMapper wsMapper = new ObjectMapper()
+            .configure(com.fasterxml.jackson.databind.DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false);
+    // Dedup cache for WS-delivered items: the one-shot catch-up pull can
+    // overlap with server push for the same message, so without this an event
+    // (e.g. a WebRTC offer) can reach the handler twice. Bounded FIFO so a
+    // long-lived session doesn't grow unbounded.
+    private final Map<String, Boolean> seenWsSignatures = Collections.synchronizedMap(
+            new LinkedHashMap<String, Boolean>(16, 0.75f, false) {
+                @Override
+                protected boolean removeEldestEntry(Map.Entry<String, Boolean> eldest) {
+                    return size() > WS_SEEN_SIGNATURES_MAX;
+                }
+            });
+
     /**
      * Create an AgentConnection bound to a backend API endpoint.
      *
@@ -103,11 +136,13 @@ public class AgentConnection {
     }
 
     public AgentConnection(String apiUrl, String developerApiKey) {
+        this.apiUrl = apiUrl;
         this.channelApi = ConnectionChannelApiFactory.getConnectionApi(apiUrl, developerApiKey);
     }
 
     // Test-friendly constructor that allows injecting a mock ConnectionChannelApi
     public AgentConnection(ConnectionChannelApi channelApi) {
+        this.apiUrl = null;
         this.channelApi = channelApi;
     }
 
@@ -200,6 +235,10 @@ public class AgentConnection {
             readyState = true;
             logger.debug("Connected to session : {}", this.sessionId);
 
+            if (config.isUseWebsocket()) {
+                setupWebsocket();
+            }
+
             Utils.saveSessionId(config.getChannelId(), this.sessionId);
             return true;
         }
@@ -222,6 +261,15 @@ public class AgentConnection {
             readyState = false;
         }
 
+        if (wsClient != null) {
+            try {
+                wsClient.close();
+            } catch (Exception ignored) {
+            }
+            wsClient = null;
+            websocketActive = false;
+        }
+
         return result;
 
     }
@@ -238,7 +286,29 @@ public class AgentConnection {
             return null;
         }
 
-        EventMessageResult eventMessageResult = channelApi.receive(sessionId, receiveConfig);
+        EventMessageResult eventMessageResult;
+        if (websocketActive && wsClient != null) {
+            // Force CACHE, ignoring any caller-supplied pollSource: AUTO can
+            // fall through to a multi-second Kafka/DB read on a cache miss,
+            // and the server appears to process frames on a WS session
+            // sequentially, so one slow AUTO pull can even stall a LATER
+            // request on the same socket. WS delivery exists for real-time
+            // cache reads — anything not yet cached will arrive via server
+            // push (which itself always uses CACHE).
+            JsonNode data = wsClient.pull(receiveConfig.getGlobalOffset(), receiveConfig.getLocalOffset(),
+                    receiveConfig.getLimit(), "CACHE", WS_REQUEST_TIMEOUT_MS);
+            if (data == null) {
+                return null;
+            }
+            try {
+                eventMessageResult = wsMapper.treeToValue(data, EventMessageResult.class);
+            } catch (Exception e) {
+                logger.warn("Failed to parse WS pull data: {}", e.getMessage());
+                return null;
+            }
+        } else {
+            eventMessageResult = channelApi.receive(sessionId, receiveConfig);
+        }
 
         // Decrypt any encrypted events using the derived channelSecret (if present)
         eventMessageResult.getEvents().forEach(this::verifyAndDecryptMessage);
@@ -257,6 +327,147 @@ public class AgentConnection {
      */
     public ReceiveConfig getInitialReceiveConfig() {
         return initialReceiveConfig;
+    }
+
+    /**
+     * Opens the WebSocket transport and subscribes at currentReceiveConfig's
+     * offsets. Best-effort: on any failure this logs a warning and leaves the
+     * connection on HTTP polling (websocketActive stays false), so callers
+     * never need to check for WS-specific errors.
+     */
+    private void setupWebsocket() {
+        if (apiUrl == null) {
+            logger.warn("No apiUrl available; cannot use WebSocket transport");
+            return;
+        }
+        try {
+            // Subscribe at the CURRENT channel position, not
+            // initialReceiveConfig (which deliberately starts at
+            // localOffset=0 — "replay this channel instance from the
+            // beginning", meant for HTTP polling with AUTO/Kafka fallback). WS
+            // pulls are forced to pollSource=CACHE (see receive()), which has
+            // no history fallback; on a long-lived/reused channel, localOffset
+            // 0 can point at a position long evicted from cache, so every
+            // catch-up/ongoing pull would silently return nothing forever.
+            // currentReceiveConfig reflects the channel's actual tip at
+            // connect time, which CACHE can always serve.
+            ReceiveConfig cfg = currentReceiveConfig != null ? currentReceiveConfig : initialReceiveConfig;
+            long go = (cfg != null && cfg.getGlobalOffset() != null) ? cfg.getGlobalOffset() : 0L;
+            long lo = (cfg != null && cfg.getLocalOffset() != null) ? cfg.getLocalOffset() : 0L;
+
+            WsChannelClient client = new WsChannelClient(apiUrl, sessionId, wsMapper, this::onWsPush);
+            if (client.connectBlocking(go, lo, WS_CONNECT_TIMEOUT_MS)) {
+                this.wsClient = client;
+                this.websocketActive = true;
+                logger.info("WebSocket transport active for session {}", sessionId);
+            } else {
+                logger.warn("WebSocket connect/subscribe failed; falling back to HTTP polling");
+            }
+        } catch (Exception e) {
+            logger.warn("WebSocket setup failed, falling back to HTTP polling: {}", e.getMessage());
+            this.wsClient = null;
+            this.websocketActive = false;
+        }
+    }
+
+    /**
+     * Callback invoked by WsChannelClient for unsolicited server pushes AND
+     * for the one-shot catch-up pull result — both funnel through the same
+     * dedup + dispatch path.
+     */
+    private void onWsPush(JsonNode data) {
+        try {
+            EventMessageResult result = wsMapper.treeToValue(data, EventMessageResult.class);
+            List<EventMessage> events = result.getEvents() != null ? result.getEvents() : new ArrayList<>();
+            List<EventMessage> ephemeral = result.getEphemeralEvents() != null ? result.getEphemeralEvents() : new ArrayList<>();
+            deliverWsEvents(ephemeral, events);
+        } catch (Exception e) {
+            logger.warn("Error parsing WS push data: {}", e.getMessage());
+        }
+    }
+
+    private void deliverWsEvents(List<EventMessage> ephemeralEvents, List<EventMessage> events) {
+        AgentConnectionEventHandler handler = this.wsPushHandler;
+        if (handler == null) {
+            return;
+        }
+
+        // Ephemeral first (time-sensitive), then persistent — mirrors
+        // RunnableReceive's ordering for the HTTP polling path.
+        List<EventMessage> eph = new ArrayList<>();
+        for (EventMessage e : ephemeralEvents) {
+            if (!isDuplicateWsItem(e)) {
+                verifyAndDecryptMessage(e);
+                eph.add(e);
+            }
+        }
+        if (!eph.isEmpty()) {
+            try {
+                handler.onMessageEvents(eph);
+            } catch (Exception ex) {
+                logger.warn("Handler raised exception on ephemeral WS events: {}", ex.getMessage());
+            }
+        }
+
+        List<EventMessage> ev = new ArrayList<>();
+        for (EventMessage e : events) {
+            if (!isDuplicateWsItem(e)) {
+                verifyAndDecryptMessage(e);
+                ev.add(e);
+            }
+        }
+        if (!ev.isEmpty()) {
+            try {
+                handler.onMessageEvents(ev);
+            } catch (Exception ex) {
+                logger.warn("Handler raised exception on WS events: {}", ex.getMessage());
+            }
+            // auto-handle special event types, same parity as the HTTP path
+            // (which only runs this over the persistent events, not ephemeral)
+            try {
+                checkAutoEvents(ev);
+            } catch (Exception ex) {
+                logger.warn("checkAutoEvents raised: {}", ex.getMessage());
+            }
+        }
+    }
+
+    /**
+     * Stable signature identifying a single logical message, so re-deliveries
+     * collapse to one. Persistent events carry a monotonic localOffset
+     * (unique per channel instance). Ephemeral events (no offset) are keyed
+     * on sender + target + type + the sender's ms timestamp + a content hash
+     * — identical across re-deliveries, distinct across genuinely different
+     * messages.
+     */
+    private String messageSignatureWs(EventMessage item) {
+        try {
+            if (item == null) {
+                return null;
+            }
+            if (!item.isEphemeral() && item.getLocalOffset() != null) {
+                return "o:" + item.getLocalOffset();
+            }
+            String content = item.getContent() != null ? item.getContent() : "";
+            return "e:" + item.getFrom() + "|" + item.getTo() + "|" + item.getType() + "|" + item.getDate()
+                    + "|" + content.length() + "|" + content.hashCode();
+        } catch (Exception e) {
+            return null;
+        }
+    }
+
+    private boolean isDuplicateWsItem(EventMessage item) {
+        String sig = messageSignatureWs(item);
+        if (sig == null) {
+            return false;
+        }
+        synchronized (seenWsSignatures) {
+            if (seenWsSignatures.containsKey(sig)) {
+                return true;
+            }
+            seenWsSignatures.put(sig, Boolean.TRUE);
+        }
+        return false;
     }
 
     /**
@@ -336,20 +547,56 @@ public class AgentConnection {
      * @param messageHandler callback for message-arrival events
      */
     public void receiveAsync(AgentConnectionEventHandler messageHandler) {
-        this.receiveAsync(messageHandler, this.initialReceiveConfig);
+        // null = "no explicit override"; the two-arg overload picks the right
+        // default per transport (currentReceiveConfig for WS, initialReceiveConfig
+        // for HTTP polling — see its comment for why they differ).
+        this.receiveAsync(messageHandler, null);
     }
 
     /**
      * Starts an asynchronous polling routine that emits batches to the handler.
      *
      * @param messageHandler callback for message-arrival events
+     * @param startFrom optional explicit starting cursor; pass null to use the
+     *                  transport's default (currentReceiveConfig for WS,
+     *                  initialReceiveConfig for HTTP polling)
      */
-    public void receiveAsync(AgentConnectionEventHandler messageHandler, ReceiveConfig initialReceiveConfig) {
+    public void receiveAsync(AgentConnectionEventHandler messageHandler, ReceiveConfig startFrom) {
         if (!isReady()) {
             return;
         }
+
+        if (websocketActive && wsClient != null) {
+            this.wsPushHandler = messageHandler;
+            // One-shot catch-up pull over WS (same 'pull' action + same server
+            // receive() + same dedup/dispatch path as an unsolicited push):
+            // grabs anything sent between the HTTP connect and the WS
+            // subscribe taking effect. Ongoing delivery is via server push —
+            // no polling thread needed.
+            //
+            // Defaults to currentReceiveConfig (the channel's ACTUAL position
+            // at connect time), not initialReceiveConfig (which starts at
+            // localOffset=0 — "replay from the beginning of this channel
+            // instance"). WS pulls are forced to pollSource=CACHE (see
+            // receive()), which has no history fallback, so on a long-lived/
+            // reused channel localOffset=0 can point at a position long
+            // evicted from cache and every pull would silently return nothing
+            // forever. See setupWebsocket() for the matching subscribe fix.
+            ReceiveConfig cfg = startFrom != null ? startFrom
+                    : (currentReceiveConfig != null ? currentReceiveConfig : initialReceiveConfig);
+            Long go = cfg != null ? cfg.getGlobalOffset() : 0L;
+            Long lo = cfg != null ? cfg.getLocalOffset() : 0L;
+            Long limit = cfg != null ? cfg.getLimit() : DEFAULT_RECEIVE_LIMIT;
+            JsonNode data = wsClient.pull(go, lo, limit, "CACHE", WS_REQUEST_TIMEOUT_MS);
+            if (data != null) {
+                onWsPush(data);
+            }
+            return;
+        }
+
+        ReceiveConfig cfg = startFrom != null ? startFrom : initialReceiveConfig;
         if (receiveThread == null) {
-            receiveThread = new Thread(new RunnableReceive(this, messageHandler, initialReceiveConfig));
+            receiveThread = new Thread(new RunnableReceive(this, messageHandler, cfg));
             receiveThread.start();
         } else {
             logger.debug("Asynchronous receive is already running.");
@@ -404,6 +651,13 @@ public class AgentConnection {
         } catch (Exception ex) {
             logger.error("Failed to encrypt message: {}", ex.getMessage());
             return false;
+        }
+
+        if (websocketActive && wsClient != null) {
+            if (wsClient.push(eventType.toJson(), destination, content, encrypted, null, false, WS_REQUEST_TIMEOUT_MS)) {
+                return true;
+            }
+            logger.debug("WS push failed/timed out, falling back to HTTP send");
         }
 
         return channelApi.send(eventType, content, destination, sessionId, encrypted);

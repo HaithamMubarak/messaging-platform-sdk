@@ -1,7 +1,7 @@
 import logging
 import threading
 import re
-from typing import Optional, List, Any
+from typing import Optional, List, Any, Dict
 from uuid import uuid4
 import json
 
@@ -18,6 +18,10 @@ logger = logging.getLogger(__name__)
 # Mirror Java-agent constants
 DEFAULT_RECEIVE_LIMIT = 20
 PASSWORD_WAIT_TIMEOUT_SECONDS = 5
+WS_CONNECT_TIMEOUT_SECONDS = 5.0
+WS_REQUEST_TIMEOUT_SECONDS = 15.0
+# Bound on the dedup cache so a long-lived WS connection doesn't grow unbounded.
+WS_SEEN_SIGNATURES_MAX = 2000
 
 
 class AgentConnection:
@@ -43,6 +47,21 @@ class AgentConnection:
         self._channel_name: Optional[str] = None
         self._channel_password: Optional[str] = None
         self._receive_thread: Optional[threading.Thread] = None
+
+        # WebSocket transport (opt-in, see connect(useWebsocket=True)). When
+        # active, receive_async() switches from HTTP polling to a one-shot
+        # catch-up pull + server push; send_message() prefers the socket over
+        # HTTP. See hmdev.messaging.agent.api.impl.ws_channel_client.
+        self._ws_client = None
+        self._websocket_active = False
+        self._ws_push_handler: Optional[AgentConnectionEventHandler] = None
+        # Dedup cache for WS-delivered items: the one-shot catch-up pull can
+        # overlap with server push for the same message, so without this the
+        # handler (and anything reacting to it, e.g. WebRTC signaling) sees
+        # every message more than once. Keyed by a stable signature — see
+        # _message_signature_ws.
+        self._seen_ws_signatures: Dict[str, bool] = {}
+
         # Key pair used for password request/reply encryption
         # stored as (private_obj, public_pem)
         self._key_pair: Optional[Any] = None
@@ -121,6 +140,9 @@ class AgentConnection:
         api_key_scope = kwargs.get('apiKeyScope', 'private')
         enable_webrtc_relay = kwargs.get('enableWebrtcRelay', False)
         check_last_session = kwargs.get('checkLastSession', True)
+        # Opt-in real-time transport: WebSocket push instead of HTTP polling.
+        # Falls back to HTTP automatically if the socket/subscribe fails.
+        use_websocket = kwargs.get('useWebsocket', kwargs.get('use_websocket', False))
 
         # Apply instance settings
         if 'enableWebrtcRelay' in kwargs:
@@ -128,7 +150,7 @@ class AgentConnection:
         if 'checkLastSession' in kwargs:
             self._check_last_session = check_last_session
 
-        return self._connect_internal(channel_id, channel_name, channel_password, agent_name, api_key_scope)
+        return self._connect_internal(channel_id, channel_name, channel_password, agent_name, api_key_scope, use_websocket)
 
     def _connect_with_dict(self, config: dict) -> bool:
         """Internal method to handle dict-based configuration."""
@@ -139,18 +161,19 @@ class AgentConnection:
         api_key_scope = config.get('apiKeyScope', 'private')
         enable_webrtc_relay = config.get('enableWebrtcRelay', False)
         check_last_session = config.get('checkLastSession', True)
+        use_websocket = config.get('useWebsocket', config.get('use_websocket', False))
 
         # Apply instance settings
         self.enable_webrtc_relay = enable_webrtc_relay
         self._check_last_session = check_last_session
 
-        return self._connect_internal(channel_id, channel_name, channel_password, agent_name, api_key_scope)
+        return self._connect_internal(channel_id, channel_name, channel_password, agent_name, api_key_scope, use_websocket)
 
     def connect_with_channel_id(self, channel_id: str, agent_name: str, maybe_channel_name: Optional[str] = None) -> bool:
         """Compatibility wrapper: connect using a server-side channelId."""
         return self._connect_internal(channel_id, maybe_channel_name, None, agent_name, "private")
 
-    def _connect_internal(self, channel_id: Optional[str], channel_name: Optional[str], channel_password: Optional[str], agent_name: str, api_key_scope: str = "private") -> bool:
+    def _connect_internal(self, channel_id: Optional[str], channel_name: Optional[str], channel_password: Optional[str], agent_name: str, api_key_scope: str = "private", use_websocket: bool = False) -> bool:
         if self._ready_state and self._session_id is not None:
             raise Exception(f"Agent {agent_name} is already connected with session {self._session_id}")
 
@@ -254,6 +277,9 @@ class AgentConnection:
                 except Exception:
                     pass
 
+            if use_websocket:
+                self._setup_websocket()
+
             if self._session_id:
                 Sess.save_session_id(channel_id or channel_name, self._session_id)
             logger.info("Connected to session %s", self._session_id)
@@ -276,7 +302,134 @@ class AgentConnection:
             self._pending_request_id = None
             self._key_pair = None
 
+        if self._ws_client is not None:
+            try:
+                self._ws_client.close()
+            except Exception:
+                pass
+            self._ws_client = None
+            self._websocket_active = False
+
         return result
+
+    # --- WebSocket transport (opt-in) ---
+    def _setup_websocket(self) -> None:
+        """Open the WebSocket transport and subscribe. Best-effort: on any
+        failure this logs a warning and leaves the connection on HTTP polling
+        (self._websocket_active stays False), so callers never need to check
+        for WS-specific errors."""
+        try:
+            from hmdev.messaging.agent.api.impl.ws_channel_client import WsChannelClient
+            api_base = getattr(self._channel_api, 'remote_url', None)
+            if not api_base:
+                logger.warning("No remote_url on channel_api; cannot use WebSocket transport")
+                return
+            # Subscribe at the CURRENT channel position, not
+            # initial_receive_config (which deliberately starts at
+            # localOffset=0 — "replay this channel instance from the
+            # beginning", meant for HTTP polling with AUTO/Kafka fallback). WS
+            # pulls are forced to pollSource=CACHE (see receive()), which has
+            # no history fallback; on a long-lived/reused channel, localOffset
+            # 0 can point at a position long evicted from cache, so every
+            # catch-up/ongoing pull would silently return nothing forever.
+            # current_receive_config reflects the channel's actual tip at
+            # connect time, which CACHE can always serve.
+            cfg = self.current_receive_config or self.initial_receive_config
+            go = cfg.globalOffset if cfg else 0
+            lo = cfg.localOffset if cfg else 0
+            client = WsChannelClient(api_base, self._session_id, self._on_ws_push)
+            if client.connect(go or 0, lo or 0, timeout=WS_CONNECT_TIMEOUT_SECONDS):
+                self._ws_client = client
+                self._websocket_active = True
+                logger.info("WebSocket transport active for session %s", self._session_id)
+            else:
+                logger.warning("WebSocket connect/subscribe failed; falling back to HTTP polling")
+        except Exception as e:
+            logger.warning("WebSocket setup failed, falling back to HTTP polling: %s", e)
+            self._ws_client = None
+            self._websocket_active = False
+
+    def _message_signature_ws(self, item: Dict[str, Any]) -> Optional[str]:
+        """Stable signature for a single logical message, so re-deliveries
+        collapse to one. The WS transport delivers each event via BOTH the
+        one-shot catch-up pull AND the ongoing server push, and a broadcast can
+        fan out more than once; without this an event (e.g. a WebRTC offer) can
+        reach the handler twice.
+
+        Persistent events carry a monotonic localOffset (unique per channel
+        instance). Ephemeral events (no offset) are keyed on sender + target +
+        type + the sender's ms timestamp + a content hash — identical across
+        re-deliveries, distinct across genuinely different messages.
+        """
+        try:
+            if not isinstance(item, dict):
+                return None
+            if not item.get('ephemeral') and item.get('localOffset') is not None:
+                return f"o:{item.get('localOffset')}"
+            content = item.get('content')
+            if content is not None and not isinstance(content, str):
+                content = json.dumps(content, sort_keys=True)
+            s = str(content or '')
+            return f"e:{item.get('from')}|{item.get('to')}|{item.get('type')}|{item.get('date')}|{len(s)}|{hash(s)}"
+        except Exception:
+            return None
+
+    def _is_duplicate_ws_item(self, item: Dict[str, Any]) -> bool:
+        sig = self._message_signature_ws(item)
+        if sig is None:
+            return False
+        if sig in self._seen_ws_signatures:
+            return True
+        self._seen_ws_signatures[sig] = True
+        if len(self._seen_ws_signatures) > WS_SEEN_SIGNATURES_MAX:
+            self._seen_ws_signatures.pop(next(iter(self._seen_ws_signatures)))
+        return False
+
+    def _on_ws_push(self, data: Dict[str, Any]) -> None:
+        """Callback invoked by WsChannelClient for unsolicited server pushes
+        AND for the one-shot catch-up pull result — both funnel through the
+        same dedup + dispatch path."""
+        try:
+            self._deliver_ws_events(data.get('ephemeralEvents') or [], data.get('events') or [])
+        except Exception as e:
+            logger.warning('Error delivering WS events: %s', e)
+
+    def _deliver_ws_events(self, ephemeral_events: List[Dict[str, Any]], events: List[Dict[str, Any]]) -> None:
+        handler = self._ws_push_handler
+        if handler is None:
+            return
+
+        # Ephemeral first (time-sensitive), then persistent — mirrors the HTTP
+        # polling path's ordering in _run_receive.
+        eph = [e for e in ephemeral_events if not self._is_duplicate_ws_item(e)]
+        for e in eph:
+            try:
+                self._verify_and_decrypt_message(e)
+            except Exception:
+                logger.debug("Failed to verify/decrypt an ephemeral event")
+        if eph:
+            try:
+                handler.on_message_events(eph)
+            except Exception as ex:
+                logger.warning('Handler raised exception on ephemeral WS events: %s', ex)
+
+        ev = [e for e in events if not self._is_duplicate_ws_item(e)]
+        for e in ev:
+            try:
+                self._verify_and_decrypt_message(e)
+            except Exception:
+                logger.debug("Failed to verify/decrypt an event")
+        if ev:
+            try:
+                handler.on_message_events(ev)
+            except Exception as ex:
+                logger.warning('Handler raised exception on WS events: %s', ex)
+            # auto-handle special event types, same parity as the HTTP path
+            # (which only runs this over the persistent `events`, not ephemeral)
+            try:
+                self._check_auto_events(ev)
+            except Exception as ex:
+                logger.warning('check_auto_events raised: %s', ex)
 
     # --- Receive / async loop ---
     def receive(self, offset_range: ReceiveConfig) -> Optional[EventMessageResult]:
@@ -284,9 +437,33 @@ class AgentConnection:
         if not self.is_ready():
             return None
 
-        resp = self._channel_api.receive(self._session_id, offset_range)
-        if resp is None:
-            return None
+        if self._websocket_active and self._ws_client is not None:
+            rc = {
+                "globalOffset": offset_range.globalOffset,
+                "localOffset": offset_range.localOffset,
+                "limit": offset_range.limit,
+                # Force CACHE, ignoring any caller-supplied pollSource: AUTO can
+                # fall through to a ~5-25s Kafka/DB read on a cache miss, and
+                # the server appears to process frames on a WS session
+                # sequentially, so one slow AUTO pull can even stall a LATER
+                # request on the same socket. WS delivery exists for real-time
+                # cache reads — anything not yet cached will arrive via server
+                # push (which itself always uses CACHE). Callers who need
+                # durable Kafka history should use HTTP polling instead.
+                "pollSource": "CACHE",
+            }
+            data = self._ws_client.pull(rc, timeout=WS_REQUEST_TIMEOUT_SECONDS)
+            if data is None:
+                return None
+            ephemeral = data.get('ephemeralEvents') or []
+            resp = EventMessageResult(events=data.get('events') or [],
+                                       nextGlobalOffset=data.get('nextGlobalOffset'),
+                                       nextLocalOffset=data.get('nextLocalOffset'),
+                                       ephemeralEvents=ephemeral if ephemeral else None)
+        else:
+            resp = self._channel_api.receive(self._session_id, offset_range)
+            if resp is None:
+                return None
 
         # decrypt any encrypted events using derived channel_secret
         events = resp.events or []
@@ -305,6 +482,28 @@ class AgentConnection:
         return resp
 
     def receive_async(self, handler: AgentConnectionEventHandler) -> None:
+        if self._websocket_active and self._ws_client is not None:
+            self._ws_push_handler = handler
+            # One-shot catch-up pull over WS (same 'pull' action + same server
+            # receive() + same dedup/dispatch path as an unsolicited push):
+            # grabs anything sent between the HTTP connect and the WS
+            # subscribe taking effect. Ongoing delivery is via server push —
+            # no polling thread needed.
+            # Same current-position rationale as _setup_websocket's subscribe.
+            cfg = self.current_receive_config or self.initial_receive_config \
+                or ReceiveConfig(globalOffset=0, localOffset=0, limit=DEFAULT_RECEIVE_LIMIT)
+            rc = {
+                "globalOffset": cfg.globalOffset or 0,
+                "localOffset": cfg.localOffset or 0,
+                "limit": cfg.limit or DEFAULT_RECEIVE_LIMIT,
+                # Force CACHE — see the comment in receive() for why.
+                "pollSource": "CACHE",
+            }
+            data = self._ws_client.pull(rc, timeout=WS_REQUEST_TIMEOUT_SECONDS)
+            if data:
+                self._on_ws_push(data)
+            return
+
         if self._receive_thread is None:
             # start with initial_receive_config if available
             self._receive_thread = threading.Thread(target=self._run_receive, args=(handler,), daemon=True)
@@ -359,6 +558,13 @@ class AgentConnection:
         try:
             # default legacy send uses chat-text semantics and encryption where possible
             encrypted = True if self.channel_secret else False
+
+            if self._websocket_active and self._ws_client is not None:
+                content = MySecurity.encrypt_and_sign(msg, self.channel_secret) if encrypted else msg
+                if self._ws_client.push('chat-text', dest, content, encrypted):
+                    return True
+                logger.debug("WS push failed/timed out, falling back to HTTP send")
+
             result = self._channel_api.send(msg, dest, self._session_id, encrypted=encrypted)
             return bool(result)
         except Exception as e:

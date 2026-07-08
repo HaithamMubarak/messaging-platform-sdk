@@ -59,6 +59,14 @@ public class ConnectConfig {
     private boolean checkLastSession = true;
 
     /**
+     * Opt-in real-time transport: WebSocket push instead of HTTP polling for
+     * receiveAsync/receive/sendMessage. Falls back to HTTP automatically if
+     * the socket/subscribe fails (default: false).
+     */
+    @Builder.Default
+    private boolean useWebsocket = false;
+
+    /**
      * Create a basic config with required fields
      */
     public static ConnectConfig of(String channelName, String channelPassword, String agentName) {

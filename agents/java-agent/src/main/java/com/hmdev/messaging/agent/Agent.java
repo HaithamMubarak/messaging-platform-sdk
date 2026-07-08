@@ -14,6 +14,8 @@ import org.slf4j.LoggerFactory;
  * Args:
  *  --url=<baseUrl>          Messaging API base URL (default https://hmdevonline.com/messaging-platform/api/v1/messaging-service)
  *  --tcp-port=<port>        Local TCP server port (default 7071)
+ *  --transport=ws|http      Default transport for connects that don't specify
+ *                           their own "useWebsocket" field (default http)
  */
 public class Agent {
     private static final Logger logger = LoggerFactory.getLogger(Agent.class);
@@ -24,6 +26,7 @@ public class Agent {
         String apiUrl = "https://hmdevonline.com/messaging-platform/api/v1/messaging-service";
         int tcpPort = 7071;
         String apiKey = null;
+        boolean useWebsocket = false;
 
         for (String arg : args) {
             if (arg.startsWith("--url=")) {
@@ -32,12 +35,14 @@ public class Agent {
                 try { tcpPort = Integer.parseInt(arg.substring("--tcp-port=".length())); } catch (NumberFormatException ignored) {}
             } else if (arg.startsWith("--api-key=")) {
                 apiKey = arg.substring("--api-key=".length());
+            } else if (arg.startsWith("--transport=")) {
+                useWebsocket = "ws".equalsIgnoreCase(arg.substring("--transport=".length()));
             }
         }
 
         AgentConnection agentConnection = (apiKey == null || apiKey.isBlank()) ? new AgentConnection(apiUrl) : new AgentConnection(apiUrl, apiKey);
 
-        try (LocalTcpServer server = new LocalTcpServer(tcpPort, agentConnection, mapper)) {
+        try (LocalTcpServer server = new LocalTcpServer(tcpPort, agentConnection, mapper, useWebsocket)) {
             server.start();
             logger.info("Agent service started. Local TCP control: localhost:{} | API: {}", tcpPort, apiUrl);
             Runtime.getRuntime().addShutdownHook(new Thread(() -> {

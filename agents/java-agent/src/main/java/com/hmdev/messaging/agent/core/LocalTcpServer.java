@@ -32,6 +32,11 @@ public class LocalTcpServer implements AutoCloseable {
     private final int port;
     private final AgentConnection agent;
     private final ObjectMapper mapper;
+    // Default transport applied to every "connect" op unless the request
+    // overrides it with its own "useWebsocket" field. Set from Agent.java's
+    // --transport=ws|http CLI flag so test harnesses can pick a transport per
+    // process without changing the TCP protocol.
+    private final boolean defaultUseWebsocket;
 
     private volatile boolean running = false;
     private ServerSocket serverSocket;
@@ -42,9 +47,14 @@ public class LocalTcpServer implements AutoCloseable {
     private ReceiveConfig pullCursor = null;
 
     public LocalTcpServer(int port, AgentConnection agent, ObjectMapper mapper) {
+        this(port, agent, mapper, false);
+    }
+
+    public LocalTcpServer(int port, AgentConnection agent, ObjectMapper mapper, boolean defaultUseWebsocket) {
         this.port = port;
         this.agent = agent;
         this.mapper = mapper;
+        this.defaultUseWebsocket = defaultUseWebsocket;
     }
 
     public void start() {
@@ -102,10 +112,17 @@ public class LocalTcpServer implements AutoCloseable {
                     // apiKeyScope: "public" for shared/test channels, "private" (default) for isolated
                     String apiKeyScope = req.path("apiKeyScope").asText("private");
 
+                    // Per-request "useWebsocket" overrides the process-level --transport
+                    // default; absent, falls back to whatever Agent.java was started with.
+                    boolean useWebsocket = req.has("useWebsocket")
+                            ? req.path("useWebsocket").asBoolean(defaultUseWebsocket)
+                            : defaultUseWebsocket;
+
                     boolean ok;
                     ConnectConfig.ConnectConfigBuilder configBuilder = ConnectConfig.builder()
                             .agentName(agentName)
-                            .apiKeyScope(apiKeyScope);
+                            .apiKeyScope(apiKeyScope)
+                            .useWebsocket(useWebsocket);
 
                     if (channelId != null && !channelId.isEmpty()) {
                         // use new channelId-based connect
@@ -147,12 +164,21 @@ public class LocalTcpServer implements AutoCloseable {
                     // response shape ({result:{events,nextGlobalOffset}}). Stateful:
                     // starts at the connect offset (tail) and advances each call, so
                     // callers stream NEW messages without managing offsets themselves.
+                    //
+                    // Seeded from getCurrentReceiveConfig() (the channel's ACTUAL
+                    // position at connect time), NOT getInitialReceiveConfig()
+                    // (localOffset=0 — "replay this channel instance from the
+                    // beginning"). On a long-lived/reused channel that meant every
+                    // first pull had to walk the ENTIRE backlog via the AUTO/Kafka
+                    // fallback before reaching new messages; over the WS transport
+                    // (forced pollSource=CACHE, no history fallback) it meant the
+                    // pull could never advance past a cache-evicted position at all.
                     if (pullCursor == null) {
-                        ReceiveConfig init = agent.getInitialReceiveConfig();
-                        if (init == null) {
+                        ReceiveConfig cur = agent.getCurrentReceiveConfig();
+                        if (cur == null) {
                             return errResp("pull before connect");
                         }
-                        pullCursor = new ReceiveConfig(init);
+                        pullCursor = new ReceiveConfig(cur);
                     }
                     EventMessageResult pRes = agent.receive(pullCursor);
                     if (pRes != null) {
