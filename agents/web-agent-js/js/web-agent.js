@@ -1066,8 +1066,71 @@
         } catch (e) { /* never let logging break the flow */ }
     };
 
+    /**
+     * Stable signature identifying a single logical message, so re-deliveries
+     * collapse to one. WebSocket delivers each event via BOTH the on-open
+     * catch-up pull AND the ongoing server push, and a broadcast can fan out
+     * more than once; without dedup the WebRTC answerer receives the same
+     * offer twice and builds a SECOND RTCPeerConnection for the same stream,
+     * fragmenting ICE so the DataChannel never opens.
+     *
+     * Persistent events carry a monotonic offset (unique). Ephemeral events
+     * (webrtc-signaling, connect/disconnect, presence) have none, so we key on
+     * sender + target + type + the sender's ms timestamp + a content hash:
+     * identical across re-deliveries, distinct across genuinely different
+     * messages (even two ICE candidates in the same millisecond differ in
+     * content).
+     * @private
+     */
+    AgentConnection.prototype._messageSignature = function(item) {
+        try {
+            if (!item) return null;
+            if (item.offset !== undefined && item.offset !== null && !item.ephemeral) {
+                return 'o:' + item.offset;
+            }
+            let content = item.content !== undefined ? item.content : item.data;
+            if (content && typeof content !== 'string') {
+                try { content = JSON.stringify(content); } catch (e) { content = String(content); }
+            }
+            const s = String(content || '');
+            let hash = 0;
+            for (let i = 0; i < s.length; i++) {
+                hash = ((hash << 5) - hash + s.charCodeAt(i)) | 0;
+            }
+            return 'e:' + item.from + '|' + item.to + '|' + item.type + '|' + item.date + '|' + s.length + '|' + hash;
+        } catch (e) {
+            return null;
+        }
+    };
+
+    /**
+     * True the first time an item is seen and false thereafter. Bounded FIFO
+     * cache so long-lived sessions don't grow unbounded.
+     * @private
+     */
+    AgentConnection.prototype._isDuplicateReceivedItem = function(item) {
+        const _self = this;
+        const sig = _self._messageSignature(item);
+        if (sig === null) return false; // can't identify — don't drop
+        if (!_self._seenMessageSignatures) _self._seenMessageSignatures = new Map();
+        const seen = _self._seenMessageSignatures;
+        if (seen.has(sig)) return true;
+        seen.set(sig, 1);
+        const MAX_SEEN = 2000;
+        if (seen.size > MAX_SEEN) {
+            seen.delete(seen.keys().next().value);
+        }
+        return false;
+    };
+
+    // Returns true if the item was handled, false if it was dropped as a
+    // duplicate re-delivery (callers should then skip it entirely).
     AgentConnection.prototype._autoHandleReceivedItem = function(item) {
         const _self = this;
+        if (_self._isDuplicateReceivedItem(item)) {
+            _self._logSdkMessage('DUP', item);
+            return false;
+        }
         _self._logSdkMessage('RECV', item);
         // Auto-handle PASSWORD_REPLY encrypted to this agent using the pending private key
         // Only handle events that are newer than the connect time
@@ -1221,6 +1284,7 @@
         } catch (err) {
             console.error('Error auto processing event item', item, ', error: ', err);
         }
+        return true;
     };
 
     /**
@@ -1244,8 +1308,11 @@
             // Process the item (may decrypt if needed)
             item = _self.verifyAndDecryptMessage(item);
 
-            // Same handling as the HTTP polling receive() path.
-            _self._autoHandleReceivedItem(item);
+            // Same handling as the HTTP polling receive() path. Skip
+            // duplicate re-deliveries so the app sees each message once.
+            if (!_self._autoHandleReceivedItem(item)) {
+                continue;
+            }
 
             dataArray.push(item);
         }
@@ -1922,8 +1989,11 @@
                         // Process the item (may decrypt if needed)
                         item = _self.verifyAndDecryptMessage(item);
 
-                        // Same handling as the WebSocket push path.
-                        _self._autoHandleReceivedItem(item);
+                        // Same handling as the WebSocket push path. Skip
+                        // duplicate re-deliveries so the app sees each once.
+                        if (!_self._autoHandleReceivedItem(item)) {
+                            continue;
+                        }
 
                         dataArray.push(item);
                     }
