@@ -96,8 +96,9 @@ struct ConnectRequest {
     std::map<std::string, std::string> agentContext;
     std::string sessionId;          // Optional: for reconnection
     bool enableWebrtcRelay;
+    std::string apiKeyScope;        // "private" (default) or "public"
 
-    ConnectRequest() : enableWebrtcRelay(false) {}
+    ConnectRequest() : enableWebrtcRelay(false), apiKeyScope("private") {}
 
     json toJson() const;
 };

@@ -1,4 +1,25 @@
 #include "hmdev/messaging/api/udp_client.h"
+
+#ifdef _WIN32
+// The UDP transport uses POSIX sockets (sys/socket.h). It is stubbed on Windows
+// so the library builds and links — messaging and WebRTC signaling ride HTTP,
+// so nothing else is affected. Port to winsock2 if you need UDP on Windows.
+namespace hmdev {
+namespace messaging {
+
+UdpClient::UdpClient(const std::string& host, int port)
+    : host_(host), port_(port), socketFd_(-1), isOpen_(false) {}
+UdpClient::~UdpClient() {}
+bool UdpClient::send(const UdpEnvelope&) { return false; }
+json UdpClient::sendAndWait(const UdpEnvelope&, int) { return nullptr; }
+void UdpClient::close() {}
+void UdpClient::ensureSocketOpen() {}
+
+} // namespace messaging
+} // namespace hmdev
+
+#else  // !_WIN32 — POSIX implementation
+
 #include <sys/socket.h>
 #include <netinet/in.h>
 #include <arpa/inet.h>
@@ -139,4 +160,6 @@ void UdpClient::close() {
 
 } // namespace messaging
 } // namespace hmdev
+
+#endif  // _WIN32
 

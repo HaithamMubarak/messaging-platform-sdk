@@ -57,15 +57,20 @@ target_link_libraries(messaging-cpp-agent
         OpenSSL::SSL
         OpenSSL::Crypto
         nlohmann_json::nlohmann_json
-    PRIVATE
-        pthread
 )
+
+# Threading: portable. pthread is POSIX-only; Windows threading is built in.
+find_package(Threads REQUIRED)
+target_link_libraries(messaging-cpp-agent PRIVATE Threads::Threads)
 
 # Set library properties
 set_target_properties(messaging-cpp-agent PROPERTIES
     VERSION ${PROJECT_VERSION}
     SOVERSION 1
     PUBLIC_HEADER "${AGENT_HEADERS}"
+    # On Windows a shared lib only emits a .lib import library if symbols are
+    # exported; export them all so consumers (the examples) can link the DLL.
+    WINDOWS_EXPORT_ALL_SYMBOLS ON
 )
 
 # Install rules

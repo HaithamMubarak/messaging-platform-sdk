@@ -105,6 +105,14 @@ ConnectResponse MessagingChannelApi::connect(const std::string& channelName,
                                             const std::string& pollSource) {
     // Store default poll source for receive operations
     defaultPollSource_ = pollSource.empty() ? "AUTO" : pollSource;
+
+    try {
+        // Password hash the server expects (empty when connecting by channelId).
+        std::string passwordHash = channelPassword.empty() ? std::string()
+            : Security::hash(channelPassword, Security::deriveChannelSecret(channelName, channelPassword));
+        const bool hasChannelLogin = !channelName.empty() && !channelPassword.empty();
+        std::string finalChannelId = channelId;
+
         if (finalChannelId.empty()) {
             if (hasChannelLogin) {
                 // Create channel on server
@@ -123,6 +131,7 @@ ConnectResponse MessagingChannelApi::connect(const std::string& channelName,
         connectRequest.sessionId = sessionId;
         connectRequest.agentContext = createAgentMetadata();
         connectRequest.enableWebrtcRelay = enableWebrtcRelay;
+        connectRequest.apiKeyScope = apiKeyScope.empty() ? "private" : apiKeyScope;
 
         // Send connect request
         HttpClientResult result = httpClient_->post(getActionUrl("connect"),
@@ -133,7 +142,7 @@ ConnectResponse MessagingChannelApi::connect(const std::string& channelName,
             json responseJson = result.dataAsJson();
             if (responseJson.contains("data")) {
                 return ConnectResponse::fromJson(responseJson["data"]);
-        connectRequest.apiKeyScope = apiKeyScope.empty() ? "private" : apiKeyScope;
+            }
         }
     } catch (const std::exception& e) {
         std::cerr << "Exception in connect operation: " << e.what() << std::endl;
@@ -153,6 +162,8 @@ ConnectResponse MessagingChannelApi::connectWithChannelId(const std::string& age
                                                           const std::string& sessionId,
                                                           bool enableWebrtcRelay) {
     return connect("", "", agentName, sessionId, channelId, enableWebrtcRelay);
+}
+
 ConnectResponse MessagingChannelApi::connect(const std::map<std::string, std::string>& config) {
     std::string channelName = config.count("channelName") ? config.at("channelName") : "";
     std::string channelPassword = config.count("channelPassword") ? config.at("channelPassword") : "";
@@ -166,6 +177,15 @@ ConnectResponse MessagingChannelApi::connect(const std::map<std::string, std::st
     return connect(channelName, channelPassword, agentName, sessionId, channelId, enableWebrtcRelay, apiKeyScope, pollSource);
 }
 
+std::string MessagingChannelApi::createChannel(const std::string& channelName,
+                                               const std::string& passwordHash) {
+    try {
+        CreateChannelRequest request(channelName, passwordHash);
+        HttpClientResult result = httpClient_->post(getActionUrl("create-channel"),
+                                                     request.toJson());
+        if (result.isHttpOk()) {
+            json responseJson = result.dataAsJson();
+            if (responseJson.contains("data") && responseJson["data"].contains("channelId")) {
                 return responseJson["data"]["channelId"].get<std::string>();
             }
         }

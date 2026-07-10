@@ -132,6 +132,10 @@ json ConnectRequest::toJson() const {
         j["sessionId"] = sessionId;
     }
 
+    if (!apiKeyScope.empty()) {
+        j["apiKeyScope"] = apiKeyScope;
+    }
+
     return j;
 }
 

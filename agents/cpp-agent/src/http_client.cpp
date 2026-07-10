@@ -3,6 +3,12 @@
 #include <sstream>
 #include <stdexcept>
 
+// curl (via windows.h) re-#defines DELETE after our header undef, which would
+// clobber HttpMethod::DELETE below. Undef it once more after all includes.
+#ifdef DELETE
+#undef DELETE
+#endif
+
 namespace hmdev {
 namespace messaging {
 

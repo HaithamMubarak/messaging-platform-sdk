@@ -13,6 +13,11 @@ using json = nlohmann::json;
 /**
  * HTTP request method
  */
+// <windows.h> #defines DELETE (a security access-right bit), which would
+// clobber the enumerator below. Undef it so the enum class is well-formed.
+#ifdef DELETE
+#undef DELETE
+#endif
 enum class HttpMethod {
     GET,
     POST,
