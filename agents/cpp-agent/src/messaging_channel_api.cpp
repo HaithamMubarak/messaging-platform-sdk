@@ -298,6 +298,27 @@ bool MessagingChannelApi::disconnect(const std::string& sessionId) {
     }
 }
 
+bool MessagingChannelApi::sendWebRtcSignaling(const std::string& remoteAgent,
+                                              const std::string& signalingJson,
+                                              const std::string& sessionId) {
+    try {
+        EventMessageRequest request;
+        request.sessionId = sessionId;
+        request.type = EventType::CHAT_WEBRTC_SIGNAL;   // -> wire type "webrtc-signaling"
+        request.to = remoteAgent;
+        request.content = signalingJson;
+        request.encrypted = false;
+        request.ephemeral = true;                       // signaling is not persisted
+
+        HttpClientResult result = httpClient_->post(getActionUrl("push"),
+                                                     request.toJson());
+        return result.isHttpOk();
+    } catch (const std::exception& e) {
+        std::cerr << "Exception in sendWebRtcSignaling: " << e.what() << std::endl;
+        return false;
+    }
+}
+
 bool MessagingChannelApi::udpPush(const std::string& message,
                                   const std::string& destination,
                                   const std::string& sessionId) {

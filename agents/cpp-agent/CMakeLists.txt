@@ -30,6 +30,7 @@ set(AGENT_SOURCES
     src/data_models.cpp
     src/http_client.cpp
     src/messaging_channel_api.cpp
+    src/webrtc_signaling.cpp
     src/udp_client.cpp
     src/security.cpp
     src/utils.cpp

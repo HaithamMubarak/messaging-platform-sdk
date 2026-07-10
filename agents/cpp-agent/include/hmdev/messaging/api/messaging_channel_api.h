@@ -99,9 +99,52 @@ public:
      */
     ConnectResponse connect(const std::map<std::string, std::string>& config);
 
+    /** Connect using a known channelId (skips create-channel). */
+    ConnectResponse connectWithChannelId(const std::string& agentName,
+                                         const std::string& channelId,
+                                         const std::string& sessionId);
+
+    ConnectResponse connectWithChannelId(const std::string& agentName,
+                                         const std::string& channelId,
+                                         const std::string& sessionId,
+                                         bool enableWebrtcRelay);
+
+    // --- ConnectionChannelApi messaging operations --------------------------
+    EventMessageResult receive(const std::string& sessionId,
+                               const ReceiveConfig& config) override;
+
+    std::vector<AgentInfo> getActiveAgents(const std::string& sessionId) override;
+
+    std::vector<AgentInfo> getSystemAgents(const std::string& sessionId) override;
+
+    bool send(EventType eventType,
+              const std::string& message,
+              const std::string& destination,
+              const std::string& sessionId,
+              bool encrypted) override;
+
+    bool disconnect(const std::string& sessionId) override;
+
+    bool udpPush(const std::string& message,
+                 const std::string& destination,
+                 const std::string& sessionId) override;
 
     EventMessageResult udpPull(const std::string& sessionId,
                               const ReceiveConfig& config) override;
+
+    /**
+     * Send a WebRTC signaling payload to a specific agent, matching the
+     * web-agent-js wire format: an ephemeral "webrtc-signaling" push whose
+     * content is the JSON signaling message (offer/answer/ice-candidate). A
+     * C++ agent can thus negotiate WebRTC with browser/Node JS agents.
+     * @param remoteAgent Destination agent name
+     * @param signalingJson JSON string of the signaling message
+     * @param sessionId Session ID
+     * @return True if the push was accepted
+     */
+    bool sendWebRtcSignaling(const std::string& remoteAgent,
+                             const std::string& signalingJson,
+                             const std::string& sessionId);
 
     /**
      * Set whether to use public key encryption (currently not implemented)

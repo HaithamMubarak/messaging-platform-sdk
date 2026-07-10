@@ -168,8 +168,9 @@ struct EventMessageRequest {
     std::string to;
     std::string content;
     bool encrypted;
+    bool ephemeral;   // high-rate/time-sensitive (Redis only) — e.g. WebRTC signaling
 
-    EventMessageRequest() : type(EventType::CHAT_TEXT), encrypted(false) {}
+    EventMessageRequest() : type(EventType::CHAT_TEXT), encrypted(false), ephemeral(false) {}
 
     json toJson() const;
 };

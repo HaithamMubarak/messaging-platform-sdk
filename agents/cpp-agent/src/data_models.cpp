@@ -9,7 +9,9 @@ std::string eventTypeToString(EventType type) {
     switch (type) {
         case EventType::CHAT_TEXT: return "CHAT_TEXT";
         case EventType::CHAT_FILE: return "CHAT_FILE";
-        case EventType::CHAT_WEBRTC_SIGNAL: return "CHAT_WEBRTC_SIGNAL";
+        // WebRTC signaling shares the JS/server wire type ("webrtc-signaling")
+        // so a C++ agent interops with web-agent-js on the same channel.
+        case EventType::CHAT_WEBRTC_SIGNAL: return "webrtc-signaling";
         case EventType::GAME_STATE: return "GAME_STATE";
         case EventType::GAME_INPUT: return "GAME_INPUT";
         case EventType::GAME_SYNC: return "GAME_SYNC";
@@ -22,6 +24,7 @@ EventType stringToEventType(const std::string& str) {
     if (str == "CHAT_TEXT") return EventType::CHAT_TEXT;
     if (str == "CHAT_FILE") return EventType::CHAT_FILE;
     if (str == "CHAT_WEBRTC_SIGNAL") return EventType::CHAT_WEBRTC_SIGNAL;
+    if (str == "webrtc-signaling") return EventType::CHAT_WEBRTC_SIGNAL;   // JS/server wire type
     if (str == "GAME_STATE") return EventType::GAME_STATE;
     if (str == "GAME_INPUT") return EventType::GAME_INPUT;
     if (str == "GAME_SYNC") return EventType::GAME_SYNC;
@@ -205,13 +208,17 @@ json SessionRequest::toJson() const {
 
 // EventMessageRequest
 json EventMessageRequest::toJson() const {
-    return json{
+    json j = {
         {"sessionId", sessionId},
         {"type", eventTypeToString(type)},
         {"to", to},
         {"content", content},
         {"encrypted", encrypted}
     };
+    if (ephemeral) {
+        j["ephemeral"] = true;
+    }
+    return j;
 }
 
 // MessageReceiveRequest

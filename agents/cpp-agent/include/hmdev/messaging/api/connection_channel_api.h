@@ -119,6 +119,8 @@ public:
      */
     virtual ConnectResponse connect(const std::map<std::string, std::string>& config) = 0;
 
+    /**
+     * Receive messages from the channel
      * @param sessionId Session ID
      * @param config Receive configuration
      * @return Event message result
