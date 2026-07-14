@@ -3,6 +3,7 @@
 #include "hmdev/messaging/util/utils.h"
 #include <stdexcept>
 #include <iostream>
+#include <cstdlib>
 
 namespace hmdev {
 namespace messaging {
@@ -138,6 +139,11 @@ ConnectResponse MessagingChannelApi::connect(const std::string& channelName,
                                                      connectRequest.toJson(),
                                                      POLLING_TIMEOUT_MS);
 
+        if (std::getenv("CPPAGENT_DEBUG")) {
+            std::cerr << "[DEBUG] connect status=" << result.statusCode
+                       << " req=" << connectRequest.toJson().dump()
+                       << " body=" << result.data << std::endl;
+        }
         if (result.isHttpOk()) {
             json responseJson = result.dataAsJson();
             if (responseJson.contains("data")) {
@@ -183,6 +189,10 @@ std::string MessagingChannelApi::createChannel(const std::string& channelName,
         CreateChannelRequest request(channelName, passwordHash);
         HttpClientResult result = httpClient_->post(getActionUrl("create-channel"),
                                                      request.toJson());
+        if (std::getenv("CPPAGENT_DEBUG")) {
+            std::cerr << "[DEBUG] create-channel status=" << result.statusCode
+                       << " body=" << result.data << std::endl;
+        }
         if (result.isHttpOk()) {
             json responseJson = result.dataAsJson();
             if (responseJson.contains("data") && responseJson["data"].contains("channelId")) {

@@ -4,6 +4,21 @@
 namespace hmdev {
 namespace messaging {
 
+namespace {
+// nlohmann's j.contains(key) is true even when the value is JSON null, and
+// .get<T>() throws a type_error on null — this API's responses commonly
+// include fields as explicit null (state.channelId, an agent's role, etc.),
+// so every fromJson() below needs this null check, not just presence.
+template <typename T>
+bool getIfPresent(const json& j, const char* key, T& out) {
+    if (j.contains(key) && !j[key].is_null()) {
+        out = j[key].template get<T>();
+        return true;
+    }
+    return false;
+}
+} // namespace
+
 // EventType conversion functions
 std::string eventTypeToString(EventType type) {
     switch (type) {
@@ -67,12 +82,15 @@ json AgentInfo::toJson() const {
 
 AgentInfo AgentInfo::fromJson(const json& j) {
     AgentInfo info;
-    if (j.contains("agentName")) info.agentName = j["agentName"].get<std::string>();
-    if (j.contains("agentType")) info.agentType = j["agentType"].get<std::string>();
-    if (j.contains("descriptor")) info.descriptor = j["descriptor"].get<std::string>();
-    if (j.contains("ipAddress")) info.ipAddress = j["ipAddress"].get<std::string>();
-    if (j.contains("role")) info.role = j["role"].get<std::string>();
-    if (j.contains("metadata")) info.metadata = j["metadata"].get<std::map<std::string, std::string>>();
+    getIfPresent(j, "agentName", info.agentName);
+    getIfPresent(j, "agentType", info.agentType);
+    getIfPresent(j, "descriptor", info.descriptor);
+    getIfPresent(j, "ipAddress", info.ipAddress);
+    // role is commonly explicit null (a regular, non-observer/system agent) —
+    // this was the exact field that threw type_error.302 on every
+    // getActiveAgents() call against a normal agent roster.
+    getIfPresent(j, "role", info.role);
+    getIfPresent(j, "metadata", info.metadata);
     return info;
 }
 
@@ -96,15 +114,16 @@ json EventMessage::toJson() const {
 
 EventMessage EventMessage::fromJson(const json& j) {
     EventMessage msg;
-    if (j.contains("timestamp")) msg.timestamp = j["timestamp"].get<long long>();
-    if (j.contains("from")) msg.from = j["from"].get<std::string>();
-    if (j.contains("to")) msg.to = j["to"].get<std::string>();
-    if (j.contains("type")) msg.type = stringToEventType(j["type"].get<std::string>());
-    if (j.contains("content")) msg.content = j["content"].get<std::string>();
-    if (j.contains("encrypted")) msg.encrypted = j["encrypted"].get<bool>();
-    if (j.contains("ephemeral")) msg.ephemeral = j["ephemeral"].get<bool>();
-    if (j.contains("globalOffset")) msg.globalOffset = j["globalOffset"].get<long long>();
-    if (j.contains("localOffset")) msg.localOffset = j["localOffset"].get<long long>();
+    getIfPresent(j, "timestamp", msg.timestamp);
+    getIfPresent(j, "from", msg.from);
+    getIfPresent(j, "to", msg.to);
+    std::string typeStr;
+    if (getIfPresent(j, "type", typeStr)) msg.type = stringToEventType(typeStr);
+    getIfPresent(j, "content", msg.content);
+    getIfPresent(j, "encrypted", msg.encrypted);
+    getIfPresent(j, "ephemeral", msg.ephemeral);
+    getIfPresent(j, "globalOffset", msg.globalOffset);
+    getIfPresent(j, "localOffset", msg.localOffset);
     return msg;
 }
 
@@ -142,13 +161,31 @@ json ConnectRequest::toJson() const {
 // ConnectResponse
 ConnectResponse ConnectResponse::fromJson(const json& j) {
     ConnectResponse resp;
-    if (j.contains("status")) resp.status = j["status"].get<std::string>();
-    if (j.contains("sessionId")) resp.sessionId = j["sessionId"].get<std::string>();
-    if (j.contains("channelId")) resp.channelId = j["channelId"].get<std::string>();
-    if (j.contains("globalOffset")) resp.globalOffset = j["globalOffset"].get<long long>();
-    if (j.contains("localOffset")) resp.localOffset = j["localOffset"].get<long long>();
-    if (j.contains("message")) resp.message = j["message"].get<std::string>();
-    resp.success = (resp.status == "success" && !resp.sessionId.empty());
+    // `j` is the response's "data" object; the server puts "status" as a
+    // SIBLING of "data" at the top level, not nested inside it (see the
+    // actual wire shape: {"status":"success","data":{"sessionId":...,
+    // "state":{"globalOffset":...,"localOffset":...},...}}). Checking
+    // j["status"] here always read an absent field, so resp.status stayed
+    // "" and resp.success was unconditionally false even on a genuinely
+    // successful connect (sessionId correctly populated). A non-empty
+    // sessionId is itself sufficient evidence of success — the caller only
+    // reaches fromJson() after confirming the HTTP call succeeded and the
+    // top-level "data" envelope was present.
+    getIfPresent(j, "status", resp.status);
+    getIfPresent(j, "sessionId", resp.sessionId);
+    // channelId is frequently explicit null inside "state" (seen live:
+    // state.channelId=null even on a successful connect) — getIfPresent
+    // leaves resp.channelId at its default rather than throwing.
+    getIfPresent(j, "channelId", resp.channelId);
+    // globalOffset/localOffset live under "state" in the actual response,
+    // not at this level — check both so this keeps working if a future
+    // server response ever flattens them.
+    if (!getIfPresent(j, "globalOffset", resp.globalOffset) && j.contains("state"))
+        getIfPresent(j["state"], "globalOffset", resp.globalOffset);
+    if (!getIfPresent(j, "localOffset", resp.localOffset) && j.contains("state"))
+        getIfPresent(j["state"], "localOffset", resp.localOffset);
+    getIfPresent(j, "message", resp.message);
+    resp.success = !resp.sessionId.empty();
     return resp;
 }
 
@@ -176,21 +213,10 @@ EventMessageResult EventMessageResult::fromJson(const json& j) {
         }
     }
 
-    if (j.contains("globalOffset")) {
-        result.globalOffset = j["globalOffset"].get<long long>();
-    }
-
-    if (j.contains("nextGlobalOffset")) {
-        result.globalOffset = j["nextGlobalOffset"].get<long long>();
-    }
-
-    if (j.contains("localOffset")) {
-        result.localOffset = j["localOffset"].get<long long>();
-    }
-
-    if (j.contains("nextLocalOffset")) {
-        result.localOffset = j["nextLocalOffset"].get<long long>();
-    }
+    getIfPresent(j, "globalOffset", result.globalOffset);
+    getIfPresent(j, "nextGlobalOffset", result.globalOffset);
+    getIfPresent(j, "localOffset", result.localOffset);
+    getIfPresent(j, "nextLocalOffset", result.localOffset);
 
     return result;
 }
@@ -243,8 +269,8 @@ json UdpEnvelope::toJson() const {
 
 UdpEnvelope UdpEnvelope::fromJson(const json& j) {
     UdpEnvelope envelope;
-    if (j.contains("action")) envelope.action = j["action"].get<std::string>();
-    if (j.contains("payload")) envelope.payload = j["payload"];
+    getIfPresent(j, "action", envelope.action);
+    if (j.contains("payload") && !j["payload"].is_null()) envelope.payload = j["payload"];
     return envelope;
 }
 
