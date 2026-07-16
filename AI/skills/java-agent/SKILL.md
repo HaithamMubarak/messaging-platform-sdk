@@ -47,7 +47,7 @@ boolean ok = agent.connect(ConnectConfig.builder()
     .agentName("alice")
     .apiKeyScope("private")      // "private" (default) or "public"
     .enableWebrtcRelay(false)
-    .pollSource("AUTO")          // "AUTO" | "CACHE" | "KAFKA" | "DATABASE"
+    .pollSource("AUTO")          // "AUTO" | "CACHE" | "DATABASE"  ("KAFKA" deprecated)
     .build());
 ```
 

@@ -48,7 +48,7 @@ Start at `agents/GETTING-STARTED-GAMES.md`. For approach comparison (WebSocket v
 | `channelPassword` | string | No `* , / \` or spaces |
 | `agentName` | string | Your identity in the channel |
 | `apiKeyScope` | `"private"` / `"public"` | Use `"public"` in browsers — see [[authentication]] |
-| `pollSource` | `"AUTO"` / `"CACHE"` / `"KAFKA"` / `"DATABASE"` | See [[offsets]] |
+| `pollSource` | `"AUTO"` (default) / `"CACHE"` / `"DATABASE"` (`"KAFKA"` deprecated) | See [[offsets]] |
 | `enableWebrtcRelay` | bool | Opt into WebRTC P2P relay |
 | `channelId` | string | Connect by ID instead of name |
 | `sessionId` | string | Reconnect with existing session |

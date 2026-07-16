@@ -38,7 +38,7 @@ The Messaging Platform SDK provides client libraries for building real-time mess
 - ✅ **Message offsets** - Message history recovery
 - ✅ **Multi-platform** - Java, Python, JavaScript/Web
 - ✅ **Secure** - Temporary API keys, AES encryption
-- ✅ **Scalable** - Kafka-backed message delivery
+- ✅ **Fast** - In-memory delivery with durable persistence behind it
 
 ### Supported Languages & Platforms
 
@@ -104,6 +104,13 @@ Resume from a specific message offset to recover missed messages.
 ```java
 agent.receiveMessages(0L, 100L, 50);  // Start offset, end offset, max messages
 ```
+
+> ⚠️ **Recovery is scoped to the channel's lifetime.** History lives in the
+> platform's database for as long as the channel exists — **deleting a channel
+> permanently destroys its messages**, and recreating one with the same name
+> starts empty. If you need messages to outlive a channel, persist them on your
+> side. *(Before 2026-07-14 a broker retained messages behind the channel and
+> could sometimes resurrect them after deletion; that no longer happens.)*
 
 ### 6. Secure Communication
 

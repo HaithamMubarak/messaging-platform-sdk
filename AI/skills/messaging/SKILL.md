@@ -44,5 +44,5 @@ agent.send('chat', { content: 'hello world' });
 - The receive loop is bounded by a polling timeout (≈40s in the C++ client);
   treat receive as long-poll, not a single instantaneous read.
 - For history vs live tail, the **offsets** skill governs where messages come
-  from (cache/kafka/database). Messaging is the *what*; offsets are the *from where*.
+  from (cache/database). Messaging is the *what*; offsets are the *from where*.
 - Don't fabricate event-type enums — read them from the data models above.

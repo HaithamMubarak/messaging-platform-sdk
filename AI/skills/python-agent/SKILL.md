@@ -48,7 +48,7 @@ agent.connect(config={
     "channelPassword": "secret",
     "agentName": "bot-1",
     "apiKeyScope": "private",   # "private" or "public"
-    "pollSource": "AUTO",       # "AUTO" | "CACHE" | "KAFKA" | "DATABASE"
+    "pollSource": "AUTO",       # "AUTO" | "CACHE" | "DATABASE"  ("KAFKA" deprecated)
     "enableWebrtcRelay": False,
 })
 

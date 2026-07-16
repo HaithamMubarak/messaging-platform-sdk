@@ -49,7 +49,7 @@ agent.connect({
     channelName: 'my-channel',
     channelPassword: 'mypassword',
     agentName: 'alice',
-    pollSource: 'AUTO',              // 'AUTO' | 'CACHE' | 'KAFKA' | 'DATABASE'
+    pollSource: 'AUTO',              // 'AUTO' | 'CACHE' | 'DATABASE'  ('KAFKA' deprecated)
     enableWebrtcRelay: false,
 });
 
@@ -232,7 +232,7 @@ api.disconnect(sessionId);
 | `channelPassword` | string | No `* , / \` or spaces |
 | `agentName` | string | Your identity in the channel |
 | `apiKeyScope` | `"private"` / `"public"` | `"public"` for browsers, `"private"` for servers |
-| `pollSource` | `"AUTO"` `"CACHE"` `"KAFKA"` `"DATABASE"` | Default: `"AUTO"` (recommended) |
+| `pollSource` | `"AUTO"` `"CACHE"` `"DATABASE"` (`"KAFKA"` deprecated) | Default: `"AUTO"` (recommended — the only one that long-polls) |
 | `enableWebrtcRelay` | `true` / `false` | Enable WebRTC P2P relay |
 | `channelId` | string | Connect by stable ID instead of name+password |
 | `sessionId` | string | Reconnect with an existing session |

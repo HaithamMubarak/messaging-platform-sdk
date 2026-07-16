@@ -34,7 +34,7 @@ messages, control **offsets / poll source** for history, authenticate with an
 |-------|--------------------------|--------|
 | **messaging** | Send and receive event messages; `EventMessage` shape / event types; WebSocket vs HTTP/UDP transport | `messaging/` |
 | **channels** | Connect, disconnect, list active/system agents, manage channel lifecycle and per-channel storage | `channels/` |
-| **offsets** | Message history, `PollSource` (CACHE/KAFKA/DATABASE/AUTO), and `ChannelOffsetInfo` counters | `offsets/` |
+| **offsets** | Message history, `PollSource` (AUTO/CACHE/DATABASE; KAFKA deprecated), and `ChannelOffsetInfo` counters | `offsets/` |
 | **authentication** | Developer API keys, `apiKeyScope` (private/public), channel passwords | `authentication/` |
 | **agents-integrations** | Choose a language, understand shared lifecycle, find examples | `agents-integrations/` |
 

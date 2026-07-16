@@ -7,7 +7,7 @@
 
 ## Overview
 
-This stress testing tool allows you to test the messaging service by performing connect/pull/disconnect operations across multiple predefined channels with concurrent connections. It's designed to validate the performance fixes (Redis lock TTL, Kafka consumer pool, etc.) and ensure the system can handle load properly.
+This stress testing tool allows you to test the messaging service by performing connect/pull/disconnect operations across multiple predefined channels with concurrent connections. It's designed to validate the performance fixes (Redis lock TTL, session/cursor handling, etc.) and ensure the system can handle load properly.
 
 ---
 
@@ -169,8 +169,8 @@ Each test performs the following operations for each channel/iteration/connectio
 3. **Pull Messages** (for each session)
    ```
    POST /messaging-platform/pull
-   → Tests Redis lock handling
-   → Tests Kafka consumer pool
+   → Tests Redis cursor handling (`/pull` is lock-free)
+   → Tests cache-then-database read fallback
    → Tests long-polling logic
    ```
 
@@ -243,13 +243,17 @@ docker-compose logs -f messaging-service | findstr /i "unlock lock"
 ❌ Lock TTL (5000ms) may be too short...
 ```
 
-### Testing Kafka Consumer Pool
+### Testing message delivery
+
+> Kafka was removed from the messaging flow on 2026-07-14 — there is no broker,
+> no consumer groups, and no `messaging-platform-kafka` container to exec into.
+> Messages are delivered from Redis and persisted to PostgreSQL.
 
 **What to monitor:**
 ```bash
-# Monitor consumer groups
-docker exec -it messaging-platform-kafka /bin/bash
-kafka-consumer-groups.sh --bootstrap-server localhost:9092 --list | grep range
+# Watch the Redis keyspace used for delivery + offsets
+docker exec -it messaging-platform-redis redis-cli --scan --pattern 'channel*' | head
+docker exec -it messaging-platform-redis redis-cli info stats
 ```
 
 **Expected (after fix):**

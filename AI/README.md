@@ -12,7 +12,7 @@ The skills set describes the SDK's real surface, grounded in the code:
 
 - **messaging** — send/receive event messages, transport model
 - **channels** — connect/disconnect, sessions, agent listing
-- **offsets** — `PollSource` (CACHE/KAFKA/DATABASE/AUTO), offset counters
+- **offsets** — `PollSource` (AUTO/CACHE/DATABASE; KAFKA deprecated), offset counters
 - **authentication** — API keys, `apiKeyScope`, channel passwords
 - **agents-integrations** — JS/Java/Python/C++ clients and game integration
 

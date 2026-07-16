@@ -31,7 +31,7 @@ agent.connect({
   agentName: 'alice',
   apiKeyScope: 'public',        // 'public' for browser, 'private' for server-side
   enableWebrtcRelay: false,     // true to enable WebRTC P2P relay
-  pollSource: 'AUTO',           // 'AUTO' | 'CACHE' | 'KAFKA' | 'DATABASE'
+  pollSource: 'AUTO',           // 'AUTO' | 'CACHE' | 'DATABASE'  ('KAFKA' deprecated)
   channelId: '',                // optional: connect by channel ID instead of name
   sessionId: '',                // optional: reconnect with existing session
 });
