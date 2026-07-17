@@ -499,7 +499,7 @@ class FindTheLiarGame extends UserConnectionBase {
         this.showFloatingControls();
 
         this.showWaitingRoom();
-        this.updatePlayersList();
+        this.updateUsersList();
         this.updateRoundDisplay(); // Initialize round display
 
         // Hide loader after a short delay if no DataChannels are pending
@@ -568,7 +568,7 @@ class FindTheLiarGame extends UserConnectionBase {
     onDataChannelOpen(peerId) {
         console.log('[FindTheLiar] DataChannel open:', peerId);
         this.connectedPeers.add(peerId);
-        this.updatePlayersList();
+        this.updateUsersList();
 
         // Hide loader when first DataChannel connection is established
         this.hideConnectionLoader();
@@ -577,7 +577,7 @@ class FindTheLiarGame extends UserConnectionBase {
     onDataChannelClose(peerId) {
         console.log('[FindTheLiar] DataChannel closed:', peerId);
         this.connectedPeers.delete(peerId);
-        this.updatePlayersList();
+        this.updateUsersList();
     }
 
     onDataChannelMessage(peerId, data) {
@@ -2285,7 +2285,7 @@ class FindTheLiarGame extends UserConnectionBase {
         }
 
         this.updateStartButton();
-        this.updatePlayersList();
+        this.updateUsersList();
         document.getElementById('scoreModal')?.classList.add('hidden');
     }
 
