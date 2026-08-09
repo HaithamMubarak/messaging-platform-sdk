@@ -488,6 +488,17 @@
             // Set remote description AFTER adding transceivers (required for wrtc in Node.js)
             await pc.setRemoteDescription(new _RTCSessionDescription({type: 'offer', sdp: sdpOffer}));
 
+            // Attach answerer media before creating the answer so P2P media is
+            // bidirectional rather than only flowing from offerer to answerer.
+            if (hasMedia && this.defaultLocalStream) {
+                this.defaultLocalStream.getTracks().forEach(track => {
+                    if (track.readyState === 'live' || track.readyState === undefined) {
+                        pc.addTrack(track, this.defaultLocalStream);
+                    }
+                });
+                console.log(`[WebRTC] Added answerer local media for ${streamId}`);
+            }
+
             // Modern browsers handle ICE candidate queueing internally
             // No need to manually process queued candidates
 

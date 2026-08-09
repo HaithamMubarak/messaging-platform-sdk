@@ -2954,39 +2954,6 @@
         });
 
         /**
-         * Cleanup: Disconnect all active connections when page actually unloads
-         * This runs AFTER user confirms (or if no confirmation was needed)
-         *
-         * Uses Beacon API for reliable disconnect during page unload:
-         * - Non-blocking: Won't delay page unload
-         * - Reliable: Browser guarantees delivery even after page closes
-         * - Mobile-friendly: Works with mobile browsers and bfcache
-         *
-         * This is the CENTRALIZED cleanup that applications used to duplicate!
-         */
-        window.addEventListener('unload', () => {
-            const activeConnections = _activeConnections.slice(); // Copy array
-
-            if (activeConnections.length > 0) {
-                console.log(`[web-agent.js] Unload: Disconnecting ${activeConnections.length} active connection(s) with beacon API...`);
-
-                // Disconnect all active connections using Beacon API
-                activeConnections.forEach((connection, index) => {
-                    try {
-                        const agentName = connection.agentName || `Connection-${index}`;
-                        console.log(`[web-agent.js] Disconnecting: ${agentName}`);
-                        // Use beacon API for reliable disconnect during unload
-                        connection.disconnect({ useBeacon: true });
-                    } catch (error) {
-                        console.error('[web-agent.js] Error disconnecting connection:', error);
-                    }
-                });
-
-                console.log('[web-agent.js] All connections disconnected on page unload with beacon API');
-            }
-        });
-
-        /**
          * Additional cleanup for mobile browsers and bfcache scenarios
          * pagehide event is more reliable than unload on mobile
          */
@@ -3007,7 +2974,7 @@
             }
         });
 
-        console.log('[web-agent.js] Beforeunload/unload/pagehide listeners registered - will warn and auto-disconnect with beacon API on page close');
+        console.log('[web-agent.js] Beforeunload/pagehide listeners registered - pagehide performs beacon cleanup');
     }
 
     // Export for Node.js
