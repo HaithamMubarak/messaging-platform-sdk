@@ -17,6 +17,7 @@ Thumbs.db
 # Generated SDK files (copied at build time)
 src/main/resources/static/generated/
 src/main/resources/static/generated-web-agent-js/
+src/main/resources/static/USER-GUIDE.md
 
 # Logs
 *.log
