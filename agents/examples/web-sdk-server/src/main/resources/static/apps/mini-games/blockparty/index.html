@@ -1,0 +1,93 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <script src="../../../js/prod-log.js"></script>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>BlockParty — Co-op Voxel Builder</title>
+    <meta name="description" content="Build together in a shared 3D voxel world. Real-time multiplayer building on the Messaging Platform SDK.">
+    <link rel="icon" type="image/svg+xml" href="../../../favicon.svg">
+    <link rel="stylesheet" href="../../../css/toast.css">
+    <link rel="stylesheet" href="../../../css/share-modal.css">
+    <link rel="stylesheet" href="../../../css/connection-modal.css">
+    <link rel="stylesheet" href="blockparty.css">
+</head>
+<body>
+<!-- Connection Modal is injected dynamically by connection-modal.js -->
+
+<!-- Game Container -->
+<div id="gameContainer" class="hidden">
+    <!-- 3D canvas mounts here -->
+    <div id="sceneRoot"></div>
+
+    <!-- Top Bar -->
+    <div class="top-bar">
+        <div class="brand">
+            <span class="brand-mark">🧱</span>
+            <span class="brand-name">BlockParty</span>
+            <span id="roomBadge" class="room-badge"></span>
+        </div>
+        <div class="top-actions">
+            <span id="blockCount" class="pill" title="Blocks in the world">0 blocks</span>
+            <span id="connectionIndicator" class="indicator disconnected" title="Connection">●</span>
+            <button id="shareBtn" class="btn btn-share" style="display:none;">🔗 Share</button>
+            <button id="leaveBtn" class="btn btn-ghost">Leave</button>
+        </div>
+    </div>
+
+    <!-- Players panel -->
+    <div class="players-panel">
+        <div class="players-title">👥 Players</div>
+        <div id="playerList" class="player-list"></div>
+    </div>
+
+    <!-- Tool dock -->
+    <div class="tool-dock">
+        <div class="tool-group">
+            <button id="toolBuild" class="tool-btn active" data-tool="build" title="Build (B)">🧱<span>Build</span></button>
+            <button id="toolErase" class="tool-btn" data-tool="erase" title="Erase (E)">🧨<span>Erase</span></button>
+        </div>
+        <div id="palette" class="palette" aria-label="Color palette"></div>
+        <div class="tool-group tool-extra">
+            <button id="undoBtn" class="tool-btn small" title="Undo my last block (Z)">↶<span>Undo</span></button>
+            <button id="resetViewBtn" class="tool-btn small" title="Reset camera (R)">🎥<span>View</span></button>
+        </div>
+    </div>
+
+    <!-- Help hint -->
+    <div id="helpHint" class="help-hint">
+        <strong>Drag</strong> to orbit · <strong>Scroll / pinch</strong> to zoom · <strong>Tap/click</strong> to build ·
+        <strong>Right-click</strong> or Erase tool to remove
+        <button id="dismissHelp" class="dismiss" aria-label="Dismiss">✕</button>
+    </div>
+
+    <!-- Reconnect overlay -->
+    <div id="reconnectOverlay" class="reconnect-overlay hidden">
+        <div class="reconnect-card">
+            <div class="spinner"></div>
+            <p id="reconnectMsg">Reconnecting…</p>
+        </div>
+    </div>
+</div>
+
+<!-- Toast Notifications -->
+<div id="toastContainer" class="toast-container"></div>
+
+<!-- SDK scripts (web-agent.* are copied into generated-web-agent-js at build time) -->
+<script src="../../../js/config-loader.js"></script>
+<script src="../../../lib/qrcode.min.js"></script>
+<script src="../../../generated-web-agent-js/js/web-agent.libs.js"></script>
+<script src="../../../generated-web-agent-js/js/web-agent.js"></script>
+<script src="../../../generated-web-agent-js/js/web-agent.webrtc.js"></script>
+
+<script src="../../../js/share-modal.js"></script>
+<script src="../../../js/common-utils.js"></script>
+<script src="../../../js/connection-modal.js"></script>
+<script src="../../../js/UserConnectionBase.js"></script>
+
+<!-- three.js (self-hosted, r128) + game -->
+<script src="../shared/libs/three.min.js"></script>
+<script src="../shared/game-kit.js"></script>
+<script src="blockparty.js"></script>
+</body>
+</html>

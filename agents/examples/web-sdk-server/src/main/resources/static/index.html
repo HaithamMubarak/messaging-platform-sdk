@@ -2,8 +2,36 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
+    <script src="js/prod-log.js"></script>
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5, user-scalable=yes">
     <title>Messaging Platform SDK - Real-Time Communication Demos</title>
+
+    <!-- SEO -->
+    <meta name="description" content="Build real-time apps with the Messaging Platform SDK: channels, WebRTC, presence, and channel storage. Explore live demos, collaborative apps, and multiplayer mini-games.">
+    <meta name="keywords" content="messaging platform, real-time SDK, WebRTC, websockets, channels, multiplayer, collaborative apps, developer API">
+    <meta name="author" content="hmdev">
+    <meta name="theme-color" content="#0f1724">
+    <meta name="robots" content="index, follow">
+    <link rel="canonical" href="https://hmdevonline.com/">
+
+    <!-- Open Graph -->
+    <meta property="og:type" content="website">
+    <meta property="og:site_name" content="Messaging Platform SDK">
+    <meta property="og:title" content="Messaging Platform SDK — Real-Time Communication Demos">
+    <meta property="og:description" content="Live demos, collaborative apps, and multiplayer mini-games built on real-time channels, WebRTC, and channel storage.">
+    <meta property="og:url" content="https://hmdevonline.com/">
+    <meta property="og:image" content="https://hmdevonline.com/favicon.svg">
+
+    <!-- Twitter -->
+    <meta name="twitter:card" content="summary_large_image">
+    <meta name="twitter:title" content="Messaging Platform SDK — Real-Time Communication Demos">
+    <meta name="twitter:description" content="Live demos, collaborative apps, and multiplayer mini-games built on real-time channels, WebRTC, and channel storage.">
+    <meta name="twitter:image" content="https://hmdevonline.com/favicon.svg">
+
+    <!-- Icons -->
+    <link rel="icon" type="image/svg+xml" href="favicon.svg">
+    <link rel="apple-touch-icon" href="favicon.svg">
+
     <link rel="stylesheet" href="css/toast.css">
     <style>
         :root {
@@ -1841,6 +1869,31 @@ agent.onError = (err) => console.error('Error:', err);
                             </a>
                         </div>
 
+                        <!-- BlockParty -->
+                        <div class="example-card" style="border-color: rgba(99, 102, 241, 0.5); background: linear-gradient(135deg, rgba(99, 102, 241, 0.10) 0%, rgba(6, 182, 212, 0.10) 100%); position: relative;">
+                            <div style="position: absolute; top: 12px; right: 12px; background: linear-gradient(90deg, #22c55e, #06b6d4); color: white; padding: 4px 10px; border-radius: 6px; font-size: 10px; font-weight: 700;">✨ NEW</div>
+                            <div class="card-icon">🧱</div>
+                            <h2 class="card-title">BlockParty</h2>
+                            <p class="card-description">
+                                A shared 3D voxel world you build together in real time. Place, paint, and remove blocks
+                                with everyone in the room — the world persists via Channel Storage, so it's still there
+                                when you come back.
+                            </p>
+                            <ul class="card-features">
+                                <li>Co-op building, unlimited players</li>
+                                <li>Three.js 3D voxel engine</li>
+                                <li>Real-time edit sync (host relay)</li>
+                                <li>World saved to Channel Storage</li>
+                                <li>Live presence cursors</li>
+                            </ul>
+                            <a href="apps/mini-games/blockparty/index.html" class="card-link">
+                                Play BlockParty
+                                <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
+                                </svg>
+                            </a>
+                        </div>
+
                         <!-- Quiz Battle -->
                         <div class="example-card" style="border-color: rgba(79, 70, 229, 0.4); background: linear-gradient(135deg, rgba(79, 70, 229, 0.08) 0%, rgba(6, 182, 212, 0.08) 100%); position: relative;">
                             <div style="position: absolute; top: 12px; right: 12px; background: linear-gradient(90deg, var(--accent), var(--accent-2)); color: white; padding: 4px 10px; border-radius: 6px; font-size: 10px; font-weight: 700;">⭐ FEATURED</div>
@@ -1865,9 +1918,9 @@ agent.onError = (err) => console.error('Error:', err);
                             </a>
                         </div>
 
-                        <!-- 4-Player Reactor (Coming Soon) -->
-                        <div class="example-card" style="opacity: 0.7; position: relative;">
-                            <div style="position: absolute; top: 12px; right: 12px; background: #94a3b8; color: white; padding: 4px 10px; border-radius: 6px; font-size: 10px; font-weight: 700;">🚧 COMING SOON</div>
+                        <!-- 4-Player Reactor -->
+                        <div class="example-card" style="border-color: rgba(79, 70, 229, 0.4); background: linear-gradient(135deg, rgba(79, 70, 229, 0.08) 0%, rgba(6, 182, 212, 0.08) 100%); position: relative;">
+                            <div style="position: absolute; top: 12px; right: 12px; background: linear-gradient(90deg, var(--accent), var(--accent-2)); color: white; padding: 4px 10px; border-radius: 6px; font-size: 10px; font-weight: 700;">⭐ FEATURED</div>
                             <div class="card-icon">⚡</div>
                             <h2 class="card-title">4-Player Reactor</h2>
                             <p class="card-description">
@@ -1877,16 +1930,16 @@ agent.onError = (err) => console.error('Error:', err);
                             <ul class="card-features">
                                 <li>4 players real-time competition</li>
                                 <li>Reaction time tracking</li>
-                                <li>Multiple game modes</li>
+                                <li>10 game modes & stages</li>
                                 <li>Visual & audio cues</li>
-                                <li>High score system</li>
+                                <li>Live leaderboard</li>
                             </ul>
-                            <div class="card-link" style="background: #94a3b8; cursor: not-allowed; pointer-events: none;">
-                                Coming Soon
+                            <a href="apps/mini-games/reactor/reactor-client.html" class="card-link">
+                                Play Reactor
                                 <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
                                 </svg>
-                            </div>
+                            </a>
                         </div>
 
                         <!-- Find the Liar -->
@@ -1938,8 +1991,7 @@ agent.onError = (err) => console.error('Error:', err);
                         </div>
 
                         <!-- Race Balls -->
-                        <div class="example-card" style="opacity: 0.7; position: relative;">
-                            <div style="position: absolute; top: 12px; right: 12px; background: #94a3b8; color: white; padding: 4px 10px; border-radius: 6px; font-size: 10px; font-weight: 700;">🚧 COMING SOON</div>
+                        <div class="example-card" style="position: relative;">
                             <div class="card-icon">🏁</div>
                             <h2 class="card-title">Race Balls</h2>
                             <p class="card-description">
@@ -1953,17 +2005,16 @@ agent.onError = (err) => console.error('Error:', err);
                                 <li>Multiple race tracks</li>
                                 <li>Boost & stamina system</li>
                             </ul>
-                            <div class="card-link" style="background: #94a3b8; cursor: not-allowed; pointer-events: none;">
-                                Coming Soon
+                            <a href="apps/mini-games/race-balls/index.html" class="card-link">
+                                Play Race Balls
                                 <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
                                 </svg>
-                            </div>
+                            </a>
                         </div>
 
-                        <!-- Fall Guys Race (In Progress) -->
-                        <div class="example-card" style="opacity: 0.6; position: relative;display: none">
-                            <div style="position: absolute; top: 16px; right: 16px; background: #f59e0b; color: white; padding: 4px 12px; border-radius: 12px; font-size: 11px; font-weight: 700;">IN PROGRESS</div>
+                        <!-- Fall Guys Race -->
+                        <div class="example-card" style="position: relative;">
                             <div class="card-icon">🏃</div>
                             <h2 class="card-title">Fall Guys Race</h2>
                             <p class="card-description">
@@ -1977,12 +2028,12 @@ agent.onError = (err) => console.error('Error:', err);
                                 <li>Player collisions</li>
                                 <li>Multiple rounds</li>
                             </ul>
-                            <div class="card-link" style="background: #94a3b8; cursor: not-allowed; pointer-events: none;">
-                                Coming Soon
+                            <a href="apps/mini-games/fall-guys/index.html" class="card-link">
+                                Play Fall Guys
                                 <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
                                 </svg>
-                            </div>
+                            </a>
                         </div>
                     </div>
 

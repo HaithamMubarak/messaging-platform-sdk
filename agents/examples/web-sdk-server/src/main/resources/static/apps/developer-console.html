@@ -2,6 +2,8 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
+    <script src="../js/prod-log.js"></script>
+    <link rel="icon" type="image/svg+xml" href="../favicon.svg">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
                     <h1>Developer Console</h1>
     <link rel="stylesheet" href="../css/common.css"/>
@@ -1139,6 +1141,15 @@
                     const data = response.data;
                     const messages = data.messages || [];
 
+                    // Keep the latest recovery result available for export
+                    lastRecoveredMessages = messages;
+                    lastRecoveredMeta = {
+                        channelId: channelId,
+                        fromOffset: data.fromOffset,
+                        toOffset: data.toOffset,
+                        messagesRecovered: data.messagesRecovered
+                    };
+
                     if (messages.length === 0) {
                         content.innerHTML = `
                             <div class="empty-state">
@@ -1155,7 +1166,7 @@
                         <div style="background: rgba(16, 185, 129, 0.1); border: 1px solid rgba(16, 185, 129, 0.3); border-radius: 8px; padding: 12px; margin-bottom: 16px;">
                             <strong>✓ Recovered ${data.messagesRecovered} message(s)</strong><br>
                             <span style="font-size: 13px; color: var(--muted);">
-                                Offset range: ${data.fromOffset} ?� ${data.toOffset}
+                                Offset range: ${data.fromOffset} → ${data.toOffset}
                                 ${data.hasMore ? ' (more messages available)' : ' (end reached)'}
                             </span>
                         </div>
@@ -1216,11 +1227,37 @@
             recoverMessages();
         }
 
-        // Export recovered messages
+        // Holds the most recent recovery result for export
+        let lastRecoveredMessages = [];
+        let lastRecoveredMeta = null;
+
+        // Export recovered messages as a downloadable JSON file
         function exportRecoveredMessages() {
-            const content = document.getElementById('recoveredMessagesContent');
-            // Extract data from the displayed table
-            showToast('Export functionality coming soon', 'warning');
+            if (!lastRecoveredMessages || lastRecoveredMessages.length === 0) {
+                showToast('Nothing to export — recover messages first', 'warning');
+                return;
+            }
+
+            const exportPayload = {
+                exportedAt: new Date().toISOString(),
+                ...(lastRecoveredMeta || {}),
+                messageCount: lastRecoveredMessages.length,
+                messages: lastRecoveredMessages
+            };
+
+            const blob = new Blob([JSON.stringify(exportPayload, null, 2)], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            const channelPart = (lastRecoveredMeta && lastRecoveredMeta.channelId) ? lastRecoveredMeta.channelId : 'channel';
+            const stamp = new Date().toISOString().replace(/[:.]/g, '-');
+            a.href = url;
+            a.download = `recovered-messages-${channelPart}-${stamp}.json`;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+
+            showToast(`Exported ${lastRecoveredMessages.length} message(s)`, 'success');
         }
 
         // Create Temporary API Key

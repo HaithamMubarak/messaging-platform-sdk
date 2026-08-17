@@ -2,6 +2,8 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
+    <script src="js/prod-log.js"></script>
+    <link rel="icon" type="image/svg+xml" href="favicon.svg">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>🎮 Mini Games Portal</title>
     <link rel="stylesheet" href="css/toast.css">
@@ -189,6 +191,21 @@
     <div class="container">
         <div class="games-grid">
 
+            <!-- BlockParty -->
+            <div class="game-card" onclick="location.href='/apps/mini-games/blockparty/index.html'">
+                <div class="game-icon">🧱</div>
+                <div class="game-title">BlockParty</div>
+                <div class="game-description">
+                    Build a shared 3D voxel world together in real time. Place, paint, and remove blocks — the world persists between sessions!
+                </div>
+                <div class="game-meta">
+                    <div class="game-meta-item">👥 2-20 players</div>
+                    <div class="game-meta-item">⏱️ Unlimited</div>
+                    <div class="game-meta-item">⭐ Easy</div>
+                </div>
+                <button class="play-button" onclick="location.href='/apps/mini-games/blockparty/index.html'">Play Now</button>
+            </div>
+
             <!-- Quiz Battle -->
             <div class="game-card" onclick="location.href='/apps/mini-games/quiz-battle/index.html'">
                 <div class="game-icon">🧠</div>
@@ -234,24 +251,38 @@
                 <button class="play-button" onclick="location.href='/apps/mini-games/reactor/reactor-client.html'">Test Reactions</button>
             </div>
 
-            <!-- Bounce Ball -->
-            <div class="game-card" onclick="location.href='/apps/mini-games/bounce-ball/bounce-ball-client.html'">
-                <div class="game-icon">🏐</div>
-                <div class="game-title">Bounce Ball</div>
+            <!-- Find the Liar -->
+            <div class="game-card" onclick="location.href='/apps/mini-games/find-the-liar/index.html'">
+                <div class="game-icon">🤥</div>
+                <div class="game-title">Find the Liar</div>
                 <div class="game-description">
-                    Multiplayer physics-based ball game with 6 extensible challenges! Cooperative and competitive modes included.
+                    Social deduction party game — everyone answers questions about a secret item, but the liars only get a hint. Vote to catch them!
                 </div>
                 <div class="game-meta">
-                    <div class="game-meta-item">👥 2-8 players</div>
-                    <div class="game-meta-item">⏱️ 3-5 min</div>
-                    <div class="game-meta-item">⭐ Easy-Hard</div>
+                    <div class="game-meta-item">👥 3-10 players</div>
+                    <div class="game-meta-item">⏱️ 5-10 min</div>
+                    <div class="game-meta-item">⭐ Easy</div>
                 </div>
-                <button class="play-button" onclick="location.href='/apps/mini-games/bounce-ball/bounce-ball-client.html'">Play Bounce Ball</button>
+                <button class="play-button" onclick="location.href='/apps/mini-games/find-the-liar/index.html'">Play Find the Liar</button>
             </div>
 
-            <!-- Fall Guys Race (In Progress) -->
-            <div class="game-card" style="opacity: 0.6; cursor: not-allowed; position: relative;" onclick="event.stopPropagation()">
-                <div style="position: absolute; top: 20px; right: 20px; background: #f59e0b; color: white; padding: 6px 14px; border-radius: 20px; font-size: 12px; font-weight: bold;">🚧 IN PROGRESS</div>
+            <!-- Race Balls -->
+            <div class="game-card" onclick="location.href='/apps/mini-games/race-balls/index.html'">
+                <div class="game-icon">🏁</div>
+                <div class="game-title">Race Balls</div>
+                <div class="game-description">
+                    3D racing with physics-based ball controls. Race through obstacles, boost pads, and checkpoints to reach the finish line first.
+                </div>
+                <div class="game-meta">
+                    <div class="game-meta-item">👥 2-4 players</div>
+                    <div class="game-meta-item">⏱️ 3-5 min</div>
+                    <div class="game-meta-item">⭐ Medium</div>
+                </div>
+                <button class="play-button" onclick="location.href='/apps/mini-games/race-balls/index.html'">Play Race Balls</button>
+            </div>
+
+            <!-- Fall Guys Race -->
+            <div class="game-card" onclick="window.location.href='apps/mini-games/fall-guys/index.html'">
                 <div class="game-icon">🏃</div>
                 <div class="game-title">Fall Guys Race</div>
                 <div class="game-description">
@@ -262,7 +293,7 @@
                     <div class="game-meta-item">⏱️ 5-8 min</div>
                     <div class="game-meta-item">⭐ Medium</div>
                 </div>
-                <button class="play-button" style="background: #94a3b8; cursor: not-allowed;" disabled>Coming Soon</button>
+                <a href="apps/mini-games/fall-guys/index.html" class="play-button">Play Now</a>
             </div>
         </div>
 

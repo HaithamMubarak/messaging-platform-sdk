@@ -171,6 +171,8 @@ const DeveloperAPI = (function() {
                 channelCount: 0,
                 apiKeyCount: 1,
                 quotaUsedPercent: 0,
+                apiCallsToday: 0,
+                storageMB: 0,
                 plan: profile?.plan || 'Free'
             };
         }
@@ -225,6 +227,7 @@ const DeveloperAPI = (function() {
                 storageMB: 0,
                 storageLimitMB: 100,
                 plan: profile?.plan || 'Free',
+                apiCallsSeries: [],
                 planFeatures: [
                     'Up to 100 channel units',
                     '10,000 API calls per day',
@@ -233,6 +236,20 @@ const DeveloperAPI = (function() {
                 ]
             };
         }
+    }
+
+    /**
+     * Get detailed metrics for a single channel
+     */
+    async function getChannelMetrics(channelId) {
+        return await apiRequest(`/channels/${encodeURIComponent(channelId)}/metrics`);
+    }
+
+    /**
+     * Get usage details for a single API key
+     */
+    async function getApiKeyUsage(keyId) {
+        return await apiRequest(`/api-keys/${encodeURIComponent(keyId)}/usage`);
     }
 
     /**
@@ -257,6 +274,8 @@ const DeveloperAPI = (function() {
         getApiKeys,
         getChannels,
         getUsage,
+        getChannelMetrics,
+        getApiKeyUsage,
         revokeApiKey,
         apiRequest
     };

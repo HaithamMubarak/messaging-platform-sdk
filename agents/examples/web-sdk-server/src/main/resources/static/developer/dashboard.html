@@ -2,8 +2,11 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
+    <script src="../js/prod-log.js"></script>
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Developer Dashboard - Messaging Platform</title>
+    <meta name="description" content="Messaging Platform developer dashboard: API keys, channel monitoring, and usage analytics.">
+    <link rel="icon" type="image/svg+xml" href="../favicon.svg">
     <link rel="stylesheet" href="../css/toast.css">
     <link rel="stylesheet" href="css/developer.css">
 </head>
@@ -82,6 +85,20 @@
                             <p>Current Plan</p>
                         </div>
                     </div>
+                    <div class="stat-card">
+                        <div class="stat-icon">⚡</div>
+                        <div class="stat-info">
+                            <h3 id="statApiCalls">-</h3>
+                            <p>API Calls Today</p>
+                        </div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-icon">💾</div>
+                        <div class="stat-info">
+                            <h3 id="statStorage">-</h3>
+                            <p>Storage Used</p>
+                        </div>
+                    </div>
                 </div>
 
                 <div class="quick-actions">
@@ -144,12 +161,13 @@
                                 <th>Plan</th>
                                 <th>Created</th>
                                 <th>Last Used</th>
+                                <th>Calls Today</th>
                                 <th>Status</th>
                                 <th>Actions</th>
                             </tr>
                         </thead>
                         <tbody id="apiKeysTableBody">
-                            <tr><td colspan="7" class="loading">Loading...</td></tr>
+                            <tr><td colspan="8" class="loading">Loading...</td></tr>
                         </tbody>
                     </table>
                 </div>
@@ -305,6 +323,13 @@
                     </div>
                 </div>
 
+                <div class="usage-card" style="margin-top: 20px;">
+                    <h3>API Calls — Last 7 Days</h3>
+                    <div id="apiCallsChart" class="usage-chart" aria-label="API calls over the last 7 days">
+                        <p class="loading">Loading chart...</p>
+                    </div>
+                </div>
+
                 <div class="plan-info">
                     <h3>Your Plan: <span id="currentPlan">Free</span></h3>
                     <div class="plan-features" id="planFeatures">
@@ -354,6 +379,19 @@
                 </div>
             </section>
         </main>
+    </div>
+
+    <!-- Channel Metrics Modal -->
+    <div id="metricsModal" class="modal-overlay" style="display: none;" onclick="if(event.target===this) closeChannelMetrics()">
+        <div class="modal-card" role="dialog" aria-modal="true" aria-labelledby="metricsModalTitle">
+            <div class="modal-header">
+                <h3 id="metricsModalTitle">📊 Channel Metrics</h3>
+                <button class="modal-close" onclick="closeChannelMetrics()" aria-label="Close">✕</button>
+            </div>
+            <div id="metricsModalBody" class="modal-body">
+                <p class="loading">Loading...</p>
+            </div>
+        </div>
     </div>
 
     <script src="../js/api-config.js"></script>
@@ -484,6 +522,9 @@
                 document.getElementById('statApiKeys').textContent = stats.apiKeyCount || 1;
                 document.getElementById('statQuotaUsed').textContent = `${stats.quotaUsedPercent || 0}%`;
                 document.getElementById('statPlan').textContent = stats.plan || profile?.plan || 'Free';
+                document.getElementById('statApiCalls').textContent = (stats.apiCallsToday != null)
+                    ? Number(stats.apiCallsToday).toLocaleString() : '0';
+                document.getElementById('statStorage').textContent = formatMB(stats.storageMB);
 
                 // Load recent channels
                 const channels = await DeveloperAPI.getChannels(0, 5);
@@ -527,6 +568,7 @@
                             <td><span class="plan-badge small">${key.plan || 'Free'}</span></td>
                             <td>${formatDate(key.createdAt)}</td>
                             <td>${key.lastUsed ? formatDate(key.lastUsed) : 'Never'}</td>
+                            <td id="calls-${key.keyId}" class="calls-cell">${key.active ? '…' : '-'}</td>
                             <td><span class="status-badge ${key.active ? 'active' : 'inactive'}">${key.active ? 'Active' : 'Revoked'}</span></td>
                             <td>
                                 <button class="btn btn-small" onclick="toggleKeyVisibility('${key.keyId}')" title="View Key">👁️</button>
@@ -536,13 +578,25 @@
                         </tr>
                     `;
                     }).join('');
+
+                    // Fetch per-key call counts without blocking the table render
+                    keys.filter(k => k.active).forEach(async (key) => {
+                        const cell = document.getElementById(`calls-${key.keyId}`);
+                        if (!cell) return;
+                        try {
+                            const usage = await DeveloperAPI.getApiKeyUsage(key.keyId);
+                            cell.textContent = Number(usage.callsToday || 0).toLocaleString();
+                        } catch (e) {
+                            cell.textContent = '-';
+                        }
+                    });
                 } else {
-                    tbody.innerHTML = '<tr><td colspan="7" class="empty">No API keys found</td></tr>';
+                    tbody.innerHTML = '<tr><td colspan="8" class="empty">No API keys found</td></tr>';
                 }
             } catch (error) {
                 console.error('Failed to load API keys:', error);
                 document.getElementById('apiKeysTableBody').innerHTML =
-                    '<tr><td colspan="7" class="error">Failed to load API keys</td></tr>';
+                    '<tr><td colspan="8" class="error">Failed to load API keys</td></tr>';
             }
         }
 
@@ -655,6 +709,7 @@
                             <td>${formatStorage(ch.storageUsed)}</td>
                             <td><span class="status-badge active">Active</span></td>
                             <td>
+                                <button class="btn btn-small" onclick="showChannelMetrics('${ch.channelId}')" title="View Metrics">📊 Metrics</button>
                                 <button class="btn btn-small btn-danger" onclick="deleteChannel('${ch.channelId}')" title="Delete Channel">🗑️ Delete</button>
                             </td>
                         </tr>
@@ -709,9 +764,41 @@
                         </ul>
                     `;
                 }
+
+                renderApiCallsChart(usage.apiCallsSeries || []);
             } catch (error) {
                 console.error('Failed to load usage:', error);
             }
+        }
+
+        // Render a dependency-free bar chart of daily API calls
+        function renderApiCallsChart(series) {
+            const container = document.getElementById('apiCallsChart');
+            if (!container) return;
+
+            if (!series || series.length === 0) {
+                container.innerHTML = '<p class="empty">No API activity recorded in the last 7 days.</p>';
+                return;
+            }
+
+            const max = Math.max(1, ...series.map(p => Number(p.calls) || 0));
+            const bars = series.map(p => {
+                const calls = Number(p.calls) || 0;
+                const pct = Math.round((calls / max) * 100);
+                const day = new Date(p.date + 'T00:00:00');
+                const label = day.toLocaleDateString([], { weekday: 'short' });
+                return `
+                    <div class="chart-col" title="${p.date}: ${calls.toLocaleString()} calls">
+                        <div class="chart-bar-track">
+                            <div class="chart-bar" style="height: ${pct}%;"></div>
+                        </div>
+                        <span class="chart-value">${calls.toLocaleString()}</span>
+                        <span class="chart-label">${label}</span>
+                    </div>
+                `;
+            }).join('');
+
+            container.innerHTML = `<div class="chart-bars">${bars}</div>`;
         }
 
         // Pagination handlers
@@ -795,6 +882,12 @@
                 i++;
             }
             return `${bytes.toFixed(1)} ${units[i]}`;
+        }
+
+        function formatMB(mb) {
+            const value = Number(mb) || 0;
+            if (value >= 1024) return `${(value / 1024).toFixed(2)} GB`;
+            return `${value.toFixed(value < 10 ? 2 : 1)} MB`;
         }
 
         function debounce(func, wait) {
@@ -995,6 +1088,37 @@
                 resultDiv.textContent = '✗ ' + error.message;
                 container.style.display = 'none';
             }
+        }
+
+        // Show per-channel metrics in a modal
+        async function showChannelMetrics(channelId) {
+            const modal = document.getElementById('metricsModal');
+            const body = document.getElementById('metricsModalBody');
+            document.getElementById('metricsModalTitle').textContent = `📊 ${channelId}`;
+            body.innerHTML = '<p class="loading">Loading metrics...</p>';
+            modal.style.display = 'flex';
+
+            try {
+                const m = await DeveloperAPI.getChannelMetrics(channelId);
+                body.innerHTML = `
+                    <div class="metrics-grid">
+                        <div class="metric-item"><span class="metric-label">Messages</span><span class="metric-value">${Number(m.messageCount || 0).toLocaleString()}</span></div>
+                        <div class="metric-item"><span class="metric-label">Latest Offset</span><span class="metric-value">${Number(m.maxOffset || 0).toLocaleString()}</span></div>
+                        <div class="metric-item"><span class="metric-label">Message Data</span><span class="metric-value">${formatStorage(m.messageBytes)}</span></div>
+                        <div class="metric-item"><span class="metric-label">Channel Storage</span><span class="metric-value">${formatStorage(m.storageBytes)}</span></div>
+                        <div class="metric-item"><span class="metric-label">Storage Keys</span><span class="metric-value">${Number(m.storageKeys || 0).toLocaleString()}</span></div>
+                        <div class="metric-item"><span class="metric-label">Total Size</span><span class="metric-value">${formatStorage(m.totalBytes)}</span></div>
+                        <div class="metric-item"><span class="metric-label">Created</span><span class="metric-value">${formatDate(m.createdAt)}</span></div>
+                        <div class="metric-item"><span class="metric-label">Expires</span><span class="metric-value">${m.expired ? '⚠️ Expired' : formatDate(m.expiresAt)}</span></div>
+                    </div>
+                `;
+            } catch (error) {
+                body.innerHTML = `<p class="error">Failed to load metrics: ${error.message}</p>`;
+            }
+        }
+
+        function closeChannelMetrics() {
+            document.getElementById('metricsModal').style.display = 'none';
         }
 
         // Delete Channel
