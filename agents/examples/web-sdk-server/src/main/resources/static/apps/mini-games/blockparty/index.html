@@ -30,6 +30,7 @@
         <div class="top-actions">
             <span id="blockCount" class="pill" title="Blocks in the world">0 blocks</span>
             <span id="connectionIndicator" class="indicator disconnected" title="Connection">●</span>
+            <button id="playBtn" class="btn btn-play" title="Start a match">🎮 Play</button>
             <button id="shareBtn" class="btn btn-share" style="display:none;">🔗 Share</button>
             <button id="leaveBtn" class="btn btn-ghost">Leave</button>
         </div>
@@ -61,6 +62,67 @@
         <button id="dismissHelp" class="dismiss" aria-label="Dismiss">✕</button>
     </div>
 
+    <!-- Match HUD (only visible during a match) -->
+    <div id="matchHud" class="match-hud hidden">
+        <div class="mh-top">
+            <span id="mhMode" class="mh-mode"></span>
+            <span id="mhRound" class="mh-round"></span>
+            <span id="mhPhase" class="mh-phase"></span>
+        </div>
+        <div class="mh-timer"><div id="mhTimerFill" class="mh-timer-fill"></div></div>
+        <div class="mh-bottom">
+            <span id="mhAccuracy" class="mh-acc hidden"></span>
+            <span id="mhPeek" class="mh-peek hidden"></span>
+            <button id="mhLockBtn" class="mh-lock hidden" title="Submit your build now and claim the speed bonus (L)">✅ Lock in</button>
+            <button id="mhEndBtn" class="mh-end hidden" title="End the match and go back to the sandbox">End match</button>
+        </div>
+    </div>
+
+    <!-- Mode picker -->
+    <div id="modeModal" class="bp-modal hidden">
+        <div class="bp-modal-card">
+            <div class="bp-modal-head">
+                <h2>🎮 Start a match</h2>
+                <button id="modeClose" class="bp-close" aria-label="Close">✕</button>
+            </div>
+            <div id="modeList" class="mode-list"></div>
+            <div class="mode-opts">
+                <label>Rounds
+                    <select id="modeRounds">
+                        <option value="1">1</option>
+                        <option value="3" selected>3</option>
+                        <option value="5">5</option>
+                    </select>
+                </label>
+                <label>Round time
+                    <select id="modeTime">
+                        <option value="120">2 min</option>
+                        <option value="180" selected>3 min</option>
+                        <option value="240">4 min</option>
+                    </select>
+                </label>
+            </div>
+            <div class="bp-modal-foot">
+                <span id="modeHint" class="mode-hint"></span>
+                <button id="modeStart" class="btn btn-primary">Start match</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Round / match results -->
+    <div id="resultsOverlay" class="results-overlay hidden">
+        <div class="results-card">
+            <h2 id="rsTitle"></h2>
+            <p id="rsSubtitle" class="rs-sub"></p>
+            <div id="rsBody"></div>
+            <div class="rs-actions">
+                <button id="rsAgain" class="btn btn-primary hidden">Play again</button>
+                <button id="rsSandbox" class="btn btn-ghost hidden">Back to sandbox</button>
+                <button id="rsHide" class="btn btn-ghost">Hide</button>
+            </div>
+        </div>
+    </div>
+
     <!-- Reconnect overlay -->
     <div id="reconnectOverlay" class="reconnect-overlay hidden">
         <div class="reconnect-card">
@@ -88,6 +150,8 @@
 <!-- three.js (self-hosted, r128) + game -->
 <script src="../shared/libs/three.min.js"></script>
 <script src="../shared/game-kit.js"></script>
+<script src="models.js"></script>
+<script src="modes.js"></script>
 <script src="blockparty.js"></script>
 </body>
 </html>

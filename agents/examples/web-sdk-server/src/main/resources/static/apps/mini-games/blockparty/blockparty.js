@@ -23,6 +23,7 @@
     const STORAGE_KEY = 'blockparty_world';
     const SAVE_DEBOUNCE_MS = 2500;
     const CURSOR_THROTTLE_MS = 120;
+    const PLOT_COVER_H = 6;       // height of the cover that hides a rival's plot
 
     // Palette — index maps to a color; sent over the wire as a small int.
     const PALETTE = [
@@ -70,8 +71,17 @@
             this.ghostMaterials = PALETTE.map(hex => new THREE.MeshLambertMaterial({
                 color: new THREE.Color(hex), transparent: true, opacity: 0.45, depthWrite: false
             }));
+            // A more solid set for the blueprint you are studying — it has to be
+            // readable at a glance in three seconds.
+            this.blueprintMaterials = PALETTE.map(hex => new THREE.MeshLambertMaterial({
+                color: new THREE.Color(hex), transparent: true, opacity: 0.78
+            }));
             this.cursorGeometry = new THREE.EdgesGeometry(new THREE.BoxGeometry(1.02, 1.02, 1.02));
             this.preview = null;        // local placement ghost (built lazily)
+
+            this.arena = null;          // match plots (group), null in the sandbox
+            this.pads = new Map();      // player name -> { group, cover, label, ... }
+            this.ghostGroups = new Map(); // id -> blueprint ghost group
 
             this._initScene();
             this._initCamera();
@@ -118,11 +128,29 @@
             this.camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 500);
             this.target = new THREE.Vector3(0, 2, 0);
             this.cam = { theta: Math.PI * 0.25, phi: Math.PI * 0.32, radius: 34 };
+            // Where "reset view" goes back to. A match repoints it at your plot.
+            this.home = { x: 0, y: 2, z: 0, radius: 34, phi: Math.PI * 0.32 };
             this._applyCamera();
         }
 
         resetView() {
-            this.cam = { theta: Math.PI * 0.25, phi: Math.PI * 0.32, radius: 34 };
+            this.target.set(this.home.x, this.home.y, this.home.z);
+            this.cam = {
+                theta: Math.PI * 0.25,
+                phi: this.home.phi || Math.PI * 0.32,
+                radius: this.home.radius
+            };
+            this._applyCamera();
+        }
+
+        // Point the camera at a spot in the world. `phi` (optional) sets the
+        // pitch, so a match can frame a plot from above without the player
+        // having to re-aim after every round.
+        focus(x, y, z, radius, phi) {
+            this.target.set(x, y, z);
+            if (radius) this.cam.radius = Math.max(6, Math.min(90, radius));
+            if (phi) this.cam.phi = Math.max(0.12, Math.min(Math.PI / 2 - 0.02, phi));
+            this.home = { x, y, z, radius: this.cam.radius, phi: this.cam.phi };
             this._applyCamera();
         }
 
@@ -317,6 +345,135 @@
 
         hidePreview() { if (this.preview) this.preview.group.visible = false; }
 
+        // ---- match arena: one plot per player ----
+        // A plot is a coloured floor pad, a name plaque, and a translucent cover
+        // that hides a rival's plot while a round is running.
+        setArena(pads) {
+            this.clearArena();
+            this.arena = new THREE.Group();
+            pads.forEach(p => {
+                const cx = p.x0 + p.size / 2, cz = p.z0 + p.size / 2;
+                const color = new THREE.Color(p.color);
+                const group = new THREE.Group();
+
+                const floorGeo = new THREE.PlaneGeometry(p.size, p.size);
+                const floor = new THREE.Mesh(floorGeo, new THREE.MeshBasicMaterial({
+                    color, transparent: true, opacity: p.mine ? 0.28 : 0.07, depthWrite: false
+                }));
+                floor.rotation.x = -Math.PI / 2;
+                floor.position.set(cx, 0.02, cz);
+                group.add(floor);
+
+                const boxGeo = new THREE.BoxGeometry(p.size, 0.04, p.size);
+                const edgeGeo = new THREE.EdgesGeometry(boxGeo);
+                const border = new THREE.LineSegments(edgeGeo, new THREE.LineBasicMaterial({ color }));
+                border.position.set(cx, 0.03, cz);
+                group.add(border);
+
+                // The cover reads as a crate you cannot see into: a faint tinted
+                // volume with a hard wireframe, rather than a wall of fog.
+                const coverGeo = new THREE.BoxGeometry(p.size, PLOT_COVER_H, p.size);
+                const coverEdgeGeo = new THREE.EdgesGeometry(coverGeo);
+                const cover = new THREE.Group();
+                const coverBox = new THREE.Mesh(coverGeo, new THREE.MeshLambertMaterial({
+                    color, transparent: true, opacity: 0.09, depthWrite: false
+                }));
+                const coverWire = new THREE.LineSegments(coverEdgeGeo, new THREE.LineBasicMaterial({
+                    color, transparent: true, opacity: 0.5
+                }));
+                cover.add(coverBox);
+                cover.add(coverWire);
+                cover.position.set(cx, PLOT_COVER_H / 2, cz);
+                cover.visible = false;
+                group.add(cover);
+
+                const label = this._makeLabelSprite(p.name, p.color);
+                label.position.set(cx, PLOT_COVER_H + 1.4, cz);
+                group.add(label);
+
+                this.arena.add(group);
+                this.pads.set(p.name, {
+                    group, cover, label, color: p.color, text: p.name, cx, cz,
+                    geos: [floorGeo, boxGeo, edgeGeo, coverGeo, coverEdgeGeo]
+                });
+            });
+            this.scene.add(this.arena);
+        }
+
+        setPadLabel(name, text) {
+            const pad = this.pads.get(name);
+            if (!pad || pad.text === text) return;
+            pad.group.remove(pad.label);
+            this._disposeLabel(pad.label);
+            pad.label = this._makeLabelSprite(text, pad.color);
+            pad.label.position.set(pad.cx, PLOT_COVER_H + 1.4, pad.cz);
+            pad.group.add(pad.label);
+            pad.text = text;
+        }
+
+        setCover(name, visible) {
+            const pad = this.pads.get(name);
+            if (pad) pad.cover.visible = !!visible;
+        }
+
+        clearArena() {
+            if (this.arena) this.scene.remove(this.arena);
+            this.pads.forEach(pad => {
+                this._disposeLabel(pad.label);
+                pad.geos.forEach(g => { try { g.dispose(); } catch (e) { /* ignore */ } });
+            });
+            this.pads.clear();
+            this.arena = null;
+        }
+
+        // ---- blueprint ghosts ----
+        // Shared geometries/materials, so a group only owns its meshes.
+        showGhost(id, cells, ox, oz, strong) {
+            this.hideGhost(id);
+            const mats = strong ? this.blueprintMaterials : this.ghostMaterials;
+            const group = new THREE.Group();
+            cells.forEach(c => {
+                const si = shapeIndex(c.s);
+                const mesh = new THREE.Mesh(this.geometries[si], mats[c.c] || mats[0]);
+                mesh.position.set(ox + c.x + 0.5, c.y + shapeAt(si).cy, oz + c.z + 0.5);
+                group.add(mesh);
+            });
+            this.scene.add(group);
+            this.ghostGroups.set(id, group);
+        }
+
+        hideGhost(id) {
+            const g = this.ghostGroups.get(id);
+            if (!g) return;
+            this.scene.remove(g);
+            this.ghostGroups.delete(id);
+        }
+
+        clearGhosts() {
+            this.ghostGroups.forEach(g => this.scene.remove(g));
+            this.ghostGroups.clear();
+        }
+
+        // ---- region queries, for scoring and reveals ----
+        // Rows are [x, y, z, colorIndex, shapeIndex] relative to (ox, oz).
+        cellsInBox(box, ox, oz) {
+            const out = [];
+            this.world.forEach((c, k) => {
+                const [x, y, z] = k.split(',').map(Number);
+                if (x < box.x0 || x > box.x1 || z < box.z0 || z > box.z1) return;
+                if (y < box.y0 || y > box.y1) return;
+                out.push([x - ox, y, z - oz, c, this.shapes.get(k) || 0]);
+            });
+            return out;
+        }
+
+        paintCells(cells, ox, oz, owner) {
+            (cells || []).forEach(a => {
+                const x = a[0] + ox, y = a[1], z = a[2] + oz;
+                if (this.inBounds(x, y, z)) this.setBlock(x, y, z, a[3], owner, a[4] | 0);
+            });
+        }
+
         // ---- remote cursors: where each other player is aiming, and who they are ----
         setRemoteCursor(peerId, info) {
             info = info || {};
@@ -449,6 +606,7 @@
             });
 
             this.voxels = null;
+            this.modes = null;              // match state machine (modes.js)
             this.currentColor = 0;
             this.currentShape = 0;          // index into SHAPES
             this.tool = 'build';            // 'build' | 'erase'
@@ -461,9 +619,11 @@
         // ---------- lifecycle ----------
         async onInitialize() {
             this.voxels = new VoxelWorld(document.getElementById('sceneRoot'));
+            this.modes = new BlockPartyModes.ModeController(this);
             this._buildPalette();
             this._buildShapes();
             this._bindUI();
+            this._bindMatchUI();
             this._bindPointer();
         }
 
@@ -513,18 +673,21 @@
             this.showToast(`${detail.agentName} joined`, 'info', 1800);
             if (this.isHost()) this._sendWorldSnapshot();
             this._refreshPlayers();
+            if (this.modes) this.modes.onPlayersChanged();
         }
 
         onUserLeave(detail) {
             this.voxels.removeRemoteCursor(detail.agentName);
             this.showToast(`${detail.agentName} left`, 'warning', 1800);
             this._refreshPlayers();
+            if (this.modes) this.modes.onPlayersChanged();
         }
 
         onBecomeHost() {
             this.showToast('You are now the room host', 'info', 2200);
             this._refreshPlayers();
             this._scheduleSave(); // take ownership of persistence
+            if (this.modes) this.modes.onBecomeHost();
         }
 
         onLoseHost() {
@@ -553,7 +716,17 @@
 
         onDataChannelMessage(peerId, data) {
             if (!data || !data.type) return;
+            // A match replaces the shared world with private plots, so sandbox
+            // traffic that is still in flight must not touch it.
+            // Cursors are dropped too: a rival's aim would give their hidden
+            // build away, and it would draw a ghost inside their plot.
+            const inMatch = this.modes && this.modes.isMatchActive();
+            if (inMatch && (data.type === 'edit' || data.type === 'world'
+                || data.type === 'requestWorld' || data.type === 'cursor')) return;
             switch (data.type) {
+                case 'mode':
+                    this.modes.handleMessage(peerId, data);
+                    break;
                 case 'edit':
                     this._applyEdit(data.edit);
                     this._updateBlockCount();
@@ -600,8 +773,13 @@
                 this.undoStack.push(inverse);
                 if (this.undoStack.length > 100) this.undoStack.shift();
             }
-            this.sendData({ type: 'edit', edit });
-            if (this.isHost()) this._scheduleSave();
+            // In a match with secret builds this edit stays on this client; the
+            // finished build is submitted to the host at the end of the round.
+            if (!this.modes || this.modes.shouldBroadcastEdit()) {
+                this.sendData({ type: 'edit', edit });
+                if (this.isHost()) this._scheduleSave();
+            }
+            if (this.modes) this.modes.onLocalEdit();
             if (window.GameKit && window.GameKit.Sfx) {
                 edit.a === 'place' ? GameKit.Sfx.tick && GameKit.Sfx.tick() : null;
             }
@@ -609,6 +787,7 @@
 
         placeAt(x, y, z) {
             if (!this.voxels.inBounds(x, y, z)) return;
+            if (this.modes && !this.modes.canEdit(x, y, z)) return;
             const prev = this.voxels.world.get(VoxelWorld.key(x, y, z));
             const prevOwner = this.voxels.ownerOf(x, y, z);
             const prevShape = this.voxels.shapeOf(x, y, z);
@@ -624,6 +803,7 @@
         removeAt(x, y, z) {
             const prev = this.voxels.world.get(VoxelWorld.key(x, y, z));
             if (prev === undefined) return;
+            if (this.modes && !this.modes.canEdit(x, y, z)) return;
             const prevOwner = this.voxels.ownerOf(x, y, z);
             const prevShape = this.voxels.shapeOf(x, y, z);
             this._doLocalEdit(
@@ -633,18 +813,25 @@
         }
 
         undo() {
+            const next = this.undoStack[this.undoStack.length - 1];
+            if (!next) { this.showToast('Nothing to undo', 'info', 1200); return; }
+            // Undo is an edit like any other — the match rules still apply.
+            if (this.modes && !this.modes.canEdit(next.x, next.y, next.z)) return;
             const inv = this.undoStack.pop();
-            if (!inv) { this.showToast('Nothing to undo', 'info', 1200); return; }
             // Apply the inverse as a fresh authoritative edit (no new undo entry)
             this._applyEdit(inv);
             this._updateBlockCount();
-            this.sendData({ type: 'edit', edit: inv });
-            if (this.isHost()) this._scheduleSave();
+            if (!this.modes || this.modes.shouldBroadcastEdit()) {
+                this.sendData({ type: 'edit', edit: inv });
+                if (this.isHost()) this._scheduleSave();
+            }
+            if (this.modes) this.modes.onLocalEdit();
         }
 
         // ---------- persistence ----------
         _scheduleSave() {
             if (!this.isHost()) return;
+            if (this.modes && this.modes.isMatchActive()) return;   // the arena is not the sandbox
             clearTimeout(this._saveTimer);
             this._saveTimer = setTimeout(() => this._saveWorld(), SAVE_DEBOUNCE_MS);
         }
@@ -668,9 +855,13 @@
         }
 
         _loadWorldFromStorage() {
+            if (this.modes && this.modes.isMatchActive()) return;
             if (!this.channel || typeof this.channel.storageGet !== 'function') return;
             try {
                 this.channel.storageGet({ storageKey: STORAGE_KEY }, (res) => {
+                    // A match may have started while this round-trip was in
+                    // flight — the arena must not be overwritten.
+                    if (this.modes && this.modes.isMatchActive()) return;
                     if (res && res.status === 'success' && res.data) {
                         const blocks = res.data.blocks || (res.data.content && res.data.content.blocks);
                         if (Array.isArray(blocks) && blocks.length && this.voxels.count() === 0) {
@@ -685,7 +876,22 @@
         }
 
         _sendWorldSnapshot() {
+            // Never ship the arena out as if it were the shared world.
+            if (this.modes && this.modes.isMatchActive()) return;
             this.sendData({ type: 'world', blocks: this.voxels.encode() });
+        }
+
+        // Called by the mode controller once a match is over: the host's copy of
+        // the sandbox is the one everybody goes back to.
+        restoreSandbox() {
+            if (this.isHost()) {
+                this._sendWorldSnapshot();
+                this._scheduleSave();
+            } else {
+                this.sendData({ type: 'requestWorld' });
+            }
+            this._updateBlockCount();
+            this._refreshPlayers();
         }
 
         // ---------- input ----------
@@ -801,6 +1007,7 @@
         // Throttled cursor broadcast. `extra` is either a cell or { hide:true }.
         _sendCursor(extra) {
             if (!this.connected) return;
+            if (this.modes && this.modes.isMatchActive()) return;   // builds are secret
             const now = Date.now();
             if (now - this._lastCursorSent < CURSOR_THROTTLE_MS) return;
             this._lastCursorSent = now;
@@ -885,6 +1092,7 @@
 
             document.getElementById('leaveBtn').addEventListener('click', () => window.disconnect());
             document.getElementById('dismissHelp').addEventListener('click', () => {
+                this._helpDismissed = true;
                 document.getElementById('helpHint').classList.add('hidden');
             });
 
@@ -899,6 +1107,117 @@
                 // 1..N pick a shape
                 else if (/^[1-9]$/.test(k) && Number(k) <= SHAPES.length) { this.selectShape(Number(k) - 1); }
             });
+        }
+
+        // ---------- match UI ----------
+        _bindMatchUI() {
+            const on = (id, ev, fn) => {
+                const el = document.getElementById(id);
+                if (el) el.addEventListener(ev, fn);
+            };
+
+            on('playBtn', 'click', () => this._openModePicker());
+            on('modeClose', 'click', () => this._closeModePicker());
+            on('modeModal', 'click', (e) => { if (e.target.id === 'modeModal') this._closeModePicker(); });
+            on('modeStart', 'click', () => {
+                const rounds = Number((document.getElementById('modeRounds') || {}).value) || 3;
+                const roundTime = Number((document.getElementById('modeTime') || {}).value) || 180;
+                this._closeModePicker();
+                this.modes.startMatch(this._pickedMode || 'blueprint', { rounds, roundTime });
+            });
+
+            on('mhLockBtn', 'click', () => this.modes.lockIn());
+            on('mhEndBtn', 'click', () => this.modes.endMatch());
+
+            on('rsAgain', 'click', () => { this.hideResults(); this._openModePicker(); });
+            on('rsSandbox', 'click', () => this.modes.endMatch());
+            on('rsHide', 'click', () => this.hideResults());
+
+            // Clicking a scoreboard row — or a player during a match — flies the
+            // camera to that player's plot.
+            const focusFrom = (e, sel) => {
+                const row = e.target.closest && e.target.closest(sel);
+                if (row) this.modes.focusPlayer(row.getAttribute('data-player'));
+            };
+            on('rsBody', 'click', (e) => focusFrom(e, '.rs-row'));
+            on('playerList', 'click', (e) => {
+                if (this.modes.isMatchActive()) focusFrom(e, '.player-row');
+            });
+
+            window.addEventListener('keydown', (e) => {
+                if (e.target && /^(INPUT|TEXTAREA|SELECT)$/.test(e.target.tagName)) return;
+                if (e.key.toLowerCase() === 'l') this.modes.lockIn();
+            });
+        }
+
+        _openModePicker() {
+            const modal = document.getElementById('modeModal');
+            const list = document.getElementById('modeList');
+            if (!modal || !list) return;
+
+            this._pickedMode = this._pickedMode || 'blueprint';
+            list.innerHTML = BlockPartyModes.MODES.map(m => `
+                <button class="mode-card${m.id === this._pickedMode ? ' selected' : ''}${m.ready ? '' : ' soon'}"
+                        data-mode="${m.id}" ${m.ready ? '' : 'disabled'}>
+                    <span class="mode-emoji">${m.emoji}</span>
+                    <span class="mode-body">
+                        <span class="mode-name">${this._esc(m.name)}${m.ready ? '' : ' <em>soon</em>'}</span>
+                        <span class="mode-desc">${this._esc(m.desc)}</span>
+                    </span>
+                </button>`).join('');
+            list.querySelectorAll('.mode-card').forEach(card => {
+                card.addEventListener('click', () => {
+                    this._pickedMode = card.getAttribute('data-mode');
+                    list.querySelectorAll('.mode-card').forEach(c => c.classList.remove('selected'));
+                    card.classList.add('selected');
+                });
+            });
+
+            const isHost = this.isHost();
+            const players = Math.max(1, (this.getConnectedUsers() || []).length);
+            const hint = document.getElementById('modeHint');
+            if (hint) {
+                hint.textContent = isHost
+                    ? `${players} player${players === 1 ? '' : 's'} in the room — everyone gets a plot`
+                    : 'Only the room host can start a match';
+            }
+            const startBtn = document.getElementById('modeStart');
+            if (startBtn) startBtn.disabled = !isHost;
+            modal.classList.remove('hidden');
+        }
+
+        _closeModePicker() {
+            const modal = document.getElementById('modeModal');
+            if (modal) modal.classList.add('hidden');
+        }
+
+        showResults(opts) {
+            const ov = document.getElementById('resultsOverlay');
+            if (!ov) return;
+            const set = (id, html) => { const el = document.getElementById(id); if (el) el.innerHTML = html || ''; };
+            set('rsTitle', opts.title);
+            set('rsSubtitle', opts.subtitle);
+            set('rsBody', opts.body);
+            const again = document.getElementById('rsAgain');
+            const sand = document.getElementById('rsSandbox');
+            if (again) again.classList.toggle('hidden', !(opts.isFinal && opts.canControl));
+            if (sand) sand.classList.toggle('hidden', !opts.canControl);
+            ov.classList.remove('hidden');
+        }
+
+        hideResults() {
+            const ov = document.getElementById('resultsOverlay');
+            if (ov) ov.classList.add('hidden');
+        }
+
+        showPlayHint() {
+            const hint = document.getElementById('helpHint');
+            if (hint && !this._helpDismissed) hint.classList.remove('hidden');
+        }
+
+        hidePlayHint() {
+            const hint = document.getElementById('helpHint');
+            if (hint) hint.classList.add('hidden');
         }
 
         _syncTool() {
