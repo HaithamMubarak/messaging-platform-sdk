@@ -752,7 +752,7 @@
 
         _enterMatch() {
             const g = this.game;
-            this.sandboxBackup = g.voxels.encode();
+            this.sandboxBackup = g.snapshotWorld();
             g.voxels.clearAll();
             g.undoStack.length = 0;
             g.redoStack.length = 0;
@@ -1194,7 +1194,7 @@
             g.undoStack.length = 0;
             g.redoStack.length = 0;
             if (this.sandboxBackup) {
-                g.voxels.replaceFrom(this.sandboxBackup);
+                g.restoreWorldFrom(this.sandboxBackup);
                 this.sandboxBackup = null;
             }
             g._updateBlockCount();

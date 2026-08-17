@@ -53,19 +53,22 @@
             <button id="toolErase" class="tool-btn" data-tool="erase" title="Erase (E)">🧨<span>Erase</span></button>
             <button id="toolFill" class="tool-btn" title="Box fill — tap two opposite corners (F)">⬛<span>Fill</span></button>
             <button id="toolMirror" class="tool-btn" title="Mirror every edit across the middle (M)">🪞<span>Mirror</span></button>
+            <button id="toolBricks" class="tool-btn active" title="Build with brick pieces (K)">🧩<span>Bricks</span></button>
+            <button id="rotateBtn" class="tool-btn" title="Rotate the brick (R)">🔄<span>Rotate</span></button>
         </div>
-        <div id="shapes" class="shapes" aria-label="Block shape"></div>
+        <div id="bricks" class="bricks" aria-label="Brick piece"></div>
+        <div id="shapes" class="shapes hidden" aria-label="Block shape"></div>
         <div id="palette" class="palette" aria-label="Color palette"></div>
         <div class="tool-group tool-extra">
             <button id="undoBtn" class="tool-btn small" title="Undo (Z)">↶<span>Undo</span></button>
             <button id="redoBtn" class="tool-btn small" title="Redo (Shift+Z)">↷<span>Redo</span></button>
-            <button id="resetViewBtn" class="tool-btn small" title="Reset camera (R)">🎥<span>View</span></button>
+            <button id="resetViewBtn" class="tool-btn small" title="Reset camera (V)">🎥<span>View</span></button>
         </div>
     </div>
 
     <!-- Help hint -->
     <div id="helpHint" class="help-hint">
-        <span class="hint-text"><strong>Drag</strong> to orbit · <strong>Scroll / pinch</strong> to zoom · <strong>Tap/click</strong> to build · <strong>Right-click</strong> or Erase tool to remove · <strong>1–6</strong> to switch shape</span>
+        <span class="hint-text"><strong>Drag</strong> to orbit · <strong>Scroll / pinch</strong> to zoom · <strong>Tap/click</strong> to build · <strong>Right-click</strong> to remove · <strong>R</strong> rotates the brick · <strong>F</strong> box fill · <strong>M</strong> mirror · <strong>V</strong> resets the view</span>
         <button id="dismissHelp" class="dismiss" aria-label="Dismiss">✕</button>
     </div>
 
@@ -213,6 +216,7 @@
 <!-- three.js (self-hosted, r128) + game -->
 <script src="../shared/libs/three.min.js"></script>
 <script src="../shared/game-kit.js"></script>
+<script src="bricks.js"></script>
 <script src="models.js"></script>
 <script src="modes.js"></script>
 <script src="blockparty.js"></script>

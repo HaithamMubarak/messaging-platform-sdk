@@ -66,7 +66,13 @@
             this.world = new Map();     // "x,y,z" -> colorIndex
             this.owners = new Map();    // "x,y,z" -> player name who placed it
             this.shapes = new Map();    // "x,y,z" -> shape index (absent = cube)
-            this.meshes = new Map();    // "x,y,z" -> THREE.Mesh
+            this.meshes = new Map();    // "x,y,z" -> THREE.Mesh (single cells only)
+            // A brick piece covers several cells but is one mesh and one thing
+            // to break. Its cells are registered in world/owners too, so counts,
+            // saves and blueprint scoring keep working per cell.
+            this.pieces = new Map();    // pieceId -> { id, x, y, z, w, d, c, owner, cells, mesh }
+            this.pieceOf = new Map();   // "x,y,z" -> pieceId
+            this.brickLook = false;     // cubes render as studded 1x1 bricks
             this.remoteCursors = new Map(); // peerId -> { group, line, ghost, label, ... }
 
             this.geometries = SHAPES.map(s => s.make());
@@ -230,12 +236,32 @@
 
         hasBlock(x, y, z) { return this.world.has(VoxelWorld.key(x, y, z)); }
 
+        pieceAt(x, y, z) { return this.pieceOf.get(VoxelWorld.key(x, y, z)) || null; }
+
+        // Geometry for a plain cell: in brick mode a cube becomes a studded 1x1
+        // so single blocks and real pieces look like the same toy. The other
+        // shapes are not bricks and are left alone.
+        _cellGeometry(si) {
+            if (si === 0 && this.brickLook) return BlockPartyBricks.geometry(1, 1);
+            return this.geometries[si];
+        }
+
+        setBrickLook(on) {
+            if (this.brickLook === !!on) return;
+            this.brickLook = !!on;
+            this.meshes.forEach(mesh => {
+                if (mesh.userData.si === 0) mesh.geometry = this._cellGeometry(0);
+            });
+        }
+
         ownerOf(x, y, z) { return this.owners.get(VoxelWorld.key(x, y, z)); }
         shapeOf(x, y, z) { return this.shapes.get(VoxelWorld.key(x, y, z)) || 0; }
 
         setBlock(x, y, z, colorIndex, owner, shape) {
             const k = VoxelWorld.key(x, y, z);
             const si = shapeIndex(shape);
+            // A cell inside a brick belongs to that brick, not to itself.
+            if (this.pieceOf.has(k)) this.deletePiece(this.pieceOf.get(k));
             if (owner) this.owners.set(k, owner);
             if (si) this.shapes.set(k, si); else this.shapes.delete(k);
 
@@ -255,16 +281,69 @@
             }
             if (existing) { this.scene.remove(existing); this.meshes.delete(k); }
 
-            const mesh = new THREE.Mesh(this.geometries[si], material);
-            mesh.position.set(x + 0.5, y + shapeAt(si).cy, z + 0.5);
+            const mesh = new THREE.Mesh(this._cellGeometry(si), material);
+            // A studded 1x1 has its origin at the cell corner; the other shapes
+            // are centred, hence the half-cell offset.
+            if (si === 0 && this.brickLook) mesh.position.set(x, y, z);
+            else mesh.position.set(x + 0.5, y + shapeAt(si).cy, z + 0.5);
             mesh.userData = { cx: x, cy: y, cz: z, si };
             this.scene.add(mesh);
             this.meshes.set(k, mesh);
             this.world.set(k, colorIndex);
         }
 
+        // ---- brick pieces ----
+        // p = { id, x, y, z, w, d, c, owner }. Anything already standing in the
+        // way is cleared first, so a piece landing on top wins the same way a
+        // block does.
+        setPiece(p) {
+            if (this.pieces.has(p.id)) this.deletePiece(p.id);
+            const cells = BlockPartyBricks.cellsOf(p.x, p.y, p.z, p.w, p.d);
+            cells.forEach(([x, y, z]) => {
+                const k = VoxelWorld.key(x, y, z);
+                const other = this.pieceOf.get(k);
+                if (other) this.deletePiece(other);
+                else if (this.world.has(k)) this.deleteBlock(x, y, z);
+            });
+
+            const material = this.xray
+                ? this._ownerMaterial(p.owner)
+                : (this.materials[p.c] || this.materials[0]);
+            const mesh = new THREE.Mesh(BlockPartyBricks.geometry(p.w, p.d), material);
+            mesh.position.set(p.x, p.y, p.z);
+            mesh.userData = { piece: p.id, px: p.x, py: p.y, pz: p.z, pw: p.w, pd: p.d };
+            this.scene.add(mesh);
+
+            const keys = [];
+            cells.forEach(([x, y, z]) => {
+                const k = VoxelWorld.key(x, y, z);
+                keys.push(k);
+                this.world.set(k, p.c);
+                this.shapes.delete(k);                  // brick cells are cubes
+                if (p.owner) this.owners.set(k, p.owner);
+                this.pieceOf.set(k, p.id);
+            });
+            this.pieces.set(p.id, Object.assign({}, p, { cells: keys, mesh }));
+        }
+
+        deletePiece(id) {
+            const piece = this.pieces.get(id);
+            if (!piece) return;
+            this.scene.remove(piece.mesh);
+            piece.cells.forEach(k => {
+                this.pieceOf.delete(k);
+                this.world.delete(k);
+                this.owners.delete(k);
+                this.shapes.delete(k);
+            });
+            this.pieces.delete(id);
+        }
+
         deleteBlock(x, y, z) {
             const k = VoxelWorld.key(x, y, z);
+            // Breaking any stud of a brick takes the whole brick off.
+            const pieceId = this.pieceOf.get(k);
+            if (pieceId) { this.deletePiece(pieceId); return; }
             const mesh = this.meshes.get(k);
             if (mesh) { this.scene.remove(mesh); this.meshes.delete(k); }
             this.world.delete(k);
@@ -275,6 +354,9 @@
         clearAll() {
             this.meshes.forEach(m => this.scene.remove(m));
             this.meshes.clear();
+            this.pieces.forEach(p => this.scene.remove(p.mesh));
+            this.pieces.clear();
+            this.pieceOf.clear();
             this.world.clear();
             this.owners.clear();
             this.shapes.clear();
@@ -294,9 +376,12 @@
         // [x, y, z, colorIndex, owner?, shape?] — the tail is optional and only
         // written when it carries information, so rows stay short and worlds
         // saved by older versions (4- and 5-element rows) still load.
+        // Cells that stand on their own. Cells belonging to a brick are left to
+        // encodePieces, so a saved world reloads as bricks and not as rubble.
         encode() {
             const out = [];
             this.world.forEach((c, k) => {
+                if (this.pieceOf.has(k)) return;
                 const [x, y, z] = k.split(',').map(Number);
                 const owner = this.owners.get(k);
                 const si = this.shapes.get(k) || 0;
@@ -307,8 +392,24 @@
             return out;
         }
 
-        replaceFrom(blocks) {
+        // [id, x, y, z, w, d, colorIndex, owner]
+        encodePieces() {
+            const out = [];
+            this.pieces.forEach(p => out.push([p.id, p.x, p.y, p.z, p.w, p.d, p.c, p.owner || null]));
+            return out;
+        }
+
+        replaceFrom(blocks, pieces) {
             this.clearAll();
+            if (Array.isArray(pieces)) {
+                for (const p of pieces) {
+                    if (!p || p.length < 7) continue;
+                    const [id, x, y, z, w, d, c, owner] = p;
+                    if (this.inBounds(x, y, z)) {
+                        this.setPiece({ id, x, y, z, w, d, c, owner: owner || undefined });
+                    }
+                }
+            }
             if (Array.isArray(blocks)) {
                 for (const b of blocks) {
                     if (!b || b.length < 4) continue;
@@ -327,20 +428,66 @@
             );
             this.raycaster.setFromCamera(ndc, this.camera);
             const targets = Array.from(this.meshes.values());
+            this.pieces.forEach(p => targets.push(p.mesh));
             targets.push(this.ground);
             const hits = this.raycaster.intersectObjects(targets, false);
             if (!hits.length) return null;
 
             const hit = hits[0];
-            if (hit.object.userData && hit.object.userData.isGround) {
+            const ud = hit.object.userData || {};
+            if (ud.isGround) {
                 const x = Math.floor(hit.point.x);
                 const z = Math.floor(hit.point.z);
                 return { place: { x, y: 0, z }, remove: null };
             }
-            const { cx, cy, cz } = hit.object.userData;
+
             const n = hit.face.normal;
+            if (ud.piece) {
+                // A brick spans several cells, so the cell has to come from where
+                // the ray landed: step just inside the surface and floor it. The
+                // studs stick up into the cell above, so y is pinned to the piece.
+                const inside = hit.point.clone().addScaledVector(n, -0.5);
+                const clamp = (v, lo, hi) => Math.max(lo, Math.min(hi, v));
+                const cell = {
+                    x: clamp(Math.floor(inside.x), ud.px, ud.px + ud.pw - 1),
+                    y: ud.py,
+                    z: clamp(Math.floor(inside.z), ud.pz, ud.pz + ud.pd - 1)
+                };
+                return {
+                    place: { x: cell.x + Math.round(n.x), y: cell.y + Math.round(n.y), z: cell.z + Math.round(n.z) },
+                    remove: cell
+                };
+            }
+
+            const { cx, cy, cz } = ud;
             const place = { x: cx + Math.round(n.x), y: cy + Math.round(n.y), z: cz + Math.round(n.z) };
             return { place, remove: { x: cx, y: cy, z: cz } };
+        }
+
+        // Ghost of a whole brick about to be dropped, at its minimum corner.
+        showPiecePreview(x, y, z, w, d, colorIndex, blocked) {
+            if (!this.piecePreview) {
+                this.piecePreview = new THREE.Mesh(
+                    BlockPartyBricks.geometry(1, 1), this.ghostMaterials[0]
+                );
+                this.scene.add(this.piecePreview);
+            }
+            const p = this.piecePreview;
+            p.visible = true;
+            p.geometry = BlockPartyBricks.geometry(w, d);
+            p.material = blocked ? this._blockedMaterial() : (this.ghostMaterials[colorIndex] || this.ghostMaterials[0]);
+            p.position.set(x, y, z);
+        }
+
+        hidePiecePreview() { if (this.piecePreview) this.piecePreview.visible = false; }
+
+        _blockedMaterial() {
+            if (!this._blockedMat) {
+                this._blockedMat = new THREE.MeshLambertMaterial({
+                    color: new THREE.Color('#ff5a5f'), transparent: true, opacity: 0.35, depthWrite: false
+                });
+            }
+            return this._blockedMat;
         }
 
         // ---- local placement preview (my own aim, before I commit an edit) ----
@@ -406,6 +553,11 @@
                 mesh.material = this.xray
                     ? this._ownerMaterial(this.owners.get(k))
                     : (this.materials[this.world.get(k)] || this.materials[0]);
+            });
+            this.pieces.forEach(p => {
+                p.mesh.material = this.xray
+                    ? this._ownerMaterial(p.owner)
+                    : (this.materials[p.c] || this.materials[0]);
             });
         }
 
@@ -697,6 +849,9 @@
             this.currentColor = 0;
             this.currentShape = 0;          // index into SHAPES
             this.tool = 'build';            // 'build' | 'erase'
+            this.brickMode = true;          // build with LEGO-style brick pieces
+            this.currentBrick = '2x4';      // footprint from bricks.js
+            this.brickRotated = false;      // swaps the footprint's w and d
             this.fillMode = false;          // box fill/clear rides on the tool
             this.fillAnchor = null;         // first corner, once tapped
             this.mirror = false;            // place a mirrored twin of each edit
@@ -716,12 +871,19 @@
             this.modes = new BlockPartyModes.ModeController(this);
             this._buildPalette();
             this._buildShapes();
+            this._buildBricks();
+            try {
+                const saved = localStorage.getItem('blockparty_bricks');
+                if (saved !== null) this.brickMode = saved === '1';
+            } catch (e) { /* private mode, keep the default */ }
+            this.voxels.setBrickLook(this.brickMode);
             this._bindUI();
             this._bindMatchUI();
             this._bindWorldUI();
             this._bindChat();
             this._bindPointer();
             this._syncHistoryButtons();
+            this._syncTool();
         }
 
         onConnect(detail) {
@@ -854,7 +1016,7 @@
                     break;
                 }
                 case 'world':
-                    this.voxels.replaceFrom(data.blocks);
+                    this.voxels.replaceFrom(data.blocks, data.pieces);
                     // The snapshot carries the lock so a late joiner learns the
                     // room is read-only without a separate round trip.
                     if (typeof data.locked === 'boolean') this._setWorldLocked(data.locked);
@@ -901,7 +1063,16 @@
             } else if (edit.a === 'bulk') {
                 // Removals first: a fill over an existing region is a clear
                 // followed by a build, and the two lists may overlap.
+                (edit.delPieces || []).forEach(id => this.voxels.deletePiece(id));
                 (edit.remove || []).forEach(r => this.voxels.deleteBlock(r[0], r[1], r[2]));
+                (edit.addPieces || []).forEach(p => {
+                    if (this.voxels.inBounds(p[1], p[2], p[3])) {
+                        this.voxels.setPiece({
+                            id: p[0], x: p[1], y: p[2], z: p[3],
+                            w: p[4], d: p[5], c: p[6], owner: p[7] || edit.o
+                        });
+                    }
+                });
                 (edit.place || []).forEach(p => {
                     if (this.voxels.inBounds(p[0], p[1], p[2])) {
                         this.voxels.setBlock(p[0], p[1], p[2], p[3], p[5] || edit.o, p[4]);
@@ -909,6 +1080,8 @@
                 });
             }
         }
+
+        _pieceRow(p) { return [p.id, p.x, p.y, p.z, p.w, p.d, p.c, p.owner || null]; }
 
         // What the world looks like at a cell right now, as a bulk row.
         _cellRow(x, y, z) {
@@ -931,18 +1104,47 @@
                 return edit.a === 'place' ? { a: 'remove', x: edit.x, y: edit.y, z: edit.z } : null;
             }
             if (edit.a === 'bulk') {
-                const place = [], remove = [], seen = new Set();
-                const touch = (x, y, z) => {
-                    const k = x + ',' + y + ',' + z;
-                    if (seen.has(k)) return;
-                    seen.add(k);
+                // Every cell this edit will disturb, including the footprints of
+                // bricks it adds and the cells of bricks it removes.
+                const cells = new Set();
+                const add = (x, y, z) => cells.add(x + ',' + y + ',' + z);
+                (edit.place || []).forEach(p => add(p[0], p[1], p[2]));
+                (edit.remove || []).forEach(r => add(r[0], r[1], r[2]));
+                (edit.addPieces || []).forEach(p => {
+                    BlockPartyBricks.cellsOf(p[1], p[2], p[3], p[4], p[5]).forEach(c => add(c[0], c[1], c[2]));
+                });
+                (edit.delPieces || []).forEach(id => {
+                    const piece = this.voxels.pieces.get(id);
+                    if (piece) piece.cells.forEach(k => cells.add(k));
+                });
+
+                // A brick is restored whole, so any brick that overlaps the
+                // disturbed area is put back in full — and its cells are then
+                // not the business of the plain place/remove lists.
+                const pieceIds = new Set();
+                cells.forEach(k => {
+                    const id = this.voxels.pieceOf.get(k);
+                    if (id) pieceIds.add(id);
+                });
+                const addPieces = [], covered = new Set();
+                pieceIds.forEach(id => {
+                    const piece = this.voxels.pieces.get(id);
+                    if (!piece) return;
+                    addPieces.push(this._pieceRow(piece));
+                    piece.cells.forEach(k => covered.add(k));
+                });
+                const delPieces = (edit.addPieces || []).map(p => p[0]);
+
+                const place = [], remove = [];
+                cells.forEach(k => {
+                    if (covered.has(k)) return;
+                    const [x, y, z] = k.split(',').map(Number);
                     const row = this._cellRow(x, y, z);
                     if (row) place.push(row); else remove.push([x, y, z]);
-                };
-                (edit.place || []).forEach(p => touch(p[0], p[1], p[2]));
-                (edit.remove || []).forEach(r => touch(r[0], r[1], r[2]));
-                if (!place.length && !remove.length) return null;
-                return { a: 'bulk', place, remove };
+                });
+
+                if (!place.length && !remove.length && !addPieces.length && !delPieces.length) return null;
+                return { a: 'bulk', place, remove, addPieces, delPieces };
             }
             return null;
         }
@@ -975,13 +1177,17 @@
             // removes, and _inverseOf assigns every touched cell to one list.
             if (edit.a === 'bulk') {
                 const place = edit.place || [], remove = edit.remove || [];
-                for (let i = 0; i < Math.max(place.length, remove.length, 1); i += BULK_CHUNK) {
+                const addPieces = edit.addPieces || [], delPieces = edit.delPieces || [];
+                const span = Math.max(place.length, remove.length, addPieces.length, delPieces.length, 1);
+                for (let i = 0; i < span; i += BULK_CHUNK) {
                     this.sendData({
                         type: 'edit',
                         edit: {
                             a: 'bulk', o: edit.o,
                             place: place.slice(i, i + BULK_CHUNK),
-                            remove: remove.slice(i, i + BULK_CHUNK)
+                            remove: remove.slice(i, i + BULK_CHUNK),
+                            addPieces: addPieces.slice(i, i + BULK_CHUNK),
+                            delPieces: delPieces.slice(i, i + BULK_CHUNK)
                         }
                     });
                 }
@@ -1027,7 +1233,49 @@
             return { cx: 0.5, cz: 0.5 };
         }
 
+        // The footprint of the brick about to be placed, at anchor (x, z).
+        pieceFootprint() {
+            const brick = BlockPartyBricks.byId(this.currentBrick);
+            return BlockPartyBricks.footprint(brick, this.brickRotated);
+        }
+
+        // Where a brick may not go: off the grid, out of my plot, or on top of
+        // something already standing. Returns the blocking reason, or null.
+        pieceBlocked(x, y, z, w, d) {
+            const cells = BlockPartyBricks.cellsOf(x, y, z, w, d);
+            for (const [cx, cy, cz] of cells) {
+                if (!this.voxels.inBounds(cx, cy, cz)) return 'off the board';
+                if (!this._canEditCell(cx, cy, cz, true)) return 'out of your area';
+                if (this.voxels.hasBlock(cx, cy, cz)) return 'something is in the way';
+            }
+            return null;
+        }
+
+        placeBrickAt(x, y, z) {
+            const { w, d } = this.pieceFootprint();
+            const blocked = this.pieceBlocked(x, y, z, w, d);
+            if (blocked) {
+                // The mode's own refusal is more informative than "in the way".
+                if (blocked === 'out of your area') this._canEditCell(x, y, z);
+                else this._denyOnce(`That brick does not fit — ${blocked}`);
+                return;
+            }
+            const mk = (px, pz) => [
+                BlockPartyBricks.newId(this.username), px, y, pz, w, d, this.currentColor, this.username
+            ];
+            const pieces = [mk(x, z)];
+            if (this.mirror) {
+                // Mirror the whole footprint, not just its corner, or a wide
+                // brick would land offset from its twin.
+                const area = this.buildArea();
+                const mx = Math.round(2 * area.cx - x - w);
+                if (mx !== x && !this.pieceBlocked(mx, y, z, w, d)) pieces.push(mk(mx, z));
+            }
+            this._doLocalEdit({ a: 'bulk', o: this.username, addPieces: pieces });
+        }
+
         placeAt(x, y, z) {
+            if (this.brickMode) { this.placeBrickAt(x, y, z); return; }
             if (!this._canEditCell(x, y, z)) return;
             const cells = [[x, y, z]];
             if (this.mirror) {
@@ -1047,6 +1295,23 @@
         removeAt(x, y, z) {
             if (!this.voxels.hasBlock(x, y, z)) return;
             if (!this._canEditCell(x, y, z)) return;
+
+            // Breaking one stud of a brick takes the brick off, mirrored twin
+            // included if the mirror is on.
+            const pieceId = this.voxels.pieceAt(x, y, z);
+            if (pieceId) {
+                const ids = [pieceId];
+                if (this.mirror) {
+                    const piece = this.voxels.pieces.get(pieceId);
+                    const area = this.buildArea();
+                    const mx = Math.round(2 * area.cx - piece.x - piece.w);
+                    const twin = this.voxels.pieceAt(mx, piece.y, piece.z);
+                    if (twin && twin !== pieceId) ids.push(twin);
+                }
+                this._doLocalEdit({ a: 'bulk', o: this.username, delPieces: ids });
+                return;
+            }
+
             const cells = [[x, y, z]];
             if (this.mirror) {
                 const m = this._mirrorOf(x, z);
@@ -1138,9 +1403,10 @@
         _saveWorld() {
             if (!this.isHost() || !this.channel || typeof this.channel.storagePut !== 'function') return;
             try {
+                const snap = this.snapshotWorld();
                 this.channel.storagePut({
                     storageKey: STORAGE_KEY,
-                    content: { v: 1, blocks: this.voxels.encode() },
+                    content: { v: 2, blocks: snap.blocks, pieces: snap.pieces },
                     encrypted: false,
                     metadata: { description: 'BlockParty voxel world', blocks: this.voxels.count() }
                 }, (res) => {
@@ -1162,9 +1428,12 @@
                     // flight — the arena must not be overwritten.
                     if (this.modes && this.modes.isMatchActive()) return;
                     if (res && res.status === 'success' && res.data) {
-                        const blocks = res.data.blocks || (res.data.content && res.data.content.blocks);
-                        if (Array.isArray(blocks) && blocks.length && this.voxels.count() === 0) {
-                            this.voxels.replaceFrom(blocks);
+                        const saved = res.data.content || res.data;
+                        const blocks = saved.blocks, pieces = saved.pieces;
+                        const any = (Array.isArray(blocks) && blocks.length)
+                            || (Array.isArray(pieces) && pieces.length);
+                        if (any && this.voxels.count() === 0) {
+                            this.restoreWorldFrom({ blocks, pieces });
                             this._updateBlockCount();
                         }
                     }
@@ -1174,10 +1443,22 @@
             }
         }
 
+        // Everything standing, in both flavours: loose cells and brick pieces.
+        snapshotWorld() {
+            return { blocks: this.voxels.encode(), pieces: this.voxels.encodePieces() };
+        }
+
+        restoreWorldFrom(snap) {
+            if (!snap) return;
+            this.voxels.replaceFrom(snap.blocks, snap.pieces);
+            if (this.xray) this.voxels.setOwnerXray(true, (n) => this.generateUserColor(n));
+        }
+
         _sendWorldSnapshot() {
             // Never ship the arena out as if it were the shared world.
             if (this.modes && this.modes.isMatchActive()) return;
-            this.sendData({ type: 'world', blocks: this.voxels.encode(), locked: this.worldLocked });
+            const snap = this.snapshotWorld();
+            this.sendData({ type: 'world', blocks: snap.blocks, pieces: snap.pieces, locked: this.worldLocked });
         }
 
         // ---------- world management (slots, lock, clear) ----------
@@ -1228,15 +1509,16 @@
                 return;
             }
             const slug = name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || 'world';
-            const blocks = this.voxels.encode();
+            const snap = this.snapshotWorld();
+            const count = this.voxels.count();
             this.channel.storagePut({
                 storageKey: SLOT_PREFIX + slug,
-                content: { v: 1, name, by: this.username, at: Date.now(), blocks },
+                content: { v: 2, name, by: this.username, at: Date.now(), blocks: snap.blocks, pieces: snap.pieces },
                 encrypted: false,
-                metadata: { description: 'BlockParty saved world', blocks: blocks.length }
+                metadata: { description: 'BlockParty saved world', blocks: count }
             }, (res) => {
                 if (res && res.status === 'success') {
-                    this.showToast(`Saved “${name}” (${blocks.length} blocks)`, 'success', 2200);
+                    this.showToast(`Saved “${name}” (${count} blocks)`, 'success', 2200);
                     this._loadSlotList();
                 } else {
                     this.showToast('Save failed: ' + ((res && res.statusMessage) || 'unknown error'), 'error');
@@ -1253,10 +1535,10 @@
             if (!window.confirm(`Load “${label}”? The current world will be replaced.`)) return;
             this.channel.storageGet({ storageKey: key }, (res) => {
                 const payload = (res && res.status === 'success') ? res.data : null;
-                const blocks = payload && (payload.blocks || (payload.content && payload.content.blocks));
+                const saved = payload && (payload.content || payload);
+                const blocks = saved && saved.blocks;
                 if (!Array.isArray(blocks)) { this.showToast('That save could not be read', 'error'); return; }
-                this.voxels.replaceFrom(blocks);
-                if (this.xray) this.voxels.setOwnerXray(true, (n) => this.generateUserColor(n));
+                this.restoreWorldFrom({ blocks, pieces: saved.pieces });
                 this.undoStack.length = 0;
                 this.redoStack.length = 0;
                 this._syncHistoryButtons();
@@ -1264,7 +1546,7 @@
                 this._refreshPlayers();
                 this._sendWorldSnapshot();
                 this._scheduleSave();
-                this.showToast(`Loaded “${label}” — ${blocks.length} blocks`, 'success', 2400);
+                this.showToast(`Loaded “${label}” — ${this.voxels.count()} blocks`, 'success', 2400);
                 this._closeWorldModal();
             });
         }
@@ -1416,6 +1698,7 @@
                 // No valid target (e.g. Erase aimed at empty ground). Tell the
                 // others to drop my cursor, or they keep seeing a stale ghost.
                 this.voxels.hidePreview();
+                this.voxels.hidePiecePreview();
                 this._sendCursor({ hide: true });
                 return;
             }
@@ -1423,10 +1706,19 @@
             // Mid-fill, the pending box is the useful preview, not one cell.
             if (this.fillMode && this.fillAnchor) {
                 this.voxels.hidePreview();
+                this.voxels.hidePiecePreview();
                 const n = this.voxels.showRegion(this.fillAnchor, cell, this.fillAnchor.erase);
                 const hint = document.getElementById('fillHint');
                 if (hint) hint.textContent = `${n} cell${n === 1 ? '' : 's'} — tap to ${this.fillAnchor.erase ? 'clear' : 'fill'}`;
+            } else if (this.brickMode && !erasing && !this.fillMode) {
+                // Show the whole brick, and show it red when it will not fit —
+                // the footprint is the thing you need to judge before tapping.
+                this.voxels.hidePreview();
+                const { w, d } = this.pieceFootprint();
+                this.voxels.showPiecePreview(cell.x, cell.y, cell.z, w, d, this.currentColor,
+                    !!this.pieceBlocked(cell.x, cell.y, cell.z, w, d));
             } else {
+                this.voxels.hidePiecePreview();
                 this.voxels.showPreview(cell.x, cell.y, cell.z, this.currentShape, this.currentColor, erasing);
             }
 
@@ -1523,6 +1815,8 @@
             };
             on('redoBtn', 'click', () => this.redo());
             on('toolFill', 'click', () => this.toggleFill());
+            on('toolBricks', 'click', () => this.toggleBrickMode());
+            on('rotateBtn', 'click', () => this.rotateBrick());
             on('toolMirror', 'click', () => this.toggleMirror());
             on('xrayBtn', 'click', () => this.toggleXray());
             on('followPill', 'click', () => this.stopFollowing());
@@ -1551,10 +1845,68 @@
                 else if (k === 'o') { this.toggleXray(); }
                 else if (k === 'z') { e.shiftKey ? this.redo() : this.undo(); }
                 else if (k === 'y') { this.redo(); }
-                else if (k === 'r') { this.stopFollowing(); this.voxels.resetView(); }
+                else if (k === 'r') {
+                    // R is rotate while bricks are on, where it is the more
+                    // useful key by far; V always resets the view.
+                    if (this.brickMode) this.rotateBrick();
+                    else { this.stopFollowing(); this.voxels.resetView(); }
+                }
+                else if (k === 'v') { this.stopFollowing(); this.voxels.resetView(); }
+                else if (k === 'k') { this.toggleBrickMode(); }
                 // 1..N pick a shape
                 else if (/^[1-9]$/.test(k) && Number(k) <= SHAPES.length) { this.selectShape(Number(k) - 1); }
             });
+        }
+
+        // ---------- bricks ----------
+        _buildBricks() {
+            const bar = document.getElementById('bricks');
+            if (!bar) return;
+            bar.innerHTML = '';
+            BlockPartyBricks.BRICKS.forEach(brick => {
+                const btn = document.createElement('button');
+                btn.type = 'button';
+                btn.className = 'brick-btn' + (brick.id === this.currentBrick ? ' selected' : '');
+                btn.setAttribute('data-brick', brick.id);
+                btn.title = brick.name + ' brick';
+                // A little grid of studs reads faster than the label alone.
+                btn.innerHTML = `<span class="brick-studs" style="grid-template-columns:repeat(${brick.w},6px)">`
+                    + '<i></i>'.repeat(brick.w * brick.d) + `</span><span class="brick-label">${brick.name}</span>`;
+                btn.addEventListener('click', () => this.selectBrick(brick.id));
+                bar.appendChild(btn);
+            });
+        }
+
+        selectBrick(id) {
+            this.currentBrick = id;
+            this.tool = 'build';
+            const bar = document.getElementById('bricks');
+            if (bar) {
+                bar.querySelectorAll('.brick-btn').forEach(b => {
+                    b.classList.toggle('selected', b.getAttribute('data-brick') === id);
+                });
+            }
+            this._syncTool();
+            this._refreshAim();
+        }
+
+        rotateBrick() {
+            if (!this.brickMode) return;
+            this.brickRotated = !this.brickRotated;
+            const { w, d } = this.pieceFootprint();
+            this._syncTool();
+            this._refreshAim();
+            this.showToast(`Rotated — ${w} × ${d}`, 'info', 1200);
+        }
+
+        toggleBrickMode(on) {
+            this.brickMode = (typeof on === 'boolean') ? on : !this.brickMode;
+            this.voxels.setBrickLook(this.brickMode);
+            this.voxels.hidePiecePreview();
+            try { localStorage.setItem('blockparty_bricks', this.brickMode ? '1' : '0'); } catch (e) { /* ignore */ }
+            this._syncTool();
+            this._refreshAim();
+            this.showToast(this.brickMode ? '🧩 Brick pieces on' : 'Back to single blocks', 'info', 1800);
         }
 
         // ---------- build helpers ----------
@@ -2022,7 +2374,21 @@
             set('toolErase', this.tool === 'erase');
             set('toolFill', this.fillMode);
             set('toolMirror', this.mirror);
+            set('toolBricks', this.brickMode);
             set('xrayBtn', this.xray);
+
+            // Bricks and single-block shapes are alternative palettes; only one
+            // of them is meaningful at a time.
+            const bricks = document.getElementById('bricks');
+            const shapes = document.getElementById('shapes');
+            const rotate = document.getElementById('rotateBtn');
+            if (bricks) bricks.classList.toggle('hidden', !this.brickMode);
+            if (shapes) shapes.classList.toggle('hidden', this.brickMode);
+            if (rotate) {
+                rotate.classList.toggle('hidden', !this.brickMode);
+                const { w, d } = this.pieceFootprint();
+                rotate.title = `Rotate the brick (R) — now ${w} × ${d}`;
+            }
         }
 
         _updateBlockCount() {

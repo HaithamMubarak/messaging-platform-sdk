@@ -497,3 +497,25 @@ html, body {
     .follow-pill { top: 100px; font-size: 11px; }
     .fill-hint { bottom: 104px; }
 }
+
+/* ---- Brick pieces -------------------------------------------------------- */
+.bricks { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; }
+.brick-btn {
+    display: flex; flex-direction: column; align-items: center; gap: 3px;
+    padding: 6px 8px; min-width: 52px; border-radius: 10px; cursor: pointer;
+    color: var(--text); background: rgba(255,255,255,0.05); border: 1px solid var(--border);
+    transition: transform .08s ease, border-color .12s ease, background .12s ease;
+}
+.brick-btn:hover { transform: scale(1.05); background: rgba(255,255,255,0.10); }
+.brick-btn.selected { border-color: var(--accent); background: rgba(99,102,241,0.25); }
+/* A miniature of the footprint: one dot per stud. */
+.brick-studs { display: grid; gap: 2px; }
+.brick-studs i { width: 6px; height: 6px; border-radius: 50%; background: currentColor; opacity: 0.75; }
+.brick-label { font-size: 10px; font-weight: 700; color: var(--muted); }
+.brick-btn.selected .brick-label { color: var(--text); }
+
+@media (max-width: 640px) {
+    .bricks { grid-template-columns: repeat(4, 1fr); gap: 4px; }
+    .brick-btn { min-width: 40px; padding: 4px 5px; }
+    .brick-label { display: none; }
+}
