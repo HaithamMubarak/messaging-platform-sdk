@@ -624,6 +624,7 @@
             this._buildShapes();
             this._bindUI();
             this._bindMatchUI();
+            this._bindChat();
             this._bindPointer();
         }
 
@@ -718,16 +719,35 @@
             if (!data || !data.type) return;
             // A match replaces the shared world with private plots, so sandbox
             // traffic that is still in flight must not touch it.
-            // Cursors are dropped too: a rival's aim would give their hidden
-            // build away, and it would draw a ghost inside their plot.
+            // In a race, a rival's aim would give their hidden build away, so
+            // edits and cursors are dropped. Charades relays both on purpose —
+            // the room is meant to watch the builder work.
             const inMatch = this.modes && this.modes.isMatchActive();
-            if (inMatch && (data.type === 'edit' || data.type === 'world'
-                || data.type === 'requestWorld' || data.type === 'cursor')) return;
+            const live = inMatch && this.modes.relaysEdits();
+            if (inMatch && !live && (data.type === 'edit' || data.type === 'cursor')) return;
+            if (inMatch && (data.type === 'world' || data.type === 'requestWorld')) return;
             switch (data.type) {
                 case 'mode':
                     this.modes.handleMessage(peerId, data);
                     break;
-                case 'edit':
+                case 'chat': {
+                    // The host is the room's relay, and the only place a muted
+                    // player can actually be silenced for everybody.
+                    const from = data._fromClient || data.name;
+                    if (this.isHost() && !data._fromHost) {
+                        if (this.modes && this.modes.chatBlockedFor(from)) break;
+                        this.sendData(data);
+                    }
+                    if (data.name !== this.username) {
+                        this.addChatMessage(data.name, data.text, { guess: !!data.guess });
+                    }
+                    break;
+                }
+                case 'edit': {
+                    // Only the host polices who may edit during a match; clients
+                    // see edits solely via the host's relay and trust them.
+                    const by = data._fromClient || peerId;
+                    if (this.isHost() && inMatch && !this.modes.canRelayEditFrom(by)) break;
                     this._applyEdit(data.edit);
                     this._updateBlockCount();
                     if (this.isHost()) {
@@ -736,6 +756,7 @@
                         this._scheduleSave();
                     }
                     break;
+                }
                 case 'world':
                     this.voxels.replaceFrom(data.blocks);
                     this._updateBlockCount();
@@ -1007,7 +1028,8 @@
         // Throttled cursor broadcast. `extra` is either a cell or { hide:true }.
         _sendCursor(extra) {
             if (!this.connected) return;
-            if (this.modes && this.modes.isMatchActive()) return;   // builds are secret
+            // Secret builds stay secret; in charades the room follows the cursor.
+            if (this.modes && this.modes.isMatchActive() && !this.modes.relaysEdits()) return;
             const now = Date.now();
             if (now - this._lastCursorSent < CURSOR_THROTTLE_MS) return;
             this._lastCursorSent = now;
@@ -1122,6 +1144,7 @@
             on('modeStart', 'click', () => {
                 const rounds = Number((document.getElementById('modeRounds') || {}).value) || 3;
                 const roundTime = Number((document.getElementById('modeTime') || {}).value) || 180;
+                this._chatUnread = 0;
                 this._closeModePicker();
                 this.modes.startMatch(this._pickedMode || 'blueprint', { rounds, roundTime });
             });
@@ -1165,13 +1188,22 @@
                         <span class="mode-desc">${this._esc(m.desc)}</span>
                     </span>
                 </button>`).join('');
+            const applyDefaults = (id) => {
+                const mode = BlockPartyModes.MODES.find(m => m.id === id);
+                const time = document.getElementById('modeTime');
+                // Each mode has its own natural round length — a 3-minute
+                // charades round is a very long silence.
+                if (mode && mode.defaultTime && time) time.value = String(mode.defaultTime);
+            };
             list.querySelectorAll('.mode-card').forEach(card => {
                 card.addEventListener('click', () => {
                     this._pickedMode = card.getAttribute('data-mode');
                     list.querySelectorAll('.mode-card').forEach(c => c.classList.remove('selected'));
                     card.classList.add('selected');
+                    applyDefaults(this._pickedMode);
                 });
             });
+            applyDefaults(this._pickedMode);
 
             const isHost = this.isHost();
             const players = Math.max(1, (this.getConnectedUsers() || []).length);
@@ -1191,6 +1223,114 @@
             if (modal) modal.classList.add('hidden');
         }
 
+        // ---------- chat / guessing ----------
+        _bindChat() {
+            const form = document.getElementById('chatForm');
+            const input = document.getElementById('chatInput');
+            const toggle = document.getElementById('chatToggle');
+            const close = document.getElementById('chatClose');
+
+            if (form) {
+                form.addEventListener('submit', (e) => {
+                    e.preventDefault();
+                    const text = input.value;
+                    input.value = '';
+                    this.sendChatLine(text);
+                });
+            }
+            if (input) {
+                input.addEventListener('keydown', (e) => {
+                    e.stopPropagation();                 // never trigger build shortcuts
+                    if (e.key === 'Escape') input.blur();
+                });
+            }
+            if (toggle) toggle.addEventListener('click', () => {
+                const panel = document.getElementById('chatPanel');
+                this.openChat(panel.classList.contains('hidden'), true);
+            });
+            if (close) close.addEventListener('click', () => this.openChat(false));
+        }
+
+        openChat(on, focus) {
+            const panel = document.getElementById('chatPanel');
+            if (!panel) return;
+            panel.classList.toggle('hidden', !on);
+            if (on) {
+                this._chatUnread = 0;
+                this._renderChatBadge();
+                this._updateChatMode();
+                // The builder must not type, so only a guesser gets the caret.
+                const guessing = this.modes && this.modes.isMatchActive()
+                    && this.modes.relaysEdits()
+                    && this.modes.state.builder !== this.username;
+                if (focus || guessing) {
+                    const input = document.getElementById('chatInput');
+                    if (input && !input.disabled) input.focus();
+                }
+            }
+        }
+
+        // Placeholder and enabled-state follow the mode: in charades the builder
+        // is muted and everyone else is prompted to guess.
+        _updateChatMode() {
+            const input = document.getElementById('chatInput');
+            const title = document.getElementById('chatTitle');
+            if (!input) return;
+            const s = this.modes && this.modes.state;
+            const charades = !!(s && s.mode === 'charades' && s.phase === 'play');
+            const iBuild = charades && s.builder === this.username;
+            input.disabled = iBuild;
+            input.placeholder = iBuild ? 'No words — build it! 🤫'
+                : (charades ? `Guess what ${s.builder} is building…` : 'Say something…');
+            if (title) title.textContent = charades ? '🤫 Guesses' : '💬 Chat';
+        }
+
+        sendChatLine(text) {
+            text = String(text || '').trim().slice(0, 120);
+            if (!text) return;
+            // A charades round turns chat into guessing: the mode takes the line
+            // and sends it to the host to be judged instead of to the room.
+            if (this.modes && this.modes.handleLocalChat(text)) return;
+            this.sendData({ type: 'chat', name: this.username, text });
+            this.addChatMessage(this.username, text, { me: true });
+        }
+
+        // Host-side echo of somebody else's line (a wrong guess, say).
+        relayChat(msg) {
+            const payload = { type: 'chat', name: msg.name, text: msg.text, guess: !!msg.guess };
+            this.sendData(payload);
+            this.addChatMessage(msg.name, msg.text, { guess: !!msg.guess });
+        }
+
+        addChatMessage(name, text, opts) {
+            opts = opts || {};
+            const log = document.getElementById('chatLog');
+            if (!log) return;
+            const line = document.createElement('div');
+            line.className = 'chat-line'
+                + (opts.me ? ' me' : '') + (opts.system ? ' system' : '') + (opts.guess ? ' guess' : '');
+            const color = this.generateUserColor(name);
+            line.innerHTML = `<span class="chat-who" style="color:${color}">${this._esc(name)}</span>`
+                + `<span class="chat-text">${this._esc(text)}</span>`;
+            log.appendChild(line);
+            while (log.children.length > 80) log.removeChild(log.firstChild);
+            log.scrollTop = log.scrollHeight;
+
+            const panel = document.getElementById('chatPanel');
+            if (panel && panel.classList.contains('hidden')) {
+                this._chatUnread = (this._chatUnread || 0) + 1;
+                this._renderChatBadge();
+            }
+        }
+
+        _renderChatBadge() {
+            const badge = document.getElementById('chatBadge');
+            if (!badge) return;
+            const n = this._chatUnread || 0;
+            badge.textContent = n > 9 ? '9+' : String(n);
+            badge.classList.toggle('hidden', n === 0);
+        }
+
         showResults(opts) {
             const ov = document.getElementById('resultsOverlay');
             if (!ov) return;
@@ -1208,6 +1348,13 @@
         hideResults() {
             const ov = document.getElementById('resultsOverlay');
             if (ov) ov.classList.add('hidden');
+        }
+
+        // Hide the build dock from anyone who cannot build this round — a
+        // guesser waving at a palette that does nothing just reads as broken.
+        setToolsVisible(on) {
+            const dock = document.querySelector('.tool-dock');
+            if (dock) dock.classList.toggle('hidden', !on);
         }
 
         showPlayHint() {

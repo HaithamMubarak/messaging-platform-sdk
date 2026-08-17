@@ -30,6 +30,7 @@
         <div class="top-actions">
             <span id="blockCount" class="pill" title="Blocks in the world">0 blocks</span>
             <span id="connectionIndicator" class="indicator disconnected" title="Connection">●</span>
+            <button id="chatToggle" class="btn btn-chat" title="Chat (and guesses)">💬<span id="chatBadge" class="chat-badge hidden">0</span></button>
             <button id="playBtn" class="btn btn-play" title="Start a match">🎮 Play</button>
             <button id="shareBtn" class="btn btn-share" style="display:none;">🔗 Share</button>
             <button id="leaveBtn" class="btn btn-ghost">Leave</button>
@@ -60,6 +61,19 @@
     <div id="helpHint" class="help-hint">
         <span class="hint-text"><strong>Drag</strong> to orbit · <strong>Scroll / pinch</strong> to zoom · <strong>Tap/click</strong> to build · <strong>Right-click</strong> or Erase tool to remove · <strong>1–6</strong> to switch shape</span>
         <button id="dismissHelp" class="dismiss" aria-label="Dismiss">✕</button>
+    </div>
+
+    <!-- Chat / guesses -->
+    <div id="chatPanel" class="chat-panel hidden">
+        <div class="chat-head">
+            <span id="chatTitle">💬 Chat</span>
+            <button id="chatClose" class="bp-close" aria-label="Close chat">✕</button>
+        </div>
+        <div id="chatLog" class="chat-log"></div>
+        <form id="chatForm" class="chat-form" autocomplete="off">
+            <input id="chatInput" type="text" maxlength="120" placeholder="Say something…" autocomplete="off">
+            <button type="submit" class="chat-send">Send</button>
+        </form>
     </div>
 
     <!-- Match HUD (only visible during a match) -->
@@ -96,6 +110,8 @@
                 </label>
                 <label>Round time
                     <select id="modeTime">
+                        <option value="60">1 min</option>
+                        <option value="90">90 sec</option>
                         <option value="120">2 min</option>
                         <option value="180" selected>3 min</option>
                         <option value="240">4 min</option>

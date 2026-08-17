@@ -235,6 +235,34 @@
         }
     ];
 
+    /**
+     * Words for the guessing modes. Everything here has to be buildable out of
+     * a few dozen cubes in a minute or two and recognisable from across the
+     * room — concrete objects with a strong silhouette, no abstractions.
+     */
+    const WORDS = [
+        'tree', 'house', 'cat', 'dog', 'fish', 'boat', 'car', 'rocket', 'star', 'heart',
+        'sword', 'crown', 'robot', 'snowman', 'cactus', 'mushroom', 'flower', 'pyramid',
+        'bridge', 'tower', 'castle', 'ladder', 'table', 'chair', 'bed', 'door', 'clock',
+        'key', 'hammer', 'guitar', 'piano', 'drum', 'camera', 'phone', 'book', 'pencil',
+        'cup', 'bottle', 'cake', 'pizza', 'burger', 'ice cream', 'apple', 'banana',
+        'carrot', 'egg', 'bone', 'bird', 'snake', 'turtle', 'butterfly', 'spider',
+        'crab', 'whale', 'penguin', 'rabbit', 'elephant', 'giraffe', 'lighthouse',
+        'windmill', 'tent', 'campfire', 'mountain', 'volcano', 'cloud', 'rainbow',
+        'sun', 'moon', 'planet', 'ufo', 'ghost', 'skull', 'arrow', 'trophy', 'medal',
+        'gift', 'balloon', 'kite', 'umbrella', 'hat', 'shoe', 'glasses', 'ring',
+        'dice', 'flag', 'bench', 'fence', 'well', 'mailbox', 'traffic light', 'train',
+        'plane', 'helicopter', 'submarine', 'anchor', 'telescope', 'staircase', 'arch'
+    ];
+
+    function pickWord(exclude, rand) {
+        const used = new Set(exclude || []);
+        const r = rand || Math.random;
+        const pool = WORDS.filter(w => !used.has(w));
+        const from = pool.length ? pool : WORDS;
+        return from[Math.floor(r() * from.length)];
+    }
+
     // ---- decoding -------------------------------------------------------
 
     function cellFor(ch, chars) {
@@ -311,6 +339,6 @@
     }
 
     window.BlockPartyModels = {
-        COLORS, MODELS, decode, size, count, byId, pick, difficultyForRound
+        COLORS, MODELS, WORDS, decode, size, count, byId, pick, pickWord, difficultyForRound
     };
 })();
