@@ -419,8 +419,15 @@
             }
         }
 
+        // Anything that describes the match itself is the host's to say. A
+        // client that forged one could otherwise fake a phase, a result or a
+        // whole scoreboard on somebody else's screen.
+        static get HOST_ONLY() { return ['state', 'results', 'build', 'end', 'guessed', 'word']; }
+
         handleMessage(peerId, msg) {
             const from = msg.name || (msg._fromClient) || peerId;
+            if (!this.host && ModeController.HOST_ONLY.indexOf(msg.k) >= 0
+                && !this.game._fromHost(peerId, msg)) return;
             switch (msg.k) {
                 case 'state':
                     if (this.host) return;             // I run the clock; ignore echoes
@@ -1789,8 +1796,15 @@
             return false;
         }
 
+        /**
+         * Client → host only. These messages are nobody else's business: a
+         * guess must not reach the other guessers, a vote must not sway them,
+         * and a submitted build is the host's to score. A plain sendData()
+         * would have UserConnectionBase fan them out to the whole room.
+         */
         _send(msg) {
-            this.game.sendData(Object.assign({ type: 'mode' }, msg));
+            const payload = Object.assign({ type: 'mode' }, msg);
+            if (!this.game.sendToHost(payload)) this.game.sendData(payload);
         }
 
         _broadcast(msg) {

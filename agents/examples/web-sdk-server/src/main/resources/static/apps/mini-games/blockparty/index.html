@@ -10,6 +10,7 @@
     <link rel="stylesheet" href="../../../css/toast.css">
     <link rel="stylesheet" href="../../../css/share-modal.css">
     <link rel="stylesheet" href="../../../css/connection-modal.css">
+    <link rel="stylesheet" href="../../../css/chat-panel.css">
     <link rel="stylesheet" href="blockparty.css">
 </head>
 <body>
@@ -113,19 +114,6 @@
         </div>
     </div>
 
-    <!-- Chat / guesses -->
-    <div id="chatPanel" class="chat-panel hidden">
-        <div class="chat-head">
-            <span id="chatTitle">💬 Chat</span>
-            <button id="chatClose" class="bp-close" aria-label="Close chat">✕</button>
-        </div>
-        <div id="chatLog" class="chat-log"></div>
-        <form id="chatForm" class="chat-form" autocomplete="off">
-            <input id="chatInput" type="text" maxlength="120" placeholder="Say something…" autocomplete="off">
-            <button type="submit" class="chat-send">Send</button>
-        </form>
-    </div>
-
     <!-- Match HUD (only visible during a match) -->
     <div id="matchHud" class="match-hud hidden">
         <div class="mh-top">
@@ -211,6 +199,7 @@
 <script src="../../../js/share-modal.js"></script>
 <script src="../../../js/common-utils.js"></script>
 <script src="../../../js/connection-modal.js"></script>
+<script src="../../../js/chat-panel.js"></script>
 <script src="../../../js/UserConnectionBase.js"></script>
 
 <!-- three.js (self-hosted, r128) + game -->

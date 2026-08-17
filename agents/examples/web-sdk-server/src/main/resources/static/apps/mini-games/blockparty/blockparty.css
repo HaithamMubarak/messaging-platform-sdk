@@ -374,61 +374,15 @@ html, body {
     .results-card { width: 100%; }
 }
 
-/* ---- Chat / guesses ------------------------------------------------------ */
+/* ---- Chat: only what is specific to this game ---------------------------- */
+/* The panel itself is css/chat-panel.css; BlockParty just places its toggle in
+   the top bar and keeps the badge on it. */
 .btn-chat { position: relative; background: rgba(255,255,255,0.06); font-size: 15px; padding: 6px 12px; }
-.chat-badge {
-    position: absolute; top: -6px; right: -6px; min-width: 18px; padding: 0 5px;
-    border-radius: 999px; background: var(--danger); color: #fff;
-    font-size: 10px; font-weight: 800; line-height: 18px; text-align: center;
-}
-
-/* Bottom-left, clear of the tool dock and the results panel. */
-.chat-panel {
-    /* clears the tool dock, which sits 18px from the bottom */
-    position: absolute; left: 16px; bottom: 104px; z-index: 15;
-    width: min(88vw, 320px); max-height: 44vh;
-    display: flex; flex-direction: column;
-    background: var(--panel); border: 1px solid var(--border);
-    border-radius: 14px; backdrop-filter: blur(10px); overflow: hidden;
-}
-.chat-head {
-    display: flex; align-items: center; justify-content: space-between;
-    padding: 8px 12px; font-size: 12px; font-weight: 700;
-    border-bottom: 1px solid var(--border);
-}
-.chat-log {
-    flex: 1 1 auto; overflow-y: auto; padding: 8px 12px;
-    display: flex; flex-direction: column; gap: 5px; min-height: 90px;
-}
-.chat-line { font-size: 12px; line-height: 1.45; word-break: break-word; }
-.chat-who { font-weight: 700; margin-right: 6px; }
-.chat-text { color: var(--text); }
-.chat-line.me .chat-text { color: #c7d2fe; }
-.chat-line.guess .chat-text { color: var(--muted); font-style: italic; }
-.chat-line.system { text-align: center; font-size: 11px; }
-.chat-line.system .chat-who { margin-right: 4px; }
-.chat-line.system .chat-text { color: #86efac; font-weight: 600; }
-.chat-form { display: flex; gap: 6px; padding: 8px; border-top: 1px solid var(--border); }
-.chat-form input {
-    flex: 1 1 auto; min-width: 0; padding: 7px 10px; font-size: 12px;
-    color: var(--text); background: rgba(255,255,255,0.06);
-    border: 1px solid var(--border); border-radius: 9px; outline: none;
-}
-.chat-form input:focus { border-color: var(--accent); }
-.chat-form input:disabled { opacity: 0.5; cursor: not-allowed; }
-.chat-send {
-    padding: 7px 12px; border-radius: 9px; cursor: pointer; font-size: 12px; font-weight: 700;
-    color: var(--text); border: 1px solid var(--border); background: rgba(99,102,241,0.28);
-}
-.chat-send:hover { background: rgba(99,102,241,0.42); }
 
 /* The word (builder) and the hint (guessers) share the accuracy slot. */
 .mh-acc.word { color: #fde68a; background: rgba(245,158,11,0.20); letter-spacing: .06em; }
 .mh-acc.hint { color: #e8eefc; background: rgba(255,255,255,0.08); letter-spacing: .22em; }
 
-@media (max-width: 640px) {
-    .chat-panel { left: 8px; right: 8px; width: auto; bottom: 96px; max-height: 34vh; }
-}
 
 /* ---- Phase 3: tools, following, worlds, leaderboard --------------------- */
 .btn-icon { padding: 7px 10px; font-size: 15px; background: rgba(255,255,255,0.06); }

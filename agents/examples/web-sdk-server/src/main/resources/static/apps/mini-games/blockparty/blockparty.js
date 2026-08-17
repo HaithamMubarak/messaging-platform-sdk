@@ -1003,23 +1003,17 @@
                 case 'mode':
                     this.modes.handleMessage(peerId, data);
                     break;
-                case 'chat': {
-                    // The host is the room's relay, and the only place a muted
-                    // player can actually be silenced for everybody.
-                    const from = data._fromClient || data.name;
-                    if (this.isHost() && !data._fromHost) {
-                        if (this.modes && this.modes.chatBlockedFor(from)) break;
-                        this.sendData(data);
-                    }
-                    if (data.name !== this.username) {
-                        this.addChatMessage(data.name, data.text, { guess: !!data.guess });
-                    }
+                case 'chat':
+                    // Relaying, muting and rendering are the component's job.
+                    this.chat.handleMessage(peerId, data);
                     break;
-                }
                 case 'edit': {
-                    // Only the host polices who may edit during a match; clients
-                    // see edits solely via the host's relay and trust them.
+                    // The host decides who may edit; everyone else applies only
+                    // what the host has passed on. Without that second half, the
+                    // base class's own client-to-client relay would let an edit
+                    // land on other screens without the host ever agreeing.
                     const by = data._fromClient || peerId;
+                    if (!this.isHost() && !this._fromHost(peerId, data)) break;
                     if (this.isHost() && inMatch && !this.modes.canRelayEditFrom(by)) break;
                     this._applyEdit(data.edit);
                     this._updateBlockCount();
@@ -1049,6 +1043,9 @@
                     this._renderLeaderboard();
                     break;
                 case 'cursor':
+                    // The host is the room's relay for these now.
+                    if (this.isHost() && !data._fromHost) this.sendData(data);
+                    else if (!this.isHost() && !this._fromHost(peerId, data)) break;
                     if (data.hide) { this.voxels.hideRemoteCursor(peerId); break; }
                     this.voxels.setRemoteCursor(peerId, {
                         x: data.x, y: data.y, z: data.z,
@@ -1182,6 +1179,41 @@
             }
         }
 
+        /**
+         * Send something to the host and nobody else.
+         *
+         * A plain sendData() from a client is auto-relayed to the whole room by
+         * UserConnectionBase before this app gets a look at it. Anything the
+         * host is supposed to police — or keep to itself — has to be addressed
+         * to the host directly. Returns false if I am the host, since then there
+         * is nothing to send and the caller should act locally.
+         */
+        /**
+         * Did the host's game actually send this, or did its base class merely
+         * pass a client's message along?
+         *
+         * Both arrive over the host's data channel, so the sender is no help.
+         * The tell is _fromClient: UserConnectionBase stamps it on every message
+         * it auto-relays, while a broadcast the host's own code made carries
+         * _fromHost. A targeted host message (the charades word) has neither, so
+         * it is recognised by coming straight from the host with no client name
+         * attached.
+         */
+        _fromHost(peerId, data) {
+            if (data && data._fromHost) return true;
+            if (data && data._fromClient) return false;
+            const host = this._hostName();
+            return !!host && peerId === host;
+        }
+
+        sendToHost(payload) {
+            if (this.isHost()) return false;
+            const host = this._hostName();
+            if (!host) return false;
+            this.sendData(payload, host);
+            return true;
+        }
+
         _broadcastEdit(edit) {
             // In a match with secret builds this edit stays on this client; the
             // finished build is submitted to the host at the end of the round.
@@ -1190,12 +1222,15 @@
             // goes out as several bulk edits. Each is valid on its own because
             // the two lists never name the same cell: a fill either places or
             // removes, and _inverseOf assigns every touched cell to one list.
+            const out = (payload) => {
+                if (!this.sendToHost(payload)) this.sendData(payload);
+            };
             if (edit.a === 'bulk') {
                 const place = edit.place || [], remove = edit.remove || [];
                 const addPieces = edit.addPieces || [], delPieces = edit.delPieces || [];
                 const span = Math.max(place.length, remove.length, addPieces.length, delPieces.length, 1);
                 for (let i = 0; i < span; i += BULK_CHUNK) {
-                    this.sendData({
+                    out({
                         type: 'edit',
                         edit: {
                             a: 'bulk', o: edit.o,
@@ -1207,7 +1242,7 @@
                     });
                 }
             } else {
-                this.sendData({ type: 'edit', edit });
+                out({ type: 'edit', edit });
             }
             if (this.isHost()) this._scheduleSave();
         }
@@ -1851,13 +1886,14 @@
             this._lastCursorSent = now;
             const color = (typeof this.generateUserColor === 'function')
                 ? this.generateUserColor(this.username) : '#ffffff';
-            this.sendData(Object.assign({
+            const cursor = Object.assign({
                 type: 'cursor',
                 color,
                 name: this.username,
                 shape: this.currentShape,
                 tool: this.tool
-            }, extra));
+            }, extra);
+            if (!this.sendToHost(cursor)) this.sendData(cursor);
         }
 
         // Re-aim after a tool/colour/shape switch so the ghost reflects the change
@@ -2092,7 +2128,6 @@
             on('modeStart', 'click', () => {
                 const rounds = Number((document.getElementById('modeRounds') || {}).value) || 3;
                 const roundTime = Number((document.getElementById('modeTime') || {}).value) || 180;
-                this._chatUnread = 0;
                 this._closeModePicker();
                 this.modes.startMatch(this._pickedMode || 'blueprint', { rounds, roundTime });
             });
@@ -2181,112 +2216,51 @@
         }
 
         // ---------- chat / guessing ----------
+        // The panel, the badge, the relay and the mute rule all live in the
+        // shared component now; what stays here is what is specific to this
+        // game — that a charades round turns typing into guessing.
         _bindChat() {
-            const form = document.getElementById('chatForm');
-            const input = document.getElementById('chatInput');
-            const toggle = document.getElementById('chatToggle');
-            const close = document.getElementById('chatClose');
-
-            if (form) {
-                form.addEventListener('submit', (e) => {
-                    e.preventDefault();
-                    const text = input.value;
-                    input.value = '';
-                    this.sendChatLine(text);
-                });
-            }
-            if (input) {
-                input.addEventListener('keydown', (e) => {
-                    e.stopPropagation();                 // never trigger build shortcuts
-                    if (e.key === 'Escape') input.blur();
-                });
-            }
-            if (toggle) toggle.addEventListener('click', () => {
-                const panel = document.getElementById('chatPanel');
-                this.openChat(panel.classList.contains('hidden'), true);
+            this.chat = new ChatPanel({
+                game: this,
+                toggleId: 'chatToggle',
+                badgeId: 'chatBadge',
+                side: 'left',
+                bottom: 104,                      // clear of the tool dock
+                title: '💬 Chat',
+                onIntercept: (text) => this.modes && this.modes.handleLocalChat(text),
+                isMuted: (name) => this.modes && this.modes.chatBlockedFor(name),
+                colorFor: (name) => this.generateUserColor(name)
             });
-            if (close) close.addEventListener('click', () => this.openChat(false));
         }
 
         openChat(on, focus) {
-            const panel = document.getElementById('chatPanel');
-            if (!panel) return;
-            panel.classList.toggle('hidden', !on);
-            if (on) {
-                this._chatUnread = 0;
-                this._renderChatBadge();
-                this._updateChatMode();
-                // The builder must not type, so only a guesser gets the caret.
-                const guessing = this.modes && this.modes.isMatchActive()
-                    && this.modes.relaysEdits()
-                    && this.modes.state.builder !== this.username;
-                if (focus || guessing) {
-                    const input = document.getElementById('chatInput');
-                    if (input && !input.disabled) input.focus();
-                }
-            }
+            if (!this.chat) return;
+            this.chat.open(on, focus);
+            if (on) this._updateChatMode();
         }
 
         // Placeholder and enabled-state follow the mode: in charades the builder
         // is muted and everyone else is prompted to guess.
         _updateChatMode() {
-            const input = document.getElementById('chatInput');
-            const title = document.getElementById('chatTitle');
-            if (!input) return;
+            if (!this.chat) return;
             const s = this.modes && this.modes.state;
             const charades = !!(s && s.mode === 'charades' && s.phase === 'play');
             const iBuild = charades && s.builder === this.username;
-            input.disabled = iBuild;
-            input.placeholder = iBuild ? 'No words — build it! 🤫'
-                : (charades ? `Guess what ${s.builder} is building…` : 'Say something…');
-            if (title) title.textContent = charades ? '🤫 Guesses' : '💬 Chat';
+            this.chat.setMode({
+                title: charades ? '🤫 Guesses' : '💬 Chat',
+                disabled: iBuild,
+                placeholder: iBuild ? 'No words — build it! 🤫'
+                    : (charades ? `Guess what ${s.builder} is building…` : 'Say something…')
+            });
+            // A guesser wants the caret waiting for them.
+            if (charades && !iBuild && this.chat.isOpen()) this.chat.open(true, true);
         }
 
-        sendChatLine(text) {
-            text = String(text || '').trim().slice(0, 120);
-            if (!text) return;
-            // A charades round turns chat into guessing: the mode takes the line
-            // and sends it to the host to be judged instead of to the room.
-            if (this.modes && this.modes.handleLocalChat(text)) return;
-            this.sendData({ type: 'chat', name: this.username, text });
-            this.addChatMessage(this.username, text, { me: true });
-        }
+        sendChatLine(text) { if (this.chat) this.chat.send(text); }
 
-        // Host-side echo of somebody else's line (a wrong guess, say).
-        relayChat(msg) {
-            const payload = { type: 'chat', name: msg.name, text: msg.text, guess: !!msg.guess };
-            this.sendData(payload);
-            this.addChatMessage(msg.name, msg.text, { guess: !!msg.guess });
-        }
+        relayChat(msg) { if (this.chat) this.chat.relay(msg); }
 
-        addChatMessage(name, text, opts) {
-            opts = opts || {};
-            const log = document.getElementById('chatLog');
-            if (!log) return;
-            const line = document.createElement('div');
-            line.className = 'chat-line'
-                + (opts.me ? ' me' : '') + (opts.system ? ' system' : '') + (opts.guess ? ' guess' : '');
-            const color = this.generateUserColor(name);
-            line.innerHTML = `<span class="chat-who" style="color:${color}">${this._esc(name)}</span>`
-                + `<span class="chat-text">${this._esc(text)}</span>`;
-            log.appendChild(line);
-            while (log.children.length > 80) log.removeChild(log.firstChild);
-            log.scrollTop = log.scrollHeight;
-
-            const panel = document.getElementById('chatPanel');
-            if (panel && panel.classList.contains('hidden')) {
-                this._chatUnread = (this._chatUnread || 0) + 1;
-                this._renderChatBadge();
-            }
-        }
-
-        _renderChatBadge() {
-            const badge = document.getElementById('chatBadge');
-            if (!badge) return;
-            const n = this._chatUnread || 0;
-            badge.textContent = n > 9 ? '9+' : String(n);
-            badge.classList.toggle('hidden', n === 0);
-        }
+        addChatMessage(name, text, opts) { if (this.chat) this.chat.add(name, text, opts); }
 
         // ---------- world modal ----------
         _bindWorldUI() {
