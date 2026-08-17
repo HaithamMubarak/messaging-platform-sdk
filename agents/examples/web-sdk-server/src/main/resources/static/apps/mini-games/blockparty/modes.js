@@ -243,22 +243,36 @@
 
         // ---------- public surface used by the game ----------
 
-        /** Sandbox rules unless a round is actually running. */
-        canEdit(x, y, z) {
+        /**
+         * Why this cell may not be edited, or null if it may be. Split out from
+         * canEdit so a box fill can test a thousand cells without a thousand
+         * toasts — see allows().
+         */
+        _reasonFor(x, y, z) {
             const s = this.state;
-            if (!this._matchRunning()) return true;
-            if (s.phase !== 'play') return this._deny('Wait for the round to start');
+            if (!this._matchRunning()) return null;
+            if (s.phase !== 'play') return 'Wait for the round to start';
             if (!this.myPlot) {
-                return this._deny(s.mode === 'charades'
+                return s.mode === 'charades'
                     ? `Only ${s.builder} builds this round — guess in chat!`
-                    : 'You are spectating this round');
+                    : 'You are spectating this round';
             }
-            if (this.locked) return this._deny('Your build is locked in');
+            if (this.locked) return 'Your build is locked in';
             const p = this.myPlot;
             if (x < p.x0 || x > p.x0 + p.size - 1 || z < p.z0 || z > p.z0 + p.size - 1) {
-                return this._deny('Build inside your own plot');
+                return 'Build inside your own plot';
             }
-            if (y > BUILD_HEIGHT) return this._deny('Too high for this plot');
+            if (y > BUILD_HEIGHT) return 'Too high for this plot';
+            return null;
+        }
+
+        /** Silent check. */
+        allows(x, y, z) { return !this._reasonFor(x, y, z); }
+
+        /** Sandbox rules unless a round is actually running; explains refusals. */
+        canEdit(x, y, z) {
+            const reason = this._reasonFor(x, y, z);
+            if (reason) return this._deny(reason);
             return true;
         }
 
@@ -578,6 +592,7 @@
             this._hostPhase('reveal', CHARADES_REVEAL_SECS);
             this._broadcast({ k: 'results', r: results });
             this._applyResults(results);
+            if (results.isFinal) this.game.recordMatchStats(results);
         }
 
         _hostFinishRound() {
@@ -629,6 +644,7 @@
             });
             this._broadcast({ k: 'results', r: results });
             this._applyResults(results);
+            if (results.isFinal) this.game.recordMatchStats(results);
         }
 
         _hostState() {
@@ -739,6 +755,7 @@
             this.sandboxBackup = g.voxels.encode();
             g.voxels.clearAll();
             g.undoStack.length = 0;
+            g.redoStack.length = 0;
             g.hidePlayHint();
             this._showHud(true);
         }
@@ -754,6 +771,7 @@
             g.voxels.clearGhosts();
             this._ghostVisible = false;
             g.undoStack.length = 0;
+            g.redoStack.length = 0;
             g.hideResults();
             const s = this.state;
             const charades = s.mode === 'charades';
@@ -1174,6 +1192,7 @@
             this._ghostVisible = false;
             g.voxels.clearAll();
             g.undoStack.length = 0;
+            g.redoStack.length = 0;
             if (this.sandboxBackup) {
                 g.voxels.replaceFrom(this.sandboxBackup);
                 this.sandboxBackup = null;

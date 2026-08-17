@@ -24,6 +24,11 @@
     const SAVE_DEBOUNCE_MS = 2500;
     const CURSOR_THROTTLE_MS = 120;
     const PLOT_COVER_H = 6;       // height of the cover that hides a rival's plot
+    const MAX_FILL_CELLS = 1200;  // biggest region one fill may touch
+    const BULK_CHUNK = 300;       // cells per wire message, to stay well under
+                                  // the data-channel size limit
+    const SLOT_PREFIX = 'blockparty_slot_';
+    const STATS_KEY = 'blockparty_stats';
 
     // Palette — index maps to a color; sent over the wire as a small int.
     const PALETTE = [
@@ -191,9 +196,29 @@
         start() {
             const loop = () => {
                 this._raf = requestAnimationFrame(loop);
+                this.stepFollow();
                 this.renderer.render(this.scene, this.camera);
             };
             loop();
+        }
+
+        // Camera target to ease towards each frame, or null to stop following.
+        followTo(point) {
+            this._followPoint = point ? new THREE.Vector3(point.x, point.y, point.z) : null;
+        }
+
+        /**
+         * One frame of following: ease the camera target towards the followed
+         * player so a jumpy remote cursor does not jerk the whole view around.
+         * Returns whether it moved.
+         */
+        stepFollow() {
+            if (!this._followPoint) return false;
+            const t = this.target, p = this._followPoint;
+            if (t.distanceToSquared(p) <= 0.0004) return false;
+            t.lerp(p, 0.10);
+            this._applyCamera();
+            return true;
         }
 
         // ---- world model ----
@@ -214,17 +239,23 @@
             if (owner) this.owners.set(k, owner);
             if (si) this.shapes.set(k, si); else this.shapes.delete(k);
 
+            // While the x-ray is on, a block's colour shows its owner, so blocks
+            // placed during it have to follow the same rule.
+            const material = this.xray
+                ? this._ownerMaterial(this.owners.get(k))
+                : (this.materials[colorIndex] || this.materials[0]);
+
             const existing = this.meshes.get(k);
             // Same shape → just restyle. Different shape → the geometry changed,
             // so the mesh has to be rebuilt.
             if (existing && existing.userData.si === si) {
-                existing.material = this.materials[colorIndex] || this.materials[0];
+                existing.material = material;
                 this.world.set(k, colorIndex);
                 return;
             }
             if (existing) { this.scene.remove(existing); this.meshes.delete(k); }
 
-            const mesh = new THREE.Mesh(this.geometries[si], this.materials[colorIndex] || this.materials[0]);
+            const mesh = new THREE.Mesh(this.geometries[si], material);
             mesh.position.set(x + 0.5, y + shapeAt(si).cy, z + 0.5);
             mesh.userData = { cx: x, cy: y, cz: z, si };
             this.scene.add(mesh);
@@ -344,6 +375,61 @@
         }
 
         hidePreview() { if (this.preview) this.preview.group.visible = false; }
+
+        // ---- region preview, for the box fill ----
+        // One unit-cube wireframe, scaled to the pending box.
+        showRegion(a, b, erase) {
+            if (!this.region) {
+                this.region = new THREE.LineSegments(
+                    new THREE.EdgesGeometry(new THREE.BoxGeometry(1, 1, 1)),
+                    new THREE.LineBasicMaterial({ color: 0x7dd3fc })
+                );
+                this.scene.add(this.region);
+            }
+            const lo = { x: Math.min(a.x, b.x), y: Math.min(a.y, b.y), z: Math.min(a.z, b.z) };
+            const hi = { x: Math.max(a.x, b.x), y: Math.max(a.y, b.y), z: Math.max(a.z, b.z) };
+            const w = hi.x - lo.x + 1, h = hi.y - lo.y + 1, d = hi.z - lo.z + 1;
+            this.region.visible = true;
+            this.region.scale.set(w, h, d);
+            this.region.position.set(lo.x + w / 2, lo.y + h / 2, lo.z + d / 2);
+            this.region.material.color.set(erase ? '#ff5a5f' : '#7dd3fc');
+            return w * h * d;
+        }
+
+        hideRegion() { if (this.region) this.region.visible = false; }
+
+        // ---- ownership x-ray: colour every block by who placed it ----
+        setOwnerXray(on, colorFor) {
+            this.xray = !!on;
+            this._xrayColorFor = colorFor || null;
+            this.meshes.forEach((mesh, k) => {
+                mesh.material = this.xray
+                    ? this._ownerMaterial(this.owners.get(k))
+                    : (this.materials[this.world.get(k)] || this.materials[0]);
+            });
+        }
+
+        _ownerMaterial(owner) {
+            const hex = (owner && this._xrayColorFor) ? this._xrayColorFor(owner) : '#64748b';
+            if (!this._ownerMats) this._ownerMats = new Map();
+            let m = this._ownerMats.get(hex);
+            if (!m) {
+                m = new THREE.MeshLambertMaterial({ color: new THREE.Color(hex) });
+                this._ownerMats.set(hex, m);
+            }
+            return m;
+        }
+
+        // Every standing block as a remove row — used to clear the world in one
+        // undoable edit.
+        allCells() {
+            const out = [];
+            this.world.forEach((_c, k) => {
+                const [x, y, z] = k.split(',').map(Number);
+                out.push([x, y, z]);
+            });
+            return out;
+        }
 
         // ---- match arena: one plot per player ----
         // A plot is a coloured floor pad, a name plaque, and a translucent cover
@@ -607,10 +693,18 @@
 
             this.voxels = null;
             this.modes = null;              // match state machine (modes.js)
+            this.stats = null;              // this room's running record
             this.currentColor = 0;
             this.currentShape = 0;          // index into SHAPES
             this.tool = 'build';            // 'build' | 'erase'
+            this.fillMode = false;          // box fill/clear rides on the tool
+            this.fillAnchor = null;         // first corner, once tapped
+            this.mirror = false;            // place a mirrored twin of each edit
+            this.xray = false;              // colour blocks by who placed them
+            this.worldLocked = false;       // host made the sandbox view-only
+            this.following = null;          // player whose cursor the camera trails
             this.undoStack = [];            // inverse edits of my own actions
+            this.redoStack = [];            // edits taken back off the undo stack
             this._saveTimer = null;
             this._lastCursorSent = 0;
             this._lastPointer = null;       // last hover position, for preview refreshes
@@ -624,8 +718,10 @@
             this._buildShapes();
             this._bindUI();
             this._bindMatchUI();
+            this._bindWorldUI();
             this._bindChat();
             this._bindPointer();
+            this._syncHistoryButtons();
         }
 
         onConnect(detail) {
@@ -759,10 +855,21 @@
                 }
                 case 'world':
                     this.voxels.replaceFrom(data.blocks);
+                    // The snapshot carries the lock so a late joiner learns the
+                    // room is read-only without a separate round trip.
+                    if (typeof data.locked === 'boolean') this._setWorldLocked(data.locked);
                     this._updateBlockCount();
+                    if (this.xray) this.voxels.setOwnerXray(true, (n) => this.generateUserColor(n));
                     break;
                 case 'requestWorld':
                     if (this.isHost()) this._sendWorldSnapshot();
+                    break;
+                case 'lock':
+                    this._setWorldLocked(!!data.locked, data.by);
+                    break;
+                case 'stats':
+                    this.stats = data.stats || null;
+                    this._renderLeaderboard();
                     break;
                 case 'cursor':
                     if (data.hide) { this.voxels.hideRemoteCursor(peerId); break; }
@@ -770,11 +877,19 @@
                         x: data.x, y: data.y, z: data.z,
                         color: data.color, name: data.name, shape: data.shape, tool: data.tool
                     });
+                    // Keep the camera on whoever this player is following.
+                    if (this.following && data.name === this.following) {
+                        this.voxels.followTo({ x: data.x + 0.5, y: data.y + 1.5, z: data.z + 0.5 });
+                    }
                     break;
             }
         }
 
         // ---------- edits ----------
+        // Three actions travel the wire: place, remove, and bulk (a fill, a
+        // mirrored pair, or the inverse of either). Bulk rows are
+        // [x, y, z, colorIndex, shapeIndex, owner?] — the owner is only written
+        // when restoring somebody else's block, otherwise edit.o applies.
         _applyEdit(edit) {
             if (!edit) return;
             if (edit.a === 'place' && this.voxels.inBounds(edit.x, edit.y, edit.z)) {
@@ -783,70 +898,233 @@
                 this.voxels.setBlock(edit.x, edit.y, edit.z, edit.c, edit.o, edit.s);
             } else if (edit.a === 'remove') {
                 this.voxels.deleteBlock(edit.x, edit.y, edit.z);
+            } else if (edit.a === 'bulk') {
+                // Removals first: a fill over an existing region is a clear
+                // followed by a build, and the two lists may overlap.
+                (edit.remove || []).forEach(r => this.voxels.deleteBlock(r[0], r[1], r[2]));
+                (edit.place || []).forEach(p => {
+                    if (this.voxels.inBounds(p[0], p[1], p[2])) {
+                        this.voxels.setBlock(p[0], p[1], p[2], p[3], p[5] || edit.o, p[4]);
+                    }
+                });
             }
         }
 
+        // What the world looks like at a cell right now, as a bulk row.
+        _cellRow(x, y, z) {
+            const k = VoxelWorld.key(x, y, z);
+            if (!this.voxels.world.has(k)) return null;
+            return [x, y, z, this.voxels.world.get(k), this.voxels.shapeOf(x, y, z), this.voxels.ownerOf(x, y, z)];
+        }
+
+        /**
+         * The edit that would put the world back exactly as it is now, if the
+         * given edit were applied. Undo and redo are both built from this, so
+         * they need no separate bookkeeping — and it works the same for a single
+         * block or a thousand-cell fill.
+         */
+        _inverseOf(edit) {
+            if (!edit) return null;
+            if (edit.a === 'place' || edit.a === 'remove') {
+                const row = this._cellRow(edit.x, edit.y, edit.z);
+                if (row) return { a: 'place', x: row[0], y: row[1], z: row[2], c: row[3], s: row[4], o: row[5] };
+                return edit.a === 'place' ? { a: 'remove', x: edit.x, y: edit.y, z: edit.z } : null;
+            }
+            if (edit.a === 'bulk') {
+                const place = [], remove = [], seen = new Set();
+                const touch = (x, y, z) => {
+                    const k = x + ',' + y + ',' + z;
+                    if (seen.has(k)) return;
+                    seen.add(k);
+                    const row = this._cellRow(x, y, z);
+                    if (row) place.push(row); else remove.push([x, y, z]);
+                };
+                (edit.place || []).forEach(p => touch(p[0], p[1], p[2]));
+                (edit.remove || []).forEach(r => touch(r[0], r[1], r[2]));
+                if (!place.length && !remove.length) return null;
+                return { a: 'bulk', place, remove };
+            }
+            return null;
+        }
+
         // Local action from this player: apply, record undo, broadcast, persist.
-        _doLocalEdit(edit, inverse) {
+        _doLocalEdit(edit) {
+            const inverse = this._inverseOf(edit);
             this._applyEdit(edit);
             this._updateBlockCount();
             if (inverse) {
                 this.undoStack.push(inverse);
                 if (this.undoStack.length > 100) this.undoStack.shift();
+                this.redoStack.length = 0;      // a new edit forks the timeline
+                this._syncHistoryButtons();
             }
-            // In a match with secret builds this edit stays on this client; the
-            // finished build is submitted to the host at the end of the round.
-            if (!this.modes || this.modes.shouldBroadcastEdit()) {
-                this.sendData({ type: 'edit', edit });
-                if (this.isHost()) this._scheduleSave();
-            }
+            this._broadcastEdit(edit);
             if (this.modes) this.modes.onLocalEdit();
             if (window.GameKit && window.GameKit.Sfx) {
-                edit.a === 'place' ? GameKit.Sfx.tick && GameKit.Sfx.tick() : null;
+                edit.a === 'remove' ? null : (GameKit.Sfx.tick && GameKit.Sfx.tick());
             }
+        }
+
+        _broadcastEdit(edit) {
+            // In a match with secret builds this edit stays on this client; the
+            // finished build is submitted to the host at the end of the round.
+            if (this.modes && !this.modes.shouldBroadcastEdit()) return;
+            // A big fill would exceed the safe data-channel message size, so it
+            // goes out as several bulk edits. Each is valid on its own because
+            // the two lists never name the same cell: a fill either places or
+            // removes, and _inverseOf assigns every touched cell to one list.
+            if (edit.a === 'bulk') {
+                const place = edit.place || [], remove = edit.remove || [];
+                for (let i = 0; i < Math.max(place.length, remove.length, 1); i += BULK_CHUNK) {
+                    this.sendData({
+                        type: 'edit',
+                        edit: {
+                            a: 'bulk', o: edit.o,
+                            place: place.slice(i, i + BULK_CHUNK),
+                            remove: remove.slice(i, i + BULK_CHUNK)
+                        }
+                    });
+                }
+            } else {
+                this.sendData({ type: 'edit', edit });
+            }
+            if (this.isHost()) this._scheduleSave();
+        }
+
+        /**
+         * May this player change this cell? The world lock is the room's rule
+         * and the mode's rules are the round's; `quiet` skips the explanation
+         * so a fill can test a thousand cells without a thousand toasts.
+         */
+        _canEditCell(x, y, z, quiet) {
+            if (!this.voxels.inBounds(x, y, z)) return false;
+            if (this.worldLocked && !this.isHost() && !(this.modes && this.modes.isMatchActive())) {
+                if (!quiet) this._denyOnce('🔒 The host locked the world');
+                return false;
+            }
+            if (!this.modes) return true;
+            return quiet ? this.modes.allows(x, y, z) : this.modes.canEdit(x, y, z);
+        }
+
+        _denyOnce(message) {
+            const now = Date.now();
+            if (now - (this._lastDeny || 0) < 2500) return;
+            this._lastDeny = now;
+            this.showToast(message, 'warning', 1800);
+        }
+
+        // Mirror a cell across the middle of the area being built in: your plot
+        // during a match, the world otherwise.
+        _mirrorOf(x, z) {
+            const area = this.buildArea();
+            return { x: Math.round(2 * area.cx - x - 1), z };
+        }
+
+        // { cx, cz } — the centre the mirror reflects around.
+        buildArea() {
+            const plot = this.modes && this.modes.myPlot;
+            if (plot) return { cx: plot.x0 + plot.size / 2, cz: plot.z0 + plot.size / 2 };
+            return { cx: 0.5, cz: 0.5 };
         }
 
         placeAt(x, y, z) {
-            if (!this.voxels.inBounds(x, y, z)) return;
-            if (this.modes && !this.modes.canEdit(x, y, z)) return;
-            const prev = this.voxels.world.get(VoxelWorld.key(x, y, z));
-            const prevOwner = this.voxels.ownerOf(x, y, z);
-            const prevShape = this.voxels.shapeOf(x, y, z);
-            const inverse = (prev === undefined)
-                ? { a: 'remove', x, y, z }
-                : { a: 'place', x, y, z, c: prev, o: prevOwner, s: prevShape };
-            this._doLocalEdit(
-                { a: 'place', x, y, z, c: this.currentColor, o: this.username, s: this.currentShape },
-                inverse
-            );
+            if (!this._canEditCell(x, y, z)) return;
+            const cells = [[x, y, z]];
+            if (this.mirror) {
+                const m = this._mirrorOf(x, z);
+                if ((m.x !== x || m.z !== z) && this._canEditCell(m.x, y, m.z, true)) cells.push([m.x, y, m.z]);
+            }
+            if (cells.length === 1) {
+                this._doLocalEdit({ a: 'place', x, y, z, c: this.currentColor, o: this.username, s: this.currentShape });
+            } else {
+                this._doLocalEdit({
+                    a: 'bulk', o: this.username,
+                    place: cells.map(c => [c[0], c[1], c[2], this.currentColor, this.currentShape])
+                });
+            }
         }
 
         removeAt(x, y, z) {
-            const prev = this.voxels.world.get(VoxelWorld.key(x, y, z));
-            if (prev === undefined) return;
-            if (this.modes && !this.modes.canEdit(x, y, z)) return;
-            const prevOwner = this.voxels.ownerOf(x, y, z);
-            const prevShape = this.voxels.shapeOf(x, y, z);
-            this._doLocalEdit(
-                { a: 'remove', x, y, z },
-                { a: 'place', x, y, z, c: prev, o: prevOwner, s: prevShape }
-            );
+            if (!this.voxels.hasBlock(x, y, z)) return;
+            if (!this._canEditCell(x, y, z)) return;
+            const cells = [[x, y, z]];
+            if (this.mirror) {
+                const m = this._mirrorOf(x, z);
+                if ((m.x !== x || m.z !== z) && this.voxels.hasBlock(m.x, y, m.z)
+                    && this._canEditCell(m.x, y, m.z, true)) cells.push([m.x, y, m.z]);
+            }
+            if (cells.length === 1) this._doLocalEdit({ a: 'remove', x, y, z });
+            else this._doLocalEdit({ a: 'bulk', o: this.username, remove: cells });
         }
 
-        undo() {
-            const next = this.undoStack[this.undoStack.length - 1];
-            if (!next) { this.showToast('Nothing to undo', 'info', 1200); return; }
-            // Undo is an edit like any other — the match rules still apply.
-            if (this.modes && !this.modes.canEdit(next.x, next.y, next.z)) return;
-            const inv = this.undoStack.pop();
-            // Apply the inverse as a fresh authoritative edit (no new undo entry)
-            this._applyEdit(inv);
-            this._updateBlockCount();
-            if (!this.modes || this.modes.shouldBroadcastEdit()) {
-                this.sendData({ type: 'edit', edit: inv });
-                if (this.isHost()) this._scheduleSave();
+        /**
+         * Fill (or clear) the box between two cells. Erase decides which:
+         * the Fill toggle rides on top of whichever tool is active.
+         */
+        fillRegion(a, b, erase) {
+            const lo = { x: Math.min(a.x, b.x), y: Math.min(a.y, b.y), z: Math.min(a.z, b.z) };
+            const hi = { x: Math.max(a.x, b.x), y: Math.max(a.y, b.y), z: Math.max(a.z, b.z) };
+            const volume = (hi.x - lo.x + 1) * (hi.y - lo.y + 1) * (hi.z - lo.z + 1);
+            if (volume > MAX_FILL_CELLS) {
+                this.showToast(`That region is too big (${volume} cells, max ${MAX_FILL_CELLS})`, 'warning', 2600);
+                return 0;
             }
+
+            const place = [], remove = [];
+            let blocked = 0;
+            for (let x = lo.x; x <= hi.x; x++) {
+                for (let y = lo.y; y <= hi.y; y++) {
+                    for (let z = lo.z; z <= hi.z; z++) {
+                        if (!this._canEditCell(x, y, z, true)) { blocked++; continue; }
+                        if (erase) {
+                            if (this.voxels.hasBlock(x, y, z)) remove.push([x, y, z]);
+                        } else {
+                            place.push([x, y, z, this.currentColor, this.currentShape]);
+                        }
+                    }
+                }
+            }
+            if (!place.length && !remove.length) {
+                this._canEditCell(lo.x, lo.y, lo.z);    // let it explain why
+                if (!blocked) this.showToast(erase ? 'No blocks to clear there' : 'Nothing to fill there', 'info', 1400);
+                return 0;
+            }
+            this._doLocalEdit({ a: 'bulk', o: this.username, place, remove });
+            const n = place.length + remove.length;
+            this.showToast(`${erase ? 'Cleared' : 'Filled'} ${n} block${n === 1 ? '' : 's'}`
+                + (blocked ? ` (${blocked} out of reach)` : ''), 'success', 1800);
+            return n;
+        }
+
+        undo() { this._timeTravel(this.undoStack, this.redoStack, 'undo'); }
+        redo() { this._timeTravel(this.redoStack, this.undoStack, 'redo'); }
+
+        // Undo and redo are the same move in opposite directions: take the edit
+        // off one stack, record its inverse on the other, and apply it.
+        _timeTravel(from, to, label) {
+            const next = from[from.length - 1];
+            if (!next) { this.showToast(`Nothing to ${label}`, 'info', 1200); return; }
+            const probe = next.a === 'bulk'
+                ? ((next.place && next.place[0]) || (next.remove && next.remove[0]) || [0, 0, 0])
+                : [next.x, next.y, next.z];
+            // Time travel is editing too — the match and lock rules still apply.
+            if (!this._canEditCell(probe[0], probe[1], probe[2])) return;
+
+            const edit = from.pop();
+            const inverse = this._inverseOf(edit);
+            this._applyEdit(edit);
+            this._updateBlockCount();
+            if (inverse) to.push(inverse);
+            this._syncHistoryButtons();
+            this._broadcastEdit(edit);
             if (this.modes) this.modes.onLocalEdit();
+        }
+
+        _syncHistoryButtons() {
+            const undoBtn = document.getElementById('undoBtn');
+            const redoBtn = document.getElementById('redoBtn');
+            if (undoBtn) undoBtn.classList.toggle('disabled', this.undoStack.length === 0);
+            if (redoBtn) redoBtn.classList.toggle('disabled', this.redoStack.length === 0);
         }
 
         // ---------- persistence ----------
@@ -899,7 +1177,108 @@
         _sendWorldSnapshot() {
             // Never ship the arena out as if it were the shared world.
             if (this.modes && this.modes.isMatchActive()) return;
-            this.sendData({ type: 'world', blocks: this.voxels.encode() });
+            this.sendData({ type: 'world', blocks: this.voxels.encode(), locked: this.worldLocked });
+        }
+
+        // ---------- world management (slots, lock, clear) ----------
+        _setWorldLocked(locked, by) {
+            const changed = this.worldLocked !== locked;
+            this.worldLocked = locked;
+            const badge = document.getElementById('lockBadge');
+            if (badge) badge.classList.toggle('hidden', !locked);
+            const btn = document.getElementById('lockBtn');
+            if (btn) btn.textContent = locked ? '🔓 Unlock world' : '🔒 Lock world';
+            if (changed && by && by !== this.username) {
+                this.showToast(locked ? `${by} locked the world` : `${by} unlocked the world`, 'info', 2200);
+            }
+        }
+
+        toggleWorldLock() {
+            if (!this.isHost()) { this.showToast('Only the host can lock the world', 'warning'); return; }
+            const locked = !this.worldLocked;
+            this._setWorldLocked(locked);
+            this.sendData({ type: 'lock', locked, by: this.username });
+            this.showToast(locked ? 'World locked — only you can build' : 'World unlocked', 'success', 2000);
+        }
+
+        clearWorld() {
+            if (!this.isHost()) { this.showToast('Only the host can clear the world', 'warning'); return; }
+            const cells = this.voxels.allCells();
+            if (!cells.length) { this.showToast('The world is already empty', 'info'); return; }
+            if (!window.confirm(`Clear all ${cells.length} blocks? This can be undone with Z.`)) return;
+            // Goes through the normal edit path, so it lands on everyone's
+            // screen, persists, and stays undoable.
+            this._doLocalEdit({ a: 'bulk', o: this.username, remove: cells });
+            this.showToast(`Cleared ${cells.length} blocks`, 'success', 2000);
+        }
+
+        // Storage responses are wrapped twice: { data: { data: … } }.
+        _storagePayload(res) {
+            if (!res || res.status !== 'success') return null;
+            const d = res.data;
+            return (d && d.data) ? d.data : d;
+        }
+
+        saveSlot(name) {
+            name = String(name || '').trim().slice(0, 40);
+            if (!name) { this.showToast('Give the save a name', 'warning'); return; }
+            if (!this.channel || typeof this.channel.storagePut !== 'function') return;
+            if (this.modes && this.modes.isMatchActive()) {
+                this.showToast('Finish the match before saving', 'warning');
+                return;
+            }
+            const slug = name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || 'world';
+            const blocks = this.voxels.encode();
+            this.channel.storagePut({
+                storageKey: SLOT_PREFIX + slug,
+                content: { v: 1, name, by: this.username, at: Date.now(), blocks },
+                encrypted: false,
+                metadata: { description: 'BlockParty saved world', blocks: blocks.length }
+            }, (res) => {
+                if (res && res.status === 'success') {
+                    this.showToast(`Saved “${name}” (${blocks.length} blocks)`, 'success', 2200);
+                    this._loadSlotList();
+                } else {
+                    this.showToast('Save failed: ' + ((res && res.statusMessage) || 'unknown error'), 'error');
+                }
+            });
+        }
+
+        loadSlot(key, label) {
+            if (!this.isHost()) { this.showToast('Only the host can load a world', 'warning'); return; }
+            if (this.modes && this.modes.isMatchActive()) {
+                this.showToast('Finish the match first', 'warning');
+                return;
+            }
+            if (!window.confirm(`Load “${label}”? The current world will be replaced.`)) return;
+            this.channel.storageGet({ storageKey: key }, (res) => {
+                const payload = (res && res.status === 'success') ? res.data : null;
+                const blocks = payload && (payload.blocks || (payload.content && payload.content.blocks));
+                if (!Array.isArray(blocks)) { this.showToast('That save could not be read', 'error'); return; }
+                this.voxels.replaceFrom(blocks);
+                if (this.xray) this.voxels.setOwnerXray(true, (n) => this.generateUserColor(n));
+                this.undoStack.length = 0;
+                this.redoStack.length = 0;
+                this._syncHistoryButtons();
+                this._updateBlockCount();
+                this._refreshPlayers();
+                this._sendWorldSnapshot();
+                this._scheduleSave();
+                this.showToast(`Loaded “${label}” — ${blocks.length} blocks`, 'success', 2400);
+                this._closeWorldModal();
+            });
+        }
+
+        deleteSlot(key, label) {
+            if (!window.confirm(`Delete the save “${label}”?`)) return;
+            this.channel.storageDeleteByKey(key, (res) => {
+                if (res && res.status === 'success') {
+                    this.showToast(`Deleted “${label}”`, 'info', 1800);
+                    this._loadSlotList();
+                } else {
+                    this.showToast('Delete failed', 'error');
+                }
+            });
         }
 
         // Called by the mode controller once a match is over: the host's copy of
@@ -995,6 +1374,25 @@
         _actAt(clientX, clientY, erase) {
             const pick = this.voxels.pick(clientX, clientY);
             if (!pick) return;
+
+            // Fill is a two-tap gesture — corner, then opposite corner — so it
+            // works the same with a mouse and a finger, and never fights the
+            // drag-to-orbit that a click-and-drag box would need.
+            if (this.fillMode) {
+                const cell = erase ? pick.remove : pick.place;
+                if (!cell) return;
+                if (!this.fillAnchor) {
+                    this.fillAnchor = { x: cell.x, y: cell.y, z: cell.z, erase };
+                    this.voxels.showRegion(cell, cell, erase);
+                    this.showToast('Now tap the opposite corner — Esc cancels', 'info', 2400);
+                } else {
+                    this.fillRegion(this.fillAnchor, cell, this.fillAnchor.erase);
+                    this.cancelFill();
+                }
+                this._refreshAim();
+                return;
+            }
+
             if (erase) {
                 if (pick.remove) this.removeAt(pick.remove.x, pick.remove.y, pick.remove.z);
             } else if (pick.place) {
@@ -1010,7 +1408,9 @@
         _updateAim(clientX, clientY) {
             this._lastPointer = { x: clientX, y: clientY };
             const pick = this.voxels.pick(clientX, clientY);
-            const erasing = this.tool === 'erase';
+            // Mid-fill the anchor decides which face to aim at, so switching
+            // tools halfway through does not move the pending corner.
+            const erasing = this.fillAnchor ? this.fillAnchor.erase : (this.tool === 'erase');
             const cell = erasing ? pick && pick.remove : pick && pick.place;
             if (!cell) {
                 // No valid target (e.g. Erase aimed at empty ground). Tell the
@@ -1020,7 +1420,15 @@
                 return;
             }
 
-            this.voxels.showPreview(cell.x, cell.y, cell.z, this.currentShape, this.currentColor, erasing);
+            // Mid-fill, the pending box is the useful preview, not one cell.
+            if (this.fillMode && this.fillAnchor) {
+                this.voxels.hidePreview();
+                const n = this.voxels.showRegion(this.fillAnchor, cell, this.fillAnchor.erase);
+                const hint = document.getElementById('fillHint');
+                if (hint) hint.textContent = `${n} cell${n === 1 ? '' : 's'} — tap to ${this.fillAnchor.erase ? 'clear' : 'fill'}`;
+            } else {
+                this.voxels.showPreview(cell.x, cell.y, cell.z, this.currentShape, this.currentColor, erasing);
+            }
 
             this._sendCursor({ x: cell.x, y: cell.y, z: cell.z });
         }
@@ -1104,7 +1512,20 @@
             document.getElementById('toolBuild').addEventListener('click', () => { this.tool = 'build'; this._syncTool(); this._refreshAim(); });
             document.getElementById('toolErase').addEventListener('click', () => { this.tool = 'erase'; this._syncTool(); this._refreshAim(); });
             document.getElementById('undoBtn').addEventListener('click', () => this.undo());
-            document.getElementById('resetViewBtn').addEventListener('click', () => this.voxels.resetView());
+            document.getElementById('resetViewBtn').addEventListener('click', () => {
+                this.stopFollowing();
+                this.voxels.resetView();
+            });
+
+            const on = (id, ev, fn) => {
+                const el = document.getElementById(id);
+                if (el) el.addEventListener(ev, fn);
+            };
+            on('redoBtn', 'click', () => this.redo());
+            on('toolFill', 'click', () => this.toggleFill());
+            on('toolMirror', 'click', () => this.toggleMirror());
+            on('xrayBtn', 'click', () => this.toggleXray());
+            on('followPill', 'click', () => this.stopFollowing());
 
             const shareBtn = document.getElementById('shareBtn');
             shareBtn.addEventListener('click', () => {
@@ -1122,13 +1543,72 @@
             window.addEventListener('keydown', (e) => {
                 if (e.target && /^(INPUT|TEXTAREA|SELECT)$/.test(e.target.tagName)) return;
                 const k = e.key.toLowerCase();
-                if (k === 'b') { this.tool = 'build'; this._syncTool(); this._refreshAim(); }
+                if (k === 'escape') { this.cancelFill(); this.stopFollowing(); }
+                else if (k === 'b') { this.tool = 'build'; this._syncTool(); this._refreshAim(); }
                 else if (k === 'e') { this.tool = 'erase'; this._syncTool(); this._refreshAim(); }
-                else if (k === 'z') { this.undo(); }
-                else if (k === 'r') { this.voxels.resetView(); }
+                else if (k === 'f') { this.toggleFill(); }
+                else if (k === 'm') { this.toggleMirror(); }
+                else if (k === 'o') { this.toggleXray(); }
+                else if (k === 'z') { e.shiftKey ? this.redo() : this.undo(); }
+                else if (k === 'y') { this.redo(); }
+                else if (k === 'r') { this.stopFollowing(); this.voxels.resetView(); }
                 // 1..N pick a shape
                 else if (/^[1-9]$/.test(k) && Number(k) <= SHAPES.length) { this.selectShape(Number(k) - 1); }
             });
+        }
+
+        // ---------- build helpers ----------
+        toggleFill() {
+            this.fillMode = !this.fillMode;
+            if (!this.fillMode) this.cancelFill();
+            this._syncTool();
+            this._refreshAim();
+            if (this.fillMode) this.showToast('Fill: tap two opposite corners', 'info', 2200);
+        }
+
+        cancelFill() {
+            this.fillAnchor = null;
+            this.voxels.hideRegion();
+            const hint = document.getElementById('fillHint');
+            if (hint) hint.textContent = '';
+        }
+
+        toggleMirror() {
+            this.mirror = !this.mirror;
+            this._syncTool();
+            this.showToast(this.mirror ? 'Mirror on — edits are twinned' : 'Mirror off', 'info', 1600);
+        }
+
+        toggleXray() {
+            this.xray = !this.xray;
+            this.voxels.setOwnerXray(this.xray, (name) => this.generateUserColor(name));
+            this._syncTool();
+            this.showToast(this.xray ? 'Showing who built what' : 'Back to block colours', 'info', 1800);
+        }
+
+        // ---------- following a player ----------
+        followPlayer(name) {
+            if (!name || name === this.username) return;
+            if (this.following === name) { this.stopFollowing(); return; }
+            this.following = name;
+            const rec = this.voxels.remoteCursors.get(name);
+            if (rec) this.voxels.followTo({ x: rec.group.position.x, y: rec.group.position.y + 1, z: rec.group.position.z });
+            this._syncFollowPill();
+            this.showToast(`Following ${name} — Esc or R to stop`, 'info', 2200);
+        }
+
+        stopFollowing() {
+            if (!this.following) return;
+            this.following = null;
+            this.voxels.followTo(null);
+            this._syncFollowPill();
+        }
+
+        _syncFollowPill() {
+            const pill = document.getElementById('followPill');
+            if (!pill) return;
+            pill.classList.toggle('hidden', !this.following);
+            if (this.following) pill.textContent = `👁 Following ${this.following} ✕`;
         }
 
         // ---------- match UI ----------
@@ -1164,7 +1644,11 @@
             };
             on('rsBody', 'click', (e) => focusFrom(e, '.rs-row'));
             on('playerList', 'click', (e) => {
-                if (this.modes.isMatchActive()) focusFrom(e, '.player-row');
+                // During a match a click flies to that player's plot; in the
+                // sandbox it follows them around instead.
+                if (this.modes.isMatchActive()) { focusFrom(e, '.player-row'); return; }
+                const row = e.target.closest && e.target.closest('.player-row');
+                if (row) this.followPlayer(row.getAttribute('data-player'));
             });
 
             window.addEventListener('keydown', (e) => {
@@ -1331,6 +1815,168 @@
             badge.classList.toggle('hidden', n === 0);
         }
 
+        // ---------- world modal ----------
+        _bindWorldUI() {
+            const on = (id, ev, fn) => {
+                const el = document.getElementById(id);
+                if (el) el.addEventListener(ev, fn);
+            };
+            on('worldBtn', 'click', () => this._openWorldModal());
+            on('worldClose', 'click', () => this._closeWorldModal());
+            on('worldModal', 'click', (e) => { if (e.target.id === 'worldModal') this._closeWorldModal(); });
+            on('saveSlotBtn', 'click', () => {
+                const input = document.getElementById('slotName');
+                this.saveSlot(input.value);
+                input.value = '';
+            });
+            on('slotName', 'keydown', (e) => {
+                e.stopPropagation();
+                if (e.key === 'Enter') document.getElementById('saveSlotBtn').click();
+            });
+            on('lockBtn', 'click', () => { this.toggleWorldLock(); this._syncWorldControls(); });
+            on('clearWorldBtn', 'click', () => this.clearWorld());
+            on('slotList', 'click', (e) => {
+                const btn = e.target.closest && e.target.closest('button[data-key]');
+                if (!btn) return;
+                const key = btn.getAttribute('data-key');
+                const label = btn.getAttribute('data-label');
+                if (btn.classList.contains('slot-load')) this.loadSlot(key, label);
+                else if (btn.classList.contains('slot-del')) this.deleteSlot(key, label);
+            });
+        }
+
+        _openWorldModal() {
+            const modal = document.getElementById('worldModal');
+            if (!modal) return;
+            modal.classList.remove('hidden');
+            this._syncWorldControls();
+            this._loadSlotList();
+            this._fetchStats();
+        }
+
+        _closeWorldModal() {
+            const modal = document.getElementById('worldModal');
+            if (modal) modal.classList.add('hidden');
+        }
+
+        _syncWorldControls() {
+            const host = this.isHost();
+            const lock = document.getElementById('lockBtn');
+            const clear = document.getElementById('clearWorldBtn');
+            if (lock) { lock.disabled = !host; lock.textContent = this.worldLocked ? '🔓 Unlock world' : '🔒 Lock world'; }
+            if (clear) clear.disabled = !host;
+            const note = document.getElementById('worldHostNote');
+            if (note) note.classList.toggle('hidden', host);
+        }
+
+        _loadSlotList() {
+            const list = document.getElementById('slotList');
+            if (!list || !this.channel || typeof this.channel.storageKeys !== 'function') return;
+            list.innerHTML = '<div class="slot-empty">Loading…</div>';
+
+            this.channel.storageKeys((res) => {
+                const data = this._storagePayload(res);
+                const keys = (data && data.keys ? data.keys : []).filter(k => k.indexOf(SLOT_PREFIX) === 0);
+                // Sizes and timestamps live in a second call; the list renders
+                // without them if it fails, rather than showing nothing.
+                this.channel.storageValues((vres) => {
+                    const vdata = this._storagePayload(vres);
+                    const meta = new Map();
+                    ((vdata && vdata.values) || []).forEach(v => meta.set(v.storageKey, v));
+                    this._renderSlots(list, keys, meta);
+                });
+            });
+        }
+
+        _renderSlots(list, keys, meta) {
+            if (!keys.length) {
+                list.innerHTML = '<div class="slot-empty">No saved worlds yet — save one above.</div>';
+                return;
+            }
+            const host = this.isHost();
+            list.innerHTML = keys.map(key => {
+                // The display name comes from the key, so listing costs one
+                // request instead of one per save.
+                const label = key.slice(SLOT_PREFIX.length).replace(/-/g, ' ').replace(/(^|\s)\w/g, c => c.toUpperCase());
+                const m = meta.get(key);
+                const size = m && m.sizeBytes ? `${(m.sizeBytes / 1024).toFixed(1)} KB` : '';
+                const when = m && m.updatedAt ? new Date(m.updatedAt).toLocaleString() : '';
+                return `<div class="slot-row">
+                    <span class="slot-name">${this._esc(label)}</span>
+                    <span class="slot-meta">${this._esc([when, size].filter(Boolean).join(' · '))}</span>
+                    <button class="slot-load btn btn-ghost" data-key="${this._esc(key)}" data-label="${this._esc(label)}" ${host ? '' : 'disabled'}>Load</button>
+                    <button class="slot-del btn btn-ghost" data-key="${this._esc(key)}" data-label="${this._esc(label)}" title="Delete">🗑</button>
+                </div>`;
+            }).join('');
+        }
+
+        // ---------- persistent room stats ----------
+        _fetchStats() {
+            if (!this.channel || typeof this.channel.storageGet !== 'function') return;
+            this.channel.storageGet({ storageKey: STATS_KEY }, (res) => {
+                if (res && res.status === 'success' && res.data) this.stats = res.data;
+                this._renderLeaderboard();
+            });
+        }
+
+        _renderLeaderboard() {
+            const el = document.getElementById('leaderboard');
+            if (!el) return;
+            const players = (this.stats && this.stats.players) || {};
+            const rows = Object.keys(players).map(name => Object.assign({ name }, players[name]))
+                .sort((a, b) => (b.wins - a.wins) || (b.points - a.points));
+            if (!rows.length) {
+                el.innerHTML = '<div class="slot-empty">No matches played in this room yet.</div>';
+                return;
+            }
+            el.innerHTML = rows.map(r => `
+                <div class="lb-row${r.name === this.username ? ' me' : ''}">
+                    <span class="lb-dot" style="background:${this.generateUserColor(r.name)}"></span>
+                    <span class="lb-name">${this._esc(r.name)}</span>
+                    <span class="lb-stat" title="Matches won">🏆 ${r.wins || 0}</span>
+                    <span class="lb-stat" title="Matches played">🎮 ${r.matches || 0}</span>
+                    <span class="lb-stat" title="Total match points">${r.points || 0} pts</span>
+                    ${r.bestPct ? `<span class="lb-stat" title="Best blueprint accuracy">📐 ${r.bestPct}%</span>` : ''}
+                    ${r.guesses ? `<span class="lb-stat" title="Charades guessed">🤫 ${r.guesses}</span>` : ''}
+                </div>`).join('');
+        }
+
+        /**
+         * Host-only, at the end of a match: fold this match's results into the
+         * room's running record and hand the merged copy to everyone. Read then
+         * write, because only the host ever writes this key.
+         */
+        recordMatchStats(results) {
+            if (!this.isHost() || !results || !this.channel) return;
+            this.channel.storageGet({ storageKey: STATS_KEY }, (res) => {
+                const current = (res && res.status === 'success' && res.data && res.data.players)
+                    ? res.data : { v: 1, players: {} };
+                const players = current.players;
+                const winner = (results.totals && results.totals[0]) ? results.totals[0].name : null;
+
+                (results.totals || []).forEach(t => {
+                    const p = players[t.name] || (players[t.name] = { matches: 0, wins: 0, points: 0, bestPct: 0, guesses: 0 });
+                    p.matches += 1;
+                    p.points += t.points || 0;
+                    if (t.name === winner && t.points > 0) p.wins += 1;
+                });
+                (results.rows || []).forEach(r => {
+                    const p = players[r.name];
+                    if (!p) return;
+                    if (typeof r.pct === 'number') p.bestPct = Math.max(p.bestPct || 0, Math.round(r.pct));
+                    if (r.isGuesser) p.guesses = (p.guesses || 0) + 1;
+                });
+
+                this.stats = current;
+                this.channel.storagePut({
+                    storageKey: STATS_KEY, content: current, encrypted: false,
+                    metadata: { description: 'BlockParty room stats' }
+                }, () => { });
+                this.sendData({ type: 'stats', stats: current });
+                this._renderLeaderboard();
+            });
+        }
+
         showResults(opts) {
             const ov = document.getElementById('resultsOverlay');
             if (!ov) return;
@@ -1368,8 +2014,15 @@
         }
 
         _syncTool() {
-            document.getElementById('toolBuild').classList.toggle('active', this.tool === 'build');
-            document.getElementById('toolErase').classList.toggle('active', this.tool === 'erase');
+            const set = (id, on) => {
+                const el = document.getElementById(id);
+                if (el) el.classList.toggle('active', !!on);
+            };
+            set('toolBuild', this.tool === 'build');
+            set('toolErase', this.tool === 'erase');
+            set('toolFill', this.fillMode);
+            set('toolMirror', this.mirror);
+            set('xrayBtn', this.xray);
         }
 
         _updateBlockCount() {

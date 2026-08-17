@@ -29,7 +29,10 @@
         </div>
         <div class="top-actions">
             <span id="blockCount" class="pill" title="Blocks in the world">0 blocks</span>
+            <span id="lockBadge" class="pill lock-badge hidden" title="The host locked the world">🔒 Locked</span>
             <span id="connectionIndicator" class="indicator disconnected" title="Connection">●</span>
+            <button id="xrayBtn" class="btn btn-icon" title="Show who built what (O)">🎨</button>
+            <button id="worldBtn" class="btn btn-icon" title="Saved worlds, host controls, leaderboard">🗂</button>
             <button id="chatToggle" class="btn btn-chat" title="Chat (and guesses)">💬<span id="chatBadge" class="chat-badge hidden">0</span></button>
             <button id="playBtn" class="btn btn-play" title="Start a match">🎮 Play</button>
             <button id="shareBtn" class="btn btn-share" style="display:none;">🔗 Share</button>
@@ -48,11 +51,14 @@
         <div class="tool-group">
             <button id="toolBuild" class="tool-btn active" data-tool="build" title="Build (B)">🧱<span>Build</span></button>
             <button id="toolErase" class="tool-btn" data-tool="erase" title="Erase (E)">🧨<span>Erase</span></button>
+            <button id="toolFill" class="tool-btn" title="Box fill — tap two opposite corners (F)">⬛<span>Fill</span></button>
+            <button id="toolMirror" class="tool-btn" title="Mirror every edit across the middle (M)">🪞<span>Mirror</span></button>
         </div>
         <div id="shapes" class="shapes" aria-label="Block shape"></div>
         <div id="palette" class="palette" aria-label="Color palette"></div>
         <div class="tool-group tool-extra">
-            <button id="undoBtn" class="tool-btn small" title="Undo my last block (Z)">↶<span>Undo</span></button>
+            <button id="undoBtn" class="tool-btn small" title="Undo (Z)">↶<span>Undo</span></button>
+            <button id="redoBtn" class="tool-btn small" title="Redo (Shift+Z)">↷<span>Redo</span></button>
             <button id="resetViewBtn" class="tool-btn small" title="Reset camera (R)">🎥<span>View</span></button>
         </div>
     </div>
@@ -61,6 +67,47 @@
     <div id="helpHint" class="help-hint">
         <span class="hint-text"><strong>Drag</strong> to orbit · <strong>Scroll / pinch</strong> to zoom · <strong>Tap/click</strong> to build · <strong>Right-click</strong> or Erase tool to remove · <strong>1–6</strong> to switch shape</span>
         <button id="dismissHelp" class="dismiss" aria-label="Dismiss">✕</button>
+    </div>
+
+    <!-- Following pill + fill hint -->
+    <div id="followPill" class="follow-pill hidden" title="Stop following"></div>
+    <div id="fillHint" class="fill-hint"></div>
+
+    <!-- Saved worlds, host controls, room leaderboard -->
+    <div id="worldModal" class="bp-modal hidden">
+        <div class="bp-modal-card">
+            <div class="bp-modal-head">
+                <h2>🗂 Worlds &amp; room</h2>
+                <button id="worldClose" class="bp-close" aria-label="Close">✕</button>
+            </div>
+
+            <div class="world-section">
+                <div class="world-title">Save this world</div>
+                <div class="save-row">
+                    <input id="slotName" type="text" maxlength="40" placeholder="Name this build…" autocomplete="off">
+                    <button id="saveSlotBtn" class="btn btn-primary">Save</button>
+                </div>
+            </div>
+
+            <div class="world-section">
+                <div class="world-title">Saved worlds</div>
+                <div id="slotList" class="slot-list"></div>
+            </div>
+
+            <div class="world-section">
+                <div class="world-title">Host controls</div>
+                <div class="host-row">
+                    <button id="lockBtn" class="btn btn-ghost">🔒 Lock world</button>
+                    <button id="clearWorldBtn" class="btn btn-ghost">🧹 Clear world</button>
+                </div>
+                <div id="worldHostNote" class="world-note hidden">Only the room host can load, lock or clear.</div>
+            </div>
+
+            <div class="world-section">
+                <div class="world-title">Room leaderboard</div>
+                <div id="leaderboard" class="leaderboard"></div>
+            </div>
+        </div>
     </div>
 
     <!-- Chat / guesses -->
