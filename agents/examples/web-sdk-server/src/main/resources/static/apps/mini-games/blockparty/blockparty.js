@@ -38,6 +38,7 @@
         constructor(mountEl) {
             this.mountEl = mountEl;
             this.world = new Map();     // "x,y,z" -> colorIndex
+            this.owners = new Map();    // "x,y,z" -> player name who placed it
             this.meshes = new Map();    // "x,y,z" -> THREE.Mesh
             this.remoteCursors = new Map(); // peerId -> THREE.LineSegments
 
@@ -146,8 +147,11 @@
 
         hasBlock(x, y, z) { return this.world.has(VoxelWorld.key(x, y, z)); }
 
-        setBlock(x, y, z, colorIndex) {
+        ownerOf(x, y, z) { return this.owners.get(VoxelWorld.key(x, y, z)); }
+
+        setBlock(x, y, z, colorIndex, owner) {
             const k = VoxelWorld.key(x, y, z);
+            if (owner) this.owners.set(k, owner);
             const existing = this.meshes.get(k);
             if (existing) {
                 existing.material = this.materials[colorIndex] || this.materials[0];
@@ -167,21 +171,35 @@
             const mesh = this.meshes.get(k);
             if (mesh) { this.scene.remove(mesh); this.meshes.delete(k); }
             this.world.delete(k);
+            this.owners.delete(k);
         }
 
         clearAll() {
             this.meshes.forEach(m => this.scene.remove(m));
             this.meshes.clear();
             this.world.clear();
+            this.owners.clear();
         }
 
         count() { return this.world.size; }
 
+        // name -> number of blocks currently standing that this player placed
+        countsByOwner() {
+            const m = new Map();
+            this.owners.forEach((owner, k) => {
+                if (owner && this.world.has(k)) m.set(owner, (m.get(owner) || 0) + 1);
+            });
+            return m;
+        }
+
+        // [x, y, z, colorIndex, owner?] — owner is optional so older saved
+        // worlds (4-element rows) still load.
         encode() {
             const out = [];
             this.world.forEach((c, k) => {
                 const [x, y, z] = k.split(',').map(Number);
-                out.push([x, y, z, c]);
+                const owner = this.owners.get(k);
+                out.push(owner ? [x, y, z, c, owner] : [x, y, z, c]);
             });
             return out;
         }
@@ -191,8 +209,8 @@
             if (Array.isArray(blocks)) {
                 for (const b of blocks) {
                     if (!b || b.length < 4) continue;
-                    const [x, y, z, c] = b;
-                    if (this.inBounds(x, y, z)) this.setBlock(x, y, z, c);
+                    const [x, y, z, c, owner] = b;
+                    if (this.inBounds(x, y, z)) this.setBlock(x, y, z, c, owner);
                 }
             }
         }
@@ -383,7 +401,9 @@
         _applyEdit(edit) {
             if (!edit) return;
             if (edit.a === 'place' && this.voxels.inBounds(edit.x, edit.y, edit.z)) {
-                this.voxels.setBlock(edit.x, edit.y, edit.z, edit.c);
+                // edit.o = the player who placed it, so per-player counts stay
+                // correct no matter which peer applied the edit.
+                this.voxels.setBlock(edit.x, edit.y, edit.z, edit.c, edit.o);
             } else if (edit.a === 'remove') {
                 this.voxels.deleteBlock(edit.x, edit.y, edit.z);
             }
@@ -407,16 +427,18 @@
         placeAt(x, y, z) {
             if (!this.voxels.inBounds(x, y, z)) return;
             const prev = this.voxels.world.get(VoxelWorld.key(x, y, z));
+            const prevOwner = this.voxels.ownerOf(x, y, z);
             const inverse = (prev === undefined)
                 ? { a: 'remove', x, y, z }
-                : { a: 'place', x, y, z, c: prev };
-            this._doLocalEdit({ a: 'place', x, y, z, c: this.currentColor }, inverse);
+                : { a: 'place', x, y, z, c: prev, o: prevOwner };
+            this._doLocalEdit({ a: 'place', x, y, z, c: this.currentColor, o: this.username }, inverse);
         }
 
         removeAt(x, y, z) {
             const prev = this.voxels.world.get(VoxelWorld.key(x, y, z));
             if (prev === undefined) return;
-            this._doLocalEdit({ a: 'remove', x, y, z }, { a: 'place', x, y, z, c: prev });
+            const prevOwner = this.voxels.ownerOf(x, y, z);
+            this._doLocalEdit({ a: 'remove', x, y, z }, { a: 'place', x, y, z, c: prev, o: prevOwner });
         }
 
         undo() {
@@ -623,6 +645,34 @@
         _updateBlockCount() {
             const n = this.voxels.count();
             document.getElementById('blockCount').textContent = n + (n === 1 ? ' block' : ' blocks');
+            this._updatePlayerCounts();
+        }
+
+        // Live per-player block tallies. Patches the existing rows in place
+        // (rather than re-rendering the list) so this stays cheap while a
+        // player drags out a wall, and never fights the join/leave rebuild.
+        _updatePlayerCounts() {
+            const list = document.getElementById('playerList');
+            if (!list) return;
+            const counts = this.voxels.countsByOwner();
+            const rows = list.querySelectorAll('.player-row');
+            // A player who has blocks but no row yet (e.g. their join event has
+            // not landed) means the list itself is stale — rebuild it once.
+            let missing = false;
+            const present = new Set();
+            rows.forEach(row => present.add(row.getAttribute('data-player')));
+            counts.forEach((_n, name) => { if (!present.has(name)) missing = true; });
+            if (missing) { this._refreshPlayers(); return; }
+
+            rows.forEach(row => {
+                const name = row.getAttribute('data-player');
+                const el = row.querySelector('.player-blocks');
+                if (!el) return;
+                const n = counts.get(name) || 0;
+                el.textContent = n;
+                el.classList.toggle('zero', n === 0);
+                el.title = n + (n === 1 ? ' block' : ' blocks') + ' placed by ' + name;
+            });
         }
 
         _refreshPlayers() {
@@ -630,17 +680,24 @@
             if (!list) return;
             let users = [];
             try { users = this.getConnectedUsers() || []; } catch (e) { users = []; }
-            const names = Array.from(new Set([this.username, ...users].filter(Boolean)));
+            const online = new Set([this.username, ...users].filter(Boolean));
+            const counts = this.voxels ? this.voxels.countsByOwner() : new Map();
+            // Builders who have since left still own standing blocks — keep them
+            // listed (dimmed) so the world's block tally always adds up.
+            const names = Array.from(new Set([...online, ...counts.keys()]));
             const hostName = this._hostName();
 
             list.innerHTML = names.map(name => {
                 const color = (typeof this.generateUserColor === 'function') ? this.generateUserColor(name) : '#6366f1';
                 const isYou = name === this.username;
                 const isHost = hostName ? (name === hostName) : (isYou && this.isHost());
-                return `<div class="player-row">
+                const isOnline = online.has(name);
+                const n = counts.get(name) || 0;
+                return `<div class="player-row${isOnline ? '' : ' offline'}" data-player="${this._esc(name)}">
                     <span class="player-dot" style="background:${color}"></span>
-                    <span class="player-name">${this._esc(name)}${isYou ? ' <span class="you">(you)</span>' : ''}</span>
+                    <span class="player-name">${this._esc(name)}${isYou ? ' <span class="you">(you)</span>' : ''}${isOnline ? '' : ' <span class="you">(left)</span>'}</span>
                     ${isHost ? '<span class="player-host" title="Room host">👑</span>' : ''}
+                    <span class="player-blocks${n === 0 ? ' zero' : ''}" title="${n}${n === 1 ? ' block' : ' blocks'} placed by ${this._esc(name)}">${n}</span>
                 </div>`;
             }).join('');
         }

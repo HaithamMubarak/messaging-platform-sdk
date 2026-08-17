@@ -164,3 +164,33 @@ html, body {
     .palette { grid-template-columns: repeat(4, 1fr); }
     .swatch { width: 30px; height: 30px; }
 }
+
+/* ---- Per-player live block tally ---------------------------------------- */
+/* .player-name takes the slack so the crown + count stay pinned right and
+   long names still ellipsis. Overrides the earlier margin-left:auto on
+   .player-host, which would otherwise eat the free space first. */
+.player-row .player-name { flex: 1 1 auto; min-width: 0; }
+.player-row .player-host { margin-left: 0; }
+
+.player-blocks {
+    flex: 0 0 auto;
+    min-width: 26px;
+    padding: 1px 7px;
+    border-radius: 10px;
+    background: rgba(99, 102, 241, 0.18);
+    border: 1px solid rgba(99, 102, 241, 0.35);
+    color: #c7d2fe;
+    font-size: 11px;
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+    text-align: center;
+    transition: background 0.25s ease, color 0.25s ease;
+}
+
+.player-blocks.zero {
+    background: rgba(255, 255, 255, 0.05);
+    border-color: rgba(255, 255, 255, 0.12);
+    color: var(--muted);
+}
+
+.player-row.offline { opacity: 0.55; }
