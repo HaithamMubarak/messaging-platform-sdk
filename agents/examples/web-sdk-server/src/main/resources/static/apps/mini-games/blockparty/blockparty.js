@@ -136,7 +136,10 @@
         }
 
         orbit(dx, dy) {
-            this.cam.theta -= dx * 0.005;
+            // Drag-to-grab: the world should follow the pointer. Because theta is
+            // measured from +X here (x=cos, z=sin), a rightward drag needs theta
+            // to INCREASE — negating it spun the scene the wrong way.
+            this.cam.theta += dx * 0.005;
             this.cam.phi -= dy * 0.005;
             const EPS = 0.12;
             this.cam.phi = Math.max(EPS, Math.min(Math.PI / 2 - 0.02, this.cam.phi));
