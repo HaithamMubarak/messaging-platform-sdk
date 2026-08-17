@@ -31,6 +31,26 @@
         '#ffffff', '#94a3b8', '#78350f', '#111827'
     ];
 
+    // Block shapes — index is sent over the wire as a small int, so entries must
+    // only ever be appended (never reordered) or saved worlds would change shape.
+    // `cy` is the mesh centre height inside the cell: a full-height shape sits at
+    // 0.5, a half-height slab at 0.25, so every shape rests on the cell floor.
+    const SHAPES = [
+        { key: 'cube',    name: 'Cube',    icon: '🧱', cy: 0.5,  make: () => new THREE.BoxGeometry(1, 1, 1) },
+        { key: 'slab',    name: 'Slab',    icon: '▬',  cy: 0.25, make: () => new THREE.BoxGeometry(1, 0.5, 1) },
+        { key: 'pillar',  name: 'Pillar',  icon: '🥫', cy: 0.5,  make: () => new THREE.CylinderGeometry(0.35, 0.35, 1, 16) },
+        { key: 'sphere',  name: 'Sphere',  icon: '⚪', cy: 0.5,  make: () => new THREE.SphereGeometry(0.5, 20, 14) },
+        { key: 'cone',    name: 'Cone',    icon: '🔺', cy: 0.5,  make: () => new THREE.ConeGeometry(0.5, 1, 20) },
+        // A 4-sided cone is a pyramid; rotating 45° squares its base to the cell.
+        { key: 'pyramid', name: 'Pyramid', icon: '⛰️', cy: 0.5,  make: () => {
+            const g = new THREE.ConeGeometry(0.707, 1, 4);
+            g.rotateY(Math.PI / 4);
+            return g;
+        } }
+    ];
+    const shapeAt = i => SHAPES[i] || SHAPES[0];
+    const shapeIndex = i => (Number.isInteger(i) && i >= 0 && i < SHAPES.length) ? i : 0;
+
     // =========================================================
     // Voxel renderer — owns the three.js scene, camera, picking
     // =========================================================
@@ -39,12 +59,19 @@
             this.mountEl = mountEl;
             this.world = new Map();     // "x,y,z" -> colorIndex
             this.owners = new Map();    // "x,y,z" -> player name who placed it
+            this.shapes = new Map();    // "x,y,z" -> shape index (absent = cube)
             this.meshes = new Map();    // "x,y,z" -> THREE.Mesh
-            this.remoteCursors = new Map(); // peerId -> THREE.LineSegments
+            this.remoteCursors = new Map(); // peerId -> { group, line, ghost, label, ... }
 
-            this.geometry = new THREE.BoxGeometry(1, 1, 1);
+            this.geometries = SHAPES.map(s => s.make());
+            this.geometry = this.geometries[0];   // cube, the default
             this.materials = PALETTE.map(hex => new THREE.MeshLambertMaterial({ color: new THREE.Color(hex) }));
+            // Translucent twins of the palette, for placement ghosts.
+            this.ghostMaterials = PALETTE.map(hex => new THREE.MeshLambertMaterial({
+                color: new THREE.Color(hex), transparent: true, opacity: 0.45, depthWrite: false
+            }));
             this.cursorGeometry = new THREE.EdgesGeometry(new THREE.BoxGeometry(1.02, 1.02, 1.02));
+            this.preview = null;        // local placement ghost (built lazily)
 
             this._initScene();
             this._initCamera();
@@ -148,19 +175,27 @@
         hasBlock(x, y, z) { return this.world.has(VoxelWorld.key(x, y, z)); }
 
         ownerOf(x, y, z) { return this.owners.get(VoxelWorld.key(x, y, z)); }
+        shapeOf(x, y, z) { return this.shapes.get(VoxelWorld.key(x, y, z)) || 0; }
 
-        setBlock(x, y, z, colorIndex, owner) {
+        setBlock(x, y, z, colorIndex, owner, shape) {
             const k = VoxelWorld.key(x, y, z);
+            const si = shapeIndex(shape);
             if (owner) this.owners.set(k, owner);
+            if (si) this.shapes.set(k, si); else this.shapes.delete(k);
+
             const existing = this.meshes.get(k);
-            if (existing) {
+            // Same shape → just restyle. Different shape → the geometry changed,
+            // so the mesh has to be rebuilt.
+            if (existing && existing.userData.si === si) {
                 existing.material = this.materials[colorIndex] || this.materials[0];
                 this.world.set(k, colorIndex);
                 return;
             }
-            const mesh = new THREE.Mesh(this.geometry, this.materials[colorIndex] || this.materials[0]);
-            mesh.position.set(x + 0.5, y + 0.5, z + 0.5);
-            mesh.userData = { cx: x, cy: y, cz: z };
+            if (existing) { this.scene.remove(existing); this.meshes.delete(k); }
+
+            const mesh = new THREE.Mesh(this.geometries[si], this.materials[colorIndex] || this.materials[0]);
+            mesh.position.set(x + 0.5, y + shapeAt(si).cy, z + 0.5);
+            mesh.userData = { cx: x, cy: y, cz: z, si };
             this.scene.add(mesh);
             this.meshes.set(k, mesh);
             this.world.set(k, colorIndex);
@@ -172,6 +207,7 @@
             if (mesh) { this.scene.remove(mesh); this.meshes.delete(k); }
             this.world.delete(k);
             this.owners.delete(k);
+            this.shapes.delete(k);
         }
 
         clearAll() {
@@ -179,6 +215,7 @@
             this.meshes.clear();
             this.world.clear();
             this.owners.clear();
+            this.shapes.clear();
         }
 
         count() { return this.world.size; }
@@ -192,14 +229,18 @@
             return m;
         }
 
-        // [x, y, z, colorIndex, owner?] — owner is optional so older saved
-        // worlds (4-element rows) still load.
+        // [x, y, z, colorIndex, owner?, shape?] — the tail is optional and only
+        // written when it carries information, so rows stay short and worlds
+        // saved by older versions (4- and 5-element rows) still load.
         encode() {
             const out = [];
             this.world.forEach((c, k) => {
                 const [x, y, z] = k.split(',').map(Number);
                 const owner = this.owners.get(k);
-                out.push(owner ? [x, y, z, c, owner] : [x, y, z, c]);
+                const si = this.shapes.get(k) || 0;
+                if (si) out.push([x, y, z, c, owner || null, si]);
+                else if (owner) out.push([x, y, z, c, owner]);
+                else out.push([x, y, z, c]);
             });
             return out;
         }
@@ -209,8 +250,8 @@
             if (Array.isArray(blocks)) {
                 for (const b of blocks) {
                     if (!b || b.length < 4) continue;
-                    const [x, y, z, c, owner] = b;
-                    if (this.inBounds(x, y, z)) this.setBlock(x, y, z, c, owner);
+                    const [x, y, z, c, owner, si] = b;
+                    if (this.inBounds(x, y, z)) this.setBlock(x, y, z, c, owner || undefined, si);
                 }
             }
         }
@@ -240,22 +281,154 @@
             return { place, remove: { x: cx, y: cy, z: cz } };
         }
 
-        setRemoteCursor(peerId, x, y, z, hexColor) {
-            let line = this.remoteCursors.get(peerId);
-            if (!line) {
-                const mat = new THREE.LineBasicMaterial({ color: new THREE.Color(hexColor || '#ffffff') });
-                line = new THREE.LineSegments(this.cursorGeometry, mat);
-                this.remoteCursors.set(peerId, line);
-                this.scene.add(line);
+        // ---- local placement preview (my own aim, before I commit an edit) ----
+        showPreview(x, y, z, si, colorIndex, erasing) {
+            if (!this.preview) {
+                const group = new THREE.Group();
+                const line = new THREE.LineSegments(
+                    this.cursorGeometry, new THREE.LineBasicMaterial({ color: 0xffffff })
+                );
+                const ghost = new THREE.Mesh(this.geometries[0], this.ghostMaterials[0]);
+                group.add(line);
+                group.add(ghost);
+                this.scene.add(group);
+                this.preview = { group, line, ghost };
             }
-            line.material.color.set(hexColor || '#ffffff');
-            line.position.set(x + 0.5, y + 0.5, z + 0.5);
-            line.visible = true;
+            const p = this.preview;
+            p.group.visible = true;
+            p.group.position.set(x + 0.5, y, z + 0.5);
+            p.line.position.y = 0.5;
+            if (erasing) {
+                // Nothing is being added — just ring the doomed cell in red.
+                p.ghost.visible = false;
+                p.line.material.color.set('#ff5a5f');
+            } else {
+                const idx = shapeIndex(si);
+                p.ghost.visible = true;
+                p.ghost.geometry = this.geometries[idx];
+                p.ghost.material = this.ghostMaterials[colorIndex] || this.ghostMaterials[0];
+                p.ghost.position.y = shapeAt(idx).cy;
+                p.line.material.color.set('#ffffff');
+            }
+        }
+
+        hidePreview() { if (this.preview) this.preview.group.visible = false; }
+
+        // ---- remote cursors: where each other player is aiming, and who they are ----
+        setRemoteCursor(peerId, info) {
+            info = info || {};
+            const color = info.color || '#ffffff';
+            const name = info.name || peerId;
+            const si = shapeIndex(info.shape);
+            const erasing = info.tool === 'erase';
+
+            let rec = this.remoteCursors.get(peerId);
+            if (!rec) {
+                const group = new THREE.Group();
+                const line = new THREE.LineSegments(
+                    this.cursorGeometry, new THREE.LineBasicMaterial({ color: new THREE.Color(color) })
+                );
+                const ghost = new THREE.Mesh(this.geometries[si], this._ghostMaterialFor(color));
+                const label = this._makeLabelSprite(name, color);
+                group.add(line); group.add(ghost); group.add(label);
+                this.scene.add(group);
+                rec = { group, line, ghost, label, name, color };
+                this.remoteCursors.set(peerId, rec);
+            }
+
+            // Rebuild the label only when the identity it shows actually changes.
+            if (rec.name !== name || rec.color !== color) {
+                rec.group.remove(rec.label);
+                this._disposeLabel(rec.label);
+                rec.label = this._makeLabelSprite(name, color);
+                rec.group.add(rec.label);
+                rec.name = name;
+                rec.color = color;
+                rec.ghost.material = this._ghostMaterialFor(color);
+            }
+
+            rec.group.visible = true;
+            rec.group.position.set(info.x + 0.5, info.y, info.z + 0.5);
+            rec.line.position.y = 0.5;
+            rec.line.material.color.set(erasing ? '#ff5a5f' : color);
+            rec.label.position.y = 1.55;
+            // Show the exact shape they are about to drop, so you can read intent.
+            rec.ghost.visible = !erasing;
+            rec.ghost.geometry = this.geometries[si];
+            rec.ghost.position.y = shapeAt(si).cy;
+        }
+
+        // Peer is still here but has nothing under their pointer.
+        hideRemoteCursor(peerId) {
+            const rec = this.remoteCursors.get(peerId);
+            if (rec) rec.group.visible = false;
         }
 
         removeRemoteCursor(peerId) {
-            const line = this.remoteCursors.get(peerId);
-            if (line) { this.scene.remove(line); this.remoteCursors.delete(peerId); }
+            const rec = this.remoteCursors.get(peerId);
+            if (!rec) return;
+            this.scene.remove(rec.group);
+            this._disposeLabel(rec.label);
+            this.remoteCursors.delete(peerId);
+        }
+
+        _ghostMaterialFor(hexColor) {
+            if (!this._remoteGhostMats) this._remoteGhostMats = new Map();
+            let m = this._remoteGhostMats.get(hexColor);
+            if (!m) {
+                m = new THREE.MeshLambertMaterial({
+                    color: new THREE.Color(hexColor), transparent: true, opacity: 0.35, depthWrite: false
+                });
+                this._remoteGhostMats.set(hexColor, m);
+            }
+            return m;
+        }
+
+        // A name pill drawn to a canvas and shown as a sprite, so it always faces
+        // the camera. depthTest:false keeps it readable even behind other blocks.
+        _makeLabelSprite(text, hexColor) {
+            const FONT = 'bold 30px system-ui, -apple-system, "Segoe UI", sans-serif';
+            const padX = 16, padY = 10, dot = 12, gap = 9;
+            const canvas = document.createElement('canvas');
+            let ctx = canvas.getContext('2d');
+            ctx.font = FONT;
+            const textW = Math.ceil(ctx.measureText(String(text)).width);
+            canvas.width = padX * 2 + dot + gap + textW;
+            canvas.height = 30 + padY * 2;
+
+            ctx = canvas.getContext('2d');   // resizing resets the context state
+            ctx.font = FONT;
+            ctx.fillStyle = 'rgba(8, 12, 24, 0.82)';
+            const r = canvas.height / 2;
+            if (typeof ctx.roundRect === 'function') {
+                ctx.beginPath(); ctx.roundRect(0, 0, canvas.width, canvas.height, r); ctx.fill();
+            } else {
+                ctx.fillRect(0, 0, canvas.width, canvas.height);
+            }
+            ctx.fillStyle = hexColor;
+            ctx.beginPath();
+            ctx.arc(padX + dot / 2, canvas.height / 2, dot / 2, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.fillStyle = '#ffffff';
+            ctx.textBaseline = 'middle';
+            ctx.fillText(String(text), padX + dot + gap, canvas.height / 2 + 1);
+
+            const tex = new THREE.CanvasTexture(canvas);
+            const sprite = new THREE.Sprite(new THREE.SpriteMaterial({
+                map: tex, transparent: true, depthTest: false
+            }));
+            const S = 0.022;   // world units per canvas px
+            sprite.scale.set(canvas.width * S, canvas.height * S, 1);
+            sprite.renderOrder = 10;
+            return sprite;
+        }
+
+        _disposeLabel(sprite) {
+            if (!sprite) return;
+            try {
+                if (sprite.material.map) sprite.material.map.dispose();
+                sprite.material.dispose();
+            } catch (e) { /* nothing worth failing a frame over */ }
         }
     }
 
@@ -274,16 +447,19 @@
 
             this.voxels = null;
             this.currentColor = 0;
+            this.currentShape = 0;          // index into SHAPES
             this.tool = 'build';            // 'build' | 'erase'
             this.undoStack = [];            // inverse edits of my own actions
             this._saveTimer = null;
             this._lastCursorSent = 0;
+            this._lastPointer = null;       // last hover position, for preview refreshes
         }
 
         // ---------- lifecycle ----------
         async onInitialize() {
             this.voxels = new VoxelWorld(document.getElementById('sceneRoot'));
             this._buildPalette();
+            this._buildShapes();
             this._bindUI();
             this._bindPointer();
         }
@@ -392,7 +568,11 @@
                     if (this.isHost()) this._sendWorldSnapshot();
                     break;
                 case 'cursor':
-                    this.voxels.setRemoteCursor(peerId, data.x, data.y, data.z, data.color);
+                    if (data.hide) { this.voxels.hideRemoteCursor(peerId); break; }
+                    this.voxels.setRemoteCursor(peerId, {
+                        x: data.x, y: data.y, z: data.z,
+                        color: data.color, name: data.name, shape: data.shape, tool: data.tool
+                    });
                     break;
             }
         }
@@ -402,8 +582,8 @@
             if (!edit) return;
             if (edit.a === 'place' && this.voxels.inBounds(edit.x, edit.y, edit.z)) {
                 // edit.o = the player who placed it, so per-player counts stay
-                // correct no matter which peer applied the edit.
-                this.voxels.setBlock(edit.x, edit.y, edit.z, edit.c, edit.o);
+                // correct no matter which peer applied the edit. edit.s = shape.
+                this.voxels.setBlock(edit.x, edit.y, edit.z, edit.c, edit.o, edit.s);
             } else if (edit.a === 'remove') {
                 this.voxels.deleteBlock(edit.x, edit.y, edit.z);
             }
@@ -428,17 +608,25 @@
             if (!this.voxels.inBounds(x, y, z)) return;
             const prev = this.voxels.world.get(VoxelWorld.key(x, y, z));
             const prevOwner = this.voxels.ownerOf(x, y, z);
+            const prevShape = this.voxels.shapeOf(x, y, z);
             const inverse = (prev === undefined)
                 ? { a: 'remove', x, y, z }
-                : { a: 'place', x, y, z, c: prev, o: prevOwner };
-            this._doLocalEdit({ a: 'place', x, y, z, c: this.currentColor, o: this.username }, inverse);
+                : { a: 'place', x, y, z, c: prev, o: prevOwner, s: prevShape };
+            this._doLocalEdit(
+                { a: 'place', x, y, z, c: this.currentColor, o: this.username, s: this.currentShape },
+                inverse
+            );
         }
 
         removeAt(x, y, z) {
             const prev = this.voxels.world.get(VoxelWorld.key(x, y, z));
             if (prev === undefined) return;
             const prevOwner = this.voxels.ownerOf(x, y, z);
-            this._doLocalEdit({ a: 'remove', x, y, z }, { a: 'place', x, y, z, c: prev, o: prevOwner });
+            const prevShape = this.voxels.shapeOf(x, y, z);
+            this._doLocalEdit(
+                { a: 'remove', x, y, z },
+                { a: 'place', x, y, z, c: prev, o: prevOwner, s: prevShape }
+            );
         }
 
         undo() {
@@ -515,6 +703,8 @@
                 lastX = downX = e.clientX; lastY = downY = e.clientY;
                 downBtn = e.button;
                 dragging = false;
+                // Touch has no hover, so first contact is when the ghost appears.
+                this._updateAim(e.clientX, e.clientY);
                 if (pointers.size === 2) {
                     const pts = Array.from(pointers.values());
                     pinchDist = Math.hypot(pts[0].x - pts[1].x, pts[0].y - pts[1].y);
@@ -539,11 +729,11 @@
                     if (!dragging && Math.hypot(e.clientX - downX, e.clientY - downY) > MOVE_THRESHOLD) {
                         dragging = true;
                     }
-                    if (dragging) { this.voxels.orbit(dx, dy); }
+                    if (dragging) { this.voxels.hidePreview(); this.voxels.orbit(dx, dy); }
                     lastX = e.clientX; lastY = e.clientY;
                 } else {
-                    // Hover: broadcast my cursor cell to others (throttled)
-                    this._maybeSendCursor(e.clientX, e.clientY);
+                    // Hover: show my own placement ghost + tell the others where I aim
+                    this._updateAim(e.clientX, e.clientY);
                 }
             });
 
@@ -561,6 +751,10 @@
             };
             el.addEventListener('pointerup', endPointer);
             el.addEventListener('pointercancel', (e) => { pointers.delete(e.pointerId); dragging = false; });
+            el.addEventListener('pointerleave', () => {
+                this._lastPointer = null;
+                this.voxels.hidePreview();
+            });
 
             el.addEventListener('wheel', (e) => {
                 e.preventDefault();
@@ -576,17 +770,52 @@
             } else if (pick.place) {
                 this.placeAt(pick.place.x, pick.place.y, pick.place.z);
             }
+            // The cell under the pointer just changed — re-aim so the ghost moves
+            // to the next face instead of sitting inside what was just built.
+            this._refreshAim();
         }
 
-        _maybeSendCursor(clientX, clientY) {
+        // Draw my own aim locally (every move, it's just a transform) and tell the
+        // others about it on a throttle (that part costs bandwidth).
+        _updateAim(clientX, clientY) {
+            this._lastPointer = { x: clientX, y: clientY };
+            const pick = this.voxels.pick(clientX, clientY);
+            const erasing = this.tool === 'erase';
+            const cell = erasing ? pick && pick.remove : pick && pick.place;
+            if (!cell) {
+                // No valid target (e.g. Erase aimed at empty ground). Tell the
+                // others to drop my cursor, or they keep seeing a stale ghost.
+                this.voxels.hidePreview();
+                this._sendCursor({ hide: true });
+                return;
+            }
+
+            this.voxels.showPreview(cell.x, cell.y, cell.z, this.currentShape, this.currentColor, erasing);
+
+            this._sendCursor({ x: cell.x, y: cell.y, z: cell.z });
+        }
+
+        // Throttled cursor broadcast. `extra` is either a cell or { hide:true }.
+        _sendCursor(extra) {
+            if (!this.connected) return;
             const now = Date.now();
             if (now - this._lastCursorSent < CURSOR_THROTTLE_MS) return;
             this._lastCursorSent = now;
-            const pick = this.voxels.pick(clientX, clientY);
-            if (!pick || !pick.place) return;
             const color = (typeof this.generateUserColor === 'function')
                 ? this.generateUserColor(this.username) : '#ffffff';
-            this.sendData({ type: 'cursor', x: pick.place.x, y: pick.place.y, z: pick.place.z, color });
+            this.sendData(Object.assign({
+                type: 'cursor',
+                color,
+                name: this.username,
+                shape: this.currentShape,
+                tool: this.tool
+            }, extra));
+        }
+
+        // Re-aim after a tool/colour/shape switch so the ghost reflects the change
+        // without waiting for the pointer to move.
+        _refreshAim() {
+            if (this._lastPointer) this._updateAim(this._lastPointer.x, this._lastPointer.y);
         }
 
         // ---------- UI ----------
@@ -604,14 +833,44 @@
                     this._syncTool();
                     palette.querySelectorAll('.swatch').forEach(s => s.classList.remove('selected'));
                     sw.classList.add('selected');
+                    this._refreshAim();
                 });
                 palette.appendChild(sw);
             });
         }
 
+        _buildShapes() {
+            const bar = document.getElementById('shapes');
+            if (!bar) return;
+            bar.innerHTML = '';
+            SHAPES.forEach((shape, i) => {
+                const btn = document.createElement('button');
+                btn.type = 'button';
+                btn.className = 'shape-btn' + (i === this.currentShape ? ' selected' : '');
+                btn.textContent = shape.icon;
+                btn.title = shape.name + ' (' + (i + 1) + ')';
+                btn.setAttribute('aria-label', shape.name);
+                btn.addEventListener('click', () => this.selectShape(i));
+                bar.appendChild(btn);
+            });
+        }
+
+        selectShape(i) {
+            this.currentShape = shapeIndex(i);
+            this.tool = 'build';
+            this._syncTool();
+            const bar = document.getElementById('shapes');
+            if (bar) {
+                bar.querySelectorAll('.shape-btn').forEach((b, idx) => {
+                    b.classList.toggle('selected', idx === this.currentShape);
+                });
+            }
+            this._refreshAim();
+        }
+
         _bindUI() {
-            document.getElementById('toolBuild').addEventListener('click', () => { this.tool = 'build'; this._syncTool(); });
-            document.getElementById('toolErase').addEventListener('click', () => { this.tool = 'erase'; this._syncTool(); });
+            document.getElementById('toolBuild').addEventListener('click', () => { this.tool = 'build'; this._syncTool(); this._refreshAim(); });
+            document.getElementById('toolErase').addEventListener('click', () => { this.tool = 'erase'; this._syncTool(); this._refreshAim(); });
             document.getElementById('undoBtn').addEventListener('click', () => this.undo());
             document.getElementById('resetViewBtn').addEventListener('click', () => this.voxels.resetView());
 
@@ -630,10 +889,12 @@
             window.addEventListener('keydown', (e) => {
                 if (e.target && /^(INPUT|TEXTAREA|SELECT)$/.test(e.target.tagName)) return;
                 const k = e.key.toLowerCase();
-                if (k === 'b') { this.tool = 'build'; this._syncTool(); }
-                else if (k === 'e') { this.tool = 'erase'; this._syncTool(); }
+                if (k === 'b') { this.tool = 'build'; this._syncTool(); this._refreshAim(); }
+                else if (k === 'e') { this.tool = 'erase'; this._syncTool(); this._refreshAim(); }
                 else if (k === 'z') { this.undo(); }
                 else if (k === 'r') { this.voxels.resetView(); }
+                // 1..N pick a shape
+                else if (/^[1-9]$/.test(k) && Number(k) <= SHAPES.length) { this.selectShape(Number(k) - 1); }
             });
         }
 

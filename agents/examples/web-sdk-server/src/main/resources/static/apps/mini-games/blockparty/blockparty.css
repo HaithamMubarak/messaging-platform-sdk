@@ -194,3 +194,42 @@ html, body {
 }
 
 .player-row.offline { opacity: 0.55; }
+
+/* ---- Shape picker ------------------------------------------------------- */
+/* Sits between the build/erase tools and the palette in the dock, styled to
+   read as the same family as .swatch (square, selectable) but with a glyph. */
+.shapes {
+    display: grid;
+    grid-template-columns: repeat(6, 1fr);
+    gap: 6px;
+    padding-right: 10px;
+    margin-right: 4px;
+    border-right: 1px solid var(--border);
+}
+
+.shape-btn {
+    width: 30px; height: 30px;
+    display: flex; align-items: center; justify-content: center;
+    padding: 0; border-radius: 9px; cursor: pointer;
+    border: 2px solid transparent;
+    background: rgba(255, 255, 255, 0.06);
+    color: var(--text);
+    font-size: 15px; line-height: 1;
+    transition: transform .08s ease, border-color .12s ease, background .2s ease;
+}
+
+.shape-btn:hover { transform: scale(1.08); background: rgba(255, 255, 255, 0.12); }
+
+.shape-btn.selected {
+    border-color: rgba(99, 102, 241, 0.9);
+    background: linear-gradient(180deg, rgba(99, 102, 241, 0.35), rgba(99, 102, 241, 0.15));
+}
+
+@media (max-width: 640px) {
+    .shapes { grid-template-columns: repeat(3, 1fr); }
+}
+
+/* The hint is a flex row of [text, dismiss]; without this wrapper the copy's
+   own words each became flex items and laid out in a ragged grid. */
+.help-hint .hint-text { line-height: 1.5; }
+.help-hint { max-width: min(92vw, 880px); }

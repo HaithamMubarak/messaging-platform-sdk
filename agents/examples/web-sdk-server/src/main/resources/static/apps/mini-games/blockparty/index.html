@@ -47,6 +47,7 @@
             <button id="toolBuild" class="tool-btn active" data-tool="build" title="Build (B)">🧱<span>Build</span></button>
             <button id="toolErase" class="tool-btn" data-tool="erase" title="Erase (E)">🧨<span>Erase</span></button>
         </div>
+        <div id="shapes" class="shapes" aria-label="Block shape"></div>
         <div id="palette" class="palette" aria-label="Color palette"></div>
         <div class="tool-group tool-extra">
             <button id="undoBtn" class="tool-btn small" title="Undo my last block (Z)">↶<span>Undo</span></button>
@@ -56,8 +57,7 @@
 
     <!-- Help hint -->
     <div id="helpHint" class="help-hint">
-        <strong>Drag</strong> to orbit · <strong>Scroll / pinch</strong> to zoom · <strong>Tap/click</strong> to build ·
-        <strong>Right-click</strong> or Erase tool to remove
+        <span class="hint-text"><strong>Drag</strong> to orbit · <strong>Scroll / pinch</strong> to zoom · <strong>Tap/click</strong> to build · <strong>Right-click</strong> or Erase tool to remove · <strong>1–6</strong> to switch shape</span>
         <button id="dismissHelp" class="dismiss" aria-label="Dismiss">✕</button>
     </div>
 
