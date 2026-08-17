@@ -519,3 +519,12 @@ html, body {
     .brick-btn { min-width: 40px; padding: 4px 5px; }
     .brick-label { display: none; }
 }
+
+/* Vote buttons in the Block Rush panel */
+.vote-btn {
+    padding: 5px 12px; border-radius: 9px; cursor: pointer; font-size: 12px; font-weight: 700;
+    color: var(--text); border: 1px solid var(--border); background: rgba(99,102,241,0.28);
+}
+.vote-btn:hover:not(:disabled) { background: rgba(99,102,241,0.45); }
+.vote-btn.picked { background: rgba(34,197,94,0.32); border-color: rgba(34,197,94,0.6); }
+.vote-btn:disabled { opacity: 0.35; cursor: not-allowed; }

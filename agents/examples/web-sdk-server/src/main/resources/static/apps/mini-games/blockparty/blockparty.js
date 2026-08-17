@@ -27,6 +27,12 @@
     const MAX_FILL_CELLS = 1200;  // biggest region one fill may touch
     const BULK_CHUNK = 300;       // cells per wire message, to stay well under
                                   // the data-channel size limit
+    // The platform expires a session after 180s unless something the client
+    // sends touches it. BlockParty talks over WebRTC almost exclusively, so a
+    // room deep in a quiet three-minute round would let its session lapse and
+    // channel storage would start refusing writes. A cheap read-only call keeps
+    // it alive without putting any traffic into the room.
+    const SESSION_KEEPALIVE_MS = 45000;   // comfortably inside the 180s window
     const SLOT_PREFIX = 'blockparty_slot_';
     const STATS_KEY = 'blockparty_stats';
 
@@ -200,6 +206,9 @@
         }
 
         start() {
+            // onConnect runs again after a session recovery; a second render
+            // loop would double every frame's work for the rest of the session.
+            if (this._raf) return;
             const loop = () => {
                 this._raf = requestAnimationFrame(loop);
                 this.stepFollow();
@@ -262,7 +271,11 @@
             const si = shapeIndex(shape);
             // A cell inside a brick belongs to that brick, not to itself.
             if (this.pieceOf.has(k)) this.deletePiece(this.pieceOf.get(k));
-            if (owner) this.owners.set(k, owner);
+            // Re-placing a block that is already exactly this block changes
+            // nothing, so it must not quietly transfer credit for it — in Team
+            // Build that would let a tidier-upper take the whole room's work.
+            const identical = this.world.get(k) === colorIndex && (this.shapes.get(k) || 0) === si;
+            if (owner && !identical) this.owners.set(k, owner);
             if (si) this.shapes.set(k, si); else this.shapes.delete(k);
 
             // While the x-ray is on, a block's colour shows its owner, so blocks
@@ -904,6 +917,7 @@
 
             // Load whatever was persisted (works even if we're the only/first player)
             this._loadWorldFromStorage();
+            this._startSessionKeepAlive();
 
             this.showToast('Connected — start building! 🧱', 'success', 2500);
         }
@@ -954,6 +968,7 @@
         }
 
         onDisconnect() {
+            this._stopSessionKeepAlive();
             this._setConnected(false);
             this._showReconnect('Connection lost — reconnecting…');
         }
@@ -1404,16 +1419,22 @@
             if (!this.isHost() || !this.channel || typeof this.channel.storagePut !== 'function') return;
             try {
                 const snap = this.snapshotWorld();
-                this.channel.storagePut({
+                const payload = {
                     storageKey: STORAGE_KEY,
                     content: { v: 2, blocks: snap.blocks, pieces: snap.pieces },
                     encrypted: false,
                     metadata: { description: 'BlockParty voxel world', blocks: this.voxels.count() }
-                }, (res) => {
-                    if (res && res.status !== 'success') {
-                        console.warn('[BlockParty] world save failed:', res.statusMessage);
-                    }
-                });
+                };
+                this._storage(
+                    (cb) => this.channel.storagePut(payload, cb),
+                    (res) => {
+                        if (res && res.status !== 'success') {
+                            console.warn('[BlockParty] world save failed:', res.statusMessage);
+                            // Silence would let a room build for an hour on top
+                            // of a world that is not being saved.
+                            this._denyOnce('⚠️ The world could not be saved — ' + (res.statusMessage || 'storage error'));
+                        }
+                    });
             } catch (e) {
                 console.warn('[BlockParty] world save error:', e.message);
             }
@@ -1423,7 +1444,7 @@
             if (this.modes && this.modes.isMatchActive()) return;
             if (!this.channel || typeof this.channel.storageGet !== 'function') return;
             try {
-                this.channel.storageGet({ storageKey: STORAGE_KEY }, (res) => {
+                this._storage((cb) => this.channel.storageGet({ storageKey: STORAGE_KEY }, cb), (res) => {
                     // A match may have started while this round-trip was in
                     // flight — the arena must not be overwritten.
                     if (this.modes && this.modes.isMatchActive()) return;
@@ -1459,6 +1480,100 @@
             if (this.modes && this.modes.isMatchActive()) return;
             const snap = this.snapshotWorld();
             this.sendData({ type: 'world', blocks: snap.blocks, pieces: snap.pieces, locked: this.worldLocked });
+        }
+
+        // ---------- session keep-alive ----------
+        // /list-agents refreshes the session's TTL as a side effect and returns
+        // the player list, so this doubles as a slow presence refresh.
+        _startSessionKeepAlive() {
+            this._stopSessionKeepAlive();
+            this._keepAliveTimer = setInterval(() => this._touchSession(), SESSION_KEEPALIVE_MS);
+            if (!this._visibilityBound) {
+                // A backgrounded tab has its timers throttled and a sleeping
+                // laptop stops them altogether, so touch the session the moment
+                // the page is looked at again.
+                this._visibilityBound = true;
+                document.addEventListener('visibilitychange', () => {
+                    if (!document.hidden) this._touchSession();
+                });
+            }
+        }
+
+        _touchSession() {
+            if (!this.connected || !this.channel || typeof this.channel.getActiveAgents !== 'function') return;
+            try {
+                this.channel.getActiveAgents(() => this._refreshPlayers());
+            } catch (e) {
+                console.warn('[BlockParty] keep-alive failed:', e.message);
+            }
+        }
+
+        _stopSessionKeepAlive() {
+            clearInterval(this._keepAliveTimer);
+            this._keepAliveTimer = null;
+        }
+
+        // ---------- storage, with session recovery ----------
+        // The platform drops a session that has not been heard from in 180s.
+        // BlockParty talks over WebRTC, so that can happen mid-session and every
+        // storage call then fails with "Invalid session ID". Prevention is the
+        // keep-alive above; this is what happens when prevention is not enough.
+        _isDeadSession(res) {
+            if (!res) return false;
+            const msg = res.statusMessage || (typeof res.data === 'string' ? res.data : '') || '';
+            return /invalid session/i.test(String(msg));
+        }
+
+        /**
+         * Run a storage operation; if the session turns out to be dead, rebuild
+         * it and run the operation once more. `op` receives the callback to hand
+         * to the storage API, and is re-invoked on retry so it picks up the new
+         * channel object.
+         */
+        _storage(op, done) {
+            const attempt = (isRetry) => {
+                try {
+                    op((res) => {
+                        if (!isRetry && this._isDeadSession(res)) {
+                            this._recoverSession().then(ok => {
+                                if (ok) attempt(true); else done(res);
+                            });
+                            return;
+                        }
+                        done(res);
+                    });
+                } catch (e) {
+                    done({ status: 'error', statusMessage: e.message });
+                }
+            };
+            attempt(false);
+        }
+
+        _recoverSession() {
+            if (this._recovering) return this._recovering;
+            this.showToast('Session expired — reconnecting…', 'warning', 2500);
+            this._showReconnect('Session expired — reconnecting…');
+            this._recovering = (async () => {
+                try {
+                    try { this.disconnect(); } catch (e) { /* already gone */ }
+                    this.connected = false;
+                    this.connecting = false;
+                    await this.connect({
+                        username: this.username,
+                        channelName: this.channelName,
+                        channelPassword: this.channelPassword
+                    });
+                    this._hideReconnect();
+                    return true;
+                } catch (e) {
+                    console.warn('[BlockParty] session recovery failed:', e.message);
+                    this._showReconnect('Could not reconnect — please reload');
+                    return false;
+                } finally {
+                    this._recovering = null;
+                }
+            })();
+            return this._recovering;
         }
 
         // ---------- world management (slots, lock, clear) ----------
@@ -1511,12 +1626,13 @@
             const slug = name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || 'world';
             const snap = this.snapshotWorld();
             const count = this.voxels.count();
-            this.channel.storagePut({
+            const payload = {
                 storageKey: SLOT_PREFIX + slug,
                 content: { v: 2, name, by: this.username, at: Date.now(), blocks: snap.blocks, pieces: snap.pieces },
                 encrypted: false,
                 metadata: { description: 'BlockParty saved world', blocks: count }
-            }, (res) => {
+            };
+            this._storage((cb) => this.channel.storagePut(payload, cb), (res) => {
                 if (res && res.status === 'success') {
                     this.showToast(`Saved “${name}” (${count} blocks)`, 'success', 2200);
                     this._loadSlotList();
@@ -1533,7 +1649,7 @@
                 return;
             }
             if (!window.confirm(`Load “${label}”? The current world will be replaced.`)) return;
-            this.channel.storageGet({ storageKey: key }, (res) => {
+            this._storage((cb) => this.channel.storageGet({ storageKey: key }, cb), (res) => {
                 const payload = (res && res.status === 'success') ? res.data : null;
                 const saved = payload && (payload.content || payload);
                 const blocks = saved && saved.blocks;
@@ -1553,7 +1669,7 @@
 
         deleteSlot(key, label) {
             if (!window.confirm(`Delete the save “${label}”?`)) return;
-            this.channel.storageDeleteByKey(key, (res) => {
+            this._storage((cb) => this.channel.storageDeleteByKey(key, cb), (res) => {
                 if (res && res.status === 'success') {
                     this.showToast(`Deleted “${label}”`, 'info', 1800);
                     this._loadSlotList();
@@ -1994,7 +2110,12 @@
                 const row = e.target.closest && e.target.closest(sel);
                 if (row) this.modes.focusPlayer(row.getAttribute('data-player'));
             };
-            on('rsBody', 'click', (e) => focusFrom(e, '.rs-row'));
+            on('rsBody', 'click', (e) => {
+                // A vote button is a vote; anywhere else on the row is "show me".
+                const vote = e.target.closest && e.target.closest('.vote-btn');
+                if (vote && !vote.disabled) { this.modes.castVote(vote.getAttribute('data-vote')); return; }
+                focusFrom(e, '.rs-row');
+            });
             on('playerList', 'click', (e) => {
                 // During a match a click flies to that player's plot; in the
                 // sandbox it follows them around instead.
@@ -2226,12 +2347,16 @@
             if (!list || !this.channel || typeof this.channel.storageKeys !== 'function') return;
             list.innerHTML = '<div class="slot-empty">Loading…</div>';
 
-            this.channel.storageKeys((res) => {
+            this._storage((cb) => this.channel.storageKeys(cb), (res) => {
                 const data = this._storagePayload(res);
                 const keys = (data && data.keys ? data.keys : []).filter(k => k.indexOf(SLOT_PREFIX) === 0);
+                if (res && res.status !== 'success') {
+                    list.innerHTML = `<div class="slot-empty">Could not read saved worlds — ${this._esc(res.statusMessage || 'storage error')}</div>`;
+                    return;
+                }
                 // Sizes and timestamps live in a second call; the list renders
                 // without them if it fails, rather than showing nothing.
-                this.channel.storageValues((vres) => {
+                this._storage((cb2) => this.channel.storageValues(cb2), (vres) => {
                     const vdata = this._storagePayload(vres);
                     const meta = new Map();
                     ((vdata && vdata.values) || []).forEach(v => meta.set(v.storageKey, v));
@@ -2265,7 +2390,7 @@
         // ---------- persistent room stats ----------
         _fetchStats() {
             if (!this.channel || typeof this.channel.storageGet !== 'function') return;
-            this.channel.storageGet({ storageKey: STATS_KEY }, (res) => {
+            this._storage((cb) => this.channel.storageGet({ storageKey: STATS_KEY }, cb), (res) => {
                 if (res && res.status === 'success' && res.data) this.stats = res.data;
                 this._renderLeaderboard();
             });
@@ -2300,7 +2425,7 @@
          */
         recordMatchStats(results) {
             if (!this.isHost() || !results || !this.channel) return;
-            this.channel.storageGet({ storageKey: STATS_KEY }, (res) => {
+            this._storage((cb) => this.channel.storageGet({ storageKey: STATS_KEY }, cb), (res) => {
                 const current = (res && res.status === 'success' && res.data && res.data.players)
                     ? res.data : { v: 1, players: {} };
                 const players = current.players;
@@ -2310,7 +2435,9 @@
                     const p = players[t.name] || (players[t.name] = { matches: 0, wins: 0, points: 0, bestPct: 0, guesses: 0 });
                     p.matches += 1;
                     p.points += t.points || 0;
-                    if (t.name === winner && t.points > 0) p.wins += 1;
+                    // A co-op match is won by the room or by nobody, so everyone
+                    // who scored takes the win rather than whoever sorts first.
+                    if (results.coop ? t.points > 0 : (t.name === winner && t.points > 0)) p.wins += 1;
                 });
                 (results.rows || []).forEach(r => {
                     const p = players[r.name];
@@ -2320,10 +2447,14 @@
                 });
 
                 this.stats = current;
-                this.channel.storagePut({
+                this._storage((cb) => this.channel.storagePut({
                     storageKey: STATS_KEY, content: current, encrypted: false,
                     metadata: { description: 'BlockParty room stats' }
-                }, () => { });
+                }, cb), (put) => {
+                    if (put && put.status !== 'success') {
+                        console.warn('[BlockParty] stats save failed:', put.statusMessage);
+                    }
+                });
                 this.sendData({ type: 'stats', stats: current });
                 this._renderLeaderboard();
             });

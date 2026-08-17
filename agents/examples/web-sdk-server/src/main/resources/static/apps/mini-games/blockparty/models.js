@@ -255,6 +255,30 @@
         'plane', 'helicopter', 'submarine', 'anchor', 'telescope', 'staircase', 'arch'
     ];
 
+    /**
+     * Prompts for Block Rush, where there is no blueprint and the room votes.
+     * They are open enough that two players will build different things, and
+     * concrete enough that you know what to do in the first five seconds.
+     */
+    const PROMPTS = [
+        'a cosy little house', 'something that flies', 'your favourite animal',
+        'a monument to snacks', 'the tallest thing you can', 'a robot friend',
+        'something under the sea', 'a vehicle of any kind', 'a throne fit for a king',
+        'a tree in autumn', 'something spooky', 'a bridge to nowhere',
+        'your dream bedroom', 'a spaceship', 'a castle gate', 'a giant insect',
+        'something you would eat', 'a lighthouse in a storm', 'a garden',
+        'the letter of your name', 'a dinosaur', 'a snowy mountain',
+        'a market stall', 'something with wheels', 'a tiny island'
+    ];
+
+    function pickPrompt(exclude, rand) {
+        const used = new Set(exclude || []);
+        const r = rand || Math.random;
+        const pool = PROMPTS.filter(p => !used.has(p));
+        const from = pool.length ? pool : PROMPTS;
+        return from[Math.floor(r() * from.length)];
+    }
+
     function pickWord(exclude, rand) {
         const used = new Set(exclude || []);
         const r = rand || Math.random;
@@ -339,6 +363,7 @@
     }
 
     window.BlockPartyModels = {
-        COLORS, MODELS, WORDS, decode, size, count, byId, pick, pickWord, difficultyForRound
+        COLORS, MODELS, WORDS, PROMPTS,
+        decode, size, count, byId, pick, pickWord, pickPrompt, difficultyForRound
     };
 })();
