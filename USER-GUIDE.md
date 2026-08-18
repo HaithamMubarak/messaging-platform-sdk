@@ -2,7 +2,7 @@
 
 **Version:** 1.0.0  
 **Last Updated:** December 27, 2025  
-**Status:** Production Ready
+**Status:** Beta — free to use, APIs may still change
 
 ---
 
@@ -31,7 +31,7 @@
 
 The Messaging Platform SDK provides client libraries for building real-time messaging applications with support for:
 
-- ✅ **Real-time messaging** - WebSocket-based communication
+- ✅ **Real-time messaging** - HTTP long-polling today; WebSocket and UDP transports in development
 - ✅ **Advanced filtering** - Target specific agents with filter queries
 - ✅ **WebRTC support** - Audio/video streaming
 - ✅ **Channel storage** - Persistent key-value data per channel
@@ -54,7 +54,7 @@ The Messaging Platform SDK provides client libraries for building real-time mess
 
 ### 1. Real-Time Messaging
 
-Send and receive messages instantly across connected agents using WebSocket.
+Send and receive messages instantly across connected agents. The production transport today is HTTP long-polling; WebSocket and UDP are in development.
 
 **Supported message types:**
 - Text messages

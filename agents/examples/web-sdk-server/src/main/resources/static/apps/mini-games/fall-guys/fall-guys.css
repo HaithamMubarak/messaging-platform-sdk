@@ -621,3 +621,60 @@ body {
         transform: translate(-50%, 0);
     }
 }
+
+/* --- Course picker (lobby) ---------------------------------------------- */
+.map-picker-container { margin: 24px 0; }
+.map-picker-container h3 {
+    font-size: 14px;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    opacity: 0.75;
+    margin-bottom: 12px;
+}
+.map-picker {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+    gap: 12px;
+}
+.map-option {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    padding: 14px;
+    text-align: left;
+    font: inherit;
+    color: #e6eef8;
+    background: rgba(255, 255, 255, 0.06);
+    border: 2px solid rgba(255, 255, 255, 0.12);
+    border-radius: 12px;
+    cursor: pointer;
+    transition: border-color 0.15s ease, background 0.15s ease, transform 0.15s ease;
+}
+.map-option:hover:not(:disabled) {
+    background: rgba(255, 255, 255, 0.1);
+    border-color: rgba(255, 255, 255, 0.3);
+    transform: translateY(-2px);
+}
+.map-option.selected {
+    border-color: #4ecdc4;
+    background: rgba(78, 205, 196, 0.16);
+}
+/* Non-hosts still see the choice, they just cannot change it. */
+.map-option:disabled { cursor: not-allowed; opacity: 0.75; transform: none; }
+.map-option:disabled:hover { background: rgba(255, 255, 255, 0.06); border-color: rgba(255, 255, 255, 0.12); }
+.map-option.selected:disabled { opacity: 1; border-color: #4ecdc4; background: rgba(78, 205, 196, 0.16); }
+.map-option:focus-visible { outline: 3px solid rgba(78, 205, 196, 0.6); outline-offset: 2px; }
+
+.map-option__name { font-weight: 700; font-size: 15px; }
+.map-option__desc { font-size: 12px; line-height: 1.45; opacity: 0.78; }
+.map-option__tags { display: flex; gap: 6px; margin-top: 2px; }
+.map-tag {
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.5px;
+    text-transform: uppercase;
+    padding: 2px 7px;
+    border-radius: 999px;
+    background: rgba(255, 255, 255, 0.12);
+}
+.map-picker-note { font-size: 12px; opacity: 0.65; margin-top: 10px; }

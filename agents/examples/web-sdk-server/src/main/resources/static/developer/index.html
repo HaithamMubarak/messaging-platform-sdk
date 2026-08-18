@@ -2,88 +2,72 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <script src="../js/prod-log.js"></script>
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Developer Login - Messaging Platform</title>
-    <meta name="description" content="Sign in to the Messaging Platform developer portal to manage API keys, channels, and usage.">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Sign in — Developer Portal | Messaging Platform SDK</title>
+    <meta name="description" content="Sign in to the Messaging Platform developer portal to manage API keys, channels and usage.">
+    <meta name="robots" content="noindex">
     <link rel="icon" type="image/svg+xml" href="../favicon.svg">
-    <link rel="stylesheet" href="../css/toast.css">
+
+    <link rel="stylesheet" href="../css/design-tokens.css">
+    <link rel="stylesheet" href="../css/ui.css">
     <link rel="stylesheet" href="css/developer.css">
+
+    <script>
+        // Bounce an already-authenticated session before anything paints.
+        if (sessionStorage.getItem('developer_token')) {
+            window.location.replace('dashboard.html');
+        }
+    </script>
+    <script src="../js/prod-log.js" defer></script>
+    <script src="../js/icons.js" defer></script>
+    <script src="../js/ui.js" defer></script>
+    <script src="../js/api-config.js" defer></script>
+    <script src="js/developer-api.js" defer></script>
+    <script src="js/login.js" defer></script>
 </head>
 <body>
-    <div class="login-container">
-        <div class="login-card">
-            <div class="login-header">
-                <h1>👨‍💻 Developer Portal</h1>
-                <p>Sign in to manage your API keys and channels</p>
+<main class="auth">
+    <div class="auth__card">
+        <a class="auth__brand" href="../index.html">
+            <svg class="logo-mark" aria-hidden="true"><use href="#i-logo"></use></svg>
+            Messaging Platform SDK
+        </a>
+
+        <h1>Developer portal</h1>
+        <p>Manage your API keys, channels and usage.</p>
+
+        <form id="loginForm" novalidate>
+            <div class="field">
+                <label class="field__label" for="email">Email address</label>
+                <input class="field__input" type="email" id="email" name="email"
+                       autocomplete="email" placeholder="you@example.com"
+                       aria-describedby="emailError" required>
+                <p class="field__error" id="emailError"></p>
             </div>
 
-            <form id="loginForm" class="login-form">
-                <div class="form-group">
-                    <label for="email">Email Address</label>
-                    <input type="email" id="email" name="email" required
-                           placeholder="developer@example.com" autocomplete="email">
-                </div>
-
-                <div class="form-group">
-                    <label for="password">Password</label>
-                    <input type="password" id="password" name="password" required
-                           placeholder="Your password" autocomplete="current-password">
-                </div>
-
-                <button type="submit" class="btn btn-primary" id="loginBtn">
-                    Sign In
+            <div class="field field--password">
+                <label class="field__label" for="password">Password</label>
+                <input class="field__input" type="password" id="password" name="password"
+                       autocomplete="current-password" aria-describedby="passwordError" required>
+                <button type="button" class="reveal" id="revealPassword" aria-label="Show password" aria-controls="password">
+                    <svg class="icon icon--sm" aria-hidden="true"><use href="#i-eye"></use></svg>
                 </button>
-
-                <div id="loginError" class="error-message" style="display: none;"></div>
-            </form>
-
-            <div class="login-footer">
-                <p>Don't have an account?</p>
-                <a href="../index.html" class="link">Request an API Key</a>
+                <p class="field__error" id="passwordError"></p>
             </div>
+
+            <div class="alert alert--danger" id="loginError" role="alert" hidden>
+                <svg class="icon" aria-hidden="true"><use href="#i-alert-circle"></use></svg>
+                <p id="loginErrorText"></p>
+            </div>
+
+            <button type="submit" class="btn btn--primary btn--block" id="loginBtn">Sign in</button>
+        </form>
+
+        <div class="auth__footer">
+            Don't have an account yet?
+            <a href="../index.html#start">Request a free API key</a>
         </div>
     </div>
-
-    <script src="../js/api-config.js"></script>
-    <script src="js/developer-api.js"></script>
-    <script>
-        // Redirect if already logged in
-        if (DeveloperAPI.isLoggedIn()) {
-            window.location.href = 'dashboard.html';
-        }
-
-        // Handle login form
-        document.getElementById('loginForm').addEventListener('submit', async (e) => {
-            e.preventDefault();
-
-            const email = document.getElementById('email').value;
-            const password = document.getElementById('password').value;
-            const errorDiv = document.getElementById('loginError');
-            const loginBtn = document.getElementById('loginBtn');
-
-            errorDiv.style.display = 'none';
-            loginBtn.disabled = true;
-            loginBtn.textContent = 'Signing in...';
-
-            try {
-                await DeveloperAPI.login(email, password);
-
-                // Check if password change required
-                const profile = DeveloperAPI.getProfile();
-                if (profile && profile.passwordChangeRequired) {
-                    window.location.href = 'change-password.html';
-                } else {
-                    window.location.href = 'dashboard.html';
-                }
-            } catch (error) {
-                errorDiv.textContent = error.message || 'Login failed. Please check your credentials.';
-                errorDiv.style.display = 'block';
-                loginBtn.disabled = false;
-                loginBtn.textContent = 'Sign In';
-            }
-        });
-    </script>
+</main>
 </body>
 </html>
-

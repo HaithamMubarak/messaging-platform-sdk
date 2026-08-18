@@ -1,0 +1,13 @@
+# Messaging Platform SDK
+User-agent: *
+Allow: /
+
+# Operator and account surfaces — nothing here is useful in an index, and the
+# admin console should not be discoverable at all.
+Disallow: /admin/
+Disallow: /developer/
+Disallow: /error/
+Disallow: /apps/test-api-key/
+Disallow: /stress-test.html
+
+Sitemap: https://hmdevonline.com/sitemap.xml
