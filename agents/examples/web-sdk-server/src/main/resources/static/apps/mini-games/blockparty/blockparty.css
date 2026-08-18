@@ -578,3 +578,16 @@ html, body {
     .ceremony { font-size: 64px; }
     .banner { font-size: 16px; padding: 9px 18px; }
 }
+
+/* ---- The world as a real place ------------------------------------------ */
+.geo-readout { color: #a7f3d0; border-color: rgba(34,197,94,0.35); background: rgba(34,197,94,0.14); font-variant-numeric: tabular-nums; }
+.geo-list { display: flex; flex-direction: column; gap: 5px; margin-top: 8px; max-height: 22vh; overflow-y: auto; }
+.geo-row {
+    display: flex; align-items: center; gap: 9px;
+    padding: 7px 10px; border-radius: 9px; background: rgba(255,255,255,0.04); font-size: 12px;
+}
+.geo-dot { width: 10px; height: 10px; border-radius: 3px; flex: 0 0 auto; }
+.geo-name { font-weight: 700; }
+.geo-where { color: var(--muted); margin-left: auto; font-variant-numeric: tabular-nums; }
+.geo-row .btn { padding: 4px 10px; font-size: 11px; }
+#geoShareBtn.active { background: rgba(34,197,94,0.28); border-color: rgba(34,197,94,0.5); }

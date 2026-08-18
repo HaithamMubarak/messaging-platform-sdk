@@ -1011,6 +1011,206 @@
                 for (let x = -68; x <= 68; x += 12) b.lamp(x, -6, 5);
                 for (let i = 0; i < 14; i++) b.tree(b.between(-70, 70), b.between(30, 70), b.between(4, 7));
             }
+        },
+        {
+            id: 'school', name: 'Village School', emoji: '🏫', ground: '#4b7a3f',
+            desc: 'Classrooms with desks and blackboards, a hall, a playground and a running track.',
+            build(b) {
+                const X = -34, Z = -22, W = 56, D = 26, H = 5;
+                b.box(X, 0, Z, X + W - 1, 0, Z + D - 1, C.white, S.slab);
+                b.walls(X, 1, Z, X + W - 1, H, Z + D - 1, C.orange);
+                b.box(X - 1, H + 1, Z - 1, X + W, H + 1, Z + D, C.red, S.slab);
+                b.clear(X + 27, 1, Z + D - 1, X + 28, 2, Z + D - 1);        // main door
+                b.box(X + 24, 1, Z + D, X + 31, 1, Z + D + 3, C.slate, S.slab);
+                for (let i = 0; i < 4; i++) b.set(X + 25 + i * 2, 2, Z + D + 3, C.slate, S.pillar);
+                b.box(X + 24, 3, Z + D, X + 31, 3, Z + D + 3, C.red, S.slab);   // porch
+
+                // a corridor down the middle, classrooms either side
+                b.box(X + 1, 1, Z + 11, X + W - 2, H, Z + 11, C.white);
+                b.box(X + 1, 1, Z + 15, X + W - 2, H, Z + 15, C.white);
+                for (let i = 0; i < 4; i++) {
+                    const cx = X + 2 + i * 13;
+                    b.box(cx + 11, 1, Z + 1, cx + 11, H, Z + 10, C.white);
+                    b.box(cx + 11, 1, Z + 16, cx + 11, H, Z + D - 2, C.white);
+                    b.clear(cx + 5, 1, Z + 11, cx + 6, 2, Z + 11);
+                    b.clear(cx + 5, 1, Z + 15, cx + 6, 2, Z + 15);
+                    // blackboard, teacher's desk and rows of desks
+                    b.box(cx + 1, 2, Z + 1, cx + 9, 3, Z + 1, C.black);
+                    b.table(cx + 4, Z + 3, 3, 2, C.brown);
+                    for (let r = 0; r < 2; r++) for (let c = 0; c < 3; c++) {
+                        b.table(cx + 1 + c * 3, Z + 6 + r * 3, 2, 1, C.brown);
+                        b.chair(cx + 1 + c * 3, Z + 7 + r * 3, C.blue);
+                    }
+                    // and the same again on the south side
+                    b.box(cx + 1, 2, Z + D - 2, cx + 9, 3, Z + D - 2, C.black);
+                    for (let r = 0; r < 2; r++) for (let c = 0; c < 3; c++) {
+                        b.table(cx + 1 + c * 3, Z + 17 + r * 3, 2, 1, C.brown);
+                        b.chair(cx + 1 + c * 3, Z + 18 + r * 3, C.green);
+                    }
+                    for (let wy = 2; wy <= 3; wy++) {
+                        b.set(cx + 3, wy, Z, C.cyan); b.set(cx + 7, wy, Z, C.cyan);
+                        b.set(cx + 3, wy, Z + D - 1, C.cyan); b.set(cx + 7, wy, Z + D - 1, C.cyan);
+                    }
+                }
+
+                // playground and a running track around it
+                b.box(-30, 0, 14, 30, 0, 44, C.slate, S.slab);
+                for (let x = -40; x <= 40; x++) {
+                    for (let z = 8; z <= 52; z++) {
+                        const r = ((x / 38) ** 2) + (((z - 30) / 21) ** 2);
+                        if (r <= 1 && r >= 0.72) b.set(x, 0, z, C.orange, S.slab);
+                    }
+                }
+                // climbing frame, swings, and a court
+                b.walls(-8, 1, 24, -2, 4, 30, C.yellow);
+                b.box(-8, 5, 24, -2, 5, 30, C.red, S.slab);
+                for (const sx of [8, 14]) {
+                    for (let y = 1; y <= 4; y++) { b.set(sx, y, 24, C.slate, S.pillar); b.set(sx, y, 30, C.slate, S.pillar); }
+                    b.box(sx, 5, 24, sx, 5, 30, C.slate);
+                    b.set(sx, 3, 27, C.brown, S.slab);
+                }
+                b.box(-24, 0, 20, -12, 0, 36, C.green, S.slab);
+                for (let i = 0; i < 14; i++) b.tree(b.between(-72, 72), b.between(-70, -34), b.between(4, 7));
+                for (let x = -30; x <= 30; x += 15) b.lamp(x, 50, 5);
+            }
+        },
+        {
+            id: 'hospital', name: 'General Hospital', emoji: '🏥', ground: '#54636f',
+            desc: 'Wards with beds, a reception, an operating theatre and a helipad on the roof.',
+            build(b) {
+                const X = -30, Z = -24, W = 60, D = 34;
+                const FLOOR = 6, FLOORS = 3;
+
+                for (let f = 0; f < FLOORS; f++) {
+                    const y = f * FLOOR;
+                    b.box(X, y, Z, X + W - 1, y, Z + D - 1, C.white, S.slab);
+                    b.walls(X, y + 1, Z, X + W - 1, y + FLOOR - 1, Z + D - 1, C.white);
+                    for (let wx = X + 3; wx < X + W - 3; wx += 4) {
+                        b.box(wx, y + 2, Z, wx + 1, y + 3, Z, C.cyan);
+                        b.box(wx, y + 2, Z + D - 1, wx + 1, y + 3, Z + D - 1, C.cyan);
+                    }
+                    // spine corridor with wards off it
+                    b.box(X + 1, y + 1, Z + 14, X + W - 2, y + FLOOR - 1, Z + 14, C.green);
+                    b.box(X + 1, y + 1, Z + 19, X + W - 2, y + FLOOR - 1, Z + 19, C.green);
+                    for (let i = 0; i < 5; i++) {
+                        const cx = X + 3 + i * 11;
+                        b.clear(cx + 4, y + 1, Z + 14, cx + 5, y + 2, Z + 14);
+                        b.clear(cx + 4, y + 1, Z + 19, cx + 5, y + 2, Z + 19);
+                        b.box(cx + 9, y + 1, Z + 1, cx + 9, y + FLOOR - 1, Z + 13, C.white);
+                        b.box(cx + 9, y + 1, Z + 20, cx + 9, y + FLOOR - 1, Z + D - 2, C.white);
+                        // beds either side, with a curtain rail between them
+                        for (let bed = 0; bed < 3; bed++) {
+                            b.bed(cx + 1 + bed * 3, Z + 3, C.cyan);
+                            b.bed(cx + 1 + bed * 3, Z + 22, C.cyan);
+                            b.set(cx + 3 + bed * 3, y + 1, Z + 3, C.slate, S.pillar);
+                        }
+                    }
+                    // stairwell
+                    b.box(X + 27, y + 1, Z + 15, X + 27, y + FLOOR - 1, Z + 18, C.slate);
+                    b.box(X + 33, y + 1, Z + 15, X + 33, y + FLOOR - 1, Z + 18, C.slate);
+                    b.clear(X + 28, y, Z + 15, X + 32, y, Z + 18);
+                    b.stairs(X + 28, y + 1, Z + 15, 'z', 4, C.slate);
+                }
+
+                // ground floor: reception desk, waiting area, ambulance bay
+                b.clear(X + 28, 1, Z + D - 1, X + 31, 3, Z + D - 1);
+                b.counter(X + 24, Z + 22, 12, 'x');
+                for (const cz of [26, 29]) for (let i = 0; i < 6; i++) b.chair(X + 22 + i * 2, Z + cz, C.blue);
+                b.box(X + 40, 0, Z + D, X + 56, 0, Z + D + 10, C.slate, S.slab);
+                b.brick(X + 44, 0, Z + D + 3, 2, 6, C.white);
+                b.brick(X + 44, 1, Z + D + 4, 2, 3, C.red);
+
+                // operating theatre, brightly lit, on the first floor
+                const Y1 = FLOOR;
+                b.box(X + 3, Y1 + 1, Z + 3, X + 8, Y1 + 1, Z + 8, C.cyan, S.slab);
+                b.table(X + 4, Z + 5, 3, 2, C.white);
+                for (const [lx, lz] of [[X + 4, Z + 4], [X + 7, Z + 7]]) b.set(lx, Y1 + FLOOR - 2, lz, C.yellow, S.sphere);
+
+                // roof and helipad
+                const top = FLOORS * FLOOR;
+                b.box(X - 1, top, Z - 1, X + W, top, Z + D, C.slate, S.slab);
+                for (let x = X + 20; x <= X + 40; x++) {
+                    for (let z = Z + 8; z <= Z + 26; z++) {
+                        const d = Math.hypot(x - (X + 30), z - (Z + 17));
+                        if (d <= 9) b.set(x, top + 1, z, C.black, S.slab);
+                        if (d <= 9 && d >= 8) b.set(x, top + 1, z, C.white, S.slab);
+                    }
+                }
+                b.box(X + 27, top + 2, Z + 14, X + 28, top + 2, Z + 20, C.white, S.slab);
+                b.box(X + 29, top + 2, Z + 16, X + 32, top + 2, Z + 17, C.white, S.slab);
+
+                // a big red cross on the front, and an approach road
+                b.box(X + 26, 8, Z - 1, X + 33, 9, Z - 1, C.red);
+                b.box(X + 29, 6, Z - 1, X + 30, 11, Z - 1, C.red);
+                b.road(-78, Z + D + 14, 78, Z + D + 18);
+                for (let x = -70; x <= 70; x += 18) b.lamp(x, Z + D + 12, 5);
+                for (let i = 0; i < 10; i++) b.tree(b.between(-74, 74), b.between(40, 74), b.between(4, 6));
+            }
+        },
+        {
+            id: 'airport', name: 'International Airport', emoji: '✈️',  ground: '#3f4753',
+            desc: 'A runway, a glass terminal with gates, jet bridges, parked aircraft and a control tower.',
+            build(b) {
+                // runway with centre markings and thresholds
+                b.box(-78, 0, 34, 78, 0, 46, C.black, S.slab);
+                for (let x = -74; x <= 74; x += 6) b.box(x, 0, 40, x + 2, 0, 40, C.white, S.slab);
+                for (const tx of [-76, 74]) for (let z = 35; z <= 45; z += 2) b.box(tx, 0, z, tx + 2, 0, z, C.white, S.slab);
+                b.box(-78, 0, 24, 78, 0, 32, C.slate, S.slab);          // taxiway
+                for (let x = -74; x <= 74; x += 8) b.set(x, 0, 28, C.yellow, S.slab);
+
+                // terminal
+                const X = -46, Z = -6, W = 92, D = 22;
+                b.box(X, 0, Z, X + W - 1, 0, Z + D - 1, C.white, S.slab);
+                b.walls(X, 1, Z, X + W - 1, 7, Z + D - 1, C.white);
+                for (let wx = X + 2; wx < X + W - 2; wx += 3) b.box(wx, 2, Z, wx + 1, 5, Z, C.cyan);
+                for (let wx = X + 2; wx < X + W - 2; wx += 3) b.box(wx, 2, Z + D - 1, wx + 1, 5, Z + D - 1, C.cyan);
+                b.box(X - 1, 8, Z - 1, X + W, 8, Z + D, C.slate, S.slab);
+                b.clear(X + 44, 1, Z + D - 1, X + 47, 3, Z + D - 1);     // landside doors
+                b.clear(X + 44, 1, Z, X + 47, 3, Z);                     // airside doors
+
+                // check-in desks, seating and departure boards
+                b.counter(X + 10, Z + 16, 24, 'x');
+                for (let i = 0; i < 6; i++) b.set(X + 12 + i * 4, 2, Z + 17, C.black);
+                for (const sz of [Z + 6, Z + 9]) for (let i = 0; i < 14; i++) b.chair(X + 20 + i * 2, sz, C.blue);
+                b.box(X + 40, 4, Z + 1, X + 52, 6, Z + 1, C.black);
+
+                // jet bridges out to the stands
+                for (let g = 0; g < 4; g++) {
+                    const gx = X + 12 + g * 22;
+                    b.box(gx, 1, Z - 8, gx + 3, 1, Z - 1, C.white, S.slab);
+                    b.walls(gx, 2, Z - 8, gx + 3, 4, Z - 1, C.cyan);
+                    b.box(gx, 5, Z - 8, gx + 3, 5, Z - 1, C.white, S.slab);
+                    for (let y = 0; y <= 1; y++) { b.set(gx, y, Z - 8, C.slate, S.pillar); b.set(gx + 3, y, Z - 8, C.slate, S.pillar); }
+
+                    // an aircraft on the stand: fuselage, wings, tail
+                    const ax = gx - 4, az = Z - 22;
+                    b.box(ax, 1, az, ax + 3, 3, az + 16, C.white);
+                    b.set(ax + 1, 2, az - 1, C.white, S.cone); b.set(ax + 2, 2, az - 1, C.white, S.cone);
+                    b.box(ax - 9, 2, az + 7, ax + 12, 2, az + 9, C.white, S.slab);
+                    b.box(ax + 1, 4, az + 13, ax + 2, 6, az + 16, C.red);
+                    b.box(ax - 6, 1, az + 7, ax - 5, 1, az + 9, C.slate);
+                    b.box(ax + 8, 1, az + 7, ax + 9, 1, az + 9, C.slate);
+                    for (let i = 0; i < 6; i++) b.set(ax, 3, az + 2 + i * 2, C.cyan);
+                }
+
+                // control tower
+                const TX = 58, TZ = 8;
+                for (let y = 0; y <= 16; y++) b.walls(TX, y, TZ, TX + 5, y, TZ + 5, C.slate);
+                b.box(TX - 1, 17, TZ - 1, TX + 6, 20, TZ + 6, C.cyan);
+                b.box(TX - 2, 21, TZ - 2, TX + 7, 21, TZ + 7, C.slate, S.slab);
+                b.set(TX + 2, 22, TZ + 2, C.red, S.sphere);
+
+                // apron clutter and the road in
+                for (let i = 0; i < 10; i++) {
+                    b.car(b.between(-40, 40), b.between(-30, -26), b.pick([C.yellow, C.white, C.orange]), 'x');
+                }
+                b.road(-78, Z + D + 8, 78, Z + D + 12);
+                b.box(-20, 0, Z + D + 16, 20, 0, Z + D + 30, C.slate, S.slab);   // car park
+                for (let px = -18; px <= 18; px += 4) {
+                    for (let pz = Z + D + 18; pz <= Z + D + 28; pz += 5) b.car(px, pz, b.pick([C.red, C.blue, C.white, C.green]), 'z');
+                }
+                for (let x = -70; x <= 70; x += 20) b.lamp(x, 20, 6);
+            }
         }
     ];
 

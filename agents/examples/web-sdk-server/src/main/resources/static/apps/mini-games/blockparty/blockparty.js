@@ -1649,6 +1649,64 @@
             });
         }
 
+        // ---- where people really are ------------------------------------
+        /**
+         * A pin standing on the spot a player is physically at, once the world
+         * has been anchored to real coordinates.
+         */
+        setGeoMarker(name, x, z, color, isMe) {
+            if (!this.geoMarkers) this.geoMarkers = new Map();
+            let m = this.geoMarkers.get(name);
+            if (!m) {
+                const group = new THREE.Group();
+                const col = new THREE.Color(color).convertSRGBToLinear();
+                const mat = new THREE.MeshLambertMaterial({ color: col, transparent: true, opacity: 0.9 });
+                const post = new THREE.Mesh(new THREE.CylinderGeometry(0.12, 0.12, 5, 8), mat);
+                post.position.y = 2.5;
+                const head = new THREE.Mesh(new THREE.SphereGeometry(0.7, 12, 10), mat);
+                head.position.y = 5.4;
+                const ring = new THREE.Mesh(
+                    new THREE.RingGeometry(1.2, 1.6, 20),
+                    new THREE.MeshBasicMaterial({ color: col, transparent: true, opacity: 0.55, side: THREE.DoubleSide })
+                );
+                ring.rotation.x = -Math.PI / 2;
+                ring.position.y = 0.06;
+                const label = this._makeLabelSprite(isMe ? name + ' (you)' : name, color, LABEL_AVATAR);
+                label.position.y = 6.4;
+                group.add(post); group.add(head); group.add(ring); group.add(label);
+                this.scene.add(group);
+                m = { group, label };
+                this.geoMarkers.set(name, m);
+            }
+            m.group.position.set(x + 0.5, 0, z + 0.5);
+        }
+
+        pruneGeoMarkers(keep) {
+            if (!this.geoMarkers) return;
+            Array.from(this.geoMarkers.keys()).forEach(name => {
+                if (!keep.has(name)) this.removeGeoMarker(name);
+            });
+        }
+
+        removeGeoMarker(name) {
+            const m = this.geoMarkers && this.geoMarkers.get(name);
+            if (!m) return;
+            this.scene.remove(m.group);
+            this._disposeLabel(m.label);
+            this.geoMarkers.delete(name);
+        }
+
+        clearGeoMarkers() {
+            if (!this.geoMarkers) return;
+            Array.from(this.geoMarkers.keys()).forEach(n => this.removeGeoMarker(n));
+        }
+
+        /** Remember where this world is. */
+        setGeoAnchor(anchor) {
+            this.geoAnchor = anchor || null;
+            if (!anchor) this.clearGeoMarkers();
+        }
+
         // ---- avatars: the other players, as people ----------------------
         /**
          * A minifigure in the player's colour: legs, arms, a body and a head
@@ -1950,6 +2008,7 @@
             this.voxels = new VoxelWorld(document.getElementById('sceneRoot'));
             this.modes = new BlockPartyModes.ModeController(this);
             this.fps = new BlockPartyFPS(this);
+            this.geo = new BlockPartyGeo(this);
             this._buildPalette();
             this._buildShapes();
             this._buildBricks();
@@ -2021,6 +2080,7 @@
         onUserLeave(detail) {
             this.voxels.removeRemoteCursor(detail.agentName);
             this.voxels.removeAvatar(detail.agentName);
+            this.geo.forget(detail.agentName);
             this.showToast(`${detail.agentName} left`, 'warning', 1800);
             this._refreshPlayers();
             if (this.modes) this.modes.onPlayersChanged();
@@ -2108,6 +2168,12 @@
                 case 'stats':
                     this.stats = data.stats || null;
                     this._renderLeaderboard();
+                    break;
+                case 'geo':
+                    // Relayed by the host like everything else about presence.
+                    if (this.isHost() && !data._fromHost) this.sendData(data);
+                    else if (!this.isHost() && !this._fromHost(peerId, data)) break;
+                    if (data.name !== this.username) this.geo.receive(data);
                     break;
                 case 'avatar':
                     // Same shape as a cursor: the host relays, everyone else
@@ -2311,6 +2377,12 @@
          * it is recognised by coming straight from the host with no client name
          * attached.
          */
+        /** Tell the room where I am (or that I have stopped saying). */
+        sendGeo(msg) {
+            const payload = Object.assign({ type: 'geo' }, msg);
+            if (!this.sendToHost(payload)) this.sendData(payload);
+        }
+
         _fromHost(peerId, data) {
             if (data && data._fromHost) return true;
             if (data && data._fromClient) return false;
@@ -2569,7 +2641,7 @@
                 const snap = this.snapshotWorld();
                 const payload = {
                     storageKey: STORAGE_KEY,
-                    content: { v: 3, blocks: snap.blocks, pieces: snap.pieces, ground: snap.ground },
+                    content: { v: 4, blocks: snap.blocks, pieces: snap.pieces, ground: snap.ground, geo: snap.geo },
                     encrypted: false,
                     metadata: { description: 'BlockParty voxel world', blocks: this.voxels.count() }
                 };
@@ -2602,7 +2674,7 @@
                         const any = (Array.isArray(blocks) && blocks.length)
                             || (Array.isArray(pieces) && pieces.length);
                         if (any && this.voxels.count() === 0) {
-                            this.restoreWorldFrom({ blocks, pieces, ground: saved.ground });
+                            this.restoreWorldFrom({ blocks, pieces, ground: saved.ground, geo: saved.geo });
                             this._updateBlockCount();
                         }
                     }
@@ -2617,12 +2689,14 @@
             return {
                 blocks: this.voxels.encode(),
                 pieces: this.voxels.encodePieces(),
-                ground: this.voxels.groundTint || null
+                ground: this.voxels.groundTint || null,
+                geo: (this.geo && this.geo.anchor) || null
             };
         }
 
         restoreWorldFrom(snap) {
             if (!snap) return;
+            if (this.geo) this.geo.applyAnchor(snap.geo || null);
             this.voxels.setGroundTint(snap.ground || null);
             this.voxels.replaceFrom(snap.blocks, snap.pieces);
             if (this.xray) this.voxels.setOwnerXray(true, (n) => this.generateUserColor(n));
@@ -2653,7 +2727,7 @@
             chunks.forEach((c, i) => this.sendData({
                 type: 'world', i, n: chunks.length,
                 blocks: c.blocks, pieces: c.pieces,
-                ground: snap.ground, locked: this.worldLocked
+                ground: snap.ground, geo: snap.geo, locked: this.worldLocked
             }));
         }
 
@@ -2670,7 +2744,10 @@
 
             const snap = this._incoming;
             this._incoming = null;
-            this.restoreWorldFrom({ blocks: snap.blocks, pieces: snap.pieces, ground: data.ground || null });
+            this.restoreWorldFrom({
+                blocks: snap.blocks, pieces: snap.pieces,
+                ground: data.ground || null, geo: data.geo || null
+            });
             // The snapshot carries the lock so a late joiner learns the room is
             // read-only without a separate round trip.
             if (typeof data.locked === 'boolean') this._setWorldLocked(data.locked);
@@ -2822,6 +2899,115 @@
             this._closeWorldModal();
             this.voxels.focus(0, 2, 0, 120, Math.PI * 0.30);
             this.showToast(`${map.emoji} ${map.name} — ${this.voxels.count()} blocks in ${Date.now() - t0}ms`, 'success', 3000);
+        }
+
+        // ---------- the world as a real place ----------
+        _bindGeoUI() {
+            const on = (id, ev, fn) => {
+                const el = document.getElementById(id);
+                if (el) el.addEventListener(ev, fn);
+            };
+
+            on('geoAnchorBtn', 'click', async () => {
+                if (!this.isHost()) { this.showToast('Only the host can pin the world', 'warning'); return; }
+                const note = document.getElementById('geoNote');
+                if (note) note.textContent = 'Asking your browser for a position…';
+                try {
+                    const fix = await this.geo.locate();
+                    const mpc = Number((document.getElementById('geoScale') || {}).value) || 2;
+                    this.geo.setAnchor(fix.lat, fix.lon, mpc);
+                    this._sendWorldSnapshot();
+                    this._scheduleSave();
+                    this._syncGeoUI();
+                    this.showToast(`World pinned — ${this.geo.span()}m across, ${mpc}m per block`, 'success', 3600);
+                } catch (e) {
+                    if (note) note.textContent = e.message;
+                    this.showToast(e.message, 'error', 3600);
+                }
+            });
+
+            on('geoShareBtn', 'click', async () => {
+                if (this.geo.sharing) { this.geo.stopSharing(); this.showToast('Stopped sharing your location', 'info'); return; }
+                try {
+                    await this.geo.locate();
+                    this.geo.startSharing();
+                    this.geo._share();
+                    this._syncGeoUI();
+                    this.showToast('Sharing your location, rounded to about 5m', 'success', 3200);
+                } catch (e) {
+                    this.showToast(e.message, 'error', 3600);
+                }
+            });
+
+            on('geoGoBtn', 'click', () => {
+                const r = this.geo.goTo(this.username);
+                if (!r) this.showToast('Share your location first', 'warning');
+                else if (r.outside) this.showToast('You are outside this world — pin it here, or use a bigger scale', 'warning', 4000);
+            });
+
+            on('geoList', 'click', (e) => {
+                const btn = e.target.closest && e.target.closest('button[data-geo]');
+                if (!btn) return;
+                const who = btn.getAttribute('data-geo');
+                const r = this.geo.goTo(who);
+                if (!r) this.showToast(`${who} is not sharing a location`, 'warning');
+                else if (r.outside) this.showToast(`${who} is beyond the edge of this world`, 'warning', 3600);
+                else { this._closeWorldModal(); this.showToast(`Flew to ${who}'s spot`, 'success', 2200); }
+            });
+        }
+
+        /** Redraw the geolocation panel from the current state. */
+        _syncGeoUI() {
+            const geo = this.geo;
+            if (!geo) return;
+            const set = (id, text) => { const el = document.getElementById(id); if (el) el.textContent = text; };
+            const anchor = geo.anchor;
+
+            set('geoState', anchor
+                ? `Pinned to ${BlockPartyGeo.format(anchor.lat, anchor.lon)} · ${anchor.mpc}m per block · ${geo.span()}m across`
+                : 'This world is not pinned to anywhere yet.');
+
+            const share = document.getElementById('geoShareBtn');
+            if (share) {
+                share.textContent = geo.sharing ? '📍 Stop sharing' : '📍 Share my location';
+                share.classList.toggle('active', geo.sharing);
+            }
+            const anchorBtn = document.getElementById('geoAnchorBtn');
+            if (anchorBtn) anchorBtn.disabled = !this.isHost();
+
+            const list = document.getElementById('geoList');
+            if (list) {
+                const rows = [];
+                const add = (name, isMe) => {
+                    const p = geo.worldPosOf(name);
+                    const where = !p ? '—' : (p.outside ? 'outside this world'
+                        : `${Math.round(p.x)}, ${Math.round(p.z)} in world`);
+                    rows.push(`<div class="geo-row">
+                        <span class="geo-dot" style="background:${this.generateUserColor(name)}"></span>
+                        <span class="geo-name">${this._esc(name)}${isMe ? ' (you)' : ''}</span>
+                        <span class="geo-where">${this._esc(where)}</span>
+                        <button class="btn btn-ghost" data-geo="${this._esc(name)}" ${p && !p.outside ? '' : 'disabled'}>Go</button>
+                    </div>`);
+                };
+                if (geo.sharing && geo.mine) add(this.username, true);
+                geo.others.forEach((_rec, name) => add(name, false));
+                list.innerHTML = rows.length ? rows.join('')
+                    : '<div class="slot-empty">Nobody is sharing a location yet.</div>';
+            }
+        }
+
+        /**
+         * Where the pointer is, in the real world. Only meaningful once the
+         * world has been pinned — and it is the thing that makes the grid feel
+         * like ground rather than graph paper.
+         */
+        _updateGeoReadout(cell) {
+            const el = document.getElementById('geoReadout');
+            if (!el) return;
+            if (!this.geo || !this.geo.anchor || !cell) { el.classList.add('hidden'); return; }
+            const ll = this.geo.toLatLon(cell.x, cell.z);
+            el.textContent = '🌍 ' + BlockPartyGeo.format(ll.lat, ll.lon);
+            el.classList.remove('hidden');
         }
 
         // ---------- pictures into blocks ----------
@@ -3020,7 +3206,7 @@
             const count = this.voxels.count();
             const payload = {
                 storageKey: SLOT_PREFIX + slug,
-                content: { v: 3, name, by: this.username, at: Date.now(), blocks: snap.blocks, pieces: snap.pieces, ground: snap.ground },
+                content: { v: 4, name, by: this.username, at: Date.now(), blocks: snap.blocks, pieces: snap.pieces, ground: snap.ground, geo: snap.geo },
                 encrypted: false,
                 metadata: { description: 'BlockParty saved world', blocks: count }
             };
@@ -3046,7 +3232,7 @@
                 const saved = payload && (payload.content || payload);
                 const blocks = saved && saved.blocks;
                 if (!Array.isArray(blocks)) { this.showToast('That save could not be read', 'error'); return; }
-                this.restoreWorldFrom({ blocks, pieces: saved.pieces, ground: saved.ground });
+                this.restoreWorldFrom({ blocks, pieces: saved.pieces, ground: saved.ground, geo: saved.geo });
                 this.undoStack.length = 0;
                 this.redoStack.length = 0;
                 this._syncHistoryButtons();
@@ -3241,6 +3427,7 @@
                 this.voxels.showPreview(cell.x, cell.y, cell.z, this.currentShape, this.currentColor, erasing);
             }
 
+            this._updateGeoReadout(cell);
             this._sendCursor({ x: cell.x, y: cell.y, z: cell.z });
         }
 
@@ -3735,6 +3922,7 @@
             on('lockBtn', 'click', () => { this.toggleWorldLock(); this._syncWorldControls(); });
             on('clearWorldBtn', 'click', () => this.clearWorld());
             this._bindImageImport();
+            this._bindGeoUI();
             on('mapList', 'click', (e) => {
                 const btn = e.target.closest && e.target.closest('button[data-map]');
                 if (btn) this.loadMap(btn.getAttribute('data-map'));
@@ -3754,6 +3942,7 @@
             if (!modal) return;
             modal.classList.remove('hidden');
             this._renderMaps();
+            this._syncGeoUI();
             this._syncWorldControls();
             this._loadSlotList();
             this._fetchStats();

@@ -31,6 +31,7 @@
         <div class="top-actions">
             <span id="blockCount" class="pill" title="Blocks in the world">0 blocks</span>
             <span id="lockBadge" class="pill lock-badge hidden" title="The host locked the world">🔒 Locked</span>
+            <span id="geoReadout" class="pill geo-readout hidden" title="Where the pointer is in the real world"></span>
             <span id="connectionIndicator" class="indicator disconnected" title="Connection">●</span>
             <button id="soundBtn" class="btn btn-icon active" title="Sound">🔊</button>
             <button id="fpsBtn" class="btn btn-icon" title="Walk around in first person (G)">🚶</button>
@@ -99,6 +100,26 @@
             <div class="bp-modal-head">
                 <h2>🗂 Worlds &amp; room</h2>
                 <button id="worldClose" class="bp-close" aria-label="Close">✕</button>
+            </div>
+
+            <div class="world-section">
+                <div class="world-title">This world as a real place</div>
+                <div id="geoState" class="world-note">This world is not pinned to anywhere yet.</div>
+                <div class="import-row">
+                    <button id="geoAnchorBtn" class="btn btn-primary">🌍 Pin to my location</button>
+                    <select id="geoScale" title="How much ground one block covers">
+                        <option value="1">1 m per block · 161 m across</option>
+                        <option value="2" selected>2 m per block · 322 m across</option>
+                        <option value="5">5 m per block · 805 m across</option>
+                        <option value="10">10 m per block · 1.6 km across</option>
+                    </select>
+                </div>
+                <div class="import-row">
+                    <button id="geoShareBtn" class="btn btn-ghost">📍 Share my location</button>
+                    <button id="geoGoBtn" class="btn btn-ghost">Go to my spot</button>
+                </div>
+                <div id="geoList" class="geo-list"></div>
+                <div id="geoNote" class="world-note">Your position is never read until you ask, and is rounded to about 5m before anyone sees it.</div>
             </div>
 
             <div class="world-section">
@@ -255,6 +276,7 @@
 <script src="../shared/game-kit.js"></script>
 <script src="bricks.js"></script>
 <script src="maps.js"></script>
+<script src="geo.js"></script>
 <script src="sfx.js"></script>
 <script src="fx.js"></script>
 <script src="fps.js"></script>
