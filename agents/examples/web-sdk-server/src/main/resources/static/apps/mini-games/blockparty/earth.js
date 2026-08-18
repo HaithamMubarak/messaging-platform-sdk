@@ -72,40 +72,38 @@
      * in cells and read back, which is both crisp and fast enough to do on
      * every arrival.
      */
-    function landMask(earth, region, cells) {
+    /**
+     * The coastlines of one region as a path, in pixels of a square `size`
+     * across. Everything expensive about drawing the Earth is here.
+     *
+     * A region is a Web Mercator tile and the world covers it exactly, so a
+     * point's place in the region is just its place in the tile — no fitting,
+     * no offsets.
+     *
+     * Coastlines carry far more detail than any one view can show, and a
+     * continent whose shore runs off the edge carries most of it out of sight
+     * entirely. Both are dropped as the path is built: inside the view, points
+     * closer together than a third of a pixel; outside it, points are pulled
+     * into a box a few views wide and snapped to a coarse grid, so a coastline
+     * a continent away collapses to a handful of points while a ring that
+     * encloses the view still encloses it — which is all the fill needs.
+     */
+    function ringPath(earth, region, size) {
         const { z, x, y } = region;
         const west = M().tileXToLon(x, z), east = M().tileXToLon(x + 1, z);
         const north = M().tileYToLat(y, z), south = M().tileYToLat(y + 1, z);
         // A margin, so a coastline that only clips the corner still counts.
         const mLon = (east - west) * 0.02, mLat = (north - south) * 0.02;
 
-        const canvas = document.createElement('canvas');
-        canvas.width = cells; canvas.height = cells;
-        // Read back rather than displayed: without this the canvas is kept
-        // on the GPU and every getImageData stalls waiting for it.
-        const ctx = canvas.getContext('2d', { willReadFrequently: true });
-        ctx.fillStyle = '#000';
-        ctx.fillRect(0, 0, cells, cells);
+        const px = (lon) => (M().lonToTileX(lon, z) - x) * size;
+        const py = (lat) => (M().latToTileY(lat, z) - y) * size;
 
-        const px = (lon) => (M().lonToTileX(lon, z) - x) * cells;
-        const py = (lat) => (M().latToTileY(lat, z) - y) * cells;
-
-        // Coastlines carry far more detail than a 161-cell world can show, and
-        // a continent whose shore runs off the edge carries most of it out of
-        // sight entirely. Both are dropped as the path is built: inside the
-        // view, points closer together than a third of a cell; outside it,
-        // everything but a coarse trace of the shape — which is all that is
-        // needed for the polygon to still enclose what it encloses.
-        // Outside the view a point is pulled in to a box a few worlds wide
-        // before being snapped to a coarse grid: a coastline a continent away
-        // then collapses to a handful of points on that box, while a ring that
-        // encloses the view still encloses it, which is all the fill needs.
-        const pad = cells * 0.05, GRID = 8, MIN = 0.34;
-        const FAR = cells * 4, lo = -FAR, hi = cells + FAR;
+        const pad = size * 0.05, GRID = size / 20, MIN = size / 480;
+        const FAR = size * 4, lo = -FAR, hi = size + FAR;
         const clamp = (v) => v < lo ? lo : v > hi ? hi : v;
-        const t0 = (window.performance || Date).now();
-        ctx.beginPath();
-        let drawn = 0, points = 0;
+
+        const path = new Path2D();
+        let rings = 0, points = 0;
         for (let r = 0; r < earth.rings.length; r++) {
             const b = earth.box[r];
             if (b[2] < west - mLon || b[0] > east + mLon) continue;
@@ -115,38 +113,92 @@
             let started = false, lx = 0, ly = 0;
             for (let i = 0; i < ring.length; i += 2) {
                 let X = px(ring[i]), Y = py(ring[i + 1]);
-                const inside = X > -pad && X < cells + pad && Y > -pad && Y < cells + pad;
+                const inside = X > -pad && X < size + pad && Y > -pad && Y < size + pad;
                 if (!inside) {
                     X = Math.round(clamp(X) / GRID) * GRID;
                     Y = Math.round(clamp(Y) / GRID) * GRID;
                 }
                 if (started && Math.abs(X - lx) < MIN && Math.abs(Y - ly) < MIN) continue;
-                if (started) ctx.lineTo(X, Y); else ctx.moveTo(X, Y);
+                if (started) path.lineTo(X, Y); else path.moveTo(X, Y);
                 started = true; lx = X; ly = Y; points++;
             }
             if (!started) continue;
-            ctx.closePath();
-            drawn++;
+            path.closePath();
+            rings++;
         }
+        path.rings = rings;
+        path.points = points;
+        return path;
+    }
+
+    /** Which cells of a region are land. */
+    function landMask(earth, region, cells) {
+        const canvas = document.createElement('canvas');
+        canvas.width = cells; canvas.height = cells;
+        // Read back rather than displayed: without this the canvas is kept on
+        // the GPU and every getImageData stalls waiting for it.
+        const ctx = canvas.getContext('2d', { willReadFrequently: true });
+        ctx.fillStyle = '#000';
+        ctx.fillRect(0, 0, cells, cells);
+
+        const path = ringPath(earth, region, cells);
         // Even-odd, so a lake inside a landmass is water rather than more land.
-        const t1 = (window.performance || Date).now();
         ctx.fillStyle = '#fff';
-        ctx.fill('evenodd');
+        ctx.fill(path, 'evenodd');
         // A hairline along every coast as well, so an island smaller than one
-        // block still shows up rather than being lost to rounding.
+        // cell still shows up rather than being lost to rounding.
         ctx.strokeStyle = '#fff';
         ctx.lineWidth = 0.8;
-        ctx.stroke();
+        ctx.stroke(path);
 
-        const t2 = (window.performance || Date).now();
         const data = ctx.getImageData(0, 0, cells, cells).data;
         const mask = new Uint8Array(cells * cells);
         for (let i = 0, p = 0; i < mask.length; i++, p += 4) mask[i] = data[p] > 127 ? 1 : 0;
-        const t3 = (window.performance || Date).now();
-        return {
-            mask, rings: drawn, points,
-            timing: { path: Math.round(t1 - t0), raster: Math.round(t2 - t1), read: Math.round(t3 - t2) }
-        };
+        return { mask, rings: path.rings, points: path.points };
+    }
+
+    // The skeleton: bare ground, water, and the line between them. Grey and
+    // slate rather than green and blue — this is a map to build on, not scenery.
+    const PAINT = { land: '#9aa3af', sea: '#46546b', coast: '#dfe6f2', grid: 'rgba(15,22,38,0.16)' };
+
+    /**
+     * The place, painted rather than built: land, water and coast on one
+     * canvas, to be laid over the ground the way a map is laid on a table.
+     *
+     * Drawn at four times the world's own resolution, so the shoreline stays a
+     * line rather than a staircase when you stand next to it. `cells` grid
+     * lines are ruled over it, so the ground still reads as ground you can
+     * place a block on.
+     */
+    function groundCanvas(earth, region, cells, opts) {
+        opts = opts || {};
+        const px = opts.px || Math.min(2048, cells * 4);
+        const canvas = document.createElement('canvas');
+        canvas.width = canvas.height = px;
+        const ctx = canvas.getContext('2d');
+
+        ctx.fillStyle = PAINT.sea;
+        ctx.fillRect(0, 0, px, px);
+
+        const path = ringPath(earth, region, px);
+        ctx.fillStyle = PAINT.land;
+        ctx.fill(path, 'evenodd');
+        ctx.strokeStyle = PAINT.coast;
+        ctx.lineWidth = Math.max(1, px / 400);
+        ctx.stroke(path);
+
+        // One line per cell, so a block lands somewhere you can see.
+        const step = px / cells;
+        ctx.strokeStyle = PAINT.grid;
+        ctx.lineWidth = 1;
+        ctx.beginPath();
+        for (let i = 0; i <= cells; i++) {
+            const at = Math.round(i * step) + 0.5;
+            ctx.moveTo(at, 0); ctx.lineTo(at, px);
+            ctx.moveTo(0, at); ctx.lineTo(px, at);
+        }
+        ctx.stroke();
+        return canvas;
     }
 
     /**
@@ -160,7 +212,7 @@
         const earth = opts.data || await load();
         const cells = game.voxels.half * 2 + 1;
         const half = game.voxels.half;
-        const { mask, rings, points, timing } = landMask(earth, geo.region, cells);
+        const { mask, rings, points } = landMask(earth, geo.region, cells);
 
         const blocks = [];
         let land = 0;
@@ -172,8 +224,8 @@
                 else blocks.push([wx, 0, wz, SEA, null, SEA_SHAPE]);
             }
         }
-        return { blocks, pieces: [], land, sea: cells * cells - land, rings, points, timing, style: 'earth' };
+        return { blocks, pieces: [], land, sea: cells * cells - land, rings, points, style: 'earth' };
     }
 
-    window.BlockPartyEarth = { load, shapeFor, landMask, decode, ASSET };
+    window.BlockPartyEarth = { load, shapeFor, landMask, groundCanvas, ringPath, decode, PAINT, ASSET };
 })();

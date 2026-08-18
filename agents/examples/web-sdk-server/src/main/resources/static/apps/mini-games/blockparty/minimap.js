@@ -14,9 +14,6 @@
 
     const SIZE = 232;          // canvas edge, in CSS pixels
     const REDRAW_MS = 400;     // the world does not change fast enough to need more
-    const MAX_TILES = 20;      // never pull more than this for one basemap
-    const TILE_URL = 'https://tile.openstreetmap.org/{z}/{x}/{y}.png';
-    const ATTRIBUTION = '© OpenStreetMap';
 
     // The projection lives in geo.js, because the world's regions are defined
     // by it — the map and the world must agree on where things are.
@@ -42,7 +39,6 @@
             this.base.height = this.canvas.height;
             this.baseReady = false;
             this.baseKey = null;
-            this.tiles = new Map();
             this.showMap = true;
             // How far out the map is pulled, in doublings of the world's own
             // width: 0 shows this world exactly, 4 shows sixteen worlds of
@@ -81,72 +77,67 @@
         toggle() { this.setOpen(!this.open); }
 
         /**
-         * Draw the real place under the world.
+         * Draw the real place under the world: land, water, and the coast
+         * between them, and nothing else.
          *
-         * Once a room is pinned to a latitude and longitude, the minimap is a
-         * map of somewhere — so it shows that somewhere: real streets and
-         * coastlines underneath, with what has been built painted on top. The
-         * tiles come from OpenStreetMap and are cached per anchor; without a
-         * network, or before the world is pinned, the map falls back to the
-         * plain grid and nothing is lost but the scenery.
+         * The same coastlines the ground is painted from, drawn at the map's
+         * own scale — a skeleton of the world rather than a picture of it. No
+         * tiles, no network, no third party watching which places get looked
+         * at, and it works at any zoom because it is drawn, not fetched.
          */
         _ensureBasemap() {
             const geo = this.game.geo;
-            if (!this.showMap || !geo || !geo.anchor) { this.baseReady = false; return; }
+            if (!this.showMap || !geo || !geo.anchor || !window.BlockPartyEarth) {
+                this.baseReady = false;
+                return;
+            }
 
-            const half = this.game.voxels.half;
             const a = geo.anchor;
-            const key = `${a.lat},${a.lon},${a.mpc},${half},${this.zoom}`;
-            if (key === this.baseKey) return;         // already drawn for this place
+            const key = `${a.region},${this.zoom},${this.game.voxels.half}`;
+            if (key === this.baseKey) return;         // already drawn for this view
             this.baseKey = key;
             this.baseReady = false;
 
-            const bctx = this.base.getContext('2d');
+            BlockPartyEarth.load().then(earth => {
+                // The map may have moved on while the coastlines were loading.
+                if (this.baseKey !== key) return;
+                this._paintBase(earth);
+                this.baseReady = true;
+                this.draw();
+            }).catch(() => { this.baseReady = false; });
+        }
+
+        /**
+         * The coastlines of what is on screen. Past zoom 0 that is more ground
+         * than this world covers, so the region is scaled down inside the
+         * canvas rather than the projection being changed: same maths, same
+         * place, just further away.
+         */
+        _paintBase(earth) {
+            const geo = this.game.geo;
             const dpr = this.base.width / SIZE;
-            bctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-            bctx.clearRect(0, 0, SIZE, SIZE);
+            const ctx = this.base.getContext('2d');
+            ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
 
-            // Pick the zoom whose pixels are closest to the map's own scale.
-            const spanM = this.viewCells * a.mpc;
-            const wantMpp = spanM / SIZE;
-            let z = Math.round(Math.log2(156543.033928 * Math.cos(a.lat * Math.PI / 180) / wantMpp));
-            z = Math.max(1, Math.min(19, z));
+            const P = BlockPartyEarth.PAINT;
+            ctx.fillStyle = P.sea;
+            ctx.fillRect(0, 0, SIZE, SIZE);
 
-            // The corners of what is on screen, which past zoom 0 reaches well
-            // outside this world and into the ground around it.
-            const c = this._centre(), reach = this.viewCells / 2;
-            const nw = geo.toLatLon(c.x - reach, c.z - reach);
-            const se = geo.toLatLon(c.x + reach, c.z + reach);
-            const x0 = Math.floor(M().lonToTileX(nw.lon, z)), x1 = Math.floor(M().lonToTileX(se.lon, z));
-            const y0 = Math.floor(M().latToTileY(nw.lat, z)), y1 = Math.floor(M().latToTileY(se.lat, z));
-            const count = (x1 - x0 + 1) * (y1 - y0 + 1);
-            if (!isFinite(count) || count <= 0 || count > MAX_TILES) return;
+            // How big this region is on the map: the whole canvas at zoom 0,
+            // half of it one step out, and so on.
+            const span = SIZE / Math.pow(2, this.zoom);
+            const c = this._centre(), s = this.scale;
+            const origin = this._toCanvas(-this.game.voxels.half, -this.game.voxels.half);
 
-            let pending = 0;
-            for (let tx = x0; tx <= x1; tx++) {
-                for (let ty = y0; ty <= y1; ty++) {
-                    const url = TILE_URL.replace('{z}', z).replace('{x}', tx).replace('{y}', ty);
-                    // Where this tile's corners land on the minimap, projected
-                    // through the same maths as everything else on it.
-                    const tl = this._latLonToCanvas(M().tileYToLat(ty, z), M().tileXToLon(tx, z));
-                    const br = this._latLonToCanvas(M().tileYToLat(ty + 1, z), M().tileXToLon(tx + 1, z));
-                    const draw = (img) => {
-                        try { bctx.drawImage(img, tl.cx, tl.cy, br.cx - tl.cx, br.cy - tl.cy); }
-                        catch (e) { /* a tainted or broken tile is not worth a crash */ }
-                        if (--pending <= 0) this.baseReady = true;
-                        this.draw();
-                    };
-                    const cached = this.tiles.get(url);
-                    if (cached && cached.complete && cached.naturalWidth) { pending++; draw(cached); continue; }
-                    const img = new Image();
-                    img.crossOrigin = 'anonymous';
-                    pending++;
-                    img.onload = () => draw(img);
-                    img.onerror = () => { if (--pending <= 0) this.baseReady = true; };
-                    img.src = url;
-                    this.tiles.set(url, img);
-                }
-            }
+            ctx.save();
+            ctx.translate(origin.cx, origin.cy);
+            const path = BlockPartyEarth.ringPath(earth, geo.region, span);
+            ctx.fillStyle = P.land;
+            ctx.fill(path, 'evenodd');
+            ctx.strokeStyle = P.coast;
+            ctx.lineWidth = Math.max(0.7, span / 300);
+            ctx.stroke(path);
+            ctx.restore();
         }
 
         /** Real coordinates straight to minimap pixels. */
@@ -261,11 +252,8 @@
             const mapped = this.showMap && this.baseKey && this.baseReady;
             if (mapped) {
                 ctx.save();
-                ctx.globalAlpha = 0.85;
                 ctx.drawImage(this.base, 0, 0, SIZE, SIZE);
                 ctx.restore();
-                ctx.fillStyle = 'rgba(11,16,32,0.28)';
-                ctx.fillRect(0, 0, SIZE, SIZE);
             }
 
             // What has been built, as seen from above.
@@ -278,10 +266,9 @@
                 const shade = 0.55 + Math.min(0.45, col.top / 24);
                 // Over a real map the build is drawn slightly transparent, so
                 // you can see which street it is standing on.
-                // Over a real map the build is drawn lightly: a traced world is
-                // largely the map itself, and painting it back over solid would
-                // hide the streets it was taken from.
-                ctx.globalAlpha = mapped ? 0.6 : 1;
+                // The build is what people came for; the coast underneath is
+                // only there to say where it is.
+                ctx.globalAlpha = 1;
                 ctx.fillStyle = this._shade(col.hex, shade);
                 ctx.fillRect(p.cx, p.cy, cell, cell);
                 ctx.globalAlpha = 1;
@@ -399,16 +386,9 @@
             } else if (this.showMap && anchor && !this.baseReady) {
                 ctx.fillStyle = 'rgba(255,255,255,0.6)';
                 ctx.font = '500 9px system-ui, sans-serif';
-                ctx.fillText('loading map…', 8, 12);
+                ctx.fillText('drawing the coast…', 8, 12);
             }
 
-            // Tiles have to be credited wherever they are shown.
-            if (mapped) {
-                ctx.fillStyle = 'rgba(255,255,255,0.6)';
-                ctx.font = '500 9px system-ui, sans-serif';
-                const w = ctx.measureText(ATTRIBUTION).width;
-                ctx.fillText(ATTRIBUTION, SIZE - w - 6, SIZE - 5);
-            }
         }
 
         /** Multiply a hex colour, for the height shading. */

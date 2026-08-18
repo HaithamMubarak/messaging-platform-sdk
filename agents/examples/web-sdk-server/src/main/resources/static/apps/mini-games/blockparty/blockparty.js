@@ -26,7 +26,10 @@
     const MAX_Y = 40;             // build height ceiling
     const WORLD_SPAN = HALF * 2 + 1;
     const CAM_MIN_RADIUS = 6;
-    const CAM_MAX_RADIUS = Math.round(WORLD_SPAN * 1.9);   // far enough to see it all
+    // Far enough to see the whole world at once, on a tall phone as well as a
+    // wide monitor — a world that is a map of somewhere is worth looking at
+    // whole, and 1.9 spans only managed that in landscape.
+    const CAM_MAX_RADIUS = Math.round(WORLD_SPAN * 3.4);
     const CAM_START_RADIUS = 40;
     const STORAGE_KEY = 'blockparty_world';
     const SAVE_DEBOUNCE_MS = 2500;
@@ -283,10 +286,41 @@
          * Tint the ground. A map that wants snow or regolith says so with one
          * colour rather than laying 24,000 blocks over the floor to say it.
          */
+        /**
+         * Lay a map over the ground, or take it away.
+         *
+         * The shape of the place belongs to the floor, not to a hundred
+         * thousand blocks: people came here to build, and a world that arrives
+         * already full of somebody else's cubes is a world you have to clear
+         * before you can start. So the coastline is painted, and every block in
+         * the world is one a person put there.
+         */
+        setGroundMap(canvas) {
+            const mat = this.ground.material;
+            if (mat.map && mat.map !== this._gridTex) mat.map.dispose();
+            if (!canvas) {
+                if (!this._gridTex) this._gridTex = this._gridTexture();
+                mat.map = this._gridTex;
+                this.groundMapped = false;
+                this.setGroundTint(this.groundTint);
+                mat.needsUpdate = true;
+                return;
+            }
+            const tex = new THREE.CanvasTexture(canvas);
+            tex.encoding = THREE.sRGBEncoding;
+            tex.wrapS = tex.wrapT = THREE.ClampToEdgeWrapping;
+            try { tex.anisotropy = this.renderer.capabilities.getMaxAnisotropy(); } catch (e) { /* fine */ }
+            mat.map = tex;
+            // The paint carries its own colour; tinting it would only muddy it.
+            mat.color.setRGB(1, 1, 1);
+            mat.needsUpdate = true;
+            this.groundMapped = true;
+        }
+
         setGroundTint(hex) {
             this.groundTint = hex || null;
             const c = new THREE.Color(hex || GROUND_BASE).convertSRGBToLinear();
-            this.ground.material.color.copy(c);
+            if (!this.groundMapped) this.ground.material.color.copy(c);
             // The land beyond the build area is the same ground, a shade darker
             // so the edge of what you can build on stays legible.
             if (this.plain) this.plain.material.color.copy(c).multiplyScalar(0.62);
@@ -347,14 +381,63 @@
             this._applyCamera();
         }
 
+        /**
+         * Reset the view: everything that is standing, framed, looking north.
+         *
+         * A world that is a map wants to be looked at like a map — square on,
+         * north up, all of it on screen. So reset frames what actually exists
+         * rather than returning to a fixed spot: the whole Earth if that is
+         * what is there, a handful of bricks if that is.
+         */
         resetView() {
-            this.target.set(this.home.x, this.home.y, this.home.z);
+            const half = this.half;
+            // With nothing built, the ground itself is what there is to see —
+            // and when it is a map of somewhere, all of it is worth seeing.
+            const b = this.contentBounds()
+                || (this.groundMapped ? { minX: -half, maxX: half, minZ: -half, maxZ: half } : null);
+            if (!b) {
+                // Nothing built: the view it opened with.
+                this.target.set(this.home.x, this.home.y, this.home.z);
+                this.cam = { theta: Math.PI * 0.25, phi: this.home.phi || Math.PI * 0.32,
+                             radius: this.home.radius };
+                this._applyCamera();
+                return;
+            }
+
+            const phi = Math.PI * 0.14;                    // 25° off straight down
+            const spanX = b.maxX - b.minX + 1, spanZ = b.maxZ - b.minZ + 1;
+            const fov = this.camera.fov * Math.PI / 180;
+            const aspect = this.camera.aspect || 1;
+            // Far enough back that both spans fit, with a little air around it.
+            // Tilting foreshortens depth, which is why the Z span is divided.
+            const byHeight = (spanZ / Math.cos(phi)) / (2 * Math.tan(fov / 2));
+            const byWidth = spanX / (2 * Math.tan(fov / 2) * aspect);
+            // The extra is for the header and the toolbar, which cover the top
+            // and bottom of the screen and would otherwise eat the edges.
+            const radius = Math.max(byHeight, byWidth) * 1.34;
+
+            this.target.set((b.minX + b.maxX) / 2, 0, (b.minZ + b.maxZ) / 2);
             this.cam = {
-                theta: Math.PI * 0.25,
-                phi: this.home.phi || Math.PI * 0.32,
-                radius: this.home.radius
+                theta: -Math.PI / 2,                       // north at the top
+                phi,
+                radius: Math.max(CAM_MIN_RADIUS, Math.min(CAM_MAX_RADIUS, radius))
             };
             this._applyCamera();
+        }
+
+        /** The box everything standing fits inside, or null if nothing does. */
+        contentBounds() {
+            if (!this.columns || !this.columns.size) return null;
+            let minX = Infinity, maxX = -Infinity, minZ = Infinity, maxZ = -Infinity;
+            this.columns.forEach((col, key) => {
+                const comma = key.indexOf(',');
+                const x = +key.slice(0, comma), z = +key.slice(comma + 1);
+                if (x < minX) minX = x;
+                if (x > maxX) maxX = x;
+                if (z < minZ) minZ = z;
+                if (z > maxZ) maxZ = z;
+            });
+            return isFinite(minX) ? { minX, maxX, minZ, maxZ } : null;
         }
 
         /**
@@ -2347,6 +2430,7 @@
             if (this.geo) this.geo.applyAnchor(snap.geo || null);
             this.voxels.setGroundTint(snap.ground || null);
             this.voxels.replaceFrom(snap.blocks, snap.pieces);
+            this.paintGround();
             if (this.xray) this.voxels.setOwnerXray(true, (n) => this.generateUserColor(n));
         }
 
@@ -2613,7 +2697,9 @@
 
             const auto = document.getElementById('geoAutoTrace');
             if (auto) {
-                this._autoTrace = localStorage.getItem('bp_autotrace') !== '0';
+                // Off by default: the place is painted on the ground, and the
+                // blocks in a world should be the ones people put there.
+                this._autoTrace = localStorage.getItem('bp_autotrace') === '1';
                 auto.checked = this._autoTrace;
                 auto.addEventListener('change', () => {
                     this._autoTrace = auto.checked;
@@ -2921,6 +3007,7 @@
                 this.geo.refresh();
                 this._syncGeoUI();
                 if (this.minimap) this.minimap.draw();
+                this.paintGround();
                 this._maybeAutoTrace();
             });
             this.voxels.focus(0, 2, 0, 60, Math.PI * 0.3);
@@ -2935,6 +3022,26 @@
          * out in blocks — sea, parks, roads and buildings where they actually
          * are. Host-only, because it replaces the world.
          */
+        /**
+         * Paint the ground with wherever the room is now — or clear it, off the
+         * map. Nothing here touches a single block.
+         */
+        async paintGround() {
+            if (!window.BlockPartyEarth) return;
+            if (!this.geo || !this.geo.region) { this.voxels.setGroundMap(null); return; }
+            const region = this.geo.region;
+            try {
+                const earth = await BlockPartyEarth.load();
+                // The room may have moved on while the coastlines were loading.
+                if (!this.geo.region || this.geo.region.key !== region.key) return;
+                const cells = this.voxels.half * 2 + 1;
+                this.voxels.setGroundMap(BlockPartyEarth.groundCanvas(earth, region, cells));
+            } catch (e) {
+                this.voxels.setGroundMap(null);
+                console.warn('[BlockParty] ground map:', e.message);
+            }
+        }
+
         /**
          * Two worlds, one room: a private one that is nowhere in particular,
          * and one that is a window onto the Earth.
@@ -2975,6 +3082,7 @@
             this.undoStack.length = 0;
             this.redoStack.length = 0;
             this.geo.applyAnchor(null);
+            this.voxels.setGroundMap(null);
             this._updateBlockCount();
             this._loadWorldFromStorage(() => {
                 this._sendWorldSnapshot();
@@ -3061,6 +3169,7 @@
                 if (this.minimap) this.minimap.draw();
                 this.showToast(`World pinned — ${this.geo.span()}m across, ${mpc}m per block`, 'success', 3600);
                 this._syncGeoCallout();
+                this.paintGround();
                 // Somewhere real deserves to look like it.
                 this._maybeAutoTrace();
                 return this.geo.anchor;
