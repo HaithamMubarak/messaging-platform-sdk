@@ -34,6 +34,7 @@
             <span id="geoReadout" class="pill geo-readout hidden" title="Where the pointer is in the real world"></span>
             <span id="connectionIndicator" class="indicator disconnected" title="Connection">●</span>
             <button id="soundBtn" class="btn btn-icon active" title="Sound">🔊</button>
+            <button id="modeBtn" class="btn btn-icon" title="Private world — click to put it on the Earth, with real ground and sea">🔒</button>
             <button id="mapBtn" class="btn btn-icon" title="Minimap (N)">🗺</button>
             <button id="fpsBtn" class="btn btn-icon" title="Walk around in first person (G)">🚶</button>
             <button id="xrayBtn" class="btn btn-icon" title="Show who built what (O)">🎨</button>
@@ -85,6 +86,14 @@
             <span class="fps-keys"><strong>WASD</strong> walk · <strong>Shift</strong> run · <strong>Space</strong> jump ·
                 <strong>click</strong> build · <strong>right-click</strong> break · <strong>Esc</strong> leave</span>
         </div>
+    </div>
+
+    <!-- Standing offer to put this world on the Earth, when it is not yet -->
+    <div id="geoCallout" class="geo-callout hidden">
+        <span class="geo-callout-text">🔒 This is a private world. Put it on the Earth for real ground and sea — or stay here, off the map.</span>
+        <button id="geoCalloutPin" class="btn btn-primary">🌍 Put it on the Earth</button>
+        <button id="geoCalloutMore" class="btn btn-ghost">Pick a place</button>
+        <button id="geoCalloutHide" class="bp-close" aria-label="Dismiss">✕</button>
     </div>
 
     <!-- Minimap: the world from above, click to travel -->

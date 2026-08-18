@@ -503,6 +503,33 @@ html, body {
 .map-desc { font-size: 11px; color: var(--muted); line-height: 1.4; }
 
 .import-row { display: flex; gap: 8px; align-items: center; margin-bottom: 8px; flex-wrap: wrap; }
+.geo-callout {
+    position: absolute;
+    left: 50%;
+    top: 128px;
+    transform: translateX(-50%);
+    z-index: 18;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    max-width: min(94vw, 720px);
+    padding: 10px 12px;
+    border-radius: 14px;
+    color: var(--text);
+    background: var(--panel);
+    border: 1px solid var(--border);
+    box-shadow: 0 12px 30px rgba(0, 0, 0, 0.35);
+    backdrop-filter: blur(10px);
+}
+.geo-callout.hidden { display: none !important; }
+.geo-callout-text { font-size: 13px; line-height: 1.4; }
+.geo-callout .btn { white-space: nowrap; }
+
+@media (max-width: 720px) {
+    .geo-callout { flex-wrap: wrap; top: 112px; }
+    .geo-callout-text { flex: 1 1 100%; }
+}
+
 .minimap-foot {
     display: flex; align-items: center; justify-content: space-between;
     gap: 6px; padding: 4px 6px 6px;

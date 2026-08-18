@@ -2602,6 +2602,15 @@
 
             on('geoTraceBtn', 'click', () => this.traceWorld());
 
+            on('modeBtn', 'click', () => this.setWorldMode(this.worldMode() === 'earth' ? 'private' : 'earth'));
+
+            on('geoCalloutPin', 'click', () => this.setWorldMode('earth'));
+            on('geoCalloutMore', 'click', () => { this._openWorldModal(); this._syncGeoCallout(); });
+            on('geoCalloutHide', 'click', () => {
+                const bar = document.getElementById('geoCallout');
+                if (bar) bar.classList.add('hidden');
+            });
+
             const auto = document.getElementById('geoAutoTrace');
             if (auto) {
                 this._autoTrace = localStorage.getItem('bp_autotrace') !== '0';
@@ -2645,6 +2654,8 @@
 
         /** Redraw the geolocation panel from the current state. */
         _syncGeoUI() {
+            // Whether this world has a place is the one thing the offer tracks.
+            this._syncGeoCallout();
             const geo = this.geo;
             if (!geo) return;
             const set = (id, text) => { const el = document.getElementById(id); if (el) el.textContent = text; };
@@ -2886,8 +2897,9 @@
                 return null;
             }
 
-            // Leave the place you were in as you found it.
-            if (this.geo.anchor && this.voxels.count()) this._saveWorld();
+            // Leave the world you were in as you found it — including the
+            // private one, which has no anchor but is still somebody's build.
+            if (this.voxels.count()) this._saveWorld();
 
             const scale = mpc || (this.geo.anchor && this.geo.anchor.mpc) || 2;
             this.voxels.clearAll();
@@ -2924,6 +2936,64 @@
          * are. Host-only, because it replaces the world.
          */
         /**
+         * Two worlds, one room: a private one that is nowhere in particular,
+         * and one that is a window onto the Earth.
+         *
+         * They are kept apart rather than converted into each other — each is
+         * stored under its own key, so switching back and forth never costs
+         * anybody what they built. Host-only: it moves the room.
+         */
+        async setWorldMode(mode) {
+            if (!this.isHost()) { this.showToast('Only the host can change the world', 'warning'); return false; }
+            if (this.modes && this.modes.isMatchActive()) {
+                this.showToast('Finish the match first', 'warning');
+                return false;
+            }
+            const now = this.worldMode();
+            if (mode === now) return true;
+
+            if (mode === 'earth') {
+                const mpc = Number((document.getElementById('geoScale') || {}).value) || 2;
+                let fix;
+                try {
+                    fix = await this.geo.locate();
+                } catch (e) {
+                    this.showToast(`${e.message} — pick a place instead`, 'warning', 4200);
+                    this._openWorldModal();
+                    return false;
+                }
+                // travelTo does the rest: puts this world away, moves the room,
+                // brings up whatever is stored there, and draws it if empty.
+                return !!this.travelTo(fix.lat, fix.lon, mpc);
+            }
+
+            // Off the map: keep your position to yourself, and open the world
+            // that is nowhere.
+            if (this.geo.sharing) this.geo.stopSharing();
+            if (this.voxels.count()) this._saveWorld();
+            this.voxels.clearAll();
+            this.undoStack.length = 0;
+            this.redoStack.length = 0;
+            this.geo.applyAnchor(null);
+            this._updateBlockCount();
+            this._loadWorldFromStorage(() => {
+                this._sendWorldSnapshot();
+                this._scheduleSave();
+                this._updateBlockCount();
+                this._refreshPlayers();
+                this._syncGeoUI();
+                if (this.minimap) this.minimap.draw();
+            });
+            this.voxels.focus(0, 2, 0, 60, Math.PI * 0.3);
+            this._syncGeoUI();
+            this.showToast('Private world — off the map, and your location is your own', 'success', 3600);
+            return true;
+        }
+
+        /** Which of the two this room is in right now. */
+        worldMode() { return (this.geo && this.geo.anchor) ? 'earth' : 'private'; }
+
+        /**
          * A world with nowhere to be is put where you are.
          *
          * Only if the browser has already been given permission — a game that
@@ -2932,12 +3002,43 @@
          */
         async _settleWhereYouAre() {
             if (!this.isHost() || (this.geo && this.geo.anchor)) return;
+            // Asking outright is the point: a world that is nowhere has no map
+            // to show, and waiting for someone to find a 📍 they have no reason
+            // to look for is how it stayed nowhere. Somewhere already refused
+            // is not asked again — the call to action stays instead.
+            let state = 'prompt';
             try {
-                if (!navigator.permissions || !navigator.permissions.query) return;
-                const status = await navigator.permissions.query({ name: 'geolocation' });
-                if (status.state !== 'granted') return;
-                await this.pinToMyLocation();
-            } catch (e) { /* no permissions API, or it refused to say: leave it */ }
+                if (navigator.permissions && navigator.permissions.query) {
+                    state = (await navigator.permissions.query({ name: 'geolocation' })).state;
+                }
+            } catch (e) { /* no permissions API: just ask */ }
+
+            // The offer goes up first and comes down if the answer arrives:
+            // asking can take twelve seconds to time out, and twelve seconds of
+            // an empty world with no explanation is how this looked broken.
+            this._syncGeoCallout();
+            if (state === 'denied') return;
+            await this.pinToMyLocation({ quiet: true });
+            this._syncGeoCallout();
+        }
+
+        /**
+         * The standing offer to put this world somewhere, for when asking did
+         * not work — refused, unavailable, or nobody was listening.
+         */
+        _syncGeoCallout() {
+            const earth = this.worldMode() === 'earth';
+            const btn = document.getElementById('modeBtn');
+            if (btn) {
+                btn.textContent = earth ? '🌍' : '🔒';
+                btn.classList.toggle('active', earth);
+                btn.title = earth
+                    ? 'This world is a window onto the Earth — click for a private world'
+                    : 'Private world — click to put it on the Earth, with real ground and sea';
+            }
+            const bar = document.getElementById('geoCallout');
+            if (!bar) return;
+            bar.classList.toggle('hidden', !(this.isHost() && !earth));
         }
 
         /**
@@ -2945,7 +3046,8 @@
          * panel and from the map itself, because until this happens the map has
          * nowhere real to show.
          */
-        async pinToMyLocation() {
+        async pinToMyLocation(opts) {
+            opts = opts || {};
             if (!this.isHost()) { this.showToast('Only the host can pin the world', 'warning'); return null; }
             const note = document.getElementById('geoNote');
             if (note) note.textContent = 'Asking your browser for a position…';
@@ -2958,12 +3060,16 @@
                 this._syncGeoUI();
                 if (this.minimap) this.minimap.draw();
                 this.showToast(`World pinned — ${this.geo.span()}m across, ${mpc}m per block`, 'success', 3600);
+                this._syncGeoCallout();
                 // Somewhere real deserves to look like it.
                 this._maybeAutoTrace();
                 return this.geo.anchor;
             } catch (e) {
                 if (note) note.textContent = e.message;
-                this.showToast(e.message, 'error', 3600);
+                // Refusing on arrival is a choice, not an error worth shouting
+                // about; the offer stays on screen either way.
+                if (!opts.quiet) this.showToast(e.message, 'error', 3600);
+                this._syncGeoCallout();
                 return null;
             }
         }
