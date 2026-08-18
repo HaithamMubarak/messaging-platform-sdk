@@ -36,12 +36,15 @@
     const BULK_CHUNK = 300;       // cells per wire message, to stay well under
                                   // the data-channel size limit
     const WORLD_CHUNK = 400;      // cells (or pieces) per world-snapshot message
+    const CHUNK = 16;             // render chunk size on X/Z, in cells
+    const CHUNK_BUDGET = 6;       // chunk rebuilds allowed per frame
     // The platform expires a session after 180s unless something the client
     // sends touches it. BlockParty talks over WebRTC almost exclusively, so a
     // room deep in a quiet three-minute round would let its session lapse and
     // channel storage would start refusing writes. A cheap read-only call keeps
     // it alive without putting any traffic into the room.
     const SESSION_KEEPALIVE_MS = 45000;   // comfortably inside the 180s window
+    const MAX_IMAGE_CELLS = 9000;   // an imported picture is one bulk edit
     const SLOT_PREFIX = 'blockparty_slot_';
     const STATS_KEY = 'blockparty_stats';
 
@@ -69,6 +72,38 @@
             return g;
         } }
     ];
+    // How much light a face catches by the way it points: a cheap stand-in for
+    // sky light, and the reason a flat-shaded cube reads as a solid object
+    // rather than a silhouette.
+    const FACE_TINT = { top: 1.0, side: 0.80, sideAlt: 0.72, bottom: 0.55 };
+    // Ambient occlusion baked per vertex at merge time: 0 (tucked into a corner)
+    // to 3 (open air).
+    const AO_BASE = 0.55, AO_STEP = 0.15;
+    // In-world text is measured in world units, so a tag that reads well from
+    // across the map blots out the view when you are standing next to it.
+    const LABEL_CURSOR = 0.5;    // who is aiming where
+    const LABEL_AVATAR = 0.34;   // over a player's head, read from a few paces
+    const LABEL_PLOT = 0.55;     // a match plot's plaque
+    const SKY_ZENITH = '#0b1226', SKY_HORIZON = '#31456e';
+    const GROUND_BASE = '#8f9bb8';   // the grid texture is tinted by this
+    const SHADOW_RADIUS = 46;     // how much of the world the sun's shadow covers
+
+    /**
+     * Colours are small integers on the wire. 0..11 are palette swatches; any
+     * value with RGB_FLAG set carries a literal colour in its low 24 bits.
+     * That keeps every saved world, every edit and every snapshot exactly as
+     * compact as before for palette colours, while letting a block be any
+     * colour at all — which is what makes an imported photograph look like the
+     * photograph.
+     */
+    const RGB_FLAG = 1 << 24;
+    const isRGB = c => typeof c === 'number' && c >= RGB_FLAG;
+    const packRGB = (r, g, b) => RGB_FLAG | ((r & 255) << 16) | ((g & 255) << 8) | (b & 255);
+    const hexOf = (c) => {
+        if (!isRGB(c)) return PALETTE[c] || PALETTE[0];
+        return '#' + ((c & 0xffffff) | 0x1000000).toString(16).slice(1);
+    };
+
     const shapeAt = i => SHAPES[i] || SHAPES[0];
     const shapeIndex = i => (Number.isInteger(i) && i >= 0 && i < SHAPES.length) ? i : 0;
 
@@ -81,7 +116,11 @@
             this.world = new Map();     // "x,y,z" -> colorIndex
             this.owners = new Map();    // "x,y,z" -> player name who placed it
             this.shapes = new Map();    // "x,y,z" -> shape index (absent = cube)
-            this.meshes = new Map();    // "x,y,z" -> THREE.Mesh (single cells only)
+            // Rendering is per chunk, not per block: a 16x16 column of the world
+            // is merged into one geometry per material. A world with 20,000
+            // blocks is then a few hundred draw calls instead of 20,000.
+            this.chunks = new Map();    // "cx,cz" -> { meshes: [], cells: Set, pieces: Set }
+            this.dirtyChunks = new Set();
             // A brick piece covers several cells but is one mesh and one thing
             // to break. Its cells are registered in world/owners too, so counts,
             // saves and blueprint scoring keep working per cell.
@@ -89,18 +128,29 @@
             this.pieceOf = new Map();   // "x,y,z" -> pieceId
             this.brickLook = false;     // cubes render as studded 1x1 bricks
             this.remoteCursors = new Map(); // peerId -> { group, line, ghost, label, ... }
+            this.avatars = new Map();       // peerId -> a little person walking about
 
             this.geometries = SHAPES.map(s => s.make());
             this.geometry = this.geometries[0];   // cube, the default
-            this.materials = PALETTE.map(hex => new THREE.MeshLambertMaterial({ color: new THREE.Color(hex) }));
+            this.materials = PALETTE.map(hex => {
+                const m = new THREE.MeshLambertMaterial({ color: new THREE.Color(hex) });
+                m.color.convertSRGBToLinear();
+                return m;
+            });
+            // Chunks are drawn with vertex colours, so the palette is also kept
+            // as plain linear RGB to bake in directly.
+            this.paletteLinear = PALETTE.map(hex => new THREE.Color(hex).convertSRGBToLinear());
+            // One material for every chunk in the world: colour, shading and
+            // occlusion all live in the vertex data.
+            this.chunkMaterial = new THREE.MeshLambertMaterial({ vertexColors: true });
             // Translucent twins of the palette, for placement ghosts.
             this.ghostMaterials = PALETTE.map(hex => new THREE.MeshLambertMaterial({
-                color: new THREE.Color(hex), transparent: true, opacity: 0.45, depthWrite: false
+                color: new THREE.Color(hex).convertSRGBToLinear(), transparent: true, opacity: 0.45, depthWrite: false
             }));
             // A more solid set for the blueprint you are studying — it has to be
             // readable at a glance in three seconds.
             this.blueprintMaterials = PALETTE.map(hex => new THREE.MeshLambertMaterial({
-                color: new THREE.Color(hex), transparent: true, opacity: 0.78
+                color: new THREE.Color(hex).convertSRGBToLinear(), transparent: true, opacity: 0.78
             }));
             this.cursorGeometry = new THREE.EdgesGeometry(new THREE.BoxGeometry(1.02, 1.02, 1.02));
             this.preview = null;        // local placement ghost (built lazily)
@@ -120,42 +170,143 @@
 
             this.renderer = new THREE.WebGLRenderer({ antialias: true });
             this.renderer.setSize(w, h);
-            this.renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+
+            // Software rendering (SwiftShader, llvmpipe) turns up in CI and on
+            // machines without a GPU. It cannot afford shadows or a retina
+            // buffer, so ask what we are running on before spending anything.
+            this.software = VoxelWorld.isSoftwareRenderer(this.renderer);
+            this.renderer.setPixelRatio(this.software ? 1 : Math.min(window.devicePixelRatio || 1, 2));
+
+            // Colour pipeline. Without these the palette renders washed out and
+            // highlights blow to white; with them the darks hold.
+            this.renderer.outputEncoding = THREE.sRGBEncoding;
+            this.renderer.toneMapping = THREE.ACESFilmicToneMapping;
+            this.renderer.toneMappingExposure = 1.1;
+            if (!this.software) {
+                this.renderer.shadowMap.enabled = true;
+                this.renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+            }
             this.mountEl.appendChild(this.renderer.domElement);
 
             this.scene = new THREE.Scene();
-            this.scene.background = new THREE.Color('#0b1020');
+            this.scene.background = new THREE.Color(SKY_HORIZON);
             // Fog hides the far edge without hiding the build you walked away
             // from, so it is pinned to the world's size rather than a constant.
-            this.scene.fog = new THREE.Fog('#0b1020', WORLD_SPAN * 0.55, WORLD_SPAN * 2.6);
+            // Fog matches the horizon, so distance melts into the sky rather
+            // than into a dark band.
+            this.scene.fog = new THREE.Fog(SKY_HORIZON, WORLD_SPAN * 0.55, WORLD_SPAN * 2.6);
 
-            // Lighting
-            const hemi = new THREE.HemisphereLight('#bcd0ff', '#0b1020', 0.9);
+            // Two lights, deliberately: each extra one slows the shader on every
+            // merged chunk. Warm key, cool sky, warm bounce off the ground.
+            const hemi = new THREE.HemisphereLight('#a8c4ff', '#3a3226', 0.55);
             this.scene.add(hemi);
-            const dir = new THREE.DirectionalLight('#ffffff', 0.7);
-            dir.position.set(20, 40, 15);
+            const dir = new THREE.DirectionalLight('#fff4e0', 0.85);
+            dir.position.set(60, 90, 40);
+            if (!this.software) {
+                dir.castShadow = true;
+                dir.shadow.mapSize.set(2048, 2048);
+                // A shadow camera spanning all 161 units would give a dozen
+                // texels per cell — mush. It covers what you are looking at and
+                // follows the camera instead, snapped to whole texels so the
+                // edges do not crawl while you orbit.
+                const R = SHADOW_RADIUS;
+                dir.shadow.camera.left = -R; dir.shadow.camera.right = R;
+                dir.shadow.camera.top = R; dir.shadow.camera.bottom = -R;
+                dir.shadow.camera.near = 1; dir.shadow.camera.far = 400;
+                dir.shadow.bias = -0.0005;
+                dir.shadow.normalBias = 0.02;
+            }
             this.scene.add(dir);
+            this.scene.add(dir.target);
+            this.sun = dir;
 
-            // Ground plane (pick target for floor placement)
+            // Ground plane (pick target for floor placement). Its grid is a
+            // texture rather than two GridHelpers: it mipmaps away with distance
+            // instead of moiring, takes shadow and fog, and stops two helper
+            // meshes z-fighting the floor.
             const size = WORLD_SPAN;
-            const groundMat = new THREE.MeshLambertMaterial({ color: '#161d33' });
+            const groundMat = new THREE.MeshLambertMaterial({
+                map: this._gridTexture(), color: new THREE.Color(GROUND_BASE).convertSRGBToLinear()
+            });
             this.ground = new THREE.Mesh(new THREE.PlaneGeometry(size, size), groundMat);
             this.ground.rotation.x = -Math.PI / 2;
             this.ground.position.set(0, 0, 0);
             this.ground.userData.isGround = true;
+            this.ground.receiveShadow = !this.software;
             this.scene.add(this.ground);
-
-            // Grid + border
-            // Two grids: every cell up close, and a heavier one every ten cells
-            // so a big world still reads as a plan you can navigate.
-            const grid = new THREE.GridHelper(size, size, 0x2b3557, 0x161d33);
-            grid.position.y = 0.001;
-            this.scene.add(grid);
-            const coarse = new THREE.GridHelper(size, Math.round(size / 10), 0x3a4670, 0x2b3557);
-            coarse.position.y = 0.002;
-            this.scene.add(coarse);
+            this.scene.add(this._skyDome());
 
             this.raycaster = new THREE.Raycaster();
+        }
+
+        /**
+         * Is this a software renderer? Shadows and a retina buffer are the first
+         * things to cost more than they are worth when there is no GPU.
+         */
+        static isSoftwareRenderer(renderer) {
+            try {
+                const gl = renderer.getContext();
+                const ext = gl.getExtension('WEBGL_debug_renderer_info');
+                const name = ext ? String(gl.getParameter(ext.UNMASKED_RENDERER_WEBGL)) : '';
+                return /swiftshader|llvmpipe|software|basic render/i.test(name);
+            } catch (e) {
+                return false;
+            }
+        }
+
+        /**
+         * Tint the ground. A map that wants snow or regolith says so with one
+         * colour rather than laying 24,000 blocks over the floor to say it.
+         */
+        setGroundTint(hex) {
+            this.groundTint = hex || null;
+            const c = new THREE.Color(hex || GROUND_BASE).convertSRGBToLinear();
+            this.ground.material.color.copy(c);
+        }
+
+        /** A gradient dome, so the world has a sky rather than a clear colour. */
+        _skyDome() {
+            const geo = new THREE.SphereGeometry(WORLD_SPAN * 2.8, 24, 12);
+            const pos = geo.attributes.position;
+            const colors = new Float32Array(pos.count * 3);
+            const zenith = new THREE.Color(SKY_ZENITH).convertSRGBToLinear();
+            const horizon = new THREE.Color(SKY_HORIZON).convertSRGBToLinear();
+            const c = new THREE.Color();
+            for (let i = 0; i < pos.count; i++) {
+                // Blend on height, with a bias that keeps the horizon band tight.
+                const t = Math.pow(Math.max(0, pos.getY(i) / (WORLD_SPAN * 2.8)), 0.55);
+                c.copy(horizon).lerp(zenith, t);
+                colors[i * 3] = c.r; colors[i * 3 + 1] = c.g; colors[i * 3 + 2] = c.b;
+            }
+            geo.setAttribute('color', new THREE.BufferAttribute(colors, 3));
+            const dome = new THREE.Mesh(geo, new THREE.MeshBasicMaterial({
+                vertexColors: true, side: THREE.BackSide, fog: false, depthWrite: false
+            }));
+            dome.renderOrder = -1;
+            return dome;
+        }
+
+        /** The floor grid, drawn once into a texture and tiled per cell. */
+        _gridTexture() {
+            const S = 64;
+            const canvas = document.createElement('canvas');
+            canvas.width = canvas.height = S;
+            const ctx = canvas.getContext('2d');
+            // Drawn light so the ground's tint comes through it; a map can then
+            // turn the floor to snow or regolith by colour alone.
+            ctx.fillStyle = '#ffffff';
+            ctx.fillRect(0, 0, S, S);
+            ctx.strokeStyle = '#c9d4e8';
+            ctx.lineWidth = 2;
+            ctx.strokeRect(0, 0, S, S);
+            const tex = new THREE.CanvasTexture(canvas);
+            tex.wrapS = tex.wrapT = THREE.RepeatWrapping;
+            tex.repeat.set(WORLD_SPAN, WORLD_SPAN);
+            tex.encoding = THREE.sRGBEncoding;
+            try {
+                tex.anisotropy = this.renderer.capabilities.getMaxAnisotropy();
+            } catch (e) { /* not fatal */ }
+            return tex;
         }
 
         _initCamera() {
@@ -178,6 +329,31 @@
             this._applyCamera();
         }
 
+        /**
+         * Hand the camera to the first-person controller, or take it back.
+         * Orbiting, the drag-to-look and the placement ghost all key off this.
+         */
+        setFirstPerson(on) {
+            this.firstPerson = !!on;
+            if (!on) {
+                this.camera.rotation.set(0, 0, 0);
+                this._applyCamera();
+            }
+        }
+
+        /** Put the camera at the player's eye, looking where they look. */
+        setEyeCamera(eye, yaw, pitch) {
+            this.camera.position.copy(eye);
+            this.camera.rotation.order = 'YXZ';
+            this.camera.rotation.set(pitch, yaw, 0);
+            this.target.set(
+                eye.x - Math.sin(yaw) * 8,
+                eye.y + Math.sin(pitch) * 8,
+                eye.z - Math.cos(yaw) * 8
+            );
+            this._updateSun();
+        }
+
         // Point the camera at a spot in the world. `phi` (optional) sets the
         // pitch, so a match can frame a plot from above without the player
         // having to re-aim after every round.
@@ -189,6 +365,20 @@
             this._applyCamera();
         }
 
+        /**
+         * Keep the sun's shadow box over what the player is looking at, snapped
+         * to whole shadow texels so its edges do not crawl while orbiting.
+         */
+        _updateSun() {
+            if (!this.sun || this.software) return;
+            const texel = (SHADOW_RADIUS * 2) / 2048;
+            const sx = Math.round(this.target.x / texel) * texel;
+            const sz = Math.round(this.target.z / texel) * texel;
+            this.sun.target.position.set(sx, 0, sz);
+            this.sun.position.set(sx + 60, 90, sz + 40);
+            this.sun.target.updateMatrixWorld();
+        }
+
         _applyCamera() {
             const { theta, phi, radius } = this.cam;
             const x = this.target.x + radius * Math.sin(phi) * Math.cos(theta);
@@ -196,6 +386,7 @@
             const z = this.target.z + radius * Math.sin(phi) * Math.sin(theta);
             this.camera.position.set(x, y, z);
             this.camera.lookAt(this.target);
+            this._updateSun();
         }
 
         orbit(dx, dy) {
@@ -232,7 +423,12 @@
             if (this._raf) return;
             const loop = () => {
                 this._raf = requestAnimationFrame(loop);
+                const now = performance.now();
+                const dt = Math.min(0.05, (now - (this._lastFrame || now)) / 1000);
+                this._lastFrame = now;
                 this.stepFollow();
+                this._animateAvatars(dt);
+                this.flushChunks();
                 this.renderer.render(this.scene, this.camera);
             };
             loop();
@@ -268,6 +464,224 @@
 
         pieceAt(x, y, z) { return this.pieceOf.get(VoxelWorld.key(x, y, z)) || null; }
 
+        // ---- chunked rendering -------------------------------------------
+        static chunkKey(x, z) {
+            return Math.floor(x / CHUNK) + ',' + Math.floor(z / CHUNK);
+        }
+
+        _chunk(ck) {
+            let c = this.chunks.get(ck);
+            if (!c) {
+                c = { meshes: [], cells: new Set(), pieces: new Set() };
+                this.chunks.set(ck, c);
+            }
+            return c;
+        }
+
+        _touchChunk(ck) { this.dirtyChunks.add(ck); }
+
+        /**
+         * The raw vertex arrays for a geometry, cached.
+         *
+         * Merging by hand rather than cloning THREE geometries: every block in a
+         * chunk is the same handful of shapes at different offsets, so the merge
+         * is a copy with an added translation. Cloning geometry objects for
+         * thousands of blocks is what makes a naive chunk rebuild slow.
+         */
+        _template(geo) {
+            if (!this._templates) this._templates = new Map();
+            let t = this._templates.get(geo);
+            if (!t) {
+                const g = geo.index ? geo.toNonIndexed() : geo;
+                t = {
+                    pos: g.attributes.position.array,
+                    norm: g.attributes.normal.array,
+                    count: g.attributes.position.count
+                };
+                this._templates.set(geo, t);
+            }
+            return t;
+        }
+
+        /**
+         * How dark this vertex is: the tint its face gets from the direction it
+         * points, times ambient occlusion from the blocks tucked around it.
+         *
+         * The occlusion is the standard voxel trick. A vertex on a flat face has
+         * four cells meeting it in the layer just outside that face; one is the
+         * empty cell the face looks into, and the other three are what can shut
+         * the light out. Count them and darken accordingly. Faces that are not
+         * axis-aligned (spheres, cones) just take the directional tint.
+         */
+        _shadeAt(px, py, pz, nx, ny, nz) {
+            const tint = ny > 0.9 ? FACE_TINT.top
+                : ny < -0.9 ? FACE_TINT.bottom
+                    : (Math.abs(nx) > 0.9 ? FACE_TINT.sideAlt : FACE_TINT.side);
+
+            const axis = Math.abs(nx) > 0.99 ? 0 : (Math.abs(ny) > 0.99 ? 1 : (Math.abs(nz) > 0.99 ? 2 : -1));
+            if (axis < 0) return tint;      // curved surface: tint only
+
+            // Step half a cell out from the face; the four cells that meet the
+            // vertex there are the candidates.
+            const qx = px + nx * 0.5, qy = py + ny * 0.5, qz = pz + nz * 0.5;
+            const E = 0.25;
+            const t1 = axis === 0 ? [0, 1, 0] : [1, 0, 0];
+            const t2 = axis === 2 ? [0, 1, 0] : [0, 0, 1];
+
+            // Count how many of those four cells are solid. Three is a vertex
+            // wedged into a corner, none is a vertex out in the open. (The
+            // textbook version weighs the two edge-adjacent cells against the
+            // diagonal one; telling them apart needs to know which cell the
+            // face looks into, and a straight count reads the same on screen.)
+            let solid = 0;
+            const E2 = E;
+            for (const s1 of [-1, 1]) {
+                for (const s2 of [-1, 1]) {
+                    const cx = Math.floor(qx + t1[0] * s1 * E2 + t2[0] * s2 * E2);
+                    const cy = Math.floor(qy + t1[1] * s1 * E2 + t2[1] * s2 * E2);
+                    const cz = Math.floor(qz + t1[2] * s1 * E2 + t2[2] * s2 * E2);
+                    if (this.world.has(cx + ',' + cy + ',' + cz)) solid++;
+                }
+            }
+            const ao = Math.max(0, 3 - solid);
+            return tint * (AO_BASE + AO_STEP * ao);
+        }
+
+        /** The linear-space colour a block draws in, palette or owner. */
+        _linearFor(colorIndex, owner) {
+            if (this.xray) {
+                if (!this._ownerLinear) this._ownerLinear = new Map();
+                const hex = (owner && this._xrayColorFor) ? this._xrayColorFor(owner) : '#64748b';
+                let c = this._ownerLinear.get(hex);
+                if (!c) {
+                    c = new THREE.Color(hex).convertSRGBToLinear();
+                    this._ownerLinear.set(hex, c);
+                }
+                return c;
+            }
+            if (isRGB(colorIndex)) {
+                if (!this._rgbLinear) this._rgbLinear = new Map();
+                let c = this._rgbLinear.get(colorIndex);
+                if (!c) {
+                    c = new THREE.Color(hexOf(colorIndex)).convertSRGBToLinear();
+                    this._rgbLinear.set(colorIndex, c);
+                }
+                return c;
+            }
+            return this.paletteLinear[colorIndex] || this.paletteLinear[0];
+        }
+
+        _materialFor(colorIndex, owner) {
+            if (this.xray) return this._ownerMaterial(owner);
+            return this.materials[colorIndex] || this.materials[0];
+        }
+
+        /** Rebuild one chunk's merged meshes from the world model. */
+        _rebuildChunk(ck) {
+            const chunk = this.chunks.get(ck);
+            if (!chunk) return;
+            chunk.meshes.forEach(m => {
+                this.scene.remove(m);
+                m.geometry.dispose();
+            });
+            chunk.meshes = [];
+
+            // Everything in the chunk goes into one buffer. Colour, the tint a
+            // face gets from the way it points, and baked occlusion all travel
+            // as vertex colours — which is why a whole chunk is a single draw
+            // call with a single material.
+            const parts = [];
+            let verts = 0;
+            const add = (tmpl, ox, oy, oz, colorIndex, owner) => {
+                parts.push({ tmpl, ox, oy, oz, color: this._linearFor(colorIndex, owner) });
+                verts += tmpl.count;
+            };
+
+            chunk.cells.forEach(k => {
+                if (this.pieceOf.has(k)) return;          // drawn as part of its brick
+                if (!this.world.has(k)) return;
+                const [x, y, z] = k.split(',').map(Number);
+                const si = this.shapes.get(k) || 0;
+                const tmpl = this._template(this._cellGeometry(si));
+                const c = this.world.get(k), owner = this.owners.get(k);
+                if (si === 0 && this.brickLook) add(tmpl, x, y, z, c, owner);
+                else add(tmpl, x + 0.5, y + shapeAt(si).cy, z + 0.5, c, owner);
+            });
+
+            chunk.pieces.forEach(id => {
+                const p = this.pieces.get(id);
+                if (!p) return;
+                add(this._template(BlockPartyBricks.geometry(p.w, p.d)), p.x, p.y, p.z, p.c, p.owner);
+            });
+
+            if (verts) {
+                const position = new Float32Array(verts * 3);
+                const normal = new Float32Array(verts * 3);
+                const color = new Float32Array(verts * 3);
+                let at = 0;
+                parts.forEach(part => {
+                    const { tmpl, ox, oy, oz } = part;
+                    for (let i = 0; i < tmpl.count; i++) {
+                        const s3 = i * 3, d3 = (at + i) * 3;
+                        const px = tmpl.pos[s3] + ox;
+                        const py = tmpl.pos[s3 + 1] + oy;
+                        const pz = tmpl.pos[s3 + 2] + oz;
+                        const nx = tmpl.norm[s3], ny = tmpl.norm[s3 + 1], nz = tmpl.norm[s3 + 2];
+                        position[d3] = px; position[d3 + 1] = py; position[d3 + 2] = pz;
+                        normal[d3] = nx; normal[d3 + 1] = ny; normal[d3 + 2] = nz;
+
+                        const shade = this._shadeAt(px, py, pz, nx, ny, nz);
+                        color[d3] = part.color.r * shade;
+                        color[d3 + 1] = part.color.g * shade;
+                        color[d3 + 2] = part.color.b * shade;
+                    }
+                    at += tmpl.count;
+                });
+                const geo = new THREE.BufferGeometry();
+                geo.setAttribute('position', new THREE.BufferAttribute(position, 3));
+                geo.setAttribute('normal', new THREE.BufferAttribute(normal, 3));
+                geo.setAttribute('color', new THREE.BufferAttribute(color, 3));
+                geo.computeBoundingSphere();
+                const mesh = new THREE.Mesh(geo, this.chunkMaterial);
+                mesh.userData.chunk = ck;
+                mesh.castShadow = !this.software;
+                mesh.receiveShadow = !this.software;
+                this.scene.add(mesh);
+                chunk.meshes.push(mesh);
+            }
+
+            if (!chunk.cells.size && !chunk.pieces.size) this.chunks.delete(ck);
+            this._dirtyTargets();
+        }
+
+        /**
+         * Flush pending chunk rebuilds. Called once per frame with a budget, so
+         * dropping a map of 10,000 blocks costs several frames rather than one
+         * long freeze.
+         */
+        flushChunks(budget) {
+            if (!this.dirtyChunks.size) return 0;
+            let done = 0;
+            for (const ck of this.dirtyChunks) {
+                this._rebuildChunk(ck);
+                this.dirtyChunks.delete(ck);
+                if (++done >= (budget || CHUNK_BUDGET)) break;
+            }
+            return done;
+        }
+
+        /** How many meshes the world currently costs to draw. */
+        drawCalls() {
+            let n = 0;
+            this.chunks.forEach(c => { n += c.meshes.length; });
+            return n;
+        }
+
+        /** Rebuild everything — after an x-ray toggle or a brick-look change. */
+        _rebuildAll() {
+            this.chunks.forEach((_c, ck) => this.dirtyChunks.add(ck));
+        }
+
         // Geometry for a plain cell: in brick mode a cube becomes a studded 1x1
         // so single blocks and real pieces look like the same toy. The other
         // shapes are not bricks and are left alone.
@@ -279,9 +693,7 @@
         setBrickLook(on) {
             if (this.brickLook === !!on) return;
             this.brickLook = !!on;
-            this.meshes.forEach(mesh => {
-                if (mesh.userData.si === 0) mesh.geometry = this._cellGeometry(0);
-            });
+            this._rebuildAll();
         }
 
         ownerOf(x, y, z) { return this.owners.get(VoxelWorld.key(x, y, z)); }
@@ -299,32 +711,10 @@
             if (owner && !identical) this.owners.set(k, owner);
             if (si) this.shapes.set(k, si); else this.shapes.delete(k);
 
-            // While the x-ray is on, a block's colour shows its owner, so blocks
-            // placed during it have to follow the same rule.
-            const material = this.xray
-                ? this._ownerMaterial(this.owners.get(k))
-                : (this.materials[colorIndex] || this.materials[0]);
-
-            const existing = this.meshes.get(k);
-            // Same shape → just restyle. Different shape → the geometry changed,
-            // so the mesh has to be rebuilt.
-            if (existing && existing.userData.si === si) {
-                existing.material = material;
-                this.world.set(k, colorIndex);
-                return;
-            }
-            if (existing) { this.scene.remove(existing); this.meshes.delete(k); this._dirtyTargets(); }
-
-            const mesh = new THREE.Mesh(this._cellGeometry(si), material);
-            // A studded 1x1 has its origin at the cell corner; the other shapes
-            // are centred, hence the half-cell offset.
-            if (si === 0 && this.brickLook) mesh.position.set(x, y, z);
-            else mesh.position.set(x + 0.5, y + shapeAt(si).cy, z + 0.5);
-            mesh.userData = { cx: x, cy: y, cz: z, si };
-            this.scene.add(mesh);
-            this.meshes.set(k, mesh);
             this.world.set(k, colorIndex);
-            this._dirtyTargets();
+            const ck = VoxelWorld.chunkKey(x, z);
+            this._chunk(ck).cells.add(k);
+            this._touchChunk(ck);
         }
 
         // ---- brick pieces ----
@@ -341,14 +731,6 @@
                 else if (this.world.has(k)) this.deleteBlock(x, y, z);
             });
 
-            const material = this.xray
-                ? this._ownerMaterial(p.owner)
-                : (this.materials[p.c] || this.materials[0]);
-            const mesh = new THREE.Mesh(BlockPartyBricks.geometry(p.w, p.d), material);
-            mesh.position.set(p.x, p.y, p.z);
-            mesh.userData = { piece: p.id, px: p.x, py: p.y, pz: p.z, pw: p.w, pd: p.d };
-            this.scene.add(mesh);
-
             const keys = [];
             cells.forEach(([x, y, z]) => {
                 const k = VoxelWorld.key(x, y, z);
@@ -358,22 +740,32 @@
                 if (p.owner) this.owners.set(k, p.owner);
                 this.pieceOf.set(k, p.id);
             });
-            this.pieces.set(p.id, Object.assign({}, p, { cells: keys, mesh }));
-            this._dirtyTargets();
+            this.pieces.set(p.id, Object.assign({}, p, { cells: keys }));
+            // A brick can straddle a chunk edge, so every chunk it touches has to
+            // redraw — but it is only ever *owned* by the chunk of its corner.
+            const home = VoxelWorld.chunkKey(p.x, p.z);
+            this._chunk(home).pieces.add(p.id);
+            this._touchChunk(home);
+            this._touchChunk(VoxelWorld.chunkKey(p.x + p.w - 1, p.z + p.d - 1));
         }
 
         deletePiece(id) {
             const piece = this.pieces.get(id);
             if (!piece) return;
-            this.scene.remove(piece.mesh);
             piece.cells.forEach(k => {
                 this.pieceOf.delete(k);
                 this.world.delete(k);
                 this.owners.delete(k);
                 this.shapes.delete(k);
+                const [x, , z] = k.split(',').map(Number);
+                const ck = VoxelWorld.chunkKey(x, z);
+                const c = this.chunks.get(ck);
+                if (c) { c.cells.delete(k); this._touchChunk(ck); }
             });
+            const home = VoxelWorld.chunkKey(piece.x, piece.z);
+            const hc = this.chunks.get(home);
+            if (hc) { hc.pieces.delete(id); this._touchChunk(home); }
             this.pieces.delete(id);
-            this._dirtyTargets();
         }
 
         deleteBlock(x, y, z) {
@@ -381,17 +773,25 @@
             // Breaking any stud of a brick takes the whole brick off.
             const pieceId = this.pieceOf.get(k);
             if (pieceId) { this.deletePiece(pieceId); return; }
-            const mesh = this.meshes.get(k);
-            if (mesh) { this.scene.remove(mesh); this.meshes.delete(k); this._dirtyTargets(); }
             this.world.delete(k);
             this.owners.delete(k);
             this.shapes.delete(k);
+            const ck = VoxelWorld.chunkKey(x, z);
+            const c = this.chunks.get(ck);
+            if (c) { c.cells.delete(k); this._touchChunk(ck); }
+        }
+
+        clearAvatars() {
+            Array.from(this.avatars.keys()).forEach(id => this.removeAvatar(id));
         }
 
         clearAll() {
-            this.meshes.forEach(m => this.scene.remove(m));
-            this.meshes.clear();
-            this.pieces.forEach(p => this.scene.remove(p.mesh));
+            this.chunks.forEach(c => c.meshes.forEach(m => {
+                this.scene.remove(m);
+                m.geometry.dispose();
+            }));
+            this.chunks.clear();
+            this.dirtyChunks.clear();
             this.pieces.clear();
             this.pieceOf.clear();
             this.world.clear();
@@ -476,27 +876,24 @@
                 return { place: { x, y: 0, z }, remove: null };
             }
 
+            // A merged chunk is one mesh for hundreds of blocks, so the cell has
+            // to be worked out from where the ray landed rather than read off
+            // the object. Step just inside the surface and floor it; the
+            // candidates cover the awkward cases — a stud poking up into the
+            // cell above, and the rounded shapes whose surface sits well inside
+            // their cell.
             const n = hit.face.normal;
-            if (ud.piece) {
-                // A brick spans several cells, so the cell has to come from where
-                // the ray landed: step just inside the surface and floor it. The
-                // studs stick up into the cell above, so y is pinned to the piece.
-                const inside = hit.point.clone().addScaledVector(n, -0.5);
-                const clamp = (v, lo, hi) => Math.max(lo, Math.min(hi, v));
-                const cell = {
-                    x: clamp(Math.floor(inside.x), ud.px, ud.px + ud.pw - 1),
-                    y: ud.py,
-                    z: clamp(Math.floor(inside.z), ud.pz, ud.pz + ud.pd - 1)
-                };
-                return {
-                    place: { x: cell.x + Math.round(n.x), y: cell.y + Math.round(n.y), z: cell.z + Math.round(n.z) },
-                    remove: cell
-                };
-            }
+            const p = hit.point;
+            const at = (dx, dy, dz) => ({
+                x: Math.floor(p.x - n.x * dx), y: Math.floor(p.y - n.y * dy), z: Math.floor(p.z - n.z * dz)
+            });
+            const candidates = [at(0.02, 0.02, 0.02), at(0.5, 0.5, 0.5)];
+            const first = candidates[0];
+            candidates.push({ x: first.x, y: first.y - 1, z: first.z });   // hit a stud
+            const cell = candidates.find(c => this.hasBlock(c.x, c.y, c.z)) || first;
 
-            const { cx, cy, cz } = ud;
-            const place = { x: cx + Math.round(n.x), y: cy + Math.round(n.y), z: cz + Math.round(n.z) };
-            return { place, remove: { x: cx, y: cy, z: cz } };
+            const place = { x: cell.x + Math.round(n.x), y: cell.y + Math.round(n.y), z: cell.z + Math.round(n.z) };
+            return { place, remove: cell };
         }
 
         // Ghost of a whole brick about to be dropped, at its minimum corner.
@@ -510,7 +907,7 @@
             const p = this.piecePreview;
             p.visible = true;
             p.geometry = BlockPartyBricks.geometry(w, d);
-            p.material = blocked ? this._blockedMaterial() : (this.ghostMaterials[colorIndex] || this.ghostMaterials[0]);
+            p.material = blocked ? this._blockedMaterial() : this._ghostForColor(colorIndex);
             p.position.set(x, y, z);
         }
 
@@ -533,8 +930,8 @@
          */
         _pickTargets() {
             if (!this._targets || this._targetsDirty) {
-                this._targets = Array.from(this.meshes.values());
-                this.pieces.forEach(p => this._targets.push(p.mesh));
+                this._targets = [];
+                this.chunks.forEach(c => c.meshes.forEach(m => this._targets.push(m)));
                 this._targets.push(this.ground);
                 this._targetsDirty = false;
             }
@@ -568,7 +965,7 @@
                 const idx = shapeIndex(si);
                 p.ghost.visible = true;
                 p.ghost.geometry = this.geometries[idx];
-                p.ghost.material = this.ghostMaterials[colorIndex] || this.ghostMaterials[0];
+                p.ghost.material = this._ghostForColor(colorIndex);
                 p.ghost.position.y = shapeAt(idx).cy;
                 p.line.material.color.set('#ffffff');
             }
@@ -602,18 +999,458 @@
         setOwnerXray(on, colorFor) {
             this.xray = !!on;
             this._xrayColorFor = colorFor || null;
-            this.meshes.forEach((mesh, k) => {
-                mesh.material = this.xray
-                    ? this._ownerMaterial(this.owners.get(k))
-                    : (this.materials[this.world.get(k)] || this.materials[0]);
-            });
-            this.pieces.forEach(p => {
-                p.mesh.material = this.xray
-                    ? this._ownerMaterial(p.owner)
-                    : (this.materials[p.c] || this.materials[0]);
-            });
+            this._rebuildAll();
         }
 
+        /**
+         * The colour a cell is actually drawn in right now — the palette colour,
+         * or its owner's colour while the x-ray is on. With merged chunks there
+         * is no per-block mesh to inspect, so this is how anything (including a
+         * test) asks what it would see.
+         */
+        renderColorAt(x, y, z) {
+            const k = VoxelWorld.key(x, y, z);
+            if (!this.world.has(k)) return null;
+            if (this.xray) {
+                const owner = this.owners.get(k);
+                return (owner && this._xrayColorFor) ? this._xrayColorFor(owner) : '#64748b';
+            }
+            return hexOf(this.world.get(k));
+        }
+
+        _materialFor(colorIndex, owner) {
+            if (this.xray) return this._ownerMaterial(owner);
+            return this.materials[colorIndex] || this.materials[0];
+        }
+
+        /** Rebuild one chunk's merged meshes from the world model. */
+        _rebuildChunk(ck) {
+            const chunk = this.chunks.get(ck);
+            if (!chunk) return;
+            chunk.meshes.forEach(m => {
+                this.scene.remove(m);
+                m.geometry.dispose();
+            });
+            chunk.meshes = [];
+
+            // Everything in the chunk goes into one buffer. Colour, the tint a
+            // face gets from the way it points, and baked occlusion all travel
+            // as vertex colours — which is why a whole chunk is a single draw
+            // call with a single material.
+            const parts = [];
+            let verts = 0;
+            const add = (tmpl, ox, oy, oz, colorIndex, owner) => {
+                parts.push({ tmpl, ox, oy, oz, color: this._linearFor(colorIndex, owner) });
+                verts += tmpl.count;
+            };
+
+            chunk.cells.forEach(k => {
+                if (this.pieceOf.has(k)) return;          // drawn as part of its brick
+                if (!this.world.has(k)) return;
+                const [x, y, z] = k.split(',').map(Number);
+                const si = this.shapes.get(k) || 0;
+                const tmpl = this._template(this._cellGeometry(si));
+                const c = this.world.get(k), owner = this.owners.get(k);
+                if (si === 0 && this.brickLook) add(tmpl, x, y, z, c, owner);
+                else add(tmpl, x + 0.5, y + shapeAt(si).cy, z + 0.5, c, owner);
+            });
+
+            chunk.pieces.forEach(id => {
+                const p = this.pieces.get(id);
+                if (!p) return;
+                add(this._template(BlockPartyBricks.geometry(p.w, p.d)), p.x, p.y, p.z, p.c, p.owner);
+            });
+
+            if (verts) {
+                const position = new Float32Array(verts * 3);
+                const normal = new Float32Array(verts * 3);
+                const color = new Float32Array(verts * 3);
+                let at = 0;
+                parts.forEach(part => {
+                    const { tmpl, ox, oy, oz } = part;
+                    for (let i = 0; i < tmpl.count; i++) {
+                        const s3 = i * 3, d3 = (at + i) * 3;
+                        const px = tmpl.pos[s3] + ox;
+                        const py = tmpl.pos[s3 + 1] + oy;
+                        const pz = tmpl.pos[s3 + 2] + oz;
+                        const nx = tmpl.norm[s3], ny = tmpl.norm[s3 + 1], nz = tmpl.norm[s3 + 2];
+                        position[d3] = px; position[d3 + 1] = py; position[d3 + 2] = pz;
+                        normal[d3] = nx; normal[d3 + 1] = ny; normal[d3 + 2] = nz;
+
+                        const shade = this._shadeAt(px, py, pz, nx, ny, nz);
+                        color[d3] = part.color.r * shade;
+                        color[d3 + 1] = part.color.g * shade;
+                        color[d3 + 2] = part.color.b * shade;
+                    }
+                    at += tmpl.count;
+                });
+                const geo = new THREE.BufferGeometry();
+                geo.setAttribute('position', new THREE.BufferAttribute(position, 3));
+                geo.setAttribute('normal', new THREE.BufferAttribute(normal, 3));
+                geo.setAttribute('color', new THREE.BufferAttribute(color, 3));
+                geo.computeBoundingSphere();
+                const mesh = new THREE.Mesh(geo, this.chunkMaterial);
+                mesh.userData.chunk = ck;
+                mesh.castShadow = !this.software;
+                mesh.receiveShadow = !this.software;
+                this.scene.add(mesh);
+                chunk.meshes.push(mesh);
+            }
+
+            if (!chunk.cells.size && !chunk.pieces.size) this.chunks.delete(ck);
+            this._dirtyTargets();
+        }
+
+        /**
+         * Flush pending chunk rebuilds. Called once per frame with a budget, so
+         * dropping a map of 10,000 blocks costs several frames rather than one
+         * long freeze.
+         */
+        flushChunks(budget) {
+            if (!this.dirtyChunks.size) return 0;
+            let done = 0;
+            for (const ck of this.dirtyChunks) {
+                this._rebuildChunk(ck);
+                this.dirtyChunks.delete(ck);
+                if (++done >= (budget || CHUNK_BUDGET)) break;
+            }
+            return done;
+        }
+
+        /** How many meshes the world currently costs to draw. */
+        drawCalls() {
+            let n = 0;
+            this.chunks.forEach(c => { n += c.meshes.length; });
+            return n;
+        }
+
+        /** Rebuild everything — after an x-ray toggle or a brick-look change. */
+        _rebuildAll() {
+            this.chunks.forEach((_c, ck) => this.dirtyChunks.add(ck));
+        }
+
+        // Geometry for a plain cell: in brick mode a cube becomes a studded 1x1
+        // so single blocks and real pieces look like the same toy. The other
+        // shapes are not bricks and are left alone.
+        _cellGeometry(si) {
+            if (si === 0 && this.brickLook) return BlockPartyBricks.geometry(1, 1);
+            return this.geometries[si];
+        }
+
+        setBrickLook(on) {
+            if (this.brickLook === !!on) return;
+            this.brickLook = !!on;
+            this._rebuildAll();
+        }
+
+        ownerOf(x, y, z) { return this.owners.get(VoxelWorld.key(x, y, z)); }
+        shapeOf(x, y, z) { return this.shapes.get(VoxelWorld.key(x, y, z)) || 0; }
+
+        setBlock(x, y, z, colorIndex, owner, shape) {
+            const k = VoxelWorld.key(x, y, z);
+            const si = shapeIndex(shape);
+            // A cell inside a brick belongs to that brick, not to itself.
+            if (this.pieceOf.has(k)) this.deletePiece(this.pieceOf.get(k));
+            // Re-placing a block that is already exactly this block changes
+            // nothing, so it must not quietly transfer credit for it — in Team
+            // Build that would let a tidier-upper take the whole room's work.
+            const identical = this.world.get(k) === colorIndex && (this.shapes.get(k) || 0) === si;
+            if (owner && !identical) this.owners.set(k, owner);
+            if (si) this.shapes.set(k, si); else this.shapes.delete(k);
+
+            this.world.set(k, colorIndex);
+            const ck = VoxelWorld.chunkKey(x, z);
+            this._chunk(ck).cells.add(k);
+            this._touchChunk(ck);
+        }
+
+        // ---- brick pieces ----
+        // p = { id, x, y, z, w, d, c, owner }. Anything already standing in the
+        // way is cleared first, so a piece landing on top wins the same way a
+        // block does.
+        setPiece(p) {
+            if (this.pieces.has(p.id)) this.deletePiece(p.id);
+            const cells = BlockPartyBricks.cellsOf(p.x, p.y, p.z, p.w, p.d);
+            cells.forEach(([x, y, z]) => {
+                const k = VoxelWorld.key(x, y, z);
+                const other = this.pieceOf.get(k);
+                if (other) this.deletePiece(other);
+                else if (this.world.has(k)) this.deleteBlock(x, y, z);
+            });
+
+            const keys = [];
+            cells.forEach(([x, y, z]) => {
+                const k = VoxelWorld.key(x, y, z);
+                keys.push(k);
+                this.world.set(k, p.c);
+                this.shapes.delete(k);                  // brick cells are cubes
+                if (p.owner) this.owners.set(k, p.owner);
+                this.pieceOf.set(k, p.id);
+            });
+            this.pieces.set(p.id, Object.assign({}, p, { cells: keys }));
+            // A brick can straddle a chunk edge, so every chunk it touches has to
+            // redraw — but it is only ever *owned* by the chunk of its corner.
+            const home = VoxelWorld.chunkKey(p.x, p.z);
+            this._chunk(home).pieces.add(p.id);
+            this._touchChunk(home);
+            this._touchChunk(VoxelWorld.chunkKey(p.x + p.w - 1, p.z + p.d - 1));
+        }
+
+        deletePiece(id) {
+            const piece = this.pieces.get(id);
+            if (!piece) return;
+            piece.cells.forEach(k => {
+                this.pieceOf.delete(k);
+                this.world.delete(k);
+                this.owners.delete(k);
+                this.shapes.delete(k);
+                const [x, , z] = k.split(',').map(Number);
+                const ck = VoxelWorld.chunkKey(x, z);
+                const c = this.chunks.get(ck);
+                if (c) { c.cells.delete(k); this._touchChunk(ck); }
+            });
+            const home = VoxelWorld.chunkKey(piece.x, piece.z);
+            const hc = this.chunks.get(home);
+            if (hc) { hc.pieces.delete(id); this._touchChunk(home); }
+            this.pieces.delete(id);
+        }
+
+        deleteBlock(x, y, z) {
+            const k = VoxelWorld.key(x, y, z);
+            // Breaking any stud of a brick takes the whole brick off.
+            const pieceId = this.pieceOf.get(k);
+            if (pieceId) { this.deletePiece(pieceId); return; }
+            this.world.delete(k);
+            this.owners.delete(k);
+            this.shapes.delete(k);
+            const ck = VoxelWorld.chunkKey(x, z);
+            const c = this.chunks.get(ck);
+            if (c) { c.cells.delete(k); this._touchChunk(ck); }
+        }
+
+        clearAll() {
+            this.chunks.forEach(c => c.meshes.forEach(m => {
+                this.scene.remove(m);
+                m.geometry.dispose();
+            }));
+            this.chunks.clear();
+            this.dirtyChunks.clear();
+            this.pieces.clear();
+            this.pieceOf.clear();
+            this.world.clear();
+            this.owners.clear();
+            this.shapes.clear();
+            this._dirtyTargets();
+        }
+
+        count() { return this.world.size; }
+
+        // name -> number of blocks currently standing that this player placed
+        countsByOwner() {
+            const m = new Map();
+            this.owners.forEach((owner, k) => {
+                if (owner && this.world.has(k)) m.set(owner, (m.get(owner) || 0) + 1);
+            });
+            return m;
+        }
+
+        // [x, y, z, colorIndex, owner?, shape?] — the tail is optional and only
+        // written when it carries information, so rows stay short and worlds
+        // saved by older versions (4- and 5-element rows) still load.
+        // Cells that stand on their own. Cells belonging to a brick are left to
+        // encodePieces, so a saved world reloads as bricks and not as rubble.
+        encode() {
+            const out = [];
+            this.world.forEach((c, k) => {
+                if (this.pieceOf.has(k)) return;
+                const [x, y, z] = k.split(',').map(Number);
+                const owner = this.owners.get(k);
+                const si = this.shapes.get(k) || 0;
+                if (si) out.push([x, y, z, c, owner || null, si]);
+                else if (owner) out.push([x, y, z, c, owner]);
+                else out.push([x, y, z, c]);
+            });
+            return out;
+        }
+
+        // [id, x, y, z, w, d, colorIndex, owner]
+        encodePieces() {
+            const out = [];
+            this.pieces.forEach(p => out.push([p.id, p.x, p.y, p.z, p.w, p.d, p.c, p.owner || null]));
+            return out;
+        }
+
+        replaceFrom(blocks, pieces) {
+            this.clearAll();
+            if (Array.isArray(pieces)) {
+                for (const p of pieces) {
+                    if (!p || p.length < 7) continue;
+                    const [id, x, y, z, w, d, c, owner] = p;
+                    if (this.inBounds(x, y, z)) {
+                        this.setPiece({ id, x, y, z, w, d, c, owner: owner || undefined });
+                    }
+                }
+            }
+            if (Array.isArray(blocks)) {
+                for (const b of blocks) {
+                    if (!b || b.length < 4) continue;
+                    const [x, y, z, c, owner, si] = b;
+                    if (this.inBounds(x, y, z)) this.setBlock(x, y, z, c, owner || undefined, si);
+                }
+            }
+        }
+
+        // ---- picking ----
+        // Returns { place:{x,y,z}, remove:{x,y,z} } for the pointer at (clientX,clientY), or null.
+        pick(clientX, clientY) {
+            const ndc = new THREE.Vector2(
+                (clientX / window.innerWidth) * 2 - 1,
+                -(clientY / window.innerHeight) * 2 + 1
+            );
+            this.raycaster.setFromCamera(ndc, this.camera);
+            const hits = this.raycaster.intersectObjects(this._pickTargets(), false);
+            if (!hits.length) return null;
+
+            const hit = hits[0];
+            const ud = hit.object.userData || {};
+            if (ud.isGround) {
+                const x = Math.floor(hit.point.x);
+                const z = Math.floor(hit.point.z);
+                return { place: { x, y: 0, z }, remove: null };
+            }
+
+            // A merged chunk is one mesh for hundreds of blocks, so the cell has
+            // to be worked out from where the ray landed rather than read off
+            // the object. Step just inside the surface and floor it; the
+            // candidates cover the awkward cases — a stud poking up into the
+            // cell above, and the rounded shapes whose surface sits well inside
+            // their cell.
+            const n = hit.face.normal;
+            const p = hit.point;
+            const at = (dx, dy, dz) => ({
+                x: Math.floor(p.x - n.x * dx), y: Math.floor(p.y - n.y * dy), z: Math.floor(p.z - n.z * dz)
+            });
+            const candidates = [at(0.02, 0.02, 0.02), at(0.5, 0.5, 0.5)];
+            const first = candidates[0];
+            candidates.push({ x: first.x, y: first.y - 1, z: first.z });   // hit a stud
+            const cell = candidates.find(c => this.hasBlock(c.x, c.y, c.z)) || first;
+
+            const place = { x: cell.x + Math.round(n.x), y: cell.y + Math.round(n.y), z: cell.z + Math.round(n.z) };
+            return { place, remove: cell };
+        }
+
+        // Ghost of a whole brick about to be dropped, at its minimum corner.
+        showPiecePreview(x, y, z, w, d, colorIndex, blocked) {
+            if (!this.piecePreview) {
+                this.piecePreview = new THREE.Mesh(
+                    BlockPartyBricks.geometry(1, 1), this.ghostMaterials[0]
+                );
+                this.scene.add(this.piecePreview);
+            }
+            const p = this.piecePreview;
+            p.visible = true;
+            p.geometry = BlockPartyBricks.geometry(w, d);
+            p.material = blocked ? this._blockedMaterial() : this._ghostForColor(colorIndex);
+            p.position.set(x, y, z);
+        }
+
+        hidePiecePreview() { if (this.piecePreview) this.piecePreview.visible = false; }
+
+        _blockedMaterial() {
+            if (!this._blockedMat) {
+                this._blockedMat = new THREE.MeshLambertMaterial({
+                    color: new THREE.Color('#ff5a5f'), transparent: true, opacity: 0.35, depthWrite: false
+                });
+            }
+            return this._blockedMat;
+        }
+
+        /**
+         * Everything a ray may hit, rebuilt only when the world changes.
+         * Hover fires on every mouse move, and in a world this size collecting
+         * thousands of meshes each time is the difference between a smooth aim
+         * and a stuttering one.
+         */
+        _pickTargets() {
+            if (!this._targets || this._targetsDirty) {
+                this._targets = [];
+                this.chunks.forEach(c => c.meshes.forEach(m => this._targets.push(m)));
+                this._targets.push(this.ground);
+                this._targetsDirty = false;
+            }
+            return this._targets;
+        }
+
+        _dirtyTargets() { this._targetsDirty = true; }
+
+        // ---- local placement preview (my own aim, before I commit an edit) ----
+        showPreview(x, y, z, si, colorIndex, erasing) {
+            if (!this.preview) {
+                const group = new THREE.Group();
+                const line = new THREE.LineSegments(
+                    this.cursorGeometry, new THREE.LineBasicMaterial({ color: 0xffffff })
+                );
+                const ghost = new THREE.Mesh(this.geometries[0], this.ghostMaterials[0]);
+                group.add(line);
+                group.add(ghost);
+                this.scene.add(group);
+                this.preview = { group, line, ghost };
+            }
+            const p = this.preview;
+            p.group.visible = true;
+            p.group.position.set(x + 0.5, y, z + 0.5);
+            p.line.position.y = 0.5;
+            if (erasing) {
+                // Nothing is being added — just ring the doomed cell in red.
+                p.ghost.visible = false;
+                p.line.material.color.set('#ff5a5f');
+            } else {
+                const idx = shapeIndex(si);
+                p.ghost.visible = true;
+                p.ghost.geometry = this.geometries[idx];
+                p.ghost.material = this._ghostForColor(colorIndex);
+                p.ghost.position.y = shapeAt(idx).cy;
+                p.line.material.color.set('#ffffff');
+            }
+        }
+
+        hidePreview() { if (this.preview) this.preview.group.visible = false; }
+
+        // ---- region preview, for the box fill ----
+        // One unit-cube wireframe, scaled to the pending box.
+        showRegion(a, b, erase) {
+            if (!this.region) {
+                this.region = new THREE.LineSegments(
+                    new THREE.EdgesGeometry(new THREE.BoxGeometry(1, 1, 1)),
+                    new THREE.LineBasicMaterial({ color: 0x7dd3fc })
+                );
+                this.scene.add(this.region);
+            }
+            const lo = { x: Math.min(a.x, b.x), y: Math.min(a.y, b.y), z: Math.min(a.z, b.z) };
+            const hi = { x: Math.max(a.x, b.x), y: Math.max(a.y, b.y), z: Math.max(a.z, b.z) };
+            const w = hi.x - lo.x + 1, h = hi.y - lo.y + 1, d = hi.z - lo.z + 1;
+            this.region.visible = true;
+            this.region.scale.set(w, h, d);
+            this.region.position.set(lo.x + w / 2, lo.y + h / 2, lo.z + d / 2);
+            this.region.material.color.set(erase ? '#ff5a5f' : '#7dd3fc');
+            return w * h * d;
+        }
+
+        hideRegion() { if (this.region) this.region.visible = false; }
+
+        // ---- ownership x-ray: colour every block by who placed it ----
+        setOwnerXray(on, colorFor) {
+            this.xray = !!on;
+            this._xrayColorFor = colorFor || null;
+            this._rebuildAll();
+        }
+
+        /**
+         * The colour a cell is actually drawn in right now — the palette colour,
+         * or its owner's colour while the x-ray is on. With merged chunks there
+         * is no per-block mesh to inspect, so this is how anything (including a
+         * test) asks what it would see.
+         */
         _ownerMaterial(owner) {
             const hex = (owner && this._xrayColorFor) ? this._xrayColorFor(owner) : '#64748b';
             if (!this._ownerMats) this._ownerMats = new Map();
@@ -678,7 +1515,7 @@
                 cover.visible = false;
                 group.add(cover);
 
-                const label = this._makeLabelSprite(p.name, p.color);
+                const label = this._makeLabelSprite(p.name, p.color, LABEL_PLOT);
                 label.position.set(cx, PLOT_COVER_H + 1.4, cz);
                 group.add(label);
 
@@ -696,7 +1533,7 @@
             if (!pad || pad.text === text) return;
             pad.group.remove(pad.label);
             this._disposeLabel(pad.label);
-            pad.label = this._makeLabelSprite(text, pad.color);
+            pad.label = this._makeLabelSprite(text, pad.color, LABEL_PLOT);
             pad.label.position.set(pad.cx, PLOT_COVER_H + 1.4, pad.cz);
             pad.group.add(pad.label);
             pad.text = text;
@@ -765,6 +1602,134 @@
             });
         }
 
+        // ---- avatars: the other players, as people ----------------------
+        /**
+         * A minifigure in the player's colour: legs, arms, a body and a head
+         * with a face on the front. Built from a handful of boxes because it
+         * has to sit in a world made of boxes and still read as a person from
+         * across a village.
+         */
+        _makeAvatar(name, color) {
+            const group = new THREE.Group();
+            const col = new THREE.Color(color).convertSRGBToLinear();
+            const dark = col.clone().multiplyScalar(0.65);
+            const body = new THREE.MeshLambertMaterial({ color: col });
+            const trousers = new THREE.MeshLambertMaterial({ color: dark });
+            const skin = new THREE.MeshLambertMaterial({ color: new THREE.Color('#f2c48a').convertSRGBToLinear() });
+
+            const part = (w, h, d, mat, x, y, z) => {
+                const m = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), mat);
+                m.position.set(x, y, z);
+                m.castShadow = !this.software;
+                return m;
+            };
+
+            // Legs hang from hips so they can swing from the top.
+            const legL = new THREE.Group(), legR = new THREE.Group();
+            legL.add(part(0.26, 0.7, 0.26, trousers, 0, -0.35, 0));
+            legR.add(part(0.26, 0.7, 0.26, trousers, 0, -0.35, 0));
+            legL.position.set(-0.16, 0.7, 0);
+            legR.position.set(0.16, 0.7, 0);
+
+            const torso = part(0.62, 0.66, 0.36, body, 0, 1.03, 0);
+
+            const armL = new THREE.Group(), armR = new THREE.Group();
+            armL.add(part(0.2, 0.6, 0.2, body, 0, -0.3, 0));
+            armR.add(part(0.2, 0.6, 0.2, body, 0, -0.3, 0));
+            armL.position.set(-0.42, 1.3, 0);
+            armR.position.set(0.42, 1.3, 0);
+
+            const head = new THREE.Mesh(new THREE.BoxGeometry(0.5, 0.5, 0.5), [
+                skin, skin, skin, skin, new THREE.MeshLambertMaterial({ map: this._faceTexture() }), skin
+            ]);
+            head.position.set(0, 1.62, 0);
+            head.castShadow = !this.software;
+
+            // Half size: this one is read from a few paces away, not from
+             // across the world like a cursor tag.
+            const label = this._makeLabelSprite(name, color, LABEL_AVATAR);
+            label.position.set(0, 2.25, 0);
+
+            group.add(legL); group.add(legR); group.add(torso);
+            group.add(armL); group.add(armR); group.add(head); group.add(label);
+            this.scene.add(group);
+            return {
+                group, legL, legR, armL, armR, head, label, name, color,
+                target: new THREE.Vector3(), yaw: 0, phase: 0, moving: false, seen: performance.now()
+            };
+        }
+
+        /** A face, drawn once and shared by every avatar. */
+        _faceTexture() {
+            if (this._face) return this._face;
+            const S = 64;
+            const c = document.createElement('canvas');
+            c.width = c.height = S;
+            const g = c.getContext('2d');
+            g.fillStyle = '#f2c48a'; g.fillRect(0, 0, S, S);
+            g.fillStyle = '#1b1b1b';
+            g.fillRect(16, 22, 8, 10);
+            g.fillRect(40, 22, 8, 10);
+            g.beginPath();
+            g.lineWidth = 4; g.strokeStyle = '#1b1b1b';
+            g.arc(S / 2, 34, 13, 0.15 * Math.PI, 0.85 * Math.PI);
+            g.stroke();
+            const tex = new THREE.CanvasTexture(c);
+            tex.encoding = THREE.sRGBEncoding;
+            this._face = tex;
+            return tex;
+        }
+
+        setAvatar(id, info) {
+            let a = this.avatars.get(id);
+            if (!a) {
+                a = this._makeAvatar(info.name || id, info.color || '#6366f1');
+                a.group.position.set(info.x, info.y, info.z);
+                this.avatars.set(id, a);
+            }
+            a.target.set(info.x, info.y, info.z);
+            a.yaw = info.yaw || 0;
+            a.moving = !!info.moving;
+            a.seen = performance.now();
+        }
+
+        removeAvatar(id) {
+            const a = this.avatars.get(id);
+            if (!a) return;
+            this.scene.remove(a.group);
+            this._disposeLabel(a.label);
+            this.avatars.delete(id);
+        }
+
+        /**
+         * Walk cycle. Positions arrive a few times a second, so the body eases
+         * towards where it was last seen rather than snapping — and the legs
+         * keep swinging in between, which is what makes it look alive.
+         */
+        _animateAvatars(dt) {
+            const now = performance.now();
+            this.avatars.forEach((a, id) => {
+                if (now - a.seen > 12000) { this.removeAvatar(id); return; }
+                a.group.position.lerp(a.target, Math.min(1, dt * 9));
+                a.group.rotation.y = a.yaw;
+                a.phase += dt * (a.moving ? 9 : 1.8);
+                const swing = Math.sin(a.phase);
+                if (a.moving) {
+                    a.legL.rotation.x = swing * 0.7;
+                    a.legR.rotation.x = -swing * 0.7;
+                    a.armL.rotation.x = -swing * 0.55;
+                    a.armR.rotation.x = swing * 0.55;
+                    a.group.position.y += Math.abs(Math.sin(a.phase * 2)) * 0.04;
+                } else {
+                    // Idle: a slow breath and a bit of a sway.
+                    const idle = Math.sin(a.phase) * 0.08;
+                    a.legL.rotation.x = a.legR.rotation.x = 0;
+                    a.armL.rotation.x = idle; a.armR.rotation.x = -idle;
+                    a.head.rotation.y = Math.sin(a.phase * 0.6) * 0.25;
+                }
+            });
+        }
+
         // ---- remote cursors: where each other player is aiming, and who they are ----
         setRemoteCursor(peerId, info) {
             info = info || {};
@@ -780,7 +1745,7 @@
                     this.cursorGeometry, new THREE.LineBasicMaterial({ color: new THREE.Color(color) })
                 );
                 const ghost = new THREE.Mesh(this.geometries[si], this._ghostMaterialFor(color));
-                const label = this._makeLabelSprite(name, color);
+                const label = this._makeLabelSprite(name, color, LABEL_CURSOR);
                 group.add(line); group.add(ghost); group.add(label);
                 this.scene.add(group);
                 rec = { group, line, ghost, label, name, color };
@@ -791,7 +1756,7 @@
             if (rec.name !== name || rec.color !== color) {
                 rec.group.remove(rec.label);
                 this._disposeLabel(rec.label);
-                rec.label = this._makeLabelSprite(name, color);
+                rec.label = this._makeLabelSprite(name, color, LABEL_CURSOR);
                 rec.group.add(rec.label);
                 rec.name = name;
                 rec.color = color;
@@ -823,6 +1788,21 @@
             this.remoteCursors.delete(peerId);
         }
 
+        /** A translucent material in any colour, for previewing a custom shade. */
+        _ghostForColor(colorIndex) {
+            if (!isRGB(colorIndex)) return this.ghostMaterials[colorIndex] || this.ghostMaterials[0];
+            if (!this._rgbGhosts) this._rgbGhosts = new Map();
+            let m = this._rgbGhosts.get(colorIndex);
+            if (!m) {
+                m = new THREE.MeshLambertMaterial({
+                    color: new THREE.Color(hexOf(colorIndex)).convertSRGBToLinear(),
+                    transparent: true, opacity: 0.45, depthWrite: false
+                });
+                this._rgbGhosts.set(colorIndex, m);
+            }
+            return m;
+        }
+
         _ghostMaterialFor(hexColor) {
             if (!this._remoteGhostMats) this._remoteGhostMats = new Map();
             let m = this._remoteGhostMats.get(hexColor);
@@ -837,7 +1817,7 @@
 
         // A name pill drawn to a canvas and shown as a sprite, so it always faces
         // the camera. depthTest:false keeps it readable even behind other blocks.
-        _makeLabelSprite(text, hexColor) {
+        _makeLabelSprite(text, hexColor, scale) {
             const FONT = 'bold 30px system-ui, -apple-system, "Segoe UI", sans-serif';
             const padX = 16, padY = 10, dot = 12, gap = 9;
             const canvas = document.createElement('canvas');
@@ -868,7 +1848,7 @@
             const sprite = new THREE.Sprite(new THREE.SpriteMaterial({
                 map: tex, transparent: true, depthTest: false
             }));
-            const S = 0.022;   // world units per canvas px
+            const S = 0.022 * (scale || 1);   // world units per canvas px
             sprite.scale.set(canvas.width * S, canvas.height * S, 1);
             sprite.renderOrder = 10;
             return sprite;
@@ -922,6 +1902,7 @@
         async onInitialize() {
             this.voxels = new VoxelWorld(document.getElementById('sceneRoot'));
             this.modes = new BlockPartyModes.ModeController(this);
+            this.fps = new BlockPartyFPS(this);
             this._buildPalette();
             this._buildShapes();
             this._buildBricks();
@@ -991,6 +1972,7 @@
 
         onUserLeave(detail) {
             this.voxels.removeRemoteCursor(detail.agentName);
+            this.voxels.removeAvatar(detail.agentName);
             this.showToast(`${detail.agentName} left`, 'warning', 1800);
             this._refreshPlayers();
             if (this.modes) this.modes.onPlayersChanged();
@@ -1077,6 +2059,15 @@
                 case 'stats':
                     this.stats = data.stats || null;
                     this._renderLeaderboard();
+                    break;
+                case 'avatar':
+                    // Same shape as a cursor: the host relays, everyone else
+                    // trusts only what the host passed on.
+                    if (this.isHost() && !data._fromHost) this.sendData(data);
+                    else if (!this.isHost() && !this._fromHost(peerId, data)) break;
+                    if (data.name === this.username) break;
+                    if (data.hide) this.voxels.removeAvatar(data.name);
+                    else this.voxels.setAvatar(data.name, data);
                     break;
                 case 'cursor':
                     // The host is the room's relay for these now.
@@ -1492,7 +2483,7 @@
                 const snap = this.snapshotWorld();
                 const payload = {
                     storageKey: STORAGE_KEY,
-                    content: { v: 2, blocks: snap.blocks, pieces: snap.pieces },
+                    content: { v: 3, blocks: snap.blocks, pieces: snap.pieces, ground: snap.ground },
                     encrypted: false,
                     metadata: { description: 'BlockParty voxel world', blocks: this.voxels.count() }
                 };
@@ -1525,7 +2516,7 @@
                         const any = (Array.isArray(blocks) && blocks.length)
                             || (Array.isArray(pieces) && pieces.length);
                         if (any && this.voxels.count() === 0) {
-                            this.restoreWorldFrom({ blocks, pieces });
+                            this.restoreWorldFrom({ blocks, pieces, ground: saved.ground });
                             this._updateBlockCount();
                         }
                     }
@@ -1537,11 +2528,16 @@
 
         // Everything standing, in both flavours: loose cells and brick pieces.
         snapshotWorld() {
-            return { blocks: this.voxels.encode(), pieces: this.voxels.encodePieces() };
+            return {
+                blocks: this.voxels.encode(),
+                pieces: this.voxels.encodePieces(),
+                ground: this.voxels.groundTint || null
+            };
         }
 
         restoreWorldFrom(snap) {
             if (!snap) return;
+            this.voxels.setGroundTint(snap.ground || null);
             this.voxels.replaceFrom(snap.blocks, snap.pieces);
             if (this.xray) this.voxels.setOwnerXray(true, (n) => this.generateUserColor(n));
         }
@@ -1571,7 +2567,7 @@
             chunks.forEach((c, i) => this.sendData({
                 type: 'world', i, n: chunks.length,
                 blocks: c.blocks, pieces: c.pieces,
-                locked: this.worldLocked
+                ground: snap.ground, locked: this.worldLocked
             }));
         }
 
@@ -1588,7 +2584,7 @@
 
             const snap = this._incoming;
             this._incoming = null;
-            this.restoreWorldFrom({ blocks: snap.blocks, pieces: snap.pieces });
+            this.restoreWorldFrom({ blocks: snap.blocks, pieces: snap.pieces, ground: data.ground || null });
             // The snapshot carries the lock so a late joiner learns the room is
             // read-only without a separate round trip.
             if (typeof data.locked === 'boolean') this._setWorldLocked(data.locked);
@@ -1711,6 +2707,202 @@
             this.showToast(locked ? 'World locked — only you can build' : 'World unlocked', 'success', 2000);
         }
 
+        /**
+         * Drop a prebuilt map into the world. Host-only, like loading a save:
+         * it replaces what everyone can see. The map is generated here and then
+         * travels to the room as an ordinary world snapshot.
+         */
+        loadMap(id) {
+            if (!this.isHost()) { this.showToast('Only the host can load a map', 'warning'); return; }
+            if (this.modes && this.modes.isMatchActive()) {
+                this.showToast('Finish the match first', 'warning');
+                return;
+            }
+            const map = BlockPartyMaps.byId(id);
+            if (!map) return;
+            if (this.voxels.count() && !window.confirm(
+                `Load “${map.name}”? The current world will be replaced.`)) return;
+
+            const t0 = Date.now();
+            const built = BlockPartyMaps.generate(id);
+            this.restoreWorldFrom(built);
+            this.undoStack.length = 0;
+            this.redoStack.length = 0;
+            this._syncHistoryButtons();
+            this._updateBlockCount();
+            this._refreshPlayers();
+            this._sendWorldSnapshot();
+            this._scheduleSave();
+            this._closeWorldModal();
+            this.voxels.focus(0, 2, 0, 120, Math.PI * 0.30);
+            this.showToast(`${map.emoji} ${map.name} — ${this.voxels.count()} blocks in ${Date.now() - t0}ms`, 'success', 3000);
+        }
+
+        // ---------- pictures into blocks ----------
+        /**
+         * Nearest palette colour to an RGB triple.
+         *
+         * Distance is weighted towards green, roughly how the eye judges it —
+         * a plain RGB distance sends skin tones and foliage to the wrong swatch.
+         * Returns the index and the error, which dithering needs to carry.
+         */
+        _nearestSwatch(r, g, b) {
+            if (!this._paletteRGB) {
+                this._paletteRGB = PALETTE.map(hex => {
+                    const c = new THREE.Color(hex);
+                    return [c.r * 255, c.g * 255, c.b * 255];
+                });
+            }
+            let best = 0, bestD = Infinity;
+            for (let i = 0; i < this._paletteRGB.length; i++) {
+                const p = this._paletteRGB[i];
+                const dr = r - p[0], dg = g - p[1], db = b - p[2];
+                const d = dr * dr * 0.30 + dg * dg * 0.59 + db * db * 0.11;
+                if (d < bestD) { bestD = d; best = i; }
+            }
+            const p = this._paletteRGB[best];
+            return { index: best, er: r - p[0], eg: g - p[1], eb: b - p[2] };
+        }
+
+        /**
+         * Read an image into a grid of palette indexes and brightnesses.
+         *
+         * With twelve colours to work with, a straight nearest-colour match
+         * bands badly on anything with gradients. Floyd–Steinberg dithering
+         * pushes each pixel's error into its neighbours, which trades a little
+         * noise for shading the palette cannot otherwise express.
+         */
+        _quantizeImage(img, width, dither, trueColor) {
+            const w = Math.max(4, Math.min(64, width | 0));
+            const h = Math.max(1, Math.min(64, Math.round(w * img.height / img.width)));
+            const canvas = document.createElement('canvas');
+            canvas.width = w; canvas.height = h;
+            const ctx = canvas.getContext('2d');
+            ctx.drawImage(img, 0, 0, w, h);
+            const data = ctx.getImageData(0, 0, w, h).data;
+
+            // Work in floats so dithering can carry fractional error.
+            const buf = new Float32Array(w * h * 3);
+            const alpha = new Uint8Array(w * h);
+            for (let i = 0; i < w * h; i++) {
+                buf[i * 3] = data[i * 4];
+                buf[i * 3 + 1] = data[i * 4 + 1];
+                buf[i * 3 + 2] = data[i * 4 + 2];
+                alpha[i] = data[i * 4 + 3];
+            }
+
+            const cells = [];
+            const spread = (i, er, eg, eb, f) => {
+                if (i < 0 || i >= w * h) return;
+                buf[i * 3] += er * f; buf[i * 3 + 1] += eg * f; buf[i * 3 + 2] += eb * f;
+            };
+            for (let y = 0; y < h; y++) {
+                for (let x = 0; x < w; x++) {
+                    const i = y * w + x;
+                    if (alpha[i] < 128) continue;                 // transparent: no block
+                    const r = buf[i * 3], g = buf[i * 3 + 1], b = buf[i * 3 + 2];
+                    const lum = Math.max(0, Math.min(1, (0.30 * r + 0.59 * g + 0.11 * b) / 255));
+                    if (trueColor) {
+                        // Every pixel keeps its own colour: no palette, nothing
+                        // to dither against, and the picture looks like itself.
+                        cells.push({
+                            x, y, lum,
+                            c: packRGB(Math.round(Math.max(0, Math.min(255, r))),
+                                Math.round(Math.max(0, Math.min(255, g))),
+                                Math.round(Math.max(0, Math.min(255, b))))
+                        });
+                        continue;
+                    }
+                    const m = this._nearestSwatch(r, g, b);
+                    cells.push({ x, y, c: m.index, lum });
+                    if (!dither) continue;
+                    if (x + 1 < w) spread(i + 1, m.er, m.eg, m.eb, 7 / 16);
+                    if (y + 1 < h) {
+                        if (x > 0) spread(i + w - 1, m.er, m.eg, m.eb, 3 / 16);
+                        spread(i + w, m.er, m.eg, m.eb, 5 / 16);
+                        if (x + 1 < w) spread(i + w + 1, m.er, m.eg, m.eb, 1 / 16);
+                    }
+                }
+            }
+            return { w, h, cells };
+        }
+
+        /**
+         * Build a quantised picture into the world.
+         *   wall   — standing up, as you would hang it
+         *   floor  — laid flat, a mosaic
+         *   relief — laid flat and extruded by brightness, so it reads as 3D
+         */
+        placeImage(quant, style) {
+            const place = [];
+            const centre = this.voxels.target;
+            const ox = Math.round(centre.x - quant.w / 2);
+            const oz = Math.round(centre.z - (style === 'wall' ? 0 : quant.h / 2));
+            const RELIEF = 8;
+
+            quant.cells.forEach(cell => {
+                const x = ox + cell.x;
+                if (style === 'wall') {
+                    // Image rows run top-down; the world's Y runs up.
+                    place.push([x, quant.h - cell.y, oz, cell.c, 0]);
+                } else if (style === 'floor') {
+                    place.push([x, 0, oz + cell.y, cell.c, 0]);
+                } else {
+                    const height = 1 + Math.round(cell.lum * RELIEF);
+                    for (let y = 0; y < height; y++) place.push([x, y, oz + cell.y, cell.c, 0]);
+                }
+            });
+
+            const kept = place.filter(r => this.voxels.inBounds(r[0], r[1], r[2]))
+                .filter(r => this._canEditCell(r[0], r[1], r[2], true));
+            if (!kept.length) {
+                this.showToast('That picture would land outside your building area', 'warning', 2600);
+                return 0;
+            }
+            if (kept.length > MAX_IMAGE_CELLS) {
+                this.showToast(`That is ${kept.length} blocks — try a smaller width or a flatter style`, 'warning', 3200);
+                return 0;
+            }
+            // Through the normal edit path: it syncs, persists and undoes as one.
+            this._doLocalEdit({ a: 'bulk', o: this.username, place: kept });
+            this.showToast(`Built ${kept.length} blocks from your picture`, 'success', 2600);
+            return kept.length;
+        }
+
+        _bindImageImport() {
+            const file = document.getElementById('imgFile');
+            const place = document.getElementById('imgPlace');
+            const note = document.getElementById('imgNote');
+            if (!file || !place) return;
+
+            file.addEventListener('change', () => {
+                const f = file.files && file.files[0];
+                if (!f) return;
+                const reader = new FileReader();
+                reader.onload = () => {
+                    const img = new Image();
+                    img.onload = () => {
+                        this._importImage = img;
+                        place.disabled = false;
+                        if (note) note.textContent = `${f.name} — ${img.width}x${img.height}. It lands in front of the camera.`;
+                    };
+                    img.onerror = () => { if (note) note.textContent = 'That file could not be read as an image.'; };
+                    img.src = reader.result;
+                };
+                reader.readAsDataURL(f);
+            });
+
+            place.addEventListener('click', () => {
+                if (!this._importImage) return;
+                const width = Number((document.getElementById('imgSize') || {}).value) || 32;
+                const style = (document.getElementById('imgStyle') || {}).value || 'wall';
+                const dither = !!(document.getElementById('imgDither') || {}).checked;
+                const trueColor = ((document.getElementById('imgPalette') || {}).value || 'true') === 'true';
+                const quant = this._quantizeImage(this._importImage, width, dither, trueColor);
+                if (this.placeImage(quant, style)) this._closeWorldModal();
+            });
+        }
+
         clearWorld() {
             if (!this.isHost()) { this.showToast('Only the host can clear the world', 'warning'); return; }
             const cells = this.voxels.allCells();
@@ -1742,7 +2934,7 @@
             const count = this.voxels.count();
             const payload = {
                 storageKey: SLOT_PREFIX + slug,
-                content: { v: 2, name, by: this.username, at: Date.now(), blocks: snap.blocks, pieces: snap.pieces },
+                content: { v: 3, name, by: this.username, at: Date.now(), blocks: snap.blocks, pieces: snap.pieces, ground: snap.ground },
                 encrypted: false,
                 metadata: { description: 'BlockParty saved world', blocks: count }
             };
@@ -1768,7 +2960,7 @@
                 const saved = payload && (payload.content || payload);
                 const blocks = saved && saved.blocks;
                 if (!Array.isArray(blocks)) { this.showToast('That save could not be read', 'error'); return; }
-                this.restoreWorldFrom({ blocks, pieces: saved.pieces });
+                this.restoreWorldFrom({ blocks, pieces: saved.pieces, ground: saved.ground });
                 this.undoStack.length = 0;
                 this.redoStack.length = 0;
                 this._syncHistoryButtons();
@@ -1819,6 +3011,7 @@
             el.addEventListener('contextmenu', (e) => e.preventDefault());
 
             el.addEventListener('pointerdown', (e) => {
+                if (this.voxels.firstPerson) return;   // the walker owns the mouse
                 el.setPointerCapture(e.pointerId);
                 pointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
                 lastX = downX = e.clientX; lastY = downY = e.clientY;
@@ -1833,6 +3026,7 @@
             });
 
             el.addEventListener('pointermove', (e) => {
+                if (this.voxels.firstPerson) return;
                 if (pointers.has(e.pointerId)) pointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
 
                 // Pinch-zoom (two pointers)
@@ -1879,6 +3073,7 @@
 
             el.addEventListener('wheel', (e) => {
                 e.preventDefault();
+                if (this.voxels.firstPerson) return;
                 this.voxels.zoom(e.deltaY * 0.02);
             }, { passive: false });
         }
@@ -1890,6 +3085,14 @@
             // Fill is a two-tap gesture — corner, then opposite corner — so it
             // works the same with a mouse and a finger, and never fights the
             // drag-to-orbit that a click-and-drag box would need.
+            // Dropping into first person: this click picks the spot.
+            if (this._fpsDrop) {
+                const spot = pick.place || pick.remove;
+                this._cancelDrop();
+                if (spot) this.fps.enterAt(spot.x, spot.z);
+                return;
+            }
+
             if (this.fillMode) {
                 const cell = erase ? pick.remove : pick.place;
                 if (!cell) return;
@@ -1982,6 +3185,19 @@
         }
 
         // ---------- UI ----------
+        /** Pick any colour at all, not just the twelve swatches. */
+        setCustomColor(hex) {
+            const c = new THREE.Color(hex);
+            this.currentColor = packRGB(Math.round(c.r * 255), Math.round(c.g * 255), Math.round(c.b * 255));
+            const palette = document.getElementById('palette');
+            if (palette) palette.querySelectorAll('.swatch').forEach(sw => sw.classList.remove('selected'));
+            const chip = document.getElementById('customSwatch');
+            if (chip) { chip.style.background = hex; chip.classList.add('selected'); }
+            this.tool = 'build';
+            this._syncTool();
+            this._refreshAim();
+        }
+
         _buildPalette() {
             const palette = document.getElementById('palette');
             palette.innerHTML = '';
@@ -2000,6 +3216,16 @@
                 });
                 palette.appendChild(sw);
             });
+
+            // The custom swatch doubles as the colour input, so any colour is
+            // one click away from the twelve.
+            const custom = document.createElement('label');
+            custom.className = 'swatch custom';
+            custom.id = 'customSwatch';
+            custom.title = 'Any colour you like';
+            custom.innerHTML = '<input type="color" id="customColor" value="#e07b39">';
+            custom.querySelector('input').addEventListener('input', (e) => this.setCustomColor(e.target.value));
+            palette.appendChild(custom);
         }
 
         _buildShapes() {
@@ -2047,6 +3273,7 @@
             on('redoBtn', 'click', () => this.redo());
             on('toolFill', 'click', () => this.toggleFill());
             on('toolBricks', 'click', () => this.toggleBrickMode());
+            on('fpsBtn', 'click', () => this.toggleFirstPerson());
             on('rotateBtn', 'click', () => this.rotateBrick());
             on('toolMirror', 'click', () => this.toggleMirror());
             on('xrayBtn', 'click', () => this.toggleXray());
@@ -2068,7 +3295,7 @@
             window.addEventListener('keydown', (e) => {
                 if (e.target && /^(INPUT|TEXTAREA|SELECT)$/.test(e.target.tagName)) return;
                 const k = e.key.toLowerCase();
-                if (k === 'escape') { this.cancelFill(); this.stopFollowing(); }
+                if (k === 'escape') { this.cancelFill(); this.stopFollowing(); this._cancelDrop(); }
                 else if (k === 'b') { this.tool = 'build'; this._syncTool(); this._refreshAim(); }
                 else if (k === 'e') { this.tool = 'erase'; this._syncTool(); this._refreshAim(); }
                 else if (k === 'f') { this.toggleFill(); }
@@ -2083,10 +3310,33 @@
                     else { this.stopFollowing(); this.voxels.resetView(); }
                 }
                 else if (k === 'v') { this.stopFollowing(); this.voxels.resetView(); }
+                else if (k === 'g') { this.toggleFirstPerson(); }
                 else if (k === 'k') { this.toggleBrickMode(); }
                 // 1..N pick a shape
                 else if (/^[1-9]$/.test(k) && Number(k) <= SHAPES.length) { this.selectShape(Number(k) - 1); }
             });
+        }
+
+        // ---------- first person ----------
+        /**
+         * Leaving first person is immediate; entering asks where to stand
+         * first, because dropping in wherever the camera happened to point is
+         * rarely where you meant.
+         */
+        toggleFirstPerson() {
+            if (this.fps.active) { this.fps.exit(); return; }
+            if (this._fpsDrop) { this._cancelDrop(); return; }
+            this._fpsDrop = true;
+            this.voxels.renderer.domElement.style.cursor = 'crosshair';
+            document.getElementById('fpsBtn').classList.add('active');
+            this.showToast('Click where you want to stand — Esc to cancel', 'info', 4000);
+        }
+
+        _cancelDrop() {
+            if (!this._fpsDrop) return;
+            this._fpsDrop = false;
+            this.voxels.renderer.domElement.style.cursor = '';
+            document.getElementById('fpsBtn').classList.remove('active');
         }
 
         // ---------- bricks ----------
@@ -2372,6 +3622,11 @@
             });
             on('lockBtn', 'click', () => { this.toggleWorldLock(); this._syncWorldControls(); });
             on('clearWorldBtn', 'click', () => this.clearWorld());
+            this._bindImageImport();
+            on('mapList', 'click', (e) => {
+                const btn = e.target.closest && e.target.closest('button[data-map]');
+                if (btn) this.loadMap(btn.getAttribute('data-map'));
+            });
             on('slotList', 'click', (e) => {
                 const btn = e.target.closest && e.target.closest('button[data-key]');
                 if (!btn) return;
@@ -2386,6 +3641,7 @@
             const modal = document.getElementById('worldModal');
             if (!modal) return;
             modal.classList.remove('hidden');
+            this._renderMaps();
             this._syncWorldControls();
             this._loadSlotList();
             this._fetchStats();
@@ -2394,6 +3650,20 @@
         _closeWorldModal() {
             const modal = document.getElementById('worldModal');
             if (modal) modal.classList.add('hidden');
+        }
+
+        _renderMaps() {
+            const list = document.getElementById('mapList');
+            if (!list) return;
+            const host = this.isHost();
+            list.innerHTML = BlockPartyMaps.MAPS.map(m => `
+                <button class="map-card" data-map="${this._esc(m.id)}" ${host ? '' : 'disabled'}>
+                    <span class="map-emoji">${m.emoji}</span>
+                    <span class="map-body">
+                        <span class="map-name">${this._esc(m.name)}</span>
+                        <span class="map-desc">${this._esc(m.desc)}</span>
+                    </span>
+                </button>`).join('');
         }
 
         _syncWorldControls() {

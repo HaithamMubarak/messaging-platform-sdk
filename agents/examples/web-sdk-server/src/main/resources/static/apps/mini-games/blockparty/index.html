@@ -32,6 +32,7 @@
             <span id="blockCount" class="pill" title="Blocks in the world">0 blocks</span>
             <span id="lockBadge" class="pill lock-badge hidden" title="The host locked the world">🔒 Locked</span>
             <span id="connectionIndicator" class="indicator disconnected" title="Connection">●</span>
+            <button id="fpsBtn" class="btn btn-icon" title="Walk around in first person (G)">🚶</button>
             <button id="xrayBtn" class="btn btn-icon" title="Show who built what (O)">🎨</button>
             <button id="worldBtn" class="btn btn-icon" title="Saved worlds, host controls, leaderboard">🗂</button>
             <button id="chatToggle" class="btn btn-chat" title="Chat (and guesses)">💬<span id="chatBadge" class="chat-badge hidden">0</span></button>
@@ -73,6 +74,16 @@
         <button id="dismissHelp" class="dismiss" aria-label="Dismiss">✕</button>
     </div>
 
+    <!-- First-person overlay -->
+    <div id="fpsHud" class="fps-hud hidden">
+        <div class="fps-cross"></div>
+        <div class="fps-info">
+            <span id="fpsCoords">x 0  y 0  z 0</span>
+            <span class="fps-keys"><strong>WASD</strong> walk · <strong>Shift</strong> run · <strong>Space</strong> jump ·
+                <strong>click</strong> build · <strong>right-click</strong> break · <strong>Esc</strong> leave</span>
+        </div>
+    </div>
+
     <!-- Following pill + fill hint -->
     <div id="followPill" class="follow-pill hidden" title="Stop following"></div>
     <div id="fillHint" class="fill-hint"></div>
@@ -83,6 +94,38 @@
             <div class="bp-modal-head">
                 <h2>🗂 Worlds &amp; room</h2>
                 <button id="worldClose" class="bp-close" aria-label="Close">✕</button>
+            </div>
+
+            <div class="world-section">
+                <div class="world-title">Load a map</div>
+                <div id="mapList" class="map-list"></div>
+            </div>
+
+            <div class="world-section">
+                <div class="world-title">Turn a picture into blocks</div>
+                <div class="import-row">
+                    <input id="imgFile" type="file" accept="image/*">
+                    <select id="imgStyle" title="How the picture is built">
+                        <option value="wall">Standing wall</option>
+                        <option value="floor">Flat on the ground</option>
+                        <option value="relief">3D relief (bright = tall)</option>
+                    </select>
+                    <select id="imgPalette" title="Colours to build with">
+                        <option value="true" selected>True colour</option>
+                        <option value="palette">12-colour palette</option>
+                    </select>
+                    <select id="imgSize" title="Width in blocks">
+                        <option value="24">24 wide</option>
+                        <option value="32" selected>32 wide</option>
+                        <option value="48">48 wide</option>
+                        <option value="64">64 wide</option>
+                    </select>
+                </div>
+                <div class="import-row">
+                    <label class="import-check"><input id="imgDither" type="checkbox" checked> Dither (smoother shading)</label>
+                    <button id="imgPlace" class="btn btn-primary" disabled>Build it</button>
+                </div>
+                <div id="imgNote" class="world-note">Pick an image — it lands in front of the camera.</div>
             </div>
 
             <div class="world-section">
@@ -206,6 +249,8 @@
 <script src="../shared/libs/three.min.js"></script>
 <script src="../shared/game-kit.js"></script>
 <script src="bricks.js"></script>
+<script src="maps.js"></script>
+<script src="fps.js"></script>
 <script src="models.js"></script>
 <script src="modes.js"></script>
 <script src="blockparty.js"></script>

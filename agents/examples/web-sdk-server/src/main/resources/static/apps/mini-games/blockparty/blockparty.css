@@ -486,3 +486,57 @@ html, body {
 /* Mode picker: what a mode needs from the room */
 .mode-note { font-size: 11px; color: var(--muted); opacity: 0.8; }
 .mode-warn { font-size: 11px; font-weight: 700; color: #fde68a; }
+
+/* ---- Maps and image import ---------------------------------------------- */
+.map-list { display: grid; grid-template-columns: repeat(2, 1fr); gap: 6px; max-height: 30vh; overflow-y: auto; }
+.map-card {
+    display: flex; align-items: flex-start; gap: 9px; text-align: left; cursor: pointer;
+    padding: 9px 10px; border-radius: 11px; color: var(--text);
+    background: rgba(255,255,255,0.04); border: 1px solid var(--border);
+    transition: background .12s ease, border-color .12s ease;
+}
+.map-card:hover:not(:disabled) { background: rgba(255,255,255,0.09); border-color: rgba(255,255,255,0.25); }
+.map-card:disabled { opacity: 0.45; cursor: not-allowed; }
+.map-emoji { font-size: 19px; line-height: 1.1; }
+.map-body { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.map-name { font-size: 13px; font-weight: 700; }
+.map-desc { font-size: 11px; color: var(--muted); line-height: 1.4; }
+
+.import-row { display: flex; gap: 8px; align-items: center; margin-bottom: 8px; flex-wrap: wrap; }
+.import-row input[type=file] { flex: 1 1 160px; min-width: 0; font-size: 11px; color: var(--muted); }
+.import-row select {
+    background: rgba(255,255,255,0.06); color: var(--text);
+    border: 1px solid var(--border); border-radius: 9px; padding: 6px 8px; font-size: 12px;
+}
+.import-check { display: flex; align-items: center; gap: 6px; font-size: 12px; color: var(--muted); }
+
+/* Any-colour swatch: the palette's thirteenth slot is a colour picker */
+.swatch.custom {
+    position: relative; overflow: hidden; cursor: pointer;
+    background: conic-gradient(#ef4444, #f59e0b, #facc15, #22c55e, #06b6d4, #3b82f6, #8b5cf6, #ec4899, #ef4444);
+}
+.swatch.custom input[type=color] {
+    position: absolute; inset: -8px; width: 200%; height: 200%;
+    border: none; padding: 0; background: none; cursor: pointer; opacity: 0;
+}
+
+/* ---- First person -------------------------------------------------------- */
+.fps-hud { position: absolute; inset: 0; z-index: 13; pointer-events: none; }
+.fps-cross {
+    position: absolute; left: 50%; top: 50%; width: 18px; height: 18px;
+    margin: -9px 0 0 -9px; opacity: 0.9;
+    background:
+        linear-gradient(#fff, #fff) center/2px 18px no-repeat,
+        linear-gradient(#fff, #fff) center/18px 2px no-repeat;
+    mix-blend-mode: difference;
+}
+.fps-info {
+    position: absolute; left: 50%; bottom: 18px; transform: translateX(-50%);
+    display: flex; flex-direction: column; align-items: center; gap: 4px;
+    padding: 8px 16px; border-radius: 12px; text-align: center;
+    background: var(--panel); border: 1px solid var(--border); backdrop-filter: blur(8px);
+}
+#fpsCoords { font-size: 13px; font-weight: 700; font-variant-numeric: tabular-nums; }
+.fps-keys { font-size: 11px; color: var(--muted); }
+.fps-keys strong { color: var(--text); }
+@media (max-width: 640px) { .fps-keys { display: none; } }
