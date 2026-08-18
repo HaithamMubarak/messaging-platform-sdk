@@ -2427,7 +2427,15 @@
 
         restoreWorldFrom(snap) {
             if (!snap) return;
-            if (this.geo) this.geo.applyAnchor(snap.geo || null);
+            // A snapshot that says nothing about place does not move the world.
+            //
+            // Loading a map is a change of *build*, not of where the room is —
+            // it arrives with no `geo` at all, and treating that as "nowhere"
+            // silently unpinned the world, took the coast off the ground and
+            // left the minimap with no Earth to zoom out to. A snapshot from
+            // the host does carry the key, null included, and that null still
+            // means what it says: follow me off the map.
+            if (this.geo && snap.geo !== undefined) this.geo.applyAnchor(snap.geo || null);
             this.voxels.setGroundTint(snap.ground || null);
             this.voxels.replaceFrom(snap.blocks, snap.pieces);
             this.paintGround();

@@ -646,7 +646,11 @@ html, body {
 .minimap-head {
     display: flex; align-items: baseline; justify-content: space-between; gap: 10px;
     font-size: 11px; font-weight: 700; margin-bottom: 6px;
+    /* The title bar is the handle: it drags the panel, so it must not start a
+       text selection under the finger doing it. */
+    cursor: grab; user-select: none; -webkit-user-select: none;
 }
+.minimap-panel { touch-action: none; }
 .minimap-hint { color: var(--muted); font-weight: 500; }
 #minimap { display: block; width: 232px; height: 232px; border-radius: 9px; cursor: crosshair; }
 

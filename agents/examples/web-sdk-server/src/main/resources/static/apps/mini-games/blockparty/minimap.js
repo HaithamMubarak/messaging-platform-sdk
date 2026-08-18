@@ -44,8 +44,13 @@
             // width: 0 shows this world exactly, 4 shows sixteen worlds of
             // ground around it, -2 shows a quarter of it close up.
             this.zoom = 0;
+            // Where the map is looking, as an offset from wherever it would
+            // centre itself. Dragging the map moves this; the ⌖ puts it back.
+            this.pan = { x: 0, z: 0 };
 
             this.canvas.addEventListener('click', (e) => this._click(e));
+            this._initPan();
+            this._initDrag();
             const travel = document.getElementById('minimapTravel');
             if (travel) {
                 travel.addEventListener('click', () => {
@@ -65,6 +70,8 @@
             };
             zoomBtn('minimapZoomIn', -1);
             zoomBtn('minimapZoomOut', 1);
+            const home = document.getElementById('minimapHome');
+            if (home) home.addEventListener('click', () => this.recentre());
             this.canvas.addEventListener('wheel', (e) => {
                 e.preventDefault();
                 this.setZoom(this.zoom + (e.deltaY > 0 ? 1 : -1));
@@ -171,9 +178,130 @@
          * that magnification the centre of the world is rarely where you are.
          */
         _centre() {
-            if (this.zoom >= 0) return { x: 0, z: 0 };
-            const t = this.game.voxels.target;
-            return { x: t.x, z: t.z };
+            const base = this.zoom >= 0
+                ? { x: 0, z: 0 }
+                : { x: this.game.voxels.target.x, z: this.game.voxels.target.z };
+            return { x: base.x + this.pan.x, z: base.z + this.pan.z };
+        }
+
+        /**
+         * Drag the map itself to look somewhere else.
+         *
+         * A tap still means "go there", so the two have to be told apart: past
+         * a few pixels of movement it is a drag, and the click the browser
+         * sends afterwards is swallowed. Pointer events cover mouse, pen and
+         * finger at once, which is the only reason this is not three handlers.
+         */
+        _initPan() {
+            const c = this.canvas;
+            let from = null;
+            c.style.touchAction = 'none';       // the finger pans the map, not the page
+
+            c.addEventListener('pointerdown', (e) => {
+                if (e.button !== undefined && e.button !== 0) return;
+                from = { x: e.clientX, y: e.clientY, pan: { x: this.pan.x, z: this.pan.z }, moved: false };
+                try { c.setPointerCapture(e.pointerId); } catch (err) { /* fine */ }
+            });
+            c.addEventListener('pointermove', (e) => {
+                if (!from) return;
+                const rect = c.getBoundingClientRect();
+                // The canvas may be displayed smaller than it is drawn.
+                const k = rect.width ? SIZE / rect.width : 1;
+                const dx = (e.clientX - from.x) * k, dy = (e.clientY - from.y) * k;
+                if (!from.moved && Math.abs(dx) + Math.abs(dy) < 5) return;
+                from.moved = true;
+                const s = this.scale;
+                this.pan = { x: from.pan.x - dx / s, z: from.pan.z - dy / s };
+                this.draw();
+            });
+            const end = (e) => {
+                if (!from) return;
+                if (from.moved) this._pannedAt = Date.now();
+                from = null;
+                try { c.releasePointerCapture(e.pointerId); } catch (err) { /* fine */ }
+            };
+            c.addEventListener('pointerup', end);
+            c.addEventListener('pointercancel', end);
+        }
+
+        /** Put the map back over whatever it centres itself on. */
+        recentre() {
+            this.pan = { x: 0, z: 0 };
+            this.draw();
+        }
+
+        /**
+         * Drag the whole panel somewhere else by its title bar.
+         *
+         * On a phone the map is in one of four corners and every corner is
+         * somebody's, so it has to be movable. Where it was left is kept per
+         * browser, and pulled back on screen if the window is later too small
+         * for where that was.
+         */
+        _initDrag() {
+            const panel = document.getElementById('minimapPanel');
+            const head = panel && panel.querySelector('.minimap-head');
+            if (!panel || !head) return;
+            this.panel = panel;
+            head.style.touchAction = 'none';
+
+            let from = null;
+            head.addEventListener('pointerdown', (e) => {
+                // The travel and pin buttons live in this bar; they are not handles.
+                if (e.target.closest && e.target.closest('button')) return;
+                const r = panel.getBoundingClientRect();
+                from = { x: e.clientX, y: e.clientY, left: r.left, top: r.top };
+                try { head.setPointerCapture(e.pointerId); } catch (err) { /* fine */ }
+                head.style.cursor = 'grabbing';
+            });
+            head.addEventListener('pointermove', (e) => {
+                if (!from) return;
+                this._place(from.left + (e.clientX - from.x), from.top + (e.clientY - from.y));
+            });
+            const end = (e) => {
+                if (!from) return;
+                from = null;
+                head.style.cursor = 'grab';
+                try { head.releasePointerCapture(e.pointerId); } catch (err) { /* fine */ }
+                this._savePlace();
+            };
+            head.addEventListener('pointerup', end);
+            head.addEventListener('pointercancel', end);
+
+            window.addEventListener('resize', () => this._reflow());
+            this._restorePlace();
+        }
+
+        /** Put the panel at a point, never further out than its own edge. */
+        _place(left, top) {
+            const panel = this.panel;
+            if (!panel) return;
+            const r = panel.getBoundingClientRect();
+            const maxX = Math.max(0, window.innerWidth - r.width);
+            const maxY = Math.max(0, window.innerHeight - r.height);
+            const x = Math.max(0, Math.min(maxX, left));
+            const y = Math.max(0, Math.min(maxY, top));
+            panel.style.left = x + 'px';
+            panel.style.top = y + 'px';
+            panel.style.right = 'auto';
+            panel.style.bottom = 'auto';
+            this.placed = { x, y };
+        }
+
+        _savePlace() {
+            if (!this.placed) return;
+            try { localStorage.setItem('bp_minimap_pos', JSON.stringify(this.placed)); } catch (e) { /* fine */ }
+        }
+
+        _restorePlace() {
+            let saved = null;
+            try { saved = JSON.parse(localStorage.getItem('bp_minimap_pos') || 'null'); } catch (e) { /* fine */ }
+            if (saved && isFinite(saved.x) && isFinite(saved.y)) this._place(saved.x, saved.y);
+        }
+
+        /** A smaller window must not leave the map off the side of it. */
+        _reflow() {
+            if (this.placed) this._place(this.placed.x, this.placed.y);
         }
 
         _toCanvas(x, z) {
@@ -217,6 +345,8 @@
 
         /** Click the map, go to that spot. */
         _click(e) {
+            // The click the browser sends at the end of a drag is not a tap.
+            if (this._pannedAt && Date.now() - this._pannedAt < 400) return;
             // On a phone the canvas is displayed smaller than it is drawn, so
             // a tap has to be scaled back into the map's own pixels.
             const rect = this.canvas.getBoundingClientRect();
@@ -257,8 +387,13 @@
                     !!(g.geo && g.geo.anchor) || !g.isHost());
             }
 
+            const panned = this.pan.x || this.pan.z;
             const label = document.getElementById('minimapZoomLabel');
-            if (label) label.textContent = (this.zoom === 0 ? 'this world · ' : '') + this._spanLabel();
+            if (label) {
+                label.textContent = (this.zoom === 0 && !panned ? 'this world · ' : '') + this._spanLabel();
+            }
+            const home = document.getElementById('minimapHome');
+            if (home) home.classList.toggle('hidden', !panned);
 
             ctx.clearRect(0, 0, SIZE, SIZE);
             ctx.fillStyle = v.groundTint || '#2f3853';
