@@ -2259,12 +2259,25 @@
             this._saveTimer = setTimeout(() => this._saveWorld(), SAVE_DEBOUNCE_MS);
         }
 
+        /**
+         * Which world this is, in storage.
+         *
+         * Once the room is pinned, the Earth is divided into regions and each
+         * one persists separately — so travelling to another place and building
+         * there does not overwrite the place you left, and coming back finds it
+         * as you left it.
+         */
+        _worldStorageKey() {
+            const region = this.geo && this.geo.regionKey();
+            return region ? STORAGE_KEY + '_' + region : STORAGE_KEY;
+        }
+
         _saveWorld() {
             if (!this.isHost() || !this.channel || typeof this.channel.storagePut !== 'function') return;
             try {
                 const snap = this.snapshotWorld();
                 const payload = {
-                    storageKey: STORAGE_KEY,
+                    storageKey: this._worldStorageKey(),
                     content: { v: 4, blocks: snap.blocks, pieces: snap.pieces, ground: snap.ground, geo: snap.geo },
                     encrypted: false,
                     metadata: { description: 'BlockParty voxel world', blocks: this.voxels.count() }
@@ -2284,27 +2297,38 @@
             }
         }
 
-        _loadWorldFromStorage() {
-            if (this.modes && this.modes.isMatchActive()) return;
-            if (!this.channel || typeof this.channel.storageGet !== 'function') return;
+        /**
+         * Fill an empty world from storage. `after` runs once the round trip is
+         * done either way — travelling has to wait for it before telling the
+         * room where everybody now is, or the room gets the empty world that
+         * existed for the moment before the blocks arrived.
+         */
+        _loadWorldFromStorage(after) {
+            const done = () => { if (typeof after === 'function') after(); };
+            if (this.modes && this.modes.isMatchActive()) return done();
+            if (!this.channel || typeof this.channel.storageGet !== 'function') return done();
             try {
-                this._storage((cb) => this.channel.storageGet({ storageKey: STORAGE_KEY }, cb), (res) => {
+                this._storage((cb) => this.channel.storageGet({ storageKey: this._worldStorageKey() }, cb), (res) => {
                     // A match may have started while this round-trip was in
                     // flight — the arena must not be overwritten.
-                    if (this.modes && this.modes.isMatchActive()) return;
+                    if (this.modes && this.modes.isMatchActive()) return done();
                     if (res && res.status === 'success' && res.data) {
                         const saved = res.data.content || res.data;
                         const blocks = saved.blocks, pieces = saved.pieces;
                         const any = (Array.isArray(blocks) && blocks.length)
                             || (Array.isArray(pieces) && pieces.length);
+                        // Only ever fills an empty world: on arrival, or on
+                        // joining. It must never overwrite what is being built.
                         if (any && this.voxels.count() === 0) {
                             this.restoreWorldFrom({ blocks, pieces, ground: saved.ground, geo: saved.geo });
                             this._updateBlockCount();
                         }
                     }
+                    done();
                 });
             } catch (e) {
                 console.warn('[BlockParty] world load error:', e.message);
+                done();
             }
         }
 
@@ -2563,6 +2587,35 @@
                 }
             });
 
+            on('geoTravelBtn', 'click', () => {
+                const raw = (document.getElementById('geoCoords') || {}).value || '';
+                const m = raw.split(/[ ,;]+/).filter(Boolean).map(Number);
+                if (m.length < 2 || !isFinite(m[0]) || !isFinite(m[1])) {
+                    this.showToast('Enter coordinates as "51.5074, -0.1278"', 'warning', 3200);
+                    return;
+                }
+                const mpc = Number((document.getElementById('geoScale') || {}).value) || 2;
+                this.travelTo(m[0], m[1], mpc);
+            });
+
+            on('geoHereBtn', 'click', async () => {
+                try {
+                    const fix = await this.geo.locate();
+                    const mpc = Number((document.getElementById('geoScale') || {}).value) || 2;
+                    this.travelTo(fix.lat, fix.lon, mpc);
+                } catch (e) {
+                    this.showToast(e.message, 'error', 3600);
+                }
+            });
+
+            on('geoScale', 'change', () => {
+                // Changing the scale is itself a move: the region is a
+                // different size, so it is a different region.
+                const a = this.geo.anchor;
+                if (!a || !this.isHost()) return;
+                this.travelTo(a.lat, a.lon, Number(document.getElementById('geoScale').value) || 2);
+            });
+
             on('geoGoBtn', 'click', () => {
                 const r = this.geo.goTo(this.username);
                 if (!r) this.showToast('Share your location first', 'warning');
@@ -2574,9 +2627,23 @@
                 if (!btn) return;
                 const who = btn.getAttribute('data-geo');
                 const r = this.geo.goTo(who);
-                if (!r) this.showToast(`${who} is not sharing a location`, 'warning');
-                else if (r.outside) this.showToast(`${who} is beyond the edge of this world`, 'warning', 3600);
-                else { this._closeWorldModal(); this.showToast(`Flew to ${who}'s spot`, 'success', 2200); }
+                if (!r) { this.showToast(`${who} is not sharing a location`, 'warning'); return; }
+                if (r.outside) {
+                    // They are in a different region of the Earth. The host can
+                    // move the room to them; anyone else is told where to look.
+                    const where = `${who} is ${r.metres}m ${r.dir} of here, in another region`;
+                    const coords = this.geo.coordsOf(who);
+                    if (this.isHost() && coords) {
+                        this.showToast(where + ' — travelling', 'info', 2600);
+                        this.travelTo(coords.lat, coords.lon, this.geo.anchor.mpc);
+                        this._closeWorldModal();
+                    } else {
+                        this.showToast(where, 'warning', 4000);
+                    }
+                    return;
+                }
+                this._closeWorldModal();
+                this.showToast(`Flew to ${who}'s spot`, 'success', 2200);
             });
         }
 
@@ -2587,9 +2654,12 @@
             const set = (id, text) => { const el = document.getElementById(id); if (el) el.textContent = text; };
             const anchor = geo.anchor;
 
+            const span = geo.span();
+            const across = span >= 10000 ? `${(span / 1000).toFixed(0)} km` : `${span} m`;
             set('geoState', anchor
-                ? `Pinned to ${BlockPartyGeo.format(anchor.lat, anchor.lon)} · ${anchor.mpc}m per block · ${geo.span()}m across`
-                : 'This world is not pinned to anywhere yet.');
+                ? `${BlockPartyGeo.format(anchor.lat, anchor.lon)} · ${anchor.mpc}m per block · ${across} across`
+                  + (anchor.region ? ` · region ${anchor.region}` : '')
+                : 'This world is not pinned to anywhere on Earth yet.');
 
             const share = document.getElementById('geoShareBtn');
             if (share) {
@@ -2603,7 +2673,8 @@
             if (list) {
                 const rows = geo.roster().map(entry => {
                     const p = entry.pos;
-                    const where = !p ? '—' : (p.outside ? 'outside this world'
+                    const off = p && p.outside ? geo.offsetTo(entry.name) : null;
+                    const where = !p ? '—' : (off ? `${off.metres}m ${off.dir} · another region`
                         : `${Math.round(p.x)}, ${Math.round(p.z)}`);
                     const isMe = entry.name === this.username;
                     // Live, remembered, or only on this device and not shared.
@@ -2614,7 +2685,7 @@
                         <span class="geo-name">${this._esc(entry.name)}${isMe ? ' (you)' : ''}</span>
                         <span class="geo-when">${this._esc(status)}</span>
                         <span class="geo-where">${this._esc(where)}</span>
-                        <button class="btn btn-ghost" data-geo="${this._esc(entry.name)}" ${p && !p.outside ? '' : 'disabled'}>Go</button>
+                        <button class="btn btn-ghost" data-geo="${this._esc(entry.name)}" ${p ? '' : 'disabled'}>${p && p.outside ? (this.isHost() ? 'Travel' : 'Where?') : 'Go'}</button>
                     </div>`;
                 });
                 list.innerHTML = rows.length ? rows.join('')
@@ -2799,6 +2870,55 @@
                 const quant = this._quantizeImage(this._importImage, width, dither, trueColor);
                 if (this.placeImage(quant, style)) this._closeWorldModal();
             });
+        }
+
+        /**
+         * Go somewhere else on Earth.
+         *
+         * The world you are leaving is written down first, then the region that
+         * contains the new coordinates becomes the world: its anchor, its
+         * stored blocks, its ground. Host-only, because it moves the room.
+         */
+        travelTo(lat, lon, mpc) {
+            if (!this.isHost()) { this.showToast('Only the host can move the room', 'warning'); return null; }
+            if (this.modes && this.modes.isMatchActive()) {
+                this.showToast('Finish the match first', 'warning');
+                return null;
+            }
+            if (!isFinite(lat) || !isFinite(lon) || Math.abs(lat) > 85 || Math.abs(lon) > 180) {
+                this.showToast('That is not a place on Earth', 'warning');
+                return null;
+            }
+
+            // Leave the place you were in as you found it.
+            if (this.geo.anchor && this.voxels.count()) this._saveWorld();
+
+            const scale = mpc || (this.geo.anchor && this.geo.anchor.mpc) || 2;
+            this.voxels.clearAll();
+            this.undoStack.length = 0;
+            this.redoStack.length = 0;
+            const anchor = this.geo.setAnchor(lat, lon, scale);
+            this._updateBlockCount();
+
+            // Whatever has been built here before, if anything — and only once
+            // it has arrived is the room told where it now is.
+            this._loadWorldFromStorage(() => {
+                this._sendWorldSnapshot();
+                this._scheduleSave();
+                this._updateBlockCount();
+                this._refreshPlayers();
+                // Whoever is in this region now needs a pin, and whoever is not
+                // needs theirs taken away — an empty region loads nothing, so
+                // this cannot be left to the world restore.
+                this.geo.refresh();
+                this._syncGeoUI();
+                if (this.minimap) this.minimap.draw();
+            });
+            this.voxels.focus(0, 2, 0, 60, Math.PI * 0.3);
+            this._syncGeoUI();
+            this.showToast(`Moved to ${BlockPartyGeo.format(anchor.lat, anchor.lon)} · `
+                + `${anchor.mpc}m per block · ${this.geo.span()}m across`, 'success', 3600);
+            return anchor;
         }
 
         clearWorld() {

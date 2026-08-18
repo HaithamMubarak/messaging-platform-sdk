@@ -19,6 +19,20 @@
 (function () {
     'use strict';
 
+    // Web Mercator, the projection every slippy map uses. It lives here rather
+    // than in the minimap because the world's *regions* are defined by it: the
+    // Earth is cut into tiles, and one tile is one BlockParty world.
+    const lonToTileX = (lon, z) => (lon + 180) / 360 * Math.pow(2, z);
+    const latToTileY = (lat, z) => {
+        const r = lat * Math.PI / 180;
+        return (1 - Math.log(Math.tan(r) + 1 / Math.cos(r)) / Math.PI) / 2 * Math.pow(2, z);
+    };
+    const tileXToLon = (x, z) => x / Math.pow(2, z) * 360 - 180;
+    const tileYToLat = (y, z) => {
+        const n = Math.PI - 2 * Math.PI * y / Math.pow(2, z);
+        return 180 / Math.PI * Math.atan(0.5 * (Math.exp(n) - Math.exp(-n)));
+    };
+
     const M_PER_DEG_LAT = 110540;    // good to ~0.1% anywhere
     const M_PER_DEG_LON = 111320;    // times cos(latitude)
     const SHARE_THROTTLE_MS = 5000;  // a position update at walking pace
@@ -80,16 +94,29 @@
          * where the world is, so it travels with the world snapshot.
          */
         setAnchor(lat, lon, mpc) {
-            this.anchor = { lat: +(+lat).toFixed(6), lon: +(+lon).toFixed(6), mpc: mpc || 2 };
+            // Snap to the region that contains this point, so the same place
+            // always produces the same world rather than one offset by however
+            // far the person who pinned it was standing.
+            const region = this.regionFor(+lat, +lon, mpc || 2);
+            this.region = region;
+            this.anchor = {
+                lat: +region.lat.toFixed(6), lon: +region.lon.toFixed(6),
+                mpc: region.mpc, region: region.key, z: region.z, tx: region.x, ty: region.y
+            };
             this.game.voxels.setGeoAnchor(this.anchor);
             return this.anchor;
         }
 
         applyAnchor(anchor) {
             this.anchor = anchor || null;
+            this.region = anchor && anchor.z !== undefined
+                ? this.regionAt(anchor.z, anchor.tx, anchor.ty) : null;
             this.game.voxels.setGeoAnchor(this.anchor);
             this._renderMarkers();
         }
+
+        /** Which stored world this place is. */
+        regionKey() { return this.anchor && this.anchor.region ? this.anchor.region : null; }
 
         // ---- my position -------------------------------------------------
 
@@ -264,13 +291,45 @@
             v.pruneGeoMarkers(shown);
         }
 
-        /** Fly the camera to where somebody actually is. */
+        /**
+         * How far away somebody is, and in which direction — for the ones who
+         * are not in this region at all.
+         */
+        offsetTo(name) {
+            const place = this.placeOf(name);
+            if (!place || !this.anchor) return null;
+            const dLat = place.rec.lat - this.anchor.lat;
+            const dLon = place.rec.lon - this.anchor.lon;
+            const north = dLat * M_PER_DEG_LAT;
+            const east = dLon * M_PER_DEG_LON * Math.cos(this.anchor.lat * Math.PI / 180);
+            const metres = Math.round(Math.hypot(north, east));
+            const compass = ['N', 'NE', 'E', 'SE', 'S', 'SW', 'W', 'NW'];
+            const bearing = (Math.atan2(east, north) * 180 / Math.PI + 360) % 360;
+            return { metres, bearing: Math.round(bearing), dir: compass[Math.round(bearing / 45) % 8] };
+        }
+
+        /**
+         * Fly the camera to where somebody actually is.
+         *
+         * If they are not in this region — which happens the moment somebody
+         * stands on the far side of the boundary — say so along with how far
+         * and which way, so the room can decide to travel there instead.
+         */
         goTo(name) {
             const p = this.worldPosOf(name);
             if (!p) return null;
-            if (p.outside) return { outside: true };
+            if (p.outside) return Object.assign({ outside: true }, this.offsetTo(name) || {});
             this.game.voxels.focus(Math.round(p.x), 2, Math.round(p.z), 34, Math.PI * 0.3);
             return p;
+        }
+
+        /** Redraw the pins — after a move, or when the roster changes. */
+        refresh() { this._renderMarkers(); }
+
+        /** Where somebody is, as coordinates — for travelling to their region. */
+        coordsOf(name) {
+            const place = this.placeOf(name);
+            return place ? { lat: place.rec.lat, lon: place.rec.lon } : null;
         }
 
         /** "just now", "12m ago", "3h ago" — how stale a position is. */
@@ -282,6 +341,72 @@
             if (s < 86400) return Math.round(s / 3600) + 'h ago';
             return Math.round(s / 86400) + 'd ago';
         }
+
+        // ---- the Earth, cut into worlds ---------------------------------
+        /**
+         * The Earth is bigger than one world, so it is divided into them.
+         *
+         * A region is a Web Mercator tile: at a given scale, the tile that
+         * contains a point *is* the world you build in there, and its centre is
+         * the anchor. Two players who ask for the same place at the same scale
+         * therefore get the same world, which is what lets a build be somewhere
+         * rather than merely somewhere-relative-to-whoever-pinned-it.
+         */
+        regionFor(lat, lon, mpc) {
+            const cells = this.game.voxels.half * 2 + 1;
+            const z = Geo.zoomForScale(lat, mpc, cells);
+            const x = Math.floor(lonToTileX(lon, z));
+            const y = Math.floor(latToTileY(lat, z));
+            return this.regionAt(z, x, y);
+        }
+
+        /**
+         * A region and the world that covers it, exactly.
+         *
+         * The scale is derived from the tile rather than chosen freely: the
+         * world is made to fit its region precisely, so every point in the
+         * region is somewhere you can build and no two regions overlap. Picking
+         * a round metres-per-block instead would leave a margin of real ground
+         * that belongs to a region but falls off the edge of its world — which
+         * is exactly where somebody standing near a boundary ends up.
+         */
+        regionAt(z, x, y) {
+            const north = tileYToLat(y, z), south = tileYToLat(y + 1, z);
+            const west = tileXToLon(x, z), east = tileXToLon(x + 1, z);
+            const lat = (north + south) / 2;
+            const cells = this.game.voxels.half * 2 + 1;
+            const mpc = +(Geo.tileMetres(z, lat) / cells).toFixed(3);
+            return {
+                z, x, y, mpc,
+                lat, lon: (west + east) / 2,
+                key: `${z}_${x}_${y}`
+            };
+        }
+
+        /** How much ground one tile covers at this zoom and latitude. */
+        static tileMetres(z, lat) {
+            return 156543.033928 * Math.cos(lat * Math.PI / 180) * 256 / Math.pow(2, z);
+        }
+
+        /** The zoom whose tile is about as wide as the world is. */
+        static zoomForScale(lat, mpc, cells) {
+            const spanM = Math.max(1, cells * mpc);
+            const z = Math.log2(156543.033928 * Math.cos(lat * Math.PI / 180) * 256 / spanM);
+            return Math.max(0, Math.min(19, Math.round(z)));
+        }
+
+        /** Step one region north, south, east or west. */
+        /** The region one step north, south, east or west of this one. */
+        neighbour(dir) {
+            if (!this.region) return null;
+            const { z, x, y } = this.region;
+            const span = Math.pow(2, z);
+            const wrap = (v) => ((v % span) + span) % span;
+            const d = { n: [0, -1], s: [0, 1], e: [1, 0], w: [-1, 0] }[dir] || [0, 0];
+            return this.regionAt(z, wrap(x + d[0]), Math.max(0, Math.min(span - 1, y + d[1])));
+        }
+
+        static get MERCATOR() { return { lonToTileX, latToTileY, tileXToLon, tileYToLat }; }
 
         /** A readable rendering of a place, for the UI. */
         static format(lat, lon) {

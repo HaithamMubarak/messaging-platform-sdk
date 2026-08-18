@@ -14,6 +14,13 @@
 
     const SIZE = 232;          // canvas edge, in CSS pixels
     const REDRAW_MS = 400;     // the world does not change fast enough to need more
+    const MAX_TILES = 20;      // never pull more than this for one basemap
+    const TILE_URL = 'https://tile.openstreetmap.org/{z}/{x}/{y}.png';
+    const ATTRIBUTION = '© OpenStreetMap';
+
+    // The projection lives in geo.js, because the world's regions are defined
+    // by it — the map and the world must agree on where things are.
+    const M = () => window.BlockPartyGeo.MERCATOR;
 
     class Minimap {
         constructor(game) {
@@ -28,12 +35,104 @@
             this.canvas.height = SIZE * dpr;
             this.ctx.scale(dpr, dpr);
 
+            // The basemap is drawn once per anchor into its own canvas and
+            // then blitted, so a redraw four times a second costs nothing.
+            this.base = document.createElement('canvas');
+            this.base.width = this.canvas.width;
+            this.base.height = this.canvas.height;
+            this.baseReady = false;
+            this.baseKey = null;
+            this.tiles = new Map();
+            this.showMap = true;
+
             this.canvas.addEventListener('click', (e) => this._click(e));
+            const travel = document.getElementById('minimapTravel');
+            if (travel) {
+                travel.addEventListener('click', () => {
+                    // Arm the next click to move the whole room, rather than
+                    // just the camera. It disarms itself either way.
+                    this.armed = !this.armed;
+                    travel.classList.toggle('armed', this.armed);
+                    travel.textContent = this.armed ? '🌍 pick a spot' : '🌍 travel';
+                });
+            }
             const toggle = document.getElementById('mapBtn');
             if (toggle) toggle.addEventListener('click', () => this.toggle());
         }
 
         toggle() { this.setOpen(!this.open); }
+
+        /**
+         * Draw the real place under the world.
+         *
+         * Once a room is pinned to a latitude and longitude, the minimap is a
+         * map of somewhere — so it shows that somewhere: real streets and
+         * coastlines underneath, with what has been built painted on top. The
+         * tiles come from OpenStreetMap and are cached per anchor; without a
+         * network, or before the world is pinned, the map falls back to the
+         * plain grid and nothing is lost but the scenery.
+         */
+        _ensureBasemap() {
+            const geo = this.game.geo;
+            if (!this.showMap || !geo || !geo.anchor) { this.baseReady = false; return; }
+
+            const half = this.game.voxels.half;
+            const a = geo.anchor;
+            const key = `${a.lat},${a.lon},${a.mpc},${half}`;
+            if (key === this.baseKey) return;         // already drawn for this place
+            this.baseKey = key;
+            this.baseReady = false;
+
+            const bctx = this.base.getContext('2d');
+            const dpr = this.base.width / SIZE;
+            bctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+            bctx.clearRect(0, 0, SIZE, SIZE);
+
+            // Pick the zoom whose pixels are closest to the map's own scale.
+            const spanM = (half * 2 + 1) * a.mpc;
+            const wantMpp = spanM / SIZE;
+            let z = Math.round(Math.log2(156543.033928 * Math.cos(a.lat * Math.PI / 180) / wantMpp));
+            z = Math.max(1, Math.min(19, z));
+
+            const nw = geo.toLatLon(-half, -half);
+            const se = geo.toLatLon(half, half);
+            const x0 = Math.floor(M().lonToTileX(nw.lon, z)), x1 = Math.floor(M().lonToTileX(se.lon, z));
+            const y0 = Math.floor(M().latToTileY(nw.lat, z)), y1 = Math.floor(M().latToTileY(se.lat, z));
+            const count = (x1 - x0 + 1) * (y1 - y0 + 1);
+            if (!isFinite(count) || count <= 0 || count > MAX_TILES) return;
+
+            let pending = 0;
+            for (let tx = x0; tx <= x1; tx++) {
+                for (let ty = y0; ty <= y1; ty++) {
+                    const url = TILE_URL.replace('{z}', z).replace('{x}', tx).replace('{y}', ty);
+                    // Where this tile's corners land on the minimap, projected
+                    // through the same maths as everything else on it.
+                    const tl = this._latLonToCanvas(M().tileYToLat(ty, z), M().tileXToLon(tx, z));
+                    const br = this._latLonToCanvas(M().tileYToLat(ty + 1, z), M().tileXToLon(tx + 1, z));
+                    const draw = (img) => {
+                        try { bctx.drawImage(img, tl.cx, tl.cy, br.cx - tl.cx, br.cy - tl.cy); }
+                        catch (e) { /* a tainted or broken tile is not worth a crash */ }
+                        if (--pending <= 0) this.baseReady = true;
+                        this.draw();
+                    };
+                    const cached = this.tiles.get(url);
+                    if (cached && cached.complete && cached.naturalWidth) { pending++; draw(cached); continue; }
+                    const img = new Image();
+                    img.crossOrigin = 'anonymous';
+                    pending++;
+                    img.onload = () => draw(img);
+                    img.onerror = () => { if (--pending <= 0) this.baseReady = true; };
+                    img.src = url;
+                    this.tiles.set(url, img);
+                }
+            }
+        }
+
+        /** Real coordinates straight to minimap pixels. */
+        _latLonToCanvas(lat, lon) {
+            const w = this.game.geo.toWorld(lat, lon);
+            return this._toCanvas(w.x, w.z);
+        }
 
         setOpen(on) {
             this.open = !!on;
@@ -66,6 +165,16 @@
             const rect = this.canvas.getBoundingClientRect();
             const p = this._toWorld(e.clientX - rect.left, e.clientY - rect.top);
             const g = this.game;
+
+            if (this.armed) {
+                this.armed = false;
+                const travel = document.getElementById('minimapTravel');
+                if (travel) { travel.classList.remove('armed'); travel.textContent = '🌍 travel'; }
+                if (!g.geo || !g.geo.anchor) { g.showToast('Pin the world to a place first', 'warning'); return; }
+                const ll = g.geo.toLatLon(p.x, p.z);
+                g.travelTo(ll.lat, ll.lon, g.geo.anchor.mpc);
+                return;
+            }
             if (g.fps && g.fps.active) g.fps.teleport(p.x, p.z);
             else g.voxels.focus(p.x, 2, p.z, 40, Math.PI * 0.3);
             const where = g.geo && g.geo.anchor
@@ -77,9 +186,22 @@
             if (!this.ctx || !this.open) return;
             const g = this.game, v = g.voxels, ctx = this.ctx, s = this.scale;
 
+            this._ensureBasemap();
+
             ctx.clearRect(0, 0, SIZE, SIZE);
             ctx.fillStyle = v.groundTint || '#2f3853';
             ctx.fillRect(0, 0, SIZE, SIZE);
+
+            // The real place underneath, dimmed so the build reads on top of it.
+            const mapped = this.showMap && this.baseKey && this.baseReady;
+            if (mapped) {
+                ctx.save();
+                ctx.globalAlpha = 0.85;
+                ctx.drawImage(this.base, 0, 0, SIZE, SIZE);
+                ctx.restore();
+                ctx.fillStyle = 'rgba(11,16,32,0.28)';
+                ctx.fillRect(0, 0, SIZE, SIZE);
+            }
 
             // What has been built, as seen from above.
             const cell = Math.max(1, Math.ceil(s));
@@ -89,9 +211,12 @@
                 const p = this._toCanvas(x, z);
                 // Higher blocks read lighter, so a skyline has shape.
                 const shade = 0.55 + Math.min(0.45, col.top / 24);
-                ctx.globalAlpha = 1;
+                // Over a real map the build is drawn slightly transparent, so
+                // you can see which street it is standing on.
+                ctx.globalAlpha = mapped ? 0.82 : 1;
                 ctx.fillStyle = this._shade(col.hex, shade);
                 ctx.fillRect(p.cx, p.cy, cell, cell);
+                ctx.globalAlpha = 1;
             });
 
             // The area the camera is looking at.
@@ -161,6 +286,14 @@
             ctx.moveTo(8 + barPx, SIZE - 13); ctx.lineTo(8 + barPx, SIZE - 7);
             ctx.stroke();
             ctx.fillText(anchor ? `${Math.round(barCells * anchor.mpc)} m` : `${barCells} blocks`, 8, SIZE - 15);
+
+            // Tiles have to be credited wherever they are shown.
+            if (mapped) {
+                ctx.fillStyle = 'rgba(255,255,255,0.6)';
+                ctx.font = '500 9px system-ui, sans-serif';
+                const w = ctx.measureText(ATTRIBUTION).width;
+                ctx.fillText(ATTRIBUTION, SIZE - w - 6, SIZE - 5);
+            }
         }
 
         /** Multiply a hex colour, for the height shading. */

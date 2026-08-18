@@ -91,7 +91,7 @@
     <div id="minimapPanel" class="minimap-panel hidden">
         <div class="minimap-head">
             <span>🗺 Map</span>
-            <span class="minimap-hint">click to travel</span>
+            <span class="minimap-hint">click to move · <button id="minimapTravel" class="minimap-travel">🌍 travel</button></span>
         </div>
         <canvas id="minimap" width="232" height="232"></canvas>
     </div>
@@ -117,12 +117,21 @@
                 <div id="geoState" class="world-note">This world is not pinned to anywhere yet.</div>
                 <div class="import-row">
                     <button id="geoAnchorBtn" class="btn btn-primary">🌍 Pin to my location</button>
-                    <select id="geoScale" title="How much ground one block covers">
-                        <option value="1">1 m per block · 161 m across</option>
-                        <option value="2" selected>2 m per block · 322 m across</option>
-                        <option value="5">5 m per block · 805 m across</option>
-                        <option value="10">10 m per block · 1.6 km across</option>
+                    <select id="geoScale" title="How much ground one block covers — the Earth is divided into worlds this size">
+                        <option value="1">Street · 1 m per block · 161 m</option>
+                        <option value="2" selected>Block · 2 m per block · 322 m</option>
+                        <option value="5">Neighbourhood · 5 m · 805 m</option>
+                        <option value="20">District · 20 m · 3.2 km</option>
+                        <option value="100">City · 100 m · 16 km</option>
+                        <option value="1000">Region · 1 km · 161 km</option>
+                        <option value="20000">Continent · 20 km · 3,220 km</option>
+                        <option value="250000">Planet · 250 km · the whole Earth</option>
                     </select>
+                </div>
+                <div class="import-row">
+                    <input id="geoCoords" type="text" placeholder="51.5074, -0.1278" autocomplete="off">
+                    <button id="geoTravelBtn" class="btn btn-primary">✈️ Travel here</button>
+                    <button id="geoHereBtn" class="btn btn-ghost">Take me home</button>
                 </div>
                 <div class="import-row">
                     <button id="geoShareBtn" class="btn btn-ghost">📍 Share my location</button>

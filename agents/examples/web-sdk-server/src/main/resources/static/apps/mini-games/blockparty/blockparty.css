@@ -613,3 +613,16 @@ html, body {
     .minimap-panel { right: 8px; bottom: 96px; padding: 6px; }
     #minimap { width: 150px; height: 150px; }
 }
+
+/* Travelling the Earth */
+#geoCoords {
+    flex: 1 1 150px; min-width: 0; padding: 6px 10px; font-size: 12px;
+    color: var(--text); background: rgba(255,255,255,0.06);
+    border: 1px solid var(--border); border-radius: 9px; outline: none;
+}
+#geoCoords:focus { border-color: var(--accent); }
+.minimap-travel {
+    background: none; border: none; cursor: pointer; padding: 0;
+    color: var(--accent-2); font: inherit; font-weight: 700;
+}
+.minimap-travel.armed { color: #fde68a; }
