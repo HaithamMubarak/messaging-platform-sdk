@@ -32,6 +32,7 @@
             <span id="blockCount" class="pill" title="Blocks in the world">0 blocks</span>
             <span id="lockBadge" class="pill lock-badge hidden" title="The host locked the world">🔒 Locked</span>
             <span id="connectionIndicator" class="indicator disconnected" title="Connection">●</span>
+            <button id="soundBtn" class="btn btn-icon active" title="Sound">🔊</button>
             <button id="fpsBtn" class="btn btn-icon" title="Walk around in first person (G)">🚶</button>
             <button id="xrayBtn" class="btn btn-icon" title="Show who built what (O)">🎨</button>
             <button id="worldBtn" class="btn btn-icon" title="Saved worlds, host controls, leaderboard">🗂</button>
@@ -83,6 +84,10 @@
                 <strong>click</strong> build · <strong>right-click</strong> break · <strong>Esc</strong> leave</span>
         </div>
     </div>
+
+    <!-- Ceremony: counted starts and headline moments -->
+    <div id="ceremony" class="ceremony hidden"></div>
+    <div id="banner" class="banner hidden"></div>
 
     <!-- Following pill + fill hint -->
     <div id="followPill" class="follow-pill hidden" title="Stop following"></div>
@@ -250,6 +255,8 @@
 <script src="../shared/game-kit.js"></script>
 <script src="bricks.js"></script>
 <script src="maps.js"></script>
+<script src="sfx.js"></script>
+<script src="fx.js"></script>
 <script src="fps.js"></script>
 <script src="models.js"></script>
 <script src="modes.js"></script>

@@ -85,7 +85,10 @@
     const LABEL_AVATAR = 0.34;   // over a player's head, read from a few paces
     const LABEL_PLOT = 0.55;     // a match plot's plaque
     const SKY_ZENITH = '#0b1226', SKY_HORIZON = '#31456e';
-    const GROUND_BASE = '#8f9bb8';   // the grid texture is tinted by this
+    // The grid texture is drawn near-white and tinted by this, so a map can
+    // recolour the floor with one value. The default is the dark blue the
+    // sandbox has always had.
+    const GROUND_BASE = '#2f3853';
     const SHADOW_RADIUS = 46;     // how much of the world the sun's shadow covers
 
     /**
@@ -161,6 +164,7 @@
             this.ghostGroups = new Map(); // id -> blueprint ghost group
 
             this._initScene();
+            this.fx = new BlockPartyFx(this.scene, { software: this.software });
             this._initCamera();
             this._bindResize();
         }
@@ -354,6 +358,18 @@
             this._updateSun();
         }
 
+        /**
+         * Turn slowly around the current target. A reveal shot that holds
+         * perfectly still looks like a paused game.
+         */
+        startDrift(rate) { this._drift = rate || 0; }
+
+        _applyDrift(dt) {
+            if (!this._drift || this.firstPerson) return;
+            this.cam.theta += this._drift * dt;
+            this._applyCamera();
+        }
+
         // Point the camera at a spot in the world. `phi` (optional) sets the
         // pitch, so a match can frame a plot from above without the player
         // having to re-aim after every round.
@@ -427,7 +443,9 @@
                 const dt = Math.min(0.05, (now - (this._lastFrame || now)) / 1000);
                 this._lastFrame = now;
                 this.stepFollow();
+                this._applyDrift(dt);
                 this._animateAvatars(dt);
+                this.fx.update(dt);
                 this.flushChunks();
                 this.renderer.render(this.scene, this.camera);
             };
@@ -1916,6 +1934,7 @@
             this._bindWorldUI();
             this._bindChat();
             this._bindPointer();
+            this._bindSound();
             this._syncHistoryButtons();
             this._syncTool();
         }
@@ -2039,6 +2058,7 @@
                     if (this.isHost() && inMatch && !this.modes.canRelayEditFrom(by)) break;
                     this._applyEdit(data.edit);
                     this._updateBlockCount();
+                    this._feedback(data.edit, true);
                     if (this.isHost()) {
                         // Relay client edits out to everyone else; persist.
                         this.sendData({ type: 'edit', edit: data.edit });
@@ -2201,8 +2221,44 @@
             }
             this._broadcastEdit(edit);
             if (this.modes) this.modes.onLocalEdit();
-            if (window.GameKit && window.GameKit.Sfx) {
-                edit.a === 'remove' ? null : (GameKit.Sfx.tick && GameKit.Sfx.tick());
+            this._feedback(edit, false);
+        }
+
+        /**
+         * The sound and the flash that go with an edit. Remote players' edits
+         * get the same treatment at a lower volume, so a busy room sounds busy
+         * without becoming noise.
+         */
+        _feedback(edit, remote) {
+            const fx = this.voxels.fx, sfx = window.BlockPartySfx;
+            const hex = (c) => this.voxels.renderColorAt ? null : null;
+            const at = (x, y, z, colour, removing) => {
+                const tint = colour === undefined ? '#ffffff' : colour;
+                if (removing) fx.burst(x, y, z, tint); else fx.pop(x, y, z, tint);
+            };
+            if (edit.a === 'place') {
+                sfx.place(edit.y, remote);
+                at(edit.x, edit.y, edit.z, this.voxels.renderColorAt(edit.x, edit.y, edit.z) || '#ffffff', false);
+            } else if (edit.a === 'remove') {
+                sfx.remove(edit.y, remote);
+                at(edit.x, edit.y, edit.z, '#cbd5e1', true);
+            } else if (edit.a === 'bulk') {
+                // One sound for the whole fill, and a handful of pops spread
+                // across it rather than one per cell.
+                const place = edit.place || [], remove = edit.remove || [], pieces = edit.addPieces || [];
+                const gone = edit.delPieces || [];
+                if (place.length || pieces.length) sfx.place(place.length ? place[0][1] : pieces[0][2], remote);
+                else if (remove.length || gone.length) sfx.remove(remove.length ? remove[0][1] : 0, remote);
+                const sample = (rows, removing, get) => {
+                    const step = Math.max(1, Math.floor(rows.length / 6));
+                    for (let i = 0; i < rows.length; i += step) {
+                        const c = get(rows[i]);
+                        at(c[0], c[1], c[2], removing ? '#cbd5e1' : (this.voxels.renderColorAt(c[0], c[1], c[2]) || '#ffffff'), removing);
+                    }
+                };
+                sample(place, false, r => [r[0], r[1], r[2]]);
+                sample(remove, true, r => [r[0], r[1], r[2]]);
+                sample(pieces, false, r => [r[1], r[2], r[3]]);
             }
         }
 
@@ -2293,6 +2349,7 @@
             const now = Date.now();
             if (now - (this._lastDeny || 0) < 2500) return;
             this._lastDeny = now;
+            window.BlockPartySfx.invalid();
             this.showToast(message, 'warning', 1800);
         }
 
@@ -3246,6 +3303,7 @@
 
         selectShape(i) {
             this.currentShape = shapeIndex(i);
+            window.BlockPartySfx.tick();
             this.tool = 'build';
             this._syncTool();
             const bar = document.getElementById('shapes');
@@ -3317,6 +3375,29 @@
             });
         }
 
+        // ---------- sound ----------
+        _bindSound() {
+            const sfx = window.BlockPartySfx;
+            sfx.restore();
+            // Browsers refuse to start audio until the player has touched the
+            // page, so the first interaction is what opens it.
+            const wake = () => sfx.init();
+            window.addEventListener('pointerdown', wake, { once: true });
+            window.addEventListener('keydown', wake, { once: true });
+
+            const btn = document.getElementById('soundBtn');
+            if (btn) {
+                btn.classList.toggle('active', sfx.enabled);
+                btn.textContent = sfx.enabled ? '🔊' : '🔇';
+                btn.addEventListener('click', () => {
+                    sfx.setEnabled(!sfx.enabled);
+                    btn.classList.toggle('active', sfx.enabled);
+                    btn.textContent = sfx.enabled ? '🔊' : '🔇';
+                    if (sfx.enabled) sfx.tick();
+                });
+            }
+        }
+
         // ---------- first person ----------
         /**
          * Leaving first person is immediate; entering asks where to stand
@@ -3360,6 +3441,7 @@
 
         selectBrick(id) {
             this.currentBrick = id;
+            window.BlockPartySfx.tick();
             this.tool = 'build';
             const bar = document.getElementById('bricks');
             if (bar) {
@@ -3374,6 +3456,7 @@
         rotateBrick() {
             if (!this.brickMode) return;
             this.brickRotated = !this.brickRotated;
+            window.BlockPartySfx.tick();
             const { w, d } = this.pieceFootprint();
             this._syncTool();
             this._refreshAim();
@@ -3794,6 +3877,63 @@
             });
         }
 
+        /** Big counted numbers over the world: 3, 2, 1, GO. */
+        showCountdown(text) {
+            const el = document.getElementById('ceremony');
+            if (!el) return;
+            el.textContent = text;
+            el.classList.remove('hidden');
+            // Restart the animation even if the last one has not finished.
+            el.style.animation = 'none';
+            void el.offsetWidth;
+            el.style.animation = '';
+            clearTimeout(this._ceremonyTimer);
+            this._ceremonyTimer = setTimeout(() => el.classList.add('hidden'), 900);
+        }
+
+        /** A line of headline text — a guess landing, a round won. */
+        showBanner(text) {
+            const el = document.getElementById('banner');
+            if (!el) return;
+            el.textContent = text;
+            el.classList.remove('hidden');
+            clearTimeout(this._bannerTimer);
+            this._bannerTimer = setTimeout(() => el.classList.add('hidden'), 3200);
+        }
+
+        /**
+         * Run every number in the results panel up from zero. A score that
+         * simply appears is information; a score that climbs is a result.
+         */
+        _countUpScores() {
+            const nodes = Array.from(document.querySelectorAll('#rsBody .rs-points, #rsBody .rs-total span:last-child'));
+            const targets = nodes.map(n => {
+                const raw = (n.firstChild && n.firstChild.nodeValue) || n.textContent;
+                return { node: n, to: parseInt(String(raw).replace(/[^0-9-]/g, ''), 10) || 0, html: n.innerHTML };
+            }).filter(t => t.to > 0);
+            if (!targets.length) return;
+
+            clearInterval(this._countTimer);
+            const started = performance.now();
+            const DUR = 900;
+            let lastTick = 0;
+            this._countTimer = setInterval(() => {
+                const t = Math.min(1, (performance.now() - started) / DUR);
+                const eased = 1 - Math.pow(1 - t, 3);
+                targets.forEach(target => {
+                    const value = Math.round(target.to * eased);
+                    const extra = target.html.indexOf('<span') >= 0
+                        ? target.html.slice(target.html.indexOf('<span')) : '';
+                    target.node.innerHTML = value + extra;
+                });
+                if (t - lastTick > 0.18) { lastTick = t; window.BlockPartySfx.chime(Math.round(t * 8)); }
+                if (t >= 1) {
+                    clearInterval(this._countTimer);
+                    targets.forEach(target => { target.node.innerHTML = target.html; });
+                }
+            }, 40);
+        }
+
         showResults(opts) {
             const ov = document.getElementById('resultsOverlay');
             if (!ov) return;
@@ -3806,6 +3946,7 @@
             if (again) again.classList.toggle('hidden', !(opts.isFinal && opts.canControl));
             if (sand) sand.classList.toggle('hidden', !opts.canControl);
             ov.classList.remove('hidden');
+            this._countUpScores();
         }
 
         hideResults() {

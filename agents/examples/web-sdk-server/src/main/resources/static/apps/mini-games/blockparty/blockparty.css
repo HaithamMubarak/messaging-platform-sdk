@@ -540,3 +540,41 @@ html, body {
 .fps-keys { font-size: 11px; color: var(--muted); }
 .fps-keys strong { color: var(--text); }
 @media (max-width: 640px) { .fps-keys { display: none; } }
+
+/* ---- Ceremony ------------------------------------------------------------ */
+.ceremony {
+    position: absolute; left: 50%; top: 42%; transform: translate(-50%, -50%);
+    z-index: 25; pointer-events: none;
+    font-size: 92px; font-weight: 900; letter-spacing: -0.02em; color: #fff;
+    text-shadow: 0 6px 30px rgba(0,0,0,0.65), 0 0 60px rgba(99,102,241,0.5);
+    animation: ceremony-pop .85s cubic-bezier(.2,.9,.25,1) forwards;
+}
+@keyframes ceremony-pop {
+    0%   { opacity: 0; transform: translate(-50%, -50%) scale(1.6); }
+    18%  { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+    75%  { opacity: 1; }
+    100% { opacity: 0; transform: translate(-50%, -50%) scale(0.94); }
+}
+
+.banner {
+    position: absolute; left: 50%; top: 26%; transform: translateX(-50%);
+    z-index: 24; pointer-events: none; white-space: nowrap;
+    padding: 12px 28px; border-radius: 999px;
+    font-size: 22px; font-weight: 800; color: var(--text);
+    background: linear-gradient(90deg, rgba(99,102,241,0.5), rgba(6,182,212,0.5));
+    border: 1px solid rgba(255,255,255,0.25); backdrop-filter: blur(10px);
+    animation: banner-in .35s ease-out;
+}
+@keyframes banner-in {
+    from { opacity: 0; transform: translateX(-50%) translateY(-12px); }
+    to   { opacity: 1; transform: translateX(-50%) translateY(0); }
+}
+
+/* The clock turns urgent in the last seconds of a round. */
+.mh-timer-fill.urgent { animation: timer-pulse 1s ease-in-out infinite; }
+@keyframes timer-pulse { 50% { filter: brightness(1.6); } }
+
+@media (max-width: 640px) {
+    .ceremony { font-size: 64px; }
+    .banner { font-size: 16px; padding: 9px 18px; }
+}

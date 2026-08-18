@@ -494,6 +494,7 @@
                 case 'guessed':
                     this.game.addChatMessage(msg.name,
                         `guessed it — it was “${msg.word}” 🎉`, { system: true });
+                    this._celebrateGuess(msg.name, msg.word);
                     break;
             }
         }
@@ -773,6 +774,18 @@
             // Everyone has voted — no reason to sit out the rest of the clock.
             if (h.votes.size >= h.plots.length) h.remain = 1;
             return true;
+        }
+
+        /** Somebody got it: banner, confetti over the stage, a run of notes. */
+        _celebrateGuess(name, word) {
+            const plot = (this.state && this.state.plots || [])[0];
+            const v = this.game.voxels;
+            if (plot) {
+                const c = this._plotCentre(plot);
+                v.fx.celebrate(c.x, 8, c.z, [this.game.generateUserColor(name), '#facc15', '#22c55e']);
+            }
+            this.game.showBanner(`${name} got it — “${word}”`);
+            window.BlockPartySfx.fanfare(440);
         }
 
         _hostFinishCharades() {
@@ -1201,6 +1214,7 @@
             const phase = s.phase;
             const wasPhase = prev && prev.phase;
             if (phase !== wasPhase) this.game._updateChatMode();
+            this._ceremony(s, prev);
 
             // Charades has no blueprint to ghost and nothing to submit — the
             // build was relayed live and the word is judged by the host.
@@ -1306,6 +1320,63 @@
             if (phase === 'play' && s.peek && !(prev && prev.peek)) {
                 this.game.showToast('👀 Blueprint!', 'info', 1200);
             }
+        }
+
+        // `strong` is the blueprint you are studying; the faint set is the
+        // comparison overlay laid over finished builds at the reveal.
+        /**
+         * The theatre around a round: a counted start, a clock that gets loud
+         * near the end, a reveal that drifts rather than freezing, and confetti
+         * for whoever earned it. None of it changes what happens — all of it
+         * changes whether a round feels like an event.
+         */
+        _ceremony(s, prev) {
+            const sfx = window.BlockPartySfx;
+            const was = prev && prev.phase;
+
+            // Counted start. One beep a second, a higher one on "GO".
+            if (s.phase === 'countdown') {
+                const left = Math.ceil(s.remain);
+                if (left !== this._countShown) {
+                    this._countShown = left;
+                    this.game.showCountdown(String(left));
+                    sfx.countdown(left);
+                }
+            } else if (was === 'countdown') {
+                this._countShown = null;
+                const first = s.phase === 'study' ? 'STUDY' : (s.phase === 'architect' ? 'WATCH' : 'GO!');
+                this.game.showCountdown(first);
+                sfx.countdown(0);
+            }
+
+            // The last ten seconds of building tighten up.
+            if (s.phase === 'play') {
+                const left = Math.ceil(s.remain);
+                if (left <= 10 && left !== this._urgentAt) {
+                    this._urgentAt = left;
+                    if (left > 0) sfx.urgent(left <= 3);
+                }
+            } else {
+                this._urgentAt = null;
+            }
+
+            if (s.phase === 'reveal' && was !== 'reveal') sfx.fanfare(392);
+            if (s.phase === 'final' && was !== 'final') this._celebrateWinner();
+        }
+
+        /** Confetti over whoever won, and a run of notes to go with it. */
+        _celebrateWinner() {
+            const r = this.results;
+            const top = r && r.totals && r.totals[0];
+            if (!top) return;
+            const plot = (this.state.plots || []).find(p => p.name === top.name) || (this.state.plots || [])[0];
+            const v = this.game.voxels;
+            if (plot) {
+                const c = this._plotCentre(plot);
+                v.focus(c.x, 3, c.z, plot.size * 2.2, PLOT_VIEW_PHI);
+                v.fx.celebrate(c.x, 6, c.z, [this.game.generateUserColor(top.name), '#facc15', '#ffffff']);
+            }
+            window.BlockPartySfx.fanfare(523);
         }
 
         // `strong` is the blueprint you are studying; the faint set is the
@@ -1669,6 +1740,9 @@
             if (!p) return;
             const c = this._plotCentre(p);
             this.game.voxels.focus(c.x, 2, c.z, p.size * 2.3, PLOT_VIEW_PHI);
+            // A held shot reads as frozen; a slow orbit reads as a camera move.
+            this.game.voxels.startDrift(0.16);
+            window.BlockPartySfx.chime(this._tourIndex);
         }
 
         focusPlayer(name) {
@@ -1682,6 +1756,7 @@
         _stopTour() {
             clearInterval(this._tourTimer);
             this._tourTimer = null;
+            this.game.voxels.startDrift(0);
         }
 
         // ---------- HUD ----------
