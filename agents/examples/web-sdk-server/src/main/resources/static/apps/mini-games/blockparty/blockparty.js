@@ -3036,10 +3036,49 @@
                 if (!this.geo.region || this.geo.region.key !== region.key) return;
                 const cells = this.voxels.half * 2 + 1;
                 this.voxels.setGroundMap(BlockPartyEarth.groundCanvas(earth, region, cells));
+                this._reportGroundMix(earth, region, cells);
             } catch (e) {
                 this.voxels.setGroundMap(null);
                 console.warn('[BlockParty] ground map:', e.message);
             }
+        }
+
+        /**
+         * Say what the ground turned out to be.
+         *
+         * Most places on Earth have no coastline within a few hundred metres,
+         * so at street scale the map of somewhere real is a field of grey —
+         * correct, and indistinguishable from a bug. This says which it is, and
+         * where the nearest edge would be found.
+         */
+        _reportGroundMix(earth, region, cells) {
+            const m = BlockPartyEarth.landMask(earth, region, cells);
+            let land = 0;
+            for (let i = 0; i < m.mask.length; i++) land += m.mask[i];
+            const fraction = land / m.mask.length;
+            const across = this.geo.span();
+            const km = across >= 1000 ? `${Math.round(across / 1000)} km` : `${Math.round(across)} m`;
+            const what = fraction === 1 ? `all land, ${km} of it`
+                : fraction === 0 ? `open water, ${km} across`
+                : `${Math.round(fraction * 100)}% land, ${km} across`;
+
+            // An explicit "draw this place" reports what it did; this is the
+            // standing description of the ground, and must not talk over it.
+            const note = (this._noteHeldUntil || 0) > Date.now()
+                ? null : document.getElementById('geoNote');
+            if (note) {
+                note.textContent = fraction === 1 || fraction === 0
+                    ? `This place is ${what} — no coast at this scale. Pick a bigger scale above, or pull the map out with −.`
+                    : `This place is ${what}.`;
+            }
+            // Said once per place, and only when there is nothing to see: a
+            // toast on every arrival would be noise.
+            if ((fraction === 1 || fraction === 0) && this._mixSaid !== region.key) {
+                this._mixSaid = region.key;
+                this.showToast(`Real ground here is ${what} — no coastline this close in. `
+                    + 'Try a bigger scale in 🗂, or pull the map out with −.', 'info', 5200);
+            }
+            this.groundMix = fraction;
         }
 
         /**
@@ -3205,6 +3244,8 @@
                 'Trace this place from the map? The current world will be replaced.')) return;
 
             const note = document.getElementById('geoNote');
+            // This action's own report holds the line for a few seconds.
+            this._noteHeldUntil = Date.now() + 8000;
             if (note) note.textContent = 'Reading the map…';
             if (!opts.quiet) this.showToast('Drawing this place…', 'info', 2600);
             try {

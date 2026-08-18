@@ -598,3 +598,18 @@ button[id*="disconnect"]:hover,
         overflow-y: auto;
     }
 }
+
+/* A screen shorter than the card — a phone held sideways — put the Connect
+ * button below the fold with no way to reach it: the overlay does not scroll,
+ * and games that set `touch-action: none` on the body stop the card scrolling
+ * under a finger too. Both are answered here rather than per game.
+ */
+@media (max-height: 560px) {
+    .connection-modal .modal-content {
+        max-height: calc(100vh - 16px);
+        overflow-y: auto;
+        touch-action: pan-y;
+        -webkit-overflow-scrolling: touch;
+        padding: 16px;
+    }
+}

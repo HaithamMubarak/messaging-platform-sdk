@@ -671,3 +671,115 @@ html, body {
     color: var(--accent-2); font: inherit; font-weight: 700;
 }
 .minimap-travel.armed { color: #fde68a; }
+
+/* ---- Phones and small tablets -------------------------------------------
+ * The HUD was built for a desktop window: one row of a dozen controls across
+ * the top, one long row along the bottom. On a phone both simply ran off the
+ * edge — nothing wrapped, nothing scrolled, and the buttons past the fold were
+ * unreachable rather than merely cramped.
+ *
+ * Everything below keeps the same layout and lets it fold: rows wrap, long
+ * strips of buttons scroll sideways under a finger, words give way to their
+ * icons, and the parts that are decoration rather than control go away. Tap
+ * targets stay at 40px, which is the smallest a finger reliably hits.
+ */
+@media (max-width: 820px), (max-height: 500px) {
+    /* Under a notch or a rounded corner, the HUD keeps its distance. */
+    .top-bar {
+        padding: max(8px, env(safe-area-inset-top)) max(10px, env(safe-area-inset-right))
+                 8px max(10px, env(safe-area-inset-left));
+        gap: 8px; align-items: flex-start;
+    }
+    /* The controls take a line of their own rather than competing with the
+       room name for what is left of it. */
+    .top-bar { flex-wrap: wrap; }
+    .top-actions {
+        flex: 1 1 100%; flex-wrap: wrap; justify-content: flex-start; gap: 6px;
+        max-width: none;
+    }
+    /* 40px is the smallest a finger reliably hits, and padding alone was
+       leaving these at 33. */
+    .top-actions .btn {
+        display: inline-flex; align-items: center; justify-content: center;
+        min-width: 40px; min-height: 40px; padding: 8px 10px;
+    }
+    .room-badge { max-width: 28vw; }
+
+    /* Clear of the header, whatever number of lines it folded into. */
+    .players-panel { top: 140px; right: 10px; width: 148px; max-width: 42vw; padding: 10px; }
+    .player-list { max-height: 22vh; }
+
+    /* The dock folds into rows instead of one long line, and each strip of
+       buttons can be pushed sideways with a finger when it is still too long. */
+    .tool-dock {
+        left: 8px; right: 8px; bottom: max(10px, env(safe-area-inset-bottom));
+        transform: none; max-width: none;
+        flex-wrap: wrap; justify-content: center; gap: 8px 10px; padding: 8px 10px;
+    }
+    .tool-dock > * { max-width: 100%; }
+    .tool-dock > .tool-group:not(.tool-extra), .bricks, .shapes {
+        overflow-x: auto; overflow-y: hidden;
+        touch-action: pan-x; scrollbar-width: none;
+        -webkit-overflow-scrolling: touch;
+    }
+    .tool-dock > .tool-group:not(.tool-extra)::-webkit-scrollbar,
+    .bricks::-webkit-scrollbar, .shapes::-webkit-scrollbar { display: none; }
+    /* Undo, redo and view are three buttons: they wrap, they never hide. */
+    .tool-extra { overflow: visible; flex-wrap: wrap; justify-content: center; }
+    /* One line of bricks that scrolls, and the full palette in one grid: two
+       rows of dock instead of four, and half the screen back. */
+    .bricks { display: flex; flex-wrap: nowrap; gap: 6px; }
+    .brick-btn { min-width: 46px; }
+    .palette { grid-template-columns: repeat(8, 1fr); gap: 5px; }
+    .swatch { width: 28px; height: 28px; }
+    .shapes { display: flex; flex-wrap: nowrap; }
+    .tool-btn { min-width: 48px; min-height: 44px; padding: 6px 8px; font-size: 17px; }
+    .tool-btn span { font-size: 10px; }
+    /* Undo, redo and reset-view were hidden here. Reset-view is how you get
+       back to seeing the whole world, which is not an extra. */
+    .tool-extra { display: flex; }
+    .tool-btn.small { min-width: 44px; }
+
+    /* Opposite corner from the players, clear of the dock: on a phone the
+       three of them cannot all have the right-hand side. */
+    .minimap-panel { left: 8px; right: auto; bottom: auto; top: 140px; padding: 6px; }
+    #minimap { width: 148px; height: 148px; }
+    .minimap-head { font-size: 10px; margin-bottom: 4px; }
+    .minimap-foot { padding: 3px 4px 4px; }
+    .minimap-span { font-size: 9px; }
+
+    .geo-callout { top: 140px; left: 8px; right: 8px; transform: none; max-width: none; }
+
+    .bp-modal { padding: 0; align-items: stretch; }
+    .bp-modal-card {
+        width: 100%; max-width: none; max-height: 100%; border-radius: 0;
+        padding: max(16px, env(safe-area-inset-top)) 16px max(16px, env(safe-area-inset-bottom));
+    }
+}
+
+/* Narrow enough that words cost more than they say. */
+@media (max-width: 560px) {
+    .btn-word { display: none; }
+    #blockCount, #geoReadout { display: none; }
+    .top-actions { max-width: 78vw; }
+    .players-panel { top: 132px; width: 132px; }
+    .minimap-panel { top: 132px; }
+    #minimap { width: 132px; height: 132px; }
+    .geo-callout { top: 132px; }
+    .geo-callout-text { font-size: 12px; }
+}
+
+/* Landscape on a phone: the screen is all width and no height, so the dock
+   goes back to one line and the panels get out of the middle. */
+@media (max-height: 480px) and (orientation: landscape) {
+    .top-bar { padding-top: 6px; padding-bottom: 4px; }
+    .players-panel { top: 60px; max-height: 42vh; }
+    /* Above the dock, not on it: the dock spans the full width down there. */
+    .minimap-panel { top: auto; left: auto; right: 8px; bottom: 96px; }
+    #minimap { width: 116px; height: 116px; }
+    .minimap-foot, .minimap-head { display: none; }
+    .tool-dock { padding: 6px 8px; gap: 6px; }
+    .tool-btn span { display: none; }
+    .tool-btn { min-width: 42px; }
+    .geo-callout { top: 52px; }
+}

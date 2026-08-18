@@ -126,18 +126,18 @@
             // How big this region is on the map: the whole canvas at zoom 0,
             // half of it one step out, and so on.
             const span = SIZE / Math.pow(2, this.zoom);
-            const c = this._centre(), s = this.scale;
             const origin = this._toCanvas(-this.game.voxels.half, -this.game.voxels.half);
 
-            ctx.save();
-            ctx.translate(origin.cx, origin.cy);
-            const path = BlockPartyEarth.ringPath(earth, geo.region, span);
+            // The path is built in canvas coordinates, so the region can be a
+            // hundred-thousandth of the screen and the world around it still
+            // draws.
+            const path = BlockPartyEarth.ringPath(earth, geo.region, span,
+                { w: SIZE, h: SIZE, ox: origin.cx, oy: origin.cy });
             ctx.fillStyle = P.land;
             ctx.fill(path, 'evenodd');
             ctx.strokeStyle = P.coast;
-            ctx.lineWidth = Math.max(0.7, span / 300);
+            ctx.lineWidth = Math.max(0.6, Math.min(1.4, span / 300));
             ctx.stroke(path);
-            ctx.restore();
         }
 
         /** Real coordinates straight to minimap pixels. */
@@ -186,9 +186,22 @@
             return { x: Math.round(c.x + (cx - SIZE / 2) / s), z: Math.round(c.z + (cy - SIZE / 2) / s) };
         }
 
+        /**
+         * How far out this map can go: far enough to show the whole Earth,
+         * whatever scale the world itself is at. A street-scale world is 380
+         * metres across, so seeing the coast from it means pulling back a
+         * hundred thousand times — which is a map's job, not the world's.
+         */
+        maxZoom() {
+            const a = this.game.geo && this.game.geo.anchor;
+            if (!a) return 6;
+            const cells = this.game.voxels.half * 2 + 1;
+            return Math.max(4, Math.min(20, Math.ceil(Math.log2(40075017 / (cells * a.mpc)))));
+        }
+
         /** Pull the map out or push it in, within what the projection can hold. */
         setZoom(z) {
-            const next = Math.max(-3, Math.min(6, z));
+            const next = Math.max(-3, Math.min(this.maxZoom(), z));
             if (next === this.zoom) return;
             this.zoom = next;
             this.draw();
@@ -204,8 +217,11 @@
 
         /** Click the map, go to that spot. */
         _click(e) {
+            // On a phone the canvas is displayed smaller than it is drawn, so
+            // a tap has to be scaled back into the map's own pixels.
             const rect = this.canvas.getBoundingClientRect();
-            const p = this._toWorld(e.clientX - rect.left, e.clientY - rect.top);
+            const k = rect.width ? SIZE / rect.width : 1;
+            const p = this._toWorld((e.clientX - rect.left) * k, (e.clientY - rect.top) * k);
             const g = this.game;
 
             if (this.armed) {

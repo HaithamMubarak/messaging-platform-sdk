@@ -73,12 +73,16 @@
      * every arrival.
      */
     /**
-     * The coastlines of one region as a path, in pixels of a square `size`
-     * across. Everything expensive about drawing the Earth is here.
+     * The coastlines on a canvas, as a path.
      *
-     * A region is a Web Mercator tile and the world covers it exactly, so a
-     * point's place in the region is just its place in the tile — no fitting,
-     * no offsets.
+     * A region is a Web Mercator tile, so a point's place in the region is just
+     * its place in the tile. `size` is how many pixels that whole tile covers
+     * and `view` is the canvas it is being drawn on — which is the same square
+     * for the ground, and a much larger area for a map pulled out past the
+     * world's own edges. Everything is measured against the canvas rather than
+     * against the region, so a map showing ten thousand kilometres draws the
+     * ten thousand kilometres rather than the region's own coast shrunk to a
+     * dot.
      *
      * Coastlines carry far more detail than any one view can show, and a
      * continent whose shore runs off the edge carries most of it out of sight
@@ -88,19 +92,28 @@
      * a continent away collapses to a handful of points while a ring that
      * encloses the view still encloses it — which is all the fill needs.
      */
-    function ringPath(earth, region, size) {
+    function ringPath(earth, region, size, view) {
         const { z, x, y } = region;
-        const west = M().tileXToLon(x, z), east = M().tileXToLon(x + 1, z);
-        const north = M().tileYToLat(y, z), south = M().tileYToLat(y + 1, z);
-        // A margin, so a coastline that only clips the corner still counts.
-        const mLon = (east - west) * 0.02, mLat = (north - south) * 0.02;
+        view = view || {};
+        const W = view.w || size, H = view.h || size;
+        const ox = view.ox || 0, oy = view.oy || 0;
 
-        const px = (lon) => (M().lonToTileX(lon, z) - x) * size;
-        const py = (lat) => (M().latToTileY(lat, z) - y) * size;
+        const px = (lon) => ox + (M().lonToTileX(lon, z) - x) * size;
+        const py = (lat) => oy + (M().latToTileY(lat, z) - y) * size;
+        // What the canvas covers, in tiles and then in degrees — the cull box
+        // is the view's, not the region's, or a map pulled out would show one
+        // tile's worth of coast floating in an empty sea.
+        const tx0 = x + (0 - ox) / size, tx1 = x + (W - ox) / size;
+        const ty0 = y + (0 - oy) / size, ty1 = y + (H - oy) / size;
+        const west = M().tileXToLon(tx0, z), east = M().tileXToLon(tx1, z);
+        const north = M().tileYToLat(ty0, z), south = M().tileYToLat(ty1, z);
+        const mLon = Math.abs(east - west) * 0.02, mLat = Math.abs(north - south) * 0.02;
 
-        const pad = size * 0.05, GRID = size / 20, MIN = size / 480;
-        const FAR = size * 4, lo = -FAR, hi = size + FAR;
-        const clamp = (v) => v < lo ? lo : v > hi ? hi : v;
+        const small = Math.min(W, H);
+        const pad = small * 0.05, GRID = small / 20, MIN = small / 480;
+        const FARX = W * 4, FARY = H * 4;
+        const clampX = (v) => v < -FARX ? -FARX : v > W + FARX ? W + FARX : v;
+        const clampY = (v) => v < -FARY ? -FARY : v > H + FARY ? H + FARY : v;
 
         const path = new Path2D();
         let rings = 0, points = 0;
@@ -113,10 +126,10 @@
             let started = false, lx = 0, ly = 0;
             for (let i = 0; i < ring.length; i += 2) {
                 let X = px(ring[i]), Y = py(ring[i + 1]);
-                const inside = X > -pad && X < size + pad && Y > -pad && Y < size + pad;
+                const inside = X > -pad && X < W + pad && Y > -pad && Y < H + pad;
                 if (!inside) {
-                    X = Math.round(clamp(X) / GRID) * GRID;
-                    Y = Math.round(clamp(Y) / GRID) * GRID;
+                    X = Math.round(clampX(X) / GRID) * GRID;
+                    Y = Math.round(clampY(Y) / GRID) * GRID;
                 }
                 if (started && Math.abs(X - lx) < MIN && Math.abs(Y - ly) < MIN) continue;
                 if (started) path.lineTo(X, Y); else path.moveTo(X, Y);
