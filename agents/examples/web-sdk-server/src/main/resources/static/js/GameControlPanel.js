@@ -98,9 +98,12 @@ class GameControlPanel {
             if (this.config.defaultPosition) {
                 position = { ...this.config.defaultPosition };
             } else {
+                // Mid-right rather than the bottom-right corner: the corner is
+                // where these apps put chat inputs, guess boxes and player
+                // panels, and the panel was landing on top of them.
                 position = {
-                    x: window.innerWidth - 80,  // 60px icon + 20px margin
-                    y: window.innerHeight - 80   // 60px icon + 20px margin
+                    x: window.innerWidth - 80,   // 60px icon + 20px margin
+                    y: Math.round(window.innerHeight * 0.45)
                 };
             }
         }

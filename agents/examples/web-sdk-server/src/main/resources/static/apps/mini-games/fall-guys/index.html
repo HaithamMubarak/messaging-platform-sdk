@@ -2,6 +2,8 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
+    <script src="../../../js/prod-log.js"></script>
+    <link rel="icon" type="image/svg+xml" href="../../../favicon.svg">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Mini Fall Guys - Multiplayer Obstacle Race</title>
 
@@ -14,10 +16,10 @@
     <link rel="stylesheet" href="fall-guys.css">
 
     <!-- Three.js -->
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="../shared/libs/three.min.js"></script>
 
     <!-- Cannon.js Physics Engine (global CANNON variable) -->
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/cannon.js/0.6.2/cannon.min.js"></script>
+    <script src="../shared/libs/cannon.min.js"></script>
 </head>
 <body>
     <!-- Share Button (hidden until connected) -->
@@ -65,6 +67,31 @@
                     <div id="playerList" class="player-list">
                         <!-- Players will be added here -->
                     </div>
+                </div>
+
+                <div class="map-picker-container">
+                    <h3>Course</h3>
+                    <div id="mapPicker" class="map-picker" role="group" aria-label="Course selection">
+                        <button type="button" class="map-option selected" data-map="obstacleRush"
+                                aria-pressed="true" onclick="fallGuysGame?.hostSelectMap('obstacleRush')">
+                            <span class="map-option__name">Obstacle Rush</span>
+                            <span class="map-option__desc">Spinning hammers, gaps and pushers. The classic run.</span>
+                            <span class="map-option__tags"><span class="map-tag">Standard</span><span class="map-tag">Long</span></span>
+                        </button>
+                        <button type="button" class="map-option" data-map="slimeClimb"
+                                aria-pressed="false" onclick="fallGuysGame?.hostSelectMap('slimeClimb')">
+                            <span class="map-option__name">Slime Climb</span>
+                            <span class="map-option__desc">Climb the terraces. Split beams near the top — pick a lane.</span>
+                            <span class="map-option__tags"><span class="map-tag">Tricky</span><span class="map-tag">Long</span></span>
+                        </button>
+                        <button type="button" class="map-option" data-map="hammerAlley"
+                                aria-pressed="false" onclick="fallGuysGame?.hostSelectMap('hammerAlley')">
+                            <span class="map-option__name">Hammer Alley</span>
+                            <span class="map-option__desc">One narrow corridor, eight moving parts. Short and mean.</span>
+                            <span class="map-option__tags"><span class="map-tag">Brutal</span><span class="map-tag">Short</span></span>
+                        </button>
+                    </div>
+                    <p id="mapPickerNote" class="map-picker-note">The host picks the course.</p>
                 </div>
 
                 <div class="waiting-actions">

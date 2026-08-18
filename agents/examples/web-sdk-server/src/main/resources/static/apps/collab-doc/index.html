@@ -2,6 +2,8 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
+    <script src="../../js/prod-log.js"></script>
+    <link rel="icon" type="image/svg+xml" href="../../favicon.svg">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5, user-scalable=yes">
     <meta name="theme-color" content="#4f46e5">
     <title>📝 Collaborative Document Editor</title>
@@ -16,6 +18,8 @@
     <link rel="stylesheet" href="../terminal/libs/codemirror/theme/monokai.min.css"/>
     <link rel="stylesheet" href="../terminal/libs/codemirror/theme/eclipse.min.css"/>
     <script src="../terminal/libs/codemirror/js/codemirror.min.js"></script>
+    <!-- gfm is an overlay on top of markdown, so both the addon and the base mode must load first -->
+    <script src="../terminal/libs/codemirror/addon/mode/overlay.min.js"></script>
     <script src="../terminal/libs/codemirror/mode/markdown/markdown.min.js"></script>
     <script src="../terminal/libs/codemirror/mode/gfm/gfm.min.js"></script>
 
@@ -24,6 +28,7 @@
 
     <!-- App Styles -->
     <link rel="stylesheet" href="collab-doc.css">
+    <link rel="stylesheet" href="../../css/app-chrome.css">
 </head>
 <body>
     <!-- Share Button -->
@@ -154,9 +159,10 @@
     <!-- Include Libraries -->
     <script src="../../js/config-loader.js"></script>
     <script src="../../lib/qrcode.min.js"></script>
-    <script src="../../generated-web-agent-js/messaging-web-agent.js"></script>
+    <script src="../../generated-web-agent-js/js/web-agent.libs.js"></script>
+    <script src="../../generated-web-agent-js/js/web-agent.js"></script>
+    <script src="../../generated-web-agent-js/js/web-agent.webrtc.js"></script>
     <script src="../../js/UserConnectionBase.js"></script>
-    <script src="../../js/MiniGameUtils.js"></script>
 
     <!-- App Logic -->
     <script src="collab-doc.js"></script>
@@ -165,6 +171,7 @@
     <script src="../../js/common-utils.js"></script>
     <script src="../../js/connection-modal.js"></script>
     <script src="../../js/share-modal.js"></script>
+<script src="../../js/app-chrome.js"></script>
 </body>
 </html>
 

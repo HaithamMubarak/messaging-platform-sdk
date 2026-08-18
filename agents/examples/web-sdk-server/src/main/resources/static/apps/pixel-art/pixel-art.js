@@ -165,6 +165,11 @@ class PixelArtApp extends UserConnectionBase {
     }
 
     onConnect(detail) {
+        // Dismiss the connection dialog — without this it stays over the app
+        // even though the session is live.
+        if (window.ConnectionModal && typeof window.ConnectionModal.hide === 'function') {
+            window.ConnectionModal.hide();
+        }
         console.log('[PixelArt] Connected:', detail);
 
         // Show app container

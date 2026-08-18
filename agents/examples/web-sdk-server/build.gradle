@@ -125,6 +125,21 @@ if (webAgentJsExists) {
     }
 }
 
+// docs.html renders the guide by fetching ./USER-GUIDE.md at runtime, so the repo-root
+// copy has to land in the static folder. Copying (rather than duplicating the file) keeps
+// the repository root as the single source of truth.
+tasks.register('copyUserGuide', Copy) {
+    description = 'Copy USER-GUIDE.md from the repository root into the static folder for docs.html'
+    group = 'build'
+
+    from(rootProject.file('USER-GUIDE.md'))
+    into file('src/main/resources/static')
+
+    outputs.upToDateWhen { false }
+}
+
+processResources.dependsOn(tasks.named('copyUserGuide'))
+
 // NOTE: Mini-games are now stored directly in src/main/resources/static/mini-games/
 // No need to copy them - they are part of this module
 
@@ -138,6 +153,7 @@ if (webAgentJsExists) {
 // Clean task should remove generated files
 clean {
     delete file('src/main/resources/static/generated-web-agent-js')
+    delete file('src/main/resources/static/USER-GUIDE.md')
 }
 
 // Create executable jar with all web demos included

@@ -1,0 +1,278 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+    <title>Playground — Multiplayer games built on the Messaging Platform SDK</title>
+
+    <meta name="description" content="Six multiplayer mini-games built on the Messaging Platform SDK. Each one demonstrates a different primitive: presence, channel storage, WebRTC data channels or broadcast messaging.">
+    <meta name="theme-color" content="#0b1120">
+    <link rel="canonical" href="https://hmdevonline.com/playground.html">
+
+    <meta property="og:type" content="website">
+    <meta property="og:site_name" content="Messaging Platform SDK">
+    <meta property="og:title" content="Playground — Multiplayer games built on the Messaging Platform SDK">
+    <meta property="og:description" content="Open a game, share the room link, and play. Every game is a working example of the SDK.">
+    <meta property="og:image" content="https://hmdevonline.com/images/og-image.png">
+    <meta name="twitter:card" content="summary_large_image">
+
+    <link rel="icon" type="image/svg+xml" href="favicon.svg">
+    <link rel="apple-touch-icon" href="images/apple-touch-icon.png">
+    <link rel="manifest" href="site.webmanifest">
+    <link rel="stylesheet" href="css/design-tokens.css">
+    <link rel="stylesheet" href="css/ui.css">
+    <link rel="stylesheet" href="css/landing.css">
+
+    <script src="js/prod-log.js" defer></script>
+    <script src="js/icons.js" defer></script>
+    <script src="js/ui.js" defer></script>
+    <script src="js/api-config.js" defer></script>
+    <script src="js/landing.js" defer></script>
+</head>
+<body>
+<a class="skip-link" href="#main">Skip to content</a>
+
+<header class="site-header" id="siteHeader">
+    <div class="wrap site-header__inner">
+        <a class="brand" href="index.html">
+            <svg class="logo-mark" aria-hidden="true"><use href="#i-logo"></use></svg>
+            Messaging Platform SDK
+        </a>
+
+        <button class="btn btn--ghost btn--icon nav-toggle" id="navToggle" aria-expanded="false" aria-controls="siteNav" aria-label="Open menu">
+            <svg class="icon" aria-hidden="true"><use href="#i-menu"></use></svg>
+        </button>
+
+        <nav class="site-nav" id="siteNav" aria-label="Main">
+            <a href="index.html#demos">Demos</a>
+            <a href="playground.html" aria-current="page">Playground</a>
+            <a href="docs.html">Docs</a>
+            <a href="index.html#architecture">Architecture</a>
+            <a href="developer/index.html">Portal</a>
+            <button class="btn btn--gradient" type="button" data-open-request>Get a free API key</button>
+        </nav>
+    </div>
+</header>
+
+<main id="main">
+    <section class="hero" style="padding-block: var(--sp-16) var(--sp-12)">
+        <div class="wrap">
+            <div class="section-head">
+                <span class="eyebrow">Playground</span>
+                <h1 style="font-size: var(--fs-3xl); margin-bottom: var(--sp-4)">Games that double as documentation</h1>
+                <p>
+                    Every game below is a complete, working application built on the SDK — and each one leans on a
+                    different primitive. Open one, share the room link with a friend, and play. No login required.
+                </p>
+            </div>
+            <div class="hero__cta">
+                <a class="btn btn--gradient" href="apps/mini-games/blockparty/index.html">Play BlockParty</a>
+                <a class="btn btn--ghost" href="index.html#quickstart">See how it's built</a>
+            </div>
+        </div>
+    </section>
+
+    <section style="padding-top: 0">
+        <div class="wrap">
+            <div class="grid-3">
+
+                <article class="card card--interactive game-card">
+                    <div class="game-card__head">
+                        <span class="tile-icon" style="margin:0"><svg class="icon" aria-hidden="true"><use href="#i-database"></use></svg></span>
+                        <h3>BlockParty</h3>
+                    </div>
+                    <p>
+                        A shared 3D voxel world you build together in real time. Place, paint and remove blocks with
+                        everyone in the room — the world persists, so it is still there when you come back.
+                    </p>
+                    <div class="game-card__proves">
+                        <span class="badge badge--brand">Channel storage</span>
+                        <span class="badge">Presence</span>
+                        <span class="badge">Host relay</span>
+                    </div>
+                    <div class="demo-card__foot">
+                        <a class="demo-card__link" href="apps/mini-games/blockparty/index.html">
+                            Play <svg class="icon icon--sm" aria-hidden="true"><use href="#i-arrow-right"></use></svg>
+                        </a>
+                        <span class="badge badge--success">New · 3D</span>
+                    </div>
+                </article>
+
+                <article class="card card--interactive game-card">
+                    <div class="game-card__head">
+                        <span class="tile-icon" style="margin:0"><svg class="icon" aria-hidden="true"><use href="#i-zap"></use></svg></span>
+                        <h3>Air Hockey</h3>
+                    </div>
+                    <p>
+                        Two-player air hockey with a real physics loop. The tightest latency test on the site — if the
+                        puck feels right, the transport is working.
+                    </p>
+                    <div class="game-card__proves">
+                        <span class="badge badge--brand">P2P data channels</span>
+                        <span class="badge">Ephemeral messages</span>
+                    </div>
+                    <div class="demo-card__foot">
+                        <a class="demo-card__link" href="apps/mini-games/air-hockey/index.html">
+                            Play <svg class="icon icon--sm" aria-hidden="true"><use href="#i-arrow-right"></use></svg>
+                        </a>
+                    </div>
+                </article>
+
+                <article class="card card--interactive game-card">
+                    <div class="game-card__head">
+                        <span class="tile-icon" style="margin:0"><svg class="icon" aria-hidden="true"><use href="#i-message"></use></svg></span>
+                        <h3>Quiz Battle</h3>
+                    </div>
+                    <p>
+                        Timed trivia rounds for a whole room. One host broadcasts questions, everyone answers at once,
+                        and scores settle live.
+                    </p>
+                    <div class="game-card__proves">
+                        <span class="badge badge--brand">Broadcast messaging</span>
+                        <span class="badge">Presence</span>
+                    </div>
+                    <div class="demo-card__foot">
+                        <a class="demo-card__link" href="apps/mini-games/quiz-battle/index.html">
+                            Play <svg class="icon icon--sm" aria-hidden="true"><use href="#i-arrow-right"></use></svg>
+                        </a>
+                    </div>
+                </article>
+
+                <article class="card card--interactive game-card">
+                    <div class="game-card__head">
+                        <span class="tile-icon" style="margin:0"><svg class="icon" aria-hidden="true"><use href="#i-users"></use></svg></span>
+                        <h3>Find the Liar</h3>
+                    </div>
+                    <p>
+                        A social deduction round: everyone gets the same question except one player. Vote on who is
+                        bluffing. Built entirely on directed messages and hidden per-agent state.
+                    </p>
+                    <div class="game-card__proves">
+                        <span class="badge badge--brand">Directed messages</span>
+                        <span class="badge">Presence</span>
+                    </div>
+                    <div class="demo-card__foot">
+                        <a class="demo-card__link" href="apps/mini-games/find-the-liar/index.html">
+                            Play <svg class="icon icon--sm" aria-hidden="true"><use href="#i-arrow-right"></use></svg>
+                        </a>
+                    </div>
+                </article>
+
+                
+                
+                <article class="card card--interactive game-card">
+                    <div class="game-card__head">
+                        <span class="tile-icon" style="margin:0"><svg class="icon" aria-hidden="true"><use href="#i-trending-up"></use></svg></span>
+                        <h3>Fall Guys Race</h3>
+                    </div>
+                    <p>
+                        An obstacle-course sprint for a full lobby across three courses — spinning hammers, a
+                        terraced climb, and a short brutal corridor. The host picks the course; physics runs on
+                        their client and streams to everyone.
+                    </p>
+                    <div class="game-card__proves">
+                        <span class="badge badge--brand">Authoritative host</span>
+                        <span class="badge">Presence</span>
+                        <span class="badge">3 courses</span>
+                    </div>
+                    <div class="demo-card__foot">
+                        <a class="demo-card__link" href="apps/mini-games/fall-guys/index.html">
+                            Play <svg class="icon icon--sm" aria-hidden="true"><use href="#i-arrow-right"></use></svg>
+                        </a>
+                    </div>
+                </article>
+
+                <article class="card card--interactive game-card">
+                    <div class="game-card__head">
+                        <span class="tile-icon" style="margin:0"><svg class="icon" aria-hidden="true"><use href="#i-zap"></use></svg></span>
+                        <h3>4-Player Reactor</h3>
+                    </div>
+                    <p>
+                        Four operators, one unstable reactor, and instructions only your neighbour can read.
+                        A stress test for high-frequency directed messaging.
+                    </p>
+                    <div class="game-card__proves">
+                        <span class="badge badge--brand">Ephemeral messages</span>
+                        <span class="badge">Directed messages</span>
+                    </div>
+                    <div class="demo-card__foot">
+                        <a class="demo-card__link" href="apps/mini-games/reactor/reactor-client.html">
+                            Play <svg class="icon icon--sm" aria-hidden="true"><use href="#i-arrow-right"></use></svg>
+                        </a>
+                    </div>
+                </article>
+            </div>
+        </div>
+    </section>
+
+    <!-- ======================================================== Collaboration -->
+    <section style="padding-top: 0">
+        <div class="wrap">
+            <div class="section-head">
+                <span class="eyebrow">Also built on the SDK</span>
+                <h2 style="font-size: var(--fs-2xl)">Collaboration experiments</h2>
+                <p>Less polished than the games, but each one is a useful reference for a different sync pattern.</p>
+            </div>
+
+            <div class="grid-4">
+                <article class="card card--interactive demo-card">
+                    <span class="tile-icon"><svg class="icon" aria-hidden="true"><use href="#i-book"></use></svg></span>
+                    <h3>Collaborative document</h3>
+                    <p>Markdown editing with live cursors and shared revisions.</p>
+                    <div class="demo-card__foot">
+                        <a class="demo-card__link" href="apps/collab-doc/index.html">Open
+                            <svg class="icon icon--sm" aria-hidden="true"><use href="#i-arrow-right"></use></svg></a>
+                    </div>
+                </article>
+
+                <article class="card card--interactive demo-card">
+                    <span class="tile-icon"><svg class="icon" aria-hidden="true"><use href="#i-layers"></use></svg></span>
+                    <h3>Mind map</h3>
+                    <p>A shared node graph — every drag and edit replicates instantly.</p>
+                    <div class="demo-card__foot">
+                        <a class="demo-card__link" href="apps/mind-map/index.html">Open
+                            <svg class="icon icon--sm" aria-hidden="true"><use href="#i-arrow-right"></use></svg></a>
+                    </div>
+                </article>
+
+                <article class="card card--interactive demo-card">
+                    <span class="tile-icon"><svg class="icon" aria-hidden="true"><use href="#i-pen"></use></svg></span>
+                    <h3>Pixel art editor</h3>
+                    <p>Collaborative sprite editing on a shared canvas grid.</p>
+                    <div class="demo-card__foot">
+                        <a class="demo-card__link" href="apps/pixel-art/index.html">Open
+                            <svg class="icon icon--sm" aria-hidden="true"><use href="#i-arrow-right"></use></svg></a>
+                        <span class="badge badge--warning">Experimental</span>
+                    </div>
+                </article>
+
+                <article class="card card--interactive demo-card">
+                    <span class="tile-icon"><svg class="icon" aria-hidden="true"><use href="#i-terminal"></use></svg></span>
+                    <h3>Shared terminal</h3>
+                    <p>A browser terminal and file explorer driven over a channel.</p>
+                    <div class="demo-card__foot">
+                        <a class="demo-card__link" href="apps/terminal/index.html">Open
+                            <svg class="icon icon--sm" aria-hidden="true"><use href="#i-arrow-right"></use></svg></a>
+                        <span class="badge badge--warning">Experimental</span>
+                    </div>
+                </article>
+            </div>
+
+            <div class="link-row">
+                <p>Want to build one of these? The quick start takes about a minute, and every game's source ships in the repo.</p>
+                <a class="btn btn--ghost" href="docs.html">Read the docs</a>
+            </div>
+        </div>
+    </section>
+</main>
+
+<footer class="site-footer">
+    <div class="wrap">
+        <div class="footer-bottom">
+            <span>&copy; 2026 Messaging Platform SDK</span>
+            <span><a href="index.html">Back to the overview</a></span>
+        </div>
+    </div>
+</footer>
+</body>
+</html>

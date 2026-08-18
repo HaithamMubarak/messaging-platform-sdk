@@ -2,20 +2,21 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
+    <script src="js/prod-log.js"></script>
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>User Guide - Messaging Platform SDK</title>
-    <link rel="stylesheet" href="css/toast.css">
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/github-markdown-css/5.5.0/github-markdown.min.css">
-    <script src="https://cdn.jsdelivr.net/npm/marked@11.0.0/marked.min.js"></script>
+    <title>Documentation — Messaging Platform SDK</title>
+    <meta name="description" content="Developer user guide for the Messaging Platform SDK: getting started, channels, messaging, WebRTC, and channel storage.">
+    <link rel="icon" type="image/svg+xml" href="favicon.svg">
+    <link rel="stylesheet" href="css/design-tokens.css">
+    <script src="js/icons.js" defer></script>
+    <script src="lib/marked.min.js"></script>
     <style>
+        /* Local aliases onto the shared design tokens so the docs shell reads
+           as the same product as the landing page and the consoles. */
         :root {
-            --bg: #0f1724;
-            --panel: #0b1220;
-            --sidebar-bg: #070d16;
-            --muted: #94a3b8;
-            --accent: #4f46e5;
-            --text: #e6eef8;
-            --border: rgba(255, 255, 255, 0.06);
+            --panel: var(--surface-1);
+            --sidebar-bg: var(--surface-1);
+            --muted: var(--text-muted);
         }
 
         * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -41,11 +42,12 @@
         }
 
         .header h1 {
+            display: flex;
+            align-items: center;
+            gap: 10px;
             font-size: 20px;
-            font-weight: 600;
-            background: linear-gradient(90deg, var(--accent), #06b6d4);
-            -webkit-background-clip: text;
-            -webkit-text-fill-color: transparent;
+            font-weight: 700;
+            color: var(--text);
         }
 
         .header-actions {
@@ -76,12 +78,46 @@
             overflow: hidden;
         }
 
-        .sidebar {
+        .sidebar-wrap {
             width: 280px;
             background: var(--sidebar-bg);
             border-right: 1px solid var(--border);
-            overflow-y: auto;
             flex-shrink: 0;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+
+        .sidebar { flex: 1; overflow-y: auto; }
+
+        .doc-switcher {
+            display: flex;
+            flex-direction: column;
+            gap: 2px;
+            padding: 12px;
+            border-bottom: 1px solid var(--border);
+        }
+
+        .doc-tab {
+            padding: 8px 12px;
+            border-radius: var(--r-md);
+            color: var(--text-body);
+            text-decoration: none;
+            font-size: 14px;
+            font-weight: 500;
+        }
+        .doc-tab:hover { background: var(--surface-2); color: var(--text); }
+        .doc-tab.active {
+            background: var(--brand-subtle);
+            color: var(--text);
+            font-weight: 600;
+            box-shadow: inset 2px 0 0 var(--brand);
+        }
+
+        @media (max-width: 860px) {
+            .main-container { flex-direction: column; }
+            .sidebar-wrap { width: 100%; max-height: 40vh; }
+            .content { padding: 24px 20px; }
         }
 
         .sidebar-section {
@@ -125,25 +161,83 @@
             padding: 40px 60px;
         }
 
+        /* The global reset zeroes every margin, so the rendered markdown needs
+           its own vertical rhythm to be readable. */
         .markdown-body {
             background: transparent !important;
-            color: var(--text) !important;
-            max-width: 900px;
+            color: var(--text-body) !important;
+            max-width: 46rem;
+            font-size: var(--fs-base);
+            line-height: var(--lh-body);
         }
 
-        .markdown-body h1, .markdown-body h2, .markdown-body h3 {
+        .markdown-body h1, .markdown-body h2, .markdown-body h3,
+        .markdown-body h4, .markdown-body h5, .markdown-body h6 {
             color: var(--text) !important;
-            border-bottom-color: var(--border) !important;
+            line-height: var(--lh-tight);
+            letter-spacing: -0.015em;
+            margin: var(--sp-10) 0 var(--sp-4);
         }
+        .markdown-body h1 { font-size: var(--fs-3xl); margin-top: 0; }
+        .markdown-body h2 {
+            font-size: var(--fs-2xl);
+            padding-bottom: var(--sp-3);
+            border-bottom: 1px solid var(--border);
+        }
+        .markdown-body h3 { font-size: var(--fs-xl); }
+        .markdown-body h4 { font-size: var(--fs-lg); }
+
+        .markdown-body p,
+        .markdown-body ul,
+        .markdown-body ol,
+        .markdown-body pre,
+        .markdown-body table,
+        .markdown-body blockquote { margin: 0 0 var(--sp-4); }
+
+        .markdown-body ul, .markdown-body ol { padding-left: var(--sp-6); }
+        .markdown-body li { margin-bottom: var(--sp-2); }
+        .markdown-body li > ul, .markdown-body li > ol { margin: var(--sp-2) 0 0; }
+        .markdown-body hr { border: 0; border-top: 1px solid var(--border); margin: var(--sp-10) 0; }
+        .markdown-body strong { color: var(--text); }
+        .markdown-body img { border-radius: var(--r-md); }
 
         .markdown-body code {
-            background: rgba(255, 255, 255, 0.05) !important;
-            color: #94d3f3 !important;
+            background: rgba(255, 255, 255, 0.06) !important;
+            color: var(--accent-ink) !important;
+            font-family: var(--font-mono);
+            font-size: 0.9em;
+            padding: 0.125em 0.35em;
+            border-radius: var(--r-sm);
         }
 
         .markdown-body pre {
-            background: #1e293b !important;
-            border: 1px solid var(--border) !important;
+            background: var(--code-bg) !important;
+            border: 1px solid var(--border-strong) !important;
+            border-radius: var(--r-lg);
+            padding: var(--sp-4);
+            overflow-x: auto;
+            line-height: 1.6;
+        }
+        .markdown-body pre code {
+            background: none !important;
+            color: #dbe4f3 !important;
+            padding: 0;
+            font-size: var(--fs-sm);
+        }
+
+        .markdown-body table { border-collapse: collapse; width: 100%; font-size: var(--fs-md); }
+        .markdown-body th, .markdown-body td {
+            padding: var(--sp-2) var(--sp-3);
+            border: 1px solid var(--border);
+            text-align: left;
+        }
+        .markdown-body th { background: var(--surface-2); color: var(--text); }
+
+        .markdown-body blockquote {
+            padding: var(--sp-3) var(--sp-4);
+            border-left: 3px solid var(--brand);
+            background: var(--surface-1);
+            border-radius: 0 var(--r-md) var(--r-md) 0;
         }
 
         .markdown-body table {
@@ -189,24 +283,24 @@
 </head>
 <body>
     <div class="header">
-        <h1>📚 Messaging Platform SDK - User Guide</h1>
+        <h1>
+            <svg width="26" height="26" aria-hidden="true" style="vertical-align:-6px"><use href="#i-logo"></use></svg>
+            Messaging Platform SDK — Documentation
+        </h1>
         <div class="header-actions">
-            <a href="/" class="btn">← Back to Home</a>
-            <a href="/apps/whiteboard/index.html" class="btn">🎨 Whiteboard</a>
+            <a href="/" class="btn">Overview</a>
+            <a href="/playground.html" class="btn">Playground</a>
+            <a href="/developer/index.html" class="btn">Developer portal</a>
         </div>
     </div>
 
     <div class="main-container">
-        <nav class="sidebar" id="sidebar">
+        <nav class="sidebar-wrap">
+        <div class="doc-switcher" id="docSwitcher" aria-label="Documents"></div>
+        <div class="sidebar" id="sidebar">
             <!-- Static fallback navigation -->
-            <div class="sidebar-section">
-                <div class="sidebar-title">Quick Links</div>
-                <a href="/" class="sidebar-link">🏠 Home</a>
-                <a href="/apps/whiteboard/index.html" class="sidebar-link">🎨 Whiteboard Demo</a>
-                <a href="/apps/chat.html" class="sidebar-link">💬 Chat Demo</a>
-                <a href="/apps/webrtc.html" class="sidebar-link">📹 WebRTC Demo</a>
-            </div>
             <div id="nav-loading" class="loading" style="padding: 16px; font-size: 13px;">Loading navigation...</div>
+        </div>
         </nav>
 
         <main class="content">
@@ -237,11 +331,69 @@
     </div>
 
     <script>
-        // Fetch and render the USER-GUIDE.md
+        // Every document the docs shell can render. Cross-links between them
+        // used to 404 because only USER-GUIDE.md was ever served.
+        const DOCS = [
+            { file: 'USER-GUIDE.md',     title: 'User guide' },
+            { file: 'WEB-AGENT-GUIDE.md', title: 'Web / JavaScript' },
+            { file: 'DEVELOPER-GUIDE.md', title: 'Repo & build' },
+            { file: 'README.md',          title: 'Project overview' },
+            { file: 'CONTRIBUTING.md',    title: 'Contributing' }
+        ];
+
+        function currentDocFile() {
+            const requested = new URLSearchParams(location.search).get('doc');
+            const match = DOCS.find(d => d.file.toLowerCase() === String(requested || '').toLowerCase());
+            return match ? match.file : DOCS[0].file;
+        }
+
+        function renderDocSwitcher(activeFile) {
+            const host = document.getElementById('docSwitcher');
+            if (!host) return;
+            host.innerHTML = '';
+            DOCS.forEach(doc => {
+                const a = document.createElement('a');
+                a.className = 'doc-tab' + (doc.file === activeFile ? ' active' : '');
+                a.href = '?doc=' + encodeURIComponent(doc.file);
+                a.textContent = doc.title;
+                host.appendChild(a);
+            });
+        }
+
+        /**
+         * Markdown links point at sibling .md files. Keep them inside the docs
+         * shell instead of dumping the reader onto raw markdown, and drop links
+         * to documents this site does not serve.
+         */
+        function rewriteDocLinks() {
+            const known = DOCS.map(d => d.file.toLowerCase());
+            document.querySelectorAll('.markdown-body a[href]').forEach(a => {
+                const href = a.getAttribute('href');
+                if (!href || /^(https?:|mailto:|#)/i.test(href)) return;
+
+                const [path, hash] = href.split('#');
+                if (!/\.md$/i.test(path)) return;
+
+                const file = path.split('/').pop();
+                const index = known.indexOf(file.toLowerCase());
+                if (index === -1) {
+                    // Not published here — degrade to plain text rather than a 404.
+                    const span = document.createElement('span');
+                    span.textContent = a.textContent;
+                    span.title = file + ' is not published on this site';
+                    span.style.color = 'var(--text-muted)';
+                    a.replaceWith(span);
+                    return;
+                }
+                a.setAttribute('href', '?doc=' + encodeURIComponent(DOCS[index].file) + (hash ? '#' + hash : ''));
+            });
+        }
+
         async function loadDocumentation() {
+            const file = currentDocFile();
+            renderDocSwitcher(file);
             try {
-                // Fetch the markdown file
-                const response = await fetch('./USER-GUIDE.md');
+                const response = await fetch('./' + file);
                 if (!response.ok) {
                     throw new Error('Failed to load documentation');
                 }
@@ -251,6 +403,10 @@
                 // Parse and render markdown
                 const html = marked.parse(markdown);
                 document.getElementById('content').innerHTML = html;
+
+                document.title = (DOCS.find(d => d.file === file) || {}).title + ' — Messaging Platform SDK docs';
+
+                rewriteDocLinks();
 
                 // Generate navigation from headings
                 generateNavigation();

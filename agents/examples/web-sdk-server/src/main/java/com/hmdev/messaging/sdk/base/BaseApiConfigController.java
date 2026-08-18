@@ -10,6 +10,10 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 
+import javax.servlet.http.HttpServletRequest;
+import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
+
 /**
  * Base controller providing common API configuration endpoint.
  *
@@ -55,13 +59,38 @@ public abstract class BaseApiConfigController {
      * @param request Optional request body with ttlSeconds and singleUse parameters
      * @return API configuration response with temporary key
      */
+    /**
+     * Hard ceiling on the lifetime of a key handed to a browser.
+     *
+     * This endpoint is unauthenticated by design — the demos need a key before
+     * anyone has signed in — so the caller must not be able to choose how long
+     * the key it mints stays valid. The bundled apps ask for 60s or 300s; a
+     * caller asking for a day gets 300s.
+     */
+    protected static final int MAX_TTL_SECONDS = 300;
+    protected static final int MIN_TTL_SECONDS = 10;
+    protected static final int DEFAULT_TTL_SECONDS = 60;
+
+    /** Requests per client address per minute for this endpoint. */
+    protected static final int RATE_LIMIT_PER_MINUTE = 30;
+
+    private final Map<String, int[]> rateBuckets = new ConcurrentHashMap<>();
+
     @PostMapping(value = "/config",
                  consumes = MediaType.APPLICATION_JSON_VALUE,
                  produces = MediaType.APPLICATION_JSON_VALUE)
     public ResponseEntity<JsonResponse> getConfig(
-            @RequestBody(required = false) ApiAccessRequest request) {
+            @RequestBody(required = false) ApiAccessRequest request,
+            HttpServletRequest httpRequest) {
+        if (!allowRequest(clientKey(httpRequest))) {
+            log.warn("[{}] Rate limit hit for temporary key requests from {}",
+                    getServiceName(), clientKey(httpRequest));
+            return ResponseEntity.status(429)
+                    .body(JsonResponse.error("Too many key requests. Try again in a minute."));
+        }
+
         try {
-            Integer ttlSeconds = (request != null) ? request.getTtlSeconds() : null;
+            Integer ttlSeconds = clampTtl((request != null) ? request.getTtlSeconds() : null);
             Boolean singleUse = (request != null && request.getSingleUse() != null)
                     ? request.getSingleUse() : false;
 
@@ -87,5 +116,45 @@ public abstract class BaseApiConfigController {
     protected String getServiceName() {
         return this.getClass().getSimpleName();
     }
-}
 
+    /** Clamp a caller-supplied TTL into the range this server is willing to issue. */
+    protected static Integer clampTtl(Integer requested) {
+        if (requested == null) return DEFAULT_TTL_SECONDS;
+        return Math.max(MIN_TTL_SECONDS, Math.min(MAX_TTL_SECONDS, requested));
+    }
+
+    /**
+     * Client identity for rate limiting. Honours X-Forwarded-For because this
+     * service always runs behind the gateway.
+     */
+    private static String clientKey(HttpServletRequest request) {
+        if (request == null) return "unknown";
+        String forwarded = request.getHeader("X-Forwarded-For");
+        if (forwarded != null && !forwarded.isBlank()) {
+            int comma = forwarded.indexOf(',');
+            return (comma > 0 ? forwarded.substring(0, comma) : forwarded).trim();
+        }
+        String remote = request.getRemoteAddr();
+        return remote != null ? remote : "unknown";
+    }
+
+    /**
+     * Fixed-window counter, one window per minute. Deliberately simple: the
+     * point is to stop a script harvesting keys in a loop, not to be exact.
+     */
+    private boolean allowRequest(String key) {
+        int window = (int) (System.currentTimeMillis() / 60_000L);
+        int[] bucket = rateBuckets.compute(key, (k, current) -> {
+            if (current == null || current[0] != window) return new int[] { window, 0 };
+            return current;
+        });
+        synchronized (bucket) {
+            if (bucket[1] >= RATE_LIMIT_PER_MINUTE) return false;
+            bucket[1]++;
+        }
+        if (rateBuckets.size() > 10_000) {
+            rateBuckets.entrySet().removeIf(e -> e.getValue()[0] != window);
+        }
+        return true;
+    }
+}

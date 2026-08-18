@@ -1,263 +1,181 @@
 /**
- * Developer Portal API Client
- * Handles communication with the messaging service developer endpoints
+ * Developer Portal API client.
+ *
+ * Two deliberate changes from the previous version:
+ *
+ *  1. No mock fallbacks. A failed request throws, so the UI can render a real
+ *     error state instead of confidently displaying fabricated zeros.
+ *  2. Credentials live in sessionStorage, not localStorage — they die with the
+ *     tab instead of persisting on disk indefinitely. Moving the session token
+ *     to an HttpOnly cookie remains the right long-term fix and needs a
+ *     backend change.
  */
-const DeveloperAPI = (function() {
-    // Configuration - uses shared ApiConfig
-    // Developer endpoints are at /messaging-platform/api/v1/developer (without /messaging-service)
-    const CONFIG = {
-        baseUrl: ApiConfig.getDeveloperAuthUrl().replace('/auth', ''), // Remove /auth to get base developer URL
-        tokenKey: 'developer_token',
-        profileKey: 'developer_profile'
-    };
+const DeveloperAPI = (function () {
+    'use strict';
 
-    /**
-     * Store authentication token
-     */
-    function setToken(token) {
-        localStorage.setItem(CONFIG.tokenKey, token);
-    }
+    const TOKEN_KEY = 'developer_token';
+    const PROFILE_KEY = 'developer_profile';
 
-    /**
-     * Get stored authentication token
-     */
-    function getToken() {
-        return localStorage.getItem(CONFIG.tokenKey);
-    }
+    const store = window.sessionStorage;
 
-    /**
-     * Clear authentication data
-     */
-    function clearAuth() {
-        localStorage.removeItem(CONFIG.tokenKey);
-        localStorage.removeItem(CONFIG.profileKey);
-    }
+    function setToken(token) { store.setItem(TOKEN_KEY, token); }
+    function getToken() { return store.getItem(TOKEN_KEY); }
 
-    /**
-     * Store developer profile
-     */
-    function setProfile(profile) {
-        localStorage.setItem(CONFIG.profileKey, JSON.stringify(profile));
-    }
-
-    /**
-     * Get stored developer profile
-     */
+    function setProfile(profile) { store.setItem(PROFILE_KEY, JSON.stringify(profile)); }
     function getProfile() {
-        const profile = localStorage.getItem(CONFIG.profileKey);
-        return profile ? JSON.parse(profile) : null;
+        const raw = store.getItem(PROFILE_KEY);
+        if (!raw) return null;
+        try { return JSON.parse(raw); } catch (e) { return null; }
     }
 
-    /**
-     * Check if user is logged in
-     */
-    function isLoggedIn() {
-        return !!getToken();
+    function clearAuth() {
+        store.removeItem(TOKEN_KEY);
+        store.removeItem(PROFILE_KEY);
+        // Legacy keys written by earlier builds of the portal and test console.
+        ['developer_token', 'developer_profile', 'devConsoleApiKey', 'devConsoleApiUrl']
+            .forEach((k) => localStorage.removeItem(k));
     }
 
-    /**
-     * Make API request with authentication
-     */
-    async function apiRequest(endpoint, options = {}) {
+    function isLoggedIn() { return !!getToken(); }
+
+    function sessionExpired() {
+        clearAuth();
+        window.location.replace('index.html?expired=1');
+    }
+
+    /** Parse a response body defensively — proxies can return HTML error pages. */
+    async function readBody(response) {
+        const text = await response.text();
+        if (!text) return null;
+        try { return JSON.parse(text); } catch (e) { return { message: text.slice(0, 200) }; }
+    }
+
+    async function request(url, options) {
+        const opts = options || {};
+        const headers = Object.assign({ 'Content-Type': 'application/json' }, opts.headers);
         const token = getToken();
+        if (token) headers.Authorization = 'Bearer ' + token;
 
-        const headers = {
-            'Content-Type': 'application/json',
-            ...options.headers
-        };
-
-        if (token) {
-            headers['Authorization'] = `Bearer ${token}`;
+        let response;
+        try {
+            response = await fetch(url, Object.assign({}, opts, { headers }));
+        } catch (e) {
+            throw new Error('Network error — could not reach the messaging service.');
         }
 
-        const response = await fetch(`${CONFIG.baseUrl}${endpoint}`, {
-            ...options,
-            headers
-        });
-
-        if (response.status === 401) {
-            clearAuth();
-            window.location.href = 'index.html';
-            throw new Error('Session expired. Please log in again.');
+        if (response.status === 401 || response.status === 403) {
+            sessionExpired();
+            throw new Error('Your session expired. Please sign in again.');
         }
 
-        const data = await response.json();
-
+        const body = await readBody(response);
         if (!response.ok) {
-            throw new Error(data.error || data.message || 'Request failed');
+            throw new Error(
+                (body && (body.error || body.message || body.statusMessage)) ||
+                'Request failed (' + response.status + ')'
+            );
         }
-
-        return data;
+        return body;
     }
 
+    const devApi = (path, options) => request(ApiConfig.getDeveloperApiUrl() + path, options);
+    const authApi = (path, options) => request(ApiConfig.getDeveloperAuthUrl() + path, options);
+
     /**
-     * Login with email and password
+     * Calls against the messaging service itself (broadcast, temporary keys,
+     * message recovery, channel deletion) authenticate with the API key rather
+     * than the session token.
      */
+    async function serviceApi(path, options) {
+        const opts = options || {};
+        const key = getApiKey();
+        if (!key) {
+            throw new Error('Your API key is not available in this session. Sign in again to use this tool.');
+        }
+        return request(ApiConfig.getMessagingServiceUrl() + path, Object.assign({}, opts, {
+            headers: Object.assign({ 'X-API-Key': key }, opts.headers)
+        }));
+    }
+
+    function getApiKey() {
+        const profile = getProfile();
+        return (profile && profile.apiKey) || null;
+    }
+
+    /* ------------------------------------------------------------------ auth */
+
     async function login(email, password) {
-        const response = await fetch(`${ApiConfig.getDeveloperAuthUrl()}/login`, {
+        const response = await fetch(ApiConfig.getDeveloperAuthUrl() + '/login', {
             method: 'POST',
-            headers: {
-                'Content-Type': 'application/json'
-            },
+            headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ email, password })
         });
-
-        const data = await response.json();
-
+        const body = await readBody(response);
         if (!response.ok) {
-            throw new Error(data.error || 'Login failed');
+            throw new Error((body && (body.error || body.message)) || 'Sign-in failed. Check your email and password.');
         }
-
-        // Store token and profile
-        setToken(data.sessionToken);
-        setProfile(data);
-
-        return data;
+        setToken(body.sessionToken);
+        setProfile(body);
+        return body;
     }
 
-    /**
-     * Logout current user
-     */
     async function logout() {
         const token = getToken();
         if (token) {
             try {
-                await fetch(`${ApiConfig.getDeveloperAuthUrl()}/logout`, {
+                await fetch(ApiConfig.getDeveloperAuthUrl() + '/logout', {
                     method: 'POST',
-                    headers: {
-                        'Authorization': `Bearer ${token}`
-                    }
+                    headers: { Authorization: 'Bearer ' + token }
                 });
-            } catch (e) {
-                // Ignore logout errors
-            }
+            } catch (e) { /* the local session is cleared regardless */ }
         }
         clearAuth();
     }
 
-    /**
-     * Change password
-     */
-    async function changePassword(currentPassword, newPassword) {
-        const token = getToken();
-        const response = await fetch(`${ApiConfig.getDeveloperAuthUrl()}/change-password`, {
+    function changePassword(currentPassword, newPassword) {
+        return authApi('/change-password', {
             method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'Authorization': `Bearer ${token}`
-            },
             body: JSON.stringify({ currentPassword, newPassword })
         });
-
-        const data = await response.json();
-
-        if (!response.ok) {
-            throw new Error(data.error || 'Failed to change password');
-        }
-
-        return data;
     }
 
-    /**
-     * Get developer stats for dashboard
-     */
-    async function getStats() {
-        try {
-            return await apiRequest('/stats');
-        } catch (e) {
-            // Return mock data if endpoint not available
-            const profile = getProfile();
-            return {
-                channelCount: 0,
-                apiKeyCount: 1,
-                quotaUsedPercent: 0,
-                plan: profile?.plan || 'Free'
-            };
-        }
-    }
+    /* ------------------------------------------------------------------ data */
 
-    /**
-     * Get developer's API keys
-     */
-    async function getApiKeys() {
-        try {
-            return await apiRequest('/api-keys');
-        } catch (e) {
-            // Return profile API key if endpoint not available
-            const profile = getProfile();
-            if (profile && profile.apiKey) {
-                return [{
-                    keyId: profile.apiKey.split('.')[0],
-                    name: 'Primary Key',
-                    plan: profile.plan || 'Free',
-                    active: true,
-                    createdAt: new Date().toISOString()
-                }];
-            }
-            return [];
-        }
-    }
+    const getStats     = () => devApi('/stats');
+    const getApiKeys   = () => devApi('/api-keys');
+    const getUsage     = () => devApi('/usage');
+    const getChannels  = (page, size) => devApi('/channels?page=' + (page || 0) + '&size=' + (size || 10));
+    const getChannelMetrics = (id) => devApi('/channels/' + encodeURIComponent(id) + '/metrics');
+    const getApiKeyUsage    = (id) => devApi('/api-keys/' + encodeURIComponent(id) + '/usage');
+    const revokeApiKey      = (id) => devApi('/api-keys/' + encodeURIComponent(id) + '/revoke', { method: 'POST' });
 
-    /**
-     * Get developer's channels
-     */
-    async function getChannels(page = 0, size = 10) {
-        try {
-            return await apiRequest(`/channels?page=${page}&size=${size}`);
-        } catch (e) {
-            return { channels: [], totalPages: 0, totalCount: 0 };
-        }
-    }
+    /* ----------------------------------------------------------------- tools */
 
-    /**
-     * Get usage statistics
-     */
-    async function getUsage() {
-        try {
-            return await apiRequest('/usage');
-        } catch (e) {
-            const profile = getProfile();
-            return {
-                channelUnitsUsed: 0,
-                channelUnitsLimit: 100,
-                apiCallsToday: 0,
-                apiCallsLimit: 10000,
-                storageMB: 0,
-                storageLimitMB: 100,
-                plan: profile?.plan || 'Free',
-                planFeatures: [
-                    'Up to 100 channel units',
-                    '10,000 API calls per day',
-                    '100 MB storage',
-                    'Community support'
-                ]
-            };
-        }
-    }
+    const createTemporaryKey = (ttlSeconds, singleUse) => serviceApi('/channels/api-access', {
+        method: 'POST',
+        body: JSON.stringify({ ttlSeconds, singleUse })
+    });
 
-    /**
-     * Revoke an API key
-     */
-    async function revokeApiKey(keyId) {
-        return await apiRequest(`/api-keys/${keyId}/revoke`, {
-            method: 'POST'
-        });
-    }
+    const broadcast = (message, channelId) => serviceApi('/broadcast', {
+        method: 'POST',
+        body: JSON.stringify({ message, channelId: channelId || null, encrypted: false, timestamp: Date.now() })
+    });
 
-    // Public API
+    const recoverMessages = (channelId, fromOffset, maxMessages) => serviceApi('/recover-messages', {
+        method: 'POST',
+        body: JSON.stringify({ channelId, fromOffset, maxMessages })
+    });
+
+    const getChannelAgents = (channelId) =>
+        serviceApi('/channels/' + encodeURIComponent(channelId) + '/agents');
+
+    const deleteChannel = (channelId) =>
+        serviceApi('/channels/' + encodeURIComponent(channelId), { method: 'DELETE' });
+
     return {
-        login,
-        logout,
-        isLoggedIn,
-        getToken,
-        getProfile,
-        setProfile,
-        changePassword,
-        getStats,
-        getApiKeys,
-        getChannels,
-        getUsage,
-        revokeApiKey,
-        apiRequest
+        login, logout, isLoggedIn, changePassword,
+        getToken, getProfile, setProfile, getApiKey, clearAuth,
+        getStats, getApiKeys, getUsage, getChannels, getChannelMetrics, getApiKeyUsage, revokeApiKey,
+        createTemporaryKey, broadcast, recoverMessages, getChannelAgents, deleteChannel
     };
 })();

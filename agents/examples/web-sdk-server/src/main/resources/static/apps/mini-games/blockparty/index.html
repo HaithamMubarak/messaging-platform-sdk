@@ -1,0 +1,265 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <script src="../../../js/prod-log.js"></script>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>BlockParty — Co-op Voxel Builder</title>
+    <meta name="description" content="Build together in a shared 3D voxel world. Real-time multiplayer building on the Messaging Platform SDK.">
+    <link rel="icon" type="image/svg+xml" href="../../../favicon.svg">
+    <link rel="stylesheet" href="../../../css/toast.css">
+    <link rel="stylesheet" href="../../../css/share-modal.css">
+    <link rel="stylesheet" href="../../../css/connection-modal.css">
+    <link rel="stylesheet" href="../../../css/chat-panel.css">
+    <link rel="stylesheet" href="blockparty.css">
+</head>
+<body>
+<!-- Connection Modal is injected dynamically by connection-modal.js -->
+
+<!-- Game Container -->
+<div id="gameContainer" class="hidden">
+    <!-- 3D canvas mounts here -->
+    <div id="sceneRoot"></div>
+
+    <!-- Top Bar -->
+    <div class="top-bar">
+        <div class="brand">
+            <span class="brand-mark">🧱</span>
+            <span class="brand-name">BlockParty</span>
+            <span id="roomBadge" class="room-badge"></span>
+        </div>
+        <div class="top-actions">
+            <span id="blockCount" class="pill" title="Blocks in the world">0 blocks</span>
+            <span id="lockBadge" class="pill lock-badge hidden" title="The host locked the world">🔒 Locked</span>
+            <span id="connectionIndicator" class="indicator disconnected" title="Connection">●</span>
+            <button id="soundBtn" class="btn btn-icon active" title="Sound">🔊</button>
+            <button id="fpsBtn" class="btn btn-icon" title="Walk around in first person (G)">🚶</button>
+            <button id="xrayBtn" class="btn btn-icon" title="Show who built what (O)">🎨</button>
+            <button id="worldBtn" class="btn btn-icon" title="Saved worlds, host controls, leaderboard">🗂</button>
+            <button id="chatToggle" class="btn btn-chat" title="Chat (and guesses)">💬<span id="chatBadge" class="chat-badge hidden">0</span></button>
+            <button id="playBtn" class="btn btn-play" title="Start a match">🎮 Play</button>
+            <button id="shareBtn" class="btn btn-share" style="display:none;">🔗 Share</button>
+            <button id="leaveBtn" class="btn btn-ghost">Leave</button>
+        </div>
+    </div>
+
+    <!-- Players panel -->
+    <div class="players-panel">
+        <div class="players-title">👥 Players</div>
+        <div id="playerList" class="player-list"></div>
+    </div>
+
+    <!-- Tool dock -->
+    <div class="tool-dock">
+        <div class="tool-group">
+            <button id="toolBuild" class="tool-btn active" data-tool="build" title="Build (B)">🧱<span>Build</span></button>
+            <button id="toolErase" class="tool-btn" data-tool="erase" title="Erase (E)">🧨<span>Erase</span></button>
+            <button id="toolFill" class="tool-btn" title="Box fill — tap two opposite corners (F)">⬛<span>Fill</span></button>
+            <button id="toolMirror" class="tool-btn" title="Mirror every edit across the middle (M)">🪞<span>Mirror</span></button>
+            <button id="toolBricks" class="tool-btn active" title="Build with brick pieces (K)">🧩<span>Bricks</span></button>
+            <button id="rotateBtn" class="tool-btn" title="Rotate the brick (R)">🔄<span>Rotate</span></button>
+        </div>
+        <div id="bricks" class="bricks" aria-label="Brick piece"></div>
+        <div id="shapes" class="shapes hidden" aria-label="Block shape"></div>
+        <div id="palette" class="palette" aria-label="Color palette"></div>
+        <div class="tool-group tool-extra">
+            <button id="undoBtn" class="tool-btn small" title="Undo (Z)">↶<span>Undo</span></button>
+            <button id="redoBtn" class="tool-btn small" title="Redo (Shift+Z)">↷<span>Redo</span></button>
+            <button id="resetViewBtn" class="tool-btn small" title="Reset camera (V)">🎥<span>View</span></button>
+        </div>
+    </div>
+
+    <!-- Help hint -->
+    <div id="helpHint" class="help-hint">
+        <span class="hint-text"><strong>Drag</strong> to orbit · <strong>Scroll / pinch</strong> to zoom · <strong>Tap/click</strong> to build · <strong>Right-click</strong> to remove · <strong>R</strong> rotates the brick · <strong>F</strong> box fill · <strong>M</strong> mirror · <strong>V</strong> resets the view</span>
+        <button id="dismissHelp" class="dismiss" aria-label="Dismiss">✕</button>
+    </div>
+
+    <!-- First-person overlay -->
+    <div id="fpsHud" class="fps-hud hidden">
+        <div class="fps-cross"></div>
+        <div class="fps-info">
+            <span id="fpsCoords">x 0  y 0  z 0</span>
+            <span class="fps-keys"><strong>WASD</strong> walk · <strong>Shift</strong> run · <strong>Space</strong> jump ·
+                <strong>click</strong> build · <strong>right-click</strong> break · <strong>Esc</strong> leave</span>
+        </div>
+    </div>
+
+    <!-- Ceremony: counted starts and headline moments -->
+    <div id="ceremony" class="ceremony hidden"></div>
+    <div id="banner" class="banner hidden"></div>
+
+    <!-- Following pill + fill hint -->
+    <div id="followPill" class="follow-pill hidden" title="Stop following"></div>
+    <div id="fillHint" class="fill-hint"></div>
+
+    <!-- Saved worlds, host controls, room leaderboard -->
+    <div id="worldModal" class="bp-modal hidden">
+        <div class="bp-modal-card">
+            <div class="bp-modal-head">
+                <h2>🗂 Worlds &amp; room</h2>
+                <button id="worldClose" class="bp-close" aria-label="Close">✕</button>
+            </div>
+
+            <div class="world-section">
+                <div class="world-title">Load a map</div>
+                <div id="mapList" class="map-list"></div>
+            </div>
+
+            <div class="world-section">
+                <div class="world-title">Turn a picture into blocks</div>
+                <div class="import-row">
+                    <input id="imgFile" type="file" accept="image/*">
+                    <select id="imgStyle" title="How the picture is built">
+                        <option value="wall">Standing wall</option>
+                        <option value="floor">Flat on the ground</option>
+                        <option value="relief">3D relief (bright = tall)</option>
+                    </select>
+                    <select id="imgPalette" title="Colours to build with">
+                        <option value="true" selected>True colour</option>
+                        <option value="palette">12-colour palette</option>
+                    </select>
+                    <select id="imgSize" title="Width in blocks">
+                        <option value="24">24 wide</option>
+                        <option value="32" selected>32 wide</option>
+                        <option value="48">48 wide</option>
+                        <option value="64">64 wide</option>
+                    </select>
+                </div>
+                <div class="import-row">
+                    <label class="import-check"><input id="imgDither" type="checkbox" checked> Dither (smoother shading)</label>
+                    <button id="imgPlace" class="btn btn-primary" disabled>Build it</button>
+                </div>
+                <div id="imgNote" class="world-note">Pick an image — it lands in front of the camera.</div>
+            </div>
+
+            <div class="world-section">
+                <div class="world-title">Save this world</div>
+                <div class="save-row">
+                    <input id="slotName" type="text" maxlength="40" placeholder="Name this build…" autocomplete="off">
+                    <button id="saveSlotBtn" class="btn btn-primary">Save</button>
+                </div>
+            </div>
+
+            <div class="world-section">
+                <div class="world-title">Saved worlds</div>
+                <div id="slotList" class="slot-list"></div>
+            </div>
+
+            <div class="world-section">
+                <div class="world-title">Host controls</div>
+                <div class="host-row">
+                    <button id="lockBtn" class="btn btn-ghost">🔒 Lock world</button>
+                    <button id="clearWorldBtn" class="btn btn-ghost">🧹 Clear world</button>
+                </div>
+                <div id="worldHostNote" class="world-note hidden">Only the room host can load, lock or clear.</div>
+            </div>
+
+            <div class="world-section">
+                <div class="world-title">Room leaderboard</div>
+                <div id="leaderboard" class="leaderboard"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Match HUD (only visible during a match) -->
+    <div id="matchHud" class="match-hud hidden">
+        <div class="mh-top">
+            <span id="mhMode" class="mh-mode"></span>
+            <span id="mhRound" class="mh-round"></span>
+            <span id="mhPhase" class="mh-phase"></span>
+        </div>
+        <div class="mh-timer"><div id="mhTimerFill" class="mh-timer-fill"></div></div>
+        <div class="mh-bottom">
+            <span id="mhAccuracy" class="mh-acc hidden"></span>
+            <span id="mhPeek" class="mh-peek hidden"></span>
+            <button id="mhLockBtn" class="mh-lock hidden" title="Submit your build now and claim the speed bonus (L)">✅ Lock in</button>
+            <button id="mhEndBtn" class="mh-end hidden" title="End the match and go back to the sandbox">End match</button>
+        </div>
+    </div>
+
+    <!-- Mode picker -->
+    <div id="modeModal" class="bp-modal hidden">
+        <div class="bp-modal-card">
+            <div class="bp-modal-head">
+                <h2>🎮 Start a match</h2>
+                <button id="modeClose" class="bp-close" aria-label="Close">✕</button>
+            </div>
+            <div id="modeList" class="mode-list"></div>
+            <div class="mode-opts">
+                <label>Rounds
+                    <select id="modeRounds">
+                        <option value="1">1</option>
+                        <option value="3" selected>3</option>
+                        <option value="5">5</option>
+                    </select>
+                </label>
+                <label>Round time
+                    <select id="modeTime">
+                        <option value="60">1 min</option>
+                        <option value="90">90 sec</option>
+                        <option value="120">2 min</option>
+                        <option value="180" selected>3 min</option>
+                        <option value="240">4 min</option>
+                    </select>
+                </label>
+            </div>
+            <div class="bp-modal-foot">
+                <span id="modeHint" class="mode-hint"></span>
+                <button id="modeStart" class="btn btn-primary">Start match</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Round / match results -->
+    <div id="resultsOverlay" class="results-overlay hidden">
+        <div class="results-card">
+            <h2 id="rsTitle"></h2>
+            <p id="rsSubtitle" class="rs-sub"></p>
+            <div id="rsBody"></div>
+            <div class="rs-actions">
+                <button id="rsAgain" class="btn btn-primary hidden">Play again</button>
+                <button id="rsSandbox" class="btn btn-ghost hidden">Back to sandbox</button>
+                <button id="rsHide" class="btn btn-ghost">Hide</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Reconnect overlay -->
+    <div id="reconnectOverlay" class="reconnect-overlay hidden">
+        <div class="reconnect-card">
+            <div class="spinner"></div>
+            <p id="reconnectMsg">Reconnecting…</p>
+        </div>
+    </div>
+</div>
+
+<!-- Toast Notifications -->
+<div id="toastContainer" class="toast-container"></div>
+
+<!-- SDK scripts (web-agent.* are copied into generated-web-agent-js at build time) -->
+<script src="../../../js/config-loader.js"></script>
+<script src="../../../lib/qrcode.min.js"></script>
+<script src="../../../generated-web-agent-js/js/web-agent.libs.js"></script>
+<script src="../../../generated-web-agent-js/js/web-agent.js"></script>
+<script src="../../../generated-web-agent-js/js/web-agent.webrtc.js"></script>
+
+<script src="../../../js/share-modal.js"></script>
+<script src="../../../js/common-utils.js"></script>
+<script src="../../../js/connection-modal.js"></script>
+<script src="../../../js/chat-panel.js"></script>
+<script src="../../../js/UserConnectionBase.js"></script>
+
+<!-- three.js (self-hosted, r128) + game -->
+<script src="../shared/libs/three.min.js"></script>
+<script src="../shared/game-kit.js"></script>
+<script src="bricks.js"></script>
+<script src="maps.js"></script>
+<script src="sfx.js"></script>
+<script src="fx.js"></script>
+<script src="fps.js"></script>
+<script src="models.js"></script>
+<script src="modes.js"></script>
+<script src="blockparty.js"></script>
+</body>
+</html>
