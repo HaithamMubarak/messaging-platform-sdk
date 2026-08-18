@@ -2616,6 +2616,18 @@
                 this.travelTo(a.lat, a.lon, Number(document.getElementById('geoScale').value) || 2);
             });
 
+            on('geoTraceBtn', 'click', () => this.traceWorld());
+
+            const auto = document.getElementById('geoAutoTrace');
+            if (auto) {
+                this._autoTrace = localStorage.getItem('bp_autotrace') !== '0';
+                auto.checked = this._autoTrace;
+                auto.addEventListener('change', () => {
+                    this._autoTrace = auto.checked;
+                    localStorage.setItem('bp_autotrace', auto.checked ? '1' : '0');
+                });
+            }
+
             on('geoGoBtn', 'click', () => {
                 const r = this.geo.goTo(this.username);
                 if (!r) this.showToast('Share your location first', 'warning');
@@ -2913,12 +2925,73 @@
                 this.geo.refresh();
                 this._syncGeoUI();
                 if (this.minimap) this.minimap.draw();
+                this._maybeAutoTrace();
             });
             this.voxels.focus(0, 2, 0, 60, Math.PI * 0.3);
             this._syncGeoUI();
             this.showToast(`Moved to ${BlockPartyGeo.format(anchor.lat, anchor.lon)} · `
                 + `${anchor.mpc}m per block · ${this.geo.span()}m across`, 'success', 3600);
             return anchor;
+        }
+
+        /**
+         * Build the real place: read the map tiles for this region and lay it
+         * out in blocks — sea, parks, roads and buildings where they actually
+         * are. Host-only, because it replaces the world.
+         */
+        /**
+         * Arriving somewhere nobody has built yet, draw the place itself. This
+         * is what makes zooming feel like a map rather than like eight
+         * unrelated empty rooms — every scale of every region already looks
+         * like the ground it stands on.
+         */
+        _maybeAutoTrace() {
+            if (!this.isHost() || this.voxels.count()) return;
+            if (!this._autoTrace || !this.geo || !this.geo.anchor) return;
+            if (this.modes && this.modes.isMatchActive()) return;
+            this.traceWorld({ quiet: true });
+        }
+
+        async traceWorld(opts) {
+            if (!this.isHost()) { this.showToast('Only the host can trace the map', 'warning'); return; }
+            if (!this.geo || !this.geo.anchor) { this.showToast('Pin the world to a place first', 'warning'); return; }
+            if (this.modes && this.modes.isMatchActive()) { this.showToast('Finish the match first', 'warning'); return; }
+            opts = opts || {};
+            if (this.voxels.count() && !opts.quiet && !window.confirm(
+                'Trace this place from the map? The current world will be replaced.')) return;
+
+            const note = document.getElementById('geoNote');
+            if (note) note.textContent = 'Reading the map…';
+            if (!opts.quiet) this.showToast('Reading the map for this region…', 'info', 2600);
+            try {
+                const t0 = Date.now();
+                const sel = document.getElementById('geoTraceStyle');
+                const built = await BlockPartyTerrain.trace(this, { style: (sel && sel.value) || 'auto' });
+                this.voxels.clearAll();
+                this.undoStack.length = 0;
+                this.redoStack.length = 0;
+                this.restoreWorldFrom({
+                    blocks: built.blocks, pieces: [],
+                    ground: this.voxels.groundTint, geo: this.geo.anchor
+                });
+                this._updateBlockCount();
+                this._refreshPlayers();
+                this._sendWorldSnapshot();
+                this._scheduleSave();
+                if (this.minimap) this.minimap.draw();
+                const kinds = Object.entries(built.counts)
+                    .filter(([k]) => k !== 'ground')
+                    .sort((a, b) => b[1] - a[1]).slice(0, 3).map(([k]) => k).join(', ');
+                if (note) note.textContent = built.style === 'outline'
+                    ? `Outlined from map tiles at zoom ${built.zoom} — coastlines and borders only.`
+                    : `Traced from map tiles at zoom ${built.zoom} — mostly ${kinds}.`;
+                this.showToast(opts.quiet
+                    ? `Drew this place from the map — ${this.voxels.count()} blocks`
+                    : `Traced ${this.voxels.count()} blocks from the map in ${Date.now() - t0}ms`, 'success', 3600);
+            } catch (e) {
+                if (note) note.textContent = e.message;
+                if (!opts.quiet) this.showToast(e.message, 'error', 4200);
+            }
         }
 
         clearWorld() {

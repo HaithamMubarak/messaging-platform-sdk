@@ -44,6 +44,10 @@
             this.baseKey = null;
             this.tiles = new Map();
             this.showMap = true;
+            // How far out the map is pulled, in doublings of the world's own
+            // width: 0 shows this world exactly, 4 shows sixteen worlds of
+            // ground around it, -2 shows a quarter of it close up.
+            this.zoom = 0;
 
             this.canvas.addEventListener('click', (e) => this._click(e));
             const travel = document.getElementById('minimapTravel');
@@ -56,6 +60,17 @@
                     travel.textContent = this.armed ? '🌍 pick a spot' : '🌍 travel';
                 });
             }
+            const zoomBtn = (id, by) => {
+                const el = document.getElementById(id);
+                if (el) el.addEventListener('click', () => this.setZoom(this.zoom + by));
+            };
+            zoomBtn('minimapZoomIn', -1);
+            zoomBtn('minimapZoomOut', 1);
+            this.canvas.addEventListener('wheel', (e) => {
+                e.preventDefault();
+                this.setZoom(this.zoom + (e.deltaY > 0 ? 1 : -1));
+            }, { passive: false });
+
             const toggle = document.getElementById('mapBtn');
             if (toggle) toggle.addEventListener('click', () => this.toggle());
         }
@@ -78,7 +93,7 @@
 
             const half = this.game.voxels.half;
             const a = geo.anchor;
-            const key = `${a.lat},${a.lon},${a.mpc},${half}`;
+            const key = `${a.lat},${a.lon},${a.mpc},${half},${this.zoom}`;
             if (key === this.baseKey) return;         // already drawn for this place
             this.baseKey = key;
             this.baseReady = false;
@@ -89,13 +104,16 @@
             bctx.clearRect(0, 0, SIZE, SIZE);
 
             // Pick the zoom whose pixels are closest to the map's own scale.
-            const spanM = (half * 2 + 1) * a.mpc;
+            const spanM = this.viewCells * a.mpc;
             const wantMpp = spanM / SIZE;
             let z = Math.round(Math.log2(156543.033928 * Math.cos(a.lat * Math.PI / 180) / wantMpp));
             z = Math.max(1, Math.min(19, z));
 
-            const nw = geo.toLatLon(-half, -half);
-            const se = geo.toLatLon(half, half);
+            // The corners of what is on screen, which past zoom 0 reaches well
+            // outside this world and into the ground around it.
+            const c = this._centre(), reach = this.viewCells / 2;
+            const nw = geo.toLatLon(c.x - reach, c.z - reach);
+            const se = geo.toLatLon(c.x + reach, c.z + reach);
             const x0 = Math.floor(M().lonToTileX(nw.lon, z)), x1 = Math.floor(M().lonToTileX(se.lon, z));
             const y0 = Math.floor(M().latToTileY(nw.lat, z)), y1 = Math.floor(M().latToTileY(se.lat, z));
             const count = (x1 - x0 + 1) * (y1 - y0 + 1);
@@ -147,17 +165,47 @@
             }
         }
 
+        /** How many cells of ground the map is showing across. */
+        get viewCells() { return (this.game.voxels.half * 2 + 1) * Math.pow(2, this.zoom); }
+
         /** Screen pixels per world cell. */
-        get scale() { return SIZE / (this.game.voxels.half * 2 + 1); }
+        get scale() { return SIZE / this.viewCells; }
+
+        /**
+         * What the map is centred on. Pulled out, it is the world itself;
+         * pushed in past the world's edges, it follows the camera, because at
+         * that magnification the centre of the world is rarely where you are.
+         */
+        _centre() {
+            if (this.zoom >= 0) return { x: 0, z: 0 };
+            const t = this.game.voxels.target;
+            return { x: t.x, z: t.z };
+        }
 
         _toCanvas(x, z) {
-            const half = this.game.voxels.half;
-            return { cx: (x + half) * this.scale, cy: (z + half) * this.scale };
+            const c = this._centre(), s = this.scale;
+            return { cx: SIZE / 2 + (x - c.x) * s, cy: SIZE / 2 + (z - c.z) * s };
         }
 
         _toWorld(cx, cy) {
-            const half = this.game.voxels.half;
-            return { x: Math.round(cx / this.scale - half), z: Math.round(cy / this.scale - half) };
+            const c = this._centre(), s = this.scale;
+            return { x: Math.round(c.x + (cx - SIZE / 2) / s), z: Math.round(c.z + (cy - SIZE / 2) / s) };
+        }
+
+        /** Pull the map out or push it in, within what the projection can hold. */
+        setZoom(z) {
+            const next = Math.max(-3, Math.min(6, z));
+            if (next === this.zoom) return;
+            this.zoom = next;
+            this.draw();
+        }
+
+        /** How much ground the map covers, in words. */
+        _spanLabel() {
+            const a = this.game.geo && this.game.geo.anchor;
+            if (!a) return `${Math.round(this.viewCells)} blocks`;
+            const m = this.viewCells * a.mpc;
+            return m >= 1000 ? `${(m / 1000).toFixed(m >= 10000 ? 0 : 1)} km` : `${Math.round(m)} m`;
         }
 
         /** Click the map, go to that spot. */
@@ -175,6 +223,11 @@
                 g.travelTo(ll.lat, ll.lon, g.geo.anchor.mpc);
                 return;
             }
+            const half = g.voxels.half;
+            if (Math.abs(p.x) > half || Math.abs(p.z) > half) {
+                g.showToast('That is outside this world — use 🌍 travel to move the room there', 'info', 3200);
+                return;
+            }
             if (g.fps && g.fps.active) g.fps.teleport(p.x, p.z);
             else g.voxels.focus(p.x, 2, p.z, 40, Math.PI * 0.3);
             const where = g.geo && g.geo.anchor
@@ -187,6 +240,9 @@
             const g = this.game, v = g.voxels, ctx = this.ctx, s = this.scale;
 
             this._ensureBasemap();
+
+            const label = document.getElementById('minimapZoomLabel');
+            if (label) label.textContent = (this.zoom === 0 ? 'this world · ' : '') + this._spanLabel();
 
             ctx.clearRect(0, 0, SIZE, SIZE);
             ctx.fillStyle = v.groundTint || '#2f3853';
@@ -268,6 +324,30 @@
                 ctx.fill();
             }
 
+            // Pulled out, this world is a rectangle of ground among others —
+            // so say which rectangle it is.
+            if (this.zoom > 0) {
+                const tl = this._toCanvas(-v.half, -v.half);
+                const br = this._toCanvas(v.half + 1, v.half + 1);
+                // Far enough out the world is a speck, so it never shrinks
+                // below something you can actually see and aim at.
+                let w = Math.max(12, br.cx - tl.cx), h = Math.max(12, br.cy - tl.cy);
+                let x = tl.cx - (w - (br.cx - tl.cx)) / 2, y = tl.cy - (h - (br.cy - tl.cy)) / 2;
+                ctx.setLineDash([4, 3]);
+                ctx.strokeStyle = 'rgba(8,12,24,0.75)';   // a dark halo, so it
+                ctx.lineWidth = 3.5;                       // reads over pale map
+                ctx.strokeRect(x, y, w, h);
+                ctx.strokeStyle = '#9ec5ff';
+                ctx.lineWidth = 1.5;
+                ctx.strokeRect(x, y, w, h);
+                ctx.setLineDash([]);
+                if (this.zoom >= 3) {
+                    ctx.fillStyle = '#9ec5ff';
+                    ctx.font = '600 9px system-ui, sans-serif';
+                    ctx.fillText('this world', x, y - 3);
+                }
+            }
+
             // Border, north, and a scale bar in real metres when it means something.
             ctx.strokeStyle = 'rgba(255,255,255,0.25)';
             ctx.lineWidth = 1;
@@ -277,7 +357,7 @@
             ctx.fillText('N', SIZE / 2 - 3, 11);
 
             const anchor = g.geo && g.geo.anchor;
-            const barCells = Math.round((v.half * 2 + 1) / 4);
+            const barCells = Math.round(this.viewCells / 4);
             const barPx = barCells * s;
             ctx.strokeStyle = 'rgba(255,255,255,0.7)';
             ctx.beginPath();
@@ -285,7 +365,26 @@
             ctx.moveTo(8, SIZE - 13); ctx.lineTo(8, SIZE - 7);
             ctx.moveTo(8 + barPx, SIZE - 13); ctx.lineTo(8 + barPx, SIZE - 7);
             ctx.stroke();
-            ctx.fillText(anchor ? `${Math.round(barCells * anchor.mpc)} m` : `${barCells} blocks`, 8, SIZE - 15);
+            const barM = barCells * (anchor ? anchor.mpc : 0);
+            ctx.fillText(!anchor ? `${barCells} blocks`
+                : barM >= 1000 ? `${(barM / 1000).toFixed(barM >= 10000 ? 0 : 1)} km`
+                : `${Math.round(barM)} m`, 8, SIZE - 15);
+
+            // A map of nowhere is just a grid — say what would fix that.
+            if (this.showMap && !anchor) {
+                ctx.fillStyle = 'rgba(255,255,255,0.72)';
+                ctx.font = '600 10px system-ui, sans-serif';
+                const msg = 'Pin the world to a place for the real map';
+                const w = ctx.measureText(msg).width;
+                ctx.fillStyle = 'rgba(11,16,32,0.72)';
+                ctx.fillRect(SIZE / 2 - w / 2 - 6, SIZE / 2 - 10, w + 12, 20);
+                ctx.fillStyle = 'rgba(255,255,255,0.85)';
+                ctx.fillText(msg, SIZE / 2 - w / 2, SIZE / 2 + 4);
+            } else if (this.showMap && anchor && !this.baseReady) {
+                ctx.fillStyle = 'rgba(255,255,255,0.6)';
+                ctx.font = '500 9px system-ui, sans-serif';
+                ctx.fillText('loading map…', 8, 12);
+            }
 
             // Tiles have to be credited wherever they are shown.
             if (mapped) {

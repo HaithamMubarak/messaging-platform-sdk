@@ -94,6 +94,11 @@
             <span class="minimap-hint">click to move · <button id="minimapTravel" class="minimap-travel">🌍 travel</button></span>
         </div>
         <canvas id="minimap" width="232" height="232"></canvas>
+        <div class="minimap-foot">
+            <button id="minimapZoomOut" class="minimap-zoom" title="Show more ground (or scroll on the map)">−</button>
+            <span id="minimapZoomLabel" class="minimap-span">this world</span>
+            <button id="minimapZoomIn" class="minimap-zoom" title="Show less ground, closer up">+</button>
+        </div>
     </div>
 
     <!-- Ceremony: counted starts and headline moments -->
@@ -132,6 +137,17 @@
                     <input id="geoCoords" type="text" placeholder="51.5074, -0.1278" autocomplete="off">
                     <button id="geoTravelBtn" class="btn btn-primary">✈️ Travel here</button>
                     <button id="geoHereBtn" class="btn btn-ghost">Take me home</button>
+                </div>
+                <div class="import-row">
+                    <button id="geoTraceBtn" class="btn btn-primary">🗺 Trace this place into blocks</button>
+                    <select id="geoTraceStyle" title="How much of the place to draw">
+                        <option value="auto" selected>Automatic</option>
+                        <option value="outline">Outlines only — coasts &amp; borders</option>
+                        <option value="full">Everything — roads &amp; buildings</option>
+                    </select>
+                    <label class="world-toggle" title="Draw each new place from the map as you travel or change scale">
+                        <input type="checkbox" id="geoAutoTrace" checked> as I travel
+                    </label>
                 </div>
                 <div class="import-row">
                     <button id="geoShareBtn" class="btn btn-ghost">📍 Share my location</button>
@@ -297,6 +313,7 @@
 <script src="maps.js"></script>
 <script src="geo.js"></script>
 <script src="minimap.js"></script>
+<script src="terrain.js"></script>
 <script src="sfx.js"></script>
 <script src="fx.js"></script>
 <script src="fps.js"></script>
