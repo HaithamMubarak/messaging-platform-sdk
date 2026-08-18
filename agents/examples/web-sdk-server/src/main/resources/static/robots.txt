@@ -10,4 +10,4 @@ Disallow: /error/
 Disallow: /apps/test-api-key/
 Disallow: /stress-test.html
 
-Sitemap: https://hmdevonline.com/sitemap.xml
+Sitemap: https://hmdevonline.com/messaging-platform/sdk/sitemap.xml

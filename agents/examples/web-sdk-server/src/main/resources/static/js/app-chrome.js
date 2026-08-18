@@ -14,7 +14,11 @@
     'use strict';
 
     function relocate() {
-        const header = document.querySelector('.app-header .header-right, .game-header .header-right');
+        // Collaboration apps expose a dedicated action row; the mini-games put
+        // everything straight into a single top bar. Both are valid anchors.
+        const header = document.querySelector(
+            '.app-header .header-right, .game-header .header-right, .top-bar, .game-header, .app-header'
+        );
         if (!header) return false;
 
         const status = document.querySelector('.connection-status');
@@ -54,7 +58,10 @@
         badge.style.borderRadius = '999px';
         badge.style.opacity = '1';
         badge.classList.add('in-header');
-        header.insertBefore(badge, header.firstChild);
+        // A dedicated action row reads better with the badge first; a full-width
+        // top bar reads better with it last, next to the other controls.
+        if (header.classList.contains('header-right')) header.insertBefore(badge, header.firstChild);
+        else header.appendChild(badge);
     }
 
     /**

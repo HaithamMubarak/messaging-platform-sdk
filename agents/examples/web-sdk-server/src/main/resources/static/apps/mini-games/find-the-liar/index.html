@@ -11,6 +11,7 @@
     <link rel="stylesheet" href="../../../css/connection-modal.css">
     <link rel="stylesheet" href="../../../css/GameControlPanel.css">
     <link rel="stylesheet" href="find-the-liar.css">
+    <link rel="stylesheet" href="../../../css/app-chrome.css">
 </head>
 <body>
     <!-- Share Button -->
@@ -21,9 +22,9 @@
     <header class="header">
         <h1>🤥 Find the Liar</h1>
         <div class="header-info">
-            <span id="roundDisplay">Round -/-</span> |
-            Phase: <span id="currentPhase">WAITING</span> |
-            <span id="timerDisplay"></span>
+            <span id="roundDisplay" class="chip chip-round">Round -/-</span>
+            <span id="currentPhase" class="chip chip-phase">Gathering suspects</span>
+            <span id="timerDisplay" class="chip chip-timer"></span>
         </div>
     </header>
 
@@ -40,7 +41,7 @@
 
     <!-- Players Sidebar -->
     <aside id="playersSidebar" class="players-sidebar">
-        <h3>👥 Players</h3>
+        <h3>👥 Players <span id="playerCountBadge" class="count-badge">0</span></h3>
         <div id="playersList" class="players-list"></div>
     </aside>
 
@@ -205,5 +206,6 @@
     <script src="items.js"></script>
     <script src="../shared/game-kit.js"></script>
     <script src="find-the-liar.js"></script>
+<script src="../../../js/app-chrome.js"></script>
 </body>
 </html>

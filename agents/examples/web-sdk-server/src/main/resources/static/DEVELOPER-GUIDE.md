@@ -356,10 +356,12 @@ ls libs/
 ### Connection Refused
 
 ```bash
-# Check messaging service is running
-docker ps
-curl http://localhost:8082/messaging-platform/api/v1/messaging-service/health
+# Confirm the platform is reachable from this machine
+curl -I https://hmdevonline.com/messaging-platform/api/v1/messaging-service/health
 ```
+
+If that succeeds, the problem is local: check the `api` URL and API key passed to
+`connect()`, and that the channel name and password match on every agent.
 
 ### Tests Failing
 

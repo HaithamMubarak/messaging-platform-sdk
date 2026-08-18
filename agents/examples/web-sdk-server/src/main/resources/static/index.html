@@ -9,20 +9,20 @@
     <meta name="author" content="hmdev">
     <meta name="theme-color" content="#0b1120">
     <meta name="robots" content="index, follow">
-    <link rel="canonical" href="https://hmdevonline.com/">
+    <link rel="canonical" href="https://hmdevonline.com/messaging-platform/sdk/">
 
     <meta property="og:type" content="website">
     <meta property="og:site_name" content="Messaging Platform SDK">
     <meta property="og:title" content="Messaging Platform SDK — Real-time channels for every runtime">
     <meta property="og:description" content="Pub/sub messaging, WebRTC signaling, presence and per-channel storage. Clients for JavaScript, Java, Python and C++.">
-    <meta property="og:url" content="https://hmdevonline.com/">
-    <meta property="og:image" content="https://hmdevonline.com/images/og-image.png">
+    <meta property="og:url" content="https://hmdevonline.com/messaging-platform/sdk/">
+    <meta property="og:image" content="https://hmdevonline.com/messaging-platform/sdk/images/og-image.png">
     <meta property="og:image:width" content="1200">
     <meta property="og:image:height" content="630">
     <meta name="twitter:card" content="summary_large_image">
     <meta name="twitter:title" content="Messaging Platform SDK — Real-time channels for every runtime">
     <meta name="twitter:description" content="Pub/sub messaging, WebRTC signaling, presence and per-channel storage. Clients for JavaScript, Java, Python and C++.">
-    <meta name="twitter:image" content="https://hmdevonline.com/images/og-image.png">
+    <meta name="twitter:image" content="https://hmdevonline.com/messaging-platform/sdk/images/og-image.png">
 
     <link rel="icon" type="image/svg+xml" href="favicon.svg">
     <link rel="apple-touch-icon" href="images/apple-touch-icon.png">
@@ -368,6 +368,7 @@ agent.<span class="tok-prop">onMessage</span> = (msg) <span class="tok-key">=&gt
                     <span class="tile-icon"><svg class="icon" aria-hidden="true"><use href="#i-pen"></use></svg></span>
                     <h3>Collaborative whiteboard</h3>
                     <p>Draw together in real time with pan, zoom, undo and shareable room links.</p>
+                    <div class="demo-card__proves"><span class="badge badge--brand">Channels</span><span class="badge">Presence</span></div>
                     <div class="demo-card__foot">
                         <a class="demo-card__link" href="apps/whiteboard/index.html">
                             Open demo <svg class="icon icon--sm" aria-hidden="true"><use href="#i-arrow-right"></use></svg>
@@ -379,6 +380,7 @@ agent.<span class="tok-prop">onMessage</span> = (msg) <span class="tok-key">=&gt
                     <span class="tile-icon"><svg class="icon" aria-hidden="true"><use href="#i-message"></use></svg></span>
                     <h3>Real-time chat</h3>
                     <p>Channels, presence and QR room sharing — the smallest complete example of the SDK.</p>
+                    <div class="demo-card__proves"><span class="badge badge--brand">Channels</span><span class="badge">Presence</span></div>
                     <div class="demo-card__foot">
                         <a class="demo-card__link" href="apps/chat.html">
                             Open demo <svg class="icon icon--sm" aria-hidden="true"><use href="#i-arrow-right"></use></svg>
@@ -390,6 +392,7 @@ agent.<span class="tok-prop">onMessage</span> = (msg) <span class="tok-key">=&gt
                     <span class="tile-icon"><svg class="icon" aria-hidden="true"><use href="#i-send"></use></svg></span>
                     <h3>Quick Share</h3>
                     <p>Peer-to-peer file transfer over WebRTC data channels. Files never touch our servers.</p>
+                    <div class="demo-card__proves"><span class="badge badge--brand">P2P data channels</span></div>
                     <div class="demo-card__foot">
                         <a class="demo-card__link" href="apps/quickshare/quickshare.html">
                             Open demo <svg class="icon icon--sm" aria-hidden="true"><use href="#i-arrow-right"></use></svg>
@@ -401,6 +404,7 @@ agent.<span class="tok-prop">onMessage</span> = (msg) <span class="tok-key">=&gt
                     <span class="tile-icon"><svg class="icon" aria-hidden="true"><use href="#i-video"></use></svg></span>
                     <h3>WebRTC video</h3>
                     <p>Camera and screen sharing over P2P connections, signaled through a channel.</p>
+                    <div class="demo-card__proves"><span class="badge badge--brand">WebRTC signaling</span></div>
                     <div class="demo-card__foot">
                         <a class="demo-card__link" href="apps/webrtc.html">
                             Open demo <svg class="icon icon--sm" aria-hidden="true"><use href="#i-arrow-right"></use></svg>
@@ -425,100 +429,90 @@ agent.<span class="tok-prop">onMessage</span> = (msg) <span class="tok-key">=&gt
         <div class="wrap">
             <div class="section-head">
                 <span class="eyebrow">How it works</span>
-                <h2>A boring, inspectable architecture</h2>
+                <h2>One connection, four capabilities</h2>
                 <p>
-                    Agents connect to named channels through the messaging service. Every message lands in Redis,
-                    which is the delivery layer real-time polls read from, and is written through to PostgreSQL,
-                    which is the durable source of truth for history — and you choose which layer to read from
-                    per request with <code>pollSource</code>. WebRTC traffic uses the channel only for signaling;
-                    media and data flow peer-to-peer.
+                    Your agents talk to named channels through the SDK. The platform handles delivery, ordering
+                    and durability; you decide whether a read should come from the live stream or from stored
+                    history. WebRTC traffic uses a channel only to introduce two peers — once they are connected,
+                    media and data flow directly between them and never pass through the platform.
                 </p>
             </div>
 
             <div class="diagram">
-                <svg viewBox="0 0 800 500" role="img" aria-labelledby="archTitle archDesc">
-                    <title id="archTitle">High-level platform architecture</title>
-                    <desc id="archDesc">Web, Java, Python and C++ agents connect through an API gateway to the messaging service. The messaging service writes each message to Redis, the fast delivery layer, and through to PostgreSQL, the durable store. A separate WebRTC SFU and TURN service handles signaling and relay.</desc>
+                <svg viewBox="0 0 800 470" role="img" aria-labelledby="archTitle archDesc">
+                    <title id="archTitle">How an application connects</title>
+                    <desc id="archDesc">JavaScript, Java, Python and C++ agents use the SDK to connect to the
+                        Messaging Platform, which provides channels and messaging, presence, channel storage and
+                        WebRTC signaling. Two agents that have been introduced over a channel exchange media and
+                        data directly, peer to peer.</desc>
 
-                    <rect x="10" y="10" width="780" height="480" rx="12" fill="#101827" stroke="#6366f1" stroke-width="1.5"/>
-                    <text x="400" y="42" text-anchor="middle" fill="#a5b4fc" font-size="14" font-weight="700" letter-spacing="1.5">MESSAGING PLATFORM</text>
+                    <rect x="10" y="10" width="780" height="450" rx="12" fill="#101827" stroke="#6366f1" stroke-width="1.5"/>
 
+                    <!-- Your applications -->
+                    <text x="400" y="44" text-anchor="middle" fill="#8a97ab" font-size="11" letter-spacing="1.4">YOUR APPLICATIONS</text>
                     <g fill="#16203a" stroke="#34d399" stroke-width="1.5">
-                        <rect x="40" y="70" width="160" height="60" rx="10"/>
-                        <rect x="220" y="70" width="160" height="60" rx="10"/>
-                        <rect x="420" y="70" width="160" height="60" rx="10"/>
-                        <rect x="600" y="70" width="160" height="60" rx="10"/>
+                        <rect x="40" y="60" width="160" height="54" rx="10"/>
+                        <rect x="220" y="60" width="160" height="54" rx="10"/>
+                        <rect x="420" y="60" width="160" height="54" rx="10"/>
+                        <rect x="600" y="60" width="160" height="54" rx="10"/>
                     </g>
                     <g text-anchor="middle" font-size="13" font-weight="600" fill="#34d399">
-                        <text x="120" y="97">Web agent</text>
-                        <text x="300" y="97">Java agent</text>
-                        <text x="500" y="97">Python agent</text>
-                        <text x="680" y="97">C++ agent</text>
+                        <text x="120" y="83">JavaScript</text>
+                        <text x="300" y="83">Java</text>
+                        <text x="500" y="83">Python</text>
+                        <text x="680" y="83">C++</text>
                     </g>
                     <g text-anchor="middle" font-size="11" fill="#8a97ab">
-                        <text x="120" y="116">Browser</text>
-                        <text x="300" y="116">Desktop / server</text>
-                        <text x="500" y="116">Scripts &amp; bots</text>
-                        <text x="680" y="116">Games</text>
+                        <text x="120" y="101">Browser</text>
+                        <text x="300" y="101">Desktop / server</text>
+                        <text x="500" y="101">Scripts &amp; bots</text>
+                        <text x="680" y="101">Games</text>
                     </g>
 
+                    <!-- Peer-to-peer path: the one thing that bypasses the platform -->
+                    <path d="M120 114v26h560v-26" fill="none" stroke="#22d3ee" stroke-width="1.5" stroke-dasharray="5 4"/>
+                    <text x="400" y="133" text-anchor="middle" fill="#22d3ee" font-size="11">
+                        peer-to-peer media &amp; data — never touches the platform
+                    </text>
+
+                    <!-- SDK layer -->
                     <g stroke="#6366f1" stroke-width="1.5" fill="none">
-                        <path d="M120 130v30M300 130v30M500 130v30M680 130v30M120 160h560M400 160v20"/>
+                        <path d="M120 140v20M300 114v46M500 114v46M680 140v20"/>
                     </g>
+                    <rect x="150" y="160" width="500" height="48" rx="10" fill="#1e2a3d" stroke="#22d3ee" stroke-width="1.5"/>
+                    <text x="400" y="182" text-anchor="middle" fill="#22d3ee" font-size="13" font-weight="600">Messaging Platform SDK</text>
+                    <text x="400" y="199" text-anchor="middle" fill="#8a97ab" font-size="11">connect · send · subscribe · store</text>
 
-                    <rect x="250" y="180" width="300" height="52" rx="10" fill="#1e2a3d" stroke="#22d3ee" stroke-width="1.5"/>
-                    <text x="400" y="203" text-anchor="middle" fill="#22d3ee" font-size="13" font-weight="600">API gateway</text>
-                    <text x="400" y="220" text-anchor="middle" fill="#8a97ab" font-size="11">Routing · authentication · rate limits</text>
+                    <path d="M400 208v28" stroke="#6366f1" stroke-width="1.5" fill="none"/>
 
-                    <g stroke="#6366f1" stroke-width="1.5" fill="none">
-                        <path d="M400 232v28M200 260h480M200 260v30M450 260v30M680 260v30"/>
-                    </g>
+                    <!-- The platform, deliberately opaque -->
+                    <rect x="120" y="236" width="560" height="196" rx="12" fill="#16203a" stroke="#fbbf24" stroke-width="1.5"/>
+                    <text x="400" y="266" text-anchor="middle" fill="#fbbf24" font-size="14" font-weight="700">MESSAGING PLATFORM</text>
+                    <text x="400" y="286" text-anchor="middle" fill="#8a97ab" font-size="11">fully managed — nothing to run or operate</text>
 
-                    <g fill="#16203a" stroke="#fbbf24" stroke-width="1.5">
-                        <rect x="100" y="290" width="200" height="70" rx="10"/>
-                        <rect x="350" y="290" width="200" height="70" rx="10"/>
-                        <rect x="600" y="290" width="160" height="70" rx="10"/>
+                    <g fill="#101827" stroke="#34d399" stroke-width="1.2">
+                        <rect x="150" y="304" width="240" height="52" rx="9"/>
+                        <rect x="410" y="304" width="240" height="52" rx="9"/>
+                        <rect x="150" y="366" width="240" height="52" rx="9"/>
+                        <rect x="410" y="366" width="240" height="52" rx="9"/>
                     </g>
-                    <g text-anchor="middle" font-size="13" font-weight="600" fill="#fbbf24">
-                        <text x="200" y="320">Messaging service</text>
-                        <text x="450" y="320">Redis</text>
-                        <text x="680" y="320">WebRTC SFU / TURN</text>
+                    <g text-anchor="middle" font-size="12.5" font-weight="600" fill="#34d399">
+                        <text x="270" y="326">Channels &amp; messaging</text>
+                        <text x="530" y="326">Presence</text>
+                        <text x="270" y="388">Channel storage</text>
+                        <text x="530" y="388">WebRTC signaling</text>
                     </g>
-                    <g text-anchor="middle" font-size="11" fill="#8a97ab">
-                        <text x="200" y="340">Channels · presence · storage</text>
-                        <text x="450" y="340">Delivery layer · live reads</text>
-                        <text x="680" y="340">Signaling &amp; relay</text>
+                    <g text-anchor="middle" font-size="10.5" fill="#8a97ab">
+                        <text x="270" y="343">broadcast · direct · filtered</text>
+                        <text x="530" y="343">who is in the room, live</text>
+                        <text x="270" y="405">key-value that outlives a session</text>
+                        <text x="530" y="405">offer / answer / ICE relay</text>
                     </g>
-
-                    <g stroke="#22d3ee" stroke-width="1.5" fill="none" marker-end="url(#arrowhead)">
-                        <path d="M300 318h44"/>
-                        <path d="M350 332h-44"/>
-                    </g>
-
-                    <g stroke="#6366f1" stroke-width="1.5" fill="none">
-                        <path d="M200 360v25M450 360v25M200 385h250M350 385v20"/>
-                    </g>
-
-                    <g fill="#16203a" stroke="#34d399" stroke-width="1.5">
-                        <rect x="225" y="405" width="250" height="60" rx="10"/>
-                    </g>
-                    <g text-anchor="middle" font-size="13" font-weight="600" fill="#34d399">
-                        <text x="350" y="433">PostgreSQL</text>
-                    </g>
-                    <g text-anchor="middle" font-size="11" fill="#8a97ab">
-                        <text x="350" y="451">Durable store · sessions · channels · history</text>
-                    </g>
-
-                    <defs>
-                        <marker id="arrowhead" markerWidth="9" markerHeight="7" refX="8" refY="3.5" orient="auto">
-                            <polygon points="0 0, 9 3.5, 0 7" fill="#22d3ee"/>
-                        </marker>
-                    </defs>
                 </svg>
             </div>
 
             <p style="margin-top: var(--sp-6)">
-                <a href="docs.html">Deep dive: keys, scopes, storage layers and the connection flow
+                <a href="docs.html">Read the connection guide
                     <svg class="icon icon--sm" aria-hidden="true"><use href="#i-arrow-right"></use></svg>
                 </a>
             </p>

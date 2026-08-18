@@ -392,3 +392,11 @@ section { padding-block: var(--sp-24); }
 @media (max-width: 768px) {
     .showcase__head h2 { font-size: var(--fs-2xl); }
 }
+
+/* Demo cards carry the same "what it proves" tags as the playground cards. */
+.demo-card .demo-card__proves {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--sp-2);
+    margin-top: var(--sp-4);
+}

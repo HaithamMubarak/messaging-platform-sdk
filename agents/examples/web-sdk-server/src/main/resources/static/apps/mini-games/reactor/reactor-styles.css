@@ -198,8 +198,12 @@ button {
 .connection-status {
     display: flex;
     align-items: center;
-    gap: 1rem;
+    gap: 0.6rem;
     color: white;
+    /* Without this the flex row shrinks until "Players: 0" wraps under the
+       status dot. */
+    white-space: nowrap;
+    flex: none;
 }
 
 .share-btn {

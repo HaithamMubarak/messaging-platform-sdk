@@ -11,8 +11,11 @@
    fall back to a bottom-left dock. Load this AFTER the app's own stylesheet.
    ========================================================================== */
 
-.share-btn,
-.connection-status {
+/* Only float controls that are loose in the document. Apps that already place
+   these inside their own header (the mini-games do) must be left alone — an
+   unscoped rule here yanked their header contents down to the corner. */
+body > .share-btn,
+body > .connection-status {
     position: fixed;
     left: 16px;
     right: auto;
@@ -20,7 +23,7 @@
     z-index: 400;
 }
 
-.share-btn {
+body > .share-btn {
     bottom: 64px;
     display: inline-flex;
     align-items: center;
@@ -33,7 +36,7 @@
 }
 .share-btn:hover { transform: none; filter: brightness(1.07); }
 
-.connection-status {
+body > .connection-status {
     bottom: 16px;
     padding: 7px 14px;
     font-size: 13px;

@@ -45,7 +45,7 @@ agent.connect({
     channelName: 'my-channel',
     channelPassword: 'secret123',
     agentName: 'web-user-1',
-    api: 'http://localhost:8082',
+    api: 'https://hmdevonline.com/messaging-platform/api/v1/messaging-service',
     apiKey: 'your-api-key',
     autoReceive: true
 });
@@ -85,7 +85,7 @@ agent.sendTextMessage('Hello, World!');
             channelName: 'chat-room',
             channelPassword: 'password123',
             agentName: 'user-' + Date.now(),
-            api: 'http://localhost:8082',
+            api: 'https://hmdevonline.com/messaging-platform/api/v1/messaging-service',
             apiKey: 'your-api-key',
             autoReceive: true
         });
@@ -265,7 +265,7 @@ agent.storageGet({ storageKey: 'prefs' }, (r) => {
     const webrtc = new WebRtcHelper(agent);
 
     agent.connect({ channelName: 'video', channelPassword: 'pass', agentName: 'broadcaster',
-        api: 'http://localhost:8082', apiKey: 'your-key' });
+        api: 'https://hmdevonline.com/messaging-platform/api/v1/messaging-service', apiKey: 'your-key' });
 
     async function startStreaming() {
         const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
@@ -354,7 +354,7 @@ agent.connect({
     channelName: 'my-channel',
     channelPassword: 'password',
     agentName: 'agent-1',
-    api: 'http://localhost:8082',
+    api: 'https://hmdevonline.com/messaging-platform/api/v1/messaging-service',
     apiKey: 'your-permanent-key',
     autoReceive: true
 });
@@ -437,7 +437,8 @@ const api = 'https://your-domain.com';
 
 ```javascript
 agent.onError = (e) => console.error(e);
-// Also check: fetch('http://localhost:8082/messaging-platform/actuator/health')
+// If connections fail, verify the api URL and key rather than the service:
+// the platform is managed and its health is not something clients poll.
 ```
 
 1. Verify server is running

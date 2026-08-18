@@ -1,7 +1,7 @@
 # Messaging Platform SDK - User Guide
 
 **Version:** 1.0.0  
-**Last Updated:** December 27, 2025  
+**Last Updated:** August 18, 2026  
 **Status:** Beta — free to use, APIs may still change
 
 ---
@@ -23,7 +23,7 @@
 > The default production messaging service URL is `https://hmdevonline.com/messaging-platform/api/v1/messaging-service`.  
 > - Java and Python agents use this URL as the default if no URL is specified  
 > - Web agents require explicit URL configuration in the `connect()` call  
-> - For local development, use `http://localhost:8082`
+> - The messaging service is fully managed: there is nothing to install, run or configure
 
 ---
 
@@ -304,13 +304,12 @@ agent.sendTextMessage("Hello from Web!");
 ### Connection Failed
 
 **Check:**
-1. Messaging service is running: `docker ps`
-2. API URL is correct
-3. API key is valid
+1. The `api` URL passed to `connect()` matches the one documented above
+2. Your API key is valid and has not been revoked — verify it with the API key tester
+3. The channel name and password match on every agent joining the room
 
-```bash
-curl http://localhost:8082/messaging-platform/api/v1/messaging-service/health
-```
+If a key stops working, rotate it from the developer portal; the previous key is
+revoked as soon as the replacement is issued.
 
 ### Messages Not Received
 
