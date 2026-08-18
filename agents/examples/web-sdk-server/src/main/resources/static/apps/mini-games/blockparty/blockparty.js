@@ -499,6 +499,34 @@
         _touchChunk(ck) { this.dirtyChunks.add(ck); }
 
         /**
+         * Mark this cell's chunk and its neighbours. A block becoming solid can
+         * bury the one next to it, and a block going away can expose it — and
+         * that neighbour may live in the next chunk along.
+         */
+        _touchAround(x, z) {
+            this._touchChunk(VoxelWorld.chunkKey(x, z));
+            this._touchChunk(VoxelWorld.chunkKey(x - 1, z));
+            this._touchChunk(VoxelWorld.chunkKey(x + 1, z));
+            this._touchChunk(VoxelWorld.chunkKey(x, z - 1));
+            this._touchChunk(VoxelWorld.chunkKey(x, z + 1));
+        }
+
+        /**
+         * Is this block completely walled in? A mountain is mostly interior:
+         * 43,000 blocks of rock with only its surface ever visible. Skipping
+         * what cannot be seen is the difference between a cave you can walk
+         * into and a cave that will not render.
+         */
+        _enclosed(x, y, z) {
+            return this.world.has((x + 1) + ',' + y + ',' + z)
+                && this.world.has((x - 1) + ',' + y + ',' + z)
+                && this.world.has(x + ',' + (y + 1) + ',' + z)
+                && this.world.has(x + ',' + (y - 1) + ',' + z)
+                && this.world.has(x + ',' + y + ',' + (z + 1))
+                && this.world.has(x + ',' + y + ',' + (z - 1));
+        }
+
+        /**
          * The raw vertex arrays for a geometry, cached.
          *
          * Merging by hand rather than cloning THREE geometries: every block in a
@@ -619,6 +647,7 @@
                 if (this.pieceOf.has(k)) return;          // drawn as part of its brick
                 if (!this.world.has(k)) return;
                 const [x, y, z] = k.split(',').map(Number);
+                if (y > 0 && this._enclosed(x, y, z)) return;   // buried: nobody can see it
                 const si = this.shapes.get(k) || 0;
                 const tmpl = this._template(this._cellGeometry(si));
                 const c = this.world.get(k), owner = this.owners.get(k);
@@ -730,9 +759,8 @@
             if (si) this.shapes.set(k, si); else this.shapes.delete(k);
 
             this.world.set(k, colorIndex);
-            const ck = VoxelWorld.chunkKey(x, z);
-            this._chunk(ck).cells.add(k);
-            this._touchChunk(ck);
+            this._chunk(VoxelWorld.chunkKey(x, z)).cells.add(k);
+            this._touchAround(x, z);
         }
 
         // ---- brick pieces ----
@@ -776,9 +804,9 @@
                 this.owners.delete(k);
                 this.shapes.delete(k);
                 const [x, , z] = k.split(',').map(Number);
-                const ck = VoxelWorld.chunkKey(x, z);
-                const c = this.chunks.get(ck);
-                if (c) { c.cells.delete(k); this._touchChunk(ck); }
+                const c = this.chunks.get(VoxelWorld.chunkKey(x, z));
+                if (c) c.cells.delete(k);
+                this._touchAround(x, z);
             });
             const home = VoxelWorld.chunkKey(piece.x, piece.z);
             const hc = this.chunks.get(home);
@@ -1243,7 +1271,8 @@
             this.shapes.delete(k);
             const ck = VoxelWorld.chunkKey(x, z);
             const c = this.chunks.get(ck);
-            if (c) { c.cells.delete(k); this._touchChunk(ck); }
+            if (c) c.cells.delete(k);
+            this._touchAround(x, z);
         }
 
         clearAll() {

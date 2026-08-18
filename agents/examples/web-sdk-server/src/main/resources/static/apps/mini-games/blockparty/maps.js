@@ -149,6 +149,145 @@
                 return api;
             },
 
+            // ---- carving ------------------------------------------------
+            // Interiors are made by building solid and taking material away:
+            // it is how a cave is dug and how a room gets its doorway.
+
+            /** Remove every block in a box. */
+            clear(x0, y0, z0, x1, y1, z1) {
+                for (let x = Math.min(x0, x1); x <= Math.max(x0, x1); x++) {
+                    for (let y = Math.max(0, Math.min(y0, y1)); y <= Math.max(y0, y1); y++) {
+                        for (let z = Math.min(z0, z1); z <= Math.max(z0, z1); z++) {
+                            cells.delete(x + ',' + y + ',' + z);
+                        }
+                    }
+                }
+                return api;
+            },
+
+            /** Hollow out a rough sphere — one chamber of a cave. */
+            carve(cx, cy, cz, r, jitter) {
+                const j = jitter === undefined ? 0.25 : jitter;
+                for (let x = Math.floor(cx - r); x <= Math.ceil(cx + r); x++) {
+                    for (let y = Math.max(0, Math.floor(cy - r)); y <= Math.ceil(cy + r); y++) {
+                        for (let z = Math.floor(cz - r); z <= Math.ceil(cz + r); z++) {
+                            const d = Math.hypot(x - cx, (y - cy) * 1.15, z - cz);
+                            if (d <= r * (1 - j / 2 + rand() * j)) cells.delete(x + ',' + y + ',' + z);
+                        }
+                    }
+                }
+                return api;
+            },
+
+            /** Carve a passage along a path of points. */
+            tunnel(points, r) {
+                for (let i = 0; i < points.length - 1; i++) {
+                    const [x0, y0, z0] = points[i], [x1, y1, z1] = points[i + 1];
+                    const steps = Math.ceil(Math.max(Math.abs(x1 - x0), Math.abs(y1 - y0), Math.abs(z1 - z0)));
+                    for (let t = 0; t <= steps; t++) {
+                        const f = steps ? t / steps : 0;
+                        api.carve(x0 + (x1 - x0) * f, y0 + (y1 - y0) * f, z0 + (z1 - z0) * f, r, 0.2);
+                    }
+                }
+                return api;
+            },
+
+            // ---- interiors ----------------------------------------------
+
+            /**
+             * A room you can walk into: four walls, a floor, a ceiling, and a
+             * doorway two blocks high because that is what a person needs.
+             * `door` is a side (n/s/e/w) or 'none'.
+             */
+            room(x, z, w, d, h, opts) {
+                opts = opts || {};
+                const wall = opts.wall === undefined ? C.white : opts.wall;
+                api.walls(x, 0, z, x + w - 1, h - 1, z + d - 1, wall);
+                if (opts.floor !== undefined) api.box(x, 0, z, x + w - 1, 0, z + d - 1, opts.floor, S.slab);
+                if (opts.ceiling !== undefined) api.box(x - 1, h, z - 1, x + w, h, z + d, opts.ceiling, S.slab);
+
+                const midX = x + Math.floor(w / 2), midZ = z + Math.floor(d / 2);
+                const door = opts.door || 's';
+                if (door !== 'none') {
+                    const at = { n: [midX, z], s: [midX, z + d - 1], w: [x, midZ], e: [x + w - 1, midZ] }[door];
+                    if (at) api.clear(at[0], 1, at[1], at[0], 2, at[1]);
+                }
+                (opts.windows || []).forEach(([wx, wz]) => {
+                    api.set(x + wx, 2, z + wz, C.cyan);
+                });
+                return api;
+            },
+
+            /** A staircase climbing one block per step. */
+            stairs(x, y, z, dir, steps, colour) {
+                const dx = dir === 'x' ? 1 : 0, dz = dir === 'z' ? 1 : 0;
+                for (let i = 0; i < steps; i++) {
+                    api.box(x + dx * i, y, z + dz * i, x + dx * i + (dz ? 2 : 0), y + i, z + dz * i + (dx ? 2 : 0),
+                        colour === undefined ? C.brown : colour);
+                }
+                return api;
+            },
+
+            // ---- furniture ----------------------------------------------
+            bed(x, z, colour) {
+                api.box(x, 0, z, x + 1, 0, z + 3, C.brown);
+                api.box(x, 1, z, x + 1, 1, z + 2, colour === undefined ? C.blue : colour, S.slab);
+                api.box(x, 1, z + 3, x + 1, 1, z + 3, C.white, S.slab);
+                return api;
+            },
+            table(x, z, w, d, colour) {
+                const c = colour === undefined ? C.brown : colour;
+                for (let i = 0; i < w; i++) for (let j = 0; j < d; j++) api.set(x + i, 1, z + j, c, S.slab);
+                api.set(x, 0, z, c, S.pillar);
+                api.set(x + w - 1, 0, z, c, S.pillar);
+                api.set(x, 0, z + d - 1, c, S.pillar);
+                api.set(x + w - 1, 0, z + d - 1, c, S.pillar);
+                return api;
+            },
+            chair(x, z, colour) {
+                const c = colour === undefined ? C.brown : colour;
+                api.set(x, 0, z, c, S.pillar);
+                api.set(x, 1, z, c, S.slab);
+                return api;
+            },
+            sofa(x, z, len, colour) {
+                const c = colour === undefined ? C.red : colour;
+                api.box(x, 0, z, x + len - 1, 0, z + 1, c);
+                api.box(x, 1, z, x + len - 1, 1, z, c);
+                return api;
+            },
+            shelf(x, z, len, colour) {
+                for (let i = 0; i < len; i++) {
+                    api.set(x + i, 0, z, C.brown);
+                    api.set(x + i, 1, z, C.brown, S.slab);
+                    api.set(x + i, 2, z, api.pick([C.red, C.green, C.blue, C.yellow]), S.slab);
+                }
+                return api;
+            },
+            counter(x, z, len, dir) {
+                for (let i = 0; i < len; i++) {
+                    const cx = dir === 'z' ? x : x + i, cz = dir === 'z' ? z + i : z;
+                    api.set(cx, 0, cz, C.white);
+                    api.set(cx, 1, cz, C.slate, S.slab);
+                }
+                return api;
+            },
+            rug(x, z, w, d, colour) {
+                api.box(x, 0, z, x + w - 1, 0, z + d - 1, colour === undefined ? C.red : colour, S.slab);
+                return api;
+            },
+            /** A torch: a stub of wood with a flame on top. */
+            torch(x, y, z) {
+                api.set(x, y, z, C.brown, S.pillar);
+                api.set(x, y + 1, z, C.orange, S.cone);
+                return api;
+            },
+            chest(x, z) {
+                api.set(x, 0, z, C.brown);
+                api.set(x, 1, z, C.yellow, S.slab);
+                return api;
+            },
+
             /** A strip of road with a dashed centre line. */
             road(x0, z0, x1, z1, colour, line) {
                 const horizontal = Math.abs(x1 - x0) >= Math.abs(z1 - z0);
@@ -590,6 +729,287 @@
                     b.tree(x, z, h, 'pine');
                     b.set(x, h + 4, z, C.white, S.cone);
                 }
+            }
+        },
+        {
+            id: 'caves', name: 'Crystal Caves', emoji: '🕳️', ground: '#4a4238',
+            desc: 'A massif you can walk into: tunnels, chambers, an underground lake and crystal seams. Best explored on foot.',
+            build(b) {
+                // Build the mountain solid, then dig it out — the same way you
+                // would if it were real.
+                const peak = (cx, cz, r, h) => {
+                    for (let y = 0; y <= h; y++) {
+                        const rr = r * (1 - y / (h + 2));
+                        for (let x = Math.floor(cx - rr); x <= Math.ceil(cx + rr); x++) {
+                            for (let z = Math.floor(cz - rr); z <= Math.ceil(cz + rr); z++) {
+                                if (Math.hypot(x - cx, z - cz) <= rr) {
+                                    b.set(x, y, z, y > h - 3 ? C.white : (b.chance(0.12) ? C.black : C.slate));
+                                }
+                            }
+                        }
+                    }
+                };
+                peak(-18, -10, 34, 22);
+                peak(20, 14, 28, 17);
+                peak(2, 34, 20, 12);
+
+                // The way in, at ground level, lit so it is findable.
+                b.tunnel([[-18, 2, 22], [-18, 3, 8], [-14, 4, -4], [-18, 5, -14]], 2.6);
+                b.torch(-21, 1, 20); b.torch(-15, 1, 20);
+                b.torch(-21, 1, 10); b.torch(-15, 1, 8);
+
+                // The great chamber, with a lake in the floor of it.
+                b.carve(-18, 8, -14, 10, 0.3);
+                b.box(-25, 0, -21, -11, 0, -7, C.cyan, S.slab);
+                for (let i = 0; i < 14; i++) {
+                    const x = b.between(-25, -11), z = b.between(-21, -7);
+                    b.set(x, 1, z, C.cyan, S.cone);           // stalagmites in the shallows
+                }
+                // crystals in the walls of it
+                for (let i = 0; i < 26; i++) {
+                    const a = b.rand() * Math.PI * 2, r = 8 + b.rand() * 2;
+                    const x = Math.round(-18 + Math.cos(a) * r), z = Math.round(-14 + Math.sin(a) * r);
+                    const y = 2 + b.rnd(9);
+                    b.set(x, y, z, b.pick([C.violet, C.cyan, C.pink]), S.cone);
+                }
+
+                // Deeper: a passage to a second chamber, and a shaft to daylight.
+                b.tunnel([[-18, 8, -14], [-2, 7, -10], [12, 8, 2], [20, 9, 14]], 2.4);
+                b.carve(20, 9, 14, 8, 0.3);
+                for (let i = 0; i < 10; i++) {
+                    b.set(b.between(14, 26), 2, b.between(8, 20), b.pick([C.violet, C.cyan]), S.cone);
+                }
+                b.tunnel([[20, 14, 14], [20, 20, 14]], 1.8);   // the shaft
+                b.tunnel([[-2, 7, -10], [2, 6, 24], [2, 6, 34]], 2.2);
+                b.carve(2, 6, 34, 7, 0.3);
+                b.torch(-4, 6, -10); b.torch(10, 7, 0); b.torch(18, 8, 12); b.torch(2, 5, 30);
+
+                // a mining camp outside the mouth
+                b.room(-26, 26, 7, 6, 4, { wall: C.brown, floor: C.slate, door: 'n' });
+                b.chest(-24, 29); b.chest(-22, 29);
+                b.table(-24, 27, 2, 2);
+                for (let i = 0; i < 20; i++) b.tree(b.between(-70, 70), b.between(40, 74), b.between(4, 7), 'pine');
+            }
+        },
+        {
+            id: 'house', name: 'Furnished House', emoji: '🏡', ground: '#4f7a45',
+            desc: 'A home you can actually walk through: kitchen, living room, stairs, two bedrooms and a bathroom.',
+            build(b) {
+                const X = -12, Z = -10, W = 24, D = 20, H = 4;
+
+                // ground floor shell, with a door and windows
+                b.box(X, 0, Z, X + W - 1, 0, Z + D - 1, C.brown, S.slab);
+                b.walls(X, 1, Z, X + W - 1, H, Z + D - 1, C.white);
+                b.clear(X + 11, 1, Z + D - 1, X + 12, 2, Z + D - 1);       // front door
+                [[4, 0], [8, 0], [16, 0], [20, 0]].forEach(([wx, wz]) => {
+                    b.box(X + wx, 2, Z + wz, X + wx + 1, 3, Z + wz, C.cyan);
+                });
+                [[0, 5], [0, 12], [W - 1, 5], [W - 1, 12]].forEach(([wx, wz]) => {
+                    b.box(X + wx, 2, Z + wz, X + wx, 3, Z + wz + 1, C.cyan);
+                });
+
+                // internal walls: kitchen to the west, living room to the east
+                b.box(X + 10, 1, Z, X + 10, H, Z + 13, C.white);
+                b.clear(X + 10, 1, Z + 8, X + 10, 2, Z + 9);                // doorway
+
+                // kitchen
+                b.counter(X + 1, Z + 1, 8, 'x');
+                b.counter(X + 1, Z + 2, 6, 'z');
+                b.set(X + 6, 1, Z + 1, C.black);                            // stove
+                b.table(X + 4, Z + 9, 3, 2, C.brown);
+                b.chair(X + 3, Z + 9); b.chair(X + 8, Z + 10);
+
+                // living room
+                b.rug(X + 13, Z + 6, 7, 5, C.red);
+                b.sofa(X + 13, Z + 4, 5, C.blue);
+                b.table(X + 15, Z + 8, 3, 2);
+                b.shelf(X + 22, Z + 3, 5);
+                b.box(X + 21, 1, Z + 14, X + 23, 3, Z + 15, C.slate);       // fireplace
+                b.set(X + 22, 1, Z + 14, C.orange, S.cone);
+
+                // stairs up, and the hole in the ceiling they climb through
+                b.stairs(X + 11, 1, Z + 14, 'x', 4, C.brown);
+                b.box(X - 1, H + 1, Z - 1, X + W, H + 1, Z + D, C.brown, S.slab);   // first floor
+                b.clear(X + 11, H + 1, Z + 14, X + 14, H + 1, Z + 17);
+
+                // upstairs: two bedrooms and a bathroom off a landing
+                const U = H + 2;
+                b.walls(X, U, Z, X + W - 1, U + 3, Z + D - 1, C.white);
+                b.box(X + 9, U, Z, X + 9, U + 3, Z + 12, C.white);
+                b.clear(X + 9, U, Z + 6, X + 9, U + 1, Z + 7);
+                b.box(X + 9, U, Z + 12, X + W - 1, U + 3, Z + 12, C.white);
+                b.clear(X + 16, U, Z + 12, X + 17, U + 1, Z + 12);
+                b.box(X - 1, U + 4, Z - 1, X + W, U + 4, Z + D, C.red, S.slab);     // roof
+
+                b.bed(X + 2, Z + 2, C.blue);   b.shelf(X + 6, Z + 1, 3);
+                b.bed(X + 12, Z + 2, C.green); b.table(X + 16, Z + 3, 2, 2);
+                b.box(X + 12, U, Z + 15, X + 13, U + 1, Z + 16, C.white);           // bath
+                b.set(X + 16, U, Z + 15, C.white, S.pillar);                        // basin
+                [[4, 4], [14, 4], [14, 16]].forEach(([wx, wz]) => b.set(X + wx, U + 2, Z + wz, C.yellow, S.sphere));
+
+                // outside
+                b.road(X + 11, Z + D, X + 12, Z + D + 12, C.slate, false);
+                b.fence(X - 4, Z - 4, X + W + 3, Z - 4);
+                b.fence(X - 4, Z + D + 12, X + W + 3, Z + D + 12);
+                b.fence(X - 4, Z - 4, X - 4, Z + D + 12);
+                b.fence(X + W + 3, Z - 4, X + W + 3, Z + D + 12);
+                for (let i = 0; i < 10; i++) b.tree(b.between(-60, 60), b.between(-60, 60), b.between(4, 7));
+                b.lamp(X + 14, Z + D + 6, 4);
+            }
+        },
+        {
+            id: 'dungeon', name: 'Torchlit Dungeon', emoji: '🗝️', ground: '#33313c',
+            desc: 'Corridors, cells and a throne room under one roof — torches on the walls and chests worth finding.',
+            build(b) {
+                const H = 5;
+                // one solid slab of stone, then the rooms and corridors cut out
+                b.box(-46, 0, -34, 46, H + 1, 34, C.slate);
+
+                const hall = (x, z, w, d) => {
+                    b.clear(x, 1, z, x + w - 1, H - 1, z + d - 1);
+                    b.box(x, 0, z, x + w - 1, 0, z + d - 1, C.black, S.slab);
+                };
+                // four chambers and a great hall between them
+                hall(-42, -30, 16, 14);
+                hall(-42, 8, 16, 20);
+                hall(26, -30, 16, 14);
+                hall(26, 10, 16, 18);
+                hall(-12, -12, 24, 24);
+
+                // corridors joining them
+                b.clear(-26, 1, -25, -12, 3, -22);
+                b.clear(-26, 1, 14, -12, 3, 17);
+                b.clear(12, 1, -25, 26, 3, -22);
+                b.clear(12, 1, 14, 26, 3, 17);
+                b.clear(-2, 1, -34, 1, 3, -12);        // the way in from the north
+
+                // torches down every corridor and around the hall
+                for (let x = -40; x <= 40; x += 8) { b.torch(x, 2, -13); b.torch(x, 2, 11); }
+                for (let z = -24; z <= 16; z += 8) { b.torch(-11, 2, z); b.torch(11, 2, z); }
+
+                // the throne
+                b.box(-4, 1, 6, 3, 1, 10, C.violet, S.slab);
+                b.box(-2, 2, 8, 1, 4, 9, C.yellow);
+                b.set(-1, 5, 8, C.yellow, S.cone); b.set(0, 5, 8, C.yellow, S.cone);
+                for (const px of [-6, 5]) for (const pz of [4, 12]) {
+                    for (let y = 1; y <= H - 1; y++) b.set(px, y, pz, C.white, S.pillar);
+                }
+
+                // cells, chests and a little water
+                [[-40, -28], [-40, 10], [28, -28], [28, 12]].forEach(([x, z], i) => {
+                    b.chest(x + 2, z + 2); b.chest(x + 4, z + 2);
+                    if (i % 2) b.box(x + 6, 0, z + 6, x + 10, 0, z + 9, C.cyan, S.slab);
+                    b.torch(x + 1, 2, z + 1);
+                });
+                // and a way back to daylight
+                b.clear(-2, 1, -34, 1, 3, -30);
+                b.torch(-3, 2, -32); b.torch(2, 2, -32);
+            }
+        },
+        {
+            id: 'apartments', name: 'Apartment Block', emoji: '🏢', ground: '#3a3f4d',
+            desc: 'Four floors of flats around a stairwell, each one furnished, with balconies over the street.',
+            build(b) {
+                const X = -20, Z = -16, W = 40, D = 28, FLOOR = 5, FLOORS = 4;
+
+                for (let f = 0; f < FLOORS; f++) {
+                    const y = f * FLOOR;
+                    b.box(X, y, Z, X + W - 1, y, Z + D - 1, C.slate, S.slab);      // slab
+                    b.walls(X, y + 1, Z, X + W - 1, y + FLOOR - 1, Z + D - 1, f % 2 ? C.white : C.orange);
+
+                    // windows along the long faces
+                    for (let wx = X + 3; wx < X + W - 3; wx += 5) {
+                        b.box(wx, y + 2, Z, wx + 1, y + 3, Z, C.cyan);
+                        b.box(wx, y + 2, Z + D - 1, wx + 1, y + 3, Z + D - 1, C.cyan);
+                    }
+                    // the stairwell, and the hole each floor leaves for it
+                    b.box(X + 17, y + 1, Z + 11, X + 17, y + FLOOR - 1, Z + 17, C.white);
+                    b.box(X + 23, y + 1, Z + 11, X + 23, y + FLOOR - 1, Z + 17, C.white);
+                    b.clear(X + 18, y, Z + 12, X + 22, y, Z + 16);
+                    b.stairs(X + 18, y + 1, Z + 12, 'z', 4, C.slate);
+
+                    // two flats a floor, each with a bed, a sofa and a kitchen
+                    [[X + 2, Z + 3], [X + 26, Z + 3]].forEach(([fx, fz], i) => {
+                        b.box(fx + 12, y + 1, fz, fx + 12, y + FLOOR - 1, fz + 20, C.white);
+                        b.clear(fx + 12, y + 1, fz + 9, fx + 12, y + 2, fz + 10);
+                        b.bed(fx + 1, fz + 1, i ? C.green : C.blue);
+                        b.sofa(fx + 6, fz + 4, 4, i ? C.violet : C.red);
+                        b.table(fx + 7, fz + 9, 2, 2);
+                        b.counter(fx + 1, fz + 14, 6, 'x');
+                        b.rug(fx + 5, fz + 12, 4, 3, C.yellow);
+                        b.set(fx + 3, y + FLOOR - 2, fz + 8, C.yellow, S.sphere);
+                    });
+
+                    // balconies
+                    if (f > 0) {
+                        b.box(X + 4, y, Z + D, X + 12, y, Z + D + 2, C.slate, S.slab);
+                        b.walls(X + 4, y + 1, Z + D, X + 12, y + 1, Z + D + 2, C.slate);
+                        b.box(X + 27, y, Z + D, X + 35, y, Z + D + 2, C.slate, S.slab);
+                        b.walls(X + 27, y + 1, Z + D, X + 35, y + 1, Z + D + 2, C.slate);
+                    }
+                }
+                // roof, entrance and street
+                b.box(X - 1, FLOORS * FLOOR, Z - 1, X + W, FLOORS * FLOOR, Z + D, C.black, S.slab);
+                b.clear(X + 19, 1, Z + D - 1, X + 21, 2, Z + D - 1);
+                b.road(-70, Z + D + 6, 70, Z + D + 10);
+                for (let x = -60; x <= 60; x += 20) b.lamp(x, Z + D + 4, 5);
+                for (let i = 0; i < 8; i++) b.tree(b.between(-70, 70), b.between(Z + D + 14, 70), b.between(4, 6));
+            }
+        },
+        {
+            id: 'oldtown', name: 'Old Town Street', emoji: '🏬', ground: '#4a4a52',
+            desc: 'A parade of shops you can walk into — a bakery, a bookshop, a café with tables on the cobbles.',
+            build(b) {
+                b.road(-72, -3, 72, 3, C.slate, false);
+                for (let x = -72; x <= 72; x += 2) { b.set(x, 0, -4, C.white, S.slab); b.set(x, 0, 4, C.white, S.slab); }
+
+                const shop = (x, z, w, d, wall, awning, name) => {
+                    b.box(x, 0, z, x + w - 1, 0, z + d - 1, C.brown, S.slab);
+                    b.walls(x, 1, z, x + w - 1, 5, z + d - 1, wall);
+                    // shopfront: a door and a big window onto the street
+                    const front = z < 0 ? z + d - 1 : z;
+                    b.clear(x + 2, 1, front, x + 3, 2, front);
+                    b.box(x + 5, 2, front, x + w - 2, 3, front, C.cyan);
+                    b.box(x - 1, 6, z - 1, x + w, 6, z + d, awning, S.slab);
+                    // the awning over the pavement
+                    const out = z < 0 ? front + 1 : front - 1;
+                    b.box(x, 4, out, x + w - 1, 4, out, awning, S.slab);
+                    return { front, name };
+                };
+
+                const bakery = shop(-64, 6, 14, 12, C.orange, C.red);
+                b.counter(-62, 10, 8, 'x');
+                b.shelf(-62, 16, 6);
+                b.table(-56, 10, 2, 2);
+
+                const books = shop(-44, 6, 14, 12, C.white, C.blue);
+                b.shelf(-42, 16, 10); b.shelf(-42, 12, 10);
+                b.table(-36, 9, 2, 2); b.chair(-34, 9);
+
+                const cafe = shop(-20, 6, 16, 12, C.yellow, C.green);
+                b.counter(-18, 16, 10, 'x');
+                for (const [tx, tz] of [[-16, 9], [-10, 9], [-16, 12], [-10, 12]]) {
+                    b.table(tx, tz, 2, 2); b.chair(tx - 1, tz); b.chair(tx + 2, tz + 1);
+                }
+                // pavement tables outside the café
+                for (const tx of [-18, -12, -6]) { b.table(tx, 0, 2, 2); b.chair(tx - 1, 0); b.chair(tx + 2, 1); }
+
+                const grocer = shop(6, 6, 14, 12, C.green, C.orange);
+                b.shelf(8, 16, 10);
+                for (let i = 0; i < 8; i++) b.set(10 + i, 1, 10, b.pick([C.red, C.orange, C.yellow, C.green]));
+
+                const inn = shop(28, 6, 18, 14, C.brown, C.violet);
+                b.counter(30, 18, 12, 'x');
+                for (const [tx, tz] of [[32, 10], [38, 10], [32, 14], [38, 14]]) { b.table(tx, tz, 2, 2); b.chair(tx - 1, tz); }
+                for (let y = 1; y <= 5; y += 2) b.torch(29, y, 9);
+
+                // houses on the other side of the street
+                for (let i = 0; i < 5; i++) {
+                    const x = -60 + i * 26;
+                    b.house(x, -22, 12, 10, 4, b.pick([C.white, C.orange, C.yellow]), b.pick([C.red, C.brown]));
+                }
+                for (let x = -68; x <= 68; x += 12) b.lamp(x, -6, 5);
+                for (let i = 0; i < 14; i++) b.tree(b.between(-70, 70), b.between(30, 70), b.between(4, 7));
             }
         }
     ];

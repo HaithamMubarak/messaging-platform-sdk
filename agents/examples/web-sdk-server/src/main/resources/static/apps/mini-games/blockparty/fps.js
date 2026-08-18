@@ -26,7 +26,10 @@
     const GRAVITY = 22;
     const JUMP = 7.6;
     const REACH = 6;             // how far you can place or break
-    const STEP = 0.55;           // a ledge this tall is walked up, not jumped
+    // A whole block, plus a hair. Everything in this world is built in
+    // one-block steps — staircases, kerbs, the rising floor of a tunnel — so a
+    // step height below 1 makes most of it impassable on foot.
+    const STEP = 1.05;
     const MAX_DT = 0.05;         // never integrate more than this in one frame
     const BROADCAST_MS = 110;    // how often the room hears where I am
 
@@ -48,8 +51,12 @@
 
         toggle() { this.active ? this.exit() : this.enter(); }
 
-        /** Drop in at a chosen spot rather than wherever the camera was aimed. */
+        /**
+         * Drop in at a chosen spot rather than wherever the camera was aimed.
+         * Already walking? Then this is a move, not an entry.
+         */
         enterAt(x, z) {
+            if (this.active) { this.teleport(x, z); return; }
             this._spawn = { x, z };
             this.enter();
         }
@@ -359,8 +366,12 @@
                 if (this.game.brickMode && !erasing) {
                     const fp = this.game.pieceFootprint();
                     v.hidePreview();
-                    v.showPiecePreview(cell.x, cell.y, cell.z, fp.w, fp.d, this.game.currentColor,
-                        !!this.game.pieceBlocked(cell.x, cell.y, cell.z, fp.w, fp.d));
+                    // A brick that will not fit is shown in red from the orbit
+                    // camera, where you can see it in context. Standing next to
+                    // it, that red block is most of the screen — so up close a
+                    // refusal is just nothing to place, plus the sound.
+                    if (this.game.pieceBlocked(cell.x, cell.y, cell.z, fp.w, fp.d)) v.hidePiecePreview();
+                    else v.showPiecePreview(cell.x, cell.y, cell.z, fp.w, fp.d, this.game.currentColor, false);
                 } else {
                     v.hidePiecePreview();
                     v.showPreview(cell.x, cell.y, cell.z, this.game.currentShape, this.game.currentColor, erasing);
