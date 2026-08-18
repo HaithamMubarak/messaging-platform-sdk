@@ -37,6 +37,8 @@
     const M_PER_DEG_LON = 111320;    // times cos(latitude)
     const SHARE_THROTTLE_MS = 5000;  // a position update at walking pace
     const SHARE_PRECISION = 5;       // metres: enough to find you, not to watch you
+    const VISIT_LIMIT = 12;          // how many places back each player is remembered
+    const SAME_PLACE_DEG = 1e-4;     // ~11m: closer than this is the same visit
 
     class Geo {
         constructor(game) {
@@ -50,6 +52,11 @@
             // for a week remembers where its people stood, which is what makes
             // "go to where they were" possible when they are not here.
             this.lastSeen = new Map();  // name -> { lat, lon, acc, at }
+            // Where everyone has *taken the room*, newest first. A position is
+            // where somebody is standing; a visit is somewhere they decided to
+            // go, which is the thing worth offering back as "take me there
+            // again". Kept per player, capped, and stored with the room.
+            this.visits = new Map();    // name -> [{ lat, lon, mpc, at }]
             this._seenDirty = false;
             this._watchId = null;
             this._lastShared = 0;
@@ -194,6 +201,7 @@
 
         receive(msg) {
             if (!msg || !msg.name) return;
+            if (msg.visit) this.recordVisit(msg.name, msg.visit);
             if (msg.hide) {
                 this.others.delete(msg.name);
             } else {
@@ -210,6 +218,63 @@
             this.lastSeen.set(name, { lat: rec.lat, lon: rec.lon, acc: rec.acc, at: rec.at || Date.now() });
             this._seenDirty = true;
             this.game.scheduleGeoSave();
+        }
+
+        /**
+         * Note somewhere a player took the room to.
+         *
+         * Arriving twice at the same place is one visit, not two: travelling is
+         * how you change scale, so a run of scale changes over one spot would
+         * otherwise fill the whole history with the same street.
+         */
+        recordVisit(name, visit) {
+            if (!name || !visit || !isFinite(visit.lat) || !isFinite(visit.lon)) return null;
+            const rec = {
+                lat: +(+visit.lat).toFixed(6), lon: +(+visit.lon).toFixed(6),
+                mpc: +visit.mpc || 0, at: visit.at || Date.now(),
+                region: visit.region || null
+            };
+            const list = this.visits.get(name) || [];
+            const same = list[0] && Math.abs(list[0].lat - rec.lat) < SAME_PLACE_DEG
+                && Math.abs(list[0].lon - rec.lon) < SAME_PLACE_DEG;
+            if (same) list[0] = Object.assign(list[0], { mpc: rec.mpc, at: rec.at, region: rec.region });
+            else list.unshift(rec);
+            if (list.length > VISIT_LIMIT) list.length = VISIT_LIMIT;
+            this.visits.set(name, list);
+            this.game.scheduleGeoSave();
+            return rec;
+        }
+
+        /** Where somebody has been, newest first. */
+        visitsOf(name) { return this.visits.get(name) || []; }
+
+        /** Everyone with a history, whether or not they are still here. */
+        travellers() { return Array.from(this.visits.keys()); }
+
+        exportVisits() {
+            const out = {};
+            this.visits.forEach((list, name) => { out[name] = list; });
+            return out;
+        }
+
+        importVisits(data) {
+            if (!data) return;
+            Object.keys(data).forEach(name => {
+                const incoming = Array.isArray(data[name]) ? data[name] : [];
+                const merged = incoming.concat(this.visits.get(name) || [])
+                    .filter(r => r && isFinite(r.lat) && isFinite(r.lon));
+                // Newest first, and one entry per place rather than one per
+                // arrival — two peers each remember the same journey.
+                merged.sort((a, b) => (b.at || 0) - (a.at || 0));
+                const kept = [];
+                merged.forEach(r => {
+                    if (kept.some(k => Math.abs(k.lat - r.lat) < SAME_PLACE_DEG
+                        && Math.abs(k.lon - r.lon) < SAME_PLACE_DEG)) return;
+                    kept.push(r);
+                });
+                if (kept.length > VISIT_LIMIT) kept.length = VISIT_LIMIT;
+                this.visits.set(name, kept);
+            });
         }
 
         /** They left the room, but not the record of where they were. */
@@ -259,7 +324,12 @@
                 const place = this.placeOf(name);
                 return place ? {
                     name, live: place.live, private: !!place.private,
-                    at: place.rec.at, pos: this.worldPosOf(name)
+                    at: place.rec.at, acc: place.rec.acc,
+                    // The raw fix as well as the world cell: a map that can pan
+                    // past this world's edges still has to draw the people who
+                    // are past them.
+                    lat: place.rec.lat, lon: place.rec.lon,
+                    pos: this.worldPosOf(name)
                 } : null;
             }).filter(Boolean);
         }
@@ -407,6 +477,49 @@
         }
 
         static get MERCATOR() { return { lonToTileX, latToTileY, tileXToLon, tileYToLat }; }
+
+        /**
+         * Read a place a person typed.
+         *
+         * Decimal pairs are what the UI asks for, but coordinates are copied
+         * from everywhere — a map URL, a phone's share sheet, a paper chart —
+         * so degrees/minutes/seconds and N/S/E/W suffixes are accepted too.
+         * Returns null rather than guessing when it cannot tell.
+         */
+        static parse(text) {
+            const raw = String(text || '').trim();
+            if (!raw) return null;
+
+            // "51°30'26.6\"N 0°7'39.9\"W" and its many typographic variants.
+            const dms = /(-?\d+(?:\.\d+)?)\s*[°d:\s]\s*(?:(\d+(?:\.\d+)?)\s*['′m:\s]\s*)?(?:(\d+(?:\.\d+)?)\s*["″s]?\s*)?([NnSsEeWw])/g;
+            const found = [];
+            let m;
+            while ((m = dms.exec(raw)) !== null) {
+                const deg = Math.abs(+m[1]) + (+m[2] || 0) / 60 + (+m[3] || 0) / 3600;
+                const hemi = m[4].toUpperCase();
+                // The hemisphere letter is the sign; a stray minus in front of
+                // a "51°N" is a contradiction, not a second negation.
+                const value = (hemi === 'S' || hemi === 'W') ? -deg : deg;
+                found.push({ value, axis: (hemi === 'N' || hemi === 'S') ? 'lat' : 'lon' });
+            }
+            if (found.length >= 2) {
+                const lat = (found.find(f => f.axis === 'lat') || found[0]).value;
+                const lon = (found.find(f => f.axis === 'lon') || found[1]).value;
+                return Geo.validate(lat, lon);
+            }
+
+            // Otherwise: two numbers, however they are separated.
+            const nums = raw.match(/-?\d+(?:\.\d+)?/g);
+            if (!nums || nums.length < 2) return null;
+            return Geo.validate(+nums[0], +nums[1]);
+        }
+
+        /** A pair of numbers is only a place if it is on the Earth. */
+        static validate(lat, lon) {
+            if (!isFinite(lat) || !isFinite(lon)) return null;
+            if (Math.abs(lat) > 85.05 || Math.abs(lon) > 180) return null;
+            return { lat, lon };
+        }
 
         /** A readable rendering of a place, for the UI. */
         static format(lat, lon) {

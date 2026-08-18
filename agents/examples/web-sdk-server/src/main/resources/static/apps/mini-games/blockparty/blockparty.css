@@ -531,8 +531,7 @@ html, body {
 }
 
 .minimap-foot {
-    display: flex; align-items: center; justify-content: space-between;
-    gap: 6px; padding: 4px 6px 6px;
+    display: flex; align-items: center; gap: 5px; padding: 5px 2px 2px;
 }
 .minimap-zoom {
     width: 22px; height: 22px; line-height: 1;
@@ -637,22 +636,167 @@ html, body {
 .geo-row .btn { padding: 4px 10px; font-size: 11px; }
 #geoShareBtn.active { background: rgba(34,197,94,0.28); border-color: rgba(34,197,94,0.5); }
 
-/* ---- Minimap ------------------------------------------------------------- */
+/* ---- Map -----------------------------------------------------------------
+ * A panel that behaves like a map application rather than a decoration: a
+ * title bar that drags it, a stage that pans and zooms under the pointer, a
+ * coordinate box, layer switches, a list of who has been where, and a grip to
+ * make the whole thing bigger. Everything is sized off the canvas, which the
+ * script owns — so nothing here fixes a width the player can change.
+ */
 .minimap-panel {
     position: absolute; right: 16px; bottom: 16px; z-index: 14;
     padding: 8px; border-radius: 14px;
     background: var(--panel); border: 1px solid var(--border); backdrop-filter: blur(10px);
+    box-shadow: 0 18px 44px rgba(3, 7, 18, 0.5);
+    touch-action: none;
 }
 .minimap-head {
-    display: flex; align-items: baseline; justify-content: space-between; gap: 10px;
+    display: flex; align-items: center; gap: 8px;
     font-size: 11px; font-weight: 700; margin-bottom: 6px;
     /* The title bar is the handle: it drags the panel, so it must not start a
        text selection under the finger doing it. */
     cursor: grab; user-select: none; -webkit-user-select: none;
 }
-.minimap-panel { touch-action: none; }
+.minimap-title { flex: 0 0 auto; }
+.minimap-centre {
+    flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+    font-weight: 500; font-size: 10px; color: var(--accent-2);
+    font-variant-numeric: tabular-nums;
+}
+.minimap-centre.dim { color: var(--muted); }
+.minimap-tools { display: flex; align-items: center; gap: 4px; flex: 0 0 auto; }
 .minimap-hint { color: var(--muted); font-weight: 500; }
-#minimap { display: block; width: 232px; height: 232px; border-radius: 9px; cursor: crosshair; }
+
+/* The little pill buttons the map is driven with. */
+.mm-chip {
+    border: 1px solid var(--border); background: rgba(255, 255, 255, 0.06);
+    color: var(--text); font: inherit; font-size: 10px; font-weight: 700;
+    padding: 3px 7px; border-radius: 7px; cursor: pointer; line-height: 1.4;
+    white-space: nowrap;
+}
+.mm-chip:hover { background: rgba(255, 255, 255, 0.14); }
+.mm-chip.active { background: rgba(99, 102, 241, 0.35); border-color: rgba(99, 102, 241, 0.6); }
+.mm-chip.armed { color: #fde68a; border-color: rgba(253, 230, 138, 0.5); }
+.mm-chip.count { margin-left: auto; }
+.mm-chip.go { padding: 5px 12px; }
+
+/* The map itself, and everything that floats over it. */
+.minimap-stage { position: relative; line-height: 0; }
+#minimap {
+    display: block; border-radius: 9px; cursor: crosshair;
+    background: #0a1424; border: 1px solid rgba(255, 255, 255, 0.06);
+}
+#minimap.dragging { cursor: grabbing; }
+
+.mm-cursor {
+    position: absolute; right: 6px; bottom: 6px; z-index: 2;
+    font-size: 9px; font-weight: 600; line-height: 1.6;
+    padding: 1px 5px; border-radius: 5px;
+    color: rgba(232, 238, 252, 0.8); background: rgba(6, 10, 22, 0.72);
+    font-variant-numeric: tabular-nums; pointer-events: none;
+}
+.mm-cursor:empty { display: none; }
+
+/* The card a double-click opens: what is here, and what you can do about it. */
+.mm-scope {
+    position: absolute; z-index: 3; min-width: 178px; max-width: 240px;
+    padding: 8px; border-radius: 10px; line-height: 1.35;
+    background: rgba(11, 16, 32, 0.96); border: 1px solid rgba(255, 255, 255, 0.16);
+    box-shadow: 0 12px 30px rgba(3, 7, 18, 0.6);
+}
+.mm-scope-head { display: flex; align-items: center; gap: 6px; }
+.mm-scope-coords {
+    flex: 1 1 auto; font-size: 11px; font-weight: 700; color: var(--text);
+    font-variant-numeric: tabular-nums;
+}
+.mm-scope-x {
+    border: none; background: none; color: var(--muted);
+    cursor: pointer; font-size: 12px; padding: 0 2px;
+}
+.mm-scope-x:hover { color: var(--text); }
+.mm-scope-sub { font-size: 10px; color: var(--muted); margin: 2px 0 7px; }
+.mm-scope-actions { display: flex; gap: 5px; }
+.mm-scope-btn {
+    flex: 1 1 auto; padding: 5px 8px; border-radius: 8px; cursor: pointer;
+    font: inherit; font-size: 10px; font-weight: 700; white-space: nowrap;
+    color: var(--text); background: rgba(255, 255, 255, 0.08); border: 1px solid var(--border);
+}
+.mm-scope-btn.primary { background: rgba(99, 102, 241, 0.4); border-color: rgba(99, 102, 241, 0.6); }
+.mm-scope-btn:hover:not(:disabled) { filter: brightness(1.25); }
+.mm-scope-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+.mm-scope-btn[data-scope="copy"] { flex: 0 0 auto; }
+
+/* Which layers are drawn. */
+.mm-menu {
+    position: absolute; top: 6px; right: 6px; z-index: 4;
+    display: flex; flex-direction: column; gap: 5px; padding: 8px 10px;
+    border-radius: 10px; line-height: 1.3;
+    background: rgba(11, 16, 32, 0.96); border: 1px solid rgba(255, 255, 255, 0.16);
+    box-shadow: 0 12px 30px rgba(3, 7, 18, 0.6);
+}
+.mm-menu label {
+    display: flex; align-items: center; gap: 7px;
+    font-size: 11px; color: var(--text); cursor: pointer; white-space: nowrap;
+}
+
+/* Type a place and go there. */
+.minimap-go { display: flex; gap: 5px; margin-top: 6px; }
+#minimapGo {
+    flex: 1 1 auto; min-width: 0; padding: 5px 9px; font: inherit; font-size: 11px;
+    color: var(--text); background: rgba(255, 255, 255, 0.06);
+    border: 1px solid var(--border); border-radius: 8px; outline: none;
+    font-variant-numeric: tabular-nums;
+    -webkit-user-select: text; user-select: text;
+}
+#minimapGo:focus { border-color: var(--accent); background: rgba(255, 255, 255, 0.1); }
+#minimapGo::placeholder { color: rgba(151, 163, 191, 0.65); }
+
+/* Who the room knows about, and everywhere it has been. */
+.mm-places {
+    margin-top: 6px; max-height: 190px; overflow-y: auto;
+    border-top: 1px solid var(--border); padding-top: 5px;
+}
+.mm-who {
+    display: flex; align-items: center; gap: 6px;
+    padding: 3px 2px; font-size: 11px; cursor: pointer; border-radius: 6px;
+}
+.mm-who:hover { background: rgba(255, 255, 255, 0.05); }
+.mm-arrow { width: 9px; color: var(--muted); font-size: 9px; }
+.mm-dot { width: 8px; height: 8px; border-radius: 50%; flex: 0 0 auto; }
+.mm-name {
+    font-weight: 700; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+    max-width: 40%;
+}
+.mm-who:not(.live) .mm-name { color: var(--muted); font-weight: 600; }
+.mm-when { color: var(--muted); font-size: 10px; white-space: nowrap; }
+.mm-go {
+    margin-left: auto; flex: 0 0 auto;
+    border: 1px solid var(--border); background: rgba(255, 255, 255, 0.06);
+    color: var(--text); font: inherit; font-size: 10px; font-weight: 700;
+    padding: 2px 8px; border-radius: 6px; cursor: pointer;
+}
+.mm-go:hover { background: rgba(99, 102, 241, 0.35); border-color: rgba(99, 102, 241, 0.6); }
+.mm-visit {
+    display: flex; align-items: center; gap: 6px;
+    padding: 2px 2px 2px 17px; font-size: 10px; color: var(--muted);
+}
+.mm-visit-mark { color: var(--accent-2); }
+.mm-visit-when { white-space: nowrap; }
+.mm-visit-where {
+    font-variant-numeric: tabular-nums; overflow: hidden;
+    text-overflow: ellipsis; white-space: nowrap;
+}
+.mm-empty { font-size: 10px; color: var(--muted); padding: 6px 2px; }
+
+/* The corner grip: how big the map is, is the player's call. */
+.mm-resize {
+    position: absolute; right: 2px; bottom: 2px; width: 16px; height: 16px;
+    cursor: nwse-resize; opacity: 0.5;
+    background:
+        linear-gradient(135deg, transparent 55%, var(--muted) 55%, var(--muted) 62%, transparent 62%),
+        linear-gradient(135deg, transparent 72%, var(--muted) 72%, var(--muted) 79%, transparent 79%);
+}
+.mm-resize:hover { opacity: 1; }
 
 /* A remembered location reads differently from a live one. */
 .geo-row.stale .geo-name { color: var(--muted); }
@@ -660,7 +804,6 @@ html, body {
 
 @media (max-width: 640px) {
     .minimap-panel { right: 8px; bottom: 96px; padding: 6px; }
-    #minimap { width: 150px; height: 150px; }
 }
 
 /* Travelling the Earth */
@@ -747,10 +890,15 @@ html, body {
     /* Opposite corner from the players, clear of the dock: on a phone the
        three of them cannot all have the right-hand side. */
     .minimap-panel { left: 8px; right: auto; bottom: auto; top: 140px; padding: 6px; }
-    #minimap { width: 148px; height: 148px; }
     .minimap-head { font-size: 10px; margin-bottom: 4px; }
-    .minimap-foot { padding: 3px 4px 4px; }
+    .minimap-foot { padding: 4px 2px 2px; }
     .minimap-span { font-size: 9px; }
+    /* On a phone the panel is already most of the width; the list would take
+       the rest, so it stays shut until it is asked for. */
+    .mm-places { max-height: 128px; }
+    /* A corner grip and a finger do not get on, and the map is sized to the
+       screen here anyway. */
+    .mm-resize { display: none; }
 
     .geo-callout { top: 140px; left: 8px; right: 8px; transform: none; max-width: none; }
 
@@ -768,7 +916,7 @@ html, body {
     .top-actions { max-width: 78vw; }
     .players-panel { top: 132px; width: 132px; }
     .minimap-panel { top: 132px; }
-    #minimap { width: 132px; height: 132px; }
+    .minimap-centre { display: none; }
     .geo-callout { top: 132px; }
     .geo-callout-text { font-size: 12px; }
 }
@@ -780,8 +928,8 @@ html, body {
     .players-panel { top: 60px; max-height: 42vh; }
     /* Above the dock, not on it: the dock spans the full width down there. */
     .minimap-panel { top: auto; left: auto; right: 8px; bottom: 96px; }
-    #minimap { width: 116px; height: 116px; }
-    .minimap-foot, .minimap-head { display: none; }
+    .minimap-foot, .minimap-go, .mm-places { display: none; }
+    .minimap-centre, .minimap-tools .mm-chip:not(#minimapClose) { display: none; }
     .tool-dock { padding: 6px 8px; gap: 6px; }
     .tool-btn span { display: none; }
     .tool-btn { min-width: 42px; }

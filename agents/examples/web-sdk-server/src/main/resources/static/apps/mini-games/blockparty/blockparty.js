@@ -2792,6 +2792,10 @@
                 list.innerHTML = rows.length ? rows.join('')
                     : '<div class="slot-empty">Nobody has shared a location in this room yet.</div>';
             }
+
+            // The map keeps the same list, and has to hear about the same
+            // changes — a position arriving is a redraw of both or neither.
+            if (this.minimap) this.minimap.renderPlaces();
         }
 
         /**
@@ -3019,6 +3023,17 @@
                 this._maybeAutoTrace();
             });
             this.voxels.focus(0, 2, 0, 60, Math.PI * 0.3);
+
+            // Where the room has been is worth keeping: it is the list people
+            // come back to, and the only record of a place once the world there
+            // has been put away. Announced as well as stored, so a client who
+            // was not host when it happened still has the history.
+            const visit = {
+                lat: anchor.lat, lon: anchor.lon, mpc: anchor.mpc,
+                region: anchor.region, at: Date.now()
+            };
+            this.geo.recordVisit(this.username, visit);
+            this.sendGeo({ name: this.username, visit });
             this._syncGeoUI();
             this.showToast(`Moved to ${BlockPartyGeo.format(anchor.lat, anchor.lon)} · `
                 + `${anchor.mpc}m per block · ${this.geo.span()}m across`, 'success', 3600);
@@ -4160,11 +4175,12 @@
         _saveGeoSeen() {
             if (!this.isHost() || !this.channel || !this.geo) return;
             const seen = this.geo.exportSeen();
-            if (!Object.keys(seen).length) return;
+            const visits = this.geo.exportVisits();
+            if (!Object.keys(seen).length && !Object.keys(visits).length) return;
             this._storage(
                 (cb) => this.channel.storagePut({
-                    storageKey: GEO_SEEN_KEY, content: { v: 1, seen }, encrypted: false,
-                    metadata: { description: 'BlockParty last-known locations' }
+                    storageKey: GEO_SEEN_KEY, content: { v: 2, seen, visits }, encrypted: false,
+                    metadata: { description: 'BlockParty last-known locations and places visited' }
                 }, cb),
                 (res) => {
                     if (res && res.status !== 'success') {
@@ -4179,7 +4195,12 @@
                 (cb) => this.channel.storageGet({ storageKey: GEO_SEEN_KEY }, cb),
                 (res) => {
                     const data = res && res.status === 'success' && res.data;
-                    if (data && data.seen) this.geo.importSeen(data.seen);
+                    if (!data) return;
+                    // v1 documents have no visits; a room that predates them
+                    // simply starts its history now.
+                    if (data.seen) this.geo.importSeen(data.seen);
+                    if (data.visits) this.geo.importVisits(data.visits);
+                    if (this.minimap) this.minimap.renderPlaces();
                 });
         }
 

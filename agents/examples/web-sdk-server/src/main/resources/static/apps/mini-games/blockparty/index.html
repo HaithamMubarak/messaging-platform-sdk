@@ -96,19 +96,49 @@
         <button id="geoCalloutHide" class="bp-close" aria-label="Dismiss">✕</button>
     </div>
 
-    <!-- Minimap: the world from above, click to travel -->
+    <!-- Map: the world from above. Drag to pan, double-click a spot to travel -->
     <div id="minimapPanel" class="minimap-panel hidden">
         <div class="minimap-head">
-            <span>🗺 Map</span>
-            <span class="minimap-hint"><button id="minimapPin" class="minimap-travel hidden">📍 pin</button> click to move · <button id="minimapTravel" class="minimap-travel">🌍 travel</button></span>
+            <span class="minimap-title">🗺 Map</span>
+            <span id="minimapCentre" class="minimap-centre" title="What the middle of the map is looking at">—</span>
+            <span class="minimap-tools">
+                <button id="minimapPin" class="mm-chip hidden" title="Pin this world to your location">📍</button>
+                <button id="minimapTravel" class="mm-chip" title="Arm the next tap to move the whole room">🌍 travel</button>
+                <button id="minimapLayers" class="mm-chip" title="What the map draws">▦</button>
+                <button id="minimapClose" class="mm-chip" title="Close the map (N)">✕</button>
+            </span>
         </div>
-        <canvas id="minimap" width="232" height="232"></canvas>
+
+        <div class="minimap-stage">
+            <canvas id="minimap" width="248" height="248"></canvas>
+            <div id="minimapScope" class="mm-scope hidden"></div>
+            <div id="minimapLayerMenu" class="mm-menu hidden">
+                <label><input type="checkbox" data-layer="map" checked> Coast &amp; sea</label>
+                <label><input type="checkbox" data-layer="grid" checked> Lat / lon grid</label>
+                <label><input type="checkbox" data-layer="build" checked> What is built</label>
+                <label><input type="checkbox" data-layer="people" checked> People</label>
+                <label><input type="checkbox" data-layer="trails" checked> Places visited</label>
+            </div>
+            <span id="minimapCursor" class="mm-cursor"></span>
+        </div>
+
+        <div class="minimap-go">
+            <input id="minimapGo" type="text" placeholder="lat, lon — e.g. 51.5074, -0.1278"
+                   autocomplete="off" spellcheck="false" title="Type coordinates and press Enter">
+            <button id="minimapGoBtn" class="mm-chip go" title="Go to these coordinates">Go</button>
+        </div>
+
         <div class="minimap-foot">
             <button id="minimapZoomOut" class="minimap-zoom" title="Show more ground (or scroll on the map)">−</button>
-            <button id="minimapHome" class="minimap-zoom hidden" title="Centre the map back on this world">⌖</button>
-            <span id="minimapZoomLabel" class="minimap-span">this world</span>
             <button id="minimapZoomIn" class="minimap-zoom" title="Show less ground, closer up">+</button>
+            <button id="minimapHome" class="minimap-zoom hidden" title="Stop holding this view and follow the world again">⌖</button>
+            <button id="minimapMe" class="minimap-zoom" title="Centre the map on where I am">◎</button>
+            <span id="minimapZoomLabel" class="minimap-span">this world</span>
+            <button id="minimapPeople" class="mm-chip count" title="Who the room knows about, and where they have been">👥 0</button>
         </div>
+
+        <div id="minimapPlaces" class="mm-places hidden"></div>
+        <div id="minimapResize" class="mm-resize" title="Drag to resize the map"></div>
     </div>
 
     <!-- Ceremony: counted starts and headline moments -->
