@@ -1667,7 +1667,7 @@
             this._updateBlockCount();
 
             // Load whatever was persisted (works even if we're the only/first player)
-            this._loadWorldFromStorage();
+            this._loadWorldFromStorage(() => this._settleWhereYouAre());
             this._loadGeoSeen();
             this._startSessionKeepAlive();
 
@@ -2924,6 +2924,23 @@
          * are. Host-only, because it replaces the world.
          */
         /**
+         * A world with nowhere to be is put where you are.
+         *
+         * Only if the browser has already been given permission — a game that
+         * demands your position the moment it opens is a game people close, so
+         * without it the map simply offers its 📍 and waits.
+         */
+        async _settleWhereYouAre() {
+            if (!this.isHost() || (this.geo && this.geo.anchor)) return;
+            try {
+                if (!navigator.permissions || !navigator.permissions.query) return;
+                const status = await navigator.permissions.query({ name: 'geolocation' });
+                if (status.state !== 'granted') return;
+                await this.pinToMyLocation();
+            } catch (e) { /* no permissions API, or it refused to say: leave it */ }
+        }
+
+        /**
          * Put the world where the player is standing. Reachable from the world
          * panel and from the map itself, because until this happens the map has
          * nowhere real to show.
@@ -2974,11 +2991,16 @@
 
             const note = document.getElementById('geoNote');
             if (note) note.textContent = 'Reading the map…';
-            if (!opts.quiet) this.showToast('Reading the map for this region…', 'info', 2600);
+            if (!opts.quiet) this.showToast('Drawing this place…', 'info', 2600);
             try {
                 const t0 = Date.now();
                 const sel = document.getElementById('geoTraceStyle');
-                const built = await BlockPartyTerrain.trace(this, { style: (sel && sel.value) || 'auto' });
+                const style = opts.style || (sel && sel.value) || 'earth';
+                // The world's own shape comes from coastline data; the other
+                // two read the map's picture of the place instead.
+                const built = style === 'earth'
+                    ? await BlockPartyEarth.shapeFor(this)
+                    : await BlockPartyTerrain.trace(this, { style });
                 this.voxels.clearAll();
                 this.undoStack.length = 0;
                 this.redoStack.length = 0;
@@ -2991,15 +3013,20 @@
                 this._sendWorldSnapshot();
                 this._scheduleSave();
                 if (this.minimap) this.minimap.draw();
-                const kinds = Object.entries(built.counts)
+                const kinds = Object.entries(built.counts || {})
                     .filter(([k]) => k !== 'ground')
                     .sort((a, b) => b[1] - a[1]).slice(0, 3).map(([k]) => k).join(', ');
-                if (note) note.textContent = built.style === 'outline'
-                    ? `Outlined from map tiles at zoom ${built.zoom} — coastlines and borders only.`
-                    : `Traced from map tiles at zoom ${built.zoom} — mostly ${kinds}.`;
-                this.showToast(opts.quiet
-                    ? `Drew this place from the map — ${this.voxels.count()} blocks`
-                    : `Traced ${this.voxels.count()} blocks from the map in ${Date.now() - t0}ms`, 'success', 3600);
+                if (note) note.textContent = built.style === 'earth'
+                    ? `Ground and sea from the real coastlines — ${built.land} land, ${built.sea} sea.`
+                    : built.style === 'outline'
+                        ? `Outlined from map tiles at zoom ${built.zoom} — coastlines and borders only.`
+                        : `Traced from map tiles at zoom ${built.zoom} — mostly ${kinds}.`;
+                this.showToast(built.style === 'earth'
+                    ? `Ground and sea drawn here — ${built.land} land, ${built.sea} sea`
+                    : opts.quiet
+                        ? `Drew this place from the map — ${this.voxels.count()} blocks`
+                        : `Traced ${this.voxels.count()} blocks from the map in ${Date.now() - t0}ms`,
+                    'success', 3600);
             } catch (e) {
                 if (note) note.textContent = e.message;
                 if (!opts.quiet) this.showToast(e.message, 'error', 4200);

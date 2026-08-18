@@ -139,10 +139,10 @@
                     <button id="geoHereBtn" class="btn btn-ghost">Take me home</button>
                 </div>
                 <div class="import-row">
-                    <button id="geoTraceBtn" class="btn btn-primary">🗺 Trace this place into blocks</button>
-                    <select id="geoTraceStyle" title="How much of the place to draw">
-                        <option value="auto" selected>Automatic</option>
-                        <option value="outline">Outlines only — coasts &amp; borders</option>
+                    <button id="geoTraceBtn" class="btn btn-primary">🗺 Draw this place</button>
+                    <select id="geoTraceStyle" title="What to draw here">
+                        <option value="earth" selected>Ground &amp; sea — the real coastline</option>
+                        <option value="outline">Coasts &amp; borders, from the map</option>
                         <option value="full">Everything — roads &amp; buildings</option>
                     </select>
                     <label class="world-toggle" title="Draw each new place from the map as you travel or change scale">
@@ -314,6 +314,7 @@
 <script src="geo.js"></script>
 <script src="minimap.js"></script>
 <script src="terrain.js"></script>
+<script src="earth.js"></script>
 <script src="sfx.js"></script>
 <script src="fx.js"></script>
 <script src="fps.js"></script>

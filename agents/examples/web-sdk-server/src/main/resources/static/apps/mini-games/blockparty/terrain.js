@@ -116,7 +116,9 @@
         // Downsample the tiles onto the world grid: one cell per world column.
         const small = document.createElement('canvas');
         small.width = cells; small.height = cells;
-        const sctx = small.getContext('2d');
+        // Read back rather than displayed: without this the canvas is kept
+        // on the GPU and every getImageData stalls waiting for it.
+        const sctx = small.getContext('2d', { willReadFrequently: true });
         sctx.imageSmoothingEnabled = true;
         sctx.drawImage(canvas, 0, 0, cells, cells);
 
