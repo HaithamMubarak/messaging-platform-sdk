@@ -18,8 +18,16 @@
     'use strict';
 
     // ---- World constants ----
-    const HALF = 24;              // world spans [-HALF, HALF] on X/Z
+    // The world spans [-HALF, HALF] on X and Z: 161 x 161 cells, about ten
+    // times the area it started with. Everything that frames it — the ground,
+    // the grid, the fog, how far the camera may pull back — is derived from
+    // this, so the size is one number to change.
+    const HALF = 80;
     const MAX_Y = 40;             // build height ceiling
+    const WORLD_SPAN = HALF * 2 + 1;
+    const CAM_MIN_RADIUS = 6;
+    const CAM_MAX_RADIUS = Math.round(WORLD_SPAN * 1.9);   // far enough to see it all
+    const CAM_START_RADIUS = 40;
     const STORAGE_KEY = 'blockparty_world';
     const SAVE_DEBOUNCE_MS = 2500;
     const CURSOR_THROTTLE_MS = 120;
@@ -27,6 +35,7 @@
     const MAX_FILL_CELLS = 1200;  // biggest region one fill may touch
     const BULK_CHUNK = 300;       // cells per wire message, to stay well under
                                   // the data-channel size limit
+    const WORLD_CHUNK = 400;      // cells (or pieces) per world-snapshot message
     // The platform expires a session after 180s unless something the client
     // sends touches it. BlockParty talks over WebRTC almost exclusively, so a
     // room deep in a quiet three-minute round would let its session lapse and
@@ -96,6 +105,7 @@
             this.cursorGeometry = new THREE.EdgesGeometry(new THREE.BoxGeometry(1.02, 1.02, 1.02));
             this.preview = null;        // local placement ghost (built lazily)
 
+            this.half = HALF;           // the world's reach, for anyone who asks
             this.arena = null;          // match plots (group), null in the sandbox
             this.pads = new Map();      // player name -> { group, cover, label, ... }
             this.ghostGroups = new Map(); // id -> blueprint ghost group
@@ -115,7 +125,9 @@
 
             this.scene = new THREE.Scene();
             this.scene.background = new THREE.Color('#0b1020');
-            this.scene.fog = new THREE.Fog('#0b1020', 55, 110);
+            // Fog hides the far edge without hiding the build you walked away
+            // from, so it is pinned to the world's size rather than a constant.
+            this.scene.fog = new THREE.Fog('#0b1020', WORLD_SPAN * 0.55, WORLD_SPAN * 2.6);
 
             // Lighting
             const hemi = new THREE.HemisphereLight('#bcd0ff', '#0b1020', 0.9);
@@ -125,7 +137,7 @@
             this.scene.add(dir);
 
             // Ground plane (pick target for floor placement)
-            const size = HALF * 2 + 1;
+            const size = WORLD_SPAN;
             const groundMat = new THREE.MeshLambertMaterial({ color: '#161d33' });
             this.ground = new THREE.Mesh(new THREE.PlaneGeometry(size, size), groundMat);
             this.ground.rotation.x = -Math.PI / 2;
@@ -134,19 +146,25 @@
             this.scene.add(this.ground);
 
             // Grid + border
-            const grid = new THREE.GridHelper(size, size, 0x2b3557, 0x1c2440);
+            // Two grids: every cell up close, and a heavier one every ten cells
+            // so a big world still reads as a plan you can navigate.
+            const grid = new THREE.GridHelper(size, size, 0x2b3557, 0x161d33);
             grid.position.y = 0.001;
             this.scene.add(grid);
+            const coarse = new THREE.GridHelper(size, Math.round(size / 10), 0x3a4670, 0x2b3557);
+            coarse.position.y = 0.002;
+            this.scene.add(coarse);
 
             this.raycaster = new THREE.Raycaster();
         }
 
         _initCamera() {
-            this.camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 500);
+            this.camera = new THREE.PerspectiveCamera(
+                60, window.innerWidth / window.innerHeight, 0.1, WORLD_SPAN * 6);
             this.target = new THREE.Vector3(0, 2, 0);
-            this.cam = { theta: Math.PI * 0.25, phi: Math.PI * 0.32, radius: 34 };
+            this.cam = { theta: Math.PI * 0.25, phi: Math.PI * 0.32, radius: CAM_START_RADIUS };
             // Where "reset view" goes back to. A match repoints it at your plot.
-            this.home = { x: 0, y: 2, z: 0, radius: 34, phi: Math.PI * 0.32 };
+            this.home = { x: 0, y: 2, z: 0, radius: CAM_START_RADIUS, phi: Math.PI * 0.32 };
             this._applyCamera();
         }
 
@@ -165,7 +183,7 @@
         // having to re-aim after every round.
         focus(x, y, z, radius, phi) {
             this.target.set(x, y, z);
-            if (radius) this.cam.radius = Math.max(6, Math.min(90, radius));
+            if (radius) this.cam.radius = Math.max(CAM_MIN_RADIUS, Math.min(CAM_MAX_RADIUS, radius));
             if (phi) this.cam.phi = Math.max(0.12, Math.min(Math.PI / 2 - 0.02, phi));
             this.home = { x, y, z, radius: this.cam.radius, phi: this.cam.phi };
             this._applyCamera();
@@ -192,7 +210,10 @@
         }
 
         zoom(delta) {
-            this.cam.radius = Math.max(6, Math.min(90, this.cam.radius + delta));
+            // Proportional zoom: a step that feels right next to a brick would
+            // take forever to cross the world from high up.
+            const scaled = delta * Math.max(1, this.cam.radius / 30);
+            this.cam.radius = Math.max(CAM_MIN_RADIUS, Math.min(CAM_MAX_RADIUS, this.cam.radius + scaled));
             this._applyCamera();
         }
 
@@ -292,7 +313,7 @@
                 this.world.set(k, colorIndex);
                 return;
             }
-            if (existing) { this.scene.remove(existing); this.meshes.delete(k); }
+            if (existing) { this.scene.remove(existing); this.meshes.delete(k); this._dirtyTargets(); }
 
             const mesh = new THREE.Mesh(this._cellGeometry(si), material);
             // A studded 1x1 has its origin at the cell corner; the other shapes
@@ -303,6 +324,7 @@
             this.scene.add(mesh);
             this.meshes.set(k, mesh);
             this.world.set(k, colorIndex);
+            this._dirtyTargets();
         }
 
         // ---- brick pieces ----
@@ -337,6 +359,7 @@
                 this.pieceOf.set(k, p.id);
             });
             this.pieces.set(p.id, Object.assign({}, p, { cells: keys, mesh }));
+            this._dirtyTargets();
         }
 
         deletePiece(id) {
@@ -350,6 +373,7 @@
                 this.shapes.delete(k);
             });
             this.pieces.delete(id);
+            this._dirtyTargets();
         }
 
         deleteBlock(x, y, z) {
@@ -358,7 +382,7 @@
             const pieceId = this.pieceOf.get(k);
             if (pieceId) { this.deletePiece(pieceId); return; }
             const mesh = this.meshes.get(k);
-            if (mesh) { this.scene.remove(mesh); this.meshes.delete(k); }
+            if (mesh) { this.scene.remove(mesh); this.meshes.delete(k); this._dirtyTargets(); }
             this.world.delete(k);
             this.owners.delete(k);
             this.shapes.delete(k);
@@ -373,6 +397,7 @@
             this.world.clear();
             this.owners.clear();
             this.shapes.clear();
+            this._dirtyTargets();
         }
 
         count() { return this.world.size; }
@@ -440,10 +465,7 @@
                 -(clientY / window.innerHeight) * 2 + 1
             );
             this.raycaster.setFromCamera(ndc, this.camera);
-            const targets = Array.from(this.meshes.values());
-            this.pieces.forEach(p => targets.push(p.mesh));
-            targets.push(this.ground);
-            const hits = this.raycaster.intersectObjects(targets, false);
+            const hits = this.raycaster.intersectObjects(this._pickTargets(), false);
             if (!hits.length) return null;
 
             const hit = hits[0];
@@ -502,6 +524,24 @@
             }
             return this._blockedMat;
         }
+
+        /**
+         * Everything a ray may hit, rebuilt only when the world changes.
+         * Hover fires on every mouse move, and in a world this size collecting
+         * thousands of meshes each time is the difference between a smooth aim
+         * and a stuttering one.
+         */
+        _pickTargets() {
+            if (!this._targets || this._targetsDirty) {
+                this._targets = Array.from(this.meshes.values());
+                this.pieces.forEach(p => this._targets.push(p.mesh));
+                this._targets.push(this.ground);
+                this._targetsDirty = false;
+            }
+            return this._targets;
+        }
+
+        _dirtyTargets() { this._targetsDirty = true; }
 
         // ---- local placement preview (my own aim, before I commit an edit) ----
         showPreview(x, y, z, si, colorIndex, erasing) {
@@ -1025,12 +1065,8 @@
                     break;
                 }
                 case 'world':
-                    this.voxels.replaceFrom(data.blocks, data.pieces);
-                    // The snapshot carries the lock so a late joiner learns the
-                    // room is read-only without a separate round trip.
-                    if (typeof data.locked === 'boolean') this._setWorldLocked(data.locked);
-                    this._updateBlockCount();
-                    if (this.xray) this.voxels.setOwnerXray(true, (n) => this.generateUserColor(n));
+                    if (!this.isHost() && !this._fromHost(peerId, data)) break;
+                    this._receiveWorldChunk(data);
                     break;
                 case 'requestWorld':
                     if (this.isHost()) this._sendWorldSnapshot();
@@ -1510,11 +1546,54 @@
             if (this.xray) this.voxels.setOwnerXray(true, (n) => this.generateUserColor(n));
         }
 
+        /**
+         * Send the whole world to the room, in pieces.
+         *
+         * A full 161x161 world does not fit in one data-channel message, so it
+         * goes out as numbered chunks and the receiver assembles them before
+         * touching anything. Chunk 0 announces how many are coming, so a client
+         * that joins mid-stream simply waits for the next complete run rather
+         * than rendering half a world.
+         */
         _sendWorldSnapshot() {
             // Never ship the arena out as if it were the shared world.
             if (this.modes && this.modes.isMatchActive()) return;
             const snap = this.snapshotWorld();
-            this.sendData({ type: 'world', blocks: snap.blocks, pieces: snap.pieces, locked: this.worldLocked });
+            const chunks = [];
+            for (let i = 0; i < snap.blocks.length; i += WORLD_CHUNK) {
+                chunks.push({ blocks: snap.blocks.slice(i, i + WORLD_CHUNK), pieces: [] });
+            }
+            for (let i = 0; i < snap.pieces.length; i += WORLD_CHUNK) {
+                chunks.push({ blocks: [], pieces: snap.pieces.slice(i, i + WORLD_CHUNK) });
+            }
+            if (!chunks.length) chunks.push({ blocks: [], pieces: [] });
+
+            chunks.forEach((c, i) => this.sendData({
+                type: 'world', i, n: chunks.length,
+                blocks: c.blocks, pieces: c.pieces,
+                locked: this.worldLocked
+            }));
+        }
+
+        /** Collect a chunked snapshot; apply it once the last chunk lands. */
+        _receiveWorldChunk(data) {
+            const total = data.n || 1;
+            if (data.i === 0 || !this._incoming) this._incoming = { blocks: [], pieces: [], seen: 0, total };
+            if (this._incoming.total !== total) this._incoming = { blocks: [], pieces: [], seen: 0, total };
+
+            this._incoming.blocks.push(...(data.blocks || []));
+            this._incoming.pieces.push(...(data.pieces || []));
+            this._incoming.seen++;
+            if (this._incoming.seen < total) return;
+
+            const snap = this._incoming;
+            this._incoming = null;
+            this.restoreWorldFrom({ blocks: snap.blocks, pieces: snap.pieces });
+            // The snapshot carries the lock so a late joiner learns the room is
+            // read-only without a separate round trip.
+            if (typeof data.locked === 'boolean') this._setWorldLocked(data.locked);
+            this._updateBlockCount();
+            this._refreshPlayers();
         }
 
         // ---------- session keep-alive ----------
@@ -2171,6 +2250,7 @@
             if (!modal || !list) return;
 
             this._pickedMode = this._pickedMode || 'blueprint';
+            const players = Math.max(1, (this.getConnectedUsers() || []).length);
             list.innerHTML = BlockPartyModes.MODES.map(m => `
                 <button class="mode-card${m.id === this._pickedMode ? ' selected' : ''}${m.ready ? '' : ' soon'}"
                         data-mode="${m.id}" ${m.ready ? '' : 'disabled'}>
@@ -2178,6 +2258,7 @@
                     <span class="mode-body">
                         <span class="mode-name">${this._esc(m.name)}${m.ready ? '' : ' <em>soon</em>'}</span>
                         <span class="mode-desc">${this._esc(m.desc)}</span>
+                        ${this._playerNote(m, players)}
                     </span>
                 </button>`).join('');
             const applyDefaults = (id) => {
@@ -2198,7 +2279,6 @@
             applyDefaults(this._pickedMode);
 
             const isHost = this.isHost();
-            const players = Math.max(1, (this.getConnectedUsers() || []).length);
             const hint = document.getElementById('modeHint');
             if (hint) {
                 hint.textContent = isHost
@@ -2208,6 +2288,16 @@
             const startBtn = document.getElementById('modeStart');
             if (startBtn) startBtn.disabled = !isHost;
             modal.classList.remove('hidden');
+        }
+
+        // Say up front which modes want more people, rather than letting someone
+        // start a guessing game with nobody to guess.
+        _playerNote(mode, players) {
+            const need = mode.minPlayers || 1;
+            if (players < need) {
+                return `<span class="mode-warn">Needs ${need}+ players — you have ${players}</span>`;
+            }
+            return mode.note ? `<span class="mode-note">${this._esc(mode.note)}</span>` : '';
         }
 
         _closeModePicker() {

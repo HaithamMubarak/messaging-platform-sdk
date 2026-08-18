@@ -28,10 +28,10 @@
     const Models = window.BlockPartyModels;
 
     // ---- arena geometry ----
-    const WORLD_HALF = 24;        // must match HALF in blockparty.js
-    const PLOT_GAP = 4;
-    const PLOT_MIN = 8;
-    const PLOT_MAX = 11;
+    const WORLD_HALF = 80;        // must match HALF in blockparty.js
+    const PLOT_GAP = 6;
+    const PLOT_MIN = 12;
+    const PLOT_MAX = 22;          // a plot you can build something in, not on
     const BUILD_HEIGHT = 16;      // ceiling inside a plot during a match
     // Match camera pitch: higher over the plot than the sandbox default, so your
     // own build fills the view and the neighbouring plots stay out of the way.
@@ -47,11 +47,12 @@
     const TOUR_SECS = 4;          // camera dwell per plot during the reveal
 
     const PROGRESS_THROTTLE_MS = 1500;
-    const MAX_SUBMIT_CELLS = 1500;
+    const MAX_SUBMIT_CELLS = 4000;   // plots are big now; builds travel chunked
+    const BUILD_CHUNK = 300;         // cells (or pieces) per build message
 
     // Charades: the builder's plot is the room's stage, so it gets more space
     // than a race plot, and letters of the word leak out as time runs down.
-    const STAGE_SIZE = 13;
+    const STAGE_SIZE = 22;
     const CHARADES_REVEAL_SECS = 10;
     const HINT_AT = [0.45, 0.7, 0.85];   // fraction elapsed -> one more letter
 
@@ -102,27 +103,27 @@
 
     const MODES = [
         {
-            id: 'blueprint', name: 'Blueprint Race', emoji: '📐', ready: true, defaultTime: 180,
+            id: 'blueprint', name: 'Blueprint Race', emoji: '📐', ready: true, defaultTime: 180, minPlayers: 1, note: 'Solo works: race the clock and your own memory.',
             desc: 'Everyone gets the same secret blueprint. Study it, then rebuild it from memory — it flashes back for 3s every 30s. Accuracy plus speed wins.'
         },
         {
-            id: 'charades', name: 'Voxel Charades', emoji: '🤫', ready: true, defaultTime: 90,
+            id: 'charades', name: 'Voxel Charades', emoji: '🤫', ready: true, defaultTime: 90, minPlayers: 2, note: 'Needs somebody to guess.',
             desc: 'One player builds a secret word with no words allowed. Everyone else watches live and races to guess it in chat.'
         },
         {
-            id: 'teambuild', name: 'Team Build', emoji: '🤝', ready: true, defaultTime: 180,
+            id: 'teambuild', name: 'Team Build', emoji: '🤝', ready: true, defaultTime: 180, minPlayers: 1, note: 'Better with a crowd, fine alone.',
             desc: 'One blueprint, one plot, everyone at once. Talk it out in chat — the room shares a single score, and you can see who laid what.'
         },
         {
-            id: 'memory', name: 'Memory Match', emoji: '🧠', ready: true, defaultTime: 120,
+            id: 'memory', name: 'Memory Match', emoji: '🧠', ready: true, defaultTime: 120, minPlayers: 1, note: 'Alone, you rebuild your own from memory.',
             desc: 'One player builds while the room watches. Then it vanishes and everybody rebuilds it from memory. The architect scores on how well you remembered.'
         },
         {
-            id: 'rush', name: 'Block Rush', emoji: '⚡', ready: true, defaultTime: 90,
+            id: 'rush', name: 'Block Rush', emoji: '⚡', ready: true, defaultTime: 90, minPlayers: 2, note: 'Needs somebody to vote for you.',
             desc: 'A creative prompt, no blueprint, nothing to copy. Builds are revealed together and the room votes for its favourite.'
         },
         {
-            id: 'territory', name: 'Territory', emoji: '🚩', ready: true, defaultTime: 120,
+            id: 'territory', name: 'Territory', emoji: '🚩', ready: true, defaultTime: 120, minPlayers: 2, note: 'Needs somebody to take ground from.',
             desc: 'One shared arena, every block wears your colour. Build over rivals, tear theirs down — most blocks standing at the whistle wins.'
         }
     ];
@@ -133,6 +134,7 @@
      * fits inside the world instead of spilling over the edge.
      */
     function computePlots(names) {
+        names = (names && names.length) ? names : [];
         const n = Math.max(1, names.length);
         const cols = Math.ceil(Math.sqrt(n));
         const rows = Math.ceil(n / cols);
@@ -276,6 +278,14 @@
     class ModeController {
         constructor(game) {
             this.game = game;
+            // The world's size is written down in two files. If they ever drift,
+            // plots would be laid out over the edge of a world that no longer
+            // reaches that far — so say so loudly rather than debug it later.
+            const worldHalf = game.voxels && game.voxels.half;
+            if (worldHalf && worldHalf !== WORLD_HALF) {
+                console.warn(`[BlockParty] world size mismatch: modes.js has ${WORLD_HALF}, `
+                    + `the world is ${worldHalf}. Arenas will be laid out for the wrong size.`);
+            }
 
             this.state = null;          // last match state (host-authoritative)
             this.host = null;           // host-only bookkeeping; null on clients
@@ -338,8 +348,11 @@
             const s = this.state;
             if (!s) return false;
             if (s.mode === 'memory') {
+                // Normally the architect sits the rebuild out. Alone in a room
+                // they are also the only rebuilder, and the host gives them a
+                // plot for it — so having a plot is the real test, not who built.
                 return (s.phase === 'architect' && s.builder === this.game.username)
-                    || (s.phase === 'play' && s.builder !== this.game.username);
+                    || (s.phase === 'play' && !!this.myPlot);
             }
             return s.phase === 'play';
         }
@@ -437,10 +450,25 @@
                     if (this.host) return;
                     this._applyResults(msg.r);
                     break;
-                case 'build':
-                    this.builds.set(msg.name, msg.cells || []);
-                    this._paintBuild(msg.name, msg.cells || []);
+                case 'build': {
+                    // Assemble the chunks before painting; half a build looks
+                    // like a bad build.
+                    const total = msg.n || 1;
+                    if (!this._incomingBuilds) this._incomingBuilds = new Map();
+                    let buf = this._incomingBuilds.get(msg.name);
+                    if (!buf || msg.i === 0 || buf.total !== total) {
+                        buf = { cells: [], pieces: [], seen: 0, total };
+                        this._incomingBuilds.set(msg.name, buf);
+                    }
+                    buf.cells.push(...(msg.cells || []));
+                    buf.pieces.push(...(msg.pieces || []));
+                    buf.seen++;
+                    if (buf.seen < total) break;
+                    this._incomingBuilds.delete(msg.name);
+                    this.builds.set(msg.name, buf.cells);
+                    this._paintBuild(msg.name, buf.cells, buf.pieces);
                     break;
+                }
                 case 'end':
                     if (!this.host) this._endMatch();
                     break;
@@ -590,12 +618,12 @@
 
                 case 'teambuild':
                     // One plot the whole room shares, big enough to work around.
-                    h.plots = [{ name: SHARED, shared: true, x0: -9, z0: -9, size: 18 }];
+                    h.plots = [{ name: SHARED, shared: true, x0: -18, z0: -18, size: 36 }];
                     takeModel();
                     break;
 
                 case 'territory':
-                    h.plots = [{ name: SHARED, shared: true, x0: -11, z0: -11, size: 22 }];
+                    h.plots = [{ name: SHARED, shared: true, x0: -22, z0: -22, size: 44 }];
                     break;
 
                 default:
@@ -694,6 +722,7 @@
             if (prev && prev.locked && !msg.locked) return;
             h.submissions.set(name, {
                 cells: (msg.cells || []).slice(0, MAX_SUBMIT_CELLS),
+                pieces: (msg.pieces || []).slice(0, MAX_SUBMIT_CELLS),
                 locked: !!msg.locked,
                 at: h.phase === 'play' ? h.elapsed : h.roundTime
             });
@@ -791,9 +820,24 @@
                 if (p.shared) return;
                 const sub = h.submissions.get(p.name);
                 const cells = (sub && sub.cells) || [];
-                this._broadcast({ k: 'build', name: p.name, cells });
+                const pieces = (sub && sub.pieces) || [];
+
+                // Chunked for the same reason the world is: a full plot does not
+                // fit in one message.
+                const chunks = [];
+                for (let i = 0; i < cells.length; i += BUILD_CHUNK) {
+                    chunks.push({ cells: cells.slice(i, i + BUILD_CHUNK), pieces: [] });
+                }
+                for (let i = 0; i < pieces.length; i += BUILD_CHUNK) {
+                    chunks.push({ cells: [], pieces: pieces.slice(i, i + BUILD_CHUNK) });
+                }
+                if (!chunks.length) chunks.push({ cells: [], pieces: [] });
+                chunks.forEach((c, i) => this._broadcast({
+                    k: 'build', name: p.name, i, n: chunks.length, cells: c.cells, pieces: c.pieces
+                }));
+
                 this.builds.set(p.name, cells);
-                this._paintBuild(p.name, cells);
+                this._paintBuild(p.name, cells, pieces);
             });
         }
 
@@ -934,14 +978,17 @@
             }).sort((a, b) => b.points - a.points);
 
             // The architect is paid by how well the room remembered: build
-            // something memorable, not something impossible.
+            // something memorable, not something impossible. Alone, they are
+            // also the rebuilder, and must not be listed — or paid — twice.
             const avg = rows.length ? Math.round(rows.reduce((a, r) => a + r.pct, 0) / rows.length) : 0;
-            h.totals.set(h.builder, (h.totals.get(h.builder) || 0) + avg);
-            rows.push({
-                name: h.builder, pct: avg, points: avg, isBuilder: true,
-                blocks: (h.target || []).length, target: (h.target || []).length,
-                note: 'architect — scores the room average'
-            });
+            if (!rows.some(r => r.name === h.builder)) {
+                h.totals.set(h.builder, (h.totals.get(h.builder) || 0) + avg);
+                rows.push({
+                    name: h.builder, pct: avg, points: avg, isBuilder: true,
+                    blocks: (h.target || []).length, target: (h.target || []).length,
+                    note: 'architect — scores the room average'
+                });
+            }
 
             this._hostFinish({
                 mode: 'memory', round: h.round, rounds: h.rounds, builder: h.builder,
@@ -1325,7 +1372,7 @@
             });
         }
 
-        _paintBuild(name, cells) {
+        _paintBuild(name, cells, pieces) {
             const s = this.state;
             if (!s) return;
             const plot = (s.plots || []).find(p => p.name === name);
@@ -1334,10 +1381,40 @@
             // Same frame the build was submitted in: the model's, or the plot's
             // corner in the modes that have no blueprint.
             const o = this.model ? modelOrigin(plot, this.model) : { x: plot.x0, z: plot.z0 };
-            this.game.voxels.paintCells(cells, o.x, o.z, name);
+
+            // Bricks go down first. Their cells are in the cell list too — that
+            // is what was scored — so those are skipped, or placing them would
+            // break the very bricks just laid.
+            const covered = new Set();
+            (pieces || []).forEach(a => {
+                const px = a[1] + o.x, py = a[2], pz = a[3] + o.z;
+                this.game.voxels.setPiece({
+                    id: name + ':' + a[0], x: px, y: py, z: pz,
+                    w: a[4], d: a[5], c: a[6], owner: a[7] || name
+                });
+                BlockPartyBricks.cellsOf(px, py, pz, a[4], a[5])
+                    .forEach(c => covered.add(c[0] + ',' + c[1] + ',' + c[2]));
+            });
+            const loose = (cells || []).filter(a =>
+                !covered.has((a[0] + o.x) + ',' + a[1] + ',' + (a[2] + o.z)));
+            this.game.voxels.paintCells(loose, o.x, o.z, name);
         }
 
         // ---------- my build ----------
+
+        // The bricks standing in my plot, in the same frame as _myCells.
+        _myPieces() {
+            const plot = this.myPlot;
+            if (!plot) return [];
+            const o = this.model ? modelOrigin(plot, this.model) : { x: plot.x0, z: plot.z0 };
+            const out = [];
+            this.game.voxels.pieces.forEach(p => {
+                if (p.x < plot.x0 || p.x > plot.x0 + plot.size - 1) return;
+                if (p.z < plot.z0 || p.z > plot.z0 + plot.size - 1) return;
+                out.push([p.id, p.x - o.x, p.y, p.z - o.z, p.w, p.d, p.c, p.owner || null]);
+            });
+            return out.slice(0, MAX_SUBMIT_CELLS);
+        }
 
         _myCells() {
             const plot = this.myPlot;
@@ -1364,7 +1441,10 @@
             if (!this.myPlot) return;
             if (this.locked && !locked) return;     // the locked-in build already went up
             const cells = this._myCells();
-            const msg = { k: 'submit', name: this.game.username, cells, locked: !!locked };
+            // Cells are what gets scored; the pieces ride along so the reveal
+            // shows the bricks somebody actually laid rather than a pile of
+            // loose studs.
+            const msg = { k: 'submit', name: this.game.username, cells, pieces: this._myPieces(), locked: !!locked };
             if (this.host) this._hostRecordSubmit(this.game.username, msg);
             else this._send(msg);
         }

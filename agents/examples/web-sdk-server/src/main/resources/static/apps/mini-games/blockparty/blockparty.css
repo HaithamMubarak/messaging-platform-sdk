@@ -482,3 +482,7 @@ html, body {
 .vote-btn:hover:not(:disabled) { background: rgba(99,102,241,0.45); }
 .vote-btn.picked { background: rgba(34,197,94,0.32); border-color: rgba(34,197,94,0.6); }
 .vote-btn:disabled { opacity: 0.35; cursor: not-allowed; }
+
+/* Mode picker: what a mode needs from the room */
+.mode-note { font-size: 11px; color: var(--muted); opacity: 0.8; }
+.mode-warn { font-size: 11px; font-weight: 700; color: #fde68a; }
