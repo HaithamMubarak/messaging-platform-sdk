@@ -30,7 +30,13 @@
             this.anchor = null;        // { lat, lon, mpc } — mpc = metres per cell
             this.mine = null;          // my last fix: { lat, lon, acc }
             this.sharing = false;
-            this.others = new Map();   // name -> { lat, lon, at }
+            this.others = new Map();   // name -> { lat, lon, at } — sharing right now
+            // Where everyone was the last time they said. This outlives their
+            // sharing, their session and the browser: a room that has been used
+            // for a week remembers where its people stood, which is what makes
+            // "go to where they were" possible when they are not here.
+            this.lastSeen = new Map();  // name -> { lat, lon, acc, at }
+            this._seenDirty = false;
             this._watchId = null;
             this._lastShared = 0;
         }
@@ -161,19 +167,80 @@
 
         receive(msg) {
             if (!msg || !msg.name) return;
-            if (msg.hide) this.others.delete(msg.name);
-            else this.others.set(msg.name, { lat: msg.lat, lon: msg.lon, acc: msg.acc, at: Date.now() });
+            if (msg.hide) {
+                this.others.delete(msg.name);
+            } else {
+                const rec = { lat: msg.lat, lon: msg.lon, acc: msg.acc, at: Date.now() };
+                this.others.set(msg.name, rec);
+                this.remember(msg.name, rec);
+            }
             this._renderMarkers();
+            this.game._syncGeoUI();
         }
 
+        /** Note where somebody was, for after they have gone. */
+        remember(name, rec) {
+            this.lastSeen.set(name, { lat: rec.lat, lon: rec.lon, acc: rec.acc, at: rec.at || Date.now() });
+            this._seenDirty = true;
+            this.game.scheduleGeoSave();
+        }
+
+        /** They left the room, but not the record of where they were. */
         forget(name) {
             this.others.delete(name);
             this._renderMarkers();
+            this.game._syncGeoUI();
+        }
+
+        /** Everything worth writing down, for channel storage. */
+        exportSeen() {
+            const out = {};
+            this.lastSeen.forEach((rec, name) => { out[name] = rec; });
+            return out;
+        }
+
+        importSeen(data) {
+            if (!data) return;
+            Object.keys(data).forEach(name => {
+                const rec = data[name];
+                if (!rec || typeof rec.lat !== 'number') return;
+                const known = this.lastSeen.get(name);
+                if (!known || (rec.at || 0) > (known.at || 0)) this.lastSeen.set(name, rec);
+            });
+            this._renderMarkers();
+            this.game._syncGeoUI();
+        }
+
+        /** Live position if they are sharing, otherwise the last one known. */
+        placeOf(name) {
+            const live = name === this.game.username ? (this.sharing ? this.mine : null) : this.others.get(name);
+            if (live) return { rec: live, live: true };
+            const seen = this.lastSeen.get(name);
+            if (seen) return { rec: seen, live: false };
+            // My own device knows where I am even when I am not telling anyone.
+            if (name === this.game.username && this.mine) return { rec: this.mine, live: false, private: true };
+            return null;
+        }
+
+        /** Everyone this room can point at, live or remembered. */
+        roster() {
+            const names = new Set();
+            if (this.mine) names.add(this.game.username);
+            this.others.forEach((_r, n) => names.add(n));
+            this.lastSeen.forEach((_r, n) => names.add(n));
+            return Array.from(names).map(name => {
+                const place = this.placeOf(name);
+                return place ? {
+                    name, live: place.live, private: !!place.private,
+                    at: place.rec.at, pos: this.worldPosOf(name)
+                } : null;
+            }).filter(Boolean);
         }
 
         /** Where a player is, in world cells — null if they are off the grid. */
         worldPosOf(name) {
-            const rec = name === this.game.username ? this.mine : this.others.get(name);
+            const place = this.placeOf(name);
+            const rec = place && place.rec;
             if (!rec || !this.anchor) return null;
             const p = this.toWorld(rec.lat, rec.lon);
             const half = this.game.voxels.half;
@@ -184,16 +251,17 @@
         _renderMarkers() {
             const v = this.game.voxels;
             if (!this.anchor) { v.clearGeoMarkers(); return; }
-            const seen = new Set();
-            const put = (name) => {
-                const p = this.worldPosOf(name);
+            const shown = new Set();
+            this.roster().forEach(entry => {
+                const p = entry.pos;
                 if (!p || p.outside) return;
-                seen.add(name);
-                v.setGeoMarker(name, p.x, p.z, this.game.generateUserColor(name), name === this.game.username);
-            };
-            if (this.mine && this.sharing) put(this.game.username);
-            this.others.forEach((_rec, name) => put(name));
-            v.pruneGeoMarkers(seen);
+                shown.add(entry.name);
+                // A live pin is solid; a remembered one is faded, so you can
+                // tell "they are there" from "they were there".
+                v.setGeoMarker(entry.name, p.x, p.z, this.game.generateUserColor(entry.name),
+                    entry.name === this.game.username, entry.live);
+            });
+            v.pruneGeoMarkers(shown);
         }
 
         /** Fly the camera to where somebody actually is. */
@@ -203,6 +271,16 @@
             if (p.outside) return { outside: true };
             this.game.voxels.focus(Math.round(p.x), 2, Math.round(p.z), 34, Math.PI * 0.3);
             return p;
+        }
+
+        /** "just now", "12m ago", "3h ago" — how stale a position is. */
+        static ago(at) {
+            if (!at) return '';
+            const s = Math.max(0, Math.round((Date.now() - at) / 1000));
+            if (s < 45) return 'just now';
+            if (s < 3600) return Math.round(s / 60) + 'm ago';
+            if (s < 86400) return Math.round(s / 3600) + 'h ago';
+            return Math.round(s / 86400) + 'd ago';
         }
 
         /** A readable rendering of a place, for the UI. */

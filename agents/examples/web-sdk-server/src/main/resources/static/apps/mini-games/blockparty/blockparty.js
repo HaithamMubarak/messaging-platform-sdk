@@ -36,6 +36,7 @@
     const BULK_CHUNK = 300;       // cells per wire message, to stay well under
                                   // the data-channel size limit
     const WORLD_CHUNK = 400;      // cells (or pieces) per world-snapshot message
+    const PLAIN_SCALE = 9;        // how far the ground runs past the build area
     const CHUNK = 16;             // render chunk size on X/Z, in cells
     const CHUNK_BUDGET = 6;       // chunk rebuilds allowed per frame
     // The platform expires a session after 180s unless something the client
@@ -47,6 +48,7 @@
     const MAX_IMAGE_CELLS = 9000;   // an imported picture is one bulk edit
     const SLOT_PREFIX = 'blockparty_slot_';
     const STATS_KEY = 'blockparty_stats';
+    const GEO_SEEN_KEY = 'blockparty_geo_seen';
 
     // Palette — index maps to a color; sent over the wire as a small int.
     const PALETTE = [
@@ -123,6 +125,10 @@
             // is merged into one geometry per material. A world with 20,000
             // blocks is then a few hundred draw calls instead of 20,000.
             this.chunks = new Map();    // "cx,cz" -> { meshes: [], cells: Set, pieces: Set }
+            // The highest block in each column, and what colour it is. Kept up
+            // to date as blocks come and go so the minimap can be drawn without
+            // walking the whole world every time.
+            this.columns = new Map();   // "x,z" -> { top, hex }
             this.dirtyChunks = new Set();
             // A brick piece covers several cells but is one mesh and one thing
             // to break. Its cells are registered in world/owners too, so counts,
@@ -235,6 +241,21 @@
             this.ground = new THREE.Mesh(new THREE.PlaneGeometry(size, size), groundMat);
             this.ground.rotation.x = -Math.PI / 2;
             this.ground.position.set(0, 0, 0);
+            // Beyond the buildable square, the ground carries on to the
+            // horizon. Without it the world reads as a table top floating in
+            // space; with it, the build area is a place within somewhere
+            // larger — which is also what being pinned to real coordinates
+            // implies.
+            const plainGeo = new THREE.PlaneGeometry(size * PLAIN_SCALE, size * PLAIN_SCALE);
+            const plain = new THREE.Mesh(plainGeo, new THREE.MeshLambertMaterial({
+                map: this._gridTexture(PLAIN_SCALE), color: new THREE.Color(GROUND_BASE).convertSRGBToLinear()
+            }));
+            plain.rotation.x = -Math.PI / 2;
+            plain.position.y = -0.08;      // just under the build area, never z-fighting it
+            plain.receiveShadow = false;
+            this.scene.add(plain);
+            this.plain = plain;
+
             this.ground.userData.isGround = true;
             this.ground.receiveShadow = !this.software;
             this.scene.add(this.ground);
@@ -266,6 +287,9 @@
             this.groundTint = hex || null;
             const c = new THREE.Color(hex || GROUND_BASE).convertSRGBToLinear();
             this.ground.material.color.copy(c);
+            // The land beyond the build area is the same ground, a shade darker
+            // so the edge of what you can build on stays legible.
+            if (this.plain) this.plain.material.color.copy(c).multiplyScalar(0.62);
         }
 
         /** A gradient dome, so the world has a sky rather than a clear colour. */
@@ -291,7 +315,7 @@
         }
 
         /** The floor grid, drawn once into a texture and tiled per cell. */
-        _gridTexture() {
+        _gridTexture(scale) {
             const S = 64;
             const canvas = document.createElement('canvas');
             canvas.width = canvas.height = S;
@@ -305,7 +329,7 @@
             ctx.strokeRect(0, 0, S, S);
             const tex = new THREE.CanvasTexture(canvas);
             tex.wrapS = tex.wrapT = THREE.RepeatWrapping;
-            tex.repeat.set(WORLD_SPAN, WORLD_SPAN);
+            tex.repeat.set(WORLD_SPAN * (scale || 1), WORLD_SPAN * (scale || 1));
             tex.encoding = THREE.sRGBEncoding;
             try {
                 tex.anisotropy = this.renderer.capabilities.getMaxAnisotropy();
@@ -761,6 +785,28 @@
             this.world.set(k, colorIndex);
             this._chunk(VoxelWorld.chunkKey(x, z)).cells.add(k);
             this._touchAround(x, z);
+            this._raiseColumn(x, y, z, colorIndex);
+        }
+
+        _raiseColumn(x, y, z, colorIndex) {
+            const ck = x + ',' + z;
+            const col = this.columns.get(ck);
+            if (!col || y >= col.top) this.columns.set(ck, { top: y, hex: hexOf(colorIndex) });
+        }
+
+        /** Something went from this column; find the new top of it. */
+        _rescanColumn(x, z) {
+            const ck = x + ',' + z;
+            const col = this.columns.get(ck);
+            if (!col) return;
+            for (let y = col.top; y >= 0; y--) {
+                const k = VoxelWorld.key(x, y, z);
+                if (this.world.has(k)) {
+                    this.columns.set(ck, { top: y, hex: hexOf(this.world.get(k)) });
+                    return;
+                }
+            }
+            this.columns.delete(ck);
         }
 
         // ---- brick pieces ----
@@ -807,6 +853,7 @@
                 const c = this.chunks.get(VoxelWorld.chunkKey(x, z));
                 if (c) c.cells.delete(k);
                 this._touchAround(x, z);
+                this._rescanColumn(x, z);
             });
             const home = VoxelWorld.chunkKey(piece.x, piece.z);
             const hc = this.chunks.get(home);
@@ -822,9 +869,10 @@
             this.world.delete(k);
             this.owners.delete(k);
             this.shapes.delete(k);
-            const ck = VoxelWorld.chunkKey(x, z);
-            const c = this.chunks.get(ck);
-            if (c) { c.cells.delete(k); this._touchChunk(ck); }
+            const c = this.chunks.get(VoxelWorld.chunkKey(x, z));
+            if (c) c.cells.delete(k);
+            this._touchAround(x, z);
+            this._rescanColumn(x, z);
         }
 
         clearAvatars() {
@@ -838,6 +886,7 @@
             }));
             this.chunks.clear();
             this.dirtyChunks.clear();
+            this.columns.clear();
             this.pieces.clear();
             this.pieceOf.clear();
             this.world.clear();
@@ -1064,440 +1113,6 @@
             return hexOf(this.world.get(k));
         }
 
-        _materialFor(colorIndex, owner) {
-            if (this.xray) return this._ownerMaterial(owner);
-            return this.materials[colorIndex] || this.materials[0];
-        }
-
-        /** Rebuild one chunk's merged meshes from the world model. */
-        _rebuildChunk(ck) {
-            const chunk = this.chunks.get(ck);
-            if (!chunk) return;
-            chunk.meshes.forEach(m => {
-                this.scene.remove(m);
-                m.geometry.dispose();
-            });
-            chunk.meshes = [];
-
-            // Everything in the chunk goes into one buffer. Colour, the tint a
-            // face gets from the way it points, and baked occlusion all travel
-            // as vertex colours — which is why a whole chunk is a single draw
-            // call with a single material.
-            const parts = [];
-            let verts = 0;
-            const add = (tmpl, ox, oy, oz, colorIndex, owner) => {
-                parts.push({ tmpl, ox, oy, oz, color: this._linearFor(colorIndex, owner) });
-                verts += tmpl.count;
-            };
-
-            chunk.cells.forEach(k => {
-                if (this.pieceOf.has(k)) return;          // drawn as part of its brick
-                if (!this.world.has(k)) return;
-                const [x, y, z] = k.split(',').map(Number);
-                const si = this.shapes.get(k) || 0;
-                const tmpl = this._template(this._cellGeometry(si));
-                const c = this.world.get(k), owner = this.owners.get(k);
-                if (si === 0 && this.brickLook) add(tmpl, x, y, z, c, owner);
-                else add(tmpl, x + 0.5, y + shapeAt(si).cy, z + 0.5, c, owner);
-            });
-
-            chunk.pieces.forEach(id => {
-                const p = this.pieces.get(id);
-                if (!p) return;
-                add(this._template(BlockPartyBricks.geometry(p.w, p.d)), p.x, p.y, p.z, p.c, p.owner);
-            });
-
-            if (verts) {
-                const position = new Float32Array(verts * 3);
-                const normal = new Float32Array(verts * 3);
-                const color = new Float32Array(verts * 3);
-                let at = 0;
-                parts.forEach(part => {
-                    const { tmpl, ox, oy, oz } = part;
-                    for (let i = 0; i < tmpl.count; i++) {
-                        const s3 = i * 3, d3 = (at + i) * 3;
-                        const px = tmpl.pos[s3] + ox;
-                        const py = tmpl.pos[s3 + 1] + oy;
-                        const pz = tmpl.pos[s3 + 2] + oz;
-                        const nx = tmpl.norm[s3], ny = tmpl.norm[s3 + 1], nz = tmpl.norm[s3 + 2];
-                        position[d3] = px; position[d3 + 1] = py; position[d3 + 2] = pz;
-                        normal[d3] = nx; normal[d3 + 1] = ny; normal[d3 + 2] = nz;
-
-                        const shade = this._shadeAt(px, py, pz, nx, ny, nz);
-                        color[d3] = part.color.r * shade;
-                        color[d3 + 1] = part.color.g * shade;
-                        color[d3 + 2] = part.color.b * shade;
-                    }
-                    at += tmpl.count;
-                });
-                const geo = new THREE.BufferGeometry();
-                geo.setAttribute('position', new THREE.BufferAttribute(position, 3));
-                geo.setAttribute('normal', new THREE.BufferAttribute(normal, 3));
-                geo.setAttribute('color', new THREE.BufferAttribute(color, 3));
-                geo.computeBoundingSphere();
-                const mesh = new THREE.Mesh(geo, this.chunkMaterial);
-                mesh.userData.chunk = ck;
-                mesh.castShadow = !this.software;
-                mesh.receiveShadow = !this.software;
-                this.scene.add(mesh);
-                chunk.meshes.push(mesh);
-            }
-
-            if (!chunk.cells.size && !chunk.pieces.size) this.chunks.delete(ck);
-            this._dirtyTargets();
-        }
-
-        /**
-         * Flush pending chunk rebuilds. Called once per frame with a budget, so
-         * dropping a map of 10,000 blocks costs several frames rather than one
-         * long freeze.
-         */
-        flushChunks(budget) {
-            if (!this.dirtyChunks.size) return 0;
-            let done = 0;
-            for (const ck of this.dirtyChunks) {
-                this._rebuildChunk(ck);
-                this.dirtyChunks.delete(ck);
-                if (++done >= (budget || CHUNK_BUDGET)) break;
-            }
-            return done;
-        }
-
-        /** How many meshes the world currently costs to draw. */
-        drawCalls() {
-            let n = 0;
-            this.chunks.forEach(c => { n += c.meshes.length; });
-            return n;
-        }
-
-        /** Rebuild everything — after an x-ray toggle or a brick-look change. */
-        _rebuildAll() {
-            this.chunks.forEach((_c, ck) => this.dirtyChunks.add(ck));
-        }
-
-        // Geometry for a plain cell: in brick mode a cube becomes a studded 1x1
-        // so single blocks and real pieces look like the same toy. The other
-        // shapes are not bricks and are left alone.
-        _cellGeometry(si) {
-            if (si === 0 && this.brickLook) return BlockPartyBricks.geometry(1, 1);
-            return this.geometries[si];
-        }
-
-        setBrickLook(on) {
-            if (this.brickLook === !!on) return;
-            this.brickLook = !!on;
-            this._rebuildAll();
-        }
-
-        ownerOf(x, y, z) { return this.owners.get(VoxelWorld.key(x, y, z)); }
-        shapeOf(x, y, z) { return this.shapes.get(VoxelWorld.key(x, y, z)) || 0; }
-
-        setBlock(x, y, z, colorIndex, owner, shape) {
-            const k = VoxelWorld.key(x, y, z);
-            const si = shapeIndex(shape);
-            // A cell inside a brick belongs to that brick, not to itself.
-            if (this.pieceOf.has(k)) this.deletePiece(this.pieceOf.get(k));
-            // Re-placing a block that is already exactly this block changes
-            // nothing, so it must not quietly transfer credit for it — in Team
-            // Build that would let a tidier-upper take the whole room's work.
-            const identical = this.world.get(k) === colorIndex && (this.shapes.get(k) || 0) === si;
-            if (owner && !identical) this.owners.set(k, owner);
-            if (si) this.shapes.set(k, si); else this.shapes.delete(k);
-
-            this.world.set(k, colorIndex);
-            const ck = VoxelWorld.chunkKey(x, z);
-            this._chunk(ck).cells.add(k);
-            this._touchChunk(ck);
-        }
-
-        // ---- brick pieces ----
-        // p = { id, x, y, z, w, d, c, owner }. Anything already standing in the
-        // way is cleared first, so a piece landing on top wins the same way a
-        // block does.
-        setPiece(p) {
-            if (this.pieces.has(p.id)) this.deletePiece(p.id);
-            const cells = BlockPartyBricks.cellsOf(p.x, p.y, p.z, p.w, p.d);
-            cells.forEach(([x, y, z]) => {
-                const k = VoxelWorld.key(x, y, z);
-                const other = this.pieceOf.get(k);
-                if (other) this.deletePiece(other);
-                else if (this.world.has(k)) this.deleteBlock(x, y, z);
-            });
-
-            const keys = [];
-            cells.forEach(([x, y, z]) => {
-                const k = VoxelWorld.key(x, y, z);
-                keys.push(k);
-                this.world.set(k, p.c);
-                this.shapes.delete(k);                  // brick cells are cubes
-                if (p.owner) this.owners.set(k, p.owner);
-                this.pieceOf.set(k, p.id);
-            });
-            this.pieces.set(p.id, Object.assign({}, p, { cells: keys }));
-            // A brick can straddle a chunk edge, so every chunk it touches has to
-            // redraw — but it is only ever *owned* by the chunk of its corner.
-            const home = VoxelWorld.chunkKey(p.x, p.z);
-            this._chunk(home).pieces.add(p.id);
-            this._touchChunk(home);
-            this._touchChunk(VoxelWorld.chunkKey(p.x + p.w - 1, p.z + p.d - 1));
-        }
-
-        deletePiece(id) {
-            const piece = this.pieces.get(id);
-            if (!piece) return;
-            piece.cells.forEach(k => {
-                this.pieceOf.delete(k);
-                this.world.delete(k);
-                this.owners.delete(k);
-                this.shapes.delete(k);
-                const [x, , z] = k.split(',').map(Number);
-                const ck = VoxelWorld.chunkKey(x, z);
-                const c = this.chunks.get(ck);
-                if (c) { c.cells.delete(k); this._touchChunk(ck); }
-            });
-            const home = VoxelWorld.chunkKey(piece.x, piece.z);
-            const hc = this.chunks.get(home);
-            if (hc) { hc.pieces.delete(id); this._touchChunk(home); }
-            this.pieces.delete(id);
-        }
-
-        deleteBlock(x, y, z) {
-            const k = VoxelWorld.key(x, y, z);
-            // Breaking any stud of a brick takes the whole brick off.
-            const pieceId = this.pieceOf.get(k);
-            if (pieceId) { this.deletePiece(pieceId); return; }
-            this.world.delete(k);
-            this.owners.delete(k);
-            this.shapes.delete(k);
-            const ck = VoxelWorld.chunkKey(x, z);
-            const c = this.chunks.get(ck);
-            if (c) c.cells.delete(k);
-            this._touchAround(x, z);
-        }
-
-        clearAll() {
-            this.chunks.forEach(c => c.meshes.forEach(m => {
-                this.scene.remove(m);
-                m.geometry.dispose();
-            }));
-            this.chunks.clear();
-            this.dirtyChunks.clear();
-            this.pieces.clear();
-            this.pieceOf.clear();
-            this.world.clear();
-            this.owners.clear();
-            this.shapes.clear();
-            this._dirtyTargets();
-        }
-
-        count() { return this.world.size; }
-
-        // name -> number of blocks currently standing that this player placed
-        countsByOwner() {
-            const m = new Map();
-            this.owners.forEach((owner, k) => {
-                if (owner && this.world.has(k)) m.set(owner, (m.get(owner) || 0) + 1);
-            });
-            return m;
-        }
-
-        // [x, y, z, colorIndex, owner?, shape?] — the tail is optional and only
-        // written when it carries information, so rows stay short and worlds
-        // saved by older versions (4- and 5-element rows) still load.
-        // Cells that stand on their own. Cells belonging to a brick are left to
-        // encodePieces, so a saved world reloads as bricks and not as rubble.
-        encode() {
-            const out = [];
-            this.world.forEach((c, k) => {
-                if (this.pieceOf.has(k)) return;
-                const [x, y, z] = k.split(',').map(Number);
-                const owner = this.owners.get(k);
-                const si = this.shapes.get(k) || 0;
-                if (si) out.push([x, y, z, c, owner || null, si]);
-                else if (owner) out.push([x, y, z, c, owner]);
-                else out.push([x, y, z, c]);
-            });
-            return out;
-        }
-
-        // [id, x, y, z, w, d, colorIndex, owner]
-        encodePieces() {
-            const out = [];
-            this.pieces.forEach(p => out.push([p.id, p.x, p.y, p.z, p.w, p.d, p.c, p.owner || null]));
-            return out;
-        }
-
-        replaceFrom(blocks, pieces) {
-            this.clearAll();
-            if (Array.isArray(pieces)) {
-                for (const p of pieces) {
-                    if (!p || p.length < 7) continue;
-                    const [id, x, y, z, w, d, c, owner] = p;
-                    if (this.inBounds(x, y, z)) {
-                        this.setPiece({ id, x, y, z, w, d, c, owner: owner || undefined });
-                    }
-                }
-            }
-            if (Array.isArray(blocks)) {
-                for (const b of blocks) {
-                    if (!b || b.length < 4) continue;
-                    const [x, y, z, c, owner, si] = b;
-                    if (this.inBounds(x, y, z)) this.setBlock(x, y, z, c, owner || undefined, si);
-                }
-            }
-        }
-
-        // ---- picking ----
-        // Returns { place:{x,y,z}, remove:{x,y,z} } for the pointer at (clientX,clientY), or null.
-        pick(clientX, clientY) {
-            const ndc = new THREE.Vector2(
-                (clientX / window.innerWidth) * 2 - 1,
-                -(clientY / window.innerHeight) * 2 + 1
-            );
-            this.raycaster.setFromCamera(ndc, this.camera);
-            const hits = this.raycaster.intersectObjects(this._pickTargets(), false);
-            if (!hits.length) return null;
-
-            const hit = hits[0];
-            const ud = hit.object.userData || {};
-            if (ud.isGround) {
-                const x = Math.floor(hit.point.x);
-                const z = Math.floor(hit.point.z);
-                return { place: { x, y: 0, z }, remove: null };
-            }
-
-            // A merged chunk is one mesh for hundreds of blocks, so the cell has
-            // to be worked out from where the ray landed rather than read off
-            // the object. Step just inside the surface and floor it; the
-            // candidates cover the awkward cases — a stud poking up into the
-            // cell above, and the rounded shapes whose surface sits well inside
-            // their cell.
-            const n = hit.face.normal;
-            const p = hit.point;
-            const at = (dx, dy, dz) => ({
-                x: Math.floor(p.x - n.x * dx), y: Math.floor(p.y - n.y * dy), z: Math.floor(p.z - n.z * dz)
-            });
-            const candidates = [at(0.02, 0.02, 0.02), at(0.5, 0.5, 0.5)];
-            const first = candidates[0];
-            candidates.push({ x: first.x, y: first.y - 1, z: first.z });   // hit a stud
-            const cell = candidates.find(c => this.hasBlock(c.x, c.y, c.z)) || first;
-
-            const place = { x: cell.x + Math.round(n.x), y: cell.y + Math.round(n.y), z: cell.z + Math.round(n.z) };
-            return { place, remove: cell };
-        }
-
-        // Ghost of a whole brick about to be dropped, at its minimum corner.
-        showPiecePreview(x, y, z, w, d, colorIndex, blocked) {
-            if (!this.piecePreview) {
-                this.piecePreview = new THREE.Mesh(
-                    BlockPartyBricks.geometry(1, 1), this.ghostMaterials[0]
-                );
-                this.scene.add(this.piecePreview);
-            }
-            const p = this.piecePreview;
-            p.visible = true;
-            p.geometry = BlockPartyBricks.geometry(w, d);
-            p.material = blocked ? this._blockedMaterial() : this._ghostForColor(colorIndex);
-            p.position.set(x, y, z);
-        }
-
-        hidePiecePreview() { if (this.piecePreview) this.piecePreview.visible = false; }
-
-        _blockedMaterial() {
-            if (!this._blockedMat) {
-                this._blockedMat = new THREE.MeshLambertMaterial({
-                    color: new THREE.Color('#ff5a5f'), transparent: true, opacity: 0.35, depthWrite: false
-                });
-            }
-            return this._blockedMat;
-        }
-
-        /**
-         * Everything a ray may hit, rebuilt only when the world changes.
-         * Hover fires on every mouse move, and in a world this size collecting
-         * thousands of meshes each time is the difference between a smooth aim
-         * and a stuttering one.
-         */
-        _pickTargets() {
-            if (!this._targets || this._targetsDirty) {
-                this._targets = [];
-                this.chunks.forEach(c => c.meshes.forEach(m => this._targets.push(m)));
-                this._targets.push(this.ground);
-                this._targetsDirty = false;
-            }
-            return this._targets;
-        }
-
-        _dirtyTargets() { this._targetsDirty = true; }
-
-        // ---- local placement preview (my own aim, before I commit an edit) ----
-        showPreview(x, y, z, si, colorIndex, erasing) {
-            if (!this.preview) {
-                const group = new THREE.Group();
-                const line = new THREE.LineSegments(
-                    this.cursorGeometry, new THREE.LineBasicMaterial({ color: 0xffffff })
-                );
-                const ghost = new THREE.Mesh(this.geometries[0], this.ghostMaterials[0]);
-                group.add(line);
-                group.add(ghost);
-                this.scene.add(group);
-                this.preview = { group, line, ghost };
-            }
-            const p = this.preview;
-            p.group.visible = true;
-            p.group.position.set(x + 0.5, y, z + 0.5);
-            p.line.position.y = 0.5;
-            if (erasing) {
-                // Nothing is being added — just ring the doomed cell in red.
-                p.ghost.visible = false;
-                p.line.material.color.set('#ff5a5f');
-            } else {
-                const idx = shapeIndex(si);
-                p.ghost.visible = true;
-                p.ghost.geometry = this.geometries[idx];
-                p.ghost.material = this._ghostForColor(colorIndex);
-                p.ghost.position.y = shapeAt(idx).cy;
-                p.line.material.color.set('#ffffff');
-            }
-        }
-
-        hidePreview() { if (this.preview) this.preview.group.visible = false; }
-
-        // ---- region preview, for the box fill ----
-        // One unit-cube wireframe, scaled to the pending box.
-        showRegion(a, b, erase) {
-            if (!this.region) {
-                this.region = new THREE.LineSegments(
-                    new THREE.EdgesGeometry(new THREE.BoxGeometry(1, 1, 1)),
-                    new THREE.LineBasicMaterial({ color: 0x7dd3fc })
-                );
-                this.scene.add(this.region);
-            }
-            const lo = { x: Math.min(a.x, b.x), y: Math.min(a.y, b.y), z: Math.min(a.z, b.z) };
-            const hi = { x: Math.max(a.x, b.x), y: Math.max(a.y, b.y), z: Math.max(a.z, b.z) };
-            const w = hi.x - lo.x + 1, h = hi.y - lo.y + 1, d = hi.z - lo.z + 1;
-            this.region.visible = true;
-            this.region.scale.set(w, h, d);
-            this.region.position.set(lo.x + w / 2, lo.y + h / 2, lo.z + d / 2);
-            this.region.material.color.set(erase ? '#ff5a5f' : '#7dd3fc');
-            return w * h * d;
-        }
-
-        hideRegion() { if (this.region) this.region.visible = false; }
-
-        // ---- ownership x-ray: colour every block by who placed it ----
-        setOwnerXray(on, colorFor) {
-            this.xray = !!on;
-            this._xrayColorFor = colorFor || null;
-            this._rebuildAll();
-        }
-
-        /**
-         * The colour a cell is actually drawn in right now — the palette colour,
-         * or its owner's colour while the x-ray is on. With merged chunks there
-         * is no per-block mesh to inspect, so this is how anything (including a
-         * test) asks what it would see.
-         */
         _ownerMaterial(owner) {
             const hex = (owner && this._xrayColorFor) ? this._xrayColorFor(owner) : '#64748b';
             if (!this._ownerMats) this._ownerMats = new Map();
@@ -1654,7 +1269,7 @@
          * A pin standing on the spot a player is physically at, once the world
          * has been anchored to real coordinates.
          */
-        setGeoMarker(name, x, z, color, isMe) {
+        setGeoMarker(name, x, z, color, isMe, live) {
             if (!this.geoMarkers) this.geoMarkers = new Map();
             let m = this.geoMarkers.get(name);
             if (!m) {
@@ -1679,6 +1294,13 @@
                 this.geoMarkers.set(name, m);
             }
             m.group.position.set(x + 0.5, 0, z + 0.5);
+            // Solid where somebody is; faint where somebody was.
+            const solid = live !== false;
+            m.group.children.forEach(child => {
+                if (!child.material || child.type === 'Sprite') return;
+                child.material.opacity = solid ? 0.9 : 0.32;
+                child.material.transparent = true;
+            });
         }
 
         pruneGeoMarkers(keep) {
@@ -2009,6 +1631,7 @@
             this.modes = new BlockPartyModes.ModeController(this);
             this.fps = new BlockPartyFPS(this);
             this.geo = new BlockPartyGeo(this);
+            this.minimap = new BlockPartyMinimap(this);
             this._buildPalette();
             this._buildShapes();
             this._buildBricks();
@@ -2045,6 +1668,7 @@
 
             // Load whatever was persisted (works even if we're the only/first player)
             this._loadWorldFromStorage();
+            this._loadGeoSeen();
             this._startSessionKeepAlive();
 
             this.showToast('Connected — start building! 🧱', 'success', 2500);
@@ -2977,22 +2601,24 @@
 
             const list = document.getElementById('geoList');
             if (list) {
-                const rows = [];
-                const add = (name, isMe) => {
-                    const p = geo.worldPosOf(name);
+                const rows = geo.roster().map(entry => {
+                    const p = entry.pos;
                     const where = !p ? '—' : (p.outside ? 'outside this world'
-                        : `${Math.round(p.x)}, ${Math.round(p.z)} in world`);
-                    rows.push(`<div class="geo-row">
-                        <span class="geo-dot" style="background:${this.generateUserColor(name)}"></span>
-                        <span class="geo-name">${this._esc(name)}${isMe ? ' (you)' : ''}</span>
+                        : `${Math.round(p.x)}, ${Math.round(p.z)}`);
+                    const isMe = entry.name === this.username;
+                    // Live, remembered, or only on this device and not shared.
+                    const status = entry.live ? 'here now'
+                        : (entry.private ? 'on this device only' : 'last seen ' + BlockPartyGeo.ago(entry.at));
+                    return `<div class="geo-row${entry.live ? '' : ' stale'}">
+                        <span class="geo-dot" style="background:${this.generateUserColor(entry.name)};${entry.live ? '' : 'opacity:.45'}"></span>
+                        <span class="geo-name">${this._esc(entry.name)}${isMe ? ' (you)' : ''}</span>
+                        <span class="geo-when">${this._esc(status)}</span>
                         <span class="geo-where">${this._esc(where)}</span>
-                        <button class="btn btn-ghost" data-geo="${this._esc(name)}" ${p && !p.outside ? '' : 'disabled'}>Go</button>
-                    </div>`);
-                };
-                if (geo.sharing && geo.mine) add(this.username, true);
-                geo.others.forEach((_rec, name) => add(name, false));
+                        <button class="btn btn-ghost" data-geo="${this._esc(entry.name)}" ${p && !p.outside ? '' : 'disabled'}>Go</button>
+                    </div>`;
+                });
                 list.innerHTML = rows.length ? rows.join('')
-                    : '<div class="slot-empty">Nobody is sharing a location yet.</div>';
+                    : '<div class="slot-empty">Nobody has shared a location in this room yet.</div>';
             }
         }
 
@@ -3585,6 +3211,7 @@
                 }
                 else if (k === 'v') { this.stopFollowing(); this.voxels.resetView(); }
                 else if (k === 'g') { this.toggleFirstPerson(); }
+                else if (k === 'n') { this.minimap.toggle(); }
                 else if (k === 'k') { this.toggleBrickMode(); }
                 // 1..N pick a shape
                 else if (/^[1-9]$/.test(k) && Number(k) <= SHAPES.length) { this.selectShape(Number(k) - 1); }
@@ -4020,6 +3647,44 @@
                     <button class="slot-del btn btn-ghost" data-key="${this._esc(key)}" data-label="${this._esc(label)}" title="Delete">🗑</button>
                 </div>`;
             }).join('');
+        }
+
+        // ---------- remembered locations ----------
+        /**
+         * Where people were, kept in the room's storage. Written by the host on
+         * a debounce — positions arrive every few seconds and none of them is
+         * worth a round trip on its own.
+         */
+        scheduleGeoSave() {
+            if (!this.isHost()) return;
+            clearTimeout(this._geoSaveTimer);
+            this._geoSaveTimer = setTimeout(() => this._saveGeoSeen(), 8000);
+        }
+
+        _saveGeoSeen() {
+            if (!this.isHost() || !this.channel || !this.geo) return;
+            const seen = this.geo.exportSeen();
+            if (!Object.keys(seen).length) return;
+            this._storage(
+                (cb) => this.channel.storagePut({
+                    storageKey: GEO_SEEN_KEY, content: { v: 1, seen }, encrypted: false,
+                    metadata: { description: 'BlockParty last-known locations' }
+                }, cb),
+                (res) => {
+                    if (res && res.status !== 'success') {
+                        console.warn('[BlockParty] location memory save failed:', res.statusMessage);
+                    }
+                });
+        }
+
+        _loadGeoSeen() {
+            if (!this.channel || !this.geo) return;
+            this._storage(
+                (cb) => this.channel.storageGet({ storageKey: GEO_SEEN_KEY }, cb),
+                (res) => {
+                    const data = res && res.status === 'success' && res.data;
+                    if (data && data.seen) this.geo.importSeen(data.seen);
+                });
         }
 
         // ---------- persistent room stats ----------

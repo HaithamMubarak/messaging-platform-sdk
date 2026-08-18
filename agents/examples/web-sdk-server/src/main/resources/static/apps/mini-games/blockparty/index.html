@@ -34,6 +34,7 @@
             <span id="geoReadout" class="pill geo-readout hidden" title="Where the pointer is in the real world"></span>
             <span id="connectionIndicator" class="indicator disconnected" title="Connection">●</span>
             <button id="soundBtn" class="btn btn-icon active" title="Sound">🔊</button>
+            <button id="mapBtn" class="btn btn-icon" title="Minimap (N)">🗺</button>
             <button id="fpsBtn" class="btn btn-icon" title="Walk around in first person (G)">🚶</button>
             <button id="xrayBtn" class="btn btn-icon" title="Show who built what (O)">🎨</button>
             <button id="worldBtn" class="btn btn-icon" title="Saved worlds, host controls, leaderboard">🗂</button>
@@ -84,6 +85,15 @@
             <span class="fps-keys"><strong>WASD</strong> walk · <strong>Shift</strong> run · <strong>Space</strong> jump ·
                 <strong>click</strong> build · <strong>right-click</strong> break · <strong>Esc</strong> leave</span>
         </div>
+    </div>
+
+    <!-- Minimap: the world from above, click to travel -->
+    <div id="minimapPanel" class="minimap-panel hidden">
+        <div class="minimap-head">
+            <span>🗺 Map</span>
+            <span class="minimap-hint">click to travel</span>
+        </div>
+        <canvas id="minimap" width="232" height="232"></canvas>
     </div>
 
     <!-- Ceremony: counted starts and headline moments -->
@@ -277,6 +287,7 @@
 <script src="bricks.js"></script>
 <script src="maps.js"></script>
 <script src="geo.js"></script>
+<script src="minimap.js"></script>
 <script src="sfx.js"></script>
 <script src="fx.js"></script>
 <script src="fps.js"></script>

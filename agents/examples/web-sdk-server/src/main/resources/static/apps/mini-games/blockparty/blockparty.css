@@ -591,3 +591,25 @@ html, body {
 .geo-where { color: var(--muted); margin-left: auto; font-variant-numeric: tabular-nums; }
 .geo-row .btn { padding: 4px 10px; font-size: 11px; }
 #geoShareBtn.active { background: rgba(34,197,94,0.28); border-color: rgba(34,197,94,0.5); }
+
+/* ---- Minimap ------------------------------------------------------------- */
+.minimap-panel {
+    position: absolute; right: 16px; bottom: 16px; z-index: 14;
+    padding: 8px; border-radius: 14px;
+    background: var(--panel); border: 1px solid var(--border); backdrop-filter: blur(10px);
+}
+.minimap-head {
+    display: flex; align-items: baseline; justify-content: space-between; gap: 10px;
+    font-size: 11px; font-weight: 700; margin-bottom: 6px;
+}
+.minimap-hint { color: var(--muted); font-weight: 500; }
+#minimap { display: block; width: 232px; height: 232px; border-radius: 9px; cursor: crosshair; }
+
+/* A remembered location reads differently from a live one. */
+.geo-row.stale .geo-name { color: var(--muted); }
+.geo-when { color: var(--muted); font-size: 11px; }
+
+@media (max-width: 640px) {
+    .minimap-panel { right: 8px; bottom: 96px; padding: 6px; }
+    #minimap { width: 150px; height: 150px; }
+}
