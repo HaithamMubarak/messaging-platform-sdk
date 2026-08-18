@@ -60,6 +60,9 @@
                     travel.textContent = this.armed ? '🌍 pick a spot' : '🌍 travel';
                 });
             }
+            const pin = document.getElementById('minimapPin');
+            if (pin) pin.addEventListener('click', () => this.game.pinToMyLocation());
+
             const zoomBtn = (id, by) => {
                 const el = document.getElementById(id);
                 if (el) el.addEventListener('click', () => this.setZoom(this.zoom + by));
@@ -241,6 +244,12 @@
 
             this._ensureBasemap();
 
+            const pinBtn = document.getElementById('minimapPin');
+            if (pinBtn) {
+                pinBtn.classList.toggle('hidden',
+                    !!(g.geo && g.geo.anchor) || !g.isHost());
+            }
+
             const label = document.getElementById('minimapZoomLabel');
             if (label) label.textContent = (this.zoom === 0 ? 'this world · ' : '') + this._spanLabel();
 
@@ -269,7 +278,10 @@
                 const shade = 0.55 + Math.min(0.45, col.top / 24);
                 // Over a real map the build is drawn slightly transparent, so
                 // you can see which street it is standing on.
-                ctx.globalAlpha = mapped ? 0.82 : 1;
+                // Over a real map the build is drawn lightly: a traced world is
+                // largely the map itself, and painting it back over solid would
+                // hide the streets it was taken from.
+                ctx.globalAlpha = mapped ? 0.6 : 1;
                 ctx.fillStyle = this._shade(col.hex, shade);
                 ctx.fillRect(p.cx, p.cy, cell, cell);
                 ctx.globalAlpha = 1;
@@ -370,16 +382,20 @@
                 : barM >= 1000 ? `${(barM / 1000).toFixed(barM >= 10000 ? 0 : 1)} km`
                 : `${Math.round(barM)} m`, 8, SIZE - 15);
 
-            // A map of nowhere is just a grid — say what would fix that.
+            // A map of nowhere is just a grid — say what would fix that, along
+            // the bottom edge where it covers nothing worth seeing.
             if (this.showMap && !anchor) {
-                ctx.fillStyle = 'rgba(255,255,255,0.72)';
-                ctx.font = '600 10px system-ui, sans-serif';
-                const msg = 'Pin the world to a place for the real map';
+                ctx.font = '600 9px system-ui, sans-serif';
+                const msg = this.game.isHost()
+                    ? 'not pinned — 📍 pin for the real map'
+                    : 'the host has not pinned this world yet';
                 const w = ctx.measureText(msg).width;
-                ctx.fillStyle = 'rgba(11,16,32,0.72)';
-                ctx.fillRect(SIZE / 2 - w / 2 - 6, SIZE / 2 - 10, w + 12, 20);
-                ctx.fillStyle = 'rgba(255,255,255,0.85)';
-                ctx.fillText(msg, SIZE / 2 - w / 2, SIZE / 2 + 4);
+                // Top-left: the scale bar owns the bottom, the compass the top
+                // centre, and the middle is the map itself.
+                ctx.fillStyle = 'rgba(11,16,32,0.78)';
+                ctx.fillRect(0, 0, w + 12, 15);
+                ctx.fillStyle = 'rgba(255,255,255,0.8)';
+                ctx.fillText(msg, 6, 11);
             } else if (this.showMap && anchor && !this.baseReady) {
                 ctx.fillStyle = 'rgba(255,255,255,0.6)';
                 ctx.font = '500 9px system-ui, sans-serif';

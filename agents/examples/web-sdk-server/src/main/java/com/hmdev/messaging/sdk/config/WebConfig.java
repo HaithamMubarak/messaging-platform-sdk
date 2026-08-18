@@ -83,7 +83,11 @@ public class WebConfig implements WebMvcConfigurer {
             http.setHeader("X-Content-Type-Options", "nosniff");
             http.setHeader("Referrer-Policy", "strict-origin-when-cross-origin");
             http.setHeader("X-Frame-Options", "SAMEORIGIN");
-            http.setHeader("Permissions-Policy", "geolocation=(), payment=(), usb=()");
+            // geolocation=(self): the apps served from here may ask for a
+            // position, but nothing they embed may. Denying it outright made
+            // the browser refuse every request from our own pages, which is
+            // what pins BlockParty's world to a real place.
+            http.setHeader("Permissions-Policy", "geolocation=(self), payment=(), usb=()");
             chain.doFilter(request, response);
         };
     }

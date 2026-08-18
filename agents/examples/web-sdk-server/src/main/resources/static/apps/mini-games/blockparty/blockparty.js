@@ -2556,23 +2556,7 @@
                 if (el) el.addEventListener(ev, fn);
             };
 
-            on('geoAnchorBtn', 'click', async () => {
-                if (!this.isHost()) { this.showToast('Only the host can pin the world', 'warning'); return; }
-                const note = document.getElementById('geoNote');
-                if (note) note.textContent = 'Asking your browser for a position…';
-                try {
-                    const fix = await this.geo.locate();
-                    const mpc = Number((document.getElementById('geoScale') || {}).value) || 2;
-                    this.geo.setAnchor(fix.lat, fix.lon, mpc);
-                    this._sendWorldSnapshot();
-                    this._scheduleSave();
-                    this._syncGeoUI();
-                    this.showToast(`World pinned — ${this.geo.span()}m across, ${mpc}m per block`, 'success', 3600);
-                } catch (e) {
-                    if (note) note.textContent = e.message;
-                    this.showToast(e.message, 'error', 3600);
-                }
-            });
+            on('geoAnchorBtn', 'click', () => this.pinToMyLocation());
 
             on('geoShareBtn', 'click', async () => {
                 if (this.geo.sharing) { this.geo.stopSharing(); this.showToast('Stopped sharing your location', 'info'); return; }
@@ -2939,6 +2923,34 @@
          * out in blocks — sea, parks, roads and buildings where they actually
          * are. Host-only, because it replaces the world.
          */
+        /**
+         * Put the world where the player is standing. Reachable from the world
+         * panel and from the map itself, because until this happens the map has
+         * nowhere real to show.
+         */
+        async pinToMyLocation() {
+            if (!this.isHost()) { this.showToast('Only the host can pin the world', 'warning'); return null; }
+            const note = document.getElementById('geoNote');
+            if (note) note.textContent = 'Asking your browser for a position…';
+            try {
+                const fix = await this.geo.locate();
+                const mpc = Number((document.getElementById('geoScale') || {}).value) || 2;
+                this.geo.setAnchor(fix.lat, fix.lon, mpc);
+                this._sendWorldSnapshot();
+                this._scheduleSave();
+                this._syncGeoUI();
+                if (this.minimap) this.minimap.draw();
+                this.showToast(`World pinned — ${this.geo.span()}m across, ${mpc}m per block`, 'success', 3600);
+                // Somewhere real deserves to look like it.
+                this._maybeAutoTrace();
+                return this.geo.anchor;
+            } catch (e) {
+                if (note) note.textContent = e.message;
+                this.showToast(e.message, 'error', 3600);
+                return null;
+            }
+        }
+
         /**
          * Arriving somewhere nobody has built yet, draw the place itself. This
          * is what makes zooming feel like a map rather than like eight
