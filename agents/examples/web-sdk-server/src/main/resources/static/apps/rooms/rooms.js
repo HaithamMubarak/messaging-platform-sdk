@@ -42,6 +42,7 @@
             this.note('You joined ' + this.channelName, 'join');
             this.known = (this.getUserList() || []).map(function (u) { return u.name; });
             this._watchRoster();
+            this._watchStats();
             this._sync();
             this._announce();
             await this._checkStreamingAvailable();
@@ -49,6 +50,7 @@
 
         onDisconnect() {
             clearInterval(this._rosterTimer);
+            clearInterval(this._statsTimer);
             this._status('off', 'Disconnected');
             this.note('You left the room');
         }
@@ -425,6 +427,7 @@
                     ]));
                 }
                 if (video.srcObject !== stream) video.srcObject = stream;
+                this._stageMeta(stage, stream);
                 return;
             }
 
@@ -442,6 +445,95 @@
                     ? 'Nobody is presenting. Share your screen to start.'
                     : 'Streaming is unavailable on this deployment.')
             ]));
+        }
+
+        /**
+         * What the picture on the stage actually is, and how it got here.
+         *
+         * Read off the track rather than asserted: the resolution comes from
+         * the track's own settings, and the route is whatever the peer
+         * connection settled on. A demo whose whole claim is "this goes peer to
+         * peer" should be able to show that it did.
+         */
+        _stageMeta(stage, stream) {
+            var meta = stage.querySelector('.stage__meta');
+            if (!meta) {
+                meta = UI.el('span', { class: 'stage__meta' }, '');
+                stage.appendChild(meta);
+            }
+            var track = stream && stream.getVideoTracks && stream.getVideoTracks()[0];
+            var st = track && track.getSettings ? track.getSettings() : {};
+            var size = st.width && st.height ? st.width + '×' + st.height : '';
+            var bits = [this._route || 'peer-to-peer'];
+            if (size) bits.push(size);
+            meta.textContent = bits.join(' · ');
+        }
+
+        /**
+         * Ask the peer connections how they are doing.
+         *
+         * Round-trip time and the route come from the standard stats report,
+         * so the number in the bar is measured rather than decorative. Once a
+         * couple of seconds is plenty for something a person glances at.
+         */
+        _watchStats() {
+            var self = this;
+            clearInterval(this._statsTimer);
+            this._statsTimer = setInterval(function () { self._readStats(); }, 2500);
+            this._readStats();
+        }
+
+        async _readStats() {
+            var out = document.getElementById('connStats');
+            if (!out) return;
+            var peers = Math.max(0, (this.getUserList() || []).length - 1);
+            var rtt = null, route = null;
+
+            var conns = this._peerConnections();
+            for (var i = 0; i < conns.length; i++) {
+                try {
+                    var report = await conns[i].getStats();
+                    report.forEach(function (r) {
+                        if (r.type === 'candidate-pair' && r.state === 'succeeded' && r.nominated !== false) {
+                            if (typeof r.currentRoundTripTime === 'number') {
+                                rtt = Math.round(r.currentRoundTripTime * 1000);
+                            }
+                        }
+                        if (r.type === 'local-candidate' && r.candidateType) {
+                            // A relayed candidate means TURN carried it, which is
+                            // worth saying rather than claiming peer-to-peer.
+                            if (r.candidateType === 'relay') route = 'relayed';
+                            else if (!route) route = 'peer-to-peer';
+                        }
+                    });
+                } catch (e) { /* a connection can go away mid-read */ }
+            }
+
+            this._route = route || 'peer-to-peer';
+            var bits = [peers + (peers === 1 ? ' peer' : ' peers')];
+            if (rtt !== null) bits.unshift(rtt + ' ms');
+            out.textContent = bits.join(' · ');
+        }
+
+        /** Whatever peer connections the helper is holding, however it holds them. */
+        _peerConnections() {
+            var h = this.webrtcHelper;
+            if (!h) return [];
+            var found = [];
+            ['peerConnections', 'connections', '_peerConnections'].forEach(function (key) {
+                var bag = h[key];
+                if (!bag) return;
+                if (typeof bag.forEach === 'function' && !Array.isArray(bag)) {
+                    bag.forEach(function (v) { if (v && v.getStats) found.push(v); });
+                } else if (Array.isArray(bag)) {
+                    bag.forEach(function (v) { if (v && v.getStats) found.push(v); });
+                } else if (typeof bag === 'object') {
+                    Object.keys(bag).forEach(function (k) {
+                        if (bag[k] && bag[k].getStats) found.push(bag[k]);
+                    });
+                }
+            });
+            return found;
         }
 
         renderPeople() {

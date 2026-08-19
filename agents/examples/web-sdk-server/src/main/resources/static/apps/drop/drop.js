@@ -227,6 +227,7 @@
             if (!host) return;
 
             var rows = Array.from(this.transfers.values()).sort(function (a, b) { return b.at - a.at; });
+            this._renderSummary(rows);
             if (!rows.length) {
                 host.replaceChildren(UI.el('div', { class: 'sdk-empty' }, [
                     UI.iconNode('inbox'),
@@ -237,6 +238,24 @@
 
             var self = this;
             host.replaceChildren.apply(host, rows.map(function (row) { return self._row(row); }));
+        }
+
+        /**
+         * What this session has actually moved. Only bytes that arrived are
+         * counted — a transfer still in flight, declined or damaged has not
+         * moved anything, and a summary that pretends otherwise is worse than
+         * none.
+         */
+        _renderSummary(rows) {
+            var out = document.getElementById('transferSummary');
+            if (!out) return;
+            var done = rows.filter(function (r) {
+                return r.state === 'sent' || r.state === 'ready';
+            });
+            var bytes = done.reduce(function (n, r) { return n + (r.size || 0); }, 0);
+            out.textContent = done.length
+                ? done.length + ' this session · ' + UI.fmtBytes(bytes)
+                : rows.length ? rows.length + ' in progress' : '';
         }
 
         _row(row) {

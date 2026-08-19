@@ -16,6 +16,7 @@
 (function () {
     'use strict';
 
+    var POLL_SECS = 90;             // how long a poll stays open
     var POLL_KEY = 'pulse_poll';
     var Q_KEY = 'pulse_questions';
     var MAX_Q = 40;
@@ -32,6 +33,7 @@
             this.questions = [];      // [{ id, text, by, at, votes: [names], answered }]
             this.versions = [];       // newest first — what storageGetList gave us
             this.myVote = null;
+            this.viewing = null;      // a version index while scrubbing the history
         }
 
         // ---- lifecycle -------------------------------------------------------
@@ -79,6 +81,7 @@
                     this.questions = data.questions || [];
                     this.versions = data.versions || this.versions;
                     this.myVote = this.poll && this.poll.votes ? this.poll.votes[this.username] || null : null;
+                    if (this.poll && !this._clock) this._tick();
                     this.render();
                     break;
 
@@ -137,12 +140,53 @@
                     { id: 'files', label: 'File transfer' },
                     { id: 'versions', label: 'Storage version history' }
                 ],
-                votes: {}
+                votes: {},
+                closesAt: Date.now() + POLL_SECS * 1000
             };
+            this._tick();
+        }
+
+        /** Whether the poll is still taking votes. */
+        get open() {
+            return !!(this.poll && (!this.poll.closesAt || Date.now() < this.poll.closesAt));
+        }
+
+        /**
+         * Keep the countdown honest. One second is the right rate for a clock
+         * people are watching, and the poll closing is a state change the whole
+         * room reaches on its own — the host does not have to announce it,
+         * because everybody has the same closing time.
+         */
+        _tick() {
+            var self = this;
+            clearInterval(this._clock);
+            this._clock = setInterval(function () {
+                if (!self.poll) return;
+                var wasOpen = self._wasOpen;
+                self._wasOpen = self.open;
+                self.renderPoll();
+                if (wasOpen && !self.open) {
+                    UI.toast('The poll has closed', 'info');
+                    // The final tally deserves a version of its own.
+                    if (self.isHost()) self._hostCommit('closed');
+                }
+            }, 1000);
+        }
+
+        /** Host only: run the same question again from zero. */
+        reopen() {
+            if (!this.isHost() || !this.poll) return;
+            this.poll.votes = {};
+            this.poll.closesAt = Date.now() + POLL_SECS * 1000;
+            this.myVote = null;
+            this._wasOpen = true;
+            this._hostCommit('reopened');
         }
 
         _hostVote(by, option) {
             if (!this.poll || !by) return;
+            // A vote after the bell is not a vote.
+            if (!this.open) return;
             if (!this.poll.options.some(function (o) { return o.id === option; })) return;
             // One vote per person: changing your mind replaces it rather than
             // adding a second, which is what makes the version history honest.
@@ -278,6 +322,7 @@
         // ---- actions from this browser --------------------------------------
 
         vote(optionId) {
+            if (!this.open) { UI.toast('This poll has closed', 'info'); return; }
             this.myVote = optionId;
             this._ask({ type: 'vote', by: this.username, option: optionId });
             this.render();
@@ -289,6 +334,17 @@
         }
 
         upvote(id) { this._ask({ type: 'upvote', by: this.username, id: id }); }
+
+        /**
+         * Look at the poll as it stood at a past version, or come back to now.
+         * Scrubbing is local: it changes what you are looking at, never what
+         * the room has recorded.
+         */
+        scrubTo(index) {
+            this.viewing = (index === null || index === 0) ? null : index;
+            this.renderPoll();
+            this.renderVersions();
+        }
         markAnswered(id) { this._ask({ type: 'answered', id: id }); }
 
         // ---- rendering -------------------------------------------------------
@@ -307,26 +363,53 @@
                 return;
             }
 
-            var counts = this._tally();
-            var total = Object.keys(counts).reduce(function (n, k) { return n + counts[k]; }, 0);
+            // Scrubbing shows a past version's tally in place of the live one,
+            // which is the whole reason for appending versions rather than
+            // overwriting a counter.
+            var past = this.viewing !== null ? this.versions[this.viewing] : null;
+            var counts = past ? past.tallies : this._tally();
+            var total = Object.keys(counts).reduce(function (n, k) { return n + (counts[k] || 0); }, 0);
             var self = this;
+            var open = this.open;
+
+            var badge = past
+                ? UI.el('span', { class: 'badge' }, 'v' + past.v)
+                : open
+                    ? UI.el('span', { class: 'badge badge--danger' }, 'Live')
+                    : UI.el('span', { class: 'badge badge--warning' }, 'Closed');
+
+            var when = past
+                ? UI.fmtRelative(past.at)
+                : open ? 'closes in ' + this._left() : 'final result';
 
             var head = UI.el('div', { class: 'poll__head' }, [
-                UI.el('span', { class: 'badge badge--danger' }, 'Live'),
+                badge,
                 UI.el('span', { class: 'poll__meta' }, total + (total === 1 ? ' vote' : ' votes')),
+                UI.el('span', { class: 'poll__meta' }, when),
                 UI.el('span', { class: 'poll__meta poll__meta--right' },
                     'v' + (this.versions.length || 0))
             ]);
 
+            if (past) {
+                head.appendChild(UI.el('button', {
+                    type: 'button', class: 'btn btn--ghost btn--sm', 'data-live': '1'
+                }, 'Back to live'));
+            } else if (!open && this.isHost()) {
+                head.appendChild(UI.el('button', {
+                    type: 'button', class: 'btn btn--ghost btn--sm', 'data-reopen': '1'
+                }, 'Run it again'));
+            }
+
             var bars = this.poll.options.map(function (opt) {
                 var n = counts[opt.id] || 0;
                 var pct = total ? Math.round((n / total) * 100) : 0;
-                var mine = self.myVote === opt.id;
+                var mine = !past && self.myVote === opt.id;
 
                 return UI.el('button', {
                     type: 'button',
-                    class: 'poll-option' + (mine ? ' is-mine' : ''),
-                    'data-option': opt.id
+                    class: 'poll-option' + (mine ? ' is-mine' : '') + ((past || !open) ? ' is-shut' : ''),
+                    'data-option': opt.id,
+                    disabled: (past || !open) ? true : null
                 }, [
                     UI.el('span', { class: 'poll-option__row' }, [
                         UI.el('span', { class: 'poll-option__label' }, opt.label),
@@ -340,6 +423,14 @@
 
             host.replaceChildren(head, UI.el('h2', { class: 'poll__q' }, this.poll.question),
                 UI.el('div', { class: 'poll__options' }, bars));
+        }
+
+        /** How long the poll has left, in words a clock can show. */
+        _left() {
+            var ms = Math.max(0, (this.poll.closesAt || 0) - Date.now());
+            var secs = Math.round(ms / 1000);
+            if (secs >= 60) return Math.floor(secs / 60) + 'm ' + (secs % 60) + 's';
+            return secs + 's';
         }
 
         renderQuestions() {
@@ -399,18 +490,39 @@
             }
 
             var self = this;
+            var self2 = this;
             var rows = this.versions.slice(0, 12).map(function (row, i) {
                 var order = (self.poll ? self.poll.options : []).map(function (o) {
                     return row.tallies[o.id] || 0;
                 }).join(' / ');
-                return UI.el('div', { class: 'ver' + (i === 0 ? ' is-now' : '') }, [
+                return UI.el('button', {
+                    type: 'button',
+                    class: 'ver' + (i === 0 ? ' is-now' : '') + (self2.viewing === i ? ' is-viewing' : ''),
+                    'data-version': String(i)
+                }, [
                     UI.el('span', { class: 'ver__dot' }),
                     UI.el('span', { class: 'ver__v' }, 'v' + row.v),
                     UI.el('span', { class: 'ver__when' }, i === 0 ? 'now' : UI.fmtRelative(row.at)),
                     UI.el('span', { class: 'ver__tally' }, order)
                 ]);
             });
-            host.replaceChildren.apply(host, rows);
+
+            // The scrub bar: drag from the first version to the latest and the
+            // poll above replays what the room thought at that moment.
+            var last = this.versions.length - 1;
+            var scrub = UI.el('div', { class: 'scrub' }, [
+                UI.el('span', { class: 'scrub__end' }, 'v' + (this.versions[last] ? this.versions[last].v : 1)),
+                UI.el('input', {
+                    type: 'range', class: 'scrub__range', id: 'scrubRange',
+                    min: '0', max: String(Math.max(0, last)),
+                    value: String(this.viewing === null ? 0 : (last - this.viewing)),
+                    'aria-label': 'Scrub the poll history'
+                }),
+                UI.el('span', { class: 'scrub__end scrub__end--now' },
+                    'v' + (this.versions[0] ? this.versions[0].v : 1))
+            ]);
+
+            host.replaceChildren.apply(host, rows.concat([scrub]));
         }
     }
 
@@ -420,8 +532,23 @@
 
     function wire() {
         document.getElementById('poll').addEventListener('click', function (e) {
+            if (!app) return;
+            if (e.target.closest('[data-live]')) { app.scrubTo(null); return; }
+            if (e.target.closest('[data-reopen]')) { app.reopen(); return; }
             var btn = e.target.closest('[data-option]');
-            if (btn && app) app.vote(btn.getAttribute('data-option'));
+            if (btn && !btn.disabled) app.vote(btn.getAttribute('data-option'));
+        });
+
+        var versions = document.getElementById('versions');
+        versions.addEventListener('click', function (e) {
+            var row = e.target.closest('[data-version]');
+            if (row && app) app.scrubTo(Number(row.getAttribute('data-version')));
+        });
+        // Dragging the bar walks backwards through the versions.
+        versions.addEventListener('input', function (e) {
+            if (!app || !e.target.matches('.scrub__range')) return;
+            var last = app.versions.length - 1;
+            app.scrubTo(last - Number(e.target.value));
         });
 
         document.getElementById('questions').addEventListener('click', function (e) {
