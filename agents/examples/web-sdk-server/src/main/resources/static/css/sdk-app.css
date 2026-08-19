@@ -1,0 +1,174 @@
+/* ==========================================================================
+   Shared shell for the first-party SDK apps (Rooms, Drop, Pulse).
+   Loads after design-tokens.css + ui.css and adds only what an app screen
+   needs on top of the kit: a header bar, a two-column stage, and the small
+   status vocabulary the three of them share.
+   ========================================================================== */
+
+html, body { height: 100%; }
+
+body.sdk-app {
+    margin: 0;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    background: var(--bg);
+    color: var(--text-body);
+    font-family: var(--font-sans);
+}
+
+/* ---- header -------------------------------------------------------------- */
+.sdk-header {
+    display: flex;
+    align-items: center;
+    gap: var(--sp-4);
+    padding: 0 var(--sp-5);
+    height: 60px;
+    flex: none;
+    background: var(--surface-1);
+    border-bottom: 1px solid var(--border);
+}
+
+.sdk-header__mark {
+    display: grid;
+    place-items: center;
+    width: 32px; height: 32px;
+    flex: none;
+    border-radius: var(--r-md);
+    background: var(--surface-2);
+    color: var(--brand-ink);
+}
+
+.sdk-header h1 { font-size: var(--fs-lg); }
+
+.sdk-room {
+    font-family: var(--font-mono);
+    font-size: var(--fs-sm);
+    color: var(--text-muted);
+    padding: 4px 10px;
+    background: var(--surface-2);
+    border: 1px solid var(--border);
+    border-radius: var(--r-sm);
+    max-width: 30ch;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.sdk-header__right {
+    display: flex;
+    align-items: center;
+    gap: var(--sp-3);
+    margin-left: auto;
+}
+
+/* ---- status pill --------------------------------------------------------- */
+.pill-status {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--sp-2);
+    padding: 6px 12px;
+    font-size: var(--fs-sm);
+    font-weight: 600;
+    border-radius: var(--r-pill);
+    background: var(--surface-2);
+    border: 1px solid var(--border-strong);
+    color: var(--text-body);
+    white-space: nowrap;
+}
+
+.pill-status__dot {
+    width: 8px; height: 8px;
+    border-radius: var(--r-pill);
+    background: var(--text-faint);
+    flex: none;
+}
+
+.pill-status.is-live { background: var(--success-bg); border-color: rgba(52,211,153,.35); color: var(--success); }
+.pill-status.is-live .pill-status__dot { background: var(--success); }
+.pill-status.is-busy { background: var(--warning-bg); border-color: rgba(251,191,36,.35); color: var(--warning); }
+.pill-status.is-busy .pill-status__dot { background: var(--warning); }
+.pill-status.is-off { background: var(--danger-bg); border-color: rgba(248,113,113,.35); color: var(--danger); }
+.pill-status.is-off .pill-status__dot { background: var(--danger); }
+
+/* ---- stage --------------------------------------------------------------- */
+.sdk-stage {
+    display: flex;
+    gap: var(--sp-4);
+    padding: var(--sp-4);
+    flex-grow: 1;
+    min-height: 0;
+}
+
+.sdk-main {
+    flex-grow: 1;
+    display: flex;
+    flex-direction: column;
+    gap: var(--sp-3);
+    min-width: 0;
+}
+
+.sdk-side {
+    width: 280px;
+    flex: none;
+    display: flex;
+    flex-direction: column;
+    gap: var(--sp-3);
+    min-height: 0;
+}
+
+.sdk-side__title {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--sp-2);
+    font-size: var(--fs-sm);
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--text-muted);
+}
+
+.sdk-note {
+    padding: var(--sp-3);
+    border: 1px dashed var(--border-strong);
+    border-radius: var(--r-md);
+    font-size: var(--fs-xs);
+    color: var(--text-muted);
+    line-height: var(--lh-snug);
+}
+
+.sdk-scroll { overflow-y: auto; min-height: 0; }
+
+/* ---- avatars ------------------------------------------------------------- */
+.avatar {
+    display: grid;
+    place-items: center;
+    width: 34px; height: 34px;
+    flex: none;
+    border-radius: var(--r-pill);
+    font-weight: 700;
+    font-size: var(--fs-sm);
+    color: var(--bg);
+}
+
+.avatar--lg { width: 44px; height: 44px; }
+
+/* ---- empty state --------------------------------------------------------- */
+.sdk-empty {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: var(--sp-3);
+    padding: var(--sp-10) var(--sp-6);
+    color: var(--text-muted);
+    text-align: center;
+}
+
+.sdk-empty svg { width: 40px; height: 40px; color: var(--text-faint); }
+
+@media (max-width: 900px) {
+    .sdk-stage { flex-direction: column; }
+    .sdk-side { width: auto; }
+}

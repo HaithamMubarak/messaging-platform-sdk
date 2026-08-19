@@ -1,0 +1,217 @@
+/* Rooms — the presentation stage, the controls, and the participant tiles. */
+
+.notice {
+    display: flex;
+    align-items: center;
+    gap: var(--sp-3);
+    flex: none;
+    margin: var(--sp-3) var(--sp-4) 0;
+    padding: var(--sp-3) var(--sp-4);
+    font-size: var(--fs-md);
+    color: var(--warning);
+    background: var(--warning-bg);
+    border: 1px solid rgba(251, 191, 36, 0.35);
+    border-radius: var(--r-md);
+}
+
+.stage {
+    position: relative;
+    flex-grow: 1;
+    min-height: 0;
+    display: grid;
+    place-items: center;
+    background: #070c17;
+    border: 1px solid var(--border-strong);
+    border-radius: var(--r-lg);
+    overflow: hidden;
+}
+
+.stage__video { width: 100%; height: 100%; object-fit: contain; background: #000; }
+
+.stage__tag {
+    position: absolute;
+    top: var(--sp-3);
+    left: var(--sp-3);
+    display: inline-flex;
+    align-items: center;
+    gap: var(--sp-2);
+    padding: 6px 12px;
+    border-radius: var(--r-pill);
+    background: var(--overlay);
+    border: 1px solid var(--border-strong);
+    font-size: var(--fs-sm);
+    font-weight: 600;
+    color: var(--text);
+}
+
+.stage__dot { width: 8px; height: 8px; border-radius: var(--r-pill); background: var(--danger); flex: none; }
+
+/* ---- controls ------------------------------------------------------------ */
+.controls {
+    display: flex;
+    align-items: center;
+    gap: var(--sp-2);
+    flex: none;
+    padding: var(--sp-3) var(--sp-4);
+    background: var(--surface-1);
+    border: 1px solid var(--border);
+    border-radius: var(--r-lg);
+}
+
+.controls__leave { margin-left: auto; }
+
+.btn--danger {
+    background: var(--danger-bg);
+    border-color: rgba(248, 113, 113, 0.35);
+    color: var(--danger);
+}
+
+.btn:disabled { opacity: 0.45; cursor: not-allowed; }
+
+/* ---- tiles --------------------------------------------------------------- */
+.people { display: flex; flex-direction: column; gap: var(--sp-2); }
+
+.tile {
+    position: relative;
+    aspect-ratio: 16 / 10;
+    display: grid;
+    place-items: center;
+    background: var(--surface-2);
+    border: 1px solid var(--border);
+    border-radius: var(--r-md);
+    overflow: hidden;
+}
+
+.tile.is-presenting { border: 2px solid var(--brand); }
+.tile__video { width: 100%; height: 100%; object-fit: cover; background: #000; }
+
+.tile__name {
+    position: absolute;
+    left: var(--sp-2);
+    bottom: var(--sp-2);
+    padding: 2px 8px;
+    border-radius: var(--r-sm);
+    background: var(--overlay);
+    font-size: var(--fs-xs);
+    font-weight: 600;
+    color: var(--text);
+    max-width: calc(100% - 48px);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.tile__muted {
+    position: absolute;
+    right: var(--sp-2);
+    bottom: var(--sp-2);
+    display: grid;
+    place-items: center;
+    width: 22px; height: 22px;
+    border-radius: var(--r-pill);
+    background: var(--overlay);
+    color: var(--danger);
+}
+
+/* ---- the room panel: members, then the log, then the composer -------------
+ * The side column is the room: who is here at the top, what has happened and
+ * been said in the middle, and one input at the bottom. The member list is
+ * capped so a busy room does not push the chat off the screen.
+ */
+.sdk-side--wide { width: 340px; }
+
+.people {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: var(--sp-2);
+    flex: none;
+    max-height: 44vh;
+    overflow-y: auto;
+}
+
+.tile__host {
+    position: absolute;
+    top: var(--sp-2);
+    left: var(--sp-2);
+    padding: 1px 6px;
+    border-radius: var(--r-sm);
+    background: var(--overlay);
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    color: var(--brand-ink);
+}
+
+.tile__badge {
+    position: absolute;
+    top: var(--sp-2);
+    right: var(--sp-2);
+    padding: 1px 6px;
+    border-radius: var(--r-sm);
+    background: var(--brand);
+    font-size: 10px;
+    font-weight: 700;
+    color: #fff;
+}
+
+/* ---- log ----------------------------------------------------------------- */
+.log {
+    display: flex;
+    flex-direction: column;
+    gap: var(--sp-3);
+    flex-grow: 1;
+    padding: var(--sp-3);
+    background: var(--surface-1);
+    border: 1px solid var(--border);
+    border-radius: var(--r-lg);
+}
+
+.msg { display: flex; align-items: flex-start; gap: var(--sp-2); }
+.msg__who { width: 28px; height: 28px; font-size: var(--fs-xs); }
+.msg__body { display: flex; flex-direction: column; min-width: 0; }
+.msg__head { display: flex; align-items: baseline; gap: var(--sp-2); }
+.msg__name { font-size: var(--fs-sm); font-weight: 700; color: var(--text); }
+.msg__time { font-size: 10px; color: var(--text-faint); font-variant-numeric: tabular-nums; }
+.msg__text { font-size: var(--fs-md); color: var(--text-body); overflow-wrap: anywhere; text-wrap: pretty; }
+
+/* An event is not a message: quieter, inline, and never with an avatar. */
+.ev {
+    display: flex;
+    align-items: center;
+    gap: var(--sp-2);
+    font-size: var(--fs-xs);
+    color: var(--text-muted);
+}
+
+.ev--join { color: var(--success); }
+.ev--leave { color: var(--text-faint); }
+.ev--share { color: var(--brand-ink); }
+
+/* ---- composer ------------------------------------------------------------ */
+.composer { display: flex; gap: var(--sp-2); flex: none; }
+
+.composer__input {
+    flex-grow: 1;
+    min-width: 0;
+    padding: 0.625rem 0.875rem;
+    font: inherit;
+    font-size: var(--fs-md);
+    color: var(--text);
+    background: var(--surface-1);
+    border: 1px solid var(--border-strong);
+    border-radius: var(--r-md);
+    outline: none;
+}
+
+.composer__input:focus { border-color: var(--brand); box-shadow: var(--focus-ring); }
+.composer__input::placeholder { color: var(--text-faint); }
+
+@media (max-width: 900px) {
+    .sdk-side--wide { width: auto; }
+    .people { max-height: none; }
+}
+
+/* The base class floats a "Host" pill bottom-right, which lands on the message
+   composer. The member list already marks the host on their own tile, so the
+   pill is redundant here rather than merely in the way. */
+#gameHostIndicator { display: none !important; }

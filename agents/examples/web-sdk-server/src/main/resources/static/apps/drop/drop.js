@@ -1,0 +1,432 @@
+/**
+ * Drop — send a file to whoever is in the room, browser to browser.
+ *
+ * The primitive on show is **binary transfer over the data channel**. A file is
+ * offered first and only sent once the other side accepts, then streamed in
+ * chunks; the receiver reassembles and is handed a Blob to save. Nothing is
+ * uploaded and nothing is stored — leave the room and the transfer history is
+ * gone with it.
+ *
+ * Two things shape the implementation:
+ *
+ *  - **Offer before send.** A browser cannot be handed 30 MB it did not ask
+ *    for, so the sender announces the file and waits. That also gives the
+ *    receiver somewhere to refuse.
+ *  - **Chunks are base64, not byte arrays.** The obvious `Array.from(bytes)`
+ *    turns every byte into up to four JSON characters; base64 costs a third of
+ *    that, and the transport is a JSON message channel either way.
+ */
+(function () {
+    'use strict';
+
+    var CHUNK = 16 * 1024;          // what a data channel carries comfortably
+    var MAX_FILE = 64 * 1024 * 1024;
+    var SEND_GAP_MS = 12;           // let the channel drain between chunks
+
+    class Drop extends UserConnectionBase {
+        constructor() {
+            super({
+                storagePrefix: 'drop_',
+                customType: 'drop',
+                autoCreateDataChannel: true,
+                dataChannelName: 'drop-data'
+            });
+
+            this.transfers = new Map();   // id -> row
+            this.target = null;           // null = everyone
+        }
+
+        // ---- lifecycle -------------------------------------------------------
+
+        onConnect() {
+            UI.toast('Connected to ' + this.channelName, 'success');
+            this._sync();
+        }
+        onDisconnect() { this._status('off', 'Disconnected'); }
+        onUserJoin() { this._sync(); }
+        onUserLeave() { this._sync(); }
+        onDataChannelOpen() { this._sync(); }
+        onDataChannelClose() { this._sync(); }
+
+        _sync() {
+            var n = Math.max(0, this.getUserCount() - 1);
+            this._status(n ? 'live' : 'busy', n ? n + (n === 1 ? ' peer' : ' peers') : 'waiting for someone');
+            this.renderPeers();
+        }
+
+        _status(kind, text) {
+            var pill = document.getElementById('statusPill');
+            if (!pill) return;
+            pill.className = 'pill-status is-' + kind;
+            pill.querySelector('.pill-status__text').textContent = text;
+        }
+
+        // ---- sending ---------------------------------------------------------
+
+        async send(file) {
+            if (!file) return;
+            if (file.size > MAX_FILE) {
+                UI.toast('That file is larger than ' + UI.fmtBytes(MAX_FILE), 'warning', 4000);
+                return;
+            }
+            if (this.getUserCount() < 2) {
+                UI.toast('Nobody else is here yet — share the room link first', 'warning', 4000);
+                return;
+            }
+
+            var id = 't' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
+            var total = Math.max(1, Math.ceil(file.size / CHUNK));
+            var row = {
+                id: id, dir: 'out', name: file.name, size: file.size, mime: file.type || 'application/octet-stream',
+                total: total, done: 0, state: 'offered', to: this.target, file: file, at: Date.now()
+            };
+            this.transfers.set(id, row);
+            this.render();
+
+            this._say({
+                type: 'offer', id: id, name: row.name, size: row.size,
+                mime: row.mime, chunks: total, by: this.username
+            }, this.target);
+        }
+
+        async _stream(row) {
+            row.state = 'sending';
+            this.render();
+
+            for (var i = 0; i < row.total; i++) {
+                if (row.state === 'cancelled') return;
+                var slice = row.file.slice(i * CHUNK, (i + 1) * CHUNK);
+                var buf = await slice.arrayBuffer();
+                this._say({ type: 'chunk', id: row.id, i: i, b: toB64(buf) }, row.to);
+                row.done = i + 1;
+                if (i % 8 === 0 || i === row.total - 1) this.render();
+                // Yielding keeps the tab responsive and the channel from
+                // backing up on a large file.
+                if (SEND_GAP_MS) await wait(SEND_GAP_MS);
+            }
+
+            row.state = 'sent';
+            this.render();
+        }
+
+        _say(payload, to) {
+            if (to) this.sendData(payload, to); else this.sendData(payload);
+        }
+
+        // ---- receiving -------------------------------------------------------
+
+        /**
+         * Chunks arrive on the data channel, which is the point of this app —
+         * `sendData` routes there, and the base class hands it back here.
+         */
+        onDataChannelMessage(peerId, data) {
+            this._receive(data, peerId);
+        }
+
+        /** Whatever came through the host relay instead. */
+        onGameMessage(detail) {
+            this._receive(detail && detail.data ? detail.data : detail,
+                detail && (detail.from || detail.agentName));
+        }
+
+        _receive(d, from) {
+            if (!d || !d.type) return;
+            from = from || d.by || null;
+
+            switch (d.type) {
+                case 'offer': {
+                    if (d.by === this.username) break;
+                    if (this.transfers.has(d.id)) break;
+                    this.transfers.set(d.id, {
+                        id: d.id, dir: 'in', name: String(d.name || 'file').slice(0, 120),
+                        size: d.size || 0, mime: d.mime || 'application/octet-stream',
+                        total: d.chunks || 1, done: 0, state: 'offered',
+                        from: d.by || from, parts: [], at: Date.now()
+                    });
+                    this.render();
+                    UI.toast((d.by || 'Someone') + ' wants to send you ' + d.name, 'info', 4000);
+                    break;
+                }
+
+                case 'accept': {
+                    var out = this.transfers.get(d.id);
+                    if (!out || out.dir !== 'out' || out.state !== 'offered') break;
+                    // Whoever accepted is who it goes to, so a broadcast offer
+                    // does not stream to the whole room at once.
+                    out.to = d.by || out.to;
+                    this._stream(out);
+                    break;
+                }
+
+                case 'decline': {
+                    var dec = this.transfers.get(d.id);
+                    if (!dec || dec.dir !== 'out') break;
+                    dec.state = 'declined';
+                    this.render();
+                    break;
+                }
+
+                case 'chunk': {
+                    var row = this.transfers.get(d.id);
+                    if (!row || row.dir !== 'in' || row.state !== 'accepted') break;
+                    if (typeof d.i !== 'number' || d.i < 0 || d.i >= row.total) break;
+                    if (row.parts[d.i]) break;                 // a repeat is not progress
+                    row.parts[d.i] = fromB64(d.b);
+                    row.done++;
+                    if (row.done >= row.total) this._finish(row);
+                    else if (row.done % 8 === 0) this.render();
+                    break;
+                }
+            }
+        }
+
+        accept(id) {
+            var row = this.transfers.get(id);
+            if (!row || row.dir !== 'in') return;
+            row.state = 'accepted';
+            this.render();
+            this._say({ type: 'accept', id: id, by: this.username }, row.from);
+        }
+
+        decline(id) {
+            var row = this.transfers.get(id);
+            if (!row) return;
+            row.state = 'declined';
+            this.render();
+            this._say({ type: 'decline', id: id, by: this.username }, row.from);
+        }
+
+        _finish(row) {
+            var blob = new Blob(row.parts, { type: row.mime });
+            // Only trust the size we were promised if the bytes agree with it.
+            row.state = (row.size && blob.size !== row.size) ? 'damaged' : 'ready';
+            row.blob = blob;
+            row.parts = [];
+            this.render();
+            if (row.state === 'ready') UI.toast(row.name + ' arrived', 'success');
+            else UI.toast(row.name + ' arrived incomplete', 'error', 5000);
+        }
+
+        save(id) {
+            var row = this.transfers.get(id);
+            if (!row || !row.blob) return;
+            var url = URL.createObjectURL(row.blob);
+            var a = document.createElement('a');
+            a.href = url;
+            a.download = row.name;
+            document.body.appendChild(a);
+            a.click();
+            a.remove();
+            setTimeout(function () { URL.revokeObjectURL(url); }, 10000);
+        }
+
+        // ---- rendering -------------------------------------------------------
+
+        render() {
+            var host = document.getElementById('transfers');
+            if (!host) return;
+
+            var rows = Array.from(this.transfers.values()).sort(function (a, b) { return b.at - a.at; });
+            if (!rows.length) {
+                host.replaceChildren(UI.el('div', { class: 'sdk-empty' }, [
+                    UI.iconNode('inbox'),
+                    UI.el('p', {}, 'No transfers yet.')
+                ]));
+                return;
+            }
+
+            var self = this;
+            host.replaceChildren.apply(host, rows.map(function (row) { return self._row(row); }));
+        }
+
+        _row(row) {
+            var pct = row.total ? Math.round((row.done / row.total) * 100) : 0;
+            var who = row.dir === 'out'
+                ? 'to ' + (row.to || 'everyone')
+                : 'from ' + (row.from || 'someone');
+
+            var kids = [
+                UI.el('div', { class: 'tr__head' }, [
+                    UI.el('span', { class: 'tr__icon tr__icon--' + row.state },
+                        UI.iconNode(row.dir === 'out' ? 'send' : 'download', 'icon--sm')),
+                    UI.el('div', { class: 'tr__id' }, [
+                        UI.el('span', { class: 'tr__name' }, row.name),
+                        UI.el('span', { class: 'tr__meta' }, who + ' · ' + UI.fmtBytes(row.size))
+                    ]),
+                    UI.el('span', { class: 'tr__state' }, STATE_TEXT[row.state] || row.state)
+                ])
+            ];
+
+            if (row.state === 'sending' || row.state === 'accepted') {
+                kids.push(UI.el('div', { class: 'tr__track' }, [
+                    UI.el('div', { class: 'tr__fill', style: 'width:' + pct + '%' })
+                ]));
+                kids.push(UI.el('span', { class: 'tr__chunks' },
+                    'chunk ' + row.done + ' / ' + row.total));
+            }
+
+            var actions = [];
+            if (row.dir === 'in' && row.state === 'offered') {
+                actions.push(UI.el('button', { type: 'button', class: 'btn btn--ghost', 'data-decline': row.id }, 'Decline'));
+                actions.push(UI.el('button', { type: 'button', class: 'btn btn--primary', 'data-accept': row.id }, 'Accept'));
+            }
+            if (row.state === 'ready') {
+                actions.push(UI.el('button', { type: 'button', class: 'btn btn--primary', 'data-save': row.id }, 'Save'));
+            }
+            if (actions.length) kids.push(UI.el('div', { class: 'tr__actions' }, actions));
+
+            return UI.el('article', { class: 'tr tr--' + row.state }, kids);
+        }
+
+        renderPeers() {
+            var host = document.getElementById('peers');
+            if (!host) return;
+            var self = this;
+            var names = (this.getConnectedUsers() || []).filter(function (n) { return n !== self.username; });
+
+            var everyone = UI.el('button', {
+                type: 'button',
+                class: 'peer' + (this.target === null ? ' is-on' : ''),
+                'data-peer': ''
+            }, [
+                UI.el('span', { class: 'avatar', style: 'background:var(--surface-3);color:var(--text-body)' },
+                    UI.iconNode('users', 'icon--sm')),
+                UI.el('span', { class: 'peer__name' }, 'Everyone')
+            ]);
+
+            var rows = names.map(function (name) {
+                var direct = self.isDataChannelOpen ? self.isDataChannelOpen(name) : false;
+                return UI.el('button', {
+                    type: 'button',
+                    class: 'peer' + (self.target === name ? ' is-on' : ''),
+                    'data-peer': name
+                }, [
+                    UI.el('span', { class: 'avatar', style: 'background:' + self.generateUserColor(name) },
+                        initials(name)),
+                    UI.el('span', { class: 'peer__id' }, [
+                        UI.el('span', { class: 'peer__name' }, name),
+                        UI.el('span', { class: 'peer__link' + (direct ? ' is-direct' : '') },
+                            direct ? 'direct' : 'relayed')
+                    ])
+                ]);
+            });
+
+            host.replaceChildren.apply(host, [everyone].concat(rows));
+        }
+    }
+
+    var STATE_TEXT = {
+        offered: 'waiting', accepted: 'receiving', sending: 'sending',
+        sent: 'sent', ready: 'ready', declined: 'declined', damaged: 'incomplete', cancelled: 'cancelled'
+    };
+
+    // ---- helpers ------------------------------------------------------------
+
+    function toB64(buf) {
+        var bytes = new Uint8Array(buf), out = '';
+        for (var i = 0; i < bytes.length; i++) out += String.fromCharCode(bytes[i]);
+        return btoa(out);
+    }
+
+    function fromB64(b64) {
+        var bin = atob(b64 || ''), bytes = new Uint8Array(bin.length);
+        for (var i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+        return bytes;
+    }
+
+    function initials(name) {
+        return String(name || '?').trim().split(/\s+/).slice(0, 2)
+            .map(function (p) { return p[0]; }).join('').toUpperCase() || '?';
+    }
+
+    function wait(ms) { return new Promise(function (r) { setTimeout(r, ms); }); }
+
+    // ---- boot ---------------------------------------------------------------
+
+    var app = null;
+
+    function wire() {
+        var zone = document.getElementById('dropZone');
+        var input = document.getElementById('fileInput');
+
+        ['dragenter', 'dragover'].forEach(function (ev) {
+            zone.addEventListener(ev, function (e) { e.preventDefault(); zone.classList.add('is-over'); });
+        });
+        ['dragleave', 'drop'].forEach(function (ev) {
+            zone.addEventListener(ev, function (e) { e.preventDefault(); zone.classList.remove('is-over'); });
+        });
+        zone.addEventListener('drop', function (e) {
+            var files = e.dataTransfer && e.dataTransfer.files;
+            if (files && files.length && app) app.send(files[0]);
+        });
+        zone.addEventListener('click', function () { input.click(); });
+        input.addEventListener('change', function () {
+            if (input.files && input.files.length && app) app.send(input.files[0]);
+            input.value = '';
+        });
+
+        document.getElementById('transfers').addEventListener('click', function (e) {
+            var a = e.target.closest('[data-accept]');
+            if (a && app) { app.accept(a.getAttribute('data-accept')); return; }
+            var d = e.target.closest('[data-decline]');
+            if (d && app) { app.decline(d.getAttribute('data-decline')); return; }
+            var s = e.target.closest('[data-save]');
+            if (s && app) app.save(s.getAttribute('data-save'));
+        });
+
+        document.getElementById('peers').addEventListener('click', function (e) {
+            var p = e.target.closest('[data-peer]');
+            if (!p || !app) return;
+            var name = p.getAttribute('data-peer');
+            app.target = name || null;
+            app.renderPeers();
+        });
+    }
+
+    async function connect(username, channel, password) {
+        try {
+            app = new Drop();
+            window.dropApp = app;
+            await app.connect({ username: username, channelName: channel, channelPassword: password });
+            app.start();
+            document.getElementById('roomName').textContent = channel;
+            if (window.ConnectionModal && window.ConnectionModal.hide) window.ConnectionModal.hide();
+            if (typeof window.encodeChannelAuth === 'function') {
+                var encoded = window.encodeChannelAuth(channel, password, null);
+                if (encoded) history.replaceState(null, '', '#' + encoded);
+            }
+            app.render();
+            app.renderPeers();
+        } catch (err) {
+            console.error('[Drop] connect failed:', err);
+            UI.toast('Could not connect: ' + err.message, 'error', 5000);
+            app = null;
+        }
+    }
+
+    document.addEventListener('DOMContentLoaded', function () {
+        wire();
+        window.loadConnectionModal({
+            localStoragePrefix: 'drop_',
+            channelPrefix: 'drop-',
+            title: 'Join a Drop room',
+            collapsedTitle: 'Drop',
+            onConnect: connect
+        });
+        if (window.MiniGameUtils && MiniGameUtils.processSharedLinkAndAutoConnect) {
+            MiniGameUtils.processSharedLinkAndAutoConnect({
+                gameName: 'Drop', storagePrefix: 'drop_',
+                connectCallback: async function () {
+                    var u = (document.getElementById('usernameInput') || {}).value;
+                    var c = (document.getElementById('channelInput') || {}).value;
+                    var p = (document.getElementById('passwordInput') || {}).value || '';
+                    if (u && c) await connect(u.trim(), c.trim(), p);
+                }
+            });
+        }
+        setTimeout(function () {
+            var m = document.getElementById('connectionModal');
+            if (m) m.classList.add('active');
+        }, 200);
+    });
+})();
