@@ -2213,6 +2213,7 @@
             this._loadGeoSeen();
             this._loadSettlements();
             this._loadBlueprints();
+            this._watchArenaWorld();
             this._startSessionKeepAlive();
 
             this.showToast('Connected — start building! 🧱', 'success', 2500);
@@ -2361,7 +2362,7 @@
                     // an empty planet.
                     if (inMatch && this.modes && typeof this.modes.arenaIsWorld === 'function'
                         && this.modes.arenaIsWorld()) {
-                        this._sendWorldSnapshot({ force: true });
+                        this._sendWorldSnapshot({ force: true, paced: true });
                     } else if (inMatch) {
                         this._sendArenaSnapshot(peerId);
                     } else {
@@ -3324,12 +3325,29 @@
             }
             if (!chunks.length) chunks.push({ blocks: [], pieces: [] });
 
-            chunks.forEach((c, i) => this.sendData({
-                type: 'world', i, n: chunks.length,
+            // A world sent during a match is discarded by everyone unless it
+            // says it is the arena — a guard that exists so a stray sandbox
+            // snapshot cannot land on a running match. A forced send IS the
+            // arena in the one mode that has no other, so it says so.
+            const arena = !!(opts && opts.force);
+            const send = (c, i) => this.sendData({
+                type: 'world', i, n: chunks.length, arena,
                 blocks: c.blocks, pieces: c.pieces,
                 ground: snap.ground, geo: snap.geo, locked: this.worldLocked,
                 physics: !!(this.physics && this.physics.on)
-            }));
+            });
+
+            // Paced, when asked for.
+            //
+            // Peer data channels here are unordered with no retransmits — fine
+            // for cursors, fatal for a sixty-chunk world sent in one burst,
+            // which simply disappears. On a fresh join there is usually no data
+            // channel yet and the reliable relay carries it, which is why this
+            // only ever bit mid-match, when the channel is open. Spacing the
+            // chunks lets them through; the receiver asks again if any are
+            // still missing.
+            if (opts && opts.paced) chunks.forEach((c, i) => setTimeout(() => send(c, i), i * 14));
+            else chunks.forEach(send);
         }
 
         /**
@@ -3391,6 +3409,32 @@
             if (typeof data.physics === 'boolean') this._setPhysics(data.physics, true);
             this._updateBlockCount();
             this._refreshPlayers();
+        }
+
+        /**
+         * A guest with no world, in a round whose world is the point.
+         *
+         * The snapshot can be lost outright — the channel it travels on makes
+         * no promises — and a client that received nothing has no way to know
+         * it is missing anything. In this one mode it does: the round has moved
+         * the room somewhere, so a guest still standing nowhere asks again.
+         */
+        _watchArenaWorld() {
+            clearInterval(this._arenaWatch);
+            this._arenaWatch = setInterval(() => {
+                if (this.isHost() || !this.connected) return;
+                const modes = this.modes;
+                if (!modes || typeof modes.arenaIsWorld !== 'function' || !modes.arenaIsWorld()) {
+                    this._arenaAsks = 0;
+                    return;
+                }
+                if (this.geo && this.geo.anchor) { this._arenaAsks = 0; return; }
+                // Bounded: if it is still not here after a handful of tries the
+                // problem is not a dropped message.
+                this._arenaAsks = (this._arenaAsks || 0) + 1;
+                if (this._arenaAsks > 8) return;
+                this.sendData({ type: 'requestWorld' });
+            }, 2000);
         }
 
         // ---------- session keep-alive ----------
@@ -4042,7 +4086,7 @@
                 });
             }
             this._updateBlockCount();
-            this._sendWorldSnapshot({ force: true });
+            this._sendWorldSnapshot({ force: true, paced: true });
             if (this.minimap) this.minimap.invalidate ? this.minimap.invalidate() : this.minimap.draw();
             this.voxels.focus(0, 2, 0, 90, Math.PI * 0.32);
             return !!(built && built.blocks);

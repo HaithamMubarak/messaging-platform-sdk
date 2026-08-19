@@ -698,6 +698,16 @@
             const p = this._toWorld(at.cx, at.cy);
             const g = this.game;
 
+            // Something has taken the map over — a round asking where you think
+            // you are. It gets the coordinates and the map does nothing else:
+            // no camera move, no travel, because during that round the map is a
+            // form rather than a way of getting about.
+            if (this.pickMode) {
+                const ll = this._canvasToLatLon(at.cx, at.cy);
+                if (ll) this.pickMode(ll.lat, ll.lon);
+                return;
+            }
+
             if (armed) {
                 this.armed = false;
                 const travel = document.getElementById('minimapTravel');
@@ -1145,6 +1155,7 @@
         _spanLabel() {
             const a = this.game.geo && this.game.geo.anchor;
             if (!a) return `${Math.round(this.viewCells)} blocks`;
+            this._drawMarks(ctx);
             const m = this.viewCells * a.mpc;
             return m >= 1000 ? `${(m / 1000).toFixed(m >= 10000 ? 0 : 1)} km` : `${Math.round(m)} m`;
         }
@@ -1536,6 +1547,52 @@
                 ctx.arc(f.cx, f.cy, 3, 0, Math.PI * 2);
                 ctx.fill();
             }
+        }
+
+        /**
+         * Extra pins somebody else owns — a round's guesses, and the answer.
+         *
+         * Set with `setMarks`; the map neither knows nor cares what they mean,
+         * which is what keeps the mode's rules out of the map's code.
+         */
+        _drawMarks(ctx) {
+            const marks = this.marks;
+            if (!marks || !marks.length) return;
+            const S = this.size;
+            ctx.save();
+            marks.forEach(mk => {
+                const p = this._llToCanvas(mk.lat, mk.lon);
+                if (!p || p.cx < -20 || p.cy < -20 || p.cx > S + 20 || p.cy > S + 20) return;
+                const r = mk.big ? 7 : 5;
+                ctx.beginPath();
+                ctx.arc(p.cx, p.cy, r + 2, 0, Math.PI * 2);
+                ctx.fillStyle = MAP.shadow;
+                ctx.fill();
+                ctx.beginPath();
+                ctx.arc(p.cx, p.cy, r, 0, Math.PI * 2);
+                ctx.fillStyle = mk.colour || '#fbbf24';
+                ctx.fill();
+                if (mk.big) {
+                    ctx.strokeStyle = '#ffffff';
+                    ctx.lineWidth = 2;
+                    ctx.stroke();
+                }
+                if (mk.label) {
+                    ctx.font = '700 10px system-ui, sans-serif';
+                    const w = ctx.measureText(mk.label).width;
+                    ctx.fillStyle = MAP.shadow;
+                    ctx.fillRect(p.cx + r + 3, p.cy - 7, w + 6, 14);
+                    ctx.fillStyle = '#ffffff';
+                    ctx.fillText(mk.label, p.cx + r + 6, p.cy + 3);
+                }
+            });
+            ctx.restore();
+        }
+
+        /** Hand the map a set of pins to draw, or null to clear them. */
+        setMarks(marks) {
+            this.marks = marks || null;
+            this.draw();
         }
 
         /** A crosshair on the spot the open card is about. */

@@ -26,6 +26,7 @@
     'use strict';
 
     const Models = window.BlockPartyModels;
+    const Places = window.BlockPartyPlaces;
 
     // ---- arena geometry ----
     const WORLD_HALF = 80;        // must match HALF in blockparty.js
@@ -61,11 +62,37 @@
     // Memory Match: the architect builds for this long while the room watches.
     const ARCHITECT_SECS = 45;
     // Block Rush: how long the room gets to vote, then to read the tally.
+    const GUESS_SECS = 30;        // time to drop a pin once exploring is over
+    const EARTH_REVEAL_SECS = 20; // long enough to read where everyone guessed
     const VOTE_SECS = 20;
     const TALLY_SECS = 10;
     // Territory is a floor fight, not a tower contest.
     const TERRITORY_HEIGHT = 4;
+    // Demolition: a town of towers in the middle of the arena. Tall enough to
+    // come down properly, short enough that one tower is well inside the
+    // physics collapse cap.
+    const DEMO_HALF = 22;
+    const DEMO_HEIGHT = 12;
+    const DEMO_MIN_H = 5;
+    const DEMO_GRID = 6;          // towers per side
+    // Earthquake: build tall on a budget, then the ground decides.
+    const QUAKE_BUDGET = 90;      // blocks each player gets to spend
+    const QUAKE_HEIGHT = 20;      // room to build something worth toppling
+    const QUAKE_PER_PLOT = 4;     // seconds the camera spends on each victim
+    const QUAKE_POWER = 9;
+    // Memory Match: how big a build has to be before its average is worth full
+    // marks to the architect, and how much a build that sorts the room can add.
+    const MEMORY_FULL_SIZE = 30;
+    const MEMORY_SPREAD_BONUS = 25;
+    // Team Build: a co-op round should end when the job is done.
+    const TEAM_PLATEAU_SECS = 15;
+    // Towers are one cell thick on purpose. `collapseAround` only takes a lump
+    // that has NO path down to the ground, so a 3x3 tower with eight base cells
+    // left standing is still perfectly supported — one hit took one block and
+    // the mode felt like chipping, not demolition. A slender tower loses its
+    // footing to a single low blow and comes down whole.
     const SHARED = '*';           // plot name meaning "everyone builds here"
+    const RUBBLE = '~';           // what a demolished block becomes: nobody's, and worth nothing
 
     /**
      * Each mode is a sequence of phases and a few rules. Keeping the sequence
@@ -76,6 +103,12 @@
      *   buildsAt  — the phase whose end publishes everyone's build to the room
      */
     const RULES = {
+        whereonearth: {
+            // Nothing is built and nothing is hidden: the world itself is the
+            // question, and everyone is standing in it.
+            flow: ['countdown', 'explore', 'guess', 'reveal'],
+            relay: true, hide: false, scoreAt: 'guess', shared: true, noBuild: true
+        },
         blueprint: {
             flow: ['countdown', 'study', 'play', 'scoring', 'reveal'],
             relay: false, hide: true, scoreAt: 'scoring', buildsAt: 'scoring'
@@ -99,14 +132,52 @@
         territory: {
             flow: ['countdown', 'play', 'reveal'],
             relay: true, hide: false, scoreAt: 'play', shared: true,
-            height: TERRITORY_HEIGHT
+            height: TERRITORY_HEIGHT,
+            // One cell at a time. The box fill takes up to 1200 cells in a
+            // single drag and a bulk place overwrites the owner, so the whole
+            // mode came down to who dragged the biggest rectangle fastest —
+            // taking a rival's ground was a gesture, not a fight.
+            maxFill: 1
+        },
+        earthquake: {
+            // Nothing secret, and watching the towers go up IS the mid-round
+            // entertainment — so edits relay. The quake is its own phase
+            // because the host has to shake each plot in turn while everyone
+            // watches, and scoring happens once the dust settles.
+            flow: ['countdown', 'play', 'quake', 'reveal'],
+            relay: true, hide: false, scoreAt: 'quake',
+            height: QUAKE_HEIGHT, budget: QUAKE_BUDGET
+        },
+        demolition: {
+            // Nothing is built in this one, so there is no study and no secret:
+            // the whole point is that everybody watches it come down together.
+            flow: ['countdown', 'play', 'reveal'],
+            relay: true, hide: false, scoreAt: 'play', shared: true,
+            height: DEMO_HEIGHT
         }
     };
+
+    /** Population standard deviation — how much a set of scores disagreed. */
+    function stdev(values) {
+        if (!values || values.length < 2) return 0;
+        const mean = values.reduce((a, b) => a + b, 0) / values.length;
+        const varc = values.reduce((a, v) => a + (v - mean) * (v - mean), 0) / values.length;
+        return Math.sqrt(varc);
+    }
 
     const MODES = [
         {
             id: 'blueprint', name: 'Blueprint Race', emoji: '📐', ready: true, defaultTime: 180, minPlayers: 1, note: 'Solo works: race the clock and your own memory.',
             desc: 'Everyone gets the same secret blueprint. Study it, then rebuild it from memory — it flashes back for 3s every 30s. Accuracy plus speed wins.'
+        },
+        {
+            // NOT offered yet: a guest does not follow the room to the mystery
+            // place — the world snapshot that carries it never lands on them,
+            // so on a second screen the world is empty and unpinned. Solo play
+            // and every other part of the round works. Fix that before turning
+            // this on.
+            id: 'whereonearth', name: 'Where on Earth', emoji: '🌍', ready: true, defaultTime: 120, minPlayers: 1, note: 'Works alone — guess against your own geography.',
+            desc: 'The room is moved to a real place, built from the map. Walk it, fly it, look at the coast — then drop a pin where you think you are. Closest wins.'
         },
         {
             id: 'charades', name: 'Voxel Charades', emoji: '🤫', ready: true, defaultTime: 90, minPlayers: 2, note: 'Needs somebody to guess.',
@@ -121,12 +192,20 @@
             desc: 'One player builds while the room watches. Then it vanishes and everybody rebuilds it from memory. The architect scores on how well you remembered.'
         },
         {
-            id: 'rush', name: 'Block Rush', emoji: '⚡', ready: true, defaultTime: 90, minPlayers: 2, note: 'Needs somebody to vote for you.',
+            id: 'rush', name: 'Block Rush', emoji: '⚡', ready: true, defaultTime: 90, minPlayers: 3, note: 'Needs three: with two it is always a tie.',
             desc: 'A creative prompt, no blueprint, nothing to copy. Builds are revealed together and the room votes for its favourite.'
         },
         {
             id: 'territory', name: 'Territory', emoji: '🚩', ready: true, defaultTime: 120, minPlayers: 2, note: 'Needs somebody to take ground from.',
             desc: 'One shared arena, every block wears your colour. Build over rivals, tear theirs down — most blocks standing at the whistle wins.'
+        },
+        {
+            id: 'earthquake', name: 'Earthquake', emoji: '🌋', ready: true, defaultTime: 90, minPlayers: 1, note: 'Solo works: beat your own record.',
+            desc: 'Build the tallest thing you can from 90 blocks — then the ground shakes. Whatever is still standing scores, and height counts double. Bracing beats stacking.'
+        },
+        {
+            id: 'demolition', name: 'Demolition Party', emoji: '🧨', ready: true, defaultTime: 90, minPlayers: 1, note: 'Solo works: beat the clock, not the room.',
+            desc: 'A block town, and everyone with a wrecking ball. Hit a tower low and take the whole thing down — you score every block your own blow brings with it.'
         }
     ];
 
@@ -346,11 +425,31 @@
                 return 'You are spectating this round';
             }
             if (this.locked) return 'Your build is locked in';
+            // Demolition is a knocking round. Anything that puts blocks into the
+            // arena is a way to manufacture your own score, and anything that
+            // takes them out without physics is a way to deny everyone else's.
+            // Tool rule, not a cell rule — see allowsSettle().
+            if (s.mode === 'demolition') return 'Knock it down — that is the whole round';
             if (x < area.x0 || x > area.x0 + area.size - 1 || z < area.z0 || z > area.z0 + area.size - 1) {
                 return area.shared ? 'Build inside the arena' : 'Build inside your own plot';
             }
             if (y > (s.buildHeight || BUILD_HEIGHT)) return 'Too high for this round';
+            // A budget makes the round a question — brace it or build it taller?
+            // Without one the answer is always "taller", every time.
+            if (s.budget && this._spentByMe() >= s.budget) return `Out of blocks — you have used all ${s.budget}`;
             return null;
+        }
+
+        /** How many blocks I have laid this round, for a budgeted mode. */
+        _spentByMe() {
+            const area = this.myArea();
+            if (!area) return 0;
+            const cells = this.game.voxels.cellsInBox({
+                x0: area.x0, x1: area.x0 + area.size - 1,
+                z0: area.z0, z1: area.z0 + area.size - 1,
+                y0: 0, y1: (this.state && this.state.buildHeight) || BUILD_HEIGHT
+            }, area.x0, area.z0);
+            return (cells && cells.length) || 0;
         }
 
         /** Is this a phase where I, specifically, may build? */
@@ -376,6 +475,23 @@
 
         /** Silent check. */
         allows(x, y, z) { return !this._reasonFor(x, y, z); }
+
+        /**
+         * May a *falling block* come to rest here?
+         *
+         * Physics is not a player and is not holding a tool: it asks about the
+         * arena's shape (bounds, plot, height), never about whose turn it is or
+         * which tool this round allows.
+         */
+        allowsSettle(x, y, z) {
+            const s = this.state;
+            if (!this._matchRunning()) return true;
+            const area = this.myArea();
+            if (!area) return false;
+            if (x < area.x0 || x > area.x0 + area.size - 1
+                || z < area.z0 || z > area.z0 + area.size - 1) return false;
+            return y <= (s.buildHeight || BUILD_HEIGHT);
+        }
 
         /** Sandbox rules unless a round is actually running; explains refusals. */
         canEdit(x, y, z) {
@@ -404,6 +520,19 @@
         chatBlockedFor(name) {
             const s = this.state;
             return !!(s && s.mode === 'charades' && s.phase === 'play' && name === s.builder);
+        }
+
+        /**
+         * How many cells one gesture may touch this round.
+         *
+         * A mode scored by ground held has to be played a block at a time, or
+         * the fill tool decides it.
+         */
+        maxFill() {
+            const s = this.state;
+            if (!this._matchRunning() || !s) return Infinity;
+            const rules = RULES[s.mode];
+            return (rules && rules.maxFill) || Infinity;
         }
 
         /** Host-side: during a match only the current builder may edit. */
@@ -448,7 +577,10 @@
         static get HOST_ONLY() { return ['state', 'results', 'build', 'end', 'guessed', 'word', 'model']; }
 
         handleMessage(peerId, msg) {
-            const from = msg.name || (msg._fromClient) || peerId;
+            // Identity comes from the transport, never from the payload:
+            // `_fromClient` is stamped by the relay, `peerId` is who the data
+            // channel says sent it. A `name` in the body is only a claim.
+            const from = msg._fromClient || peerId;
             if (!this.host && ModeController.HOST_ONLY.indexOf(msg.k) >= 0
                 && !this.game._fromHost(peerId, msg)) return;
             switch (msg.k) {
@@ -524,6 +656,9 @@
                 case 'vote':
                     if (this.host) this.hostHandleVote(from, msg.for);
                     break;
+                case 'pin':
+                    if (this.host) this.hostHandlePin(from, msg.lat, msg.lon);
+                    break;
                 case 'word':
                     // Sent to the builder only.
                     this.secretWord = msg.word;
@@ -568,6 +703,23 @@
                 this.game.showToast('That mode is not available yet', 'warning');
                 return;
             }
+            // The player note was only ever advice. Some modes are not merely
+            // worse when under-populated, they are broken: Block Rush with two
+            // players is a forced tie every round because you cannot vote for
+            // yourself, and charades alone is ninety seconds with nobody to
+            // guess.
+            const here = this._eligiblePlayers().length;
+            const need = mode.minPlayers || 1;
+            if (here < need) {
+                this.game.showToast(
+                    `${mode.name} needs ${need} players — there ${here === 1 ? 'is' : 'are'} ${here} here`,
+                    'warning', 3200);
+                return;
+            }
+            // A prop in flight belongs to the world it was knocked out of, not
+            // to the arena that is about to replace it.
+            if (this.game.physics && this.game.physics.on) this.game.physics.flush();
+
             opts = opts || {};
             this.host = {
                 mode: modeId,
@@ -592,6 +744,18 @@
                 progress: new Map(),
                 locked: new Set()
             };
+            // Demolition needs the wrecking ball, so it turns physics on for
+            // the duration and puts the setting back exactly as it found it.
+            if ((modeId === 'demolition' || modeId === 'earthquake') && this.game.physics) {
+                this._physicsWas = !!this.game.physics.on;
+                if (!this._physicsWas) this.game._setPhysics(true);
+                // Demolition scores what came down, so rubble must stop being
+                // worth hitting. Earthquake scores what is still UP, and a
+                // fallen block keeps its owner so the debris in your plot is
+                // still visibly yours.
+                if (modeId === 'demolition') this.game.physics.rubbleOwner = RUBBLE;
+            }
+
             this._hostBeginRound();
             clearInterval(this.hostTimer);
             this.hostTimer = setInterval(() => this._hostTick(), 1000);
@@ -599,6 +763,13 @@
 
         endMatch() {
             if (this.host) {
+                // Land whatever the last blow put in the air before the arena
+                // goes away under it, then restore the room's own setting.
+                if (this.game.physics && this.game.physics.on) this.game.physics.flush();
+                if (this.game.physics) this.game.physics.rubbleOwner = null;
+                if (this._physicsWas === false && this.game.physics) this.game._setPhysics(false);
+                this._physicsWas = undefined;
+
                 this._broadcast({ k: 'end' });
                 this._endMatch();
                 // Put the sandbox back on everyone's screen from the host's copy.
@@ -622,6 +793,7 @@
             h.modelId = null;
             h.target = null;
             h.votes = new Map();
+            h.lastResults = null;      // the previous round's, not this one's
 
             const stage = (name) => [{
                 name, x0: -Math.floor(STAGE_SIZE / 2), z0: -Math.floor(STAGE_SIZE / 2), size: STAGE_SIZE
@@ -673,11 +845,48 @@
                 case 'teambuild':
                     // One plot the whole room shares, big enough to work around.
                     h.plots = [{ name: SHARED, shared: true, x0: -18, z0: -18, size: 36 }];
+                    h.teamBest = 0;
+                    h.teamStill = 0;
                     takeModel();
                     break;
 
+                case 'whereonearth': {
+                    // The world *is* the round, so there are no plots to lay
+                    // out — everyone stands in the same place, which is the
+                    // question.
+                    h.plots = [];
+                    h.pins = new Map();
+                    const place = Places.pick(h.usedPlaces || []);
+                    h.usedPlaces = (h.usedPlaces || []).concat([place.id]);
+                    h.place = place;
+                    // Building it is a network round trip, so the countdown is
+                    // held until the place is standing — otherwise half the
+                    // room explores an empty world.
+                    h.building = true;
+                    this.game.travelForMatch(place.lat, place.lon, place.mpc,
+                        this.game._earthStyle || 'full')
+                        .then(() => { h.building = false; })
+                        .catch(() => { h.building = false; });
+                    break;
+                }
+
                 case 'territory':
                     h.plots = [{ name: SHARED, shared: true, x0: -22, z0: -22, size: 44 }];
+                    break;
+
+                case 'earthquake':
+                    h.plots = computePlots(players);
+                    h.spent = new Map();       // blocks each player has laid
+                    h.quakeAt = -1;            // which plot the ground is under
+                    break;
+
+                case 'demolition':
+                    h.plots = [{ name: SHARED, shared: true, x0: -DEMO_HALF, z0: -DEMO_HALF, size: DEMO_HALF * 2 }];
+                    h.demo = new Map();
+                    h.demoTotal = 0;
+                    // The town itself goes up in _startRound: both _enterMatch
+                    // and _startRound clear the world on the way into a round,
+                    // and anything raised before that is wiped.
                     break;
 
                 default:
@@ -710,6 +919,49 @@
             h.remain--;
             if (h.phase === 'play' || h.phase === 'architect') h.elapsed++;
 
+            // Everything must have landed before the survivors are counted.
+            if (h.mode === 'earthquake' && h.phase === 'quake' && h.remain <= 1
+                && this.game.physics && this.game.physics.on) {
+                this.game.physics.flush();
+            }
+
+            // Nothing left to knock down is the end of a demolition round: the
+            // room used to stand around in the rubble waiting out the clock.
+            if (h.mode === 'demolition' && h.phase === 'play' && h.remain > 0
+                && this._townLeft() === 0) {
+                this.game.showToast('The town is down!', 'success', 2200);
+                h.remain = 0;
+            }
+
+            // A finished co-op build, or one nobody has improved in a while,
+            // ends the round rather than running out the clock on a crowd
+            // standing around admiring it.
+            if (h.mode === 'teambuild' && h.phase === 'play' && h.remain > 0) {
+                const pct = this._hostTeamPct();
+                if (pct >= 100) {
+                    this.game.showToast('Built it! 🎉', 'success', 2400);
+                    h.remain = 0;
+                } else if (pct > (h.teamBest || 0)) {
+                    h.teamBest = pct;
+                    h.teamStill = 0;
+                } else if (pct > 0 && ++h.teamStill >= TEAM_PLATEAU_SECS) {
+                    this.game.showToast('Nobody is adding to it — calling it there', 'info', 2400);
+                    h.remain = 0;
+                }
+            }
+
+            if (h.phase === 'quake') {
+                const total = this._phaseSecs('quake');
+                const done = total - h.remain;              // seconds into the quake
+                const which = Math.floor((done - 1) / QUAKE_PER_PLOT);
+                if (which >= 0 && which < (h.plots || []).length && which !== h.quakeAt) {
+                    h.quakeAt = which;
+                    this._hostShakePlot(h.plots[which]);
+                    this._broadcast({ k: 'quake', at: which });
+                    this._quakeFelt(which);
+                }
+            }
+
             if (h.remain > 0) { this._hostPublish(); return; }
 
             // Walk this mode's declared sequence; the hooks below are where the
@@ -723,7 +975,38 @@
                 return;
             }
             const next = flow[at + 1];
+            // Exploring a place that has not finished arriving is exploring an
+            // empty world, so the countdown waits rather than lying.
+            if (next === 'explore' && this._waitingForWorld()) {
+                this._hostPhase('countdown', 1);
+                return;
+            }
             this._hostPhase(next, this._phaseSecs(next));
+            // The place was built while the room was still entering the match,
+            // so the snapshot that carried it raced everyone's own clearing of
+            // the world. Send it again now that everybody is certainly here —
+            // otherwise a guest explores an empty world it was never moved to.
+            if (next === 'explore' && this.arenaIsWorld()) {
+                this.game._sendWorldSnapshot({ force: true });
+            }
+        }
+
+        /**
+         * Whether this mode's arena IS the shared world.
+         *
+         * Every other mode builds an arena the host synthesises, so a joiner
+         * asking for the world mid-match must be sent the arena. "Where on
+         * Earth" moves the room to a real place instead — there is no arena to
+         * send, and answering with one hands the joiner an empty world.
+         */
+        arenaIsWorld() {
+            const mode = (this.state && this.state.mode) || (this.host && this.host.mode);
+            return !!(mode && RULES[mode] && RULES[mode].noBuild);
+        }
+
+        /** True while the mystery place is still being built. */
+        _waitingForWorld() {
+            return !!(this.host && this.host.mode === 'whereonearth' && this.host.building);
         }
 
         _phaseSecs(phase) {
@@ -736,7 +1019,12 @@
                 case 'scoring': return SCORING_SECS;
                 case 'vote': return VOTE_SECS;
                 case 'tally': return TALLY_SECS;
-                case 'reveal': return h.mode === 'charades' ? CHARADES_REVEAL_SECS : REVEAL_SECS;
+                case 'quake': return Math.max(6, (h.plots || []).length * QUAKE_PER_PLOT + 3);
+                case 'explore': return h.roundTime;
+                case 'guess': return GUESS_SECS;
+                case 'reveal':
+                    if (h.mode === 'charades') return CHARADES_REVEAL_SECS;
+                    return h.mode === 'whereonearth' ? EARTH_REVEAL_SECS : REVEAL_SECS;
                 default: return 1;
             }
         }
@@ -764,7 +1052,10 @@
             }
 
             if (rules.buildsAt === phase) this._hostPublishBuilds();
-            if (rules.scoreAt === phase) this._hostScoreRound();
+            if (rules.scoreAt === phase) {
+                if (h.mode === 'whereonearth') this._hostScoreEarth();
+                else this._hostScoreRound();
+            }
         }
 
         _hostRecordSubmit(name, msg) {
@@ -873,6 +1164,7 @@
                 rows, totals, isFinal: h.round >= h.rounds
             };
             this._hostPhase('reveal', CHARADES_REVEAL_SECS);
+            this._hostKeepResults(results);
             this._broadcast({ k: 'results', r: results });
             this._applyResults(results);
             if (results.isFinal) this.game.recordMatchStats(results);
@@ -927,6 +1219,56 @@
             }));
         }
 
+        /**
+         * Somebody's guess. Only during the guessing, and only one each — a pin
+         * dropped again replaces the first rather than adding a second.
+         */
+        hostHandlePin(from, lat, lon) {
+            const h = this.host;
+            if (!h || h.mode !== 'whereonearth' || h.phase !== 'guess') return;
+            if (!isFinite(lat) || !isFinite(lon)) return;
+            h.pins.set(from, { lat: +lat, lon: +lon, at: Date.now() });
+            this._hostPublish();
+        }
+
+        /**
+         * Score the guesses and tell the room where it actually was.
+         *
+         * The answer goes out here and nowhere earlier: until this moment it
+         * has only ever existed in the host's own `h.place`.
+         */
+        _hostScoreEarth() {
+            const h = this.host;
+            const place = h.place;
+            if (!place) return;
+
+            const rows = this._eligiblePlayers().map(name => {
+                const pin = h.pins.get(name);
+                if (!pin) return { name, points: 0, km: null, note: 'no guess' };
+                const km = Places.distanceKm(pin, place);
+                const points = Places.score(km);
+                h.totals.set(name, (h.totals.get(name) || 0) + points);
+                return {
+                    name, points, km, lat: pin.lat, lon: pin.lon,
+                    note: km <= 25 ? 'spot on' : km < 1000 ? km + ' km out' : Math.round(km / 100) / 10 + ' thousand km out'
+                };
+            }).sort((a, b) => b.points - a.points);
+
+            const totals = Array.from(h.totals.entries())
+                .map(([name, points]) => ({ name, points }))
+                .sort((a, b) => b.points - a.points);
+
+            const results = {
+                mode: 'whereonearth', round: h.round, rounds: h.rounds,
+                place: { name: place.name, country: place.country, lat: place.lat, lon: place.lon, hint: place.hint },
+                rows, totals, isFinal: h.round >= h.rounds
+            };
+            this._hostKeepResults(results);
+            this._broadcast({ k: 'results', r: results });
+            this._applyResults(results);
+            if (results.isFinal) this.game.recordMatchStats(results);
+        }
+
         _hostFinishRound() { this._hostScoreRound(); }
 
         // What everyone standing in the shared plot has built, by owner.
@@ -958,11 +1300,14 @@
                 case 'memory': this._hostScoreMemory(); return;
                 case 'rush': this._hostScoreRush(); return;
                 case 'territory': this._hostScoreTerritory(); return;
+                case 'demolition': this._hostScoreDemolition(); return;
+                case 'earthquake': this._hostScoreQuake(); return;
                 default: this._hostScoreBlueprint();
             }
         }
 
         _hostFinish(results) {
+            this._hostKeepResults(results);
             this._broadcast({ k: 'results', r: results });
             this._applyResults(results);
             if (results.isFinal) this.game.recordMatchStats(results);
@@ -1006,6 +1351,29 @@
          * shared plot and the host reads the plot straight out of its own world,
          * because every edit was relayed there as it happened.
          */
+        /**
+         * How much of the co-op model is standing, right now.
+         *
+         * Cheap enough to ask once a second, and it is the only way to know the
+         * room has finished: `lockIn` needs `myPlot`, which a shared plot never
+         * is, so Team Build had no completion signal at all — eight players
+         * finished a 5x5x5 model in well under a minute and then stood on it
+         * for the remaining two.
+         */
+        _hostTeamPct() {
+            const h = this.host;
+            const model = Models.byId(h.modelId);
+            const plot = h.plots && h.plots[0];
+            if (!model || !plot) return 0;
+            const o = modelOrigin(plot, model);
+            const built = this.game.voxels.cellsInBox({
+                x0: plot.x0, x1: plot.x0 + plot.size - 1,
+                z0: plot.z0, z1: plot.z0 + plot.size - 1,
+                y0: 0, y1: BUILD_HEIGHT
+            }, o.x, o.z).map(a => ({ x: a[0], y: a[1], z: a[2], c: a[3], s: a[4] | 0 }));
+            return scoreBuild(Models.decode(model), built).pct;
+        }
+
         _hostScoreTeam() {
             const h = this.host;
             const model = Models.byId(h.modelId);
@@ -1068,11 +1436,26 @@
             // also the rebuilder, and must not be listed — or paid — twice.
             const avg = rows.length ? Math.round(rows.reduce((a, r) => a + r.pct, 0) / rows.length) : 0;
             if (!rows.some(r => r.name === h.builder)) {
-                h.totals.set(h.builder, (h.totals.get(h.builder) || 0) + avg);
+                const built = (h.target || []).length;
+                // Paying the room average alone made a single block the optimal
+                // build: everyone copies it perfectly, everyone scores ~100, and
+                // the architect banks the lot. So the average is scaled by how
+                // much there was to remember...
+                const size = Math.max(0.2, Math.min(1, built / MEMORY_FULL_SIZE));
+                // ...and topped up for a build that actually separated the room.
+                // Trivial (everyone perfect) and impossible (everyone lost) both
+                // have no spread; the interesting build is the one in between.
+                const spread = rows.length > 1 ? stdev(rows.map(r => r.pct)) : 0;
+                const bonus = Math.round(Math.min(1, spread / 25) * MEMORY_SPREAD_BONUS);
+                const points = Math.round(avg * size) + bonus;
+                h.totals.set(h.builder, (h.totals.get(h.builder) || 0) + points);
                 rows.push({
-                    name: h.builder, pct: avg, points: avg, isBuilder: true,
-                    blocks: (h.target || []).length, target: (h.target || []).length,
-                    note: 'architect — scores the room average'
+                    name: h.builder, pct: avg, points, isBuilder: true,
+                    blocks: built, target: built,
+                    note: built < MEMORY_FULL_SIZE
+                        ? `architect — ${built} block${built === 1 ? '' : 's'} was too easy to be worth much`
+                        : (bonus > 6 ? 'architect — memorable, and it sorted the room'
+                            : 'architect — scored on how well the room remembered')
                 });
             }
 
@@ -1107,6 +1490,169 @@
             });
         }
 
+        /**
+         * Put up the town that the round exists to knock down.
+         *
+         * Deterministic on purpose — no Math.random. The host is the only one
+         * that builds it, and it reaches everyone as an ordinary relayed edit,
+         * so the room does not need to agree on a seed.
+         */
+        _hostRaiseTown() {
+            const rows = [];
+            const span = DEMO_HALF * 2 - 6;
+            const step = Math.floor(span / (DEMO_GRID - 1));
+            let i = 0;
+            for (let gx = 0; gx < DEMO_GRID; gx++) {
+                for (let gz = 0; gz < DEMO_GRID; gz++) {
+                    const x = -DEMO_HALF + 3 + gx * step;
+                    const z = -DEMO_HALF + 3 + gz * step;
+                    // Deterministic but not uniform: a skyline reads better
+                    // than a grid of identical posts, and a tall one is worth
+                    // going out of your way for.
+                    const height = DEMO_MIN_H + ((gx * 5 + gz * 3 + gx * gz) % (DEMO_HEIGHT - DEMO_MIN_H + 1));
+                    const colour = 1 + (i % 9);
+                    for (let y = 0; y < height; y++) rows.push([x, y, z, colour, 0, SHARED]);
+                    i++;
+                }
+            }
+            this.host.demoTotal = rows.length;
+            // Straight through the ordinary edit path, like every other block
+            // that has ever appeared in this world.
+            this.game.applyPhysicsEdit({ a: 'bulk', o: SHARED, place: rows });
+        }
+
+        /**
+         * Credit a blow. Called by the host for its own knocks and for the ones
+         * guests ask it to make — `physics.knock()` returns how much it brought
+         * down, which is exactly the score this mode wants.
+         */
+        /**
+         * What a blow at this cell is worth, before it is struck.
+         *
+         * Only the town scores. Rubble that has already come down settles under
+         * a dead owner, so whacking a settled pile — which credited again, and
+         * again, forever — is now worth nothing, and the round's total credit
+         * can never exceed the town that was raised.
+         */
+        demolitionValue(x, y, z) {
+            const g = this.game;
+            if (!this.host || this.host.mode !== 'demolition' || !g.physics) return 0;
+            const doomed = g.physics.previewKnock(x, y, z) || [];
+            let n = 0;
+            doomed.forEach(([cx, cy, cz]) => {
+                if (g.voxels.ownerOf(cx, cy, cz) === SHARED) n++;
+            });
+            return n;
+        }
+
+        creditDemolition(name, blocks) {
+            const h = this.host;
+            if (!h || h.mode !== 'demolition' || !name || !(blocks > 0)) return;
+            h.demo.set(name, (h.demo.get(name) || 0) + blocks);
+        }
+
+        /** Cells of the original town still standing. */
+        _townLeft() {
+            const counts = this.game.voxels.countsByOwner();
+            return (counts && counts.get(SHARED)) || 0;
+        }
+
+        /** Knocking is the whole round, so it is allowed — and only here. */
+        physicsAllowed() {
+            const s = this.state;
+            return !!(s && s.mode === 'demolition' && s.phase === 'play');
+        }
+
+        _hostScoreDemolition() {
+            const h = this.host;
+            const rows = this._eligiblePlayers().map(name => {
+                const blocks = h.demo.get(name) || 0;
+                h.totals.set(name, (h.totals.get(name) || 0) + blocks);
+                return {
+                    name, blocks, points: blocks,
+                    note: `${blocks} block${blocks === 1 ? '' : 's'} brought down`
+                };
+            }).sort((a, b) => b.blocks - a.blocks);
+
+            const felled = rows.reduce((n, r) => n + r.blocks, 0);
+            this._hostFinish({
+                mode: 'demolition', round: h.round, rounds: h.rounds,
+                rows, totals: this._hostTotalsList(), isFinal: h.round >= h.rounds,
+                note: `${felled} of ${h.demoTotal} blocks came down`
+            });
+        }
+
+        /** Point every camera at whoever the ground is under. */
+        _quakeFelt(index) {
+            const s = this.state || {};
+            const plot = (s.plots || this.host.plots || [])[index];
+            if (!plot) return;
+            const mine = plot.name === this.game.username;
+            this.game.showToast(mine ? '🌋 Your turn — hold on' : `🌋 ${plot.name}'s ground gives way`,
+                mine ? 'warning' : 'info', 1800);
+            const c = this._plotCentre(plot);
+            this.game.voxels.focus(c.x, 3, c.z, 30, Math.PI * 0.30);
+        }
+
+        /**
+         * Shake one plot: hit every cell around the foot of whatever is standing
+         * there, from outside, so a tower is pushed over rather than punched
+         * through. Same pattern, same power, every plot — the only variable is
+         * what you built.
+         */
+        _hostShakePlot(plot) {
+            const g = this.game, v = g.voxels;
+            if (!plot || !g.physics || !g.physics.on) return;
+            const cx = plot.x0 + plot.size / 2, cz = plot.z0 + plot.size / 2;
+
+            const feet = [];
+            for (let x = plot.x0; x < plot.x0 + plot.size; x++) {
+                for (let z = plot.z0; z < plot.z0 + plot.size; z++) {
+                    if (v.hasBlock(x, 0, z)) feet.push([x, z]);
+                }
+            }
+            // Outermost first: the ground gives way at the edges of a footprint.
+            feet.sort((a, b) => (Math.abs(b[0] - cx) + Math.abs(b[1] - cz))
+                - (Math.abs(a[0] - cx) + Math.abs(a[1] - cz)));
+
+            feet.slice(0, 24).forEach(([x, z]) => {
+                const dx = x + 0.5 - cx, dz = z + 0.5 - cz;
+                const len = Math.hypot(dx, dz) || 1;
+                // Shoved outward, away from the middle of the plot.
+                g.physics.knock(x, 0, z, { x: dx / len, z: dz / len }, QUAKE_POWER);
+            });
+        }
+
+        /** Height counts: a tall thing that stands beats a slab that cannot fall. */
+        _hostScoreQuake() {
+            const h = this.host, v = this.game.voxels;
+            const rows = (h.plots || []).map(plot => {
+                const cells = v.cellsInBox({
+                    x0: plot.x0, x1: plot.x0 + plot.size - 1,
+                    z0: plot.z0, z1: plot.z0 + plot.size - 1,
+                    y0: 0, y1: QUAKE_HEIGHT
+                }, plot.x0, plot.z0) || [];
+                let points = 0, top = 0;
+                cells.forEach(c => {
+                    const y = (c.y !== undefined ? c.y : c[1]) || 0;
+                    points += y + 1;               // a block up high is worth more
+                    if (y + 1 > top) top = y + 1;
+                });
+                h.totals.set(plot.name, (h.totals.get(plot.name) || 0) + points);
+                return {
+                    name: plot.name, blocks: cells.length, points, height: top,
+                    note: cells.length
+                        ? `${cells.length} left standing, ${top} high`
+                        : 'flattened'
+                };
+            }).sort((a, b) => b.points - a.points);
+
+            this._hostFinish({
+                mode: 'earthquake', round: h.round, rounds: h.rounds,
+                rows, totals: this._hostTotalsList(), isFinal: h.round >= h.rounds
+            });
+        }
+
         _hostScoreTerritory() {
             const h = this.host;
             const counts = this._hostSharedCounts();
@@ -1130,7 +1676,13 @@
             const rules = RULES[h.mode];
             const progress = {};
             h.progress.forEach((n, name) => { progress[name] = n; });
+            // Demolition scores live on the host; the room needs them to show
+            // each player their own running tally while the round is on.
+            const demo = {};
+            if (h.demo) h.demo.forEach((n, name) => { demo[name] = n; });
             return {
+                demo,
+                budget: rules.budget || 0,
                 mode: h.mode,
                 phase: h.phase,
                 round: h.round,
@@ -1168,6 +1720,22 @@
             const s = this._hostState();
             this._broadcast({ k: 'state', s });
             this._applyState(s);
+
+            // The results go out once, on a channel that makes no promises —
+            // and a dropped one leaves a player staring at a scoreboard that
+            // never arrives, with nothing to ask for. State survives being lost
+            // because it repeats every second; the result now does too, for as
+            // long as it is the thing on screen.
+            const h = this.host;
+            if (h && h.lastResults && ['reveal', 'vote', 'tally', 'final'].indexOf(h.phase) >= 0) {
+                h.resultTick = (h.resultTick || 0) + 1;
+                if (h.resultTick % 2 === 0) this._broadcast({ k: 'results', r: h.lastResults });
+            }
+        }
+
+        /** Remember the round's result so it can be said again. */
+        _hostKeepResults(results) {
+            if (this.host) { this.host.lastResults = results; this.host.resultTick = 0; }
         }
 
         _hostBroadcastState() { if (this.host) this._hostPublish(); }
@@ -1179,6 +1747,8 @@
                 case 'study': return STUDY_SECS;
                 case 'play': return roundTime;
                 case 'scoring': return SCORING_SECS;
+                case 'explore': return roundTime;
+                case 'guess': return GUESS_SECS;
                 case 'reveal': return charades ? CHARADES_REVEAL_SECS : REVEAL_SECS;
                 default: return 1;
             }
@@ -1242,10 +1812,74 @@
             const g = this.game;
             this.sandboxBackup = g.snapshotWorld();
             g.voxels.clearAll();
+            // Ask for the arena *after* clearing, not before: a joiner who is
+            // sent it on connect would have it wiped by this very line a moment
+            // later, which is exactly what happened.
+            if (!g.isHost()) setTimeout(() => g.sendData({ type: 'requestWorld' }), 250);
             g.undoStack.length = 0;
             g.redoStack.length = 0;
             g.hidePlayHint();
             this._showHud(true);
+        }
+
+        /**
+         * Everything this mode does to the interface, in one place.
+         *
+         * Exploring: the coordinates go quiet, because reading them off the
+         * screen would be the whole game. Guessing: the map becomes a form —
+         * one click drops your pin and nothing else happens. Reveal: the pins
+         * come back, everyone's and the true one.
+         */
+        _syncEarth(phase) {
+            const g = this.game, s = this.state;
+            if (!s || s.mode !== 'whereonearth') {
+                if (this._earthOn) {
+                    g.setPlaceSecret(false);
+                    if (g.minimap) { g.minimap.pickMode = null; g.minimap.setMarks(null); }
+                    this._earthOn = false;
+                }
+                return;
+            }
+            this._earthOn = true;
+            const revealing = phase === 'reveal';
+            g.setPlaceSecret(!revealing);
+
+            if (!g.minimap) return;
+            if (phase === 'guess') {
+                if (!g.minimap.open) g.minimap.setOpen(true);
+                g.minimap.pickMode = (lat, lon) => {
+                    this.myPin = { lat, lon };
+                    this._send({ k: 'pin', lat, lon });
+                    this._markPins();
+                    g.showToast('Pin dropped — you can move it until time is up', 'success', 2200);
+                };
+            } else {
+                g.minimap.pickMode = null;
+            }
+            this._markPins();
+        }
+
+        /** What the map should be showing: my pin, and at the reveal, everyone's. */
+        _markPins() {
+            const g = this.game, s = this.state;
+            if (!g.minimap || !s) return;
+            const marks = [];
+            if (this.myPin) {
+                marks.push({ lat: this.myPin.lat, lon: this.myPin.lon, colour: '#22d3ee', label: 'you' });
+            }
+            const r = this.results;
+            if (r && r.place) {
+                marks.push({ lat: r.place.lat, lon: r.place.lon, colour: '#34d399', label: r.place.name, big: true });
+                (r.rows || []).forEach(row => {
+                    if (typeof row.lat !== 'number') return;
+                    if (row.name === g.username) return;
+                    marks.push({
+                        lat: row.lat, lon: row.lon,
+                        colour: g.generateUserColor(row.name), label: row.name
+                    });
+                });
+            }
+            g.minimap.setMarks(marks.length ? marks : null);
         }
 
         _startRound() {
@@ -1255,6 +1889,7 @@
             this.accuracy = 0;
             this.results = null;
             this.builds.clear();
+            this.myPin = null;
             this._stopReveals(false);   // the world is about to be cleared
             this._stopTour();
             g.voxels.clearAll();
@@ -1264,6 +1899,12 @@
             g.redoStack.length = 0;
             g.hideResults();
             const s = this.state;
+
+            // The world has just been cleared for the round; now the host puts
+            // up the thing this mode exists to knock down. It reaches everyone
+            // as an ordinary relayed edit, so only the host builds it.
+            if (this.host && s.mode === 'demolition') this._hostRaiseTown();
+
             const charades = s.mode === 'charades';
             if (charades) {
                 // Only the builder holds the word; everyone else watches the stage.
@@ -1289,6 +1930,18 @@
             const wasPhase = prev && prev.phase;
             if (phase !== wasPhase) this.game._updateChatMode();
             this._ceremony(s, prev);
+
+            if (s.mode === 'whereonearth') {
+                this._syncEarth(phase);
+                if (phase !== wasPhase) {
+                    if (phase === 'explore') {
+                        this.game.showToast('Where are you? Look around — fly, walk, read the coast', 'info', 3200);
+                    } else if (phase === 'guess') {
+                        this.game.showToast('Time is up — drop a pin on the map where you think this is', 'info', 3600);
+                    }
+                }
+                return;
+            }
 
             // Charades has no blueprint to ghost and nothing to submit — the
             // build was relayed live and the word is judged by the host.
@@ -1715,6 +2368,12 @@
             this.results = r;
             this._renderResults();
             this._renderPads();
+            // The answer has just arrived: put it on the map next to everyone's
+            // guesses, and give the coordinates back.
+            if (r && r.mode === 'whereonearth') {
+                this.game.setPlaceSecret(false);
+                this._markPins();
+            }
             // Restart the tour now that the ranking is known — it opens on the
             // winner's plot rather than wherever it happened to start.
             if (this.state && this.state.phase === 'reveal') this._startTour();
@@ -1739,6 +2398,20 @@
                     <span class="rs-detail">${esc(row.note || '')}</span>
                     <span class="rs-points">${row.points}</span>
                 </div>`).join('');
+
+            if (r.mode === 'whereonearth') {
+                const p = r.place || {};
+                this.game.showResults({
+                    title: r.isFinal ? '🏆 Final standings' : `Round ${r.round} of ${r.rounds}`,
+                    subtitle: `It was <strong>${esc(p.name || 'somewhere')}</strong>, ${esc(p.country || '')}`
+                        + (p.hint ? ` — ${esc(p.hint)}` : ''),
+                    body: `<div class="rs-list">${simpleRows(r.rows, row => row.km === null ? '—' : row.km + ' km')}</div>
+                           <div class="rs-totals-title">Match points</div>
+                           <div class="rs-totals">${totalsOf()}</div>`,
+                    isFinal: r.isFinal, canControl: this.game.isHost()
+                });
+                return;
+            }
 
             if (r.mode === 'teambuild') {
                 this.game.showResults({
@@ -1975,10 +2648,12 @@
                 case 'play':
                     if (charades) phaseText = `${iBuild ? 'Build it!' : 'Guess!'} ${fmt(remain)}`;
                     else if (s.mode === 'memory' && s.builder === this.game.username) phaseText = `Watching — ${fmt(remain)}`;
+                    else if (s.mode === 'demolition') phaseText = `🧨 Wreck it! ${fmt(remain)}`;
                     else phaseText = this.myArea()
                         ? (this.locked ? '✅ Locked in — waiting for the others' : `Build! ${fmt(remain)}`)
                         : `Spectating — ${fmt(remain)}`;
                     break;
+                case 'quake': phaseText = `🌋 Earthquake! ${fmt(remain)}`; break;
                 case 'scoring': phaseText = 'Scoring…'; break;
                 case 'reveal': phaseText = s.mode === 'rush' ? '👀 Take a look' : '👀 Reveal'; break;
                 case 'vote': phaseText = `🗳 Vote! ${Math.ceil(remain)}s`; break;
@@ -2030,6 +2705,14 @@
                         : `⚡ ${s.prompt}`;
                 }
                 else if (s.mode === 'territory') peek.textContent = `Your blocks: ${this._myTerritory()}`;
+                else if (s.mode === 'earthquake') {
+                    const left = Math.max(0, (s.budget || 0) - this._spentByMe());
+                    peek.textContent = s.phase === 'quake' ? '🌋 Hold on…' : `Blocks left: ${left}`;
+                }
+                else if (s.mode === 'demolition') {
+                    const mine = (s.demo && s.demo[this.game.username]) || 0;
+                    peek.textContent = `Brought down: ${mine}`;
+                }
                 else if (s.mode === 'memory') peek.textContent = s.phase === 'architect' ? 'Remember it!' : 'From memory';
                 else peek.textContent = s.peek ? '👀 Blueprint visible' : `Next peek in ${s.nextPeek}s`;
             }
@@ -2084,6 +2767,12 @@
             this._arenaSig = '';
             this._roundSig = '';
             this.builds.clear();
+
+            // Whatever the round took over, give back.
+            g.setPlaceSecret(false);
+            if (g.minimap) { g.minimap.pickMode = null; g.minimap.setMarks(null); }
+            this._earthOn = false;
+            this.myPin = null;
 
             if (this._xrayWasOn === false && g.xray) g.toggleXray();
             this._xrayWasOn = undefined;
