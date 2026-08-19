@@ -58,6 +58,7 @@
     const MAX_MODEL_CELLS = 1200;   // a blueprint has to be rebuildable in a round
     const TAPE_MAX = 5000;          // edits kept for the time-lapse
     const TAPE_STEP_MS = 40;        // a frame of playback
+    const TRACE_DEADLINE_MS = 20000; // how long a round waits for the map
 
     // Palette — index maps to a color; sent over the wire as a small int.
     const PALETTE = [
@@ -2355,8 +2356,17 @@
                     break;
                 case 'requestWorld':
                     if (!this.isHost()) break;
-                    if (inMatch) this._sendArenaSnapshot(peerId);
-                    else this._sendWorldSnapshot();
+                    // In a mode whose arena is a real place, the world IS the
+                    // arena — answering with a synthesised one hands the joiner
+                    // an empty planet.
+                    if (inMatch && this.modes && typeof this.modes.arenaIsWorld === 'function'
+                        && this.modes.arenaIsWorld()) {
+                        this._sendWorldSnapshot({ force: true });
+                    } else if (inMatch) {
+                        this._sendArenaSnapshot(peerId);
+                    } else {
+                        this._sendWorldSnapshot();
+                    }
                     break;
                 case 'lock':
                     this._setWorldLocked(!!data.locked, data.by);
@@ -3300,9 +3310,10 @@
          * that joins mid-stream simply waits for the next complete run rather
          * than rendering half a world.
          */
-        _sendWorldSnapshot() {
-            // Never ship the arena out as if it were the shared world.
-            if (this.modes && this.modes.isMatchActive()) return;
+        _sendWorldSnapshot(opts) {
+            // Never ship the arena out as if it were the shared world — unless
+            // the arena *is* the world, which is what "Where on Earth" builds.
+            if (!(opts && opts.force) && this.modes && this.modes.isMatchActive()) return;
             const snap = this.snapshotWorld();
             const chunks = [];
             for (let i = 0; i < snap.blocks.length; i += WORLD_CHUNK) {
@@ -3739,6 +3750,7 @@
          * like ground rather than graph paper.
          */
         _updateGeoReadout(cell) {
+            if (this._placeSecret) return;
             const el = document.getElementById('geoReadout');
             if (!el) return;
             if (!this.geo || !this.geo.anchor || !cell) { el.classList.add('hidden'); return; }
@@ -3978,6 +3990,80 @@
             this.showToast(`Moved to ${BlockPartyGeo.format(anchor.lat, anchor.lon)} · `
                 + `${anchor.mpc}m per block · ${this.geo.span()}m across`, 'success', 3600);
             return anchor;
+        }
+
+        /**
+         * Move the room to a place *during* a match, and build it.
+         *
+         * Ordinary travel refuses while a match is running, for good reason:
+         * it saves the world it is leaving, and the arena is not a world worth
+         * saving. This is the one mode where moving the room IS the round, so
+         * it takes the same steps minus the two that would do harm — nothing is
+         * persisted, and the sandbox is left exactly where the match stashed it,
+         * to be restored when the match ends.
+         */
+        async travelForMatch(lat, lon, mpc, style) {
+            if (!this.isHost()) return false;
+            this.voxels.clearAll();
+            this.undoStack.length = 0;
+            this.redoStack.length = 0;
+            this.geo.setAnchor(lat, lon, mpc || 2);
+            this.paintGround();
+
+            let built = null;
+            try {
+                if (style === 'earth') {
+                    built = await BlockPartyEarth.shapeFor(this);
+                } else {
+                    // The map is a network away and this is a game with a clock
+                    // on it. Give the tile server a deadline; past it, fall back
+                    // to the coastline, which is local and always answers. A
+                    // round must never hang on somebody else's server.
+                    built = await Promise.race([
+                        BlockPartyTerrain.trace(this, { style: style || 'full' }),
+                        new Promise((resolve) => setTimeout(() => resolve(null), TRACE_DEADLINE_MS))
+                    ]);
+                    if (!built) {
+                        console.warn('[BlockParty] the map was too slow; using the coastline');
+                        built = await BlockPartyEarth.shapeFor(this);
+                    }
+                }
+            } catch (err) {
+                // Even the coastline can fail. The painted ground is still under
+                // everyone's feet, so the round is playable — just barer.
+                console.warn('[BlockParty] could not draw the mystery place:', err.message);
+            }
+
+            if (built && built.blocks) {
+                this.voxels.clearAll();
+                this.restoreWorldFrom({
+                    blocks: built.blocks, pieces: [],
+                    ground: this.voxels.groundTint, geo: this.geo.anchor
+                });
+            }
+            this._updateBlockCount();
+            this._sendWorldSnapshot({ force: true });
+            if (this.minimap) this.minimap.invalidate ? this.minimap.invalidate() : this.minimap.draw();
+            this.voxels.focus(0, 2, 0, 90, Math.PI * 0.32);
+            return !!(built && built.blocks);
+        }
+
+        /**
+         * While a place is the answer to a question, the interface must not
+         * simply print it. Everything that names coordinates goes quiet until
+         * the reveal — the shape of the world is the clue, not the read-out.
+         */
+        setPlaceSecret(on) {
+            this._placeSecret = !!on;
+            const pill = document.getElementById('geoReadout');
+            if (pill && on) pill.classList.add('hidden');
+            const centre = document.getElementById('minimapCentre');
+            if (centre) centre.classList.toggle('hidden', !!on);
+            const cursor = document.getElementById('minimapCursor');
+            if (cursor) cursor.classList.toggle('hidden', !!on);
+            const span = document.getElementById('minimapZoomLabel');
+            if (span) span.classList.toggle('hidden', !!on);
+            this._syncGeoUI();
         }
 
         /**
