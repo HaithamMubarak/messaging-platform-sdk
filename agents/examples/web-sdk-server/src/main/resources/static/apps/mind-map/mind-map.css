@@ -329,12 +329,22 @@ body {
     z-index: 1000;
 }
 
+/* Unqualified on purpose in the original, which means it also lands on the
+   shared connection form. A flat 400px minimum is wider than a phone, so the
+   form that asks for the room and its password was cut off at the edge of the
+   screen on the one device most likely to be handed a shared link. */
 .modal-content {
     background: white;
     padding: 32px;
     border-radius: 12px;
     box-shadow: 0 20px 60px rgba(0,0,0,0.3);
-    min-width: 400px;
+    min-width: min(400px, 100%);
+    max-width: calc(100vw - 32px);
+    box-sizing: border-box;
+}
+
+@media (max-width: 480px) {
+    .modal-content { padding: 20px; }
 }
 
 .modal-content h3 {

@@ -5,7 +5,20 @@
     <script src="../js/prod-log.js"></script>
     <link rel="icon" type="image/svg+xml" href="../favicon.svg">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Cloud Connection Component - Example</title>
+    <title>Cloud connection component — the connect panel, on the Messaging Platform SDK</title>
+    <meta name="description" content="The connection panel on its own: how an app asks for a channel, a name and a password, and what it does with the answer.">
+    <meta name="theme-color" content="#0b1120">
+    <link rel="canonical" href="https://hmdevonline.com/messaging-platform/sdk/apps/cloud-connection-demo.html">
+    <meta property="og:type" content="website">
+    <meta property="og:site_name" content="Messaging Platform SDK">
+    <meta property="og:title" content="Cloud connection component">
+    <meta property="og:description" content="The connection panel on its own: how an app asks for a channel, a name and a password, and what it does with the answer.">
+    <meta property="og:url" content="https://hmdevonline.com/messaging-platform/sdk/apps/cloud-connection-demo.html">
+    <meta property="og:image" content="https://hmdevonline.com/messaging-platform/sdk/images/og-image.png">
+    <meta name="twitter:card" content="summary_large_image">
+    <meta name="twitter:title" content="Cloud connection component">
+    <meta name="twitter:description" content="The connection panel on its own: how an app asks for a channel, a name and a password, and what it does with the answer.">
+    <meta name="twitter:image" content="https://hmdevonline.com/messaging-platform/sdk/images/og-image.png">
 
     <!-- Required CSS -->
     <link rel="stylesheet" href="../css/cloud-connection.css">
@@ -86,6 +99,7 @@
             margin-top: 10px;
         }
     </style>
+    <link rel="stylesheet" href="../css/app-chrome.css">
 </head>
 <body>
     <div class="container">
@@ -292,6 +306,9 @@
         // The cloud connection will be disconnected automatically when page closes
         // No need for manual beforeunload handler here!
     </script>
+<script src="../js/room-defaults.js"></script>
+<script>RoomDefaults.apply({ prefix: 'clouddemo_', channelPrefix: 'demo-', channelId: 'cloudChannelName', passwordId: 'cloudChannelPassword', sharedDefaults: ['test-channel', 'test123'] });</script>
+<script src="../js/app-chrome.js"></script>
 </body>
 </html>
 

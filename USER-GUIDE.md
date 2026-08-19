@@ -31,7 +31,7 @@
 
 The Messaging Platform SDK provides client libraries for building real-time messaging applications with support for:
 
-- ✅ **Real-time messaging** - HTTP long-polling today; WebSocket and UDP transports in development
+- ✅ **Real-time messaging** - WebSocket by default, with HTTP long-polling as a fallback; UDP in development
 - ✅ **Advanced filtering** - Target specific agents with filter queries
 - ✅ **WebRTC support** - Audio/video streaming
 - ✅ **Channel storage** - Persistent key-value data per channel
@@ -54,7 +54,7 @@ The Messaging Platform SDK provides client libraries for building real-time mess
 
 ### 1. Real-Time Messaging
 
-Send and receive messages instantly across connected agents. The production transport today is HTTP long-polling; WebSocket and UDP are in development.
+Send and receive messages instantly across connected agents. The default transport is a WebSocket, which falls back to HTTP long-polling where a socket cannot be held open; UDP is in development.
 
 **Supported message types:**
 - Text messages
@@ -144,10 +144,11 @@ pip install messaging-platform-python-agent
 
 #### Web Agent
 ```html
-<script src="js/web-agent.libs.js"></script>
-<script src="js/web-agent.js"></script>
+<!-- Hosted, ready to use -->
+<script src="https://hmdevonline.com/messaging-platform/sdk/generated-web-agent-js/js/web-agent.libs.js"></script>
+<script src="https://hmdevonline.com/messaging-platform/sdk/generated-web-agent-js/js/web-agent.js"></script>
 <!-- Optional: WebRTC support -->
-<script src="js/web-agent.webrtc.js"></script>
+<script src="https://hmdevonline.com/messaging-platform/sdk/generated-web-agent-js/js/web-agent.webrtc.js"></script>
 ```
 
 ---
@@ -213,7 +214,7 @@ public class QuickStart {
 from messaging_agent import AgentConnection
 
 agent = AgentConnection(
-    api_url="https://hmdevonline.com/messaging-platform/api",
+    api_url="https://hmdevonline.com/messaging-platform/api/v1/messaging-service",
     api_key="your-api-key"
 )
 
@@ -237,7 +238,7 @@ agent.connect({
     channelName: 'my-channel',
     channelPassword: 'secret123',
     agentName: 'web-user',
-    api: 'https://hmdevonline.com/messaging-platform/api',
+    api: 'https://hmdevonline.com/messaging-platform/api/v1/messaging-service',
     apiKey: 'your-api-key',
     autoReceive: true
 });
