@@ -11,6 +11,13 @@ body.sdk-app {
     margin: 0;
     display: flex;
     flex-direction: column;
+    /* A phone's browser draws its own bar over the bottom of the page, and
+       height:100% resolves against the viewport as if that bar were not there.
+       With overflow hidden that put the bottom of every one of these apps —
+       the tab bar, the message box — underneath it, unreachable rather than
+       merely cut off. dvh is the height actually on screen right now. */
+    height: 100dvh;
+    max-height: 100dvh;
     overflow: hidden;
     background: var(--bg);
     color: var(--text-body);

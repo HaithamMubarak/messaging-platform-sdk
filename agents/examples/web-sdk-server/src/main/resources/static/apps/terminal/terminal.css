@@ -2595,3 +2595,54 @@ body {
     }
 }
 
+
+/* ========== Nothing to drive ==========
+ * The state a visitor who has never run the helper actually lands in. It used
+ * to be a blank panel under a greyed-out toolbar, which reads as broken rather
+ * than as "not set up yet".
+ */
+.sls-gate {
+    display: none;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 14px;
+    height: 100%;
+    padding: 32px;
+    text-align: center;
+    color: var(--text-muted);
+}
+
+.sls-gate__icon { font-size: 56px; opacity: 0.55; }
+
+.sls-gate__title {
+    margin: 0;
+    font-size: 20px;
+    font-weight: 700;
+    color: var(--text-primary);
+}
+
+.sls-gate__lead {
+    margin: 0;
+    max-width: 60ch;
+    font-size: 14px;
+    line-height: 1.6;
+    text-wrap: pretty;
+}
+
+.sls-gate__list {
+    margin: 0;
+    padding: 0;
+    max-width: 60ch;
+    list-style: none;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    font-size: 13px;
+    line-height: 1.5;
+    text-align: left;
+}
+
+.sls-gate__list li { padding-left: 18px; position: relative; }
+.sls-gate__list li::before { content: "•"; position: absolute; left: 4px; color: var(--accent-cyan); }
+.sls-gate__actions { display: flex; gap: 10px; flex-wrap: wrap; justify-content: center; margin-top: 4px; }

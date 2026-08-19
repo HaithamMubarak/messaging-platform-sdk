@@ -125,6 +125,19 @@
     // Set once the modal is built; ConnectionModal.fail() routes through it.
     let _reportFailure = null;
 
+    /**
+     * Ask a question without stopping the page.
+     *
+     * window.confirm() blocks the event loop, which in an app holding a live
+     * connection means the connection stops being answered for as long as the
+     * dialog is open. Falls back to the native one only where the shared
+     * helper is not on the page.
+     */
+    function _ask(opts) {
+        if (window.MiniGameUtils && MiniGameUtils.ask) return MiniGameUtils.ask(opts);
+        return Promise.resolve(window.confirm(opts.body));
+    }
+
     window.loadConnectionModal = function(config) {
         // Use embedded template - no fetch needed!
         const collapsedTitle = config.collapsedTitle || config.title || '🔗 Connect';
@@ -337,19 +350,16 @@
 
                 // Only show confirmation dialog on first regenerate
                 if (!regenerateConfirmed) {
-                    const confirmed = confirm(
-                        '⚠️ Regenerate Channel?\n\n' +
-                        'This will:\n' +
-                        '• Connect you to a different channel\n' +
-                        '• Break any shared links you\'ve sent\n' +
-                        '• Disconnect you from current participants\n\n' +
-                        'Are you sure you want to continue?'
-                    );
-
-                    if (confirmed) {
+                    _ask({
+                        title: 'Regenerate the channel?',
+                        body: 'You will be put in a different channel: any link you have already '
+                            + 'sent stops working, and anyone waiting in the old one is left there.',
+                        confirmLabel: 'Regenerate', cancelLabel: 'Keep this one', danger: true
+                    }).then(function (yes) {
+                        if (!yes) return;
                         regenerateConfirmed = true; // Remember user's choice
                         doRegenerate();
-                    }
+                    });
                 } else {
                     // User already confirmed once, no need to ask again
                     doRegenerate();

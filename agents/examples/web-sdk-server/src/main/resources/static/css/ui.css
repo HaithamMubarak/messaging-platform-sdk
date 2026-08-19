@@ -724,7 +724,11 @@ body.modal-open { overflow: hidden; }
 @media (max-width: 640px) {
     .modal { padding: 0; align-items: flex-end; }
     .modal__card { width: 100%; max-height: 92vh; border-radius: var(--r-xl) var(--r-xl) 0 0; }
-    .toast-region { left: var(--sp-3); right: var(--sp-3); width: auto; }
+    /* Top, not bottom: the bottom of a phone screen is where the message box
+       and the send button are, and a toast landing on them intercepts the tap.
+       Clear of the header for the same reason — a notice that covers the
+       controls it is telling you about is worse than no notice. */
+    .toast-region { left: var(--sp-3); right: var(--sp-3); width: auto; top: 72px; bottom: auto; }
     .stats-grid { grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); }
     .search-input { min-width: 0; width: 100%; }
     .toolbar { width: 100%; }

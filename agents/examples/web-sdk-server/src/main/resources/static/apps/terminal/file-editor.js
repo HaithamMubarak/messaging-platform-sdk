@@ -639,7 +639,11 @@ class FileEditor {
 
         // Check if modified
         if (tab.modified) {
-            const shouldSave = confirm(`Save changes to ${this.getFileName(tab.filePath)}?`);
+            const shouldSave = await AppDialog.ask({
+                title: 'Save before closing?',
+                body: `${this.getFileName(tab.filePath)} has changes that are not written yet.`,
+                confirmLabel: 'Save', cancelLabel: 'Discard'
+            });
             if (shouldSave) {
                 await this.saveFile(tabId);
             }
@@ -918,7 +922,11 @@ class FileEditor {
 
         if (modifiedTabs.length > 0) {
             const fileList = modifiedTabs.map(t => this.getFileName(t.filePath)).join(', ');
-            const shouldSave = confirm(`Save changes to ${modifiedTabs.length} file(s)?\n\n${fileList}`);
+            const shouldSave = await AppDialog.ask({
+                title: modifiedTabs.length === 1 ? 'Save before closing?' : 'Save all before closing?',
+                body: `Not written yet: ${fileList}`,
+                confirmLabel: 'Save', cancelLabel: 'Discard'
+            });
 
             if (shouldSave) {
                 await this.saveAllFiles();
@@ -1104,10 +1112,20 @@ class FileEditor {
         if (!tab) return;
 
         if (tab.modified && !tab.needsReload) {
-            if (!window.confirm('You have unsaved changes. Reloading will discard them. Continue?')) return;
+            const go = await AppDialog.ask({
+                title: 'Reload and lose your changes?',
+                body: 'What you have typed here is not written yet, and reloading discards it.',
+                confirmLabel: 'Reload', danger: true
+            });
+            if (!go) return;
         }
         if (tab.needsReload && tab.modifiedBy) {
-            if (!window.confirm(`This file was modified by ${tab.modifiedBy}. Reload to see their changes?\n\nWarning: Your unsaved changes will be lost.`)) return;
+            const go = await AppDialog.ask({
+                title: 'Reload their version?',
+                body: `${tab.modifiedBy} changed this file. Reloading shows their version and discards anything of yours that is not written.`,
+                confirmLabel: 'Reload', danger: true
+            });
+            if (!go) return;
         }
 
         try {

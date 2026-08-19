@@ -1960,9 +1960,22 @@ function closeActiveTab() {
     }
 }
 
+/**
+ * What the terminal pane shows when there is no session in it.
+ *
+ * Three states, not two: a session open, no session but a helper to start one
+ * with, and no helper at all. The last one used to render as a blank panel
+ * under a greyed-out toolbar, which reads as broken rather than as not yet set
+ * up — and it is the state every first-time visitor lands in.
+ */
 function updateEmptyState() {
     const emptyState = document.getElementById('emptyState');
-    emptyState.style.display = sessions.size === 0 ? 'flex' : 'none';
+    const gate = document.getElementById('slsGate');
+    const idle = sessions.size === 0;
+    const noHelper = idle && slsCurrentState === 'offline' && !TEST_MODE_NO_SLS;
+
+    if (emptyState) emptyState.style.display = idle && !noHelper ? 'flex' : 'none';
+    if (gate) gate.style.display = noHelper ? 'flex' : 'none';
     updateStatusBar();
 }
 
@@ -4236,22 +4249,23 @@ function tabContextMenuAction(action) {
                 // Rename note
                 const note = notes.get(noteId);
                 const current = note ? note.title : 'Untitled Note';
-                const newName = prompt('Rename note:', current);
-                if (newName && newName.trim()) {
-                    updateNoteTitle(noteId, newName.trim());
-                }
+                AppDialog.askFor('New name for this note', current, { title: 'Rename note' })
+                    .then((newName) => {
+                        if (newName && newName.trim()) updateNoteTitle(noteId, newName.trim());
+                    });
             } else {
                 // Rename terminal session
                 const session = sessions.get(sessionId);
                 const current = session ? session.name : sessionId;
-                const newName = prompt('Rename tab:', current);
-                if (newName && newName.trim()) {
-                    const tab = document.getElementById(`tab-${sessionId}`);
-                    if (tab) {
-                        tab.querySelector('.tab-title').textContent = newName.trim();
-                    }
-                    if (session) session.name = newName.trim();
-                }
+                AppDialog.askFor('New name for this tab', current, { title: 'Rename tab' })
+                    .then((newName) => {
+                        if (!newName || !newName.trim()) return;
+                        const tab = document.getElementById(`tab-${sessionId}`);
+                        if (tab) {
+                            tab.querySelector('.tab-title').textContent = newName.trim();
+                        }
+                        if (session) session.name = newName.trim();
+                    });
             }
             break;
         }
@@ -4458,9 +4472,12 @@ async function duplicateSshConnection(connectionId) {
 }
 
 async function deleteSshConnection(connectionId, name) {
-    if (!confirm(`Delete SSH connection "${name}"?\n\nThis action cannot be undone.`)) {
-        return;
-    }
+    const sure = await AppDialog.ask({
+        title: 'Delete this connection?',
+        body: `"${name}" goes for good. Nothing on the remote machine is touched.`,
+        confirmLabel: 'Delete', danger: true
+    });
+    if (!sure) return;
 
     try {
         const response = await slsFetch(`${MLS_URL}/terminal/ssh-connections/${connectionId}`, {
@@ -5121,11 +5138,16 @@ function regenerateAgentName() {
         showToast('success', 'Name Generated', `New agent name: ${newName}`);
     } else {
         // Ask user if they want to replace existing name
-        if (confirm('Current name will be replaced. Continue?')) {
+        AppDialog.ask({
+            title: 'Replace the agent name?',
+            body: 'The name you have now is discarded and a fresh one generated.',
+            confirmLabel: 'Replace it'
+        }).then((yes) => {
+            if (!yes) return;
             agentNameInput.value = '';
             const newName = generateAgentName();
             showToast('success', 'Name Regenerated', `New agent name: ${newName}`);
-        }
+        });
     }
 }
 
@@ -7317,10 +7339,12 @@ function renameNotePrompt(noteId) {
     const note = notes.get(noteId);
     if (!note) return;
 
-    const newTitle = prompt('Rename note:', note.title || 'Untitled Note');
-    if (newTitle && newTitle.trim() && newTitle.trim() !== note.title) {
-        updateNoteTitle(noteId, newTitle.trim());
-    }
+    AppDialog.askFor('New name for this note', note.title || 'Untitled Note', { title: 'Rename note' })
+        .then((newTitle) => {
+            if (newTitle && newTitle.trim() && newTitle.trim() !== note.title) {
+                updateNoteTitle(noteId, newTitle.trim());
+            }
+        });
 }
 
 // Toggle note sharing (REMOVED - notes are local files, no sharing)
@@ -7341,7 +7365,11 @@ async function saveNote(noteId) {
 
 // Delete note
 async function deleteNote(noteId) {
-    if (!confirm('Are you sure you want to delete this note?')) return;
+    const sure = await AppDialog.ask({
+        title: 'Delete this note?', body: 'The note goes for good.',
+        confirmLabel: 'Delete', danger: true
+    });
+    if (!sure) return;
 
     try {
         const response = await slsFetch(`${MLS_URL}/filesystem/notes/delete?path=note://${noteId}`, { method: 'DELETE' });
@@ -8121,6 +8149,7 @@ window.addEventListener('load', async () => {
             console.log('[SLS] 🔴 Initial state: OFFLINE - Event dispatched');
 
             updateSlsDependentButtons(false);
+            updateEmptyState();
 
             // Show notification only on state change (null→offline means first time)
             if (previousState !== 'offline') {
@@ -8131,6 +8160,12 @@ window.addEventListener('load', async () => {
         }
     }
 
+    // The pane follows the helper: it is what the person is looking at while
+    // they go and start it.
+    window.addEventListener('sls-online', updateEmptyState);
+    window.addEventListener('sls-offline', updateEmptyState);
+    updateEmptyState();
+
     // ✅ CRITICAL: Check for auth URL FIRST (before loadCloudConfig)
     // This ensures auth URL values take precedence over saved config
     const hasAuthUrl = await checkForAuthUrl();
@@ -8138,7 +8173,10 @@ window.addEventListener('load', async () => {
     // Now proceed with normal initialization (skip SLS checks in test mode)
     if (!TEST_MODE_NO_SLS) {
         await checkMlsHealth(false, true);
-        await refreshConnections();
+        // Every one of these calls goes to a helper that has already failed to
+        // answer, and each failure is another red line in the console for
+        // somebody who has simply not installed it.
+        if (slsCurrentState !== 'offline') await refreshConnections();
     } else {
         console.log('🧪 TEST MODE: Skipping SLS health check and connection refresh');
     }
@@ -8713,15 +8751,17 @@ async function importConfiguration() {
         const config = parseXMLConfig(xmlDoc);
 
         // Confirm import
-        const confirmMsg = `Import configuration?\n\n` +
-            `- SSH Connections: ${config.data.sshConnections ? config.data.sshConnections.length : 0}\n` +
-            `- Notes: ${config.data.notes ? config.data.notes.length : 0}\n` +
-            `- Settings: ${config.data.settings ? 'Yes' : 'No'}\n\n` +
-            `This will merge with existing data.`;
+        const confirmMsg = `It brings `
+            + `${config.data.sshConnections ? config.data.sshConnections.length : 0} SSH connections, `
+            + `${config.data.notes ? config.data.notes.length : 0} notes and `
+            + `${config.data.settings ? 'your settings' : 'no settings'}, merged with what is here already.`;
 
-        if (!confirm(confirmMsg)) {
-            return;
-        }
+        const sure = await AppDialog.ask({
+            title: 'Import this configuration?',
+            body: confirmMsg,
+            confirmLabel: 'Import'
+        });
+        if (!sure) return;
 
         // Import SSH connections
         if (config.data.sshConnections) {

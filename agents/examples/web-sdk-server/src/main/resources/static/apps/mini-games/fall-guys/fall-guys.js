@@ -3050,7 +3050,7 @@ window.connect = async function() {
     const password = pwEl.value.trim();
 
     if (!username || !channel) {
-        alert('Please enter username and channel name');
+        if (window.ConnectionModal) ConnectionModal.fail(new Error('Your name and the channel are both needed.'));
         return;
     }
 

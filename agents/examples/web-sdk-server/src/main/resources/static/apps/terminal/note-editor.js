@@ -410,7 +410,10 @@ class NoteEditor {
             : document.getElementById('noteEditorStatusPinned');
 
         if (statusSpan.textContent === 'Modified') {
-            const shouldSave = confirm('Save changes before closing?');
+            const shouldSave = await AppDialog.ask({
+                title: 'Save before closing?', body: 'This note has changes that are not written yet.',
+                confirmLabel: 'Save', cancelLabel: 'Discard'
+            });
             if (shouldSave) {
                 await this.save();
             }

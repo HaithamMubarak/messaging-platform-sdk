@@ -146,6 +146,8 @@
     flex-direction: column;
     gap: var(--sp-3);
     flex-grow: 1;
+    min-height: 0;      /* so it scrolls rather than pushing the composer off */
+    overflow-y: auto;
     padding: var(--sp-3);
     background: var(--surface-1);
     border: 1px solid var(--border);
@@ -328,7 +330,14 @@
  */
 @media (max-width: 900px) {
     .sdk-stage { padding: var(--sp-3); gap: var(--sp-3); }
-    .sdk-side--wide { width: auto; flex: 1 1 auto; min-height: 34vh; }
+    /* The stage side takes what it needs and no more: it grows by default, and
+       with the panel beside it that meant the message box was pushed off the
+       bottom of the screen — present, laid out, and under the browser's own
+       bar. The panel takes the remainder, and the log inside it is what gives
+       way when there is not enough. */
+    .sdk-main { flex: 0 0 auto; }
+    .sdk-side--wide { width: auto; flex: 1 1 auto; min-height: 0; }
+    .side__pane { min-height: 0; }
     .people { max-height: none; }
 
     /* The stage takes the top of the screen but not the whole of it: a call

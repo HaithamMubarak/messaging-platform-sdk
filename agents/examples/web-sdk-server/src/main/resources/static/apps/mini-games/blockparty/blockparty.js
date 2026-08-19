@@ -41,6 +41,13 @@
     const WORLD_CHUNK = 400;      // cells (or pieces) per world-snapshot message
     const PLAIN_SCALE = 9;        // how far the ground runs past the build area
     const SHAKE_MAX = 0.55;       // blocks of camera nudge at full strength
+    // Contact shading: texture pixels per world cell, how dark, and how long to
+    // wait after an edit burst before redrawing it.
+    const CONTACT_PX = 4;
+    // Tuned by eye at a normal orbit distance: at 0.30 with a tight stamp the
+    // patch was there but read as nothing from more than a few blocks away.
+    const CONTACT_ALPHA = 0.5;
+    const CONTACT_DEBOUNCE_MS = 260;
     const SHAKE_DECAY = 2.6;      // how fast it settles, per second
     const CHUNK = 16;             // render chunk size on X/Z, in cells
     const CHUNK_BUDGET = 6;       // chunk rebuilds allowed per frame
@@ -286,6 +293,7 @@
             this.ground.userData.isGround = true;
             this.ground.receiveShadow = !this.software;
             this.scene.add(this.ground);
+            this._initContact();
             this.skyDome = this._skyDome();
             this.scene.add(this.skyDome);
             // Which way the key light comes from. Replaced by the real sun once
@@ -313,6 +321,100 @@
             } catch (e) {
                 return false;
             }
+        }
+
+        /**
+         * A soft dark patch under everything that stands on the ground.
+         *
+         * Real shadows are off entirely on software renderers, and even on a
+         * GPU the sun's shadow box only covers SHADOW_RADIUS around the player
+         * — so across most of a 161x161 world, blocks and trees and fenceposts
+         * sat on the ground with no contact darkening at all and read as
+         * stickers pasted onto it.
+         *
+         * This is one texture on one plane: for every column in the world,
+         * stamp a blurred disc into a canvas covering the build area. One extra
+         * draw call, works on every renderer, covers the whole world rather
+         * than a box around the camera, and is redrawn only when the build
+         * actually changes.
+         */
+        _initContact() {
+            const px = WORLD_SPAN * CONTACT_PX;
+            const cv = document.createElement('canvas');
+            cv.width = cv.height = px;
+            this._contactCanvas = cv;
+            this._contactTex = new THREE.CanvasTexture(cv);
+
+            const mesh = new THREE.Mesh(
+                new THREE.PlaneGeometry(WORLD_SPAN, WORLD_SPAN),
+                new THREE.MeshBasicMaterial({
+                    map: this._contactTex, transparent: true, opacity: CONTACT_ALPHA,
+                    depthWrite: false, toneMapped: false
+                })
+            );
+            mesh.rotation.x = -Math.PI / 2;
+            // Above the ground so it never z-fights it, well under a block.
+            mesh.position.y = 0.015;
+            mesh.renderOrder = 1;
+            this.scene.add(mesh);
+            this._contactMesh = mesh;
+            this.markContactDirty();
+        }
+
+        /**
+         * The build changed, so the patches under it did too — but a fill drag
+         * changes thousands of cells and this only has to be right once the
+         * dust settles.
+         */
+        markContactDirty() {
+            if (!this._contactCanvas) return;
+            clearTimeout(this._contactTimer);
+            this._contactTimer = setTimeout(() => this._paintContact(), CONTACT_DEBOUNCE_MS);
+        }
+
+        _paintContact() {
+            const cv = this._contactCanvas;
+            if (!cv) return;
+            const ctx = cv.getContext('2d');
+            ctx.clearRect(0, 0, cv.width, cv.height);
+
+            // One blurred disc, drawn once and reused: a radial gradient per
+            // block would be thousands of gradients per repaint.
+            if (!this._contactStamp) {
+                const r = CONTACT_PX * 2.1;
+                const st = document.createElement('canvas');
+                st.width = st.height = r * 2;
+                const sc = st.getContext('2d');
+                const g = sc.createRadialGradient(r, r, r * 0.28, r, r, r);
+                // A dark core that holds up at a distance, falling off fast
+                // enough that neighbouring blocks do not pool into a slab.
+                g.addColorStop(0, 'rgba(0,0,0,1)');
+                g.addColorStop(0.42, 'rgba(0,0,0,0.62)');
+                g.addColorStop(1, 'rgba(0,0,0,0)');
+                sc.fillStyle = g;
+                sc.fillRect(0, 0, r * 2, r * 2);
+                this._contactStamp = st;
+            }
+            const stamp = this._contactStamp;
+            const half = WORLD_SPAN / 2;
+            const size = stamp.width;
+
+            this.columns.forEach((col, key) => {
+                const comma = key.indexOf(',');
+                const x = +key.slice(0, comma), z = +key.slice(comma + 1);
+                // World cell -> texture pixel; the plane spans the build area.
+                const cx = (x + half + 0.5) * CONTACT_PX;
+                const cz = (z + half + 0.5) * CONTACT_PX;
+                // Something resting on the ground casts a tight dark patch;
+                // something high above casts a fainter, wider one.
+                const lift = Math.min(1, (col.top || 0) / 12);
+                const scale = 1 + lift * 0.9;
+                ctx.globalAlpha = 1 - lift * 0.55;
+                ctx.drawImage(stamp, cx - size * scale / 2, cz - size * scale / 2,
+                    size * scale, size * scale);
+            });
+            ctx.globalAlpha = 1;
+            this._contactTex.needsUpdate = true;
         }
 
         /**
@@ -1061,7 +1163,7 @@
         _raiseColumn(x, y, z, colorIndex) {
             const ck = x + ',' + z;
             const col = this.columns.get(ck);
-            if (!col || y >= col.top) { this.columns.set(ck, { top: y, hex: hexOf(colorIndex) }); this.columnsRev = (this.columnsRev | 0) + 1; }
+            if (!col || y >= col.top) { this.columns.set(ck, { top: y, hex: hexOf(colorIndex) }); this.columnsRev = (this.columnsRev | 0) + 1; this.markContactDirty(); }
         }
 
         /** Something went from this column; find the new top of it. */
@@ -1073,12 +1175,12 @@
                 const k = VoxelWorld.key(x, y, z);
                 if (this.world.has(k)) {
                     this.columns.set(ck, { top: y, hex: hexOf(this.world.get(k)) });
-                    this.columnsRev = (this.columnsRev | 0) + 1;
+                    this.columnsRev = (this.columnsRev | 0) + 1; this.markContactDirty();
                     return;
                 }
             }
             this.columns.delete(ck);
-            this.columnsRev = (this.columnsRev | 0) + 1;
+            this.columnsRev = (this.columnsRev | 0) + 1; this.markContactDirty();
         }
 
         // ---- brick pieces ----
@@ -1159,7 +1261,7 @@
             this.chunks.clear();
             this.dirtyChunks.clear();
             this.columns.clear();
-            this.columnsRev = (this.columnsRev | 0) + 1;
+            this.columnsRev = (this.columnsRev | 0) + 1; this.markContactDirty();
             this.pieces.clear();
             this.pieceOf.clear();
             this.world.clear();
@@ -3557,7 +3659,7 @@
          * it replaces what everyone can see. The map is generated here and then
          * travels to the room as an ordinary world snapshot.
          */
-        loadMap(id) {
+        loadMap(id, confirmed) {
             if (!this.isHost()) { this.showToast('Only the host can load a map', 'warning'); return; }
             if (this.modes && this.modes.isMatchActive()) {
                 this.showToast('Finish the match first', 'warning');
@@ -3565,8 +3667,14 @@
             }
             const map = BlockPartyMaps.byId(id);
             if (!map) return;
-            if (this.voxels.count() && !window.confirm(
-                `Load “${map.name}”? The current world will be replaced.`)) return;
+            if (this.voxels.count() && !confirmed) {
+                this._ask({
+                    title: `Load “${map.name}”?`,
+                    body: 'The world on screen is replaced. Z puts it back.',
+                    confirmLabel: 'Load it'
+                }, () => this.loadMap(id, true));
+                return;
+            }
 
             const t0 = Date.now();
             const built = BlockPartyMaps.generate(id);
@@ -4339,8 +4447,14 @@
             if (!this.geo || !this.geo.anchor) { this.showToast('Pin the world to a place first', 'warning'); return; }
             if (this.modes && this.modes.isMatchActive()) { this.showToast('Finish the match first', 'warning'); return; }
             opts = opts || {};
-            if (this.voxels.count() && !opts.quiet && !window.confirm(
-                'Trace this place from the map? The current world will be replaced.')) return;
+            if (this.voxels.count() && !opts.quiet && !opts.confirmed) {
+                this._ask({
+                    title: 'Trace this place?',
+                    body: 'The world on screen is replaced by whatever the map says is here.',
+                    confirmLabel: 'Trace it'
+                }, () => this.traceMap(Object.assign({}, opts, { confirmed: true })));
+                return;
+            }
 
             const note = document.getElementById('geoNote');
             // This action's own report holds the line for a few seconds.
@@ -4388,11 +4502,34 @@
             }
         }
 
-        clearWorld() {
+        /**
+         * Ask before something destructive, without stopping the world.
+         *
+         * window.confirm() blocks the event loop: the render loop stops, the
+         * channel stops being read, and every other player's view of you
+         * freezes until you answer. In a game that is a bug, not a nicety —
+         * so the question is a promise and the action runs after it.
+         */
+        _ask(opts, run) {
+            if (window.MiniGameUtils && MiniGameUtils.ask) {
+                MiniGameUtils.ask(opts).then((yes) => { if (yes) run(); });
+            } else if (window.confirm(opts.body)) {
+                run();
+            }
+        }
+
+        clearWorld(confirmed) {
             if (!this.isHost()) { this.showToast('Only the host can clear the world', 'warning'); return; }
             const cells = this.voxels.allCells();
             if (!cells.length) { this.showToast('The world is already empty', 'info'); return; }
-            if (!window.confirm(`Clear all ${cells.length} blocks? This can be undone with Z.`)) return;
+            if (!confirmed) {
+                this._ask({
+                    title: 'Clear the world?',
+                    body: `All ${cells.length} blocks go, on everyone's screen. Z puts them back.`,
+                    confirmLabel: 'Clear it', danger: true
+                }, () => this.clearWorld(true));
+                return;
+            }
             // Goes through the normal edit path, so it lands on everyone's
             // screen, persists, and stays undoable.
             this._doLocalEdit({ a: 'bulk', o: this.username, remove: cells });
@@ -4433,13 +4570,20 @@
             });
         }
 
-        loadSlot(key, label) {
+        loadSlot(key, label, confirmed) {
             if (!this.isHost()) { this.showToast('Only the host can load a world', 'warning'); return; }
             if (this.modes && this.modes.isMatchActive()) {
                 this.showToast('Finish the match first', 'warning');
                 return;
             }
-            if (!window.confirm(`Load “${label}”? The current world will be replaced.`)) return;
+            if (!confirmed) {
+                this._ask({
+                    title: `Load “${label}”?`,
+                    body: 'The world on screen is replaced by the saved one.',
+                    confirmLabel: 'Load it'
+                }, () => this.loadSlot(key, label, true));
+                return;
+            }
             this._storage((cb) => this.channel.storageGet({ storageKey: key }, cb), (res) => {
                 const payload = (res && res.status === 'success') ? res.data : null;
                 const saved = payload && (payload.content || payload);
@@ -4458,8 +4602,15 @@
             });
         }
 
-        deleteSlot(key, label) {
-            if (!window.confirm(`Delete the save “${label}”?`)) return;
+        deleteSlot(key, label, confirmed) {
+            if (!confirmed) {
+                this._ask({
+                    title: `Delete “${label}”?`,
+                    body: 'The save goes for good. The world on screen is untouched.',
+                    confirmLabel: 'Delete', danger: true
+                }, () => this.deleteSlot(key, label, true));
+                return;
+            }
             this._storage((cb) => this.channel.storageDeleteByKey(key, cb), (res) => {
                 if (res && res.status === 'success') {
                     this.showToast(`Deleted “${label}”`, 'info', 1800);
@@ -6343,7 +6494,7 @@
             if (shareBtn) shareBtn.style.display = 'inline-block';
         } catch (error) {
             console.error('[BlockParty] Connection failed:', error);
-            alert('Failed to connect: ' + error.message);
+            if (window.ConnectionModal) ConnectionModal.fail(error);
             game = null;
         } finally {
             isConnecting = false;

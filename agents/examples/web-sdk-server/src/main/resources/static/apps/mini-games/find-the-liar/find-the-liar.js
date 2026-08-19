@@ -487,9 +487,10 @@ class FindTheLiarGame extends UserConnectionBase {
     }
 
     confirmDisconnect() {
-        if (confirm('Are you sure you want to disconnect from the game?')) {
-            this.disconnect();
-        }
+        MiniGameUtils.ask({
+            title: 'Leave the game?', body: 'You will drop out of the round in progress.',
+            confirmLabel: 'Leave', danger: true
+        }).then((yes) => { if (yes) this.disconnect(); });
     }
 
     // =========================================================================
@@ -844,9 +845,12 @@ class FindTheLiarGame extends UserConnectionBase {
     confirmReset() {
         if (!this.isHost()) return;
 
-        if (confirm('⚠️ Are you sure you want to reset the game?\n\nThis will:\n• Return to waiting room\n• Clear all progress\n• Reset round counter\n• Allow settings changes\n\nAll players will return to the lobby.')) {
-            this.resetGame();
-        }
+        MiniGameUtils.ask({
+            title: 'Reset the game?',
+            body: 'Everyone goes back to the lobby: the round, the scores and the round counter '
+                + 'all go with it, and the settings become editable again.',
+            confirmLabel: 'Reset', danger: true
+        }).then((yes) => { if (yes) this.resetGame(); });
     }
 
     resetGame() {

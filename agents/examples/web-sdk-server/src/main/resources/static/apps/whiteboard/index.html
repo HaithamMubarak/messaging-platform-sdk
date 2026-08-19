@@ -7,6 +7,16 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <meta name="theme-color" content="#667eea">
     <title>🎨 Collaborative Whiteboard</title>
+    <meta name="description" content="Draw together in real time with pan, zoom, undo and a shareable room link. Built on the Messaging Platform SDK.">
+    <link rel="canonical" href="https://hmdevonline.com/messaging-platform/sdk/apps/whiteboard/index.html">
+
+    <meta property="og:type" content="website">
+    <meta property="og:site_name" content="Messaging Platform SDK">
+    <meta property="og:title" content="Collaborative whiteboard">
+    <meta property="og:description" content="Draw together in real time with pan, zoom, undo and a shareable room link. Built on the Messaging Platform SDK.">
+    <meta property="og:url" content="https://hmdevonline.com/messaging-platform/sdk/apps/whiteboard/index.html">
+    <meta property="og:image" content="https://hmdevonline.com/messaging-platform/sdk/images/og-image.png">
+    <meta name="twitter:card" content="summary_large_image">
     <link rel="stylesheet" href="../../css/toast.css">
     <link rel="stylesheet" href="../../css/share-modal.css">
     <link rel="stylesheet" href="../../css/connection-modal.css">
@@ -63,6 +73,35 @@
             --space-6: 24px;
             --space-8: 32px;
             --space-10: 40px;
+
+            /* ------------------------------------------------------------------
+               Aliases.
+
+               The stylesheet below was written against an older naming scheme
+               (--spacing-*, --*-color, --text-dark) that this :root never
+               declared, so 20-odd gap/padding/colour declarations resolved to
+               nothing and silently collapsed — which is why the toolbars and
+               panels on this page looked squashed. Mapping the old names onto
+               the real tokens fixes them without touching every rule.
+               ------------------------------------------------------------------ */
+            --spacing-xs: var(--space-1);
+            --spacing-sm: var(--space-2);
+            --spacing-md: var(--space-4);
+            --spacing-lg: var(--space-6);
+
+            --primary-color: var(--primary);
+            --success-color: var(--success);
+            --warning-color: var(--warning);
+            --danger-color: var(--danger);
+            --info-color: var(--info);
+
+            --text-dark: var(--text-primary);
+            --text-light: var(--text-muted);
+            --bg-light: var(--bg-secondary);
+            --border-color: var(--border);
+
+            --sidebar-width: 260px;
+            --transition: 0.15s ease;
 
             /* Border radius */
             --radius-sm: 6px;
@@ -2268,7 +2307,8 @@
             display: block;
             cursor: none;
             touch-action: none;
-            border: 5px solid #e74c3c;
+            /* A 5px red frame was left over from debugging the canvas bounds. */
+            border: 1px solid var(--border);
             background: white;
             box-shadow: 0 10px 25px rgba(0, 0, 0, 0.2);
             transform-origin: center center;
@@ -2366,6 +2406,7 @@
             }
         }
     </style>
+    <link rel="stylesheet" href="../../css/app-chrome.css">
 </head>
 <body>
 
@@ -2567,6 +2608,7 @@
     <!-- Load Demo-Specific Scripts from static/js (qrcode must load before share-modal) -->
     <script src="../../js/balloon-notification.js"></script>
     <script src="../../js/share-modal.js"></script>
+    <script src="../../js/dialog.js"></script>
     <script src="../../js/common-utils.js"></script>
     <script src="../../js/connection-modal.js"></script>
 
@@ -2670,6 +2712,7 @@
     </script>
 
     <!-- Toast notifications handled by MiniGameUtils -->
+<script src="../../js/app-chrome.js"></script>
 </body>
 </html>
 

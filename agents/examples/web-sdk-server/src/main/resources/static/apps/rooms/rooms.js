@@ -135,6 +135,7 @@
             });
             this.state.delete(name);
             this.speaking.delete(name);
+            this._deafen(name);
             if (this.meters) this.meters.delete(name);
         }
 
@@ -269,7 +270,7 @@
          * follows rather than precedes it; the receiver parks the media until
          * the label lands.
          */
-        async _offer(kind, peer) {
+        async _offer(kind, peer, attempt) {
             var stream = kind === 'screen' ? this.screen : this.cam;
             if (!stream || !this.webrtcHelper || peer === this.username) return;
 
@@ -282,10 +283,45 @@
                 var id = await this.webrtcHelper.createStreamOffer(peer, { stream: stream });
                 byPeer.set(peer, id);
                 this._say({ type: 'pub', by: this.username, kind: kind, stream: id });
+                this._watchOffer(kind, peer, id, (attempt || 0));
             } catch (err) {
                 byPeer.delete(peer);
                 console.warn('[Rooms] could not offer ' + kind + ' to ' + peer + ':', err.message);
             }
+        }
+
+        /**
+         * An offer that is never answered is offered again.
+         *
+         * Signalling is a message like any other and can be missed — most
+         * often when it is sent in the first moments after somebody joins,
+         * before the other end is listening for it. The symptom is silent and
+         * permanent: the connection sits in 'new' for ever, the publisher
+         * believes it published, and the other person simply never sees or
+         * hears them. So the connection is given a few seconds to come up, and
+         * if it has not, the session is dropped and offered afresh.
+         */
+        _watchOffer(kind, peer, id, attempt) {
+            var self = this;
+            setTimeout(function () {
+                var byPeer = self.published.get(kind);
+                if (!byPeer || byPeer.get(peer) !== id) return;      // already replaced or withdrawn
+                if (!self.connected || self._peers().indexOf(peer) === -1) return;
+
+                var pc = self.webrtcHelper && self.webrtcHelper.peerConnections
+                    && self.webrtcHelper.peerConnections.get(id);
+                var state = pc && pc.connectionState;
+                if (state === 'connected' || state === 'connecting') return;
+
+                if (attempt >= 3) {
+                    console.warn('[Rooms] gave up offering ' + kind + ' to ' + peer);
+                    return;
+                }
+                console.warn('[Rooms] no answer for ' + kind + ' to ' + peer + ' (' + state + '), offering again');
+                self._close(id);
+                byPeer.delete(peer);
+                self._offer(kind, peer, attempt + 1);
+            }, 6000);
         }
 
         _offerAllTo(peer) {
@@ -336,8 +372,72 @@
             var kind = this.kindOf.get(streamId);
             if (!kind) { this.parked.set(streamId, { stream: stream, from: from }); return; }
             this.incoming.set(streamId, { from: from, kind: kind, stream: stream });
-            if (kind === 'cam') this._listen(from, stream);
+            if (kind === 'cam') { this._listen(from, stream); this._hear(from, stream); }
             this._sync();
+        }
+
+        /**
+         * Play what somebody is saying, whether or not you can see them.
+         *
+         * Their voice used to come out of the video element on their tile, so
+         * it stopped where the picture stopped: a tile with the camera off
+         * hides its video, and a hidden element is not somewhere a browser
+         * will reliably start unmuted audio. Speaking with the camera off is
+         * the ordinary case in a call, not an edge one, so audio gets its own
+         * element that exists for as long as the person does and does not care
+         * what the tile is doing.
+         */
+        _hear(name, stream) {
+            if (!stream || !stream.getAudioTracks || !stream.getAudioTracks().length) return;
+            var host = document.getElementById('roomAudio');
+            if (!host) {
+                host = UI.el('div', { id: 'roomAudio', 'aria-hidden': 'true',
+                    style: 'position:absolute;width:0;height:0;overflow:hidden' });
+                document.body.appendChild(host);
+            }
+            this.ears = this.ears || new Map();
+            var el = this.ears.get(name);
+            if (!el) {
+                el = UI.el('audio', { autoplay: true, playsinline: true });
+                this.ears.set(name, el);
+                host.appendChild(el);
+            }
+            if (el.srcObject !== stream) el.srcObject = stream;
+            this._play(el);
+        }
+
+        /**
+         * Autoplay of unmuted audio needs a gesture behind it. There always is
+         * one here — nobody arrives in a room without pressing something — but
+         * a stream can land in the gap before it, so a refusal is remembered
+         * and retried on the next thing the person touches.
+         */
+        _play(el) {
+            var self = this;
+            var attempt = el.play();
+            if (!attempt || !attempt.catch) return;
+            attempt.catch(function () {
+                if (self._waitingForGesture) return;
+                self._waitingForGesture = true;
+                var go = function () {
+                    self._waitingForGesture = false;
+                    document.removeEventListener('pointerdown', go, true);
+                    document.removeEventListener('keydown', go, true);
+                    if (self.ears) self.ears.forEach(function (a) { a.play().catch(function () {}); });
+                };
+                document.addEventListener('pointerdown', go, true);
+                document.addEventListener('keydown', go, true);
+                UI.toast('Tap anywhere to let the room be heard', 'info', 5000);
+            });
+        }
+
+        _deafen(name) {
+            if (!this.ears) return;
+            var el = this.ears.get(name);
+            if (!el) return;
+            el.srcObject = null;
+            el.remove();
+            this.ears.delete(name);
         }
 
         /**
@@ -360,6 +460,8 @@
         }
 
         _forget(streamId) {
+            var rec = this.incoming.get(streamId);
+            if (rec && rec.kind === 'cam') this._deafen(rec.from);
             this.incoming.delete(streamId);
             this.kindOf.delete(streamId);
             this.parked.delete(streamId);
@@ -770,7 +872,10 @@
         _buildTile(user, big) {
             var t = {
                 name: user.name,
-                video: UI.el('video', { class: 'tile__video', autoplay: true, playsinline: true }),
+                // Muted always: the voice comes from its own element, so a tile
+                // that is hidden, rebuilt or showing an avatar cannot take the
+                // sound with it, and nobody hears themselves back.
+                video: UI.el('video', { class: 'tile__video', autoplay: true, playsinline: true, muted: true }),
                 avatar: UI.el('span', {
                     class: 'avatar avatar--lg',
                     style: 'background:' + this.generateUserColor(user.name)
@@ -780,7 +885,7 @@
                 label: UI.el('span', { class: 'tile__name' }, user.name),
                 muted: UI.el('span', { class: 'tile__muted', title: 'Muted' }, UI.iconNode('mic-off', 'icon--sm'))
             };
-            t.video.muted = !!user.isSelf;     // never play your own microphone back
+            t.video.muted = true;
             t.el = UI.el('div', { class: 'tile' + (big ? ' tile--big' : '') },
                 [t.video, t.avatar, t.host, t.badge, t.label, t.muted]);
             return t;

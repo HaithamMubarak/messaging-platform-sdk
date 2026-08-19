@@ -1170,7 +1170,11 @@ class FileExplorer {
             ? `Delete folder "${this.selectedFile.name}" and all its contents?`
             : `Delete file "${this.selectedFile.name}"?`;
 
-        if (!confirm(confirmMsg)) return;
+        const sure = await AppDialog.ask({
+            title: this.selectedFile.isDirectory ? 'Delete this folder?' : 'Delete this file?',
+            body: confirmMsg, confirmLabel: 'Delete', danger: true
+        });
+        if (!sure) return;
 
         try {
             let result;
@@ -1215,7 +1219,7 @@ class FileExplorer {
      * Create new file
      */
     async createNewFile() {
-        const name = prompt('Enter file name:', 'new-file.txt');
+        const name = await AppDialog.askFor('Name for the new file', 'new-file.txt', { title: 'New file' });
         if (!name) return;
 
         const path = this.currentPath.endsWith('/')
@@ -1274,7 +1278,7 @@ class FileExplorer {
      * Create new folder
      */
     async createNewFolder() {
-        const name = prompt('Enter folder name:', 'new-folder');
+        const name = await AppDialog.askFor('Name for the new folder', 'new-folder', { title: 'New folder' });
         if (!name) return;
 
         const path = this.currentPath.endsWith('/')
@@ -1324,7 +1328,7 @@ class FileExplorer {
     async renameSelected() {
         if (!this.selectedFile) return;
 
-        const newName = prompt('Enter new name:', this.selectedFile.name);
+        const newName = await AppDialog.askFor('New name', this.selectedFile.name, { title: 'Rename' });
         if (!newName || newName === this.selectedFile.name) return;
 
         const oldPath = this.selectedFile.path;
@@ -1402,7 +1406,6 @@ class FileExplorer {
                 throw new Error(info.error);
             }
 
-            // Simple alert for now - could be made into a modal
             const props = `
 Name: ${info.name}
 Path: ${info.path}
@@ -1413,7 +1416,7 @@ Modified: ${this.formatDate(info.mtime)}
 Accessed: ${this.formatDate(info.atime)}
             `.trim();
 
-            alert(props);
+            AppDialog.tell(props, { title: info.name });
 
         } catch (error) {
             console.error('[SFTP] Properties error:', error);

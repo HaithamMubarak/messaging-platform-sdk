@@ -7,6 +7,17 @@
     <link rel="icon" type="image/svg+xml" href="../favicon.svg">
     <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=5,user-scalable=yes"/>
     <title>Messaging Platform — Web Agent Chat</title>
+    <meta name="description" content="Channels, presence and QR room sharing — the smallest complete example of the Messaging Platform SDK.">
+    <meta name="theme-color" content="#0b1120">
+    <link rel="canonical" href="https://hmdevonline.com/messaging-platform/sdk/apps/chat.html">
+
+    <meta property="og:type" content="website">
+    <meta property="og:site_name" content="Messaging Platform SDK">
+    <meta property="og:title" content="Real-time chat">
+    <meta property="og:description" content="Channels, presence and QR room sharing — the smallest complete example of the Messaging Platform SDK.">
+    <meta property="og:url" content="https://hmdevonline.com/messaging-platform/sdk/apps/chat.html">
+    <meta property="og:image" content="https://hmdevonline.com/messaging-platform/sdk/images/og-image.png">
+    <meta name="twitter:card" content="summary_large_image">
 
     <link rel="stylesheet" href="../css/common.css"/>
     <link rel="stylesheet" href="../css/icons.css"/>
@@ -1088,8 +1099,10 @@
     <script src="../generated-web-agent-js/js/web-agent.libs.js"></script>
     <script src="../generated-web-agent-js/js/web-agent.js"></script>
     <script src="../generated-web-agent-js/js/web-agent.webrtc.js"></script>
+    <script src="../js/dialog.js"></script>
     <script src="../js/common-utils.js"></script>
     <script src="../js/share-modal.js"></script>
+    <link rel="stylesheet" href="../css/app-chrome.css">
 </head>
 <body>
 <!-- inline SVG sprite (inlined for compatibility and single-request) -->
@@ -2396,8 +2409,12 @@
                         const closeBtns = modal.querySelectorAll('.close-btn');
 
                         if (!overlay || !modal || !btnAllow || !btnDeny) {
-                            const allow = confirm('Agent "' + (requesterName || 'Unknown') + '" requests the channel password. Allow?');
-                            resolve(!!allow);
+                            MiniGameUtils.ask({
+                                title: 'Hand over the channel password?',
+                                body: '"' + (requesterName || 'An unknown agent') + '" is asking for it. '
+                                    + 'Anyone with it can join this channel.',
+                                confirmLabel: 'Allow', cancelLabel: 'Refuse', danger: true
+                            }).then((allow) => resolve(!!allow));
                             return;
                         }
 
@@ -2519,10 +2536,16 @@
 
         // Clear messages
         function doClear() {
-            if (!confirm('Clear all messages from the chat window?')) return;
-            const container = document.querySelector('.chat-body');
-            if(container) container.innerHTML = '';
-            showToast('Messages cleared', 'success');
+            MiniGameUtils.ask({
+                title: 'Clear the messages?',
+                body: 'Only your own view is cleared — nobody else loses anything.',
+                confirmLabel: 'Clear', danger: true
+            }).then((yes) => {
+                if (!yes) return;
+                const container = document.querySelector('.chat-body');
+                if (container) container.innerHTML = '';
+                showToast('Messages cleared', 'success');
+            });
         }
 
         // Robustly extract connected agent names from runtime channel
@@ -2559,5 +2582,8 @@
 
     })();
 </script>
+<script src="../js/room-defaults.js"></script>
+<script>RoomDefaults.apply({ prefix: 'chat_', channelPrefix: 'chat-', sharedDefaults: ['default'] });</script>
+<script src="../js/app-chrome.js"></script>
 </body>
 </html>

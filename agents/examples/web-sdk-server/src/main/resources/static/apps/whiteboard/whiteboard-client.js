@@ -4046,13 +4046,13 @@ document.addEventListener('DOMContentLoaded', () => {
                 } else if (typeof MiniGameUtils !== 'undefined' && typeof MiniGameUtils.showToast === 'function') {
                     MiniGameUtils.showToast('Share UI not available', 'error');
                 } else {
-                    alert('Share UI not available');
+                    MiniGameUtils.showToast('Sharing is not available on this page', 'error');
                 }
             } else {
                 if (typeof MiniGameUtils !== 'undefined' && typeof MiniGameUtils.showToast === 'function') {
                     MiniGameUtils.showToast('No active channel to share', 'error');
                 } else {
-                    alert('No active channel to share');
+                    MiniGameUtils.showToast('Join a room before sharing it', 'warning');
                 }
             }
         };
@@ -4612,7 +4612,7 @@ async function connect() {
     if (!channelName || !channelPassword) {
         connecting = false; // Reset connecting flag on validation error
         if (isMobilePortrait()) showConnectionModal();
-        alert('Please enter room name and password');
+        if (window.ConnectionModal) ConnectionModal.fail(new Error('The room name and its password are both needed.'));
         return;
     }
 
@@ -5162,13 +5162,11 @@ function shouldConfirmSyncOverwrite(peerId, actionType) {
  */
 function confirmSyncOverwrite(peerId, actionType, onAccept, onReject) {
     const actionLabel = actionType === 'import' ? 'imported an image' : 'wants to sync the canvas';
-    const message = `${peerId} ${actionLabel}. Accept and replace your current canvas?`;
-
-    if (confirm(message)) {
-        onAccept();
-    } else {
-        onReject();
-    }
+    MiniGameUtils.ask({
+        title: 'Replace your canvas?',
+        body: `${peerId} ${actionLabel}. Accepting replaces what is on your board now.`,
+        confirmLabel: 'Accept', cancelLabel: 'Keep mine'
+    }).then((yes) => { if (yes) onAccept(); else onReject(); });
 }
 
 /**
@@ -5795,7 +5793,12 @@ function updateSize(size) {
 }
 
 function clearCanvas() {
-    if (confirm('Clear whiteboard for everyone?')) {
+    MiniGameUtils.ask({
+        title: 'Clear the whiteboard?',
+        body: 'It clears for everyone in the room. Undo puts it back.',
+        confirmLabel: 'Clear it', danger: true
+    }).then((yes) => {
+        if (!yes) return;
         // Capture any pending strokes first
         if (pendingStrokesForHistory.length > 0) {
             captureHistorySnapshot();
@@ -5823,7 +5826,7 @@ function clearCanvas() {
         }
 
         console.log('[Clear] Canvas cleared, previous state saved for undo');
-    }
+    });
 }
 
 function exportImage() {
@@ -5859,7 +5862,7 @@ function importImage() {
             const errorMsg = 'Please select an image file (PNG, JPG, etc.)';
             console.error('[Import] Invalid file type:', file.type);
             MiniGameUtils.showToast('❌ Invalid file type', 'error');
-            alert(errorMsg);
+            MiniGameUtils.tell(errorMsg, { title: 'That file is not an image' });
             return;
         }
 
@@ -5962,7 +5965,8 @@ function importImage() {
                     (err) => {
                         console.error('[Import] Failed to draw image:', err);
                         MiniGameUtils.showToast('❌ Failed to draw image on canvas', 'error');
-                        alert('Failed to draw image on canvas. Please try again.\n\nError: ' + err.message);
+                        MiniGameUtils.tell('The image could not be drawn on the canvas: ' + err.message,
+                            { title: 'Import failed' });
                         fileInput.value = '';
                     }
                 );
@@ -5971,7 +5975,8 @@ function importImage() {
             img.onerror = function (err) {
                 console.error('[Import] Failed to load image:', err);
                 MiniGameUtils.showToast('❌ Failed to load image file', 'error');
-                alert('Failed to load image. The file may be corrupted or in an unsupported format.\n\nPlease try another file.');
+                MiniGameUtils.tell('The file may be damaged, or in a format this browser cannot read. Try another one.',
+                    { title: 'That image would not load' });
                 fileInput.value = '';
             };
 
@@ -5980,7 +5985,7 @@ function importImage() {
             } catch (e) {
                 console.error('[Import] Failed to set image source:', e);
                 MiniGameUtils.showToast('❌ Failed to process image data', 'error');
-                alert('Failed to process image data. Please try again.');
+                MiniGameUtils.tell('The image data could not be read.', { title: 'Import failed' });
                 fileInput.value = '';
             }
         };
@@ -5988,7 +5993,7 @@ function importImage() {
         reader.onerror = function (err) {
             console.error('[Import] Failed to read file:', err);
             MiniGameUtils.showToast('❌ Failed to read file', 'error');
-            alert('Failed to read file. Please check the file and try again.');
+            MiniGameUtils.tell('The file could not be read.', { title: 'Import failed' });
             fileInput.value = '';
         };
 
@@ -5997,7 +6002,7 @@ function importImage() {
         } catch (e) {
             console.error('[Import] Failed to start reading file:', e);
             MiniGameUtils.showToast('❌ Failed to read file', 'error');
-            alert('Failed to read file. Please try again.');
+            MiniGameUtils.tell('The file could not be read.', { title: 'Import failed' });
             fileInput.value = '';
         }
     };
@@ -6379,13 +6384,20 @@ function disconnect() {
     }
 
     // Show confirmation dialog
-    const confirmDisconnect = confirm('Are you sure you want to disconnect from the whiteboard?\n\nYour drawing will be cleared.');
+    MiniGameUtils.ask({
+        title: 'Leave the whiteboard?',
+        body: 'Your copy of the drawing is cleared when you go.',
+        confirmLabel: 'Leave', danger: true
+    }).then((yes) => {
+        if (!yes) {
+            console.log('Disconnect cancelled by user');
+            return;
+        }
+        doDisconnect();
+    });
+}
 
-    if (!confirmDisconnect) {
-        console.log('Disconnect cancelled by user');
-        return;
-    }
-
+function doDisconnect() {
     try {
         // Disconnect channel
         if (channel) {
@@ -6478,13 +6490,17 @@ document.addEventListener('DOMContentLoaded', () => {
  * Trigger manual rsync - broadcasts canvas to all agents
  * Skips if only one agent is connected
  */
-function triggerManualRsync() {
+async function triggerManualRsync() {
     try {
         // Check if we have multiple agents (more than just ourselves)
         const otherAgents = Array.from(users.keys()).filter(name => name !== username);
 
         // Show confirmation dialog when multiple users are connected
-        const confirmSync = confirm(`Sync canvas to ${otherAgents.length} other user(s)?\n\nThis will broadcast your current canvas state to all connected users.`);
+        const confirmSync = await MiniGameUtils.ask({
+            title: 'Push your canvas to everyone?',
+            body: `What you have now replaces what the other ${otherAgents.length === 1 ? 'person has' : otherAgents.length + ' people have'}.`,
+            confirmLabel: 'Sync', danger: true
+        });
 
         if (!confirmSync) {
             console.log('[Rsync] User cancelled sync operation');

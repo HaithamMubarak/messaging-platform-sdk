@@ -84,6 +84,7 @@
             font-family: 'JetBrains Mono', monospace; color: var(--pro-accent-ink); font-size: 0.85em;
         }
     </style>
+    <link rel="stylesheet" href="../css/app-chrome.css">
 </head>
 <body class="pro-scope pro-bg">
     <div class="container">
@@ -205,6 +206,7 @@
     <script src="../generated-web-agent-js/js/web-agent.libs.js"></script>
     <script src="../generated-web-agent-js/js/web-agent.js"></script>
     <script src="../generated-web-agent-js/js/web-agent.webrtc.js"></script>
+    <script src="../js/dialog.js"></script>
     <script src="../js/common-utils.js"></script>
     <script src="../js/connection-modal.js"></script>
     <script src="../js/demo-kit.js"></script>
@@ -432,7 +434,7 @@
         // Storage PUT
         function storagePut() {
             if (!agent || !connected) {
-                alert('Not connected to channel');
+                log('Not connected to a channel yet', 'error');
                 return;
             }
 
@@ -441,7 +443,7 @@
             const description = document.getElementById('putDescription').value.trim();
 
             if (!key) {
-                alert('Key is required');
+                log('A key is required', 'error');
                 return;
             }
 
@@ -478,13 +480,13 @@
         // Storage GET
         function storageGet() {
             if (!agent || !connected) {
-                alert('Not connected to channel');
+                log('Not connected to a channel yet', 'error');
                 return;
             }
 
             const key = document.getElementById('getKey').value.trim();
             if (!key) {
-                alert('Key is required');
+                log('A key is required', 'error');
                 return;
             }
 
@@ -512,7 +514,7 @@
         // List keys
         function listKeys() {
             if (!agent || !connected) {
-                alert('Not connected to channel');
+                log('Not connected to a channel yet', 'error');
                 return;
             }
 
@@ -559,7 +561,7 @@
         // List values
         function listValues() {
             if (!agent || !connected) {
-                alert('Not connected to channel');
+                log('Not connected to a channel yet', 'error');
                 return;
             }
 
@@ -578,21 +580,24 @@
         }
 
         // Delete
-        function storageDelete() {
+        async function storageDelete() {
             if (!agent || !connected) {
-                alert('Not connected to channel');
+                log('Not connected to a channel yet', 'error');
                 return;
             }
 
             const key = document.getElementById('deleteKey').value.trim();
             if (!key) {
-                alert('Key is required');
+                log('A key is required', 'error');
                 return;
             }
 
-            if (!confirm(`Delete all versions of "${key}"?`)) {
-                return;
-            }
+            const sure = await MiniGameUtils.ask({
+                title: 'Delete every version?',
+                body: `All stored versions of "${key}" go, for everyone on this channel.`,
+                confirmLabel: 'Delete', danger: true
+            });
+            if (!sure) return;
 
             agent.storageDeleteByKey(key, function(response) {
                 console.log('[Storage DELETE] Response:', response);
@@ -640,5 +645,6 @@
             MiniGameUtils.setupCleanupOnUnload(() => agent, 'Storage');
         }
     </script>
+<script src="../js/app-chrome.js"></script>
 </body>
 </html>

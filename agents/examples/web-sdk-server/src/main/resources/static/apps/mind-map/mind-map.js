@@ -715,7 +715,14 @@ class MindMapApp extends UserConnectionBase {
     }
 
     clearAll(isRemote = false) {
-        if (!isRemote && !confirm('Clear entire mind map?')) return;
+        if (!isRemote) {
+            MiniGameUtils.ask({
+                title: 'Clear the map?',
+                body: 'Every node and connection goes, for everyone in the room.',
+                confirmLabel: 'Clear it', danger: true
+            }).then((yes) => { if (yes) this.clearAll(true); });
+            return;
+        }
 
         this.nodes.clear();
         this.connections = [];

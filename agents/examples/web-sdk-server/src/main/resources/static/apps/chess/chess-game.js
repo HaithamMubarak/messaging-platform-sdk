@@ -544,13 +544,15 @@ class ChessGame extends UserConnectionBase {
     // ============================================
 
     requestNewGame() {
-        if (confirm('Start a new game? Current game will be lost.')) {
-            const data = {
-                type: 'new-game'
-            };
+        MiniGameUtils.ask({
+            title: 'Start a new game?', body: 'The game on the board now is lost.',
+            confirmLabel: 'New game', danger: true
+        }).then((yes) => {
+            if (!yes) return;
+            const data = { type: 'new-game' };
             this.sendData(data);
             this.handleNewGame(data);
-        }
+        });
     }
 
     handleNewGame(data) {
@@ -576,15 +578,15 @@ class ChessGame extends UserConnectionBase {
     resign() {
         if (this.myColor === 'spectator') return;
 
-        if (confirm('Are you sure you want to resign?')) {
-            const data = {
-                type: 'resign',
-                username: this.username,
-                color: this.myColor
-            };
+        MiniGameUtils.ask({
+            title: 'Resign?', body: 'Your opponent wins this game.',
+            confirmLabel: 'Resign', danger: true
+        }).then((yes) => {
+            if (!yes) return;
+            const data = { type: 'resign', username: this.username, color: this.myColor };
             this.sendData(data);
             this.handleResign(data);
-        }
+        });
     }
 
     handleResign(data) {
@@ -609,15 +611,18 @@ class ChessGame extends UserConnectionBase {
     }
 
     handleDrawOffer(data) {
-        if (confirm(`${data.from} offers a draw. Accept?`)) {
-            const acceptData = {
-                type: 'draw-accepted'
-            };
+        MiniGameUtils.ask({
+            title: 'A draw is offered', body: `${data.from} offers a draw.`,
+            confirmLabel: 'Accept', cancelLabel: 'Play on'
+        }).then((yes) => {
+            if (!yes) {
+                this.showToast('Draw offer declined', 'info');
+                return;
+            }
+            const acceptData = { type: 'draw-accepted' };
             this.sendData(acceptData);
             this.handleDrawAccepted(acceptData);
-        } else {
-            this.showToast('Draw offer declined', 'info');
-        }
+        });
     }
 
     handleDrawAccepted(data) {

@@ -545,6 +545,7 @@
             }
         }
     </style>
+    <link rel="stylesheet" href="../css/app-chrome.css">
 </head>
 <body>
 <div class="app-container">
@@ -762,6 +763,7 @@
 <script src="../generated-web-agent-js/js/web-agent.libs.js"></script>
 <script src="../generated-web-agent-js/js/web-agent.js"></script>
 <script src="../generated-web-agent-js/js/web-agent.webrtc.js"></script>
+<script src="../js/dialog.js"></script>
 <script src="../js/common-utils.js"></script>
 <script src="../js/share-modal.js"></script>
 
@@ -1486,7 +1488,7 @@
 
         } catch (error) {
             log('❌ Camera error: ' + error.message, 'error');
-            alert('Failed to access camera: ' + error.message);
+            MiniGameUtils.tell('The camera could not be used: ' + error.message, { title: 'No camera' });
         }
     }
 
@@ -1611,7 +1613,8 @@
         } catch (err) {
             console.error('Screen share failed', err);
             log('❌ Screen share failed: ' + (err && err.message ? err.message : err), 'error');
-            alert('Failed to start screen share: ' + (err && err.message ? err.message : err));
+            MiniGameUtils.tell('The screen share did not start: ' + (err && err.message ? err.message : err),
+                { title: 'Screen share failed' });
         }
     }
 
@@ -1935,7 +1938,8 @@
                         const channelPassword = document.getElementById('channelPassword').value.trim();
 
                         if (!channelName || !channelPassword) {
-                            alert('Please fill in channel details before sharing');
+                            MiniGameUtils.tell('Fill in the channel details before sharing them.',
+                                { title: 'Nothing to share yet' });
                             return;
                         }
 
@@ -1952,14 +1956,16 @@
                             console.log('Fresh temporary API key obtained for sharing (multi-use, 60s TTL)');
                         } catch (err) {
                             console.error('Failed to get temporary API key for sharing:', err);
-                            alert('Failed to get API key from server: ' + err.message);
+                            MiniGameUtils.tell('The server would not issue a key: ' + err.message,
+                                { title: 'Share link unavailable' });
                             return;
                         }
 
                         ShareModal.show(channelName, channelPassword, apiKey);
                     } catch (e) {
                         console.error('Share error:', e);
-                        alert('Failed to open share dialog: ' + e.message);
+                        MiniGameUtils.tell('The share dialog could not be opened: ' + e.message,
+                            { title: 'Share failed' });
                     }
                 });
             }
@@ -2265,7 +2271,8 @@
             const channelPassword = document.getElementById('channelPassword')?.value?.trim();
 
              if (!channelName || !channelPassword) {
-                 alert('Please fill in channel details before sharing');
+                 MiniGameUtils.tell('Fill in the channel details before sharing them.',
+                     { title: 'Nothing to share yet' });
                  return;
              }
 
@@ -2282,12 +2289,13 @@
                 console.log('Fresh temporary API key obtained for sharing (multi-use, 60s TTL)');
             } catch (err) {
                 console.error('Failed to get temporary API key for sharing:', err);
-                alert('Failed to get API key from server: ' + err.message);
+                MiniGameUtils.tell('The server would not issue a key: ' + err.message,
+                    { title: 'Share link unavailable' });
                 return;
             }
 
             if (typeof ShareModal === 'undefined' || !ShareModal || typeof ShareModal.show !== 'function') {
-                alert('Share modal is not available');
+                MiniGameUtils.tell('Sharing is not available on this page.', { title: 'Share unavailable' });
                 console.warn('shareChannel: ShareModal not available');
                 return;
             }
@@ -2297,9 +2305,13 @@
             log('🔗 Share modal opened', 'info');
         } catch (err) {
             console.error('shareChannel error', err);
-            alert('Failed to open share dialog: ' + (err && err.message ? err.message : err));
+            MiniGameUtils.tell('The share dialog could not be opened: ' + (err && err.message ? err.message : err),
+                { title: 'Share failed' });
         }
     }
 </script>
+<script src="../js/room-defaults.js"></script>
+<script>RoomDefaults.apply({ prefix: 'webrtc_', channelPrefix: 'webrtc-', sharedDefaults: ['demo-webrtc', 'demo123'] });</script>
+<script src="../js/app-chrome.js"></script>
 </body>
 </html>

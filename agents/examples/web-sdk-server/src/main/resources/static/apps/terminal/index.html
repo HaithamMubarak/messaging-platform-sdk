@@ -119,8 +119,10 @@
     <script src="FileTransferProxy.js"></script>
 
     <!-- Terminal JavaScript Logic (includes TerminalDataSender) -->
+    <script src="../../js/dialog.js"></script>
     <script src="terminal.js"></script>
 
+    <link rel="stylesheet" href="../../css/app-chrome.css">
 </head>
 <body>
     <!-- Toast Container -->
@@ -586,6 +588,29 @@
                     <div class="empty-state-title">No Active Sessions</div>
                     <div class="empty-state-message">
                         Click <strong>Local</strong> to start a terminal, or select an SSH connection from the sidebar
+                    </div>
+                </div>
+
+                <!-- Shown instead when there is nothing on this machine to drive.
+                     A dead page with a greyed-out toolbar and no explanation is
+                     the worst of the three states this app can be in. -->
+                <div class="sls-gate" id="slsGate">
+                    <div class="sls-gate__icon">🔌</div>
+                    <h2 class="sls-gate__title">Nothing to drive yet</h2>
+                    <p class="sls-gate__lead">
+                        This page is a terminal for <strong>your own machine</strong>. The shell itself runs in a
+                        small helper — the SDK Local Service — that you start on your computer; the page only talks
+                        to it. It is not answering, so there is no shell to open.
+                    </p>
+                    <ul class="sls-gate__list">
+                        <li>Start the SDK Local Service, then press <strong>Refresh</strong> in the toolbar.</li>
+                        <li>Running it on a different port? Change it under <strong>Settings</strong>.</li>
+                        <li>Only here to watch somebody else's session? That still works — open
+                            <strong>Remote Share</strong> and join their channel.</li>
+                    </ul>
+                    <div class="sls-gate__actions">
+                        <button class="btn btn-primary" type="button" onclick="showInstallGuide()">How to set it up</button>
+                        <button class="btn" type="button" onclick="checkMlsHealth(true, true)">Try again</button>
                     </div>
                 </div>
             </div>
@@ -1866,6 +1891,9 @@
             }
         });
     </script>
+<script src="../../js/room-defaults.js"></script>
+<script>RoomDefaults.apply({ prefix: 'terminal_', channelPrefix: 'terminal-', channelId: 'cloudChannelName', passwordId: 'cloudChannelPassword', sharedDefaults: ['terminal-share', 'terminal123'] });</script>
+<script src="../../js/app-chrome.js"></script>
 </body>
 </html>
 

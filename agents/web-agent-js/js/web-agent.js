@@ -1319,7 +1319,7 @@
      * Send message via WebSocket
      * @private
      */
-    AgentConnection.prototype._websocketSend = function(action, payload, callback) {
+    AgentConnection.prototype._websocketSend = function(action, payload, callback, timeoutMs) {
         const _self = this;
 
         if (!_self._websocket || _self._websocket.readyState !== WebSocket.OPEN) {
@@ -1339,13 +1339,14 @@
 
         if (callback) {
             _self._websocketMessageCallbacks.set(messageId, callback);
-            // Timeout for callback
+            // Timeout for callback. Callers with a fallback path pass a shorter
+            // one: thirty seconds is not a wait, it is a lost message.
             setTimeout(() => {
                 if (_self._websocketMessageCallbacks.has(messageId)) {
                     _self._websocketMessageCallbacks.delete(messageId);
                     callback({ status: 'error', statusMessage: 'WebSocket request timeout' });
                 }
-            }, 30000);
+            }, timeoutMs || 30000);
         }
 
         _self._websocket.send(JSON.stringify(message));
@@ -2653,34 +2654,50 @@
             sessionId: _self.sessionId,
         };
 
+        const overHttp = function() {
+            request({
+                useSyncMode: _self.useSyncMode,
+                base: _self._api,
+                pubKeyEncryptor: _self._pubKeyEncryptor,
+                apiKey: _self._apiKey,
+                method: 'post',
+                action: 'push',
+                payload: payload,
+                id: _self.channelId,
+                callback: function(response) {
+                    if (response.status !== 'success') {
+                        console.error('[Channel] Failed to send WebRTC signaling:', response);
+                    }
+                },
+                retryChances: 1
+            });
+        };
+
         // Prefer the WebSocket transport when connected (same as sendMessage),
         // fall back to HTTP push otherwise. Either way the server broadcasts it
         // to the recipient's socket.
+        //
+        // The fallback is not only for a socket that is down. A signaling frame
+        // that goes into an open socket and is never acknowledged used to be
+        // lost outright: the offer never arrived, the answer never came, and
+        // the connection sat in 'new' for ever while the two ends went on
+        // exchanging ICE candidates for a session one of them had never heard
+        // of. Large offers are the ones this happens to. So an unacknowledged
+        // send is repeated over HTTP, and it is given four seconds to be
+        // acknowledged rather than thirty, because an offer that arrives half a
+        // minute late has already been given up on.
         if (_self.useWebsocket && _self._websocketConnected) {
-            _self._websocketSend('push', payload, function(response) {
-                if (response && response.status !== 'success') {
-                    console.error('[Channel] Failed to send WebRTC signaling (ws):', response);
-                }
-            });
+            const sent = _self._websocketSend('push', payload, function(response) {
+                if (response && response.status === 'success') return;
+                console.warn('[Channel] WebRTC signaling was not acknowledged on the socket, '
+                    + 'sending it again over HTTP:', response && response.statusMessage);
+                overHttp();
+            }, 4000);
+            if (sent === false) overHttp();
             return;
         }
 
-        request({
-            useSyncMode: _self.useSyncMode,
-            base: _self._api,
-            pubKeyEncryptor: _self._pubKeyEncryptor,
-            apiKey: _self._apiKey,
-            method: 'post',
-            action: 'push',
-            payload: payload,
-            id: _self.channelId,
-            callback: function(response) {
-                if (response.status !== 'success') {
-                    console.error('[Channel] Failed to send WebRTC signaling:', response);
-                }
-            },
-            retryChances: 1
-        });
+        overHttp();
     }
 
     /**

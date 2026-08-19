@@ -928,6 +928,25 @@
     window.decodeChannelAuth = decodeChannelAuth;
     window.decodeChannelAuthEncrypted = decodeChannelAuthEncrypted;
 
+    /* ------------------------------------------------------------------ ask
+     * Questions and notices, from js/dialog.js — kept here as the names these
+     * apps already call so no page has to change twice.
+     */
+    MiniGameUtils.ask = function (opts) {
+        if (window.AppDialog) return AppDialog.ask(opts);
+        // dialog.js is not on the page: fall back rather than lose the question.
+        return Promise.resolve(window.confirm((opts && opts.body) || ''));
+    };
+    MiniGameUtils.confirmDialog = function (body, opts) {
+        return MiniGameUtils.ask(Object.assign({ body: body, confirmLabel: 'Yes', cancelLabel: 'No' }, opts || {}));
+    };
+    MiniGameUtils.tell = function (body, opts) {
+        return MiniGameUtils.ask(Object.assign({ body: body, cancellable: false }, opts || {}));
+    };
+    MiniGameUtils.askFor = function (body, value, opts) {
+        return MiniGameUtils.ask(Object.assign({ body: body, input: true, value: value }, opts || {}));
+    };
+
     // Expose to window
     window.MiniGameUtils = MiniGameUtils;
 
