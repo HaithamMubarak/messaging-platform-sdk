@@ -3023,7 +3023,7 @@ async function connectFallGuys(username, channel, password) {
         console.log('[FallGuys] Connected and ready!');
     } catch (error) {
         console.error('[FallGuys] Connection failed:', error);
-        alert('Failed to connect: ' + error.message);
+        if (window.ConnectionModal) ConnectionModal.fail(error);
         fallGuysGame = null;
 
         // Re-enable connect button on error

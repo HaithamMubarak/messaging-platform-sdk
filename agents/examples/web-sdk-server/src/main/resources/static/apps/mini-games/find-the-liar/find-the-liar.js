@@ -92,6 +92,17 @@ const LIAR_EFFECT_COOLDOWN_MS = 15000; // 15 seconds cooldown between liar effec
 // FIND THE LIAR GAME CLASS
 // ============================================
 
+/**
+ * Message types that only the host may originate. Every one of these is emitted
+ * behind an `isHost()` guard, so anything else claiming to be one is forged.
+ */
+const HOST_AUTHORITATIVE_TYPES = new Set([
+    'phase-change', 'role-assignment', 'question-start', 'answers-reveal',
+    'vote-results', 'liar-secret-revealed', 'liar-celebration',
+    'liar-disturbance-broadcast', 'game-state-sync', 'settings-update',
+    'game-over', 'game-reset', 'game-paused', 'game-ended-disconnect'
+]);
+
 class FindTheLiarGame extends UserConnectionBase {
     constructor() {
         super({
@@ -597,9 +608,43 @@ class FindTheLiarGame extends UserConnectionBase {
         this.updateUsersList();
     }
 
+    /**
+     * True when this message really came from the host's own game code.
+     *
+     * UserConnectionBase auto-relays anything a client sends with a plain
+     * sendData() to every other client, so a cheating player could simply emit
+     * {type:'vote-results'} or {type:'liar-secret-revealed'} and every other
+     * client would accept it as authoritative — revealing the liar, forcing a
+     * phase, or ending the game from a non-host seat.
+     *
+     * Three cases have to be told apart:
+     *   _fromHost      the host broadcast it        -> trust
+     *   _fromClient    the host merely relayed it   -> do NOT trust
+     *   neither        a direct data-channel message; trust only if the peer
+     *                  that sent it is the host (this is how the host's
+     *                  TARGETED sends arrive — role-assignment and
+     *                  game-state-sync go via sendData(data, playerName),
+     *                  which bypasses the broadcast wrapper and so never
+     *                  carries _fromHost).
+     */
+    _isFromHost(peerId, data) {
+        if (!data) return false;
+        if (data._fromHost) return true;
+        if (data._fromClient) return false;
+        const host = typeof this._getHostName === 'function' ? this._getHostName() : null;
+        return !!host && peerId === host;
+    }
+
     onDataChannelMessage(peerId, data) {
         console.log('[FindTheLiar] Message from', peerId, ':', data.type);
-        
+
+        // Everything in the "Host broadcasts" group below changes authoritative
+        // game state, so it is only honoured when the host actually sent it.
+        if (HOST_AUTHORITATIVE_TYPES.has(data.type) && !this._isFromHost(peerId, data)) {
+            console.warn('[FindTheLiar] Ignoring forged host message', data.type, 'from', peerId);
+            return;
+        }
+
         switch (data.type) {
             // Host broadcasts
             case 'phase-change':
@@ -3618,6 +3663,7 @@ function initializeConnectionModal() {
                 console.log('[FindTheLiar] Connected successfully!');
             } catch (error) {
                 console.error('[FindTheLiar] Connection failed:', error);
+                if (window.ConnectionModal) ConnectionModal.fail(error);
                 liarGame.showToast('Connection failed: ' + error.message, 'error');
             } finally {
                 // Hide loader using parent class method

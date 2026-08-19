@@ -12,6 +12,49 @@
 
     const MiniGameUtils = {
         /**
+         * Escape a string for interpolation into HTML.
+         *
+         * Anything that arrived from another peer — a username, a chat line, a
+         * colour — is attacker-controlled: a peer can join a room under any
+         * name it likes. Several of these apps used to interpolate those values
+         * straight into innerHTML, so a name like `<img src=x onerror=...>` ran
+         * script in every other participant's page, on join alone.
+         *
+         * Use this at every interpolation point, or build the node with
+         * textContent instead.
+         *
+         * @param {*} value
+         * @returns {string} safe to place in element content or a quoted attribute
+         */
+        escapeHtml: function(value) {
+            return String(value == null ? '' : value).replace(/[&<>"']/g, function(c) {
+                return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c];
+            });
+        },
+
+        /**
+         * Validate a peer-supplied colour before it goes into a style attribute.
+         *
+         * Escaping alone is not enough inside `style="background: HERE"`: a peer
+         * can still inject further CSS declarations. Only recognised colour
+         * syntax is allowed through; anything else falls back.
+         *
+         * @param {*} value  a colour from a remote peer
+         * @param {string} [fallback]
+         * @returns {string} a colour safe to interpolate into a style attribute
+         */
+        safeColor: function(value, fallback) {
+            const safe = fallback || '#64748b';
+            if (typeof value !== 'string') return safe;
+            const v = value.trim();
+            if (/^#[0-9a-f]{3,8}$/i.test(v)) return v;
+            if (/^rgba?\(\s*[\d.\s,%]+\)$/i.test(v)) return v;
+            if (/^hsla?\(\s*[\d.\s,%deg]+\)$/i.test(v)) return v;
+            if (/^[a-z]{3,20}$/i.test(v)) return v;          // named colours
+            return safe;
+        },
+
+        /**
          * Setup cleanup on page unload/navigation
          *
          * NOTE: This function is now DEPRECATED and does nothing!
@@ -45,7 +88,7 @@
                 ShareModal.show(channelName, channelPassword, apiKey);
             } else {
                 console.error('ShareModal not available. Make sure share-modal.js is loaded.');
-                alert('Share functionality not available');
+                if (window.UI && UI.toast) UI.toast('Sharing is not available on this page', 'error');
             }
         },
 

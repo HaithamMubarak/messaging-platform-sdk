@@ -613,3 +613,34 @@ button[id*="disconnect"]:hover,
         padding: 16px;
     }
 }
+
+/* ---- when a connect fails -------------------------------------------------
+ * The form is where the person is looking, so this is where the reason goes.
+ * A toast in the corner of a screen they are not watching is not a report.
+ */
+.connection-modal .connect-error {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    margin-top: 12px;
+    padding: 12px 14px;
+    background: #fef2f2;
+    border: 1px solid #fecaca;
+    border-left-width: 4px;
+    border-radius: 8px;
+}
+
+.connection-modal .connect-error[hidden] { display: none; }
+
+.connection-modal .connect-error p {
+    margin: 0;
+    font-size: 14px;
+    line-height: 1.45;
+    color: #b91c1c;
+}
+
+.connection-modal .connect-error button { align-self: flex-start; }
+.connection-modal .connect-error button[hidden] { display: none; }
+
+/* A button that is busy says so and cannot be pressed twice. */
+.connection-modal button:disabled { opacity: 0.6; cursor: progress; }

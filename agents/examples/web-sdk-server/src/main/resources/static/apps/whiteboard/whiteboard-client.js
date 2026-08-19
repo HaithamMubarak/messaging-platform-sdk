@@ -1236,7 +1236,7 @@ class WhiteboardGame extends UserConnectionBase {
 
         const msgElement = document.createElement('div');
         msgElement.className = 'chat-message';
-        msgElement.innerHTML = `<strong style="color: ${color}">${from}:</strong> ${message}`;
+        msgElement.innerHTML = `<strong style="color: ${MiniGameUtils.safeColor(color)}">${MiniGameUtils.escapeHtml(from)}:</strong> ${MiniGameUtils.escapeHtml(message)}`;
         chatMessages.appendChild(msgElement);
         chatMessages.scrollTop = chatMessages.scrollHeight;
     }
@@ -1251,12 +1251,12 @@ class WhiteboardGame extends UserConnectionBase {
         let html = '';
 
         // Add yourself
-        html += `<div class="user-item"><span class="user-color" style="background: ${window.currentColor || '#000'}"></span>${this.username} (You)</div>`;
+        html += `<div class="user-item"><span class="user-color" style="background: ${MiniGameUtils.safeColor(window.currentColor, '#000')}"></span>${MiniGameUtils.escapeHtml(this.username)} (You)</div>`;
 
         // Add other users
         this.users.forEach((user, name) => {
             if (name !== this.username) {
-                html += `<div class="user-item"><span class="user-color" style="background: ${user.color}"></span>${name}</div>`;
+                html += `<div class="user-item"><span class="user-color" style="background: ${MiniGameUtils.safeColor(user.color)}"></span>${MiniGameUtils.escapeHtml(name)}</div>`;
             }
         });
 
@@ -4750,8 +4750,8 @@ async function connect() {
 
     } catch (error) {
         console.error('[Whiteboard] Connection failed:', error);
+        if (window.ConnectionModal) ConnectionModal.fail(error);
         connecting = false; // Reset connecting flag on error
-        alert('Connection failed: ' + error.message);
         if (isMobilePortrait()) showConnectionModal();
     }
 }
@@ -6141,7 +6141,7 @@ function addChatMessage(from, message, color = '#333') {
     const chatMessages = document.getElementById('chatMessages');
     const msgElement = document.createElement('div');
     msgElement.className = 'chat-message';
-    msgElement.innerHTML = `<strong style="color: ${color}">${from}:</strong> ${message}`;
+    msgElement.innerHTML = `<strong style="color: ${MiniGameUtils.safeColor(color)}">${MiniGameUtils.escapeHtml(from)}:</strong> ${MiniGameUtils.escapeHtml(message)}`;
     chatMessages.appendChild(msgElement);
     chatMessages.scrollTop = chatMessages.scrollHeight;
 }

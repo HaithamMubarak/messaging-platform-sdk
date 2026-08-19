@@ -307,3 +307,123 @@
     .controls__stats { margin-left: 0; width: 100%; }
     .menu { left: auto; right: 0; }
 }
+
+/* ---- the side panel -------------------------------------------------------
+ * Two panes, both visible on a desktop where there is room for them. On a
+ * phone there is not, so they become tabs: a call whose member list has pushed
+ * the chat off the bottom of the screen has neither.
+ */
+.side__pane { display: flex; flex-direction: column; gap: var(--sp-3); min-height: 0; }
+.side__pane--chat { flex-grow: 1; }
+.tabs { display: none; }
+
+/* ---- the invite button ---------------------------------------------------- */
+.sdk-header__right .btn { flex: none; }
+
+/* ---- on a phone -----------------------------------------------------------
+ * The stage keeps the top of the screen, the controls stay reachable at the
+ * bottom, and the panel takes what is left. Buttons lose their words before
+ * they lose their meaning: the icon carries it, and the title attribute is
+ * still there for anyone who holds one down.
+ */
+@media (max-width: 900px) {
+    .sdk-stage { padding: var(--sp-3); gap: var(--sp-3); }
+    .sdk-side--wide { width: auto; flex: 1 1 auto; min-height: 34vh; }
+    .people { max-height: none; }
+
+    /* The stage takes the top of the screen but not the whole of it: a call
+       where the chat and the member list are below the fold is a call with a
+       picture and nothing else. */
+    .stage { flex: 0 1 auto; min-height: 28vh; max-height: 44vh; }
+
+    .tabs {
+        display: flex;
+        gap: var(--sp-2);
+        flex: none;
+        padding: 4px;
+        background: var(--surface-1);
+        border: 1px solid var(--border);
+        border-radius: var(--r-md);
+    }
+
+    .tabs__btn {
+        flex: 1 1 0;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: var(--sp-2);
+        min-height: 38px;
+        font: inherit;
+        font-size: var(--fs-sm);
+        font-weight: 600;
+        color: var(--text-muted);
+        background: none;
+        border: none;
+        border-radius: var(--r-sm);
+        cursor: pointer;
+    }
+
+    .tabs__btn.is-on { color: var(--text); background: var(--surface-3); }
+    .tabs__btn:focus-visible { outline: none; box-shadow: var(--focus-ring); }
+
+    .tabs__n {
+        font-family: var(--font-mono);
+        font-size: var(--fs-xs);
+        color: var(--text-faint);
+    }
+
+    .tabs__n--unread {
+        padding: 1px 7px;
+        color: #fff;
+        background: var(--brand);
+        border-radius: var(--r-pill);
+    }
+
+    .tabs__n--unread[hidden] { display: none; }
+
+    /* One pane at a time, chosen by the tab. */
+    .sdk-side.is-people .side__pane--chat,
+    .sdk-side.is-chat .side__pane--people { display: none; }
+    .sdk-side.is-chat .side__pane--chat { flex-grow: 1; }
+}
+
+@media (max-width: 640px) {
+    /* The header is a fixed-height row and a phone is 390px wide: left to
+       itself it overflows, and the overflowing status pill lands on top of the
+       Invite button — a button that cannot be pressed because something
+       invisible to the reader is sitting on it. Everything here earns its
+       width or loses its words. */
+    .sdk-header { gap: var(--sp-2); padding: 0 var(--sp-3); }
+    .sdk-header h1 { font-size: var(--fs-lg); flex: none; }
+    .sdk-header__right { gap: var(--sp-2); min-width: 0; }
+    .sdk-header__away { display: none; }        /* the browser has a back button */
+    .sdk-room { min-width: 0; flex: 0 1 auto; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+    /* The dot still says connected, busy or off — the sentence beside it does
+       not fit and is not news. */
+    .pill-status__text { display: none; }
+    .pill-status { padding: 6px; }
+    #shareBtn span { display: none; }
+    #shareBtn { min-height: 40px; width: 40px; padding: 0; }
+
+    .controls { gap: var(--sp-2); padding: var(--sp-2) var(--sp-3); }
+    .controls .btn span { display: none; }      /* icon only — the room needs the width */
+
+    /* A finger is not a mouse pointer: every control in the bar is a 44px
+       target, including the icon-only ones the desktop draws at 32. */
+    .controls .btn { min-height: 44px; padding-inline: 0.875rem; }
+    .controls .btn--icon { width: 44px; padding: 0; }
+    .controls__stats { order: 99; width: 100%; margin-left: 0; text-align: center; }
+    .menu { left: auto; right: 0; width: min(280px, calc(100vw - var(--sp-6))); }
+
+    .grid .tile { min-width: 0; flex-basis: 100%; }
+    .people { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+
+/* A phone in landscape has no vertical room to spare: the panel goes back
+   beside the stage rather than under it. */
+@media (max-width: 900px) and (orientation: landscape) and (max-height: 520px) {
+    .sdk-stage { flex-direction: row; }
+    .sdk-side--wide { width: 46vw; min-height: 0; }
+    .stage { min-height: 0; }
+}

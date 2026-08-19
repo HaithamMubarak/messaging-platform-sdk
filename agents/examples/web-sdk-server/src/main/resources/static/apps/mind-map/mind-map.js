@@ -952,7 +952,7 @@ class MindMapApp extends UserConnectionBase {
             cursor.style.color = color;
             cursor.innerHTML = `
                 <div class="remote-cursor-icon"></div>
-                <div class="remote-cursor-label">${data.username}</div>
+                <div class="remote-cursor-label">${MiniGameUtils.escapeHtml(data.username)}</div>
             `;
 
             document.getElementById('cursorsContainer').appendChild(cursor);
@@ -1034,8 +1034,8 @@ class MindMapApp extends UserConnectionBase {
         this.users.forEach((user, username) => {
             html += `
                 <div class="user-item">
-                    <div class="user-color-indicator" style="background: ${user.color}"></div>
-                    <span>${username}</span>
+                    <div class="user-color-indicator" style="background: ${MiniGameUtils.safeColor(user.color)}"></div>
+                    <span>${MiniGameUtils.escapeHtml(username)}</span>
                 </div>
             `;
         });
@@ -1135,7 +1135,7 @@ async function connectMindMap(username, channel, password) {
         console.log('[MindMap] Connected and ready!');
     } catch (error) {
         console.error('[MindMap] Connection failed:', error);
-        alert('Failed to connect: ' + error.message);
+        if (window.ConnectionModal) ConnectionModal.fail(error);
         mindMapApp = null;
     } finally {
         isConnecting = false;

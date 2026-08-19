@@ -239,7 +239,7 @@ class ChessGame extends UserConnectionBase {
         spectatorCount.textContent = this.spectators.length;
 
         spectatorsList.innerHTML = this.spectators
-            .map(name => `<div class="spectator-item">👁️ ${name}</div>`)
+            .map(name => `<div class="spectator-item">👁️ ${MiniGameUtils.escapeHtml(name)}</div>`)
             .join('');
     }
 
@@ -504,7 +504,7 @@ class ChessGame extends UserConnectionBase {
         entryEl.className = 'move-entry';
         entryEl.innerHTML = `
             <span class="move-number">${moveNum}.</span>
-            <span class="move-text">${move.san}</span>
+            <span class="move-text">${MiniGameUtils.escapeHtml(move.san)}</span>
         `;
 
         history.appendChild(entryEl);
@@ -775,7 +775,7 @@ async function connectChess(username, channel, password) {
         console.log('[Chess] Connected and ready!');
     } catch (error) {
         console.error('[Chess] Connection failed:', error);
-        alert('Failed to connect: ' + error.message);
+        if (window.ConnectionModal) ConnectionModal.fail(error);
         chessGame = null;
     } finally {
         isConnecting = false;

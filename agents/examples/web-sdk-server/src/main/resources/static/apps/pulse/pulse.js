@@ -581,6 +581,7 @@
             }
         } catch (err) {
             console.error('[Pulse] connect failed:', err);
+            if (window.ConnectionModal) ConnectionModal.fail(err);
             UI.toast('Could not connect: ' + err.message, 'error', 5000);
             app = null;
         }

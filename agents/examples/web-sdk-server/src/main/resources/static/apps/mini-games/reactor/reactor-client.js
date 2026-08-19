@@ -1991,7 +1991,7 @@ async function connectReactor(username, channel, password) {
         console.log('[Reactor] Connected and ready!');
     } catch (error) {
         console.error('[Reactor] Connection failed:', error);
-        alert('Failed to connect: ' + error.message);
+        if (window.ConnectionModal) ConnectionModal.fail(error);
         reactorGame = null;
     } finally {
         isConnecting = false;

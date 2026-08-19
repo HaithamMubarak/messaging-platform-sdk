@@ -418,6 +418,7 @@
             app.renderPeers();
         } catch (err) {
             console.error('[Drop] connect failed:', err);
+            if (window.ConnectionModal) ConnectionModal.fail(err);
             UI.toast('Could not connect: ' + err.message, 'error', 5000);
             app = null;
         }

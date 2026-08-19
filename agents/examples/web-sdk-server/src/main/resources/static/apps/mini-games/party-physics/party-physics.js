@@ -918,10 +918,9 @@ async function connectPartyPhysics(username, channel, password) {
 
     } catch (error) {
         console.error('[PartyPhysics] Connection failed:', error);
+        if (window.ConnectionModal) ConnectionModal.fail(error);
         if (window.MiniGameUtils && window.MiniGameUtils.showToast) {
             window.MiniGameUtils.showToast('Connection failed: ' + error.message, 'error');
-        } else {
-            alert('Connection failed: ' + error.message);
         }
     }
 }

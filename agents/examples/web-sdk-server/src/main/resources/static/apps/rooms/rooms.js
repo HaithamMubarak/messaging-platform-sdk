@@ -663,6 +663,7 @@
         say(from, text, at) {
             text = String(text || '').trim();
             if (!text) return;
+            if (from !== this.username) this._onChat();
             var now = Date.now();
             var when = typeof at === 'number' && at > now - 120000 && at <= now ? at : now;
             this._log({ kind: 'chat', from: from, text: text.slice(0, 800), at: when });
@@ -816,12 +817,61 @@
             }, this);
         }
 
+        /**
+         * Which pane the phone is showing. Both are on screen on a desktop, so
+         * this only matters where there is not room for two.
+         */
+        setPane(which) {
+            var side = document.getElementById('side');
+            if (!side) return;
+            side.classList.toggle('is-people', which === 'people');
+            side.classList.toggle('is-chat', which === 'chat');
+            ['tabPeople', 'tabChat'].forEach(function (id) {
+                var b = document.getElementById(id);
+                if (!b) return;
+                var on = (id === 'tabPeople') === (which === 'people');
+                b.classList.toggle('is-on', on);
+                b.setAttribute('aria-selected', String(on));
+            });
+            if (which === 'chat') { this.unread = 0; this._renderUnread(); }
+        }
+
+        _onChat() {
+            var side = document.getElementById('side');
+            var tabs = document.querySelector('.tabs');
+            // The tabs only exist where there is not room for both panes, so
+            // their being visible is what makes the chat pane hideable at all.
+            var tabbed = tabs && getComputedStyle(tabs).display !== 'none';
+            if (!tabbed || !side || !side.classList.contains('is-people')) return;
+            this.unread = (this.unread || 0) + 1;
+            this._renderUnread();
+        }
+
+        _renderUnread() {
+            var b = document.getElementById('unreadCount');
+            if (!b) return;
+            b.textContent = this.unread > 99 ? '99+' : String(this.unread || 0);
+            b.hidden = !this.unread;
+        }
+
+        /** Hand the room to somebody: a link, and a code they can point a phone at. */
+        invite() {
+            if (!this.connected) { UI.toast('Join the room first', 'info'); return; }
+            if (typeof ShareModal === 'undefined' || !ShareModal.show) {
+                UI.toast('Sharing is not available on this page', 'error');
+                return;
+            }
+            ShareModal.show(this.channelName, this.channelPassword);
+        }
+
         renderPeople() {
             var host = document.getElementById('people');
             var count = document.getElementById('peopleCount');
+            var tab = document.getElementById('peopleCountTab');
             if (!host) return;
             var users = this.getUserList() || [], self = this;
             if (count) count.textContent = users.length;
+            if (tab) tab.textContent = users.length;
             this._pruneTiles(users);
             host.replaceChildren.apply(host, users.map(function (u) { return self._tile('side', u); }));
         }
@@ -899,6 +949,9 @@
         on('camBtn', 'click', function () { if (app) app.toggleCamera(); });
         on('shareScreenBtn', 'click', function () { if (app) app.toggleScreen(); });
         on('viewBtn', 'click', function () { if (app) app.setView(app.view === 'grid' ? 'auto' : 'grid'); });
+        on('shareBtn', 'click', function () { if (app) app.invite(); });
+        on('tabPeople', 'click', function () { if (app) app.setPane('people'); });
+        on('tabChat', 'click', function () { if (app) app.setPane('chat'); });
         on('leaveBtn', 'click', function () {
             if (app) { try { app.disconnect(); } catch (e) { /* ignore */ } }
             location.href = '../../playground.html';
@@ -967,6 +1020,7 @@
             }
         } catch (err) {
             console.error('[Rooms] connect failed:', err);
+            if (window.ConnectionModal) ConnectionModal.fail(err);
             UI.toast('Could not connect: ' + err.message, 'error', 5000);
             app = null;
         }

@@ -292,7 +292,7 @@ class PictionaryGame extends UserConnectionBase {
             html += `
                 <div class="${classes}">
                     <div class="player-info">
-                        <span class="player-name">${username}${username === this.username ? ' (You)' : ''}</span>
+                        <span class="player-name">${MiniGameUtils.escapeHtml(username)}${username === this.username ? ' (You)' : ''}</span>
                         ${isArtist ? '🎨' : ''}
                         ${hasGuessed ? '✓' : ''}
                     </div>
@@ -866,7 +866,7 @@ class PictionaryGame extends UserConnectionBase {
         if (type === 'system') {
             msgEl.textContent = message;
         } else {
-            msgEl.innerHTML = `<strong>${username}:</strong> ${message}`;
+            msgEl.innerHTML = `<strong>${MiniGameUtils.escapeHtml(username)}:</strong> ${MiniGameUtils.escapeHtml(message)}`;
         }
         
         chatMessages.appendChild(msgEl);
@@ -984,7 +984,7 @@ async function connectPictionary(username, channel, password) {
         console.log('[Pictionary] Connected and ready!');
     } catch (error) {
         console.error('[Pictionary] Connection failed:', error);
-        alert('Failed to connect: ' + error.message);
+        if (window.ConnectionModal) ConnectionModal.fail(error);
         pictionaryGame = null;
     } finally {
         isConnecting = false;

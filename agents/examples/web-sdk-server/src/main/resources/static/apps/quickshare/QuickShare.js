@@ -852,6 +852,7 @@ async function handleConnect(username, channelName, password) {
 
     } catch (error) {
         console.error('[QuickShare] Connection failed:', error);
+        if (window.ConnectionModal) ConnectionModal.fail(error);
         showToast('Failed to connect: ' + error.message, 'error');
         throw error; // Re-throw to let connection-modal handle it
     }
@@ -1011,7 +1012,7 @@ function updateUsersList() {
         return `
             <div class="${classes}">
                 ${hasDC ? '<span class="peer-status"></span>' : ''}
-                ${user}
+                ${MiniGameUtils.escapeHtml(user)}
                 ${isHost ? ' 👑' : ''}
                 ${isYou ? ' (you)' : ''}
             </div>

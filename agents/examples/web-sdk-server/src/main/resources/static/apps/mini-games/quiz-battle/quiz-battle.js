@@ -880,7 +880,7 @@ async function connectQuizBattle(username, channel, password) {
         console.log('[QuizBattle] Connected and ready!');
     } catch (error) {
         console.error('[QuizBattle] Connection failed:', error);
-        alert('Failed to connect: ' + error.message);
+        if (window.ConnectionModal) ConnectionModal.fail(error);
     }
 }
 

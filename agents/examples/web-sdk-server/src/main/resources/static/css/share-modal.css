@@ -263,3 +263,42 @@
     box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
 }
 
+
+/* ---- the share dialog on a phone -----------------------------------------
+ * The dialog is what you open when the other person is standing next to you
+ * with their phone out, so it has to fit on one. Its rows were laid out for a
+ * desktop: two link buttons side by side, then a link, a Copy and a QR toggle
+ * on one line, and a 256px code — together wider than any phone, with the
+ * right-hand end of every row off the edge of the screen.
+ */
+@media (max-width: 640px) {
+    #share-modal .modal-content {
+        width: calc(100vw - 20px);
+        max-width: calc(100vw - 20px);
+        /* The code is the tallest thing here and a phone is not tall. The
+           dialog keeps itself on the screen and scrolls inside if it must. */
+        max-height: calc(100vh - 24px);
+        overflow-y: auto;
+        -webkit-overflow-scrolling: touch;
+    }
+
+    /* The two link kinds stack rather than shrink past their own labels. */
+    #share-modal .modal-body > div > div[style*="display:flex"] { flex-wrap: wrap; }
+    #share-public-btn,
+    #share-encrypted-btn { flex: 1 1 100% !important; }
+
+    /* Link, Copy and the code toggle: the link takes the row, the buttons share
+       the next one, and nothing is pushed off the side. */
+    #share-link-container .form-row > div { flex-wrap: wrap; }
+    #share-link-output { flex: 1 1 100% !important; min-width: 0; }
+    #share-copy-btn { flex: 1 1 auto; }
+    #share-qr-btn { flex: 0 0 auto; }
+
+    /* A code is only useful if all four corners are on the screen. */
+    #share-qr-container > div { padding: 12px !important; max-width: 100%; }
+    #share-qr-display canvas,
+    #share-qr-display img {
+        width: min(256px, calc(100vw - 88px), 42vh) !important;
+        height: auto !important;
+    }
+}
