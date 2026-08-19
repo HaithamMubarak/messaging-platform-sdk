@@ -68,6 +68,8 @@
             <button id="toolBuild" class="tool-btn active" data-tool="build" title="Build (B)">🧱<span>Build</span></button>
             <button id="toolErase" class="tool-btn" data-tool="erase" title="Erase (E)">🧨<span>Erase</span></button>
             <button id="toolPaint" class="tool-btn" data-tool="paint" title="Repaint what is already there, in the current colour and shape (P)">🖌<span>Paint</span></button>
+            <button id="toolKnock" class="tool-btn hidden" data-tool="knock" title="Knock it over — the block flies and whatever it held up comes down">🥊<span>Knock</span></button>
+            <button id="toolDrop" class="tool-btn hidden" data-tool="drop" title="Drop the current piece from above and let it land">🪂<span>Drop</span></button>
             <button id="toolFill" class="tool-btn" title="Box fill — tap two opposite corners (F)">⬛<span>Fill</span></button>
             <button id="toolMirror" class="tool-btn" title="Mirror every edit across the middle (M)">🪞<span>Mirror</span></button>
             <button id="toolBricks" class="tool-btn active" title="Build with brick pieces (K)">🧩<span>Bricks</span></button>
@@ -216,6 +218,14 @@
                 </div>
                 <div id="geoList" class="geo-list"></div>
                 <div id="geoNote" class="world-note">Your position is never read until you ask, and is rounded to about 5m before anyone sees it.</div>
+            </div>
+
+            <div class="world-section">
+                <div class="world-title">Physics</div>
+                <label class="world-toggle" title="Blocks fall when nothing holds them up">
+                    <input type="checkbox" id="physicsToggle"> 🧨 Things fall over
+                </label>
+                <div id="physicsNote" class="world-note">Off: the world holds itself up, however you build it.</div>
             </div>
 
             <div class="world-section">
@@ -372,6 +382,8 @@
 <script src="../shared/game-kit.js"></script>
 <script src="bricks.js"></script>
 <script src="maps.js"></script>
+<script src="../shared/libs/cannon.min.js"></script>
+<script src="physics.js"></script>
 <script src="sky.js"></script>
 <script src="geo.js"></script>
 <script src="minimap.js"></script>

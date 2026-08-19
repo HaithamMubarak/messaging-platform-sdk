@@ -650,6 +650,7 @@
                 this._applyDrift(dt);
                 this._animateAvatars(dt);
                 this._bobSpawnGhost();
+                if (this.onFrame) this.onFrame(dt);
                 this.fx.update(dt);
                 this.flushChunks();
                 this.renderer.render(this.scene, this.camera);
@@ -1880,6 +1881,19 @@
             return m;
         }
 
+        /** A solid material for a colour, cached — props need real surfaces. */
+        materialForColor(colorIndex) {
+            if (!this._solidMats) this._solidMats = new Map();
+            let m = this._solidMats.get(colorIndex);
+            if (!m) {
+                m = new THREE.MeshLambertMaterial({
+                    color: new THREE.Color(hexOf(colorIndex)).convertSRGBToLinear()
+                });
+                this._solidMats.set(colorIndex, m);
+            }
+            return m;
+        }
+
         _ghostMaterialFor(hexColor) {
             if (!this._remoteGhostMats) this._remoteGhostMats = new Map();
             let m = this._remoteGhostMats.get(hexColor);
@@ -1981,6 +1995,19 @@
             this.modes = new BlockPartyModes.ModeController(this);
             this.fps = new BlockPartyFPS(this);
             this.geo = new BlockPartyGeo(this);
+            this.physics = new BlockPartyPhysics(this);
+            // The renderer drives the simulation, so the two never drift: one
+            // step and one draw per frame, and the host posts the result at its
+            // own slower rate.
+            this.voxels.onFrame = (dt) => {
+                if (!this.physics.on) return;
+                if (this.isHost()) {
+                    this.physics.step();
+                    const states = this.physics.states();
+                    if (states) this.sendData({ type: 'props', props: states });
+                }
+                this.physics.draw(dt);
+            };
             this.minimap = new BlockPartyMinimap(this);
 
             // The sun moves. Once a minute is often enough to follow it and
@@ -2132,6 +2159,7 @@
                     if (this.isHost()) {
                         // Relay client edits out to everyone else; persist.
                         this.sendData({ type: 'edit', edit: data.edit });
+                        this.onRemoteEdit(data.edit);
                         this._scheduleSave();
                     }
                     break;
@@ -2145,6 +2173,22 @@
                     break;
                 case 'lock':
                     this._setWorldLocked(!!data.locked, data.by);
+                    break;
+                case 'physics':
+                    // The host owns the simulation, so it owns the switch.
+                    if (this._fromHost(peerId, data)) this._setPhysics(!!data.on, true);
+                    break;
+                case 'props':
+                    // Transforms for whatever is currently in the air. Only the
+                    // host simulates; this is the picture of it.
+                    if (this.isHost() || !this._fromHost(peerId, data)) break;
+                    this.physics.apply(data.props);
+                    break;
+                case 'phys':
+                    // A player asking the host to drop or hit something. The
+                    // host decides whether it is allowed, as it does for edits.
+                    if (!this.isHost() || data._fromHost) break;
+                    this._hostPhysicsRequest(data);
                     break;
                 case 'stats':
                     this.stats = data.stats || null;
@@ -2218,6 +2262,31 @@
 
         _pieceRow(p) { return [p.id, p.x, p.y, p.z, p.w, p.d, p.c, p.owner || null]; }
 
+        _physicsOn() { return !!(this.physics && this.physics.on && this.isHost()); }
+
+        /**
+         * Which cells an edit is about to empty. Read before it is applied,
+         * because afterwards there is nothing there to ask about — and only the
+         * cells that actually held something, so a fill over open ground does
+         * not set the whole world checking whether it is still standing.
+         */
+        _cellsRemovedBy(edit) {
+            const v = this.voxels, out = [];
+            const note = (x, y, z) => { if (v.hasBlock(x, y, z)) out.push([x, y, z]); };
+            if (edit.a === 'remove') note(edit.x, edit.y, edit.z);
+            else if (edit.a === 'bulk') {
+                (edit.remove || []).forEach(r => note(r[0], r[1], r[2]));
+                (edit.delPieces || []).forEach(id => {
+                    const piece = v.pieces.get(id);
+                    if (piece) piece.cells.forEach(k => {
+                        const [x, y, z] = k.split(',').map(Number);
+                        note(x, y, z);
+                    });
+                });
+            }
+            return out;
+        }
+
         // What the world looks like at a cell right now, as a bulk row.
         _cellRow(x, y, z) {
             const k = VoxelWorld.key(x, y, z);
@@ -2287,8 +2356,13 @@
         // Local action from this player: apply, record undo, broadcast, persist.
         _doLocalEdit(edit) {
             const inverse = this._inverseOf(edit);
+            const emptied = this._physicsOn() ? this._cellsRemovedBy(edit) : null;
             this._applyEdit(edit);
             this._updateBlockCount();
+            // Whatever those cells were holding up has nothing under it now.
+            // Host only: the simulation has one owner, and its results come
+            // back to everyone as ordinary edits.
+            if (emptied && emptied.length) this.physics.collapseAround(emptied);
             if (inverse) {
                 this.undoStack.push(inverse);
                 if (this.undoStack.length > 100) this.undoStack.shift();
@@ -2893,7 +2967,8 @@
             chunks.forEach((c, i) => this.sendData({
                 type: 'world', i, n: chunks.length,
                 blocks: c.blocks, pieces: c.pieces,
-                ground: snap.ground, geo: snap.geo, locked: this.worldLocked
+                ground: snap.ground, geo: snap.geo, locked: this.worldLocked,
+                physics: !!(this.physics && this.physics.on)
             }));
         }
 
@@ -2917,6 +2992,8 @@
             // The snapshot carries the lock so a late joiner learns the room is
             // read-only without a separate round trip.
             if (typeof data.locked === 'boolean') this._setWorldLocked(data.locked);
+            // …and whether things fall here, so the tools appear without asking.
+            if (typeof data.physics === 'boolean') this._setPhysics(data.physics, true);
             this._updateBlockCount();
             this._refreshPlayers();
         }
@@ -3128,6 +3205,9 @@
                 this.showToast(sun ? `Sky: ${window.BlockPartySky.describe(sun.elevation, sun.azimuth)}`
                     : 'Sky: the fixed dusk — pin this world to a place for the real one', 'info', 3000);
             });
+
+            const phys = document.getElementById('physicsToggle');
+            if (phys) phys.addEventListener('change', () => this.togglePhysics(phys.checked));
 
             on('geoTraceBtn', 'click', () => this.traceWorld());
 
@@ -3963,6 +4043,20 @@
                 return;
             }
 
+            // Hitting and dropping act on the world without editing a cell,
+            // so they come before everything that does.
+            if (this.tool === 'knock' && !erase) {
+                if (pick.remove) this.knockAt(pick.remove.x, pick.remove.y, pick.remove.z);
+                this._refreshAim();
+                return;
+            }
+            if (this.tool === 'drop' && !erase) {
+                const spot = pick.place || pick.remove;
+                if (spot) this.dropAt(spot.x, spot.y, spot.z);
+                this._refreshAim();
+                return;
+            }
+
             const painting = !erase && this.tool === 'paint';
 
             if (this.fillMode) {
@@ -4019,7 +4113,7 @@
             // Painting and the armed eyedropper both act on what is standing,
             // so they aim at the filled cell rather than the empty face in
             // front of it.
-            const onSolid = erasing || this.picking
+            const onSolid = erasing || this.picking || this.tool === 'knock'
                 || (this.fillAnchor ? this.fillAnchor.paint : this.tool === 'paint');
             const cell = onSolid ? pick && pick.remove : pick && pick.place;
             if (!cell) {
@@ -4045,6 +4139,11 @@
                 // the colour would come from.
                 this.voxels.hidePiecePreview();
                 this.voxels.showPreview(cell.x, cell.y, cell.z, 0, 0, 'pick');
+                this.voxels.hideLandingShadow();
+            } else if (this.tool === 'knock') {
+                // Ring what is about to be hit, in the colour of a blow.
+                this.voxels.hidePiecePreview();
+                this.voxels.showPreview(cell.x, cell.y, cell.z, 0, 0, 'erase');
                 this.voxels.hideLandingShadow();
             } else if (this.tool === 'paint') {
                 // Show the block wearing the new colour, in place, rather than
@@ -4174,6 +4273,10 @@
             document.getElementById('toolErase').addEventListener('click', () => pickTool('erase'));
             const paint = document.getElementById('toolPaint');
             if (paint) paint.addEventListener('click', () => pickTool('paint'));
+            const knock = document.getElementById('toolKnock');
+            if (knock) knock.addEventListener('click', () => pickTool('knock'));
+            const drop = document.getElementById('toolDrop');
+            if (drop) drop.addEventListener('click', () => pickTool('drop'));
             const pick = document.getElementById('toolPick');
             if (pick) pick.addEventListener('click', () => this.togglePicking());
             document.getElementById('undoBtn').addEventListener('click', () => this.undo());
@@ -4367,6 +4470,162 @@
         }
 
         togglePicking() { this.setPicking(!this.picking); }
+
+        // ---------- physics ----------
+        /**
+         * Turn falling blocks on or off. Host only, because the host is the
+         * only one simulating — every other client is shown the result.
+         */
+        togglePhysics(on) {
+            if (!this.isHost()) { this.showToast('Only the host can turn physics on', 'warning'); return; }
+            if (!this.physics.available) {
+                this.showToast('Physics is not available in this browser', 'warning', 3200);
+                return;
+            }
+            const want = (typeof on === 'boolean') ? on : !this.physics.on;
+            this._setPhysics(want, false);
+            this.sendData({ type: 'physics', on: this.physics.on });
+            this.showToast(this.physics.on
+                ? '🧨 Physics on — blocks fall, and you can knock things over'
+                : 'Physics off — the world holds itself up again', 'info', 3200);
+        }
+
+        /**
+         * Apply the switch locally. `remote` means the host said so, in which
+         * case there is nothing to simulate here — only props to draw.
+         */
+        _setPhysics(on, remote) {
+            if (!this.physics) return;
+            if (this.physics.on === !!on) { this._syncPhysicsUI(); return; }
+            // A guest keeps the flag but never runs a world: `setEnabled` is
+            // what builds one, and only the host needs it.
+            if (this.isHost() && !remote) this.physics.setEnabled(on);
+            else if (this.isHost()) this.physics.setEnabled(on);
+            else { this.physics.on = !!on; if (!on) this.physics.clearAll(); }
+            this._syncPhysicsUI();
+        }
+
+        _syncPhysicsUI() {
+            const on = !!(this.physics && this.physics.on);
+            const box = document.getElementById('physicsToggle');
+            if (box) {
+                box.checked = on;
+                box.disabled = !this.isHost() || !(this.physics && this.physics.available);
+            }
+            const note = document.getElementById('physicsNote');
+            if (note) {
+                note.textContent = !this.physics || !this.physics.available
+                    ? 'This browser cannot run the physics engine.'
+                    : on ? 'Blocks fall when nothing holds them up. Knock things over with 🥊, drop a piece with 🪂.'
+                        : 'Off: the world holds itself up, however you build it.';
+            }
+            ['toolKnock', 'toolDrop'].forEach(id => {
+                const el = document.getElementById(id);
+                if (el) el.classList.toggle('hidden', !on);
+            });
+            // The tools go away with the mode, so nobody is left holding one.
+            if (!on && (this.tool === 'knock' || this.tool === 'drop')) {
+                this.tool = 'build';
+                this._syncTool();
+                this._refreshAim();
+            }
+        }
+
+        /**
+         * Somebody asked for something to be hit or dropped. Everything the
+         * host would check for an edit is checked here too — this is a way of
+         * changing the world, so it obeys the same rules.
+         */
+        _hostPhysicsRequest(msg) {
+            if (!this.physics.on || !msg) return;
+            const x = msg.x | 0, y = msg.y | 0, z = msg.z | 0;
+            if (!this.voxels.inBounds(x, y, z)) return;
+            if (!this._canEditCell(x, y, z, true)) return;
+            if (msg.k === 'knock') {
+                this.physics.knock(x, y, z, { x: msg.dx || 0, z: msg.dz || 0 }, msg.p);
+            } else if (msg.k === 'drop') {
+                this.physics.spawn({
+                    x, y, z, w: msg.w || 1, d: msg.d || 1, c: msg.c, brick: !!msg.brick,
+                    owner: msg.by || null, impulse: { x: 0, y: -1, z: 0 }
+                });
+            }
+        }
+
+        /** Hit whatever is at this cell, away from the camera. */
+        knockAt(x, y, z) {
+            if (!this.physics.on) return;
+            if (!this._canEditCell(x, y, z)) return;
+            // Away from wherever you are looking from, so a blow pushes things
+            // over rather than pulling them towards you.
+            const cam = this.voxels.camera.position;
+            const dx = x + 0.5 - cam.x, dz = z + 0.5 - cam.z;
+            const len = Math.hypot(dx, dz) || 1;
+            const dir = { x: dx / len, z: dz / len };
+            if (this.isHost()) {
+                const n = this.physics.knock(x, y, z, dir, 10);
+                if (!n) this.showToast('Nothing to hit there', 'info', 1200);
+            } else {
+                this.sendToHost({ type: 'phys', k: 'knock', x, y, z, dx: dir.x, dz: dir.z, p: 10 });
+            }
+            window.BlockPartySfx.remove(y, false);
+        }
+
+        /** Drop the current piece from above this spot and let it land. */
+        dropAt(x, y, z) {
+            if (!this.physics.on) return;
+            const { w, d } = this.pieceFootprint();
+            const brick = this.brickMode;
+            const top = Math.min(MAX_Y, Math.max(y + 6, 8));
+            if (!this._canEditCell(x, top, z)) return;
+            if (this.isHost()) {
+                const p = this.physics.spawn({
+                    x, y: top, z, w: brick ? w : 1, d: brick ? d : 1,
+                    c: this.currentColor, brick, owner: this.username,
+                    impulse: { x: 0, y: -2, z: 0 }
+                });
+                if (!p) this.showToast('Too much in the air already', 'warning', 1600);
+            } else {
+                this.sendToHost({
+                    type: 'phys', k: 'drop', x, y: top, z,
+                    w: brick ? w : 1, d: brick ? d : 1, c: this.currentColor,
+                    brick, by: this.username
+                });
+            }
+            window.BlockPartySfx.tick();
+        }
+
+        /**
+         * An edit the simulation made, rather than a person.
+         *
+         * It goes out exactly like any other edit — same shape, same relay,
+         * same persistence — so every client's world stays a plain set of
+         * cells. It is deliberately kept off the undo stack: a tower coming
+         * down is the world reacting to what you did, not a second thing you
+         * did, and forty settling bricks would otherwise bury the one action
+         * you might actually want back.
+         */
+        /**
+         * An edit from another player. The host owns the consequences of it
+         * just as much as of its own, so the support check runs here too.
+         */
+        onRemoteEdit(edit) {
+            if (!this._physicsOn() || !edit) return;
+            // Read before applying is impossible here — the edit has already
+            // landed — so ask which of its cells are now empty.
+            const gone = [];
+            if (edit.a === 'remove') gone.push([edit.x, edit.y, edit.z]);
+            else if (edit.a === 'bulk') (edit.remove || []).forEach(r => gone.push([r[0], r[1], r[2]]));
+            if (gone.length) this.physics.collapseAround(gone);
+        }
+
+        applyPhysicsEdit(edit) {
+            if (!edit) return;
+            this._applyEdit(edit);
+            this._updateBlockCount();
+            this._broadcastEdit(edit);
+            this._scheduleSave();
+            if (this.modes) this.modes.onLocalEdit();
+        }
 
         toggleMirror() {
             this.mirror = !this.mirror;
@@ -4608,6 +4867,7 @@
             this._syncGeoUI();
             this._syncWorldControls();
             this._loadSlotList();
+            this._syncPhysicsUI();
             this._fetchStats();
         }
 
@@ -4962,6 +5222,8 @@
             set('toolErase', this.tool === 'erase');
             set('toolPaint', this.tool === 'paint');
             set('toolPick', this.picking);
+            set('toolKnock', this.tool === 'knock');
+            set('toolDrop', this.tool === 'drop');
             set('toolFill', this.fillMode);
             set('toolMirror', this.mirror);
             set('toolBricks', this.brickMode);
