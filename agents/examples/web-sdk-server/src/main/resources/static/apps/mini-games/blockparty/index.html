@@ -158,6 +158,21 @@
         <div id="minimapResize" class="mm-resize" title="Drag to resize the map"></div>
     </div>
 
+    <!-- Time-lapse transport, while the tape is rolling -->
+    <div id="cinemaBar" class="cinema-bar hidden">
+        <button id="cinemaPlay" class="cinema-btn" title="Play / pause">❚❚</button>
+        <input id="cinemaRange" class="cinema-range" type="range" min="0" max="100" value="0"
+               aria-label="Scrub the time-lapse">
+        <span id="cinemaAt" class="cinema-at">0 / 0</span>
+        <select id="cinemaSpeed" class="cinema-speed" title="Speed">
+            <option value="0.5">0.5×</option>
+            <option value="1" selected>1×</option>
+            <option value="2">2×</option>
+            <option value="4">4×</option>
+        </select>
+        <button id="cinemaClose" class="cinema-btn" title="Back to the live world (Esc)">✕</button>
+    </div>
+
     <!-- Ceremony: counted starts and headline moments -->
     <div id="ceremony" class="ceremony hidden"></div>
     <div id="banner" class="banner hidden"></div>
@@ -220,6 +235,18 @@
                 </div>
                 <div id="geoList" class="geo-list"></div>
                 <div id="geoNote" class="world-note">Your position is never read until you ask, and is rounded to about 5m before anyone sees it.</div>
+            </div>
+
+            <div class="world-section">
+                <div class="world-title">Time-lapse</div>
+                <div class="world-note">
+                    Watch this world get built, from whatever it looked like when you arrived.
+                    It plays on your screen only — nobody else sees it, and nothing is changed.
+                </div>
+                <div class="import-row">
+                    <button id="replayBtn" class="btn btn-primary">▶ Play the time-lapse</button>
+                    <span id="replayCount" class="world-note" style="margin:0"></span>
+                </div>
             </div>
 
             <div class="world-section">

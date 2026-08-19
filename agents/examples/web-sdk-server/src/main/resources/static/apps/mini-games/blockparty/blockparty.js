@@ -56,6 +56,8 @@
     const GEO_SEEN_KEY = 'blockparty_geo_seen';
     const MODEL_PREFIX = 'blockparty_model_';
     const MAX_MODEL_CELLS = 1200;   // a blueprint has to be rebuildable in a round
+    const TAPE_MAX = 5000;          // edits kept for the time-lapse
+    const TAPE_STEP_MS = 40;        // a frame of playback
 
     // Palette — index maps to a color; sent over the wire as a small int.
     const PALETTE = [
@@ -2306,7 +2308,12 @@
             const inMatch = this.modes && this.modes.isMatchActive();
             const live = inMatch && this.modes.relaysEdits();
             if (inMatch && !live && (data.type === 'edit' || data.type === 'cursor')) return;
-            if (inMatch && (data.type === 'world' || data.type === 'requestWorld')) return;
+            // Sandbox snapshots must not land on the arena — but a player who
+            // joins mid-match still needs to be shown what everyone else is
+            // looking at, so the request is allowed through for the host to
+            // answer and an arena snapshot is allowed back.
+            if (inMatch && data.type === 'world' && !data.arena) return;
+            if (inMatch && data.type === 'requestWorld' && !this.isHost()) return;
             switch (data.type) {
                 case 'mode':
                     this.modes.handleMessage(peerId, data);
@@ -2323,6 +2330,14 @@
                     const by = data._fromClient || peerId;
                     if (!this.isHost() && !this._fromHost(peerId, data)) break;
                     if (this.isHost() && inMatch && !this.modes.canRelayEditFrom(by)) break;
+                    // Mid-replay the screen is showing history. Hold what the
+                    // room is doing and apply it when the tape stops — but keep
+                    // relaying, because the rest of the room is still building.
+                    if (this.cinema) {
+                        this.cinema.queued.push(data.edit);
+                        if (this.isHost()) this.sendData({ type: 'edit', edit: data.edit });
+                        break;
+                    }
                     this._applyEdit(data.edit);
                     this._updateBlockCount();
                     this._feedback(data.edit, true);
@@ -2339,7 +2354,9 @@
                     this._receiveWorldChunk(data);
                     break;
                 case 'requestWorld':
-                    if (this.isHost()) this._sendWorldSnapshot();
+                    if (!this.isHost()) break;
+                    if (inMatch) this._sendArenaSnapshot(peerId);
+                    else this._sendWorldSnapshot();
                     break;
                 case 'lock':
                     this._setWorldLocked(!!data.locked, data.by);
@@ -2404,6 +2421,7 @@
         // when restoring somebody else's block, otherwise edit.o applies.
         _applyEdit(edit) {
             if (!edit) return;
+            this._tapeRecord(edit);
             if (edit.a === 'place' && this.voxels.inBounds(edit.x, edit.y, edit.z)) {
                 // edit.o = the player who placed it, so per-player counts stay
                 // correct no matter which peer applied the edit. edit.s = shape.
@@ -2526,6 +2544,9 @@
 
         // Local action from this player: apply, record undo, broadcast, persist.
         _doLocalEdit(edit) {
+            // The world on screen is a replay, not the room's. Editing it would
+            // send the room changes to a world that no longer exists here.
+            if (this.cinema) { this.showToast('Not while the time-lapse is playing', 'info', 1800); return; }
             const inverse = this._inverseOf(edit);
             const emptied = this._physicsOn() ? this._cellsRemovedBy(edit) : null;
             this._applyEdit(edit);
@@ -3160,6 +3181,7 @@
         // ---------- persistence ----------
         _scheduleSave() {
             if (!this.isHost()) return;
+            if (this.cinema) return;        // a replay is not the world to save
             if (this.modes && this.modes.isMatchActive()) return;   // the arena is not the sandbox
             clearTimeout(this._saveTimer);
             this._saveTimer = setTimeout(() => this._saveWorld(), SAVE_DEBOUNCE_MS);
@@ -3297,6 +3319,41 @@
                 ground: snap.ground, geo: snap.geo, locked: this.worldLocked,
                 physics: !!(this.physics && this.physics.on)
             }));
+        }
+
+        /**
+         * Show a mid-match joiner the arena everyone else is in.
+         *
+         * World sync is switched off during a match so a sandbox snapshot can
+         * never land on the plots — but that left anyone who joined mid-round
+         * staring at nothing: no towers to knock in Demolition, a blank plot in
+         * Territory and Team Build, and their own edits landing blind on cells
+         * they could not see.
+         *
+         * Only in modes that relay edits. Where builds are secret, the arena
+         * *is* the secret, and shipping it would hand a latecomer everyone's
+         * work in progress.
+         */
+        _sendArenaSnapshot(to) {
+            if (!this.isHost() || !this.modes || !this.modes.isMatchActive()) return;
+            if (!this.modes.relaysEdits()) return;
+
+            const snap = this.snapshotWorld();
+            const chunks = [];
+            for (let i = 0; i < snap.blocks.length; i += WORLD_CHUNK) {
+                chunks.push({ blocks: snap.blocks.slice(i, i + WORLD_CHUNK), pieces: [] });
+            }
+            for (let i = 0; i < snap.pieces.length; i += WORLD_CHUNK) {
+                chunks.push({ blocks: [], pieces: snap.pieces.slice(i, i + WORLD_CHUNK) });
+            }
+            if (!chunks.length) chunks.push({ blocks: [], pieces: [] });
+
+            chunks.forEach((c, i) => this.sendData({
+                type: 'world', arena: true, i, n: chunks.length,
+                blocks: c.blocks, pieces: c.pieces,
+                ground: snap.ground, geo: snap.geo,
+                physics: !!(this.physics && this.physics.on)
+            }, to || undefined));
         }
 
         /** Collect a chunked snapshot; apply it once the last chunk lands. */
@@ -3532,6 +3589,21 @@
                 this.showToast(sun ? `Sky: ${window.BlockPartySky.describe(sun.elevation, sun.azimuth)}`
                     : 'Sky: the fixed dusk — pin this world to a place for the real one', 'info', 3000);
             });
+
+            const replay = document.getElementById('replayBtn');
+            if (replay) replay.addEventListener('click', () => {
+                if (this.startReplay(1)) this._closeWorldModal();
+            });
+            const cPlay = document.getElementById('cinemaPlay');
+            if (cPlay) cPlay.addEventListener('click', () => this.toggleReplayPlay());
+            const cClose = document.getElementById('cinemaClose');
+            if (cClose) cClose.addEventListener('click', () => this.endReplay());
+            const cRange = document.getElementById('cinemaRange');
+            if (cRange) cRange.addEventListener('input', () => {
+                if (this.cinema) { this.cinema.playing = false; this.seekReplay(Number(cRange.value)); }
+            });
+            const cSpeed = document.getElementById('cinemaSpeed');
+            if (cSpeed) cSpeed.addEventListener('change', () => this.setReplaySpeed(Number(cSpeed.value) || 1));
 
             const bpSave = document.getElementById('blueprintSave');
             if (bpSave) bpSave.addEventListener('click', () => {
@@ -4730,6 +4802,7 @@
             window.addEventListener('keydown', (e) => {
                 if (e.target && /^(INPUT|TEXTAREA|SELECT)$/.test(e.target.tagName)) return;
                 const k = e.key.toLowerCase();
+                if (k === 'escape' && this.cinema) { this.endReplay(); return; }
                 if (k === 'escape') { this.cancelFill(); this.cancelCopy(); this.stopFollowing(); this._cancelDrop(); this.setPicking(false); }
                 else if (k === 'b') { this.tool = 'build'; this.setPicking(false); this._syncTool(); this._refreshAim(); }
                 else if (k === 'e') { this.tool = 'erase'; this.setPicking(false); this._syncTool(); this._refreshAim(); }
@@ -5342,6 +5415,12 @@
             this._syncWorldControls();
             this._loadSlotList();
             this._renderBlueprints();
+            const count = document.getElementById('replayCount');
+            if (count) {
+                count.textContent = this.tapeLength
+                    ? this.tapeLength + ' edit' + (this.tapeLength === 1 ? '' : 's') + ' recorded'
+                    : 'nothing recorded yet';
+            }
             this._syncPhysicsUI();
             this._fetchStats();
         }
@@ -5418,6 +5497,154 @@
                     <button class="slot-del btn btn-ghost" data-key="${this._esc(key)}" data-label="${this._esc(label)}" title="Delete">🗑</button>
                 </div>`;
             }).join('');
+        }
+
+        // ---------- time-lapse ----------
+        /**
+         * Watch this world get built.
+         *
+         * The host has seen every edit in order and so has everyone else, so a
+         * tape is just the world as it stood when you arrived plus the edits
+         * since. Replaying it is the one thing in this game that deliberately
+         * puts the local world out of step with the room, so it runs as a
+         * *cinema*: while the tape plays, nothing local is allowed to edit,
+         * nothing arriving from the room is applied, and nothing is saved. What
+         * arrives is buffered and applied when the lights come up, so the world
+         * you get back is the world the room has, not the one the tape ended on.
+         */
+        _tapeRecord(edit) {
+            if (this.cinema) return;                 // the replay is not history
+            if (!this.tape) {
+                this.tape = { base: this.snapshotWorld(), edits: [], from: Date.now() };
+            }
+            const t = this.tape;
+            t.edits.push({ at: Date.now(), edit: edit });
+            if (t.edits.length > TAPE_MAX) {
+                // Fold the oldest edit into the base rather than losing it, so
+                // the tape always starts from a world that really existed.
+                const drop = t.edits.splice(0, Math.ceil(TAPE_MAX * 0.2));
+                t.rebase = (t.rebase || 0) + drop.length;
+            }
+        }
+
+        get tapeLength() { return this.tape ? this.tape.edits.length : 0; }
+
+        /**
+         * Roll the tape. Local only — nobody else's screen changes.
+         */
+        startReplay(speed) {
+            if (this.cinema) return false;
+            if (!this.tape || !this.tape.edits.length) {
+                this.showToast('Nothing recorded yet — build something first', 'info', 2600);
+                return false;
+            }
+            if (this.modes && this.modes.isMatchActive()) {
+                this.showToast('Not during a match', 'warning');
+                return false;
+            }
+            // Anything mid-air belongs to the world we are about to put away.
+            if (this.physics && this.physics.on && this.isHost()) this.physics.flush();
+
+            this.cinema = {
+                saved: this.snapshotWorld(),
+                queued: [],
+                i: 0,
+                speed: speed || 1,
+                playing: true
+            };
+            this.showToast('Time-lapse — Esc to come back', 'info', 2600);
+            this.restoreWorldFrom(this.tape.base);
+            this._syncCinemaUI();
+            // A frame of the world as it was before anything happened, then it
+            // starts building. Applying the first batch here instead would mean
+            // the replay never shows the thing it is a replay of the start of.
+            this.cinema.timer = setTimeout(() => this._tapeStep(), TAPE_STEP_MS);
+            return true;
+        }
+
+        _tapeStep() {
+            const c = this.cinema;
+            if (!c) return;
+            clearTimeout(c.timer);
+            if (!c.playing) { this._syncCinemaUI(); return; }
+
+            const edits = this.tape.edits;
+            // More edits per frame the faster it runs, so the wall-clock length
+            // of a replay stays sane however much was built.
+            const per = Math.max(1, Math.round(edits.length / 240) * c.speed);
+            const end = Math.min(edits.length, c.i + per);
+            for (; c.i < end; c.i++) this._applyEdit(edits[c.i].edit);
+            this._updateBlockCount();
+            this._syncCinemaUI();
+
+            if (c.i >= edits.length) { c.playing = false; this._syncCinemaUI(); return; }
+            c.timer = setTimeout(() => this._tapeStep(), TAPE_STEP_MS);
+        }
+
+        /** Jump the tape to a point, without playing through everything first. */
+        seekReplay(index) {
+            const c = this.cinema;
+            if (!c) return;
+            const edits = this.tape.edits;
+            const want = Math.max(0, Math.min(edits.length, index | 0));
+            if (want < c.i) {
+                // Backwards means starting again — cells are not reversible
+                // individually, but the base plus a prefix always is.
+                this.restoreWorldFrom(this.tape.base);
+                c.i = 0;
+            }
+            for (; c.i < want; c.i++) this._applyEdit(edits[c.i].edit);
+            this._updateBlockCount();
+            this._syncCinemaUI();
+        }
+
+        toggleReplayPlay() {
+            const c = this.cinema;
+            if (!c) return;
+            if (c.i >= this.tape.edits.length) { this.seekReplay(0); c.playing = true; }
+            else c.playing = !c.playing;
+            if (c.playing) this._tapeStep(); else this._syncCinemaUI();
+        }
+
+        setReplaySpeed(speed) {
+            if (!this.cinema) return;
+            this.cinema.speed = speed;
+            this._syncCinemaUI();
+        }
+
+        /** Lights up: put the room's world back and apply what arrived meanwhile. */
+        endReplay() {
+            const c = this.cinema;
+            if (!c) return;
+            clearTimeout(c.timer);
+            this.cinema = null;                       // recording resumes here
+            this.restoreWorldFrom(c.saved);
+            c.queued.forEach(edit => this._applyEdit(edit));
+            this._updateBlockCount();
+            this._syncCinemaUI();
+            if (c.queued.length) {
+                this.showToast(`Caught up on ${c.queued.length} edit${c.queued.length === 1 ? '' : 's'}`, 'info', 2400);
+            }
+        }
+
+        _syncCinemaUI() {
+            const bar = document.getElementById('cinemaBar');
+            if (!bar) return;
+            const c = this.cinema;
+            bar.classList.toggle('hidden', !c);
+            if (!c) return;
+            const total = this.tape.edits.length;
+            const at = document.getElementById('cinemaAt');
+            if (at) at.textContent = c.i + ' / ' + total;
+            const range = document.getElementById('cinemaRange');
+            if (range) {
+                range.max = String(total);
+                if (document.activeElement !== range) range.value = String(c.i);
+            }
+            const play = document.getElementById('cinemaPlay');
+            if (play) play.textContent = c.i >= total ? '↺' : (c.playing ? '❚❚' : '▶');
+            const speed = document.getElementById('cinemaSpeed');
+            if (speed && speed.value !== String(c.speed)) speed.value = String(c.speed);
         }
 
         // ---------- room blueprints ----------
