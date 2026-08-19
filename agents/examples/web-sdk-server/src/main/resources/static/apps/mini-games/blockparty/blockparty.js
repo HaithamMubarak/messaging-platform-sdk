@@ -40,6 +40,8 @@
                                   // the data-channel size limit
     const WORLD_CHUNK = 400;      // cells (or pieces) per world-snapshot message
     const PLAIN_SCALE = 9;        // how far the ground runs past the build area
+    const SHAKE_MAX = 0.55;       // blocks of camera nudge at full strength
+    const SHAKE_DECAY = 2.6;      // how fast it settles, per second
     const CHUNK = 16;             // render chunk size on X/Z, in cells
     const CHUNK_BUDGET = 6;       // chunk rebuilds allowed per frame
     // The platform expires a session after 180s unless something the client
@@ -170,7 +172,12 @@
             this.cursorGeometry = new THREE.EdgesGeometry(new THREE.BoxGeometry(1.02, 1.02, 1.02));
             this.preview = null;        // local placement ghost (built lazily)
 
+            this._shake = 0;            // decaying camera nudge after a big landing
             this.half = HALF;           // the world's reach, for anyone who asks
+            // How far the ground carries on past the buildable square. The map
+            // can look far beyond the world, and the camera can follow as long
+            // as there is still ground under it.
+            this.groundReach = HALF * PLAIN_SCALE;
             this.arena = null;          // match plots (group), null in the sandbox
             this.pads = new Map();      // player name -> { group, cover, label, ... }
             this.ghostGroups = new Map(); // id -> blueprint ghost group
@@ -601,12 +608,42 @@
 
         _applyCamera() {
             const { theta, phi, radius } = this.cam;
-            const x = this.target.x + radius * Math.sin(phi) * Math.cos(theta);
-            const y = this.target.y + radius * Math.cos(phi);
-            const z = this.target.z + radius * Math.sin(phi) * Math.sin(theta);
+            let x = this.target.x + radius * Math.sin(phi) * Math.cos(theta);
+            let y = this.target.y + radius * Math.cos(phi);
+            let z = this.target.z + radius * Math.sin(phi) * Math.sin(theta);
+            const k = this._shake;
+            if (k > 0.001) {
+                // Offset the eye, never the target: nudging what the camera is
+                // looking at makes the whole world appear to slide.
+                x += (Math.random() - 0.5) * k;
+                y += (Math.random() - 0.5) * k;
+                z += (Math.random() - 0.5) * k;
+            }
             this.camera.position.set(x, y, z);
             this.camera.lookAt(this.target);
             this._updateSun();
+        }
+
+        /**
+         * Feel a big landing.
+         *
+         * Deliberately one shake for a whole collapse rather than one per
+         * brick — forty bricks landing should register as a thump, not as
+         * judder — so it takes the strongest impact of the moment and is
+         * hard-capped.
+         *
+         * @param {number} amount 0..1
+         */
+        shake(amount) {
+            const want = Math.max(0, Math.min(1, amount || 0)) * SHAKE_MAX;
+            if (want > this._shake) this._shake = want;
+        }
+
+        _decayShake(dt) {
+            if (this._shake > 0) {
+                this._shake = Math.max(0, this._shake - dt * SHAKE_DECAY);
+                this._applyCamera();
+            }
         }
 
         orbit(dx, dy) {
@@ -647,6 +684,7 @@
                 const dt = Math.min(0.05, (now - (this._lastFrame || now)) / 1000);
                 this._lastFrame = now;
                 this.stepFollow();
+                this._decayShake(dt);
                 this._applyDrift(dt);
                 this._animateAvatars(dt);
                 this._bobSpawnGhost();
@@ -973,7 +1011,7 @@
         _raiseColumn(x, y, z, colorIndex) {
             const ck = x + ',' + z;
             const col = this.columns.get(ck);
-            if (!col || y >= col.top) this.columns.set(ck, { top: y, hex: hexOf(colorIndex) });
+            if (!col || y >= col.top) { this.columns.set(ck, { top: y, hex: hexOf(colorIndex) }); this.columnsRev = (this.columnsRev | 0) + 1; }
         }
 
         /** Something went from this column; find the new top of it. */
@@ -985,10 +1023,12 @@
                 const k = VoxelWorld.key(x, y, z);
                 if (this.world.has(k)) {
                     this.columns.set(ck, { top: y, hex: hexOf(this.world.get(k)) });
+                    this.columnsRev = (this.columnsRev | 0) + 1;
                     return;
                 }
             }
             this.columns.delete(ck);
+            this.columnsRev = (this.columnsRev | 0) + 1;
         }
 
         // ---- brick pieces ----
@@ -1069,6 +1109,7 @@
             this.chunks.clear();
             this.dirtyChunks.clear();
             this.columns.clear();
+            this.columnsRev = (this.columnsRev | 0) + 1;
             this.pieces.clear();
             this.pieceOf.clear();
             this.world.clear();
@@ -1587,6 +1628,54 @@
             this.ghostGroups.delete(id);
         }
 
+        /**
+         * Outline what a blow is about to bring down.
+         *
+         * Advisory only: it runs the same flood fill the host would, on
+         * whoever is hovering, and sends nothing. The host still decides what
+         * actually falls — this just stops a knock being a guess.
+         */
+        showDoom(cells) {
+            if (!cells || !cells.length) { this.hideDoom(); return; }
+            const key = cells.length + ':' + cells[0].join(',');
+            if (key === this._doomKey) return;        // same lump, nothing to redo
+            this._doomKey = key;
+            this.hideDoom();
+            if (!this._doomMat) {
+                this._doomMat = new THREE.MeshBasicMaterial({
+                    color: new THREE.Color('#f97316'),
+                    transparent: true, opacity: 0.45,
+                    depthWrite: false,
+                    // Two settings this needs to be visible at all, both learned
+                    // the hard way — the first version drew nine correct meshes
+                    // in the right places and you could not see them:
+                    //   toneMapped: ACES pulled the orange back into the block's
+                    //     own colour, leaving only faint edges.
+                    //   depthTest: it also reads as x-ray, which is right for an
+                    //     aiming affordance — you want the whole doomed lump,
+                    //     including the far side of the tower.
+                    toneMapped: false,
+                    depthTest: false
+                });
+            }
+            const group = new THREE.Group();
+            const geo = this.geometries[0];
+            cells.forEach(([x, y, z]) => {
+                const m = new THREE.Mesh(geo, this._doomMat);
+                m.position.set(x + 0.5, y + 0.5, z + 0.5);
+                m.scale.setScalar(1.06);              // just proud of the block itself
+                m.renderOrder = 999;                  // after the world, never under it
+                group.add(m);
+            });
+            this.scene.add(group);
+            this._doomGroup = group;
+        }
+
+        hideDoom() {
+            if (this._doomGroup) { this.scene.remove(this._doomGroup); this._doomGroup = null; }
+            this._doomKey = null;
+        }
+
         clearGhosts() {
             this.ghostGroups.forEach(g => this.scene.remove(g));
             this.ghostGroups.clear();
@@ -1964,7 +2053,10 @@
                 customType: 'blockparty',
                 autoCreateDataChannel: true,
                 dataChannelName: 'blockparty-data',
-                dataChannelOptions: { ordered: true }   // reliable, ordered — never drop an edit
+                dataChannelOptions: { ordered: true },  // reliable, ordered — never drop an edit
+                // The players panel already marks the host with a crown, and
+                // the floating badge is pinned bottom-right, on top of the map.
+                enableHostIndicator: false
             });
 
             this.voxels = null;
@@ -1972,7 +2064,9 @@
             this.stats = null;              // this room's running record
             this.currentColor = 0;
             this.currentShape = 0;          // index into SHAPES
-            this.tool = 'build';            // 'build' | 'erase' | 'paint'
+            this.tool = 'build';            // 'build' | 'erase' | 'paint' | 'knock' | 'drop' | 'copy' | 'stamp'
+            this.clipboard = null;          // a captured piece of world, ready to stamp
+            this.copyAnchor = null;         // first corner of the capture box
             this.brickMode = true;          // build with LEGO-style brick pieces
             this.currentBrick = '2x4';      // footprint from bricks.js
             this.brickRotated = false;      // swaps the footprint's w and d
@@ -2000,11 +2094,18 @@
             // step and one draw per frame, and the host posts the result at its
             // own slower rate.
             this.voxels.onFrame = (dt) => {
+                // The map repaints only when something it draws has moved.
+                if (this.minimap) this.minimap.frame();
                 if (!this.physics.on) return;
                 if (this.isHost()) {
                     this.physics.step();
                     const states = this.physics.states();
-                    if (states) this.sendData({ type: 'props', props: states });
+                    if (states) {
+                        this.sendData({ type: 'props', props: states.props, hits: states.hits });
+                        // The host never receives its own broadcast, so it plays
+                        // the same impacts it just sent everyone else.
+                        this.physics.playHits(states.hits);
+                    }
                 }
                 this.physics.draw(dt);
             };
@@ -2099,6 +2200,19 @@
             this._refreshPlayers();
             this._scheduleSave(); // take ownership of persistence
             if (this.modes) this.modes.onBecomeHost();
+
+            // Physics is the host's job and a guest never built a world to run
+            // it in. Without this the flag says "on" while `world` is undefined,
+            // and the first knock deletes blocks that can never fall or land.
+            if (this.physics && this.physics.on) {
+                // Whatever the old host had in the air is gone with them; those
+                // cells were already removed on every client, so let the puff
+                // stand rather than inventing blocks nobody saw land.
+                this.physics.clearAll();
+                this.physics.on = false;
+                this.physics.setEnabled(true);
+                this._syncPhysicsUI();
+            }
         }
 
         onLoseHost() {
@@ -2183,12 +2297,13 @@
                     // host simulates; this is the picture of it.
                     if (this.isHost() || !this._fromHost(peerId, data)) break;
                     this.physics.apply(data.props);
+                    this.physics.playHits(data.hits);
                     break;
                 case 'phys':
                     // A player asking the host to drop or hit something. The
                     // host decides whether it is allowed, as it does for edits.
                     if (!this.isHost() || data._fromHost) break;
-                    this._hostPhysicsRequest(data);
+                    this._hostPhysicsRequest(data, peerId);
                     break;
                 case 'stats':
                     this.stats = data.stats || null;
@@ -2738,6 +2853,147 @@
             else this._doLocalEdit({ a: 'bulk', o: this.username, remove: cells });
         }
 
+        // ---------- copy and stamp ----------
+        /**
+         * Capture the box between two cells, so it can be put down again
+         * somewhere else.
+         *
+         * Bricks are captured as bricks rather than as the cubes they are made
+         * of — a stamped street of houses that came back as loose blocks would
+         * be a worse copy than no copy. A brick only counts if the whole of it
+         * is inside the box: half a brick is not a thing that can be placed.
+         */
+        copyRegion(a, b) {
+            const lo = { x: Math.min(a.x, b.x), y: Math.min(a.y, b.y), z: Math.min(a.z, b.z) };
+            const hi = { x: Math.max(a.x, b.x), y: Math.max(a.y, b.y), z: Math.max(a.z, b.z) };
+            const volume = (hi.x - lo.x + 1) * (hi.y - lo.y + 1) * (hi.z - lo.z + 1);
+            if (volume > MAX_FILL_CELLS) {
+                this.showToast(`That is too big to copy (${volume} cells, max ${MAX_FILL_CELLS})`, 'warning', 2800);
+                return 0;
+            }
+
+            const v = this.voxels;
+            const inside = (x, y, z) => x >= lo.x && x <= hi.x && y >= lo.y && y <= hi.y && z >= lo.z && z <= hi.z;
+
+            // Whole bricks first, and the cells they own are then not loose.
+            const pieces = [], owned = new Set();
+            v.pieces.forEach(piece => {
+                const cells = BlockPartyBricks.cellsOf(piece.x, piece.y, piece.z, piece.w, piece.d);
+                if (!cells.every(c => inside(c[0], c[1], c[2]))) return;
+                pieces.push([piece.x - lo.x, piece.y - lo.y, piece.z - lo.z, piece.w, piece.d, piece.c]);
+                cells.forEach(c => owned.add(c[0] + ',' + c[1] + ',' + c[2]));
+            });
+
+            const cells = [];
+            for (let x = lo.x; x <= hi.x; x++) {
+                for (let y = lo.y; y <= hi.y; y++) {
+                    for (let z = lo.z; z <= hi.z; z++) {
+                        if (owned.has(x + ',' + y + ',' + z)) continue;
+                        if (!v.hasBlock(x, y, z)) continue;
+                        cells.push([x - lo.x, y - lo.y, z - lo.z,
+                            v.world.get(VoxelWorld.key(x, y, z)), v.shapeOf(x, y, z)]);
+                    }
+                }
+            }
+
+            if (!cells.length && !pieces.length) {
+                this.showToast('Nothing in that box to copy', 'info', 1600);
+                return 0;
+            }
+
+            this.clipboard = {
+                cells, pieces,
+                w: hi.x - lo.x + 1, h: hi.y - lo.y + 1, d: hi.z - lo.z + 1
+            };
+            const n = cells.length + pieces.length;
+            this.showToast(`Copied ${n} thing${n === 1 ? '' : 's'} — tap to stamp it`, 'success', 2600);
+            return n;
+        }
+
+        /**
+         * Put the clipboard down with its near corner at this cell.
+         *
+         * Anything that would land off the board or in somebody else's plot is
+         * dropped rather than refused wholesale, the same way a fill behaves —
+         * and the count of what did not fit is reported instead of silently
+         * disappearing.
+         */
+        stampAt(x, y, z) {
+            const clip = this.clipboard;
+            if (!clip) { this.showToast('Copy something first', 'info', 1600); return 0; }
+
+            const place = [], addPieces = [];
+            let blocked = 0;
+
+            clip.pieces.forEach(p => {
+                const [dx, dy, dz, w, d, c] = this._rotated(p[0], p[2], clip, p[3], p[4]);
+                const px = x + dx, py = y + p[1], pz = z + dz;
+                const cells = BlockPartyBricks.cellsOf(px, py, pz, w, d);
+                if (!cells.every(cc => this.voxels.inBounds(cc[0], cc[1], cc[2])
+                    && this._canEditCell(cc[0], cc[1], cc[2], true))) { blocked++; return; }
+                addPieces.push([BlockPartyBricks.newId(this.username), px, py, pz, w, d, p[5], this.username]);
+                void c; void dy;
+            });
+
+            clip.cells.forEach(cell => {
+                const r = this._rotated(cell[0], cell[2], clip);
+                const cx = x + r[0], cy = y + cell[1], cz = z + r[2];
+                if (!this.voxels.inBounds(cx, cy, cz) || !this._canEditCell(cx, cy, cz, true)) { blocked++; return; }
+                place.push([cx, cy, cz, cell[3], cell[4]]);
+            });
+
+            if (!place.length && !addPieces.length) {
+                this._canEditCell(x, y, z);      // let it explain why
+                return 0;
+            }
+
+            this._doLocalEdit({ a: 'bulk', o: this.username, place, addPieces });
+            const n = place.length + addPieces.length;
+            this.showToast(`Stamped ${n} block${n === 1 ? '' : 's'}`
+                + (blocked ? ` (${blocked} out of reach)` : ''), 'success', 1800);
+            return n;
+        }
+
+        /**
+         * The clipboard turned a quarter turn at a time, about its own near
+         * corner. Turning it is what makes a copied wall usable on the other
+         * side of a building.
+         */
+        _rotated(dx, dz, clip, w, d) {
+            const turns = ((this.stampTurns || 0) % 4 + 4) % 4;
+            let x = dx, z = dz, ww = w, dd = d;
+            for (let i = 0; i < turns; i++) {
+                const nx = (clip.d - 1) - z;
+                const nz = x;
+                x = nx; z = nz;
+                if (w !== undefined) { const t = ww; ww = dd; dd = t; }
+            }
+            return w !== undefined ? [x, 0, z, ww, dd] : [x, 0, z];
+        }
+
+        rotateStamp() {
+            if (!this.clipboard) return;
+            this.stampTurns = ((this.stampTurns || 0) + 1) % 4;
+            window.BlockPartySfx.tick();
+            this._refreshAim();
+            this.showToast('Stamp turned ' + (this.stampTurns * 90) + '°', 'info', 1200);
+        }
+
+        /** The footprint the stamp would cover from here, after any turn. */
+        stampFootprint() {
+            const c = this.clipboard;
+            if (!c) return { w: 1, h: 1, d: 1 };
+            const turned = (this.stampTurns || 0) % 2 === 1;
+            return { w: turned ? c.d : c.w, h: c.h, d: turned ? c.w : c.d };
+        }
+
+        cancelCopy() {
+            this.copyAnchor = null;
+            this.voxels.hideRegion();
+            const hint = document.getElementById('fillHint');
+            if (hint) hint.textContent = '';
+        }
+
         /**
          * Fill, clear, or repaint the box between two cells. The tool decides
          * which: the Fill toggle rides on top of whichever one is active.
@@ -2752,6 +3008,14 @@
             const volume = (hi.x - lo.x + 1) * (hi.y - lo.y + 1) * (hi.z - lo.z + 1);
             if (volume > MAX_FILL_CELLS) {
                 this.showToast(`That region is too big (${volume} cells, max ${MAX_FILL_CELLS})`, 'warning', 2600);
+                return 0;
+            }
+            // Some rounds are played one block at a time on purpose.
+            const modeCap = this.modes ? this.modes.maxFill() : Infinity;
+            if (volume > modeCap) {
+                this.showToast(modeCap === 1
+                    ? 'One block at a time this round'
+                    : `Only ${modeCap} blocks at a time this round`, 'warning', 2200);
                 return 0;
             }
 
@@ -2818,8 +3082,12 @@
 
             const edit = from.pop();
             const inverse = this._inverseOf(edit);
+            const emptied = this._physicsOn() ? this._cellsRemovedBy(edit) : null;
             this._applyEdit(edit);
             this._updateBlockCount();
+            // Undoing is removing: whatever those cells held up is unsupported
+            // now, exactly as if they had been erased by hand.
+            if (emptied && emptied.length) this.physics.collapseAround(emptied);
             if (inverse) to.push(inverse);
             this._syncHistoryButtons();
             this._broadcastEdit(edit);
@@ -2926,6 +3194,9 @@
         }
 
         restoreWorldFrom(snap) {
+            // Land anything still falling into the world it came from, before
+            // that world is replaced under it.
+            if (this.physics && this.physics.on && this.isHost()) this.physics.flush();
             if (!snap) return;
             // A snapshot that says nothing about place does not move the world.
             //
@@ -3216,6 +3487,8 @@
             on('geoCalloutPin', 'click', () => this.setWorldMode('earth'));
             on('geoCalloutMore', 'click', () => { this._openWorldModal(); this._syncGeoCallout(); });
             on('geoCalloutHide', 'click', () => {
+                this._geoCalloutOff = true;
+                try { localStorage.setItem('bp_geo_callout_off', '1'); } catch (e) { /* fine */ }
                 const bar = document.getElementById('geoCallout');
                 if (bar) bar.classList.add('hidden');
             });
@@ -3520,6 +3793,10 @@
             // private one, which has no anchor but is still somebody's build.
             if (this.voxels.count()) this._saveWorld();
 
+            // Land anything still falling while this is still the world it
+            // belongs to; after clearAll it would settle into the next region.
+            if (this.physics && this.physics.on) this.physics.flush();
+
             const scale = mpc || (this.geo.anchor && this.geo.anchor.mpc) || 2;
             this.voxels.clearAll();
             this.undoStack.length = 0;
@@ -3540,7 +3817,7 @@
                 this.geo.refresh();
                 this._loadSettlements();
                 this._syncGeoUI();
-                if (this.minimap) this.minimap.draw();
+                if (this.minimap) this.minimap.invalidate();
                 this.paintGround();
                 this._maybeAutoTrace();
             });
@@ -3674,7 +3951,7 @@
                 this._updateBlockCount();
                 this._refreshPlayers();
                 this._syncGeoUI();
-                if (this.minimap) this.minimap.draw();
+                if (this.minimap) this.minimap.invalidate();
             });
             this.voxels.focus(0, 2, 0, 60, Math.PI * 0.3);
             this._syncGeoUI();
@@ -3726,11 +4003,17 @@
                 btn.classList.toggle('active', earth);
                 btn.title = earth
                     ? 'This world is a window onto the Earth — click for a private world'
-                    : 'Private world — click to put it on the Earth, with real ground and sea';
+                    : 'This world is nowhere — click to put it on a real place';
             }
             const bar = document.getElementById('geoCallout');
             if (!bar) return;
-            bar.classList.toggle('hidden', !(this.isHost() && !earth));
+            if (this._geoCalloutOff === undefined) {
+                try { this._geoCalloutOff = localStorage.getItem('bp_geo_callout_off') === '1'; }
+                catch (e) { this._geoCalloutOff = false; }
+            }
+            // Offered once. Dismissing it used to last only until the next state
+            // change; the 🔒 button in the top bar makes the same offer forever.
+            bar.classList.toggle('hidden', this._geoCalloutOff || !(this.isHost() && !earth));
         }
 
         /**
@@ -3750,7 +4033,7 @@
                 this._sendWorldSnapshot();
                 this._scheduleSave();
                 this._syncGeoUI();
-                if (this.minimap) this.minimap.draw();
+                if (this.minimap) this.minimap.invalidate();
                 this.showToast(`World pinned — ${this.geo.span()}m across, ${mpc}m per block`, 'success', 3600);
                 this._syncGeoCallout();
                 this.paintGround();
@@ -3813,7 +4096,7 @@
                 this._refreshPlayers();
                 this._sendWorldSnapshot();
                 this._scheduleSave();
-                if (this.minimap) this.minimap.draw();
+                if (this.minimap) this.minimap.invalidate();
                 const kinds = Object.entries(built.counts || {})
                     .filter(([k]) => k !== 'ground')
                     .sort((a, b) => b[1] - a[1]).slice(0, 3).map(([k]) => k).join(', ');
@@ -3976,7 +4259,7 @@
                     if (!dragging && Math.hypot(e.clientX - downX, e.clientY - downY) > MOVE_THRESHOLD) {
                         dragging = true;
                     }
-                    if (dragging) { this.voxels.hidePreview(); this.voxels.orbit(dx, dy); }
+                    if (dragging) { this.voxels.hidePreview(); this.voxels.hideDoom(); this.voxels.orbit(dx, dy); }
                     lastX = e.clientX; lastY = e.clientY;
                 } else {
                     // Hover: show my own placement ghost + tell the others where I aim
@@ -4039,6 +4322,31 @@
                 this.setPicking(false);
                 if (spot) this.eyedropAt(spot.x, spot.y, spot.z);
                 else this.showToast('Nothing there to pick up', 'info', 1400);
+                this._refreshAim();
+                return;
+            }
+
+            // Copying takes two taps and edits nothing; stamping is one tap
+            // and edits a great deal. Both come before the ordinary tools.
+            if (this.tool === 'copy' && !erase) {
+                const cell = pick.remove || pick.place;
+                if (!cell) return;
+                if (!this.copyAnchor) {
+                    this.copyAnchor = { x: cell.x, y: cell.y, z: cell.z };
+                    this.voxels.showRegion(cell, cell, false);
+                    this.showToast('Now tap the opposite corner — Esc cancels', 'info', 2400);
+                } else {
+                    const n = this.copyRegion(this.copyAnchor, cell);
+                    this.cancelCopy();
+                    if (n) { this.tool = 'stamp'; this.stampTurns = 0; this._syncTool(); }
+                }
+                this._refreshAim();
+                return;
+            }
+
+            if (this.tool === 'stamp' && !erase) {
+                const spot = pick.place || pick.remove;
+                if (spot) this.stampAt(spot.x, spot.y, spot.z);
                 this._refreshAim();
                 return;
             }
@@ -4113,10 +4421,12 @@
             // Painting and the armed eyedropper both act on what is standing,
             // so they aim at the filled cell rather than the empty face in
             // front of it.
-            const onSolid = erasing || this.picking || this.tool === 'knock'
+            const onSolid = erasing || this.picking || this.tool === 'knock' || this.tool === 'copy'
                 || (this.fillAnchor ? this.fillAnchor.paint : this.tool === 'paint');
             const cell = onSolid ? pick && pick.remove : pick && pick.place;
+            if (this.tool !== 'knock') this.voxels.hideDoom();
             if (!cell) {
+                this.voxels.hideDoom();
                 // No valid target (e.g. Erase aimed at empty ground). Tell the
                 // others to drop my cursor, or they keep seeing a stale ghost.
                 this.voxels.hidePreview();
@@ -4140,11 +4450,37 @@
                 this.voxels.hidePiecePreview();
                 this.voxels.showPreview(cell.x, cell.y, cell.z, 0, 0, 'pick');
                 this.voxels.hideLandingShadow();
+            } else if (this.tool === 'stamp' && this.clipboard) {
+                // The whole footprint, so you can see what you are about to
+                // commit rather than discovering it afterwards.
+                const fp = this.stampFootprint();
+                this.voxels.hidePreview();
+                this.voxels.hidePiecePreview();
+                this.voxels.hideLandingShadow();
+                this.voxels.showRegion(cell,
+                    { x: cell.x + fp.w - 1, y: cell.y + fp.h - 1, z: cell.z + fp.d - 1 }, false);
+                const hint = document.getElementById('fillHint');
+                if (hint) hint.textContent = `${fp.w} × ${fp.h} × ${fp.d} — tap to stamp, R turns it`;
+                this._sendCursor({ x: cell.x, y: cell.y, z: cell.z });
+                return;
+            } else if (this.tool === 'copy' && this.copyAnchor) {
+                this.voxels.hidePreview();
+                this.voxels.hidePiecePreview();
+                this.voxels.hideLandingShadow();
+                const n = this.voxels.showRegion(this.copyAnchor, cell, false);
+                const hint = document.getElementById('fillHint');
+                if (hint) hint.textContent = `${n} cell${n === 1 ? '' : 's'} — tap to copy`;
+                this._sendCursor({ x: cell.x, y: cell.y, z: cell.z });
+                return;
             } else if (this.tool === 'knock') {
-                // Ring what is about to be hit, in the colour of a blow.
+                // Ring what is about to be hit, in the colour of a blow — and
+                // show everything that would come down with it, so aiming low
+                // at a tower is a decision rather than a guess.
                 this.voxels.hidePiecePreview();
                 this.voxels.showPreview(cell.x, cell.y, cell.z, 0, 0, 'erase');
                 this.voxels.hideLandingShadow();
+                this.voxels.showDoom(this.physics && this.physics.on
+                    ? this.physics.previewKnock(cell.x, cell.y, cell.z) : null);
             } else if (this.tool === 'paint') {
                 // Show the block wearing the new colour, in place, rather than
                 // a ghost floating in front of it.
@@ -4275,6 +4611,17 @@
             if (paint) paint.addEventListener('click', () => pickTool('paint'));
             const knock = document.getElementById('toolKnock');
             if (knock) knock.addEventListener('click', () => pickTool('knock'));
+            const copyBtn = document.getElementById('toolCopy');
+            if (copyBtn) copyBtn.addEventListener('click', () => {
+                this.cancelCopy();
+                pickTool('copy');
+                this.showToast('Copy: tap two opposite corners', 'info', 2200);
+            });
+            const stampBtn = document.getElementById('toolStamp');
+            if (stampBtn) stampBtn.addEventListener('click', () => {
+                if (!this.clipboard) { this.showToast('Copy something first', 'info', 1600); return; }
+                pickTool('stamp');
+            });
             const drop = document.getElementById('toolDrop');
             if (drop) drop.addEventListener('click', () => pickTool('drop'));
             const pick = document.getElementById('toolPick');
@@ -4314,10 +4661,15 @@
             window.addEventListener('keydown', (e) => {
                 if (e.target && /^(INPUT|TEXTAREA|SELECT)$/.test(e.target.tagName)) return;
                 const k = e.key.toLowerCase();
-                if (k === 'escape') { this.cancelFill(); this.stopFollowing(); this._cancelDrop(); this.setPicking(false); }
+                if (k === 'escape') { this.cancelFill(); this.cancelCopy(); this.stopFollowing(); this._cancelDrop(); this.setPicking(false); }
                 else if (k === 'b') { this.tool = 'build'; this.setPicking(false); this._syncTool(); this._refreshAim(); }
                 else if (k === 'e') { this.tool = 'erase'; this.setPicking(false); this._syncTool(); this._refreshAim(); }
                 else if (k === 'p') { this.tool = 'paint'; this.setPicking(false); this._syncTool(); this._refreshAim(); }
+                else if (k === 'c') { this.cancelCopy(); this.tool = 'copy'; this.setPicking(false); this._syncTool(); this._refreshAim(); }
+                else if (k === 'x') {
+                    if (this.clipboard) { this.tool = 'stamp'; this.setPicking(false); this._syncTool(); this._refreshAim(); }
+                    else this.showToast('Copy something first', 'info', 1600);
+                }
                 else if (k === 'i') { this.togglePicking(); }
                 else if (k === 'f') { this.toggleFill(); }
                 else if (k === 'm') { this.toggleMirror(); }
@@ -4325,9 +4677,11 @@
                 else if (k === 'z') { e.shiftKey ? this.redo() : this.undo(); }
                 else if (k === 'y') { this.redo(); }
                 else if (k === 'r') {
-                    // R is rotate while bricks are on, where it is the more
-                    // useful key by far; V always resets the view.
-                    if (this.brickMode) this.rotateBrick();
+                    // R turns whatever is currently in hand: the stamp while
+                    // one is armed, otherwise the brick. V always resets the
+                    // view, so nothing is unreachable.
+                    if (this.tool === 'stamp' && this.clipboard) this.rotateStamp();
+                    else if (this.brickMode) this.rotateBrick();
                     else { this.stopFollowing(); this.voxels.resetView(); }
                 }
                 else if (k === 'v') { this.stopFollowing(); this.voxels.resetView(); }
@@ -4499,9 +4853,19 @@
             if (this.physics.on === !!on) { this._syncPhysicsUI(); return; }
             // A guest keeps the flag but never runs a world: `setEnabled` is
             // what builds one, and only the host needs it.
-            if (this.isHost() && !remote) this.physics.setEnabled(on);
-            else if (this.isHost()) this.physics.setEnabled(on);
-            else { this.physics.on = !!on; if (!on) this.physics.clearAll(); }
+            if (this.isHost()) {
+                if (!on) this.physics.flush();   // land what is in the air first
+                this.physics.setEnabled(on);
+            } else {
+                this.physics.on = !!on;
+                if (!on) this.physics.clearAll();
+                // Guests were given the tools with no explanation.
+                if (remote) {
+                    this.showToast(on
+                        ? 'The host turned physics on — try Knock and Drop'
+                        : 'The host turned physics off', 'info', 2600);
+                }
+            }
             this._syncPhysicsUI();
         }
 
@@ -4524,6 +4888,7 @@
                 if (el) el.classList.toggle('hidden', !on);
             });
             // The tools go away with the mode, so nobody is left holding one.
+            this.voxels.hideDoom();
             if (!on && (this.tool === 'knock' || this.tool === 'drop')) {
                 this.tool = 'build';
                 this._syncTool();
@@ -4536,17 +4901,45 @@
          * host would check for an edit is checked here too — this is a way of
          * changing the world, so it obeys the same rules.
          */
-        _hostPhysicsRequest(msg) {
+        /**
+         * A player asking the host to hit or drop something.
+         *
+         * This runs on the host, so `_canEditCell` alone is not the check it
+         * looks like: the lock deliberately exempts the host, and a request is
+         * not the host acting. Everything a client could choose has to be
+         * bounded here, because a client can send this message by hand.
+         */
+        _hostPhysicsRequest(msg, peerId) {
             if (!this.physics.on || !msg) return;
+            if (this.worldLocked) return;
+            // A match normally suspends physics entirely — except the one whose
+            // whole point is knocking things over.
+            if (this.modes && this.modes.isMatchActive() && !this.modes.physicsAllowed()) return;
+
             const x = msg.x | 0, y = msg.y | 0, z = msg.z | 0;
             if (!this.voxels.inBounds(x, y, z)) return;
             if (!this._canEditCell(x, y, z, true)) return;
+
+            // The sender is who the data channel says it is, not who the
+            // payload claims — ownership drives x-ray and per-player counts.
+            const by = peerId || null;
+
             if (msg.k === 'knock') {
-                this.physics.knock(x, y, z, { x: msg.dx || 0, z: msg.dz || 0 }, msg.p);
+                const power = Math.max(0, Math.min(14, Number(msg.p) || 0));
+                const dx = Math.max(-1, Math.min(1, Number(msg.dx) || 0));
+                const dz = Math.max(-1, Math.min(1, Number(msg.dz) || 0));
+                // Worked out before the blow, because afterwards the cells are
+                // props and their owners are gone: only town blocks score.
+                const worth = this.modes ? this.modes.demolitionValue(x, y, z) : 0;
+                this.physics.knock(x, y, z, { x: dx, z: dz }, power);
+                if (this.modes) this.modes.creditDemolition(by, worth);
             } else if (msg.k === 'drop') {
+                const w = Math.max(1, Math.min(8, msg.w | 0 || 1));
+                const d = Math.max(1, Math.min(8, msg.d | 0 || 1));
+                const c = Number.isFinite(msg.c) ? (msg.c | 0) : 0;
                 this.physics.spawn({
-                    x, y, z, w: msg.w || 1, d: msg.d || 1, c: msg.c, brick: !!msg.brick,
-                    owner: msg.by || null, impulse: { x: 0, y: -1, z: 0 }
+                    x, y, z, w, d, c, brick: !!msg.brick,
+                    owner: by, impulse: { x: 0, y: -1, z: 0 }
                 });
             }
         }
@@ -4562,7 +4955,11 @@
             const len = Math.hypot(dx, dz) || 1;
             const dir = { x: dx / len, z: dz / len };
             if (this.isHost()) {
+                const worth = this.modes ? this.modes.demolitionValue(x, y, z) : 0;
                 const n = this.physics.knock(x, y, z, dir, 10);
+                // The host swings for itself, so it credits itself the same way
+                // it credits everyone else.
+                if (this.modes) this.modes.creditDemolition(this.username, worth);
                 if (!n) this.showToast('Nothing to hit there', 'info', 1200);
             } else {
                 this.sendToHost({ type: 'phys', k: 'knock', x, y, z, dx: dir.x, dz: dir.z, p: 10 });
@@ -5224,6 +5621,11 @@
             set('toolPick', this.picking);
             set('toolKnock', this.tool === 'knock');
             set('toolDrop', this.tool === 'drop');
+            set('toolCopy', this.tool === 'copy');
+            set('toolStamp', this.tool === 'stamp');
+            // Stamping is meaningless with an empty clipboard.
+            const stamp = document.getElementById('toolStamp');
+            if (stamp) stamp.classList.toggle('disabled', !this.clipboard);
             set('toolFill', this.fillMode);
             set('toolMirror', this.mirror);
             set('toolBricks', this.brickMode);
@@ -5285,7 +5687,11 @@
             const counts = this.voxels ? this.voxels.countsByOwner() : new Map();
             // Builders who have since left still own standing blocks — keep them
             // listed (dimmed) so the world's block tally always adds up.
-            const names = Array.from(new Set([...online, ...counts.keys()]));
+            // '*' is the shared-arena owner (a match's own scenery), not a
+            // person — it was being listed as a player who had left, holding
+            // every block of a Demolition Party town.
+            const names = Array.from(new Set([...online, ...counts.keys()]))
+                .filter(n => n && n !== '*');
             const hostName = this._hostName();
 
             list.innerHTML = names.map(name => {

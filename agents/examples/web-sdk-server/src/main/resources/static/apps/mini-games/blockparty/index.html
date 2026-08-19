@@ -44,7 +44,7 @@
             <span id="geoReadout" class="pill geo-readout hidden" title="Where the pointer is in the real world"></span>
             <span id="connectionIndicator" class="indicator disconnected" title="Connection">●</span>
             <button id="soundBtn" class="btn btn-icon active" title="Sound">🔊</button>
-            <button id="modeBtn" class="btn btn-icon" title="Private world — click to put it on the Earth, with real ground and sea">🔒</button>
+            <button id="modeBtn" class="btn btn-icon" title="This world is nowhere — click to put it on a real place">🔒</button>
             <button id="mapBtn" class="btn btn-icon" title="Minimap (N)">🗺</button>
             <button id="fpsBtn" class="btn btn-icon" title="Walk around in first person (G)">🚶</button>
             <button id="xrayBtn" class="btn btn-icon" title="Show who built what (O)">🎨</button>
@@ -71,6 +71,8 @@
             <button id="toolKnock" class="tool-btn hidden" data-tool="knock" title="Knock it over — the block flies and whatever it held up comes down">🥊<span>Knock</span></button>
             <button id="toolDrop" class="tool-btn hidden" data-tool="drop" title="Drop the current piece from above and let it land">🪂<span>Drop</span></button>
             <button id="toolFill" class="tool-btn" title="Box fill — tap two opposite corners (F)">⬛<span>Fill</span></button>
+            <button id="toolCopy" class="tool-btn" data-tool="copy" title="Copy a box of the world — tap two opposite corners (C)">✂️<span>Copy</span></button>
+            <button id="toolStamp" class="tool-btn disabled" data-tool="stamp" title="Stamp what you copied — R turns it (X)">🖨<span>Stamp</span></button>
             <button id="toolMirror" class="tool-btn" title="Mirror every edit across the middle (M)">🪞<span>Mirror</span></button>
             <button id="toolBricks" class="tool-btn active" title="Build with brick pieces (K)">🧩<span>Bricks</span></button>
             <button id="rotateBtn" class="tool-btn" title="Rotate the brick (R)">🔄<span>Rotate</span></button>
@@ -88,7 +90,7 @@
 
     <!-- Help hint -->
     <div id="helpHint" class="help-hint">
-        <span class="hint-text"><strong>Drag</strong> to orbit · <strong>Scroll / pinch</strong> to zoom · <strong>Tap/click</strong> to build · <strong>Right-click</strong> to remove · <strong>R</strong> rotates the brick · <strong>F</strong> box fill · <strong>P</strong> repaint · <strong>Alt-click</strong> takes a colour · <strong>M</strong> mirror · <strong>V</strong> resets the view</span>
+        <span class="hint-text"><strong>Drag</strong> to orbit · <strong>Scroll / pinch</strong> to zoom · <strong>Tap/click</strong> to build · <strong>Right-click</strong> to remove · <strong>R</strong> rotates the brick · <strong>F</strong> box fill · <strong>P</strong> repaint · <strong>C</strong> copy · <strong>X</strong> stamp · <strong>Alt-click</strong> takes a colour · <strong>M</strong> mirror · <strong>V</strong> resets the view</span>
         <button id="dismissHelp" class="dismiss" aria-label="Dismiss">✕</button>
     </div>
 
@@ -104,8 +106,8 @@
 
     <!-- Standing offer to put this world on the Earth, when it is not yet -->
     <div id="geoCallout" class="geo-callout hidden">
-        <span class="geo-callout-text">🔒 This is a private world. Put it on the Earth for real ground and sea — or stay here, off the map.</span>
-        <button id="geoCalloutPin" class="btn btn-primary">🌍 Put it on the Earth</button>
+        <span class="geo-callout-text"><strong>This world is nowhere in particular.</strong> Put it on a real place and the ground becomes that place — its coastline, its sea, its streets on the map. Or stay here, off the map.</span>
+        <button id="geoCalloutPin" class="btn btn-primary">🌍 Use my location</button>
         <button id="geoCalloutMore" class="btn btn-ghost">Pick a place</button>
         <button id="geoCalloutHide" class="bp-close" aria-label="Dismiss">✕</button>
     </div>
