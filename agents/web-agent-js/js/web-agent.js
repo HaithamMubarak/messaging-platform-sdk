@@ -826,6 +826,17 @@
         this._websocket = null;
         this._websocketConnected = false;
         this._websocketReconnectAttempts = 0;
+        // How many times the socket quietly tries to come back on its own
+        // before it admits defeat and tells the page. Settable so a test can
+        // reach the giving-up path without waiting a minute for it.
+        this._wsMaxReconnectAttempts = 5;
+        this._connectionLostDispatched = false;
+        // Heartbeat. See _startHeartbeat: a socket can stay open and carry
+        // nothing, and that is the failure a phone actually has.
+        this._wsHeartbeatMs = 15000;
+        this._wsHeartbeatGraceMs = 20000;
+        this._wsHeartbeatTimer = null;
+        this._lastPongAt = 0;
         this._websocketMessageCallbacks = new Map();
         this._websocketMessageId = 0;
 
@@ -908,6 +919,8 @@
                 console.log('[WebSocket] Connected');
                 _self._websocketConnected = true;
                 _self._websocketReconnectAttempts = 0;
+                _self._connectionLostDispatched = false;
+                _self._startHeartbeat();
 
                 // Subscribe to receive messages for this session
                 _self._websocketSubscribe();
@@ -933,16 +946,7 @@
 
             _self._websocket.onclose = function(event) {
                 console.log('[WebSocket] Disconnected:', event.code, event.reason);
-                _self._websocketConnected = false;
-                _self._websocket = null;
-
-                // Attempt reconnect if still connected to channel
-                if (_self.readyState && _self._websocketReconnectAttempts < 5) {
-                    _self._websocketReconnectAttempts++;
-                    const delay = Math.min(1000 * Math.pow(2, _self._websocketReconnectAttempts), 30000);
-                    console.log(`[WebSocket] Reconnecting in ${delay}ms (attempt ${_self._websocketReconnectAttempts})`);
-                    setTimeout(() => _self._connectWebSocket(), delay);
-                }
+                _self._socketGone(event && event.reason);
             };
 
             _self._websocket.onerror = function(error) {
@@ -950,6 +954,111 @@
             };
         } catch (e) {
             console.error('[WebSocket] Failed to connect:', e);
+        }
+    };
+
+    /**
+     * The socket is not there any more, however we found out.
+     *
+     * Reached from onclose and from the heartbeat, because those are two
+     * genuinely different events: a socket that closes tells us, and a socket
+     * that dies does not. Either way this runs once — a close event arriving
+     * late, after the heartbeat has already given up on the same socket, must
+     * not start a second ladder of attempts.
+     *
+     * @private
+     */
+    AgentConnection.prototype._socketGone = function(why) {
+        const _self = this;
+
+        _self._stopHeartbeat();
+        _self._websocketConnected = false;
+        if (_self._websocket) {
+            try { _self._websocket.onclose = null; _self._websocket.close(); } catch (e) { /* already gone */ }
+            _self._websocket = null;
+        }
+
+        // Not our channel any more: nothing to come back to.
+        if (!_self.readyState) return;
+
+        if (_self._websocketReconnectAttempts < _self._wsMaxReconnectAttempts) {
+            _self._websocketReconnectAttempts++;
+            const delay = Math.min(1000 * Math.pow(2, _self._websocketReconnectAttempts), 30000);
+            console.log(`[WebSocket] Reconnecting in ${delay}ms (attempt ${_self._websocketReconnectAttempts})`);
+            setTimeout(() => _self._connectWebSocket(), delay);
+            return;
+        }
+
+        // Out of attempts while the channel still believes it is up.
+        //
+        // This used to be where the story ended: the socket stopped trying and
+        // said nothing, so the page went on showing "connected" for a session
+        // that no longer existed. Every app built on this became a zombie
+        // after a tunnel, a sleeping laptop or a phone whose browser
+        // backgrounded the tab. The page is told now, and can decide to rejoin.
+        if (!_self._connectionLostDispatched) {
+            _self._connectionLostDispatched = true;
+            console.warn('[WebSocket] Giving up after '
+                + _self._websocketReconnectAttempts + ' attempts; telling the page'
+                + (why ? ' (' + why + ')' : ''));
+            _self.dispatchEvent('connection-lost', {
+                reason: 'websocket',
+                attempts: _self._websocketReconnectAttempts,
+                timestamp: Date.now()
+            });
+        }
+    };
+
+    /**
+     * Keep asking the socket whether it is still there.
+     *
+     * A closed socket announces itself; a *dead* one does not. Lose signal in a
+     * tunnel, sleep the laptop, walk out of range: the connection stops
+     * carrying anything while the browser goes on reporting it as OPEN, so
+     * onclose never fires and nothing anywhere notices. That is not the rare
+     * case — it is what losing a connection on a phone looks like.
+     *
+     * So the client pings, and the server has always answered pong; nobody was
+     * asking. If the answers stop for longer than the grace period the socket
+     * is closed deliberately, which puts it back on the ordinary reconnect
+     * path and, if that fails too, ends in the page being told.
+     *
+     * @private
+     */
+    AgentConnection.prototype._startHeartbeat = function() {
+        const _self = this;
+        _self._stopHeartbeat();
+        _self._lastPongAt = Date.now();
+
+        _self._wsHeartbeatTimer = setInterval(function() {
+            if (!_self._websocket || _self._websocket.readyState !== WebSocket.OPEN) return;
+
+            const silence = Date.now() - _self._lastPongAt;
+            if (silence > _self._wsHeartbeatGraceMs) {
+                // Closing it is not enough to be told about it: a close
+                // handshake on a network that is no longer there never
+                // completes, so onclose may never fire. This declares it.
+                console.warn('[WebSocket] No answer for ' + silence + 'ms — the socket is open but dead');
+                _self._socketGone('heartbeat timeout');
+                return;
+            }
+
+            try {
+                _self._websocket.send(JSON.stringify({
+                    action: 'ping',
+                    sessionId: _self.sessionId
+                }));
+            } catch (e) {
+                console.warn('[WebSocket] Heartbeat could not be sent:', e && e.message);
+            }
+        }, _self._wsHeartbeatMs);
+    };
+
+    /** @private */
+    AgentConnection.prototype._stopHeartbeat = function() {
+        if (this._wsHeartbeatTimer) {
+            clearInterval(this._wsHeartbeatTimer);
+            this._wsHeartbeatTimer = null;
         }
     };
 
@@ -1012,7 +1121,9 @@
                 break;
 
             case 'pong':
-                // Heartbeat response
+                // Heartbeat response — proof the socket is carrying traffic in
+                // both directions, which is the only thing that proves it.
+                _self._lastPongAt = Date.now();
                 break;
 
             case 'error':
@@ -1361,7 +1472,8 @@
         const _self = this;
 
         if (_self._websocket) {
-            _self._websocketReconnectAttempts = 5; // Prevent reconnect
+            _self._stopHeartbeat();
+            _self._websocketReconnectAttempts = _self._wsMaxReconnectAttempts; // Prevent reconnect
             _self._websocket.close();
             _self._websocket = null;
             _self._websocketConnected = false;

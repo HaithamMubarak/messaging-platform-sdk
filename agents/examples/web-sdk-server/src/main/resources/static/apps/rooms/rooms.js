@@ -54,9 +54,70 @@
 
         // ---- lifecycle -------------------------------------------------------
 
+        /**
+         * Attach to the media helper.
+         *
+         * Called on every join, including the automatic one after a
+         * connection drops — a reconnect builds a fresh helper, and a room
+         * that subscribed once at startup would come back deaf and blind
+         * while insisting it was fine.
+         *
+         * The event is `remote-stream`. Listening for anything else is a room
+         * where nobody ever appears and nothing says why.
+         */
+        onWebrtcHelperReady(helper) {
+            var self = this;
+            helper.on('remote-stream', function (streamId, stream, from) {
+                self.accept(streamId, stream, from);
+            });
+            helper.on('connection-state', function (streamId, state) {
+                if (state === 'failed' || state === 'closed') self._forget(streamId);
+            });
+        }
+
+        /** Everything about other people's media belongs to the old session. */
+        _resetMedia() {
+            var self = this;
+            this.published.forEach(function (byPeer) { byPeer.clear(); });
+            this.incoming.forEach(function (rec, id) { self._close(id); });
+            this.incoming.clear();
+            this.kindOf.clear();
+            this.parked.clear();
+            this.state.clear();
+            this.speaking.clear();
+            if (this.ears) { this.ears.forEach(function (el) { el.remove(); }); this.ears.clear(); }
+            if (this.meters) this.meters.clear();
+            this.tiles = {};
+        }
+
+        onReconnecting(attempt, waitMs) {
+            this._status('busy', 'Reconnecting…');
+            if (attempt === 1) this.note('Connection lost — trying to get back in', 'leave');
+            void waitMs;
+        }
+
+        onReconnected() {
+            UI.toast('Back in ' + this.channelName, 'success');
+            this.note('Reconnected', 'join');
+            // What I am sending has to be offered again over the new session;
+            // what they were sending arrives again when they notice me rejoin.
+            var self = this;
+            this._peers().forEach(function (p) { self._offerAllTo(p); });
+        }
+
+        onReconnectFailed() {
+            this._status('off', 'Disconnected');
+            this.note('Could not get back into the room. Reload to try again.', 'leave');
+            UI.toast('Could not reconnect', 'error', 6000);
+        }
+
         onConnect() {
-            UI.toast('Joined ' + this.channelName, 'success');
-            this.note('You joined ' + this.channelName, 'join');
+            var rejoined = this.messages.length > 0;
+            if (rejoined) this._resetMedia();
+            else {
+                UI.toast('Joined ' + this.channelName, 'success');
+                this.note('You joined ' + this.channelName, 'join');
+            }
             this.known = this._names();
             this._watchRoster();
             this._watchStats();
@@ -65,11 +126,17 @@
             this._loadDevices();
         }
 
-        onDisconnect() {
+        onDisconnect(detail) {
             clearInterval(this._rosterTimer);
             clearInterval(this._statsTimer);
             clearInterval(this._levelTimer);
             this._levelTimer = null;
+            // A drop is not a departure: the room says so and the rejoin
+            // reports itself, rather than claiming you left.
+            if (detail && detail.reason) {
+                this._status('busy', 'Reconnecting…');
+                return;
+            }
             this._status('off', 'Disconnected');
             this.note('You left the room');
         }
@@ -1105,17 +1172,6 @@
             window.roomsApp = app;
             await app.connect({ username: username, channelName: channel, channelPassword: password });
             app.start();
-
-            if (app.webrtcHelper && app.webrtcHelper.on) {
-                // The helper's event is `remote-stream`. Listening for anything
-                // else is a room where nobody ever appears and nothing says why.
-                app.webrtcHelper.on('remote-stream', function (streamId, stream, from) {
-                    app.accept(streamId, stream, from);
-                });
-                app.webrtcHelper.on('connection-state', function (streamId, state) {
-                    if (state === 'failed' || state === 'closed') app._forget(streamId);
-                });
-            }
 
             document.getElementById('roomName').textContent = channel;
             if (window.ConnectionModal && window.ConnectionModal.hide) window.ConnectionModal.hide();
