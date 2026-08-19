@@ -39,30 +39,50 @@
     </div>
 </header>
 
-<div class="notice" id="noStream" hidden>
-    <svg class="icon icon--sm" aria-hidden="true"><use href="#i-alert-triangle"></use></svg>
-    <span class="notice__text">Checking whether streaming is available…</span>
-</div>
-
 <main class="sdk-stage">
     <div class="sdk-main">
         <section class="stage" id="stage" aria-label="Shared screen"></section>
 
         <div class="controls">
-            <button class="btn" id="micBtn" type="button">
-                <svg class="icon icon--sm" aria-hidden="true"><use href="#i-activity"></use></svg>
+            <button class="btn" id="micBtn" type="button" title="Microphone (M)">
+                <svg class="icon icon--sm" aria-hidden="true"><use href="#i-mic-off"></use></svg>
                 <span>Unmute</span>
             </button>
-            <button class="btn" id="camBtn" type="button">
-                <svg class="icon icon--sm" aria-hidden="true"><use href="#i-video"></use></svg>
+            <button class="btn" id="camBtn" type="button" title="Camera (V)">
+                <svg class="icon icon--sm" aria-hidden="true"><use href="#i-video-off"></use></svg>
                 <span>Camera</span>
             </button>
-            <button class="btn" id="shareScreenBtn" type="button">
-                <svg class="icon icon--sm" aria-hidden="true"><use href="#i-dashboard"></use></svg>
+            <button class="btn" id="shareScreenBtn" type="button" title="Share your screen (S)">
+                <svg class="icon icon--sm" aria-hidden="true"><use href="#i-monitor"></use></svg>
                 <span>Share screen</span>
             </button>
+
+            <div class="controls__menu">
+                <button class="btn btn--icon" id="gearBtn" type="button" aria-label="Camera and microphone">
+                    <svg class="icon icon--sm" aria-hidden="true"><use href="#i-settings"></use></svg>
+                </button>
+                <div class="menu" id="deviceMenu" hidden>
+                    <label class="menu__row">
+                        <span class="menu__label">Camera</span>
+                        <select class="menu__select" id="camPick" disabled></select>
+                    </label>
+                    <label class="menu__row">
+                        <span class="menu__label">Microphone</span>
+                        <select class="menu__select" id="micPick" disabled></select>
+                    </label>
+                    <p class="menu__note">Device names appear once you allow access.</p>
+                </div>
+            </div>
+
+            <button class="btn btn--icon" id="viewBtn" type="button" title="Show everyone (G)" aria-label="Show everyone">
+                <svg class="icon icon--sm" aria-hidden="true"><use href="#i-grid"></use></svg>
+            </button>
+
             <span class="controls__stats" id="connStats">0 peers</span>
-            <button class="btn btn--danger" id="leaveBtn" type="button">Leave</button>
+            <button class="btn btn--danger" id="leaveBtn" type="button">
+                <svg class="icon icon--sm" aria-hidden="true"><use href="#i-log-out"></use></svg>
+                <span>Leave</span>
+            </button>
         </div>
     </div>
 

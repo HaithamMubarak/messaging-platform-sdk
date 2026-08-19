@@ -1,85 +1,112 @@
 /**
  * Rooms — camera, microphone and screen share in a shared channel.
  *
- * The primitive on show is **WebRTC streaming**. Nothing else in the playground
- * used `WebRtcHelper`, so a visitor could tour the whole site without learning
- * the platform carries media at all.
+ * The primitive on show is **WebRTC streaming**, and the shape of it is worth
+ * reading the code for: the media never touches the channel. Streams go peer
+ * to peer and the channel carries only the small facts a room needs — who is
+ * here, who has what switched on, and which stream is a camera and which is a
+ * screen. That is why a room of four costs the same in messages as a room of
+ * two.
  *
- * What goes where matters here, and it is the thing worth reading the code for:
- * the **media never touches the channel**. Streams are negotiated peer to peer
- * and the channel carries only the small facts a room needs — who is here, who
- * has their camera on, and who is presenting. That is why a room of four costs
- * the same in messages as a room of two.
+ * It is a **mesh**: every publisher offers its own stream to every other
+ * member, one peer connection each way. Two reasons, both load-bearing:
  *
- * Live streaming needs a relay agent on the deployment. Where there is none,
- * this says so plainly and stays usable as a presence room rather than
- * pretending the camera is broken.
+ *  - The answering side of the SDK is receive-only. It never attaches its own
+ *    tracks to somebody else's offer, so a two-way conversation is two offers,
+ *    not one negotiation.
+ *  - `startStreamBroadcast` wants a relay agent on the deployment and most
+ *    deployments have none, which is a room where the camera button does
+ *    nothing and no message says why. `createStreamOffer` needs nothing but
+ *    the channel to signal over, so a room works anywhere the SDK does.
+ *
+ * A mesh costs one upload per viewer, which is fine for the handful of people
+ * a room like this holds and is why the size is capped rather than left to
+ * discover itself.
  */
 (function () {
     'use strict';
+
+    var MESH_LIMIT = 8;          // past this a mesh is unkind to the uplink
+    var SPEAK_LEVEL = 0.05;      // RMS above which somebody is talking
+    var SPEAK_HOLD_MS = 800;     // how long the ring stays after they stop
 
     class Rooms extends UserConnectionBase {
         constructor() {
             super({
                 storagePrefix: 'rooms_',
                 customType: 'rooms',
-                autoCreateDataChannel: false,   // media rides WebRTC, not the data channel
-                enableWebrtcRelay: true
+                autoCreateDataChannel: false   // media is WebRTC; facts are the channel
             });
 
-            this.localStream = null;
-            this.screenStream = null;
-            this.remote = new Map();      // agentName -> { stream, cam, mic }
-            this.state = new Map();       // agentName -> { cam, mic, presenting }
-            this.presenter = null;
-            this.streaming = false;       // is live streaming available at all
+            this.cam = null;             // my camera + microphone
+            this.screen = null;          // my screen share
+            this.published = new Map();  // kind -> Map(peer -> streamId)
+            this.incoming = new Map();   // streamId -> { from, kind, stream }
+            this.kindOf = new Map();     // streamId -> kind, learned from announcements
+            this.parked = new Map();     // streamId -> media that arrived before its label
+            this.state = new Map();      // peer -> { mic, camOn, sharing }
+            this.speaking = new Map();   // name -> when they were last heard
+            this.messages = [];
+            this.known = [];
+            this.devices = { cams: [], mics: [], cam: null, mic: null };
+            this.view = 'auto';          // 'auto' follows the presenter; 'grid' shows everyone
         }
 
         // ---- lifecycle -------------------------------------------------------
 
-        async onConnect() {
+        onConnect() {
             UI.toast('Joined ' + this.channelName, 'success');
             this.note('You joined ' + this.channelName, 'join');
-            this.known = (this.getUserList() || []).map(function (u) { return u.name; });
+            this.known = this._names();
             this._watchRoster();
             this._watchStats();
-            this._sync();
             this._announce();
-            await this._checkStreamingAvailable();
+            this._sync();
+            this._loadDevices();
         }
 
         onDisconnect() {
             clearInterval(this._rosterTimer);
             clearInterval(this._statsTimer);
+            clearInterval(this._levelTimer);
+            this._levelTimer = null;
             this._status('off', 'Disconnected');
             this.note('You left the room');
         }
 
-        onUserJoin(detail) { this._roster(detail); this._announce(); }
-        onUserJoining(detail) { this._roster(detail); }
+        onUserJoin() { this._roster(); }
+        onUserJoining() { this._roster(); }
+        onUserLeave() { this._roster(); }
+
+        _names() { return (this.getUserList() || []).map(function (u) { return u.name; }); }
+
+        _peers() {
+            var me = this.username;
+            return this._names().filter(function (n) { return n !== me; });
+        }
 
         /**
-         * Reconcile the member list against the channel and say what changed.
+         * Reconcile the member list and say what changed.
          *
-         * Driven from a watcher as well as the join event: the event does not
-         * always arrive before the roster updates, and a member list that is
-         * occasionally a person short is worse than no member list at all.
+         * Watched on a timer as well as listened for: the join event does not
+         * reliably arrive before the roster updates, and a member list that is
+         * occasionally a person short is worse than none at all.
          */
         _roster() {
-            var now = (this.getUserList() || []).map(function (u) { return u.name; });
-            var was = this.known || [];
-            var self = this;
+            var now = this._names(), was = this.known || [], self = this;
 
             now.forEach(function (n) {
-                if (n !== self.username && was.indexOf(n) === -1) self.note(n + ' joined', 'join');
+                if (n === self.username || was.indexOf(n) !== -1) return;
+                self.note(n + ' joined', 'join');
+                // Somebody arriving can only see me if I offer to them, and
+                // they have no way to know what I already have switched on.
+                self._offerAllTo(n);
+                self._announce();
             });
             was.forEach(function (n) {
-                if (n !== self.username && now.indexOf(n) === -1) {
-                    self.remote.delete(n);
-                    self.state.delete(n);
-                    if (self.presenter === n) { self.presenter = null; self.screenOf = null; }
-                    self.note(n + ' left', 'leave');
-                }
+                if (n === self.username || now.indexOf(n) !== -1) return;
+                self._dropPeer(n);
+                self.note(n + ' left', 'leave');
             });
 
             this.known = now;
@@ -89,161 +116,53 @@
         _watchRoster() {
             var self = this;
             clearInterval(this._rosterTimer);
+            var tick = 0;
             this._rosterTimer = setInterval(function () {
                 if (!self.connected) return;
-                var now = (self.getUserList() || []).map(function (u) { return u.name; }).join('|');
-                if (now !== (self.known || []).join('|')) self._roster();
+                if (self._names().join('|') !== (self.known || []).join('|')) self._roster();
+                if (++tick % 4 === 0) self._announce();     // slow heartbeat, ~6s
             }, 1500);
         }
 
-        onUserLeave() { this._roster(); }
-
-        /** Chat sent by the platform's own chat type, if anything uses it. */
-        onChat(detail) {
-            if (!detail) return;
-            var from = detail.from || detail.agentName || 'someone';
-            if (from === this.username) return;   // ours was shown when we sent it
-            this.say(from, detail.message || detail.content || '');
-        }
-
-        // ---- the room log: chat and what happened ---------------------------
-
-        /** A line of chat from somebody. */
-        say(from, text) {
-            text = String(text || '').trim();
-            if (!text) return;
-            this._log({ kind: 'chat', from: from, text: text.slice(0, 800), at: Date.now() });
-        }
-
-        /** A thing that happened, rather than a thing somebody said. */
-        note(text, kind) {
-            this._log({ kind: kind || 'note', text: text, at: Date.now() });
-        }
-
-        _log(entry) {
-            this.messages = this.messages || [];
-            this.messages.push(entry);
-            if (this.messages.length > 300) this.messages.shift();
-            this.renderChat();
-        }
-
-        send(text) {
-            text = String(text || '').trim();
-            if (!text) return;
-            this.say(this.username, text);
-            this._say({ type: 'chat', by: this.username, text: text });
-        }
-
-        renderChat() {
-            var host = document.getElementById('log');
-            if (!host) return;
+        _dropPeer(name) {
             var self = this;
-            var rows = (this.messages || []).map(function (m) {
-                if (m.kind !== 'chat') {
-                    return UI.el('div', { class: 'ev ev--' + m.kind }, [
-                        UI.iconNode(m.kind === 'leave' ? 'log-out' : m.kind === 'share' ? 'dashboard' : 'users', 'icon--sm'),
-                        UI.el('span', {}, m.text)
-                    ]);
-                }
-                return UI.el('div', { class: 'msg' }, [
-                    UI.el('span', {
-                        class: 'avatar msg__who',
-                        style: 'background:' + self.generateUserColor(m.from)
-                    }, initials(m.from)),
-                    UI.el('div', { class: 'msg__body' }, [
-                        UI.el('span', { class: 'msg__head' }, [
-                            UI.el('span', { class: 'msg__name' }, m.from),
-                            UI.el('span', { class: 'msg__time' }, time(m.at))
-                        ]),
-                        UI.el('p', { class: 'msg__text' }, m.text)
-                    ])
-                ]);
+            this.published.forEach(function (byPeer) {
+                var id = byPeer.get(name);
+                if (id) { self._close(id); byPeer.delete(name); }
             });
-            host.replaceChildren.apply(host, rows);
-            host.scrollTop = host.scrollHeight;
-        }
-
-        /**
-         * Live streaming rides a relay agent. Ask once, and if there is none,
-         * say so rather than leaving a dead Camera button on screen.
-         */
-        _checkStreamingAvailable() {
-            var self = this;
-            return new Promise(function (resolve) {
-                if (!self.channel || typeof self.channel.getSystemAgents !== 'function') {
-                    self._setStreaming(false, 'This deployment has no streaming relay.');
-                    return resolve();
-                }
-                var settled = false;
-                var done = function (ok, why) {
-                    if (settled) return;
-                    settled = true;
-                    self._setStreaming(ok, why);
-                    resolve();
-                };
-                setTimeout(function () { done(false, 'The streaming relay did not answer.'); }, 6000);
-
-                self.channel.getSystemAgents(function (res) {
-                    var list = (res && res.status === 'success' && res.data) || [];
-                    var relays = list.filter(function (a) {
-                        return a.role === 'webrtc-relay'
-                            || (a.metadata && a.metadata.role === 'webrtc-relay')
-                            || (a.agentContext && a.agentContext.role === 'webrtc-relay');
-                    });
-                    done(relays.length > 0, relays.length ? '' : 'This deployment has no streaming relay.');
-                });
+            this.incoming.forEach(function (rec, id) {
+                if (rec.from === name) { self._close(id); self.incoming.delete(id); }
             });
-        }
-
-        _setStreaming(ok, why) {
-            this.streaming = !!ok;
-            var banner = document.getElementById('noStream');
-            if (banner) {
-                banner.hidden = !!ok;
-                if (!ok && why) banner.querySelector('.notice__text').textContent =
-                    why + ' Presence and screen names still work — the camera and screen share do not.';
-            }
-            ['camBtn', 'micBtn', 'shareScreenBtn'].forEach(function (id) {
-                var b = document.getElementById(id);
-                if (b) b.disabled = !ok;
-            });
+            this.state.delete(name);
+            this.speaking.delete(name);
+            if (this.meters) this.meters.delete(name);
         }
 
         _sync() {
-            var n = this.getUserCount();
+            var n = this._names().length;
             this._status(n > 1 ? 'live' : 'busy', n > 1 ? n + ' in the room' : 'waiting for someone');
             this.renderPeople();
             this.renderStage();
+            this._syncButtons();
         }
 
         _status(kind, text) {
             var pill = document.getElementById('statusPill');
             if (!pill) return;
             pill.className = 'pill-status is-' + kind;
-            pill.querySelector('.pill-status__text').textContent = text;
+            var t = pill.querySelector('.pill-status__text');
+            if (t) t.textContent = text;
         }
 
-        // ---- the small facts the channel actually carries ---------------------
-
-        _announce() {
-            // Presence facts go on the channel: small, rare, and they must
-            // reach a peer whose media connection has not come up yet.
-            this._say({
-                type: 'state', by: this.username,
-                cam: !!(this.localStream && this._hasLive(this.localStream, 'video')),
-                mic: !!(this.localStream && this._hasLive(this.localStream, 'audio')),
-                presenting: !!this.screenStream
-            });
-        }
+        // ---- the small facts the channel carries ------------------------------
 
         /**
          * One place that knows how a Rooms message travels: to the host, which
-         * relays it to everyone. A guest broadcasting to '*' reaches the host
-         * and nobody else.
+         * relays it. A guest broadcasting to '*' reaches the host and nobody
+         * else, so everything goes through the host and carries an id, because
+         * the host then sees its own relay come back.
          */
         _say(payload) {
-            // An id per message: the host relays, so everyone can see the same
-            // one twice and needs a way to tell.
             if (!payload.id) {
                 payload.id = this.username + ':' + Date.now().toString(36)
                     + Math.random().toString(36).slice(2, 6);
@@ -253,229 +172,426 @@
                     payload._relayed = true;
                     this.sendCustomEventMessage(payload, '*');
                 } else {
-                    var host = this._getHostName();
-                    this.sendCustomEventMessage(payload, host || '*');
+                    this.sendCustomEventMessage(payload, this._getHostName() || '*');
                 }
+                return true;
             } catch (err) {
-                console.warn('[Rooms] send failed:', err.message);
+                if (this.connected) console.warn('[Rooms] send failed:', err.message);
+                return false;
             }
         }
 
-        _hasLive(stream, kind) {
-            return stream.getTracks().some(function (t) {
-                return t.kind === kind && t.enabled && t.readyState === 'live';
+        /**
+         * Say what I have switched on.
+         *
+         * Retried if the channel is not up yet — this runs the moment the room
+         * opens — and repeated on a slow beat by the roster watcher. A state
+         * message that goes missing would otherwise leave a stale microphone
+         * icon on somebody's screen for the rest of the call, and there is
+         * nothing in a room this small to notice and ask again.
+         */
+        _announce(attempt) {
+            var sent = this._say({
+                type: 'state', by: this.username,
+                mic: this._live(this.cam, 'audio'),
+                camOn: this._live(this.cam, 'video'),
+                sharing: !!this.screen,
+                // The labels ride along, so a peer who missed the one-shot
+                // announcement stops holding unlabelled media at the next beat
+                // instead of holding it for the rest of the call.
+                pubs: this._pubs()
             });
+            if (sent || (attempt || 0) > 6) return;
+            var self = this, n = (attempt || 0) + 1;
+            setTimeout(function () { self._announce(n); }, 400 * n);
+        }
+
+        /** Every stream I am sending, and what each one is. */
+        _pubs() {
+            var out = [];
+            this.published.forEach(function (byPeer, kind) {
+                byPeer.forEach(function (id) { if (id !== 'pending') out.push({ stream: id, kind: kind }); });
+            });
+            return out;
+        }
+
+        _live(stream, kind) {
+            return !!(stream && stream.getTracks().some(function (t) {
+                return t.kind === kind && t.enabled && t.readyState === 'live';
+            }));
         }
 
         onGameMessage(detail) {
             var d = detail && detail.data ? detail.data : detail;
             if (!d || !d.by) return;
 
-            // The host is the room's relay. A guest's broadcast reaches the
-            // host and nobody else, so everything goes to the host and the host
-            // passes it on — the same shape Pulse's votes use.
             if (this.isHost() && !d._relayed) {
                 d._relayed = true;
                 try { this.sendCustomEventMessage(d, '*'); } catch (e) { /* best effort */ }
             }
             if (d.by === this.username) return;
 
-            // The host sees each message twice: once addressed to it, once as
-            // its own relay coming back. Every message carries an id so the
-            // second copy is dropped rather than shown again.
             if (d.id) {
                 this.seen = this.seen || [];
-                if (this.seen.indexOf(d.id) !== -1) return;
+                if (this.seen.indexOf(d.id) !== -1) return;   // the relay's echo
                 this.seen.push(d.id);
                 if (this.seen.length > 400) this.seen.shift();
             }
 
-            if (d.type === 'chat') { this.say(d.by, d.text); return; }
-            if (d.type !== 'state') return;
-            var was = this.state.get(d.by) || {};
-            this.state.set(d.by, { cam: !!d.cam, mic: !!d.mic, presenting: !!d.presenting });
-            if (d.presenting && !was.presenting) this.note(d.by + ' started sharing their screen', 'share');
-            if (!d.presenting && was.presenting) this.note(d.by + ' stopped sharing', 'share');
-            if (d.presenting) this.presenter = d.by;
-            else if (this.presenter === d.by) { this.presenter = null; this.screenOf = null; }
-            this.renderPeople();
-            this.renderStage();
+            switch (d.type) {
+                case 'state': {
+                    var was = this.state.get(d.by) || {};
+                    this.state.set(d.by, { mic: !!d.mic, camOn: !!d.camOn, sharing: !!d.sharing });
+                    if (d.sharing && !was.sharing) this.note(d.by + ' started sharing their screen', 'share');
+                    if (!d.sharing && was.sharing) this.note(d.by + ' stopped sharing', 'share');
+                    (d.pubs || []).forEach(this._label, this);
+                    this._sync();
+                    break;
+                }
+                case 'pub':
+                    this._label(d);
+                    break;
+                case 'unpub':
+                    (d.streams || []).forEach(this._forget.bind(this));
+                    break;
+                case 'chat':
+                    this.say(d.by, d.text, d.at);
+                    break;
+            }
         }
 
-        // ---- media -----------------------------------------------------------
+        // ---- publishing -------------------------------------------------------
+
+        /**
+         * Offer one of my streams to one peer, then say what it is.
+         *
+         * The stream id does not exist until the offer is made, so the label
+         * follows rather than precedes it; the receiver parks the media until
+         * the label lands.
+         */
+        async _offer(kind, peer) {
+            var stream = kind === 'screen' ? this.screen : this.cam;
+            if (!stream || !this.webrtcHelper || peer === this.username) return;
+
+            var byPeer = this.published.get(kind) || new Map();
+            this.published.set(kind, byPeer);
+            if (byPeer.has(peer)) return;                    // already offered
+            byPeer.set(peer, 'pending');                     // claim it before awaiting
+
+            try {
+                var id = await this.webrtcHelper.createStreamOffer(peer, { stream: stream });
+                byPeer.set(peer, id);
+                this._say({ type: 'pub', by: this.username, kind: kind, stream: id });
+            } catch (err) {
+                byPeer.delete(peer);
+                console.warn('[Rooms] could not offer ' + kind + ' to ' + peer + ':', err.message);
+            }
+        }
+
+        _offerAllTo(peer) {
+            var self = this;
+            ['cam', 'screen'].forEach(function (kind) {
+                if (kind === 'screen' ? self.screen : self.cam) self._offer(kind, peer);
+            });
+        }
+
+        _publish(kind) {
+            var self = this;
+            var peers = this._peers();
+            if (peers.length + 1 > MESH_LIMIT) {
+                UI.toast('Too many people for peer-to-peer video (' + MESH_LIMIT + ' is the limit)', 'warning', 4500);
+                return;
+            }
+            peers.forEach(function (p) { self._offer(kind, p); });
+        }
+
+        _unpublish(kind) {
+            var byPeer = this.published.get(kind);
+            if (!byPeer) return;
+            var ids = [], self = this;
+            byPeer.forEach(function (id) { if (id !== 'pending') { ids.push(id); self._close(id); } });
+            byPeer.clear();
+            if (ids.length) this._say({ type: 'unpub', by: this.username, streams: ids });
+        }
+
+        /**
+         * Hang up one stream session without taking the camera with it.
+         *
+         * closeStream() stops the tracks it is holding, and my camera is the
+         * same object in every peer's session — hanging up on one person would
+         * otherwise switch it off for everyone. The tracks are mine to stop, so
+         * the session gives them up first.
+         */
+        _close(id) {
+            var h = this.webrtcHelper;
+            if (!h || !id || id === 'pending') return;
+            try { if (h.localStreams) h.localStreams.delete(id); } catch (e) { /* ignore */ }
+            try { if (h.closeStream) h.closeStream(id); } catch (e) { /* it may already be gone */ }
+        }
+
+        // ---- receiving --------------------------------------------------------
+
+        /** A remote stream arrived. It may not yet be clear what it is. */
+        accept(streamId, stream, from) {
+            var kind = this.kindOf.get(streamId);
+            if (!kind) { this.parked.set(streamId, { stream: stream, from: from }); return; }
+            this.incoming.set(streamId, { from: from, kind: kind, stream: stream });
+            if (kind === 'cam') this._listen(from, stream);
+            this._sync();
+        }
+
+        /**
+         * Learn which of somebody's streams is the camera and which is the
+         * screen. The media can beat the label here, so anything parked waiting
+         * for one is claimed the moment it lands.
+         */
+        _label(pub) {
+            if (!pub || !pub.stream || !pub.kind) return;
+            if (this.kindOf.get(pub.stream) === pub.kind) return;
+            this.kindOf.set(pub.stream, pub.kind);
+            this._claimParked(pub.stream);
+        }
+
+        _claimParked(streamId) {
+            var p = this.parked.get(streamId);
+            if (!p) return;
+            this.parked.delete(streamId);
+            this.accept(streamId, p.stream, p.from);
+        }
+
+        _forget(streamId) {
+            this.incoming.delete(streamId);
+            this.kindOf.delete(streamId);
+            this.parked.delete(streamId);
+            this._close(streamId);
+            this._sync();
+        }
+
+        /** What a peer is sending, by kind. */
+        _streamFrom(name, kind) {
+            var found = null;
+            this.incoming.forEach(function (rec) {
+                if (rec.from === name && rec.kind === kind) found = rec.stream;
+            });
+            return found;
+        }
+
+        /** Whoever is presenting: me if I am, otherwise the first who is. */
+        get presenter() {
+            if (this.screen) return this.username;
+            var withPicture = null, claimed = null, self = this;
+            this.state.forEach(function (st, name) {
+                if (!st.sharing) return;
+                if (!claimed) claimed = name;
+                if (!withPicture && self._streamFrom(name, 'screen')) withPicture = name;
+            });
+            return withPicture || claimed;
+        }
+
+        // ---- who is talking ---------------------------------------------------
+
+        /**
+         * Ring the tile of whoever is speaking.
+         *
+         * Measured off the audio rather than asked for over the channel: a
+         * level changes sixty times a second and nobody wants that on a message
+         * bus. One analyser per stream, polled slowly enough to be free and
+         * often enough to look live.
+         */
+        _listen(name, stream) {
+            if (!stream || !stream.getAudioTracks || !stream.getAudioTracks().length) return;
+            try {
+                this.audio = this.audio || new (window.AudioContext || window.webkitAudioContext)();
+                var node = this.audio.createAnalyser();
+                node.fftSize = 512;
+                this.audio.createMediaStreamSource(stream).connect(node);
+                this.meters = this.meters || new Map();
+                this.meters.set(name, { node: node, data: new Uint8Array(node.frequencyBinCount) });
+                this._watchLevels();
+            } catch (err) {
+                console.warn('[Rooms] could not listen to ' + name + ':', err.message);
+            }
+        }
+
+        _watchLevels() {
+            if (this._levelTimer) return;
+            var self = this;
+            this._levelTimer = setInterval(function () {
+                if (!self.meters || !self.meters.size) return;
+                var changed = false, now = Date.now();
+                self.meters.forEach(function (m, name) {
+                    m.node.getByteTimeDomainData(m.data);
+                    var sum = 0;
+                    for (var i = 0; i < m.data.length; i++) {
+                        var v = (m.data[i] - 128) / 128;
+                        sum += v * v;
+                    }
+                    if (Math.sqrt(sum / m.data.length) > SPEAK_LEVEL) {
+                        if (!self.speaking.has(name)) changed = true;
+                        self.speaking.set(name, now);
+                    }
+                });
+                self.speaking.forEach(function (at, name) {
+                    if (now - at > SPEAK_HOLD_MS) { self.speaking.delete(name); changed = true; }
+                });
+                if (changed) self.renderPeople();
+            }, 200);
+        }
+
+        isSpeaking(name) {
+            // Muted is muted, whatever the analyser last heard.
+            var st = name === this.username
+                ? { mic: this._live(this.cam, 'audio') }
+                : (this.state.get(name) || {});
+            return !!st.mic && this.speaking.has(name);
+        }
+
+        // ---- devices ----------------------------------------------------------
+
+        async _loadDevices() {
+            if (!navigator.mediaDevices || !navigator.mediaDevices.enumerateDevices) return;
+            try {
+                var list = await navigator.mediaDevices.enumerateDevices();
+                this.devices.cams = list.filter(function (d) { return d.kind === 'videoinput'; });
+                this.devices.mics = list.filter(function (d) { return d.kind === 'audioinput'; });
+                this.renderDevices();
+            } catch (err) { /* labels need permission; the menu simply stays short */ }
+        }
+
+        renderDevices() {
+            var fill = function (id, list, current, word) {
+                var sel = document.getElementById(id);
+                if (!sel) return;
+                sel.replaceChildren.apply(sel, list.map(function (d, i) {
+                    var o = UI.el('option', { value: d.deviceId }, d.label || (word + ' ' + (i + 1)));
+                    if (d.deviceId === current) o.selected = true;
+                    return o;
+                }));
+                sel.disabled = !list.length;
+            };
+            fill('camPick', this.devices.cams, this.devices.cam, 'Camera');
+            fill('micPick', this.devices.mics, this.devices.mic, 'Microphone');
+        }
+
+        async useDevice(kind, deviceId) {
+            this.devices[kind] = deviceId;
+            if (!this.cam) return;
+            // A different device means a different stream, so it is re-offered.
+            await this.stopCamera(true);
+            await this.startCamera();
+        }
+
+        // ---- the controls -----------------------------------------------------
+
+        async startCamera(withVideo) {
+            var wantVideo = withVideo !== false;
+            var want = {
+                video: !wantVideo ? false
+                    : (this.devices.cam ? { deviceId: { exact: this.devices.cam } }
+                        : { width: { ideal: 1280 }, height: { ideal: 720 } }),
+                audio: this.devices.mic ? { deviceId: { exact: this.devices.mic } } : true
+            };
+            try {
+                this.cam = await navigator.mediaDevices.getUserMedia(want);
+            } catch (err) {
+                UI.toast('Could not use the ' + (wantVideo ? 'camera' : 'microphone') + ': ' + err.message, 'error', 5000);
+                return false;
+            }
+            // The answering side of a connection uses this when it has nothing
+            // of its own to send.
+            if (this.webrtcHelper && this.webrtcHelper.setLocalMediaStream) {
+                this.webrtcHelper.setLocalMediaStream(this.cam);
+            }
+            this._listen(this.username, this.cam);
+            this._publish('cam');
+            this._announce();
+            this._loadDevices();          // labels appear once permission is given
+            this._sync();
+            return true;
+        }
+
+        async stopCamera(quiet) {
+            this._unpublish('cam');
+            if (this.cam) this.cam.getTracks().forEach(function (t) { t.stop(); });
+            this.cam = null;
+            if (this.webrtcHelper && this.webrtcHelper.setLocalMediaStream) {
+                this.webrtcHelper.setLocalMediaStream(null);
+            }
+            if (this.meters) this.meters.delete(this.username);
+            this.speaking.delete(this.username);
+            if (!quiet) { this._announce(); this._sync(); }
+        }
 
         async toggleCamera() {
-            if (!this.streaming) return;
-            if (this.localStream && this._hasLive(this.localStream, 'video')) {
-                this.localStream.getVideoTracks().forEach(function (t) { t.stop(); });
-                this.localStream = null;
-                if (this.webrtcHelper && this.webrtcHelper.stopStreamBroadcast) {
-                    try { this.webrtcHelper.stopStreamBroadcast('cam-' + this.username); } catch (e) { /* ignore */ }
-                }
-            } else {
-                try {
-                    this.localStream = await navigator.mediaDevices.getUserMedia({
-                        video: { width: { ideal: 1280 }, height: { ideal: 720 } }, audio: true
-                    });
-                } catch (err) {
-                    UI.toast('Could not use the camera: ' + err.message, 'error', 5000);
-                    return;
-                }
-                this._broadcast('cam-' + this.username, this.localStream);
+            if (this._live(this.cam, 'video')) {
+                // Leave the microphone alone: turning the picture off is not
+                // the same as leaving the conversation.
+                this.cam.getVideoTracks().forEach(function (t) { t.enabled = false; });
+                this._announce();
+                this._sync();
+                return;
             }
-            this._announce();
-            this.renderStage();
-            this.renderPeople();
-            this._syncButtons();
+            if (this.cam && this.cam.getVideoTracks().length) {
+                this.cam.getVideoTracks().forEach(function (t) { t.enabled = true; });
+                this._announce();
+                this._sync();
+                return;
+            }
+            if (this.cam) {            // audio-only so far — get a picture too
+                await this.stopCamera(true);
+            }
+            await this.startCamera(true);
         }
 
-        toggleMic() {
-            if (!this.localStream) { UI.toast('Turn the camera on first', 'info'); return; }
-            var on = this._hasLive(this.localStream, 'audio');
-            this.localStream.getAudioTracks().forEach(function (t) { t.enabled = !on; });
+        async toggleMic() {
+            if (!this.cam) { await this.startCamera(false); return; }   // microphone alone is fine
+            var on = this._live(this.cam, 'audio');
+            this.cam.getAudioTracks().forEach(function (t) { t.enabled = !on; });
             this._announce();
-            this._syncButtons();
+            this._sync();
         }
 
         async toggleScreen() {
-            if (!this.streaming) return;
-            if (this.screenStream) {
-                this.screenStream.getTracks().forEach(function (t) { t.stop(); });
-                this.screenStream = null;
-                if (this.webrtcHelper && this.webrtcHelper.stopStreamBroadcast) {
-                    try { this.webrtcHelper.stopStreamBroadcast('screen-' + this.username); } catch (e) { /* ignore */ }
-                }
-                if (this.presenter === this.username) this.presenter = null;
+            if (this.screen) {
+                this._unpublish('screen');
+                this.screen.getTracks().forEach(function (t) { t.stop(); });
+                this.screen = null;
                 this.note('You stopped sharing', 'share');
             } else {
+                if (!navigator.mediaDevices.getDisplayMedia) {
+                    UI.toast('This browser cannot share a screen', 'warning');
+                    return;
+                }
                 try {
-                    this.screenStream = await navigator.mediaDevices.getDisplayMedia({ video: true, audio: false });
+                    this.screen = await navigator.mediaDevices.getDisplayMedia({ video: true, audio: false });
                 } catch (err) {
-                    if (err && err.name !== 'NotAllowedError') UI.toast('Screen share failed: ' + err.message, 'error', 5000);
+                    if (err && err.name !== 'NotAllowedError') {
+                        UI.toast('Screen share failed: ' + err.message, 'error', 5000);
+                    }
                     return;
                 }
                 var self = this;
                 // Stopping from the browser's own bar has to reach the room too.
-                this.screenStream.getVideoTracks().forEach(function (t) {
-                    t.addEventListener('ended', function () { self.toggleScreen(); });
+                this.screen.getVideoTracks().forEach(function (t) {
+                    t.addEventListener('ended', function () { if (self.screen) self.toggleScreen(); });
                 });
-                this.presenter = this.username;
                 this.note('You started sharing your screen', 'share');
-                this._broadcast('screen-' + this.username, this.screenStream);
+                this._publish('screen');
+                this.view = 'auto';
             }
             this._announce();
-            this.renderStage();
-            this._syncButtons();
+            this._sync();
         }
 
-        _broadcast(id, stream) {
-            if (!this.webrtcHelper || !this.webrtcHelper.startStreamBroadcast) return;
-            try {
-                this.webrtcHelper.startStreamBroadcast(id, stream);
-            } catch (err) {
-                console.warn('[Rooms] broadcast failed:', err);
-                UI.toast('Could not start the stream', 'error');
-            }
+        setView(view) {
+            this.view = view;
+            var btn = document.getElementById('viewBtn');
+            if (btn) btn.classList.toggle('btn--primary', view === 'grid');
+            this._sync();
         }
 
-        onStreamReady(streamId, remoteAgent) {
-            console.log('[Rooms] stream ready from', remoteAgent, streamId);
-        }
+        // ---- how the connection is doing --------------------------------------
 
-        /** A remote stream arrived — put it where it belongs. */
-        acceptStream(streamId, stream, from) {
-            var who = from || String(streamId || '').replace(/^(cam|screen)-/, '');
-            var isScreen = String(streamId || '').indexOf('screen-') === 0;
-            if (isScreen) { this.presenter = who; this.screenOf = stream; }
-            else this.remote.set(who, { stream: stream });
-            this.renderStage();
-            this.renderPeople();
-        }
-
-        _syncButtons() {
-            var cam = this.localStream && this._hasLive(this.localStream, 'video');
-            var mic = this.localStream && this._hasLive(this.localStream, 'audio');
-            set('camBtn', cam, cam ? 'Camera on' : 'Camera');
-            set('micBtn', mic, mic ? 'Mute' : 'Unmute');
-            set('shareScreenBtn', !!this.screenStream, this.screenStream ? 'Stop sharing' : 'Share screen');
-
-            function set(id, on, label) {
-                var b = document.getElementById(id);
-                if (!b) return;
-                b.classList.toggle('btn--primary', !!on);
-                var span = b.querySelector('span');
-                if (span) span.textContent = label;
-            }
-        }
-
-        // ---- rendering -------------------------------------------------------
-
-        renderStage() {
-            var stage = document.getElementById('stage');
-            if (!stage) return;
-
-            var presenting = this.presenter;
-            var stream = presenting === this.username ? this.screenStream : this.screenOf;
-
-            if (presenting && stream) {
-                var video = stage.querySelector('video.stage__video');
-                if (!video) {
-                    video = UI.el('video', { class: 'stage__video', autoplay: true, playsinline: true, muted: true });
-                    stage.replaceChildren(video, UI.el('span', { class: 'stage__tag' }, [
-                        UI.el('span', { class: 'stage__dot' }),
-                        presenting === this.username ? 'You are presenting' : presenting + ' is presenting'
-                    ]));
-                }
-                if (video.srcObject !== stream) video.srcObject = stream;
-                this._stageMeta(stage, stream);
-                return;
-            }
-
-            if (presenting) {
-                stage.replaceChildren(UI.el('div', { class: 'sdk-empty' }, [
-                    UI.iconNode('video'),
-                    UI.el('p', {}, presenting + ' is presenting — waiting for the stream')
-                ]));
-                return;
-            }
-
-            stage.replaceChildren(UI.el('div', { class: 'sdk-empty' }, [
-                UI.iconNode('video'),
-                UI.el('p', {}, this.streaming
-                    ? 'Nobody is presenting. Share your screen to start.'
-                    : 'Streaming is unavailable on this deployment.')
-            ]));
-        }
-
-        /**
-         * What the picture on the stage actually is, and how it got here.
-         *
-         * Read off the track rather than asserted: the resolution comes from
-         * the track's own settings, and the route is whatever the peer
-         * connection settled on. A demo whose whole claim is "this goes peer to
-         * peer" should be able to show that it did.
-         */
-        _stageMeta(stage, stream) {
-            var meta = stage.querySelector('.stage__meta');
-            if (!meta) {
-                meta = UI.el('span', { class: 'stage__meta' }, '');
-                stage.appendChild(meta);
-            }
-            var track = stream && stream.getVideoTracks && stream.getVideoTracks()[0];
-            var st = track && track.getSettings ? track.getSettings() : {};
-            var size = st.width && st.height ? st.width + '×' + st.height : '';
-            var bits = [this._route || 'peer-to-peer'];
-            if (size) bits.push(size);
-            meta.textContent = bits.join(' · ');
-        }
-
-        /**
-         * Ask the peer connections how they are doing.
-         *
-         * Round-trip time and the route come from the standard stats report,
-         * so the number in the bar is measured rather than decorative. Once a
-         * couple of seconds is plenty for something a person glances at.
-         */
         _watchStats() {
             var self = this;
             clearInterval(this._statsTimer);
@@ -483,25 +599,29 @@
             this._readStats();
         }
 
+        /**
+         * Round-trip time and route come from the standard stats report, so the
+         * number in the bar is measured rather than decorative. A demo whose
+         * whole claim is "this goes peer to peer" should be able to show it did.
+         */
         async _readStats() {
             var out = document.getElementById('connStats');
-            if (!out) return;
-            var peers = Math.max(0, (this.getUserList() || []).length - 1);
+            var peers = this._peers().length;
             var rtt = null, route = null;
+            var pcs = this._peerConnections();
 
-            var conns = this._peerConnections();
-            for (var i = 0; i < conns.length; i++) {
+            for (var i = 0; i < pcs.length; i++) {
                 try {
-                    var report = await conns[i].getStats();
+                    var report = await pcs[i].getStats();
                     report.forEach(function (r) {
-                        if (r.type === 'candidate-pair' && r.state === 'succeeded' && r.nominated !== false) {
-                            if (typeof r.currentRoundTripTime === 'number') {
-                                rtt = Math.round(r.currentRoundTripTime * 1000);
-                            }
+                        if (r.type === 'candidate-pair' && r.state === 'succeeded'
+                            && typeof r.currentRoundTripTime === 'number') {
+                            var ms = Math.round(r.currentRoundTripTime * 1000);
+                            if (rtt === null || ms > rtt) rtt = ms;   // the worst link is the one that hurts
                         }
                         if (r.type === 'local-candidate' && r.candidateType) {
-                            // A relayed candidate means TURN carried it, which is
-                            // worth saying rather than claiming peer-to-peer.
+                            // A relayed candidate means TURN carried it, which
+                            // is worth saying rather than claiming otherwise.
                             if (r.candidateType === 'relay') route = 'relayed';
                             else if (!route) route = 'peer-to-peer';
                         }
@@ -510,84 +630,252 @@
             }
 
             this._route = route || 'peer-to-peer';
-            var bits = [peers + (peers === 1 ? ' peer' : ' peers')];
-            if (rtt !== null) bits.unshift(rtt + ' ms');
-            out.textContent = bits.join(' · ');
+            if (out) {
+                var bits = [peers + (peers === 1 ? ' peer' : ' peers')];
+                if (rtt !== null) bits.unshift(rtt + ' ms');
+                if (pcs.length) bits.push(this._route);
+                out.textContent = bits.join(' · ');
+            }
         }
 
-        /** Whatever peer connections the helper is holding, however it holds them. */
         _peerConnections() {
             var h = this.webrtcHelper;
-            if (!h) return [];
+            if (!h || !h.peerConnections) return [];
             var found = [];
-            ['peerConnections', 'connections', '_peerConnections'].forEach(function (key) {
-                var bag = h[key];
-                if (!bag) return;
-                if (typeof bag.forEach === 'function' && !Array.isArray(bag)) {
-                    bag.forEach(function (v) { if (v && v.getStats) found.push(v); });
-                } else if (Array.isArray(bag)) {
-                    bag.forEach(function (v) { if (v && v.getStats) found.push(v); });
-                } else if (typeof bag === 'object') {
-                    Object.keys(bag).forEach(function (k) {
-                        if (bag[k] && bag[k].getStats) found.push(bag[k]);
-                    });
-                }
+            h.peerConnections.forEach(function (pc) {
+                if (pc && pc.getStats && pc.connectionState !== 'closed') found.push(pc);
             });
             return found;
+        }
+
+        // ---- chat and the room log --------------------------------------------
+
+        /**
+         * A line of chat.
+         *
+         * Stamped by whoever said it, because my own message appears the
+         * instant I send it while everybody else's waits for the channel — so
+         * arrival order puts my reply above the thing I was replying to. A
+         * stamp from a stranger's clock is not to be trusted further than it
+         * has to be: it is only allowed to place a message in the recent past,
+         * never in the future and never before the room's memory begins.
+         */
+        say(from, text, at) {
+            text = String(text || '').trim();
+            if (!text) return;
+            var now = Date.now();
+            var when = typeof at === 'number' && at > now - 120000 && at <= now ? at : now;
+            this._log({ kind: 'chat', from: from, text: text.slice(0, 800), at: when });
+        }
+
+        note(text, kind) { this._log({ kind: kind || 'note', text: text, at: Date.now() }); }
+
+        _log(entry) {
+            // Almost always an append; the sort is for the one that arrives late.
+            var i = this.messages.length;
+            while (i > 0 && this.messages[i - 1].at > entry.at) i--;
+            this.messages.splice(i, 0, entry);
+            if (this.messages.length > 300) this.messages.shift();
+            this.renderChat();
+        }
+
+        send(text) {
+            text = String(text || '').trim();
+            if (!text) return;
+            var at = Date.now();
+            this.say(this.username, text, at);
+            this._say({ type: 'chat', by: this.username, text: text, at: at });
+        }
+
+        // ---- rendering --------------------------------------------------------
+
+        renderStage() {
+            var stage = document.getElementById('stage');
+            if (!stage) return;
+
+            var presenter = this.presenter;
+            if (this.view === 'grid' || !presenter) { this._renderGrid(stage); return; }
+
+            var stream = presenter === this.username ? this.screen : this._streamFrom(presenter, 'screen');
+            if (!stream) {
+                stage.replaceChildren(UI.el('div', { class: 'sdk-empty' }, [
+                    UI.iconNode('monitor'),
+                    UI.el('p', {}, presenter + ' is presenting — waiting for the picture')
+                ]));
+                return;
+            }
+
+            var video = stage.querySelector('video.stage__video');
+            if (!video) {
+                video = UI.el('video', { class: 'stage__video', autoplay: true, playsinline: true, muted: true });
+                stage.replaceChildren(
+                    video,
+                    UI.el('span', { class: 'stage__tag' }, [UI.el('span', { class: 'stage__dot' }), '']),
+                    UI.el('span', { class: 'stage__meta' }, '')
+                );
+            }
+            if (video.srcObject !== stream) video.srcObject = stream;
+            var tag = stage.querySelector('.stage__tag');
+            if (tag) {
+                tag.replaceChildren(UI.el('span', { class: 'stage__dot' }),
+                    document.createTextNode(presenter === this.username
+                        ? 'You are presenting' : presenter + ' is presenting'));
+            }
+            this._stageMeta(stage, stream);
+        }
+
+        /** Everyone at once — the view when nobody is presenting. */
+        _renderGrid(stage) {
+            var users = this.getUserList() || [], self = this;
+            var wrap = stage.querySelector('.grid');
+            if (!wrap) { wrap = UI.el('div', { class: 'grid' }); stage.replaceChildren(wrap); }
+            wrap.style.setProperty('--cols', String(Math.ceil(Math.sqrt(Math.max(1, users.length)))));
+            wrap.replaceChildren.apply(wrap, users.map(function (u) { return self._tile('stage', u); }));
+        }
+
+        _stageMeta(stage, stream) {
+            var meta = stage.querySelector('.stage__meta');
+            if (!meta) return;
+            var track = stream && stream.getVideoTracks && stream.getVideoTracks()[0];
+            var st = track && track.getSettings ? track.getSettings() : {};
+            var bits = [this._route || 'peer-to-peer'];
+            if (st.width && st.height) bits.push(st.width + '×' + st.height);
+            meta.textContent = bits.join(' · ');
+        }
+
+        /**
+         * One person, as a video tile.
+         *
+         * Tiles are kept and updated, never rebuilt. A <video> that is thrown
+         * away and made again loses its decoder and paints black for a moment,
+         * and this room re-renders on every state message and every change of
+         * who is speaking — rebuilding would make the whole wall blink at every
+         * mute. The element is the same one from the first render to the last;
+         * only its attributes move.
+         *
+         * The stage and the member list are two different places, so a person
+         * has one tile in each — the same person cannot be in two parents at
+         * once.
+         */
+        _tile(where, user) {
+            this.tiles = this.tiles || {};
+            var cache = this.tiles[where] || (this.tiles[where] = new Map());
+            var t = cache.get(user.name);
+            if (!t) { t = this._buildTile(user, where === 'stage'); cache.set(user.name, t); }
+            this._fillTile(t, user);
+            return t.el;
+        }
+
+        _buildTile(user, big) {
+            var t = {
+                name: user.name,
+                video: UI.el('video', { class: 'tile__video', autoplay: true, playsinline: true }),
+                avatar: UI.el('span', {
+                    class: 'avatar avatar--lg',
+                    style: 'background:' + this.generateUserColor(user.name)
+                }, initials(user.name)),
+                host: UI.el('span', { class: 'tile__host', title: 'Host' }, 'HOST'),
+                badge: UI.el('span', { class: 'tile__badge' }, 'Sharing'),
+                label: UI.el('span', { class: 'tile__name' }, user.name),
+                muted: UI.el('span', { class: 'tile__muted', title: 'Muted' }, UI.iconNode('mic-off', 'icon--sm'))
+            };
+            t.video.muted = !!user.isSelf;     // never play your own microphone back
+            t.el = UI.el('div', { class: 'tile' + (big ? ' tile--big' : '') },
+                [t.video, t.avatar, t.host, t.badge, t.label, t.muted]);
+            return t;
+        }
+
+        _fillTile(t, user) {
+            var name = user.name, me = !!user.isSelf;
+            var st = me
+                ? { mic: this._live(this.cam, 'audio'), camOn: this._live(this.cam, 'video'), sharing: !!this.screen }
+                : (this.state.get(name) || { mic: false, camOn: false, sharing: false });
+            var stream = me ? this.cam : this._streamFrom(name, 'cam');
+            var showing = !!(stream && st.camOn);
+
+            if (stream && t.video.srcObject !== stream) t.video.srcObject = stream;
+            if (!stream && t.video.srcObject) t.video.srcObject = null;
+            t.video.hidden = !showing;
+            t.avatar.hidden = showing;
+            t.host.hidden = !user.isHost;
+            t.badge.hidden = !st.sharing;
+            t.muted.hidden = !!st.mic;
+            t.label.textContent = me ? name + ' (you)' : name;
+            t.el.classList.toggle('is-speaking', this.isSpeaking(name));
+            t.el.classList.toggle('is-presenting', !!st.sharing);
+        }
+
+        /** Forget the tiles of people who are no longer here. */
+        _pruneTiles(users) {
+            if (!this.tiles) return;
+            var here = users.map(function (u) { return u.name; });
+            Object.keys(this.tiles).forEach(function (where) {
+                this.tiles[where].forEach(function (t, name) {
+                    if (here.indexOf(name) === -1) this.tiles[where].delete(name);
+                }, this);
+            }, this);
         }
 
         renderPeople() {
             var host = document.getElementById('people');
             var count = document.getElementById('peopleCount');
             if (!host) return;
-
-            var self = this;
-            // getUserList() is the one that includes you and marks the host;
-            // getConnectedUsers() is the raw roster and leaves you out of it.
-            var users = this.getUserList() || [];
+            var users = this.getUserList() || [], self = this;
             if (count) count.textContent = users.length;
+            this._pruneTiles(users);
+            host.replaceChildren.apply(host, users.map(function (u) { return self._tile('side', u); }));
+        }
 
-            host.replaceChildren.apply(host, users.map(function (user) {
-                var name = user.name;
-                var me = !!user.isSelf;
-                var st = me
-                    ? { cam: !!(self.localStream && self._hasLive(self.localStream, 'video')),
-                        mic: !!(self.localStream && self._hasLive(self.localStream, 'audio')) }
-                    : (self.state.get(name) || { cam: false, mic: false });
+        _syncButtons() {
+            var camOn = this._live(this.cam, 'video');
+            var micOn = this._live(this.cam, 'audio');
+            set('camBtn', camOn, camOn ? 'Camera on' : 'Camera', camOn ? 'video' : 'video-off');
+            set('micBtn', micOn, micOn ? 'Mute' : 'Unmute', micOn ? 'mic' : 'mic-off');
+            set('shareScreenBtn', !!this.screen, this.screen ? 'Stop sharing' : 'Share screen', 'monitor');
 
-                var rec = self.remote.get(name);
-                var tile = UI.el('div', { class: 'tile' + (self.presenter === name ? ' is-presenting' : '') });
-                if (user.isHost) tile.appendChild(UI.el('span', { class: 'tile__host', title: 'Host' }, 'HOST'));
+            function set(id, on, label, icon) {
+                var b = document.getElementById(id);
+                if (!b) return;
+                b.classList.toggle('btn--primary', !!on);
+                var span = b.querySelector('span');
+                if (span) span.textContent = label;
+                var use = b.querySelector('use');
+                if (use) use.setAttribute('href', '#i-' + icon);
+            }
+        }
 
-                if (me && self.localStream && st.cam) {
-                    var v = UI.el('video', { class: 'tile__video', autoplay: true, playsinline: true, muted: true });
-                    v.srcObject = self.localStream;
-                    tile.appendChild(v);
-                } else if (rec && rec.stream) {
-                    var rv = UI.el('video', { class: 'tile__video', autoplay: true, playsinline: true });
-                    rv.srcObject = rec.stream;
-                    tile.appendChild(rv);
-                } else {
-                    tile.appendChild(UI.el('span', {
-                        class: 'avatar avatar--lg',
-                        style: 'background:' + self.generateUserColor(name)
-                    }, initials(name)));
+        renderChat() {
+            var host = document.getElementById('log');
+            if (!host) return;
+            var self = this;
+            var atBottom = host.scrollHeight - host.scrollTop - host.clientHeight < 60;
+            host.replaceChildren.apply(host, this.messages.map(function (m) {
+                if (m.kind !== 'chat') {
+                    return UI.el('div', { class: 'ev ev--' + m.kind }, [
+                        UI.iconNode(m.kind === 'leave' ? 'log-out'
+                            : m.kind === 'share' ? 'monitor' : 'users', 'icon--sm'),
+                        UI.el('span', {}, m.text)
+                    ]);
                 }
-
-                tile.appendChild(UI.el('span', { class: 'tile__name' }, me ? name + ' (you)' : name));
-                if (self.presenter === name) {
-                    tile.appendChild(UI.el('span', { class: 'tile__badge' }, 'Sharing'));
-                }
-                if (!st.mic) {
-                    tile.appendChild(UI.el('span', { class: 'tile__muted', title: 'Muted' },
-                        UI.iconNode('x', 'icon--sm')));
-                }
-                return tile;
+                return UI.el('div', { class: 'msg' }, [
+                    UI.el('span', { class: 'avatar msg__who', style: 'background:' + self.generateUserColor(m.from) },
+                        initials(m.from)),
+                    UI.el('div', { class: 'msg__body' }, [
+                        UI.el('span', { class: 'msg__head' }, [
+                            UI.el('span', { class: 'msg__name' }, m.from),
+                            UI.el('span', { class: 'msg__time' }, clock(m.at))
+                        ]),
+                        UI.el('p', { class: 'msg__text' }, m.text)
+                    ])
+                ]);
             }));
+            if (atBottom) host.scrollTop = host.scrollHeight;
         }
     }
 
-    function time(ts) {
+    // ---- helpers ---------------------------------------------------------------
+
+    function clock(ts) {
         var d = new Date(ts || Date.now());
         return String(d.getHours()).padStart(2, '0') + ':' + String(d.getMinutes()).padStart(2, '0');
     }
@@ -597,14 +885,38 @@
             .map(function (p) { return p[0]; }).join('').toUpperCase() || '?';
     }
 
-    // ---- boot ---------------------------------------------------------------
+    // ---- boot ------------------------------------------------------------------
 
     var app = null;
 
     function wire() {
-        document.getElementById('camBtn').addEventListener('click', function () { if (app) app.toggleCamera(); });
-        document.getElementById('micBtn').addEventListener('click', function () { if (app) app.toggleMic(); });
-        document.getElementById('shareScreenBtn').addEventListener('click', function () { if (app) app.toggleScreen(); });
+        var on = function (id, ev, fn) {
+            var el = document.getElementById(id);
+            if (el) el.addEventListener(ev, fn);
+        };
+
+        on('micBtn', 'click', function () { if (app) app.toggleMic(); });
+        on('camBtn', 'click', function () { if (app) app.toggleCamera(); });
+        on('shareScreenBtn', 'click', function () { if (app) app.toggleScreen(); });
+        on('viewBtn', 'click', function () { if (app) app.setView(app.view === 'grid' ? 'auto' : 'grid'); });
+        on('leaveBtn', 'click', function () {
+            if (app) { try { app.disconnect(); } catch (e) { /* ignore */ } }
+            location.href = '../../playground.html';
+        });
+
+        on('gearBtn', 'click', function (e) {
+            e.stopPropagation();
+            var m = document.getElementById('deviceMenu');
+            if (m) m.hidden = !m.hidden;
+        });
+        on('deviceMenu', 'click', function (e) { e.stopPropagation(); });
+        document.addEventListener('click', function () {
+            var m = document.getElementById('deviceMenu');
+            if (m) m.hidden = true;
+        });
+        on('camPick', 'change', function () { if (app) app.useDevice('cam', this.value); });
+        on('micPick', 'change', function () { if (app) app.useDevice('mic', this.value); });
+
         var form = document.getElementById('chatForm');
         if (form) {
             form.addEventListener('submit', function (e) {
@@ -615,9 +927,17 @@
             });
         }
 
-        document.getElementById('leaveBtn').addEventListener('click', function () {
-            if (app) { try { app.disconnect(); } catch (e) { /* ignore */ } }
-            location.href = '../../playground.html';
+        // The shortcuts a call is expected to have.
+        window.addEventListener('keydown', function (e) {
+            if (!app || e.metaKey || e.ctrlKey || e.altKey) return;
+            if (/^(INPUT|TEXTAREA|SELECT)$/.test(e.target.tagName)) return;
+            var k = e.key.toLowerCase();
+            if (k === 'm') app.toggleMic();
+            else if (k === 'v') app.toggleCamera();
+            else if (k === 's') app.toggleScreen();
+            else if (k === 'g') app.setView(app.view === 'grid' ? 'auto' : 'grid');
+            else return;
+            e.preventDefault();
         });
     }
 
@@ -628,18 +948,14 @@
             await app.connect({ username: username, channelName: channel, channelPassword: password });
             app.start();
 
-            // Remote media arrives on the helper the base class built.
             if (app.webrtcHelper && app.webrtcHelper.on) {
-                app.webrtcHelper.on('stream-added', function (streamId, stream, sourceAgent) {
-                    app.acceptStream(streamId, stream, sourceAgent);
+                // The helper's event is `remote-stream`. Listening for anything
+                // else is a room where nobody ever appears and nothing says why.
+                app.webrtcHelper.on('remote-stream', function (streamId, stream, from) {
+                    app.accept(streamId, stream, from);
                 });
-                app.webrtcHelper.on('stream-removed', function (streamId) {
-                    var who = String(streamId || '').replace(/^(cam|screen)-/, '');
-                    if (String(streamId).indexOf('screen-') === 0) {
-                        if (app.presenter === who) { app.presenter = null; app.screenOf = null; }
-                    } else app.remote.delete(who);
-                    app.renderStage();
-                    app.renderPeople();
+                app.webrtcHelper.on('connection-state', function (streamId, state) {
+                    if (state === 'failed' || state === 'closed') app._forget(streamId);
                 });
             }
 
