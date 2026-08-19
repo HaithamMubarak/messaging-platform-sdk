@@ -445,7 +445,7 @@
         // Anything that describes the match itself is the host's to say. A
         // client that forged one could otherwise fake a phase, a result or a
         // whole scoreboard on somebody else's screen.
-        static get HOST_ONLY() { return ['state', 'results', 'build', 'end', 'guessed', 'word']; }
+        static get HOST_ONLY() { return ['state', 'results', 'build', 'end', 'guessed', 'word', 'model']; }
 
         handleMessage(peerId, msg) {
             const from = msg.name || (msg._fromClient) || peerId;
@@ -460,6 +460,34 @@
                     if (this.host) return;
                     this._applyResults(msg.r);
                     break;
+                case 'model': {
+                    // A blueprint the room made, arriving before the round that
+                    // uses it. Assembled first: half a blueprint is a wrong one.
+                    const total = msg.n || 1;
+                    if (!this._incomingModels) this._incomingModels = new Map();
+                    let mbuf = this._incomingModels.get(msg.id);
+                    if (!mbuf || msg.i === 0 || mbuf.total !== total) {
+                        mbuf = { cells: [], seen: 0, total };
+                        this._incomingModels.set(msg.id, mbuf);
+                    }
+                    mbuf.cells.push(...(msg.cells || []));
+                    mbuf.seen++;
+                    if (mbuf.seen < total) break;
+                    this._incomingModels.delete(msg.id);
+                    Models.register({
+                        id: msg.id, name: msg.name, author: msg.author,
+                        cells: mbuf.cells, size: msg.size
+                    });
+                    // The round may already be waiting on it. Clearing the
+                    // flag is enough: the state tick rebuilds the ghost when it
+                    // is not currently up, and it runs every second.
+                    if (this.state && this.state.modelId === msg.id) {
+                        this.model = Models.byId(msg.id);
+                        this._ghostVisible = false;
+                    }
+                    break;
+                }
+
                 case 'build': {
                     // Assemble the chunks before painting; half a build looks
                     // like a bad build.
@@ -545,6 +573,9 @@
                 mode: modeId,
                 rounds: opts.rounds || 3,
                 roundTime: opts.roundTime || 180,
+                // 'builtin' | 'room' | 'both' — where each round's blueprint
+                // comes from. Host-side only: clients are handed the model.
+                source: opts.source || 'builtin',
                 round: 0,
                 elapsed: 0,
                 usedModels: [],
@@ -596,10 +627,22 @@
                 name, x0: -Math.floor(STAGE_SIZE / 2), z0: -Math.floor(STAGE_SIZE / 2), size: STAGE_SIZE
             }];
             const takeModel = () => {
-                const diff = Models.difficultyForRound(h.round, h.rounds);
-                const model = Models.pick(diff, h.usedModels);
+                // A build the room made has no difficulty to ramp — it is as
+                // hard as whoever made it made it — so the round ladder only
+                // applies to the ones that ship.
+                let model = null;
+                if (h.source === 'room') model = Models.pickRoom(h.usedModels);
+                else if (h.source === 'both' && Math.random() < 0.5) model = Models.pickRoom(h.usedModels);
+                if (!model) {
+                    const diff = Models.difficultyForRound(h.round, h.rounds);
+                    model = Models.pick(diff, h.usedModels);
+                }
                 h.usedModels.push(model.id);
                 h.modelId = model.id;
+                // A room blueprint exists only in the host's browser, so the
+                // room has to be handed it before anyone can be asked to
+                // rebuild it. Chunked, because a blueprint is a build.
+                if (model.room) this._hostPublishModel(model);
             };
 
             switch (h.mode) {
@@ -862,6 +905,26 @@
                 this.builds.set(p.name, cells);
                 this._paintBuild(p.name, cells, pieces);
             });
+        }
+
+        /**
+         * Send a room-made blueprint to everyone, once, in chunks.
+         *
+         * It never rides the state broadcast: that goes out once a second and
+         * would put a thousand cells on the wire every tick. This is the same
+         * shape a finished build travels in, and the client caches it by id.
+         */
+        _hostPublishModel(model) {
+            const cells = Models.decode(model) || [];
+            const chunks = [];
+            for (let i = 0; i < cells.length; i += BUILD_CHUNK) {
+                chunks.push(cells.slice(i, i + BUILD_CHUNK));
+            }
+            if (!chunks.length) chunks.push([]);
+            chunks.forEach((c, i) => this._broadcast({
+                k: 'model', id: model.id, name: model.name, author: model.author || null,
+                size: Models.size(model), i, n: chunks.length, cells: c
+            }));
         }
 
         _hostFinishRound() { this._hostScoreRound(); }

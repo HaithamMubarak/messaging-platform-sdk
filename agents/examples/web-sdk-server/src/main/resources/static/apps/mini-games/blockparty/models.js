@@ -332,7 +332,68 @@
 
     function count(model) { return decode(model).length; }
 
-    function byId(id) { return MODELS.find(m => m.id === id) || null; }
+    /**
+     * Blueprints the room made, alongside the twenty that ship.
+     *
+     * A room model carries its cells directly rather than the layer strings the
+     * built-in ones are written as — it came from a world, not from someone
+     * typing a picture — so `decode` and `size` find them already cached and
+     * never look at `layers`. Everything downstream treats it as a model like
+     * any other.
+     */
+    const ROOM = [];
+
+    function register(model) {
+        if (!model || !model.id) return null;
+        const cells = model.cells || model._cells || [];
+        const entry = {
+            id: model.id,
+            name: model.name || 'Untitled',
+            emoji: model.emoji || '🏗️',
+            difficulty: 0,              // a room's own build has no ramp
+            room: true,
+            author: model.author || null,
+            _cells: cells,
+            _size: model.size || model._size || measure(cells)
+        };
+        const at = ROOM.findIndex(x => x.id === entry.id);
+        if (at >= 0) ROOM[at] = entry; else ROOM.push(entry);
+        return entry;
+    }
+
+    function forget(id) {
+        const at = ROOM.findIndex(x => x.id === id);
+        if (at >= 0) ROOM.splice(at, 1);
+    }
+
+    function roomModels() { return ROOM.slice(); }
+
+    /** The box a set of cells occupies, for models that never had layers. */
+    function measure(cells) {
+        let w = 0, d = 0, h = 0;
+        (cells || []).forEach(c => {
+            if (c.x + 1 > w) w = c.x + 1;
+            if (c.z + 1 > d) d = c.z + 1;
+            if (c.y + 1 > h) h = c.y + 1;
+        });
+        return { w, d, h };
+    }
+
+    function byId(id) {
+        return MODELS.find(m => m.id === id) || ROOM.find(m => m.id === id) || null;
+    }
+
+    /**
+     * One of the room's own blueprints, avoiding the ones already used.
+     * Difficulty does not apply: a build somebody made is as hard as it is.
+     */
+    function pickRoom(exclude, rand) {
+        const pool = ROOM.filter(m => (exclude || []).indexOf(m.id) === -1);
+        const from = pool.length ? pool : ROOM;
+        if (!from.length) return null;
+        const r = typeof rand === 'function' ? rand() : Math.random();
+        return from[Math.floor(r * from.length) % from.length];
+    }
 
     /**
      * Pick a model of roughly the wanted difficulty, avoiding `exclude` ids.
@@ -364,6 +425,7 @@
 
     window.BlockPartyModels = {
         COLORS, MODELS, WORDS, PROMPTS,
-        decode, size, count, byId, pick, pickWord, pickPrompt, difficultyForRound
+        decode, size, count, byId, pick, pickWord, pickPrompt, difficultyForRound,
+        register, forget, roomModels, pickRoom
     };
 })();

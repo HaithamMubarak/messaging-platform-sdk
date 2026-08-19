@@ -223,6 +223,19 @@
             </div>
 
             <div class="world-section">
+                <div class="world-title">Room blueprints</div>
+                <div class="world-note">
+                    Copy a build with ✂️ (two opposite corners), name it here, and it joins the
+                    blueprints Blueprint Race draws from.
+                </div>
+                <div class="import-row">
+                    <input id="blueprintName" type="text" placeholder="Name this build" maxlength="40" autocomplete="off">
+                    <button id="blueprintSave" class="btn btn-primary">Save as blueprint</button>
+                </div>
+                <div id="blueprintList" class="slot-list"></div>
+            </div>
+
+            <div class="world-section">
                 <div class="world-title">Physics</div>
                 <label class="world-toggle" title="Blocks fall when nothing holds them up">
                     <input type="checkbox" id="physicsToggle"> 🧨 Things fall over
@@ -321,6 +334,13 @@
                         <option value="1">1</option>
                         <option value="3" selected>3</option>
                         <option value="5">5</option>
+                    </select>
+                </label>
+                <label>Blueprints
+                    <select id="modeSource" title="Where the blueprint for each round comes from">
+                        <option value="builtin" selected>The ones that ship</option>
+                        <option value="room">This room's own</option>
+                        <option value="both">Both, mixed</option>
                     </select>
                 </label>
                 <label>Round time

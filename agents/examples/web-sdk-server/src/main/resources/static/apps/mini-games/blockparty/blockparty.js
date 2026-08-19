@@ -54,6 +54,8 @@
     const SLOT_PREFIX = 'blockparty_slot_';
     const STATS_KEY = 'blockparty_stats';
     const GEO_SEEN_KEY = 'blockparty_geo_seen';
+    const MODEL_PREFIX = 'blockparty_model_';
+    const MAX_MODEL_CELLS = 1200;   // a blueprint has to be rebuildable in a round
 
     // Palette — index maps to a color; sent over the wire as a small int.
     const PALETTE = [
@@ -159,7 +161,8 @@
             this.paletteLinear = PALETTE.map(hex => new THREE.Color(hex).convertSRGBToLinear());
             // One material for every chunk in the world: colour, shading and
             // occlusion all live in the vertex data.
-            this.chunkMaterial = new THREE.MeshLambertMaterial({ vertexColors: true });
+            // Built after _initScene(), which is where `software` is decided.
+            this.chunkMaterial = null;
             // Translucent twins of the palette, for placement ghosts.
             this.ghostMaterials = PALETTE.map(hex => new THREE.MeshLambertMaterial({
                 color: new THREE.Color(hex).convertSRGBToLinear(), transparent: true, opacity: 0.45, depthWrite: false
@@ -183,6 +186,13 @@
             this.ghostGroups = new Map(); // id -> blueprint ghost group
 
             this._initScene();
+            // A little sheen, because these are plastic bricks — but only where
+            // it is affordable. Software renderers keep vertex-lit Lambert:
+            // per-fragment lighting is the one thing they cannot pay for. This
+            // has to come after _initScene(), which is what decides `software`.
+            this.chunkMaterial = this.software
+                ? new THREE.MeshLambertMaterial({ vertexColors: true })
+                : new THREE.MeshPhongMaterial({ vertexColors: true, specular: 0x24242a, shininess: 34 });
             this.fx = new BlockPartyFx(this.scene, { software: this.software });
             this._initCamera();
             this._bindResize();
@@ -466,8 +476,12 @@
         }
 
         _initCamera() {
+            // Far enough for the corner of the ground plane, which is
+            // HALF*PLAIN_SCALE out and therefore ~1.42x that away diagonally —
+            // it used to clip, leaving a hard polygon edge across the horizon.
+            const reach = HALF * PLAIN_SCALE * Math.SQRT2 * 1.15;
             this.camera = new THREE.PerspectiveCamera(
-                60, window.innerWidth / window.innerHeight, 0.1, WORLD_SPAN * 6);
+                60, window.innerWidth / window.innerHeight, 0.1, Math.max(WORLD_SPAN * 6, reach));
             this.target = new THREE.Vector3(0, 2, 0);
             this.cam = { theta: Math.PI * 0.25, phi: Math.PI * 0.32, radius: CAM_START_RADIUS };
             // Where "reset view" goes back to. A match repoints it at your plot.
@@ -541,10 +555,34 @@
         setFirstPerson(on) {
             this.firstPerson = !!on;
             this.hideLandingShadow();
+            this._setHeadlamp(this.firstPerson);
             if (!on) {
                 this.camera.rotation.set(0, 0, 0);
                 this._applyCamera();
             }
+        }
+
+        /**
+         * A lamp you carry, on foot.
+         *
+         * The carved maps — Crystal Caves, the dungeon, the furnished house —
+         * are lit only by sun and sky, so their interiors are black voids on
+         * every renderer. "Best explored on foot" was an invitation to walk
+         * into a cave you could not see. The light rides the camera and only
+         * exists while you are in first person, so it costs nothing the rest of
+         * the time.
+         */
+        _setHeadlamp(on) {
+            if (on && !this._headlamp) {
+                // Warm and short-range: it should light the wall in front of
+                // you, not turn the cave into a stadium.
+                this._headlamp = new THREE.PointLight(0xffe6bf, 0.62, 11, 2);
+                this.camera.add(this._headlamp);
+                // The camera is not in the scene graph by default; without this
+                // a light parented to it never renders.
+                if (this.camera.parent !== this.scene) this.scene.add(this.camera);
+            }
+            if (this._headlamp) this._headlamp.visible = !!on;
         }
 
         /** Put the camera at the player's eye, looking where they look. */
@@ -611,6 +649,15 @@
             let x = this.target.x + radius * Math.sin(phi) * Math.cos(theta);
             let y = this.target.y + radius * Math.cos(phi);
             let z = this.target.z + radius * Math.sin(phi) * Math.sin(theta);
+            // Fog follows the zoom. Fixed distances meant pulling all the way
+            // back put the entire world past fog-far — the screen just went
+            // flat sky — while staying tight enough close in to keep depth.
+            const f = this.scene && this.scene.fog;
+            if (f) {
+                f.near = Math.max(WORLD_SPAN * 0.55, radius * 0.45);
+                f.far = Math.max(WORLD_SPAN * 2.6, radius + WORLD_SPAN * 1.9);
+            }
+
             const k = this._shake;
             if (k > 0.001) {
                 // Offset the eye, never the target: nudging what the camera is
@@ -1975,9 +2022,17 @@
             if (!this._solidMats) this._solidMats = new Map();
             let m = this._solidMats.get(colorIndex);
             if (!m) {
-                m = new THREE.MeshLambertMaterial({
-                    color: new THREE.Color(hexOf(colorIndex)).convertSRGBToLinear()
-                });
+                // The world bakes FACE_TINT and an AO term into its vertex
+                // colours; a loose prop has neither, so in the raw palette
+                // colour it read as a brighter, flatter sticker of the block it
+                // just was. Sit it in the same range — sides are the faces you
+                // mostly see on something tumbling.
+                const shade = FACE_TINT.side * (AO_BASE + AO_STEP * 3);
+                const c = new THREE.Color(hexOf(colorIndex)).convertSRGBToLinear();
+                c.multiplyScalar(shade);
+                m = this.software
+                    ? new THREE.MeshLambertMaterial({ color: c })
+                    : new THREE.MeshPhongMaterial({ color: c, specular: 0x24242a, shininess: 34 });
                 this._solidMats.set(colorIndex, m);
             }
             return m;
@@ -2154,6 +2209,7 @@
             this._loadWorldFromStorage(() => this._settleWhereYouAre());
             this._loadGeoSeen();
             this._loadSettlements();
+            this._loadBlueprints();
             this._startSessionKeepAlive();
 
             this.showToast('Connected — start building! 🧱', 'success', 2500);
@@ -3475,6 +3531,19 @@
                 const sun = this.voxels.sky;
                 this.showToast(sun ? `Sky: ${window.BlockPartySky.describe(sun.elevation, sun.azimuth)}`
                     : 'Sky: the fixed dusk — pin this world to a place for the real one', 'info', 3000);
+            });
+
+            const bpSave = document.getElementById('blueprintSave');
+            if (bpSave) bpSave.addEventListener('click', () => {
+                const input = document.getElementById('blueprintName');
+                this.saveBlueprint(input ? input.value : '');
+                if (input) input.value = '';
+            });
+            const bpList = document.getElementById('blueprintList');
+            if (bpList) bpList.addEventListener('click', (e) => {
+                const del = e.target.closest && e.target.closest('.blueprint-del');
+                if (!del) return;
+                this.deleteBlueprint(del.getAttribute('data-key'), del.getAttribute('data-label'));
             });
 
             const phys = document.getElementById('physicsToggle');
@@ -5075,8 +5144,16 @@
             on('modeStart', 'click', () => {
                 const rounds = Number((document.getElementById('modeRounds') || {}).value) || 3;
                 const roundTime = Number((document.getElementById('modeTime') || {}).value) || 180;
+                const source = (document.getElementById('modeSource') || {}).value || 'builtin';
+                // Asking for the room's own blueprints when it has none would
+                // start a match with nothing to rebuild.
+                const room = BlockPartyModels.roomModels().length;
+                if (source !== 'builtin' && !room) {
+                    this.showToast('No room blueprints yet — copy a build and save one first', 'warning', 3600);
+                    return;
+                }
                 this._closeModePicker();
-                this.modes.startMatch(this._pickedMode || 'blueprint', { rounds, roundTime });
+                this.modes.startMatch(this._pickedMode || 'blueprint', { rounds, roundTime, source });
             });
 
             on('mhLockBtn', 'click', () => this.modes.lockIn());
@@ -5264,6 +5341,7 @@
             this._syncGeoUI();
             this._syncWorldControls();
             this._loadSlotList();
+            this._renderBlueprints();
             this._syncPhysicsUI();
             this._fetchStats();
         }
@@ -5340,6 +5418,138 @@
                     <button class="slot-del btn btn-ghost" data-key="${this._esc(key)}" data-label="${this._esc(label)}" title="Delete">🗑</button>
                 </div>`;
             }).join('');
+        }
+
+        // ---------- room blueprints ----------
+        /**
+         * Turn what you just copied into a challenge the room can race to
+         * rebuild.
+         *
+         * The twenty blueprints that ship are the whole of Blueprint Race's
+         * material, and they run out. A build somebody in the room made is
+         * funnier to race than a model out of a file, and the capture gesture
+         * already exists — this is the clipboard, given a name and kept.
+         */
+        saveBlueprint(name) {
+            name = String(name || '').trim().slice(0, 40);
+            if (!name) { this.showToast('Give the blueprint a name', 'warning'); return; }
+            const clip = this.clipboard;
+            if (!clip) { this.showToast('Copy a build first — ✂️ Copy, two corners', 'warning', 3200); return; }
+
+            // Bricks are flattened to their cells here, deliberately: a
+            // blueprint is a shape to be rebuilt, and scoring compares cells.
+            const cells = clip.cells.map(c => ({ x: c[0], y: c[1], z: c[2], c: c[3], s: c[4] }));
+            clip.pieces.forEach(p => {
+                BlockPartyBricks.cellsOf(p[0], p[1], p[2], p[3], p[4]).forEach(cc => {
+                    cells.push({ x: cc[0], y: cc[1], z: cc[2], c: p[5], s: 0 });
+                });
+            });
+
+            if (!cells.length) { this.showToast('That copy is empty', 'warning'); return; }
+            if (cells.length > MAX_MODEL_CELLS) {
+                this.showToast(`Too big for a blueprint (${cells.length} blocks, max ${MAX_MODEL_CELLS})`,
+                    'warning', 3600);
+                return;
+            }
+
+            const slug = name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || 'blueprint';
+            const id = 'room:' + slug;
+            const model = {
+                id, name, author: this.username,
+                cells, size: { w: clip.w, d: clip.d, h: clip.h }
+            };
+            BlockPartyModels.register(model);
+
+            if (!this.channel || typeof this.channel.storagePut !== 'function') {
+                this.showToast('Saved for this session only — no storage here', 'warning', 3200);
+                this._renderBlueprints();
+                return;
+            }
+            this._storage(
+                (cb) => this.channel.storagePut({
+                    storageKey: MODEL_PREFIX + slug,
+                    content: { v: 1, id, name, author: this.username, cells, size: model.size },
+                    encrypted: false,
+                    metadata: { description: 'BlockParty blueprint — ' + name }
+                }, cb),
+                (res) => {
+                    if (res && res.status === 'success') {
+                        this.showToast(`Saved “${name}” — ${cells.length} blocks`, 'success', 2800);
+                    } else {
+                        this.showToast('Could not save that blueprint', 'error', 3200);
+                    }
+                    this._renderBlueprints();
+                });
+        }
+
+        /**
+         * Read the room's blueprints back.
+         *
+         * The host needs the cells, because it is the one that hands a
+         * blueprint out at the start of a round. Everyone else only needs to
+         * know they exist — and during a race must NOT have the cells, or the
+         * answer is sitting in their own browser.
+         */
+        _loadBlueprints() {
+            if (!this.channel || typeof this.channel.storageKeys !== 'function') return;
+            this._storage((cb) => this.channel.storageKeys(cb), (res) => {
+                const data = this._storagePayload(res);
+                const keys = ((data && data.keys) || []).filter(k => k.indexOf(MODEL_PREFIX) === 0);
+                this.blueprintKeys = keys;
+                this._renderBlueprints();
+                if (!this.isHost()) return;
+                keys.forEach(key => this._loadBlueprint(key));
+            });
+        }
+
+        _loadBlueprint(key) {
+            this._storage((cb) => this.channel.storageGet({ storageKey: key }, cb), (res) => {
+                const body = this._storagePayload(res);
+                const doc = body && body.data ? body.data : body;
+                if (!doc || !Array.isArray(doc.cells)) return;
+                BlockPartyModels.register(doc);
+                this._renderBlueprints();
+            });
+        }
+
+        deleteBlueprint(key, name) {
+            if (!this.channel || typeof this.channel.storageDeleteByKey !== 'function') return;
+            this._storage((cb) => this.channel.storageDeleteByKey(key, cb), (res) => {
+                if (res && res.status === 'success') {
+                    BlockPartyModels.forget('room:' + key.slice(MODEL_PREFIX.length));
+                    this.showToast(`Deleted “${name}”`, 'info', 2000);
+                    this._loadBlueprints();
+                } else {
+                    this.showToast('Could not delete that blueprint', 'error');
+                }
+            });
+        }
+
+        _renderBlueprints() {
+            const list = document.getElementById('blueprintList');
+            if (!list) return;
+            const saved = BlockPartyModels.roomModels();
+            const keys = this.blueprintKeys || [];
+
+            if (!saved.length && !keys.length) {
+                list.innerHTML = '<div class="slot-empty">No room blueprints yet. Copy a build with ✂️, then name it above.</div>';
+                return;
+            }
+
+            // The host has the cells and can show a size; everyone else has
+            // only the name, which is all they need.
+            const rows = keys.map(key => {
+                const slug = key.slice(MODEL_PREFIX.length);
+                const model = BlockPartyModels.byId('room:' + slug);
+                const label = model ? model.name : slug.replace(/-/g, ' ');
+                const meta = model ? `${BlockPartyModels.count(model)} blocks · by ${model.author || 'someone'}` : '';
+                return `<div class="slot-row">
+                    <span class="slot-name">${this._esc(label)}</span>
+                    <span class="slot-meta">${this._esc(meta)}</span>
+                    <button class="btn btn-ghost blueprint-del" data-key="${this._esc(key)}" data-label="${this._esc(label)}" title="Delete">🗑</button>
+                </div>`;
+            });
+            list.innerHTML = rows.join('');
         }
 
         // ---------- remembered locations ----------
