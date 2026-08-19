@@ -86,7 +86,7 @@
             // What is drawn. Everything on by default; the ones people turn off
             // are turned off for a reason and should stay that way.
             this.layers = Object.assign({
-                map: true, build: true, people: true, trails: true, grid: true
+                map: true, build: true, people: true, trails: true, grid: true, worlds: true
             }, this._restoreLayers());
             this.showMap = this.layers.map;   // kept for older callers
 
@@ -866,6 +866,11 @@
         goTo(lat, lon, opts) {
             const g = this.game;
             opts = opts || {};
+            // A region is a tile at a particular scale, so "the world at these
+            // coordinates" is only the same world at the same metres-per-block.
+            // Travelling back to a saved world at whatever scale happens to be
+            // current lands in a neighbouring region with nothing in it.
+            const mpc = opts.mpc || (g.geo.anchor && g.geo.anchor.mpc) || 2;
             if (!g.geo || !g.geo.anchor) {
                 g.showToast('Pin this world to a place first', 'warning', 3200);
                 return false;
@@ -874,7 +879,7 @@
             const half = g.voxels.half;
             const inside = w && Math.abs(w.x) <= half && Math.abs(w.z) <= half;
 
-            if (inside && !opts.travel) {
+            if (inside && !opts.travel && mpc === g.geo.anchor.mpc) {
                 const x = Math.round(w.x), z = Math.round(w.z);
                 if (g.fps && g.fps.active) g.fps.teleport(x, z);
                 else g.voxels.focus(x, 2, z, 40, Math.PI * 0.3);
@@ -892,7 +897,7 @@
                 this.draw();
                 return false;
             }
-            return !!g.travelTo(lat, lon, (g.geo.anchor && g.geo.anchor.mpc) || 2);
+            return !!g.travelTo(lat, lon, mpc);
         }
 
         /** How far a place is from the middle of the world, and which way. */
@@ -928,7 +933,10 @@
                 const row = e.target.closest && e.target.closest('[data-mmgo]');
                 if (row) {
                     const [lat, lon] = row.getAttribute('data-mmgo').split(',').map(Number);
-                    this.goTo(lat, lon, { travel: row.hasAttribute('data-mmtravel') });
+                    this.goTo(lat, lon, {
+                        travel: row.hasAttribute('data-mmtravel'),
+                        mpc: +row.getAttribute('data-mmmpc') || 0
+                    });
                     return;
                 }
                 const head = e.target.closest && e.target.closest('[data-mmwho]');
@@ -969,8 +977,10 @@
             }
             if (list.classList.contains('hidden')) return;
 
+            const worlds = this._placesSection();
             if (!names.size) {
-                list.innerHTML = '<div class="mm-empty">Nobody has shared a location, and the room has not travelled yet.</div>';
+                list.innerHTML = worlds
+                    || '<div class="mm-empty">Nobody has shared a location, and the room has not travelled yet.</div>';
                 return;
             }
 
@@ -1008,11 +1018,46 @@
                         <span class="mm-visit-mark">↩</span>
                         <span class="mm-visit-when">${this._esc(window.BlockPartyGeo.ago(v.at))}</span>
                         <span class="mm-visit-where">${this._esc(window.BlockPartyGeo.format(v.lat, v.lon))}</span>
-                        <button class="mm-go" data-mmgo="${v.lat},${v.lon}" data-mmtravel
+                        <button class="mm-go" data-mmgo="${v.lat},${v.lon}" data-mmmpc="${v.mpc || 0}" data-mmtravel
                             title="Take the room back to this place">go</button>
                     </div>`).join('');
                 return head + rows;
+            }).join('') + worlds;
+        }
+
+        /**
+         * The worlds this room has already built, as somewhere to go back to.
+         *
+         * Drawn on the map as houses; listed here because a pin the size of a
+         * house on a map of Europe is not something you can reliably click.
+         */
+        _placesSection() {
+            const g = this.game;
+            const list = (g.settlements || []).slice();
+            if (!list.length) return '';
+            const here = g.geo && g.geo.anchor && g.geo.anchor.region;
+
+            // Nearest first, so going back somewhere means the top of the list.
+            const a = g.geo && g.geo.anchor;
+            if (a) {
+                list.forEach(w => { w._d = Math.hypot(w.lat - a.lat, w.lon - a.lon); });
+                list.sort((p, q) => p._d - q._d);
+            }
+
+            const rows = list.slice(0, 12).map(w => {
+                const span = w.span >= 1000 ? `${(w.span / 1000).toFixed(1)} km` : `${w.span} m`;
+                return `<div class="mm-visit mm-world${w.region === here ? ' here' : ''}">
+                    <span class="mm-visit-mark">⌂</span>
+                    <span class="mm-visit-when">${w.region === here ? 'you are here' : span}</span>
+                    <span class="mm-visit-where">${this._esc(window.BlockPartyGeo.format(w.lat, w.lon))}</span>
+                    ${w.region === here ? ''
+                        : `<button class="mm-go" data-mmgo="${w.lat},${w.lon}" data-mmmpc="${w.mpc || 0}" data-mmtravel
+                             title="Take the room back to this world, at the scale it was built">go</button>`}
+                </div>`;
             }).join('');
+
+            const more = list.length > 12 ? `<div class="mm-empty">…and ${list.length - 12} more</div>` : '';
+            return `<div class="mm-heading">⌂ Worlds built (${list.length})</div>${rows}${more}`;
         }
 
         _esc(s) {
@@ -1067,6 +1112,7 @@
             if (this.layers.grid) this._drawGraticule(ctx);
             if (this.layers.build) this._drawBuild(ctx, v, s);
             this._drawRegionBox(ctx, v);
+            if (this.layers.worlds) this._drawSettlements(ctx);
             if (this.layers.trails) this._drawTrails(ctx);
             if (this.layers.people) this._drawPeople(ctx);
             this._drawCamera(ctx, v);
@@ -1230,6 +1276,69 @@
                 ctx.font = '600 9px system-ui, sans-serif';
                 ctx.fillText('this world', x, y - 3);
             }
+            ctx.restore();
+        }
+
+        /**
+         * Every region this room has already built in.
+         *
+         * The room's own civilisation, dotted across the planet. Pulled far
+         * enough out, forty street-scale worlds in one city land on the same
+         * few pixels, so markers are bucketed to a small grid and drawn once
+         * with a count — otherwise a well-travelled room smears into a blob.
+         */
+        _drawSettlements(ctx) {
+            const g = this.game, geo = g.geo;
+            const list = g.settlements;
+            if (!list || !list.length || !geo || !geo.region) return;
+            const S = this.size;
+            const here = geo.anchor && geo.anchor.region;
+
+            // Bucket to an eight-pixel grid: one pin per bucket, with a count.
+            const buckets = new Map();
+            list.forEach(w => {
+                const p = this._llToCanvas(w.lat, w.lon);
+                if (!p || p.cx < -6 || p.cy < -6 || p.cx > S + 6 || p.cy > S + 6) return;
+                const key = Math.round(p.cx / 8) + ',' + Math.round(p.cy / 8);
+                const b = buckets.get(key);
+                if (b) { b.n++; b.here = b.here || w.region === here; }
+                else buckets.set(key, { cx: p.cx, cy: p.cy, n: 1, here: w.region === here });
+            });
+
+            ctx.save();
+            ctx.lineJoin = 'round';
+            buckets.forEach(b => {
+                // A little house: it has to say "somebody built here" at six
+                // pixels, which a dot does not.
+                const r = b.here ? 4.5 : 3.6;
+                ctx.beginPath();
+                ctx.moveTo(b.cx, b.cy - r * 1.5);
+                ctx.lineTo(b.cx + r, b.cy - r * 0.2);
+                ctx.lineTo(b.cx + r * 0.66, b.cy - r * 0.2);
+                ctx.lineTo(b.cx + r * 0.66, b.cy + r);
+                ctx.lineTo(b.cx - r * 0.66, b.cy + r);
+                ctx.lineTo(b.cx - r * 0.66, b.cy - r * 0.2);
+                ctx.lineTo(b.cx - r, b.cy - r * 0.2);
+                ctx.closePath();
+                ctx.fillStyle = MAP.shadow;
+                ctx.strokeStyle = MAP.shadow;
+                ctx.lineWidth = 3;
+                ctx.stroke();
+                ctx.fillStyle = b.here ? '#fde68a' : '#fbbf24';
+                ctx.fill();
+
+                if (b.n > 1) {
+                    ctx.fillStyle = MAP.shadow;
+                    ctx.beginPath();
+                    ctx.arc(b.cx + r + 2, b.cy - r, 5.5, 0, Math.PI * 2);
+                    ctx.fill();
+                    ctx.fillStyle = '#fde68a';
+                    ctx.font = '700 8px system-ui, sans-serif';
+                    ctx.textAlign = 'center';
+                    ctx.fillText(b.n > 99 ? '99+' : String(b.n), b.cx + r + 2, b.cy - r + 3);
+                    ctx.textAlign = 'left';
+                }
+            });
             ctx.restore();
         }
 

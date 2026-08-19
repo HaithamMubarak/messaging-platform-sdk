@@ -787,6 +787,12 @@ html, body {
     text-overflow: ellipsis; white-space: nowrap;
 }
 .mm-empty { font-size: 10px; color: var(--muted); padding: 6px 2px; }
+.mm-heading {
+    font-size: 10px; font-weight: 700; color: var(--muted);
+    padding: 7px 2px 3px; margin-top: 4px; border-top: 1px solid var(--border);
+}
+.mm-world .mm-visit-mark { color: #fbbf24; }
+.mm-world.here .mm-visit-when { color: #fde68a; font-weight: 700; }
 
 /* The corner grip: how big the map is, is the player's call. */
 .mm-resize {

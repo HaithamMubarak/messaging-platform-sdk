@@ -90,6 +90,9 @@
     const LABEL_AVATAR = 0.34;   // over a player's head, read from a few paces
     const LABEL_PLOT = 0.55;     // a match plot's plaque
     const SKY_ZENITH = '#0b1226', SKY_HORIZON = '#31456e';
+    // How far off the key light sits. Inside the shadow camera's far plane, and
+    // far enough that its rays are parallel across the world.
+    const SUN_DISTANCE = 130;
     // The grid texture is drawn near-white and tinted by this, so a map can
     // recolour the floor with one value. The default is the dark blue the
     // sandbox has always had.
@@ -213,6 +216,7 @@
             // merged chunk. Warm key, cool sky, warm bounce off the ground.
             const hemi = new THREE.HemisphereLight('#a8c4ff', '#3a3226', 0.55);
             this.scene.add(hemi);
+            this.hemi = hemi;
             const dir = new THREE.DirectionalLight('#fff4e0', 0.85);
             dir.position.set(60, 90, 40);
             if (!this.software) {
@@ -262,7 +266,16 @@
             this.ground.userData.isGround = true;
             this.ground.receiveShadow = !this.software;
             this.scene.add(this.ground);
-            this.scene.add(this._skyDome());
+            this.skyDome = this._skyDome();
+            this.scene.add(this.skyDome);
+            // Which way the key light comes from. Replaced by the real sun once
+            // the world knows where on Earth it is standing.
+            this.sunDir = new THREE.Vector3(60, 90, 40).normalize();
+            this.skyMode = 'real';
+            // Off the map until told otherwise, and explicitly so: the lighting
+            // is set from one place rather than left wherever construction
+            // happened to leave it.
+            this._defaultSky();
 
             this.raycaster = new THREE.Raycaster();
         }
@@ -329,23 +342,97 @@
         /** A gradient dome, so the world has a sky rather than a clear colour. */
         _skyDome() {
             const geo = new THREE.SphereGeometry(WORLD_SPAN * 2.8, 24, 12);
-            const pos = geo.attributes.position;
-            const colors = new Float32Array(pos.count * 3);
-            const zenith = new THREE.Color(SKY_ZENITH).convertSRGBToLinear();
-            const horizon = new THREE.Color(SKY_HORIZON).convertSRGBToLinear();
+            geo.setAttribute('color',
+                new THREE.BufferAttribute(new Float32Array(geo.attributes.position.count * 3), 3));
+            const dome = new THREE.Mesh(geo, new THREE.MeshBasicMaterial({
+                vertexColors: true, side: THREE.BackSide, fog: false, depthWrite: false
+            }));
+            dome.renderOrder = -1;
+            this._paintSky(dome, SKY_ZENITH, SKY_HORIZON);
+            return dome;
+        }
+
+        /**
+         * Repaint the dome between two colours. It is 325 vertices, so the sky
+         * changing colour costs less than one frame's worth of anything else —
+         * which is why the sky can follow the sun rather than being baked once.
+         */
+        _paintSky(dome, zenithHex, horizonHex) {
+            const geo = dome.geometry;
+            const pos = geo.attributes.position, col = geo.attributes.color;
+            const zenith = new THREE.Color(zenithHex).convertSRGBToLinear();
+            const horizon = new THREE.Color(horizonHex).convertSRGBToLinear();
             const c = new THREE.Color();
             for (let i = 0; i < pos.count; i++) {
                 // Blend on height, with a bias that keeps the horizon band tight.
                 const t = Math.pow(Math.max(0, pos.getY(i) / (WORLD_SPAN * 2.8)), 0.55);
                 c.copy(horizon).lerp(zenith, t);
-                colors[i * 3] = c.r; colors[i * 3 + 1] = c.g; colors[i * 3 + 2] = c.b;
+                col.setXYZ(i, c.r, c.g, c.b);
             }
-            geo.setAttribute('color', new THREE.BufferAttribute(colors, 3));
-            const dome = new THREE.Mesh(geo, new THREE.MeshBasicMaterial({
-                vertexColors: true, side: THREE.BackSide, fog: false, depthWrite: false
-            }));
-            dome.renderOrder = -1;
-            return dome;
+            col.needsUpdate = true;
+        }
+
+        // ---- the sky, from the place and the hour --------------------------
+        /**
+         * Put the sun where it really is.
+         *
+         * The world knows its latitude and longitude and the browser knows the
+         * time, which is all the almanac needs — so an evening in your own
+         * street is lit from the west, low and orange, and nobody had to be
+         * told. Every client derives it from the same anchor and the same
+         * clock, so a room agrees on the sky without sending anything.
+         *
+         * Off the map there is no "where", so a private world keeps the fixed
+         * dusk it has always had.
+         */
+        applySky(when) {
+            const Sky = window.BlockPartySky;
+            const anchor = this.geoAnchor;
+            if (!Sky || !anchor || this.skyMode === 'off') { this._defaultSky(); return null; }
+
+            const sun = Sky.position(anchor.lat, anchor.lon, when);
+            const p = Sky.palette(sun.elevation, this.skyMode);
+            const d = Sky.direction(sun.elevation, sun.azimuth);
+            this.sunDir = new THREE.Vector3(d.x, d.y, d.z);
+
+            this.sun.color.set(new THREE.Color(p.key).convertSRGBToLinear());
+            this.sun.intensity = p.keyIntensity;
+            this.hemi.color.set(new THREE.Color(p.hemiSky).convertSRGBToLinear());
+            this.hemi.groundColor.set(new THREE.Color(p.hemiGround).convertSRGBToLinear());
+            this.hemi.intensity = p.hemiIntensity;
+            // ACES can go muddy at the dim end, so the exposure lifts with the
+            // sun rather than being left where midday put it.
+            this.renderer.toneMappingExposure = p.exposure;
+
+            this._paintSky(this.skyDome, p.zenith, p.horizon);
+            this.scene.background.set(new THREE.Color(p.horizon));
+            if (this.scene.fog) this.scene.fog.color.set(new THREE.Color(p.horizon));
+            this._updateSun();
+
+            this.sky = { elevation: sun.elevation, azimuth: sun.azimuth, night: p.night, dusk: p.dusk };
+            return this.sky;
+        }
+
+        /** The fixed dusk a world off the map has always had. */
+        _defaultSky() {
+            this.sunDir = new THREE.Vector3(60, 90, 40).normalize();
+            this.sun.color.set(new THREE.Color('#fff4e0').convertSRGBToLinear());
+            this.sun.intensity = 0.85;
+            this.hemi.color.set(new THREE.Color('#a8c4ff').convertSRGBToLinear());
+            this.hemi.groundColor.set(new THREE.Color('#3a3226').convertSRGBToLinear());
+            this.hemi.intensity = 0.55;
+            this.renderer.toneMappingExposure = 1.1;
+            this._paintSky(this.skyDome, SKY_ZENITH, SKY_HORIZON);
+            this.scene.background.set(new THREE.Color(SKY_HORIZON));
+            if (this.scene.fog) this.scene.fog.color.set(new THREE.Color(SKY_HORIZON));
+            this._updateSun();
+            this.sky = null;
+        }
+
+        /** 'real' — the truth, floored so night stays playable — or 'day'. */
+        setSkyMode(mode) {
+            this.skyMode = mode || 'real';
+            this.applySky();
         }
 
         /** The floor grid, drawn once into a texture and tiled per cell. */
@@ -494,12 +581,21 @@
          * to whole shadow texels so its edges do not crawl while orbiting.
          */
         _updateSun() {
-            if (!this.sun || this.software) return;
-            const texel = (SHADOW_RADIUS * 2) / 2048;
-            const sx = Math.round(this.target.x / texel) * texel;
-            const sz = Math.round(this.target.z / texel) * texel;
+            // The sky is set once while the scene is still being assembled, and
+            // the camera target does not exist yet at that point. The render
+            // loop calls this on every frame, so there is nothing to catch up.
+            if (!this.sun || !this.target) return;
+            // Software renderers cast no shadows, so there is no shadow box to
+            // snap — but the light still has to come from the right direction.
+            let sx = this.target.x, sz = this.target.z;
+            if (!this.software) {
+                const texel = (SHADOW_RADIUS * 2) / 2048;
+                sx = Math.round(sx / texel) * texel;
+                sz = Math.round(sz / texel) * texel;
+            }
+            const d = this.sunDir || new THREE.Vector3(60, 90, 40).normalize();
             this.sun.target.position.set(sx, 0, sz);
-            this.sun.position.set(sx + 60, 90, sz + 40);
+            this.sun.position.set(sx + d.x * SUN_DISTANCE, d.y * SUN_DISTANCE, sz + d.z * SUN_DISTANCE);
             this.sun.target.updateMatrixWorld();
         }
 
@@ -1578,6 +1674,9 @@
         setGeoAnchor(anchor) {
             this.geoAnchor = anchor || null;
             if (!anchor) this.clearGeoMarkers();
+            // A new place is a new sky: a different latitude, a different hour
+            // of the local day, and a sun somewhere else entirely.
+            this.applySky();
         }
 
         // ---- avatars: the other players, as people ----------------------
@@ -1883,6 +1982,12 @@
             this.fps = new BlockPartyFPS(this);
             this.geo = new BlockPartyGeo(this);
             this.minimap = new BlockPartyMinimap(this);
+
+            // The sun moves. Once a minute is often enough to follow it and
+            // rare enough that shadow edges never visibly crawl.
+            this._skyMode = localStorage.getItem('bp_sky') || 'real';
+            this.voxels.skyMode = this._skyMode;
+            setInterval(() => this.voxels.applySky(), 60000);
             this._buildPalette();
             this._buildShapes();
             this._buildBricks();
@@ -1920,6 +2025,7 @@
             // Load whatever was persisted (works even if we're the only/first player)
             this._loadWorldFromStorage(() => this._settleWhereYouAre());
             this._loadGeoSeen();
+            this._loadSettlements();
             this._startSessionKeepAlive();
 
             this.showToast('Connected — start building! 🧱', 'success', 2500);
@@ -2684,6 +2790,7 @@
                     encrypted: false,
                     metadata: { description: 'BlockParty voxel world', blocks: this.voxels.count() }
                 };
+                this._noteSettlement();
                 this._storage(
                     (cb) => this.channel.storagePut(payload, cb),
                     (res) => {
@@ -3011,6 +3118,17 @@
                 this.travelTo(a.lat, a.lon, Number(document.getElementById('geoScale').value) || 2);
             });
 
+            on('geoSky', 'change', () => {
+                const el = document.getElementById('geoSky');
+                this._skyMode = el.value;
+                localStorage.setItem('bp_sky', this._skyMode);
+                this.voxels.setSkyMode(this._skyMode);
+                this._syncGeoUI();
+                const sun = this.voxels.sky;
+                this.showToast(sun ? `Sky: ${window.BlockPartySky.describe(sun.elevation, sun.azimuth)}`
+                    : 'Sky: the fixed dusk — pin this world to a place for the real one', 'info', 3000);
+            });
+
             on('geoTraceBtn', 'click', () => this.traceWorld());
 
             on('modeBtn', 'click', () => this.setWorldMode(this.worldMode() === 'earth' ? 'private' : 'earth'));
@@ -3076,10 +3194,14 @@
 
             const span = geo.span();
             const across = span >= 10000 ? `${(span / 1000).toFixed(0)} km` : `${span} m`;
+            const sun = this.voxels && this.voxels.sky;
             set('geoState', anchor
                 ? `${BlockPartyGeo.format(anchor.lat, anchor.lon)} · ${anchor.mpc}m per block · ${across} across`
                   + (anchor.region ? ` · region ${anchor.region}` : '')
+                  + (sun ? ` · ${window.BlockPartySky.describe(sun.elevation, sun.azimuth)}` : '')
                 : 'This world is not pinned to anywhere on Earth yet.');
+            const skySel = document.getElementById('geoSky');
+            if (skySel && skySel.value !== this._skyMode) skySel.value = this._skyMode || 'real';
 
             const share = document.getElementById('geoShareBtn');
             if (share) {
@@ -3336,6 +3458,7 @@
                 // needs theirs taken away — an empty region loads nothing, so
                 // this cannot be left to the world restore.
                 this.geo.refresh();
+                this._loadSettlements();
                 this._syncGeoUI();
                 if (this.minimap) this.minimap.draw();
                 this.paintGround();
@@ -4589,6 +4712,63 @@
                         console.warn('[BlockParty] location memory save failed:', res.statusMessage);
                     }
                 });
+        }
+
+        // ---------- worlds already built ----------
+        /**
+         * Every region this room has left a world in.
+         *
+         * Regions persist one world each, so a room that has travelled slowly
+         * leaves builds scattered across the Earth — and until now nothing said
+         * where. Read back as pins on the map, travel stops being navigation to
+         * coordinates and becomes going back somewhere.
+         *
+         * Keys only. The values are the worlds themselves: a room with forty
+         * regions would pull megabytes of block arrays to draw forty dots.
+         */
+        _loadSettlements() {
+            if (!this.channel || typeof this.channel.storageKeys !== 'function') return;
+            this._storage((cb) => this.channel.storageKeys(cb), (res) => {
+                const data = this._storagePayload(res);
+                if (!data || !data.keys) return;
+                const prefix = STORAGE_KEY + '_';
+                const found = [];
+                data.keys.forEach(key => {
+                    if (key.indexOf(prefix) !== 0) return;
+                    const parts = key.slice(prefix.length).split('_').map(Number);
+                    if (parts.length !== 3 || parts.some(n => !isFinite(n))) return;
+                    const [z, x, y] = parts;
+                    // The region carries its own centre and scale, so a pin
+                    // needs nothing from the world it is standing for.
+                    const region = this.geo.regionAt(z, x, y);
+                    found.push({
+                        key, z, x, y, region: region.key,
+                        lat: region.lat, lon: region.lon, mpc: region.mpc,
+                        span: Math.round((this.voxels.half * 2 + 1) * region.mpc)
+                    });
+                });
+                this.settlements = found;
+                if (this.minimap) { this.minimap.draw(); this.minimap.renderPlaces(); }
+            });
+        }
+
+        /**
+         * A world was just saved somewhere. Rather than re-reading every key,
+         * note the one region we know about — the full list is refreshed on the
+         * next arrival anyway.
+         */
+        _noteSettlement() {
+            const region = this.geo && this.geo.region;
+            if (!region) return;
+            this.settlements = this.settlements || [];
+            if (this.settlements.some(w => w.region === region.key)) return;
+            this.settlements.push({
+                key: STORAGE_KEY + '_' + region.key,
+                z: region.z, x: region.x, y: region.y, region: region.key,
+                lat: region.lat, lon: region.lon, mpc: region.mpc,
+                span: Math.round((this.voxels.half * 2 + 1) * region.mpc)
+            });
+            if (this.minimap) this.minimap.renderPlaces();
         }
 
         _loadGeoSeen() {

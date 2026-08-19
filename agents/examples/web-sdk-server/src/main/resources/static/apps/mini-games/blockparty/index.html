@@ -5,7 +5,17 @@
     <script src="../../../js/prod-log.js"></script>
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>BlockParty — Co-op Voxel Builder</title>
-    <meta name="description" content="Build together in a shared 3D voxel world. Real-time multiplayer building on the Messaging Platform SDK.">
+    <meta name="description" content="Build a 3D voxel world together in real time, anywhere on Earth. Six party modes, persistent regions, and a friend joins from a link.">
+    <meta name="theme-color" content="#0b1120">
+    <link rel="canonical" href="https://hmdevonline.com/messaging-platform/sdk/apps/mini-games/blockparty/index.html">
+
+    <meta property="og:type" content="website">
+    <meta property="og:site_name" content="Messaging Platform SDK">
+    <meta property="og:title" content="BlockParty — a shared voxel world">
+    <meta property="og:description" content="Build a 3D voxel world together in real time, anywhere on Earth. Six party modes, persistent regions, and a friend joins from a link.">
+    <meta property="og:url" content="https://hmdevonline.com/messaging-platform/sdk/apps/mini-games/blockparty/index.html">
+    <meta property="og:image" content="https://hmdevonline.com/messaging-platform/sdk/images/og-image.png">
+    <meta name="twitter:card" content="summary_large_image">
     <link rel="icon" type="image/svg+xml" href="../../../favicon.svg">
     <link rel="stylesheet" href="../../../css/toast.css">
     <link rel="stylesheet" href="../../../css/share-modal.css">
@@ -120,6 +130,7 @@
                 <label><input type="checkbox" data-layer="build" checked> What is built</label>
                 <label><input type="checkbox" data-layer="people" checked> People</label>
                 <label><input type="checkbox" data-layer="trails" checked> Places visited</label>
+                <label><input type="checkbox" data-layer="worlds" checked> Worlds built</label>
             </div>
             <span id="minimapCursor" class="mm-cursor"></span>
         </div>
@@ -179,6 +190,14 @@
                     <input id="geoCoords" type="text" placeholder="51.5074, -0.1278" autocomplete="off">
                     <button id="geoTravelBtn" class="btn btn-primary">✈️ Travel here</button>
                     <button id="geoHereBtn" class="btn btn-ghost">Take me home</button>
+                </div>
+                <div class="import-row">
+                    <label class="world-toggle" for="geoSky" title="The sun's real position for this place, right now">☀️ Sky</label>
+                    <select id="geoSky" title="Where the light comes from">
+                        <option value="real" selected>Real time — the sun where it actually is</option>
+                        <option value="day">Always daytime</option>
+                        <option value="off">Fixed dusk</option>
+                    </select>
                 </div>
                 <div class="import-row">
                     <button id="geoTraceBtn" class="btn btn-primary">🗺 Draw this place</button>
@@ -353,6 +372,7 @@
 <script src="../shared/game-kit.js"></script>
 <script src="bricks.js"></script>
 <script src="maps.js"></script>
+<script src="sky.js"></script>
 <script src="geo.js"></script>
 <script src="minimap.js"></script>
 <script src="terrain.js"></script>
