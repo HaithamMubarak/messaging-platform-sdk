@@ -446,6 +446,7 @@
          */
         setFirstPerson(on) {
             this.firstPerson = !!on;
+            this.hideLandingShadow();
             if (!on) {
                 this.camera.rotation.set(0, 0, 0);
                 this._applyCamera();
@@ -552,6 +553,7 @@
                 this.stepFollow();
                 this._applyDrift(dt);
                 this._animateAvatars(dt);
+                this._bobSpawnGhost();
                 this.fx.update(dt);
                 this.flushChunks();
                 this.renderer.render(this.scene, this.camera);
@@ -1091,6 +1093,159 @@
 
         hidePiecePreview() { if (this.piecePreview) this.piecePreview.visible = false; }
 
+        // ---- landing shadow ----
+        /**
+         * Where the ghost would come down.
+         *
+         * From an oblique orbit camera you cannot tell which column a block
+         * held in mid-air is over — depth and height look the same on screen —
+         * so tall builds quietly accumulate blocks one column out. A dark patch
+         * on top of whatever is under the ghost, and a thread down to it, says
+         * which column it is. The columns index already holds the top of every
+         * (x, z), so this costs a lookup per footprint cell and nothing else.
+         */
+        showLandingShadow(x, y, z, w, d) {
+            if (this.firstPerson) { this.hideLandingShadow(); return; }
+            w = w || 1; d = d || 1;
+
+            // The highest thing under the footprint is what it would land on.
+            let ground = 0;
+            for (let i = 0; i < w; i++) {
+                for (let j = 0; j < d; j++) {
+                    const col = this.columns.get((x + i) + ',' + (z + j));
+                    if (col && col.top + 1 > ground) ground = col.top + 1;
+                }
+            }
+            // Sitting on it already: two translucent quads in the same place
+            // read as a smudge, not as a shadow.
+            if (ground >= y) { this.hideLandingShadow(); return; }
+
+            if (!this.landingShadow) {
+                const plane = new THREE.PlaneGeometry(1, 1);
+                plane.rotateX(-Math.PI / 2);
+                plane.translate(0.5, 0, 0.5);       // corner origin, like a piece
+                const patch = new THREE.Mesh(plane, new THREE.MeshBasicMaterial({
+                    color: 0x000000, transparent: true, opacity: 0.3, depthWrite: false
+                }));
+                const thread = new THREE.Line(
+                    new THREE.BufferGeometry().setFromPoints(
+                        [new THREE.Vector3(0, 0, 0), new THREE.Vector3(0, 1, 0)]),
+                    new THREE.LineBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.28 })
+                );
+                const group = new THREE.Group();
+                group.add(patch);
+                group.add(thread);
+                this.scene.add(group);
+                this.landingShadow = { group, patch, thread };
+            }
+
+            const sh = this.landingShadow;
+            sh.group.visible = true;
+            sh.patch.position.set(x, ground + 0.02, z);   // just clear of the face
+            sh.patch.scale.set(w, 1, d);
+            sh.thread.position.set(x + w / 2, ground, z + d / 2);
+            sh.thread.scale.y = Math.max(0.001, y - ground);
+        }
+
+        hideLandingShadow() { if (this.landingShadow) this.landingShadow.group.visible = false; }
+
+        // ---- "stand here": the marker for dropping into first person ----
+        /**
+         * Where you would be standing, drawn as somebody standing there.
+         *
+         * Arming first person asks you to click a spot, and the ghost under the
+         * pointer used to be the brick you would otherwise have placed — a
+         * brick to answer "where do you want to stand?". This is the same
+         * figure the other players see walking about, in outline: it stands on
+         * top of whatever is in the column, at the height you would actually
+         * be, so you can see whether you are picking the roof or the street.
+         */
+        showSpawnPreview(x, z, color) {
+            if (!this.spawnGhost) this.spawnGhost = this._makeSpawnGhost();
+            const g = this.spawnGhost;
+            if (color && g.colour !== color) {
+                g.colour = color;
+                g.material.color.set(new THREE.Color(color).convertSRGBToLinear());
+            }
+            const col = this.columns.get(x + ',' + z);
+            const stand = col ? col.top + 1 : 0;
+            g.group.visible = true;
+            g.stand = stand;
+            g.group.position.set(x + 0.5, stand, z + 0.5);
+            // A slow bob, so it reads as a marker being placed rather than as
+            // something already built there. The frame loop keeps it going.
+            this._bobSpawnGhost();
+            return stand;
+        }
+
+        hideSpawnPreview() { if (this.spawnGhost) this.spawnGhost.group.visible = false; }
+
+        /** Keep the marker breathing between pointer moves. */
+        _bobSpawnGhost() {
+            const g = this.spawnGhost;
+            if (!g || !g.group.visible) return;
+            g.group.position.y = g.stand + Math.sin(performance.now() / 260) * 0.06;
+        }
+
+        /**
+         * The walking figure, in outline — same proportions as a real one.
+         *
+         * Drawn twice: a dark shell a little larger, from the inside, and the
+         * coloured figure inside it. That silhouette is what lets it read while
+         * standing on a bright green tower in the player's own colour, which is
+         * exactly where it tends to end up.
+         */
+        _makeSpawnGhost() {
+            const group = new THREE.Group();
+            const material = new THREE.MeshLambertMaterial({
+                color: new THREE.Color('#6366f1').convertSRGBToLinear(),
+                transparent: true, opacity: 0.8, depthWrite: false
+            });
+            const shell = new THREE.MeshBasicMaterial({
+                color: new THREE.Color('#0b1020').convertSRGBToLinear(),
+                transparent: true, opacity: 0.85, side: THREE.BackSide, depthWrite: false
+            });
+            const part = (w, h, d, x, y, z) => {
+                const geo = new THREE.BoxGeometry(w, h, d);
+                const outline = new THREE.Mesh(geo, shell);
+                outline.position.set(x, y, z);
+                outline.scale.setScalar(1.14);
+                group.add(outline);
+                const m = new THREE.Mesh(geo, material);
+                m.position.set(x, y, z);
+                group.add(m);
+            };
+            part(0.26, 0.7, 0.26, -0.16, 0.35, 0);      // legs
+            part(0.26, 0.7, 0.26, 0.16, 0.35, 0);
+            part(0.62, 0.66, 0.36, 0, 1.03, 0);         // torso
+            part(0.2, 0.6, 0.2, -0.42, 1.0, 0);         // arms
+            part(0.2, 0.6, 0.2, 0.42, 1.0, 0);
+            part(0.5, 0.5, 0.5, 0, 1.62, 0);            // head
+
+            // A ring on the ground under the feet, so the exact cell is clear.
+            const ring = new THREE.Mesh(
+                new THREE.RingGeometry(0.34, 0.46, 24).rotateX(-Math.PI / 2),
+                new THREE.MeshBasicMaterial({
+                    color: 0xffffff, transparent: true, opacity: 0.55,
+                    side: THREE.DoubleSide, depthWrite: false
+                })
+            );
+            ring.position.y = 0.03;
+            group.add(ring);
+
+            // A thread from the ring up through the figure, so the column it is
+            // standing in is unambiguous from a shallow camera angle.
+            const post = new THREE.Line(
+                new THREE.BufferGeometry().setFromPoints(
+                    [new THREE.Vector3(0, 0, 0), new THREE.Vector3(0, 2.1, 0)]),
+                new THREE.LineBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.35 })
+            );
+            group.add(post);
+
+            this.scene.add(group);
+            return { group, material, colour: '#6366f1' };
+        }
+
         _blockedMaterial() {
             if (!this._blockedMat) {
                 this._blockedMat = new THREE.MeshLambertMaterial({
@@ -1119,7 +1274,13 @@
         _dirtyTargets() { this._targetsDirty = true; }
 
         // ---- local placement preview (my own aim, before I commit an edit) ----
-        showPreview(x, y, z, si, colorIndex, erasing) {
+        /**
+         * The ghost under my own pointer. `mode` says what the click will do:
+         * nothing (build or paint — the ghost wears the colour), 'erase' (a red
+         * ring round the doomed cell, no ghost) or 'pick' (an amber ring, since
+         * the eyedropper changes the world not at all).
+         */
+        showPreview(x, y, z, si, colorIndex, mode) {
             if (!this.preview) {
                 const group = new THREE.Group();
                 const line = new THREE.LineSegments(
@@ -1135,10 +1296,11 @@
             p.group.visible = true;
             p.group.position.set(x + 0.5, y, z + 0.5);
             p.line.position.y = 0.5;
-            if (erasing) {
-                // Nothing is being added — just ring the doomed cell in red.
+            if (mode) {
+                // Nothing is being added — just ring the cell, in the colour of
+                // what is about to happen to it.
                 p.ghost.visible = false;
-                p.line.material.color.set('#ff5a5f');
+                p.line.material.color.set(mode === 'pick' ? '#fbbf24' : '#ff5a5f');
             } else {
                 const idx = shapeIndex(si);
                 p.ghost.visible = true;
@@ -1149,7 +1311,13 @@
             }
         }
 
-        hidePreview() { if (this.preview) this.preview.group.visible = false; }
+        // The shadow belongs to the ghost, so it goes wherever the ghost goes —
+        // orbiting, walking, locking the world. Anything that puts the ghost
+        // back shows the shadow again itself.
+        hidePreview() {
+            if (this.preview) this.preview.group.visible = false;
+            this.hideLandingShadow();
+        }
 
         // ---- region preview, for the box fill ----
         // One unit-cube wireframe, scaled to the pending box.
@@ -1691,7 +1859,7 @@
             this.stats = null;              // this room's running record
             this.currentColor = 0;
             this.currentShape = 0;          // index into SHAPES
-            this.tool = 'build';            // 'build' | 'erase'
+            this.tool = 'build';            // 'build' | 'erase' | 'paint'
             this.brickMode = true;          // build with LEGO-style brick pieces
             this.currentBrick = '2x4';      // footprint from bricks.js
             this.brickRotated = false;      // swaps the footprint's w and d
@@ -2234,6 +2402,132 @@
             }
         }
 
+        /**
+         * Repaint what is already there, in the current colour and shape.
+         *
+         * Without this, changing a block's colour means erase, re-aim, place —
+         * three actions and a moment where the wall has a hole in it. It
+         * matters more now that any colour at all can be mixed: a custom colour
+         * that has left the swatch is otherwise unrecoverable, which is what
+         * the eyedropper is for.
+         *
+         * Whoever built the block keeps the credit. Repainting somebody's wall
+         * is not building it, and the leaderboard and the owner X-ray both read
+         * from that.
+         */
+        paintAt(x, y, z) {
+            if (!this.voxels.hasBlock(x, y, z)) return;
+            if (!this._canEditCell(x, y, z)) return;
+
+            // A brick is one thing with one colour, so painting any of its
+            // studs repaints the whole piece — anything else would leave the
+            // piece two colours, which it has no way to be.
+            const pieceId = this.voxels.pieceAt(x, y, z);
+            if (pieceId) {
+                const ids = [pieceId];
+                if (this.mirror) {
+                    const piece = this.voxels.pieces.get(pieceId);
+                    const area = this.buildArea();
+                    const mx = Math.round(2 * area.cx - piece.x - piece.w);
+                    const twin = this.voxels.pieceAt(mx, piece.y, piece.z);
+                    if (twin && twin !== pieceId) ids.push(twin);
+                }
+                this.repaintPieces(ids);
+                return;
+            }
+
+            const cells = [[x, y, z]];
+            if (this.mirror) {
+                const m = this._mirrorOf(x, z);
+                if ((m.x !== x || m.z !== z) && this.voxels.hasBlock(m.x, y, m.z)
+                    && this._canEditCell(m.x, y, m.z, true)) cells.push([m.x, y, m.z]);
+            }
+            const rows = cells.map(c => this._repaintRow(c[0], c[1], c[2]))
+                .filter(r => r);
+            if (!rows.length) return;
+            this._doLocalEdit({ a: 'bulk', o: this.username, place: rows });
+        }
+
+        /** A cell as it would be after painting it — same block, my colour. */
+        _repaintRow(x, y, z) {
+            const row = this._cellRow(x, y, z);
+            if (!row) return null;
+            // Already exactly this? Then there is nothing to broadcast, and an
+            // empty edit would still cost an undo step.
+            if (row[3] === this.currentColor && row[4] === this.currentShape) return null;
+            return [x, y, z, this.currentColor, this.currentShape, row[5]];
+        }
+
+        /** The same, for whole brick pieces: put them back in my colour. */
+        repaintPieces(ids) {
+            const rows = [];
+            ids.forEach(id => {
+                const piece = this.voxels.pieces.get(id);
+                if (!piece || piece.c === this.currentColor) return;
+                const row = this._pieceRow(piece);
+                row[6] = this.currentColor;
+                rows.push(row);
+            });
+            if (!rows.length) return;
+            // setPiece replaces a piece of the same id in place, so adding it
+            // again with a new colour is the whole edit.
+            this._doLocalEdit({ a: 'bulk', o: this.username, addPieces: rows });
+        }
+
+        /**
+         * Take the colour and shape of whatever is under the pointer.
+         *
+         * The counterpart to painting: "carry on in exactly that colour" is
+         * unanswerable otherwise once a colour has been mixed rather than
+         * chosen from the twelve.
+         */
+        eyedropAt(x, y, z) {
+            if (!this.voxels.hasBlock(x, y, z)) {
+                this.showToast('Nothing there to pick up', 'info', 1400);
+                return false;
+            }
+            const colour = this.voxels.world.get(VoxelWorld.key(x, y, z));
+            const pieceId = this.voxels.pieceAt(x, y, z);
+            const piece = pieceId && this.voxels.pieces.get(pieceId);
+            const brick = piece && BlockPartyBricks.bySize(piece.w, piece.d);
+            if (brick) {
+                // A brick's size is as much a part of it as its colour.
+                this.brickRotated = brick.rotated;
+                this.selectBrick(brick.id);
+            } else if (!piece) {
+                this.selectShape(this.voxels.shapeOf(x, y, z));
+            }
+
+            if (isRGB(colour)) this.setCustomColor(hexOf(colour));
+            else this.selectColor(colour);
+            this.showToast(`Picked up ${hexOf(colour)}`, 'success', 1400);
+            return true;
+        }
+
+        /** Choose one of the twelve, from the palette or from the world. */
+        selectColor(i) {
+            this.currentColor = i;
+            const palette = document.getElementById('palette');
+            if (palette) {
+                palette.querySelectorAll('.swatch').forEach((sw, idx) => {
+                    sw.classList.toggle('selected', idx === i);
+                });
+            }
+            this._afterBrushChange();
+        }
+
+        /**
+         * Picking a colour or a shape means you intend to put it somewhere. It
+         * used to always mean building — but while painting, it means painting,
+         * and being thrown back to Build every time you changed colour made the
+         * paint tool useless.
+         */
+        _afterBrushChange() {
+            if (this.tool === 'erase') this.tool = 'build';
+            this._syncTool();
+            this._refreshAim();
+        }
+
         removeAt(x, y, z) {
             if (!this.voxels.hasBlock(x, y, z)) return;
             if (!this._canEditCell(x, y, z)) return;
@@ -2265,10 +2559,14 @@
         }
 
         /**
-         * Fill (or clear) the box between two cells. Erase decides which:
-         * the Fill toggle rides on top of whichever tool is active.
+         * Fill, clear, or repaint the box between two cells. The tool decides
+         * which: the Fill toggle rides on top of whichever one is active.
+         *
+         * Repainting only touches cells that already hold something — a paint
+         * box over a courtyard recolours the walls around it and leaves the
+         * courtyard empty, which is the only reading of it that is any use.
          */
-        fillRegion(a, b, erase) {
+        fillRegion(a, b, erase, paint) {
             const lo = { x: Math.min(a.x, b.x), y: Math.min(a.y, b.y), z: Math.min(a.z, b.z) };
             const hi = { x: Math.max(a.x, b.x), y: Math.max(a.y, b.y), z: Math.max(a.z, b.z) };
             const volume = (hi.x - lo.x + 1) * (hi.y - lo.y + 1) * (hi.z - lo.z + 1);
@@ -2278,6 +2576,9 @@
             }
 
             const place = [], remove = [];
+            // Bricks inside the box are repainted whole, however few of their
+            // studs the box happens to cover.
+            const pieceIds = new Set();
             let blocked = 0;
             for (let x = lo.x; x <= hi.x; x++) {
                 for (let y = lo.y; y <= hi.y; y++) {
@@ -2285,20 +2586,38 @@
                         if (!this._canEditCell(x, y, z, true)) { blocked++; continue; }
                         if (erase) {
                             if (this.voxels.hasBlock(x, y, z)) remove.push([x, y, z]);
+                        } else if (paint) {
+                            const id = this.voxels.pieceAt(x, y, z);
+                            if (id) { pieceIds.add(id); continue; }
+                            const row = this._repaintRow(x, y, z);
+                            if (row) place.push(row);
                         } else {
                             place.push([x, y, z, this.currentColor, this.currentShape]);
                         }
                     }
                 }
             }
-            if (!place.length && !remove.length) {
+            const addPieces = [];
+            pieceIds.forEach(id => {
+                const piece = this.voxels.pieces.get(id);
+                if (!piece || piece.c === this.currentColor) return;
+                const row = this._pieceRow(piece);
+                row[6] = this.currentColor;
+                addPieces.push(row);
+            });
+
+            if (!place.length && !remove.length && !addPieces.length) {
                 this._canEditCell(lo.x, lo.y, lo.z);    // let it explain why
-                if (!blocked) this.showToast(erase ? 'No blocks to clear there' : 'Nothing to fill there', 'info', 1400);
+                if (!blocked) {
+                    this.showToast(erase ? 'No blocks to clear there'
+                        : paint ? 'Nothing there to repaint' : 'Nothing to fill there', 'info', 1400);
+                }
                 return 0;
             }
-            this._doLocalEdit({ a: 'bulk', o: this.username, place, remove });
-            const n = place.length + remove.length;
-            this.showToast(`${erase ? 'Cleared' : 'Filled'} ${n} block${n === 1 ? '' : 's'}`
+            this._doLocalEdit({ a: 'bulk', o: this.username, place, remove, addPieces });
+            const n = place.length + remove.length + addPieces.length;
+            const did = erase ? 'Cleared' : paint ? 'Repainted' : 'Filled';
+            this.showToast(`${did} ${n} block${n === 1 ? '' : 's'}`
                 + (blocked ? ` (${blocked} out of reach)` : ''), 'success', 1800);
             return n;
         }
@@ -3412,7 +3731,7 @@
             const el = this.voxels.renderer.domElement;
             const pointers = new Map();       // pointerId -> {x,y}
             let dragging = false;
-            let lastX = 0, lastY = 0, downX = 0, downY = 0, downBtn = 0;
+            let lastX = 0, lastY = 0, downX = 0, downY = 0, downBtn = 0, downAlt = false;
             let pinchDist = 0;
 
             const MOVE_THRESHOLD = 6;
@@ -3425,6 +3744,7 @@
                 pointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
                 lastX = downX = e.clientX; lastY = downY = e.clientY;
                 downBtn = e.button;
+                downAlt = !!(e.altKey || e.metaKey);
                 dragging = false;
                 // Touch has no hover, so first contact is when the ghost appears.
                 this._updateAim(e.clientX, e.clientY);
@@ -3468,6 +3788,13 @@
 
                 if (wasSingle && !dragging) {
                     // A tap/click — perform build/erase
+                    // Alt-click takes a colour, which is the convention every
+                    // drawing program uses and costs no button.
+                    if (downAlt && !this.picking) {
+                        this.setPicking(true);
+                        this._actAt(downX, downY, false);
+                        return;
+                    }
                     const eraseIntent = (downBtn === 2) || (this.tool === 'erase');
                     this._actAt(downX, downY, eraseIntent);
                 }
@@ -3498,19 +3825,34 @@
             if (this._fpsDrop) {
                 const spot = pick.place || pick.remove;
                 this._cancelDrop();
+                this.voxels.hideSpawnPreview();
                 if (spot) this.fps.enterAt(spot.x, spot.z);
                 return;
             }
 
+            // Armed eyedropper: this click reads a colour and nothing else.
+            if (this.picking) {
+                const spot = pick.remove;
+                this.setPicking(false);
+                if (spot) this.eyedropAt(spot.x, spot.y, spot.z);
+                else this.showToast('Nothing there to pick up', 'info', 1400);
+                this._refreshAim();
+                return;
+            }
+
+            const painting = !erase && this.tool === 'paint';
+
             if (this.fillMode) {
-                const cell = erase ? pick.remove : pick.place;
+                // Painting works on what is already standing, so the box is
+                // anchored to filled cells the way erasing is.
+                const cell = (erase || painting) ? pick.remove : pick.place;
                 if (!cell) return;
                 if (!this.fillAnchor) {
-                    this.fillAnchor = { x: cell.x, y: cell.y, z: cell.z, erase };
+                    this.fillAnchor = { x: cell.x, y: cell.y, z: cell.z, erase, paint: painting };
                     this.voxels.showRegion(cell, cell, erase);
                     this.showToast('Now tap the opposite corner — Esc cancels', 'info', 2400);
                 } else {
-                    this.fillRegion(this.fillAnchor, cell, this.fillAnchor.erase);
+                    this.fillRegion(this.fillAnchor, cell, this.fillAnchor.erase, this.fillAnchor.paint);
                     this.cancelFill();
                 }
                 this._refreshAim();
@@ -3519,6 +3861,8 @@
 
             if (erase) {
                 if (pick.remove) this.removeAt(pick.remove.x, pick.remove.y, pick.remove.z);
+            } else if (painting) {
+                if (pick.remove) this.paintAt(pick.remove.x, pick.remove.y, pick.remove.z);
             } else if (pick.place) {
                 this.placeAt(pick.place.x, pick.place.y, pick.place.z);
             }
@@ -3532,15 +3876,35 @@
         _updateAim(clientX, clientY) {
             this._lastPointer = { x: clientX, y: clientY };
             const pick = this.voxels.pick(clientX, clientY);
+            // Choosing where to stand is not choosing where to build: the whole
+            // aim is a different question, so it gets its own answer.
+            if (this._fpsDrop) {
+                const spot = pick && (pick.place || pick.remove);
+                this.voxels.hidePreview();
+                this.voxels.hidePiecePreview();
+                if (!spot) { this.voxels.hideSpawnPreview(); this._sendCursor({ hide: true }); return; }
+                this.voxels.showSpawnPreview(spot.x, spot.z,
+                    typeof this.generateUserColor === 'function' ? this.generateUserColor(this.username) : '#6366f1');
+                // Nobody else needs to watch me deciding where to stand.
+                this._sendCursor({ hide: true });
+                return;
+            }
+
             // Mid-fill the anchor decides which face to aim at, so switching
             // tools halfway through does not move the pending corner.
             const erasing = this.fillAnchor ? this.fillAnchor.erase : (this.tool === 'erase');
-            const cell = erasing ? pick && pick.remove : pick && pick.place;
+            // Painting and the armed eyedropper both act on what is standing,
+            // so they aim at the filled cell rather than the empty face in
+            // front of it.
+            const onSolid = erasing || this.picking
+                || (this.fillAnchor ? this.fillAnchor.paint : this.tool === 'paint');
+            const cell = onSolid ? pick && pick.remove : pick && pick.place;
             if (!cell) {
                 // No valid target (e.g. Erase aimed at empty ground). Tell the
                 // others to drop my cursor, or they keep seeing a stale ghost.
                 this.voxels.hidePreview();
                 this.voxels.hidePiecePreview();
+                this.voxels.hideLandingShadow();
                 this._sendCursor({ hide: true });
                 return;
             }
@@ -3549,9 +3913,24 @@
             if (this.fillMode && this.fillAnchor) {
                 this.voxels.hidePreview();
                 this.voxels.hidePiecePreview();
+                this.voxels.hideLandingShadow();
                 const n = this.voxels.showRegion(this.fillAnchor, cell, this.fillAnchor.erase);
                 const hint = document.getElementById('fillHint');
                 if (hint) hint.textContent = `${n} cell${n === 1 ? '' : 's'} — tap to ${this.fillAnchor.erase ? 'clear' : 'fill'}`;
+            } else if (this.picking) {
+                // Nothing is being added or taken away — just say which cell
+                // the colour would come from.
+                this.voxels.hidePiecePreview();
+                this.voxels.showPreview(cell.x, cell.y, cell.z, 0, 0, 'pick');
+                this.voxels.hideLandingShadow();
+            } else if (this.tool === 'paint') {
+                // Show the block wearing the new colour, in place, rather than
+                // a ghost floating in front of it.
+                this.voxels.hidePiecePreview();
+                this.voxels.showPreview(cell.x, cell.y, cell.z, this.currentShape, this.currentColor);
+                // The block is already standing on something; a shadow under it
+                // would be a shadow under itself.
+                this.voxels.hideLandingShadow();
             } else if (this.brickMode && !erasing && !this.fillMode) {
                 // Show the whole brick, and show it red when it will not fit —
                 // the footprint is the thing you need to judge before tapping.
@@ -3559,9 +3938,13 @@
                 const { w, d } = this.pieceFootprint();
                 this.voxels.showPiecePreview(cell.x, cell.y, cell.z, w, d, this.currentColor,
                     !!this.pieceBlocked(cell.x, cell.y, cell.z, w, d));
+                this.voxels.showLandingShadow(cell.x, cell.y, cell.z, w, d);
             } else {
                 this.voxels.hidePiecePreview();
-                this.voxels.showPreview(cell.x, cell.y, cell.z, this.currentShape, this.currentColor, erasing);
+                this.voxels.showPreview(cell.x, cell.y, cell.z, this.currentShape, this.currentColor,
+                    erasing ? 'erase' : null);
+                if (erasing) this.voxels.hideLandingShadow();
+                else this.voxels.showLandingShadow(cell.x, cell.y, cell.z, 1, 1);
             }
 
             this._updateGeoReadout(cell);
@@ -3603,9 +3986,7 @@
             if (palette) palette.querySelectorAll('.swatch').forEach(sw => sw.classList.remove('selected'));
             const chip = document.getElementById('customSwatch');
             if (chip) { chip.style.background = hex; chip.classList.add('selected'); }
-            this.tool = 'build';
-            this._syncTool();
-            this._refreshAim();
+            this._afterBrushChange();
         }
 
         _buildPalette() {
@@ -3616,14 +3997,7 @@
                 sw.className = 'swatch' + (i === this.currentColor ? ' selected' : '');
                 sw.style.background = hex;
                 sw.title = hex;
-                sw.addEventListener('click', () => {
-                    this.currentColor = i;
-                    this.tool = 'build';
-                    this._syncTool();
-                    palette.querySelectorAll('.swatch').forEach(s => s.classList.remove('selected'));
-                    sw.classList.add('selected');
-                    this._refreshAim();
-                });
+                sw.addEventListener('click', () => this.selectColor(i));
                 palette.appendChild(sw);
             });
 
@@ -3657,20 +4031,28 @@
         selectShape(i) {
             this.currentShape = shapeIndex(i);
             window.BlockPartySfx.tick();
-            this.tool = 'build';
-            this._syncTool();
             const bar = document.getElementById('shapes');
             if (bar) {
                 bar.querySelectorAll('.shape-btn').forEach((b, idx) => {
                     b.classList.toggle('selected', idx === this.currentShape);
                 });
             }
-            this._refreshAim();
+            this._afterBrushChange();
         }
 
         _bindUI() {
-            document.getElementById('toolBuild').addEventListener('click', () => { this.tool = 'build'; this._syncTool(); this._refreshAim(); });
-            document.getElementById('toolErase').addEventListener('click', () => { this.tool = 'erase'; this._syncTool(); this._refreshAim(); });
+            const pickTool = (name) => {
+                this.tool = name;
+                this.setPicking(false);
+                this._syncTool();
+                this._refreshAim();
+            };
+            document.getElementById('toolBuild').addEventListener('click', () => pickTool('build'));
+            document.getElementById('toolErase').addEventListener('click', () => pickTool('erase'));
+            const paint = document.getElementById('toolPaint');
+            if (paint) paint.addEventListener('click', () => pickTool('paint'));
+            const pick = document.getElementById('toolPick');
+            if (pick) pick.addEventListener('click', () => this.togglePicking());
             document.getElementById('undoBtn').addEventListener('click', () => this.undo());
             document.getElementById('resetViewBtn').addEventListener('click', () => {
                 this.stopFollowing();
@@ -3706,9 +4088,11 @@
             window.addEventListener('keydown', (e) => {
                 if (e.target && /^(INPUT|TEXTAREA|SELECT)$/.test(e.target.tagName)) return;
                 const k = e.key.toLowerCase();
-                if (k === 'escape') { this.cancelFill(); this.stopFollowing(); this._cancelDrop(); }
-                else if (k === 'b') { this.tool = 'build'; this._syncTool(); this._refreshAim(); }
-                else if (k === 'e') { this.tool = 'erase'; this._syncTool(); this._refreshAim(); }
+                if (k === 'escape') { this.cancelFill(); this.stopFollowing(); this._cancelDrop(); this.setPicking(false); }
+                else if (k === 'b') { this.tool = 'build'; this.setPicking(false); this._syncTool(); this._refreshAim(); }
+                else if (k === 'e') { this.tool = 'erase'; this.setPicking(false); this._syncTool(); this._refreshAim(); }
+                else if (k === 'p') { this.tool = 'paint'; this.setPicking(false); this._syncTool(); this._refreshAim(); }
+                else if (k === 'i') { this.togglePicking(); }
                 else if (k === 'f') { this.toggleFill(); }
                 else if (k === 'm') { this.toggleMirror(); }
                 else if (k === 'o') { this.toggleXray(); }
@@ -3765,13 +4149,16 @@
             this.voxels.renderer.domElement.style.cursor = 'crosshair';
             document.getElementById('fpsBtn').classList.add('active');
             this.showToast('Click where you want to stand — Esc to cancel', 'info', 4000);
+            this._refreshAim();     // swap the brick ghost for a figure at once
         }
 
         _cancelDrop() {
             if (!this._fpsDrop) return;
             this._fpsDrop = false;
             this.voxels.renderer.domElement.style.cursor = '';
+            this.voxels.hideSpawnPreview();
             document.getElementById('fpsBtn').classList.remove('active');
+            this._refreshAim();
         }
 
         // ---------- bricks ----------
@@ -3796,15 +4183,13 @@
         selectBrick(id) {
             this.currentBrick = id;
             window.BlockPartySfx.tick();
-            this.tool = 'build';
             const bar = document.getElementById('bricks');
             if (bar) {
                 bar.querySelectorAll('.brick-btn').forEach(b => {
                     b.classList.toggle('selected', b.getAttribute('data-brick') === id);
                 });
             }
-            this._syncTool();
-            this._refreshAim();
+            this._afterBrushChange();
         }
 
         rotateBrick() {
@@ -3842,6 +4227,23 @@
             const hint = document.getElementById('fillHint');
             if (hint) hint.textContent = '';
         }
+
+        /**
+         * Arm the next click to take a colour instead of using one.
+         *
+         * Alt-click does it without arming anything, which is what people who
+         * know the convention will reach for; the button is for everyone else,
+         * and it disarms itself the moment it has been used.
+         */
+        setPicking(on) {
+            this.picking = !!on;
+            const btn = document.getElementById('toolPick');
+            if (btn) btn.classList.toggle('active', this.picking);
+            if (this.picking) this.showToast('Tap a block to take its colour — Esc cancels', 'info', 2400);
+            this._refreshAim();
+        }
+
+        togglePicking() { this.setPicking(!this.picking); }
 
         toggleMirror() {
             this.mirror = !this.mirror;
@@ -4378,6 +4780,8 @@
             };
             set('toolBuild', this.tool === 'build');
             set('toolErase', this.tool === 'erase');
+            set('toolPaint', this.tool === 'paint');
+            set('toolPick', this.picking);
             set('toolFill', this.fillMode);
             set('toolMirror', this.mirror);
             set('toolBricks', this.brickMode);

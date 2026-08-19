@@ -57,6 +57,7 @@
         <div class="tool-group">
             <button id="toolBuild" class="tool-btn active" data-tool="build" title="Build (B)">🧱<span>Build</span></button>
             <button id="toolErase" class="tool-btn" data-tool="erase" title="Erase (E)">🧨<span>Erase</span></button>
+            <button id="toolPaint" class="tool-btn" data-tool="paint" title="Repaint what is already there, in the current colour and shape (P)">🖌<span>Paint</span></button>
             <button id="toolFill" class="tool-btn" title="Box fill — tap two opposite corners (F)">⬛<span>Fill</span></button>
             <button id="toolMirror" class="tool-btn" title="Mirror every edit across the middle (M)">🪞<span>Mirror</span></button>
             <button id="toolBricks" class="tool-btn active" title="Build with brick pieces (K)">🧩<span>Bricks</span></button>
@@ -66,6 +67,7 @@
         <div id="shapes" class="shapes hidden" aria-label="Block shape"></div>
         <div id="palette" class="palette" aria-label="Color palette"></div>
         <div class="tool-group tool-extra">
+            <button id="toolPick" class="tool-btn small" title="Take a block's colour — Alt-click does it too (I)">💧<span>Pick</span></button>
             <button id="undoBtn" class="tool-btn small" title="Undo (Z)">↶<span>Undo</span></button>
             <button id="redoBtn" class="tool-btn small" title="Redo (Shift+Z)">↷<span>Redo</span></button>
             <button id="resetViewBtn" class="tool-btn small" title="Reset camera (V)">🎥<span>View</span></button>
@@ -74,7 +76,7 @@
 
     <!-- Help hint -->
     <div id="helpHint" class="help-hint">
-        <span class="hint-text"><strong>Drag</strong> to orbit · <strong>Scroll / pinch</strong> to zoom · <strong>Tap/click</strong> to build · <strong>Right-click</strong> to remove · <strong>R</strong> rotates the brick · <strong>F</strong> box fill · <strong>M</strong> mirror · <strong>V</strong> resets the view</span>
+        <span class="hint-text"><strong>Drag</strong> to orbit · <strong>Scroll / pinch</strong> to zoom · <strong>Tap/click</strong> to build · <strong>Right-click</strong> to remove · <strong>R</strong> rotates the brick · <strong>F</strong> box fill · <strong>P</strong> repaint · <strong>Alt-click</strong> takes a colour · <strong>M</strong> mirror · <strong>V</strong> resets the view</span>
         <button id="dismissHelp" class="dismiss" aria-label="Dismiss">✕</button>
     </div>
 

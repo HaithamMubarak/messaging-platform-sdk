@@ -45,6 +45,8 @@
     const PEEK_EVERY = 30;        // a peek window opens this often…
     const PEEK_LEN = 3;           // …and lasts this long
     const TOUR_SECS = 4;          // camera dwell per plot during the reveal
+    const REVEAL_FRAMES = 80;     // how long a build takes to rise, in frames
+    const REVEAL_MIN_BATCH = 3;   // never so slow that a big build outlasts the tour
 
     const PROGRESS_THROTTLE_MS = 1500;
     const MAX_SUBMIT_CELLS = 4000;   // plots are big now; builds travel chunked
@@ -300,6 +302,14 @@
             this.sandboxBackup = null;  // world to restore when the match ends
             this.results = null;
             this.builds = new Map();    // name -> cells, during the reveal
+            this._reveals = [];         // builds still rising, one per player
+            this._revealRaf = null;
+            // A backgrounded tab is handed no animation frames at all, so a
+            // reveal started just before switching away would sit half-built
+            // until the player came back. Finish it instead.
+            document.addEventListener('visibilitychange', () => {
+                if (document.hidden) this._stopReveals(true);
+            });
 
             this._ghostVisible = false;
             this._lastProgressSent = 0;
@@ -1182,6 +1192,7 @@
             this.accuracy = 0;
             this.results = null;
             this.builds.clear();
+            this._stopReveals(false);   // the world is about to be cleared
             this._stopTour();
             g.voxels.clearAll();
             g.voxels.clearGhosts();
@@ -1453,22 +1464,116 @@
             // corner in the modes that have no blueprint.
             const o = this.model ? modelOrigin(plot, this.model) : { x: plot.x0, z: plot.z0 };
 
-            // Bricks go down first. Their cells are in the cell list too — that
-            // is what was scored — so those are skipped, or placing them would
-            // break the very bricks just laid.
+            // Bricks and the loose cells around them. A brick's cells are in the
+            // cell list too — that is what was scored — so those are skipped, or
+            // placing them would break the very bricks just laid.
             const covered = new Set();
             (pieces || []).forEach(a => {
-                const px = a[1] + o.x, py = a[2], pz = a[3] + o.z;
-                this.game.voxels.setPiece({
-                    id: name + ':' + a[0], x: px, y: py, z: pz,
-                    w: a[4], d: a[5], c: a[6], owner: a[7] || name
-                });
-                BlockPartyBricks.cellsOf(px, py, pz, a[4], a[5])
+                BlockPartyBricks.cellsOf(a[1] + o.x, a[2], a[3] + o.z, a[4], a[5])
                     .forEach(c => covered.add(c[0] + ',' + c[1] + ',' + c[2]));
             });
             const loose = (cells || []).filter(a =>
                 !covered.has((a[0] + o.x) + ',' + a[1] + ',' + (a[2] + o.z)));
-            this.game.voxels.paintCells(loose, o.x, o.z, name);
+
+            const items = [];
+            (pieces || []).forEach(a => items.push({ y: a[2], piece: a }));
+            loose.forEach(a => items.push({ y: a[1], cell: a }));
+            if (!items.length) return;
+
+            // In the relay modes the build has been standing all along and this
+            // is only a resync, so it goes down at once. Where it was a secret,
+            // the moment the covers come off is the whole point of the round.
+            if (s.hideRivals === false) {
+                items.forEach(it => this._placeRevealItem(name, o, it));
+                return;
+            }
+
+            // Bottom up, and outward from the middle: a build that rises like a
+            // building being built, rather than one that appears like a page
+            // refresh. Bricks and cells are sorted together, and they never
+            // overlap, so the order between them does not matter.
+            const c = this._plotCentre(plot);
+            const away = (x, z) => Math.hypot(x + o.x - c.x, z + o.z - c.z);
+            items.forEach(it => {
+                it.d = it.piece ? away(it.piece[1], it.piece[3]) : away(it.cell[0], it.cell[2]);
+            });
+            items.sort((a, b) => a.y - b.y || a.d - b.d);
+
+            this._reveals.push({
+                sig: this._roundSig, name, o, items, i: 0,
+                per: Math.max(REVEAL_MIN_BATCH, Math.ceil(items.length / REVEAL_FRAMES)),
+                // One sound per handful, or a four-hundred-block build is a
+                // machine gun rather than a flourish.
+                every: Math.max(4, Math.ceil(items.length / 12)), since: 0
+            });
+            this._pumpReveals();
+        }
+
+        /** One block or one brick, put where it belongs. */
+        _placeRevealItem(name, o, it) {
+            const v = this.game.voxels;
+            if (it.piece) {
+                const a = it.piece;
+                v.setPiece({
+                    id: name + ':' + a[0], x: a[1] + o.x, y: a[2], z: a[3] + o.z,
+                    w: a[4], d: a[5], c: a[6], owner: a[7] || name
+                });
+                return { x: a[1] + o.x, y: a[2], z: a[3] + o.z };
+            }
+            const a = it.cell;
+            const x = a[0] + o.x, y = a[1], z = a[2] + o.z;
+            if (v.inBounds(x, y, z)) v.setBlock(x, y, z, a[3], name, a[4] | 0);
+            return { x, y, z };
+        }
+
+        /**
+         * Drain the rising builds, a batch per frame.
+         *
+         * Every queue is stamped with the round it belongs to and dropped the
+         * moment the round changes — a straggler painting cells into the next
+         * round's empty arena would be a genuinely baffling bug, and
+         * `_startRound` clears the world out from under anything still running.
+         */
+        _pumpReveals() {
+            if (this._revealRaf) return;
+            const step = () => {
+                this._revealRaf = null;
+                this._reveals = this._reveals.filter(r => r.sig === this._roundSig && r.i < r.items.length);
+                if (!this._reveals.length) return;
+
+                const sfx = window.BlockPartySfx, fx = this.game.voxels.fx;
+                this._reveals.forEach(r => {
+                    const end = Math.min(r.items.length, r.i + r.per);
+                    for (; r.i < end; r.i++) {
+                        const at = this._placeRevealItem(r.name, r.o, r.items[r.i]);
+                        if (++r.since < r.every) continue;
+                        r.since = 0;
+                        // The place sound already climbs with height, so a build
+                        // rising plays its own scale.
+                        if (sfx) sfx.place(at.y, true);
+                        if (fx) fx.pop(at.x, at.y, at.z, this.game.voxels.renderColorAt(at.x, at.y, at.z) || '#ffffff');
+                    }
+                });
+                this._revealRaf = requestAnimationFrame(step);
+            };
+            this._revealRaf = requestAnimationFrame(step);
+        }
+
+        /**
+         * Stop the builds rising. Flushed when the animation cannot run — a
+         * hidden tab gets no frames, and coming back to a half-built reveal
+         * would be worse than not animating at all — and discarded when the
+         * round is over and the world is about to be cleared anyway.
+         */
+        _stopReveals(flush) {
+            if (this._revealRaf) cancelAnimationFrame(this._revealRaf);
+            this._revealRaf = null;
+            if (flush) {
+                this._reveals.forEach(r => {
+                    for (; r.i < r.items.length; r.i++) this._placeRevealItem(r.name, r.o, r.items[r.i]);
+                });
+            }
+            this._reveals = [];
         }
 
         // ---------- my build ----------
@@ -1904,6 +2009,7 @@
             const g = this.game;
             clearInterval(this.hostTimer); this.hostTimer = null;
             clearInterval(this._hudTimer); this._hudTimer = null;
+            this._stopReveals(false);   // the sandbox is coming back
             this._stopTour();
             this.host = null;
             this.state = null;

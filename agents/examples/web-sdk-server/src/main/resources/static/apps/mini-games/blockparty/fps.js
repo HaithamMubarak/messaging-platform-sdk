@@ -297,6 +297,11 @@
             const g = this.game;
             if (erase || g.tool === 'erase') {
                 if (aim.remove) g.removeAt(aim.remove.x, aim.remove.y, aim.remove.z);
+            } else if (g.tool === 'paint') {
+                // Painting works on what you are looking at, not on the empty
+                // face in front of it — the same as it does from the orbit
+                // camera, so the tool behaves the same from either view.
+                if (aim.remove) g.paintAt(aim.remove.x, aim.remove.y, aim.remove.z);
             } else if (aim.place) {
                 // Refuse to build inside your own head.
                 const p = aim.place;
@@ -360,10 +365,16 @@
             // view so building feels identical from either camera.
             const aim = this.target();
             const erasing = this.game.tool === 'erase';
-            const cell = erasing ? aim.remove : aim.place;
+            const painting = this.game.tool === 'paint';
+            const cell = (erasing || painting) ? aim.remove : aim.place;
             const v = this.game.voxels;
             if (cell) {
-                if (this.game.brickMode && !erasing) {
+                if (painting) {
+                    // The block wearing its new colour, rather than a ghost
+                    // hanging in the air in front of it.
+                    v.hidePiecePreview();
+                    v.showPreview(cell.x, cell.y, cell.z, this.game.currentShape, this.game.currentColor);
+                } else if (this.game.brickMode && !erasing) {
                     const fp = this.game.pieceFootprint();
                     v.hidePreview();
                     // A brick that will not fit is shown in red from the orbit
@@ -374,7 +385,8 @@
                     else v.showPiecePreview(cell.x, cell.y, cell.z, fp.w, fp.d, this.game.currentColor, false);
                 } else {
                     v.hidePiecePreview();
-                    v.showPreview(cell.x, cell.y, cell.z, this.game.currentShape, this.game.currentColor, erasing);
+                    v.showPreview(cell.x, cell.y, cell.z, this.game.currentShape, this.game.currentColor,
+                        erasing ? 'erase' : null);
                 }
                 this.game._sendCursor({ x: cell.x, y: cell.y, z: cell.z });
             } else {

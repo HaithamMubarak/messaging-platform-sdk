@@ -91,6 +91,20 @@
 
     function byId(id) { return BRICKS.find(b => b.id === id) || BRICKS[0]; }
 
+    /**
+     * Which brick left this footprint, and whether it was turned.
+     *
+     * A stored piece keeps only its w and d, so picking a brick back up out of
+     * the world means recognising it from its shape — and a 2×4 laid the other
+     * way is the same brick rotated, not a different one.
+     */
+    function bySize(w, d) {
+        const straight = BRICKS.find(b => b.w === w && b.d === d);
+        if (straight) return { id: straight.id, rotated: false };
+        const turned = BRICKS.find(b => b.w === d && b.d === w);
+        return turned ? { id: turned.id, rotated: true } : null;
+    }
+
     // A rotated piece is the same brick with its footprint transposed.
     function footprint(brick, rotated) {
         return rotated ? { w: brick.d, d: brick.w } : { w: brick.w, d: brick.d };
@@ -113,5 +127,5 @@
         return `${username || 'p'}#${Date.now().toString(36)}${counter.toString(36)}`;
     }
 
-    window.BlockPartyBricks = { BRICKS, geometry, byId, footprint, cellsOf, newId, STUD_H };
+    window.BlockPartyBricks = { BRICKS, geometry, byId, bySize, footprint, cellsOf, newId, STUD_H };
 })();
