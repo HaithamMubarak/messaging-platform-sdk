@@ -13,17 +13,22 @@
    ========================================================================== */
 
 :root {
-    --pro-accent:        #6366f1;
-    --pro-accent-2:      #8b5cf6;
+    /* The semantic colours come from the shared design tokens so this layer
+       tracks the rest of the site instead of drifting into a second palette.
+       The glass surfaces, radii and shadows below stay local: they are this
+       layer's own treatment, not a colour decision. The fallbacks keep the
+       file standalone if it is ever linked without design-tokens.css. */
+    --pro-accent:        var(--brand, #6366f1);
+    --pro-accent-2:      var(--accent, #8b5cf6);
     --pro-accent-3:      #06b6d4;
-    --pro-accent-ink:    #4338ca;
-    --pro-success:       #10b981;
-    --pro-warning:       #f59e0b;
-    --pro-danger:        #ef4444;
+    --pro-accent-ink:    var(--brand-hover, #4338ca);
+    --pro-success:       var(--success, #10b981);
+    --pro-warning:       var(--warning, #f59e0b);
+    --pro-danger:        var(--danger, #ef4444);
 
-    --pro-ink:           #0f172a;
-    --pro-ink-soft:      #475569;
-    --pro-ink-faint:     #94a3b8;
+    --pro-ink:           var(--text, #0f172a);
+    --pro-ink-soft:      var(--text-body, #475569);
+    --pro-ink-faint:     var(--text-muted, #94a3b8);
     --pro-line:          rgba(15, 23, 42, 0.10);
     --pro-surface:       rgba(255, 255, 255, 0.82);
     --pro-surface-solid: #ffffff;

@@ -19,6 +19,9 @@
     <meta property="og:image" content="https://hmdevonline.com/messaging-platform/sdk/images/og-image.png">
     <meta name="twitter:card" content="summary_large_image">
 
+    <!-- The shared design system: tokens first, then the kit, then this page. -->
+    <link rel="stylesheet" href="../css/design-tokens.css"/>
+    <link rel="stylesheet" href="../css/ui.css"/>
     <link rel="stylesheet" href="../css/common.css"/>
     <link rel="stylesheet" href="../css/icons.css"/>
     <link rel="stylesheet" href="../css/share-modal.css"/>
@@ -1097,6 +1100,7 @@
 
     <!-- Load configuration from backend (secure API key management) -->
     <script src="../js/config-loader.js"></script>
+<script src="../js/icons.js"></script>
     <script src="../lib/qrcode.min.js"></script>
     <script src="../generated-web-agent-js/js/web-agent.libs.js"></script>
     <script src="../generated-web-agent-js/js/web-agent.js"></script>
@@ -1225,7 +1229,7 @@
                 <div class="form-row">
                     <label for="agentName">Your name (Optional)</label>
                     <input id="agentName" type="text" placeholder="Leave empty to auto-generate"/>
-                    <div class="small">💡 Leave empty to generate a unique name automatically</div>
+                    <div class="small"><svg class="icon icon--sm" aria-hidden="true"><use href="#i-info"></use></svg> Leave empty to generate a unique name automatically</div>
                 </div>
 
                 <div class="controls">
@@ -1986,7 +1990,7 @@
                     try { startBtn.classList.add('ghost'); } catch(e){}
                     // change text/icon
                     try { startBtn.dataset.orig = startBtn.dataset.orig || startBtn.innerHTML; } catch (e) {}
-                    try { startBtn.innerHTML = '✔ Connected'; } catch (e) {}
+                    try { startBtn.textContent = 'Connected'; } catch (e) {}
 
                     // On mobile: collapse sidebar to show connected info only
                     try { collapseSidebarOnMobile(); } catch(e) { console.warn('collapseSidebarOnMobile', e); }
@@ -2255,7 +2259,7 @@
                                     return;
                                 }
                                 const isMe = window.channel && window.channel.agentName && it.from === window.channel.agentName;
-                                const messageText = it.encrypted ? '🔒 Encrypted: content' : (it.content || '(None)');
+                                const messageText = it.encrypted ? 'Encrypted: content' : (it.content || '(None)');
                                 appendMessage(it.from || agentName || 'Unknown', messageText, isMe, it.date || Date.now());
                             }
                         });

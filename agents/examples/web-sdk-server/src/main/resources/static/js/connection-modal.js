@@ -627,11 +627,21 @@
         const revealing = pwInput.type === 'password';
         pwInput.type = revealing ? 'text' : 'password';
 
+        // These two are <svg>, and `hidden` is an IDL property of HTMLElement,
+        // which SVGElement does not inherit: `svg.hidden = true` sets a plain
+        // expando and never reaches the content attribute, so the glyph never
+        // changed. The attribute has to be set by name.
+        const setHidden = (el, on) => {
+            if (!el) return;
+            if (on) el.setAttribute('hidden', '');
+            else el.removeAttribute('hidden');
+        };
+        setHidden(show, revealing);
+        setHidden(hide, !revealing);
+
         // The glyphs are aria-hidden, so the button's own label is the only
         // thing a screen reader has to go on — and it is what a test looks the
         // button up by.
-        if (show) show.hidden = revealing;
-        if (hide) hide.hidden = !revealing;
         btn.setAttribute('aria-label', revealing ? 'Hide password' : 'Show password');
         btn.setAttribute('title', revealing ? 'Hide password' : 'Show password');
     };

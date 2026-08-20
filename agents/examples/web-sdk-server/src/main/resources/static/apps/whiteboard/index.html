@@ -1094,9 +1094,14 @@
                 font-size: 13px;
             }
 
+            /* A colour swatch is a target, and 14px is smaller than the
+               contact patch of a fingertip. The dot stays small; the button
+               around it is big enough to hit. */
             .color-btn {
-                width: 14px;
-                height: 14px;
+                width: 36px;
+                height: 36px;
+                padding: 4px;
+                background-clip: content-box;
             }
 
             .main-container {
@@ -1381,10 +1386,15 @@
                 font-size: 14px;
             }
 
+            /* The swatch a finger has to hit. Six rules in this file have an
+               opinion about .color-btn; this is the one that wins on a phone
+               held upright, so this is where the size actually is. (It also
+               declared height twice, 16 then 12.) */
             .color-btn {
-                width: 16px;
-                height: 16px;
-                height: 12px;
+                width: 34px;
+                height: 34px;
+                padding: 5px;
+                background-clip: content-box;
             }
 
             .canvas-container {
@@ -2504,10 +2514,10 @@
                         <button id="rsyncBtn" onclick="triggerManualRsync()" class="tool-btn" title="Sync canvas to all agents" aria-label="Sync canvas to all agents"><svg class="icon" aria-hidden="true"><use href="#i-refresh"></use></svg></button>
                         <button id="syncModeBtn" onclick="toggleSyncMode()" class="tool-btn" title="Sync Mode" aria-label="Sync mode"><svg class="icon" aria-hidden="true"><use href="#i-settings"></use></svg></button>
                         <span title="Undo - Will be supported in future" style="display: inline-block; cursor: not-allowed;">
-                            <button id="undoBtn" class="tool-btn" disabled style="opacity: 0.3 !important; cursor: not-allowed !important; pointer-events: none !important; filter: grayscale(100%) !important; background: transparent !important; color: #666 !important;"><svg class="icon" aria-hidden="true"><use href="#i-undo"></use></svg></button>
+                            <button id="undoBtn" class="tool-btn" disabled style="opacity: 0.3 !important; cursor: not-allowed !important; pointer-events: none !important; filter: grayscale(100%) !important; background: transparent !important; color: #666 !important;" title="Undo (Ctrl+Z)" aria-label="Undo"><svg class="icon" aria-hidden="true"><use href="#i-undo"></use></svg></button>
                         </span>
                         <span title="Redo - Will be supported in future" style="display: inline-block; cursor: not-allowed;">
-                            <button id="redoBtn" class="tool-btn" disabled style="opacity: 0.3 !important; cursor: not-allowed !important; pointer-events: none !important; filter: grayscale(100%) !important; background: transparent !important; color: #666 !important;"><svg class="icon" aria-hidden="true"><use href="#i-redo"></use></svg></button>
+                            <button id="redoBtn" class="tool-btn" disabled style="opacity: 0.3 !important; cursor: not-allowed !important; pointer-events: none !important; filter: grayscale(100%) !important; background: transparent !important; color: #666 !important;" title="Redo (Ctrl+Shift+Z)" aria-label="Redo"><svg class="icon" aria-hidden="true"><use href="#i-redo"></use></svg></button>
                         </span>
                     </div>
 

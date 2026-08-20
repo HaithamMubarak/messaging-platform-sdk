@@ -2743,3 +2743,26 @@ body {
     border-radius: 6px;
     white-space: nowrap;
 }
+
+/* ── Sprite icons ──────────────────────────────────────────────────────────
+   The menus, modals and sidebar used to label themselves with emoji, which
+   render differently on every platform and carry no accessible name. They are
+   now <svg class="icon"> references into the shared sprite.
+
+   Only `svg.icon` is styled, so this cannot touch anything else in the app —
+   the shared ui.css is deliberately NOT linked here, because its bare-tag
+   rules for body, headings and links would fight the terminal's own theme.
+
+   Sizing is in `em`, so an icon inside a wrapper that sets a font-size (the
+   sidebar tabs, the empty-state block) scales exactly as the glyph did. */
+svg.icon {
+    width: 1.25em;
+    height: 1.25em;
+    flex: none;
+    vertical-align: -0.2em;
+    /* A flex child's default min-width:auto squeezes an svg to a sliver when
+       the row is tight; icons must keep their box. */
+    min-width: 1em;
+}
+svg.icon--sm { width: 1em; height: 1em; min-width: 1em; }
+svg.icon--lg { width: 1.5em; height: 1.5em; min-width: 1.5em; }

@@ -8,7 +8,7 @@
     <meta name="touch-callout" content="none">
 
     <!--
-        🌐 Messaging Platform - Shared Terminal
+        Messaging Platform - Shared Terminal
 
         GitHub Repository: https://github.com/HaithamMubarak/messaging-platform-sdk
         Terminal App Path: /agents/examples/web-sdk-server/src/main/resources/static/apps/terminal
@@ -116,11 +116,12 @@
 
     <!-- Config Loader -->
     <script src="../../js/config-loader.js"></script>
+    <script src="../../js/icons.js"></script>
 
     <!-- Web Agent SDK for cloud connection -->
     <script src="../../generated-web-agent-js/js/web-agent.libs.js"></script>
     <script src="../../generated-web-agent-js/js/web-agent.js"></script>
-    <script src="../../generated-web-agent-js/js/web-agent.webrtc.js"></script> <!-- ✅ WebRTC Helper -->
+    <script src="../../generated-web-agent-js/js/web-agent.webrtc.js"></script> <!-- WebRTC Helper -->
 
     <!-- UserConnectionBase for terminal sharing -->
     <script src="../../js/UserConnectionBase.js"></script>
@@ -145,59 +146,59 @@
             <span class="icon">▶️</span> Open Connection
         </div>
         <div class="context-menu-item" onclick="contextMenuAction('openInNewTab')">
-            <span class="icon">➕</span> Open in New Tab
+            <svg class="icon" aria-hidden="true"><use href="#i-plus"></use></svg> Open in New Tab
         </div>
         <div class="context-menu-item" onclick="contextMenuAction('openSftp')" id="openSftpMenuItem">
-            <span class="icon">📁</span> Open SFTP
+            <svg class="icon" aria-hidden="true"><use href="#i-inbox"></use></svg> Open SFTP
         </div>
         <div class="context-menu-separator"></div>
         <div class="context-menu-item" onclick="contextMenuAction('edit')">
-            <span class="icon">✏️</span> Edit Connection
+            <svg class="icon" aria-hidden="true"><use href="#i-pen"></use></svg> Edit Connection
         </div>
         <div class="context-menu-item" onclick="contextMenuAction('duplicate')">
-            <span class="icon">📋</span> Duplicate Connection
+            <svg class="icon" aria-hidden="true"><use href="#i-copy"></use></svg> Duplicate Connection
         </div>
         <div class="context-menu-separator"></div>
         <div class="context-menu-item danger" onclick="contextMenuAction('delete')">
-            <span class="icon">🗑️</span> Delete Connection
+            <svg class="icon" aria-hidden="true"><use href="#i-trash"></use></svg> Delete Connection
         </div>
     </div>
 
     <!-- Viewer Context Menu (for managing agent permissions in "My Shares" list) -->
     <div class="context-menu" id="viewerContextMenu">
         <div class="context-menu-item" onclick="viewerContextMenuAction('readonly')">
-            <span class="icon">👁️</span> Set Read-Only
+            <svg class="icon" aria-hidden="true"><use href="#i-eye"></use></svg> Set Read-Only
         </div>
         <div class="context-menu-item" onclick="viewerContextMenuAction('readwrite')">
-            <span class="icon">✏️</span> Set Read-Write
+            <svg class="icon" aria-hidden="true"><use href="#i-pen"></use></svg> Set Read-Write
         </div>
         <div class="context-menu-separator"></div>
         <div class="context-menu-item" onclick="viewerContextMenuAction('reset')">
-            <span class="icon">🔄</span> Reset to Global
+            <svg class="icon" aria-hidden="true"><use href="#i-refresh"></use></svg> Reset to Global
         </div>
     </div>
 
     <!-- Terminal Right-Click Context Menu -->
     <div class="context-menu" id="terminalContextMenu">
         <div class="context-menu-item" onclick="terminalContextMenuAction('copy')">
-            <span class="icon">📋</span> Copy
+            <svg class="icon" aria-hidden="true"><use href="#i-copy"></use></svg> Copy
         </div>
         <div class="context-menu-item" onclick="terminalContextMenuAction('paste')">
-            <span class="icon">📌</span> Paste
+            <svg class="icon" aria-hidden="true"><use href="#i-download"></use></svg> Paste
         </div>
         <div class="context-menu-item" onclick="terminalContextMenuAction('selectAll')">
-            <span class="icon">🔲</span> Select All
+            <svg class="icon" aria-hidden="true"><use href="#i-grid"></use></svg> Select All
         </div>
         <div class="context-menu-separator"></div>
         <div class="context-menu-item" onclick="terminalContextMenuAction('clear')">
-            <span class="icon">🧹</span> Clear
+            <svg class="icon" aria-hidden="true"><use href="#i-eraser"></use></svg> Clear
         </div>
         <div class="context-menu-separator"></div>
         <div class="context-menu-item" onclick="terminalContextMenuAction('fontIncrease')">
-            <span class="icon">🔡</span> Increase Font Size
+            <svg class="icon" aria-hidden="true"><use href="#i-zoom-in"></use></svg> Increase Font Size
         </div>
         <div class="context-menu-item" onclick="terminalContextMenuAction('fontDecrease')">
-            <span class="icon">🔠</span> Decrease Font Size
+            <svg class="icon" aria-hidden="true"><use href="#i-zoom-out"></use></svg> Decrease Font Size
         </div>
         <div class="context-menu-item" onclick="terminalContextMenuAction('fontReset')">
             <span class="icon">↩️</span> Reset Font Size
@@ -207,40 +208,40 @@
     <!-- Tab Context Menu -->
     <div class="context-menu" id="tabContextMenu">
         <div class="context-menu-item" onclick="tabContextMenuAction('rename')">
-            <span class="icon">✏️</span> Rename Tab
+            <svg class="icon" aria-hidden="true"><use href="#i-pen"></use></svg> Rename Tab
         </div>
         <div class="context-menu-item" onclick="tabContextMenuAction('duplicate')">
-            <span class="icon">📋</span> Duplicate Tab
+            <svg class="icon" aria-hidden="true"><use href="#i-copy"></use></svg> Duplicate Tab
         </div>
         <div class="context-menu-separator"></div>
         <div class="context-menu-item" onclick="tabContextMenuAction('toggleShare')" id="shareMenuItem">
-            <span class="icon">🌐</span> <span id="shareMenuText">Share Session</span>
+            <svg class="icon" aria-hidden="true"><use href="#i-globe"></use></svg> <span id="shareMenuText">Share Session</span>
         </div>
         <div class="context-menu-item" onclick="tabContextMenuAction('togglePermission')" id="permissionMenuItem" style="display: none;">
-            <span class="icon">🔒</span> <span class="permission-text">Enable Write Access</span>
+            <svg class="icon" aria-hidden="true"><use href="#i-lock"></use></svg> <span class="permission-text">Enable Write Access</span>
         </div>
         <div class="context-menu-item" onclick="tabContextMenuAction('resetPermissions')" id="resetPermissionsMenuItem" style="display: none;">
-            <span class="icon">🔄</span> Reset All Permissions
+            <svg class="icon" aria-hidden="true"><use href="#i-refresh"></use></svg> Reset All Permissions
         </div>
         <div class="context-menu-item" onclick="tabContextMenuAction('requestPermission')" id="requestPermissionMenuItem" style="display: none;">
-            <span class="icon">✋</span> Request Write Access
+            <svg class="icon" aria-hidden="true"><use href="#i-hand"></use></svg> Request Write Access
         </div>
         <div class="context-menu-separator"></div>
         <div class="context-menu-item" onclick="tabContextMenuAction('close')">
-            <span class="icon">✖️</span> Close Tab
+            <svg class="icon" aria-hidden="true"><use href="#i-x"></use></svg> Close Tab
         </div>
         <div class="context-menu-item" onclick="tabContextMenuAction('closeOthers')">
-            <span class="icon">🔄</span> Close Other Tabs
+            <svg class="icon" aria-hidden="true"><use href="#i-refresh"></use></svg> Close Other Tabs
         </div>
         <div class="context-menu-item" onclick="tabContextMenuAction('closeToRight')">
-            <span class="icon">➡️</span> Close Tabs to Right
+            <svg class="icon" aria-hidden="true"><use href="#i-chevron-right"></use></svg> Close Tabs to Right
         </div>
         <div class="context-menu-item" onclick="tabContextMenuAction('closeToLeft')">
-            <span class="icon">⬅️</span> Close Tabs to Left
+            <svg class="icon" aria-hidden="true"><use href="#i-chevron-left"></use></svg> Close Tabs to Left
         </div>
         <div class="context-menu-separator"></div>
         <div class="context-menu-item danger" onclick="tabContextMenuAction('closeAll')">
-            <span class="icon">🗑️</span> Close All Tabs
+            <svg class="icon" aria-hidden="true"><use href="#i-trash"></use></svg> Close All Tabs
         </div>
     </div>
 
@@ -254,13 +255,13 @@
         <div class="top-status-bar">
             <div class="top-status-indicator" id="slsIndicatorGroup" title="SDK Local Service - click to open Settings" onclick="showSettings()" style="cursor:pointer;">
                 <span class="top-status-dot" id="mlsStatus"></span>
-                <span class="top-status-icon">⚙</span>
+                <span class="top-status-icon"><svg class="icon" aria-hidden="true"><use href="#i-settings"></use></svg></span>
                 <span class="top-status-label" id="mlsStatusText">Local shell: off</span>
             </div>
             <div class="top-status-divider"></div>
             <div class="top-status-indicator" id="cloudIndicatorGroup" title="Remote Share – Disconnected" onclick="openMessagingModal()" style="cursor:pointer;">
                 <span class="top-status-dot" id="cloudStatusDot"></span>
-                <span class="top-status-icon">🔗</span>
+                <span class="top-status-icon"><svg class="icon" aria-hidden="true"><use href="#i-channel"></use></svg></span>
                 <span class="top-status-label" id="cloudStatusLabel">Not in a room</span>
             </div>
 
@@ -268,7 +269,7 @@
                  used to take three clicks and a tab nobody had found. -->
             <button class="top-status-invite" id="inviteBtn" type="button" onclick="openInvite()"
                     title="Invite somebody to this room" style="display: none;">
-                <span>🔗</span><span>Invite</span>
+                <svg class="icon icon--sm" aria-hidden="true"><use href="#i-channel"></use></svg><span>Invite</span>
             </button>
         </div>
     </div>
@@ -277,29 +278,29 @@
     <div class="toolbar">
         <!-- Mobile Menu Toggle Button (visible only on mobile) -->
         <button class="toolbar-btn mobile-menu-toggle" onclick="toggleMobileSidebar()" title="Toggle Menu" id="mobileMenuBtn" style="display: none;">
-            <span class="icon">☰</span>
+            <svg class="icon" aria-hidden="true"><use href="#i-menu"></use></svg>
             <span class="label">Menu</span>
         </button>
         <button class="toolbar-btn sls-dependent" id="cmdToolbarBtn" onclick="createLocalTerminal('cmd')" title="New CMD Terminal">
-            <span class="icon">💻</span>
+            <svg class="icon" aria-hidden="true"><use href="#i-monitor"></use></svg>
             <span class="label">CMD</span>
         </button>
         <button class="toolbar-btn sls-dependent" id="bashToolbarBtn" onclick="createLocalTerminal('bash')" title="New Bash Terminal (WSL/Git)">
-            <span class="icon">🐧</span>
+            <svg class="icon" aria-hidden="true"><use href="#i-terminal"></use></svg>
             <span class="label">Bash</span>
         </button>
         <button class="toolbar-btn sls-dependent" id="powershellToolbarBtn" onclick="createLocalTerminal('powershell')" title="New PowerShell Terminal">
-            <span class="icon">⚡</span>
+            <svg class="icon" aria-hidden="true"><use href="#i-zap"></use></svg>
             <span class="label">PowerShell</span>
         </button>
         <button class="toolbar-btn sls-dependent" onclick="showSshModal()" title="Add SSH Connection">
-            <span class="icon">🌐</span>
+            <svg class="icon" aria-hidden="true"><use href="#i-globe"></use></svg>
             <span class="label">SSH</span>
         </button>
         <div class="toolbar-separator"></div>
         <button class="toolbar-btn" onclick="openMessagingModal()" title="Connect to Messaging Platform for Terminal Sharing"
                 id="messagingToolbarBtn" style="position: relative;">
-            <span class="icon">🔗</span>
+            <svg class="icon" aria-hidden="true"><use href="#i-channel"></use></svg>
             <span class="label">Remote Share</span>
             <span id="agentCountBadge" style="display: none; position: absolute; top: 4px; right: 4px;
                   background: var(--accent-cyan, #22d3ee); color: #0a0a14; border-radius: 8px;
@@ -308,7 +309,7 @@
         </button>
         <div class="toolbar-separator"></div>
         <button class="toolbar-btn" onclick="refreshConnections()" title="Refresh Connections & Check SLS Health">
-            <span class="icon">🔄</span>
+            <svg class="icon" aria-hidden="true"><use href="#i-refresh"></use></svg>
             <span class="label">Refresh</span>
         </button>
     </div>
@@ -318,7 +319,7 @@
         <div class="modal cloud-modal" id="cloudModal" style="width: 520px; max-height: 90vh; overflow-y: auto;">
             <div class="modal-header" style="background: linear-gradient(135deg, rgba(74, 158, 255, 0.1), rgba(167, 139, 250, 0.1)); border-bottom: 1px solid var(--border-color, #2a2a4a); padding: 20px;">
                 <div class="modal-title" style="display: flex; align-items: center; gap: 10px; font-size: 18px;">
-                    <span style="font-size: 24px;">💬</span>
+                    <span style="font-size: 24px;"><svg class="icon" aria-hidden="true"><use href="#i-message"></use></svg></span>
                     <span>Messaging Platform</span>
                 </div>
                 <div style="display: flex; align-items: center; gap: 15px;">
@@ -329,11 +330,11 @@
                         <span id="cloudStatusText" style="font-weight: 500;">Disconnected</span>
                         <!-- Host Indicator (inline badge) -->
                         <div id="cloudHostIndicator" style="display: none; align-items: center; gap: 3px; padding: 2px 7px; background: linear-gradient(135deg, rgba(255, 215, 0, 0.15), rgba(255, 165, 0, 0.15)); border: 1px solid rgba(255, 215, 0, 0.3); border-radius: 10px; font-size: 10px; font-weight: 700; color: #ffd700; letter-spacing: 0.3px;">
-                            <span style="font-size: 10px;">👑</span>
+                            <span style="font-size: 10px;"><svg class="icon" aria-hidden="true"><use href="#i-shield"></use></svg></span>
                             <span>HOST</span>
                         </div>
                     </div>
-                    <div class="modal-close" onclick="closeCloudModal()" style="font-size: 20px; width: 32px; height: 32px;">✕</div>
+                    <div class="modal-close" onclick="closeCloudModal()" style="font-size: 20px; width: 32px; height: 32px;"><svg class="icon icon--sm" aria-hidden="true"><use href="#i-x"></use></svg></div>
                 </div>
             </div>
 
@@ -341,11 +342,11 @@
             <div style="display: flex; border-bottom: 1px solid var(--border-color); background: var(--bg-panel);">
                 <div class="cloud-tab active" onclick="switchCloudTab('connection')" id="cloud-tab-connection"
                      style="flex: 1; padding: 12px 20px; text-align: center; cursor: pointer; font-size: 13px; font-weight: 500; color: var(--text-muted); border-bottom: 2px solid transparent; transition: all 0.2s;">
-                    🔌 Connection
+                    <svg class="icon icon--sm" aria-hidden="true"><use href="#i-channel"></use></svg> Connection
                 </div>
                 <div class="cloud-tab" onclick="switchCloudTab('sharing')" id="cloud-tab-sharing"
                      style="flex: 1; padding: 12px 20px; text-align: center; cursor: pointer; font-size: 13px; font-weight: 500; color: var(--text-muted); border-bottom: 2px solid transparent; transition: all 0.2s;">
-                    🔗 Sharing
+                    <svg class="icon icon--sm" aria-hidden="true"><use href="#i-channel"></use></svg> Sharing
                 </div>
             </div>
 
@@ -370,7 +371,7 @@
                            style="width: 100%; padding: 12px; font-size: 13px; border-radius: 6px; border: 1px solid var(--border-color, #2a2a4a); background: var(--bg-panel, #0f0f1a); color: var(--text-primary, #e0e0e0); transition: border-color 0.2s;">
                 </div>
                 <div style="margin-bottom: 16px; padding: 10px; background: rgba(74, 158, 255, 0.1); border-left: 3px solid var(--accent-blue, #4a9eff); border-radius: 4px; font-size: 12px; color: var(--text-secondary); line-height: 1.5;">
-                    💡 <strong>Tip:</strong> Channel name and password are freely chosen by you. Pick any values you like, then share them with others to connect together.
+                    <svg class="icon icon--sm" aria-hidden="true"><use href="#i-info"></use></svg> <strong>Tip:</strong> Channel name and password are freely chosen by you. Pick any values you like, then share them with others to connect together.
                 </div>
                 <div class="cloud-form-row" style="margin-bottom: 16px;">
                     <label for="cloudChannelName" style="font-size: 12px; font-weight: 600; color: var(--text-secondary, #8888aa); margin-bottom: 8px; display: block; text-transform: uppercase; letter-spacing: 0.5px;">Channel Name</label>
@@ -388,8 +389,7 @@
                                 onmouseover="this.style.color='var(--text-primary)'"
                                 onmouseout="this.style.color='var(--text-secondary)'"
                                 title="Toggle password visibility">
-                            👁️
-                        </button>
+                            <svg class="icon icon--sm" aria-hidden="true"><use href="#i-eye"></use></svg>                         </button>
                     </div>
                 </div>
 
@@ -402,8 +402,7 @@
                         <button type="button" class="cloud-btn cloud-btn-secondary" id="cloudRegenBtn" onclick="regenerateConnection()"
                                 title="Regenerate channel name and password"
                                 style="flex: 0 0 42px; padding: 10px; font-size: 16px; border-radius: 6px; transition: all 0.2s;">
-                            🔄
-                        </button>
+                            <svg class="icon icon--sm" aria-hidden="true"><use href="#i-refresh"></use></svg>                         </button>
                     </div>
                     <div class="cloud-actions-row" id="cloudActionsRow" style="display: none; gap: 8px;">
                         <button type="button" class="cloud-btn cloud-btn-small disconnect" id="cloudDisconnectBtn" onclick="disconnectFromCloud()"
@@ -419,11 +418,11 @@
             <div class="cloud-tab-content" id="cloud-content-sharing" style="padding: 24px;">
 
                 <div style="font-size: 13px; color: #d0d0d0; margin-bottom: 20px; padding: 14px; background: rgba(74, 158, 255, 0.08); border-radius: 6px; border-left: 3px solid var(--accent-blue, #4a9eff); line-height: 1.6;">
-                    💡 Share this link with others to connect and share terminal sessions in real-time via Messaging Platform.
+                    <svg class="icon icon--sm" aria-hidden="true"><use href="#i-info"></use></svg> Share this link with others to connect and share terminal sessions in real-time via Messaging Platform.
                 </div>
 
                 <div class="cloud-form-row" style="margin-bottom: 16px;">
-                    <label style="font-size: 12px; font-weight: 600; color: var(--text-secondary, #8888aa); margin-bottom: 8px; display: block; text-transform: uppercase; letter-spacing: 0.5px;">📋 Share Link</label>
+                    <label style="font-size: 12px; font-weight: 600; color: var(--text-secondary, #8888aa); margin-bottom: 8px; display: block; text-transform: uppercase; letter-spacing: 0.5px;"><svg class="icon icon--sm" aria-hidden="true"><use href="#i-copy"></use></svg> Share Link</label>
                     <div class="cloud-input-group" style="display: flex; gap: 8px; margin-bottom: 8px;">
                         <input type="text" id="shareUrlInput" readonly
                                style="flex: 1; font-size: 11px; background: var(--bg-darker, #08080d);
@@ -433,15 +432,14 @@
                         <button type="button" class="cloud-regen-btn" onclick="copyShareUrl()"
                                 title="Copy to clipboard"
                                 style="min-width: 44px; height: 40px; border-radius: 6px; font-size: 16px;">
-                            📋
-                        </button>
+                            <svg class="icon icon--sm" aria-hidden="true"><use href="#i-copy"></use></svg>                         </button>
                     </div>
                 </div>
 
                 <!-- A link is for pasting; a code is for saying out loud, which is
                      how this app is actually used when somebody is stuck. -->
                 <div class="cloud-form-row" style="margin-bottom: 16px;">
-                    <label style="font-size: 12px; font-weight: 600; color: var(--text-secondary, #8888aa); margin-bottom: 8px; display: block; text-transform: uppercase; letter-spacing: 0.5px;">🗣️ Short code</label>
+                    <label style="font-size: 12px; font-weight: 600; color: var(--text-secondary, #8888aa); margin-bottom: 8px; display: block; text-transform: uppercase; letter-spacing: 0.5px;"><svg class="icon icon--sm" aria-hidden="true"><use href="#i-mic"></use></svg> Short code</label>
                     <div id="sessionCodeIdle">
                         <button type="button" class="cloud-btn cloud-btn-secondary" id="sessionCodeBtn" onclick="mintSessionCode()"
                                 style="width: 100%; padding: 12px; font-size: 12px; font-weight: 600; border-radius: 8px;">
@@ -452,7 +450,7 @@
                         <div style="display: flex; gap: 8px; align-items: center;">
                             <code id="sessionCodeValue" style="flex: 1; padding: 14px; text-align: center; font-size: 20px; font-weight: 700; letter-spacing: 0.04em; font-family: monospace; color: var(--accent-cyan, #22d3ee); background: var(--bg-darker, #08080d); border: 1px solid var(--border-color, #2a2a4a); border-radius: 8px;"></code>
                             <button type="button" class="cloud-regen-btn" onclick="copySessionCode()" title="Copy the code"
-                                    style="min-width: 44px; height: 48px; border-radius: 6px; font-size: 16px;">📋</button>
+                                    style="min-width: 44px; height: 48px; border-radius: 6px; font-size: 16px;"><svg class="icon icon--sm" aria-hidden="true"><use href="#i-copy"></use></svg></button>
                         </div>
                         <div id="sessionCodeNote" style="margin-top: 8px; font-size: 12px; color: var(--text-secondary, #8888aa);"></div>
                     </div>
@@ -462,7 +460,7 @@
                         onclick="toggleQrCode()"
                         id="qrToggleBtn"
                         style="width: 100%; margin-bottom: 16px; font-size: 12px; padding: 12px; border-radius: 8px; font-weight: 600;">
-                    <span id="qrToggleIcon">📱</span> <span id="qrToggleText">Show QR Code</span>
+                    <span id="qrToggleIcon"><svg class="icon icon--sm" aria-hidden="true"><use href="#i-qr-code"></use></svg></span> <span id="qrToggleText">Show QR Code</span>
                 </button>
 
                 <div id="shareQrCode" style="display: none; text-align: center; margin: 0 auto; padding: 20px;
@@ -475,7 +473,7 @@
                 <div class="cloud-agents" id="cloudAgentsSection"
                      style="display: none; margin-bottom: 20px; padding-bottom: 20px; border-bottom: 1px solid var(--border-color, #2a2a4a);">
                     <div class="cloud-agents-title" style="font-size: 12px; font-weight: 600; color: var(--text-secondary, #8888aa); margin-bottom: 10px; text-transform: uppercase; letter-spacing: 0.5px;">
-                        👥 Connected Agents
+                        <svg class="icon icon--sm" aria-hidden="true"><use href="#i-users"></use></svg> Connected Agents
                     </div>
                     <div id="cloudAgentsList" style="display: flex; flex-direction: column; gap: 6px;">
                         <!-- Agents will be populated here -->
@@ -491,11 +489,11 @@
         <div class="sidebar" id="sidebar">
             <div class="sidebar-tabs">
                 <button class="sidebar-tab active sls-dependent" onclick="switchSidebarTab('sessions')" title="Terminal Sessions" data-tab="sessions">
-                    <span class="sidebar-tab-icon">🖥️</span>
+                    <span class="sidebar-tab-icon"><svg class="icon" aria-hidden="true"><use href="#i-monitor"></use></svg></span>
                     <span class="sidebar-tab-label">Shells</span>
                 </button>
                 <button class="sidebar-tab sls-dependent" onclick="switchSidebarTab('notes')" title="Notes" data-tab="notes">
-                    <span class="sidebar-tab-icon">📝</span>
+                    <span class="sidebar-tab-icon"><svg class="icon" aria-hidden="true"><use href="#i-pen"></use></svg></span>
                     <span class="sidebar-tab-label">Notes</span>
                     <span class="sidebar-tab-badge" id="notesBadge" style="display: none; position: absolute; top: 4px; right: 4px;
                           background: var(--accent-cyan, #22d3ee); color: #0a0a14; border-radius: 8px;
@@ -503,21 +501,21 @@
                           line-height: 14px; text-align: center; padding: 0 3px;">0</span>
                 </button>
                 <button class="sidebar-tab" id="filesTabBtn" onclick="openFileExplorerForActiveTab()" title="File Explorer - Select a terminal session" data-tab="files" style="pointer-events: none; opacity: 0.5;">
-                    <span class="sidebar-tab-icon">📁</span>
+                    <span class="sidebar-tab-icon"><svg class="icon" aria-hidden="true"><use href="#i-inbox"></use></svg></span>
                     <span class="sidebar-tab-label">Files</span>
                 </button>
                 <button class="sidebar-tab" onclick="switchSidebarTab('shared')" title="Shared with You" data-tab="shared">
-                    <span class="sidebar-tab-icon">📡</span>
+                    <span class="sidebar-tab-icon"><svg class="icon" aria-hidden="true"><use href="#i-activity"></use></svg></span>
                     <span class="sidebar-tab-label">Shared</span>
                     <span class="sidebar-tab-badge" id="sharedBadge" style="display: none;">0</span>
                 </button>
                 <button class="sidebar-tab sls-dependent" onclick="switchSidebarTab('myshares')" title="My Shared Terminals" data-tab="myshares">
-                    <span class="sidebar-tab-icon">📤</span>
+                    <span class="sidebar-tab-icon"><svg class="icon" aria-hidden="true"><use href="#i-upload"></use></svg></span>
                     <span class="sidebar-tab-label">Sharing</span>
                     <span class="sidebar-tab-badge" id="mysharesBadge" style="display: none;">0</span>
                 </button>
                 <button class="sidebar-tab sls-dependent" onclick="switchSidebarTab('settings')" title="Settings & Backup" data-tab="settings">
-                    <span class="sidebar-tab-icon">⚙️</span>
+                    <span class="sidebar-tab-icon"><svg class="icon" aria-hidden="true"><use href="#i-settings"></use></svg></span>
                     <span class="sidebar-tab-label">Settings</span>
                 </button>
             </div>
@@ -527,7 +525,7 @@
                 <div class="sidebar-panel active" id="panel-sessions">
                     <div class="sidebar-header">
                         <span>Terminal Sessions</span>
-                        <button class="sidebar-header-btn" onclick="refreshConnections()" title="Refresh">🔄</button>
+                        <button class="sidebar-header-btn" onclick="refreshConnections()" title="Refresh"><svg class="icon icon--sm" aria-hidden="true"><use href="#i-refresh"></use></svg></button>
                     </div>
                     <div class="session-list" id="sessionList">
                         <!-- Sessions will be populated here -->
@@ -537,8 +535,8 @@
                 <!-- Notes Tab -->
                 <div class="sidebar-panel" id="panel-notes">
                     <div class="sidebar-header">
-                        <span>📝 Notes</span>
-                        <button class="sidebar-header-btn" onclick="createNewNote()" title="New Note">➕</button>
+                        <span><svg class="icon icon--sm" aria-hidden="true"><use href="#i-pen"></use></svg> Notes</span>
+                        <button class="sidebar-header-btn" onclick="createNewNote()" title="New Note"><svg class="icon icon--sm" aria-hidden="true"><use href="#i-plus"></use></svg></button>
                     </div>
                     <div class="notes-list" id="notesList">
                         <!-- Notes will be populated here -->
@@ -549,7 +547,7 @@
                 <div class="sidebar-panel" id="panel-files">
                     <div class="sidebar-header">
                         <span>File Explorer</span>
-                        <button class="sidebar-header-btn" onclick="closeFileExplorerPanel()" title="Close">✖️</button>
+                        <button class="sidebar-header-btn" onclick="closeFileExplorerPanel()" title="Close"><svg class="icon icon--sm" aria-hidden="true"><use href="#i-x"></use></svg></button>
                     </div>
                     <div id="fileExplorerPanelContainer" style="flex: 1; overflow: auto;">
                         <!-- File Explorer will be mounted here -->
@@ -560,7 +558,7 @@
                 <div class="sidebar-panel" id="panel-shared">
                     <div class="sidebar-header">
                         <span>Shared with You</span>
-                        <button class="sidebar-header-btn" onclick="refreshSharedSessions()" title="Refresh">🔄</button>
+                        <button class="sidebar-header-btn" onclick="refreshSharedSessions()" title="Refresh"><svg class="icon icon--sm" aria-hidden="true"><use href="#i-refresh"></use></svg></button>
                     </div>
                     <div class="shared-session-list" id="sharedSessionList">
                         <!-- Shared sessions from other agents will appear here -->
@@ -575,7 +573,7 @@
                 <div class="sidebar-panel" id="panel-myshares">
                     <div class="sidebar-header">
                         <span>My Shared Terminals</span>
-                        <button class="sidebar-header-btn" onclick="refreshMyShares()" title="Refresh">🔄</button>
+                        <button class="sidebar-header-btn" onclick="refreshMyShares()" title="Refresh"><svg class="icon icon--sm" aria-hidden="true"><use href="#i-refresh"></use></svg></button>
                     </div>
                     <div class="myshares-list" id="mysharesList">
                         <!-- My shared sessions will appear here -->
@@ -593,7 +591,7 @@
                     </div>
                     <div class="settings-container" style="padding: 15px;">
                         <div style="text-align: center; padding: 30px 20px; color: var(--text-muted);">
-                            <div style="font-size: 48px; margin-bottom: 15px;">⚙️</div>
+                            <div style="font-size: 48px; margin-bottom: 15px;"><svg class="icon icon--sm" aria-hidden="true"><use href="#i-settings"></use></svg></div>
                             <p style="font-size: 13px; margin-bottom: 20px;">
                                 Click the <strong>Local</strong> badge at the top right to access advanced settings including backup & restore.
                             </p>
@@ -604,12 +602,12 @@
 
                         <!-- Database Access is hidden for now, can be enabled for advanced users later -->
                         <div class="settings-section" style="display: none">
-                            <h3 style="margin: 0 0 10px 0; font-size: 14px;">💾 Database Console</h3>
+                            <h3 style="margin: 0 0 10px 0; font-size: 14px;"><svg class="icon icon--sm" aria-hidden="true"><use href="#i-database"></use></svg> Database Console</h3>
                             <p style="font-size: 11px; color: var(--text-muted); margin: 0 0 10px 0;">
                                 Access H2 database console for advanced debugging.
                             </p>
                             <button class="sidebar-btn secondary" onclick="window.open('http://localhost:8088/h2-console', '_blank')" style="width: 100%;">
-                                🔍 Open H2 Console
+                                <svg class="icon icon--sm" aria-hidden="true"><use href="#i-search"></use></svg> Open H2 Console
                             </button>
                             <div style="font-size: 10px; color: var(--text-muted); margin-top: 5px;">
                                 Username: admin | Password: changeme
@@ -642,7 +640,7 @@
             <div class="terminal-wrapper" id="terminalWrapper">
                 <!-- Empty state shown when no tabs -->
                 <div class="empty-state" id="emptyState">
-                    <div class="empty-state-icon">🖥️</div>
+                    <div class="empty-state-icon"><svg class="icon" aria-hidden="true"><use href="#i-monitor"></use></svg></div>
                     <div class="empty-state-title">No Active Sessions</div>
                     <div class="empty-state-message">
                         Click <strong>Local</strong> to start a terminal, or select an SSH connection from the sidebar
@@ -653,7 +651,7 @@
                      A dead page with a greyed-out toolbar and no explanation is
                      the worst of the three states this app can be in. -->
                 <div class="sls-gate" id="slsGate">
-                    <div class="sls-gate__icon">🔌</div>
+                    <div class="sls-gate__icon"><svg class="icon" aria-hidden="true"><use href="#i-channel"></use></svg></div>
                     <h2 class="sls-gate__title" id="slsGateTitle">Nothing to drive yet</h2>
                     <p class="sls-gate__lead" id="slsGateLead">
                         This page is a terminal for <strong>your own machine</strong>. The shell itself runs in a
@@ -704,8 +702,8 @@
     <div class="modal-overlay" id="settingsModalOverlay">
         <div class="modal" style="width: 500px;">
             <div class="modal-header">
-                <div class="modal-title">⚙️ Settings</div>
-                <div class="modal-close" onclick="closeSettingsModal()">✕</div>
+                <div class="modal-title"><svg class="icon icon--sm" aria-hidden="true"><use href="#i-settings"></use></svg> Settings</div>
+                <div class="modal-close" onclick="closeSettingsModal()"><svg class="icon icon--sm" aria-hidden="true"><use href="#i-x"></use></svg></div>
             </div>
             <div class="modal-body">
                 <div class="form-group">
@@ -738,14 +736,14 @@
 
                 <div style="margin-top: 15px; padding: 10px; background: var(--bg-sidebar);
                                 border-radius: 4px; font-size: 13px; color: var(--text-secondary);">
-                    ⚠️ <strong>Note:</strong> Changing the port will clear the current security token.
+                    <svg class="icon icon--sm" aria-hidden="true"><use href="#i-alert-triangle"></use></svg> <strong>Note:</strong> Changing the port will clear the current security token.
                     You'll need to reconnect to the new service instance.
                 </div>
 
                 <!-- Configuration Backup/Restore Section -->
                 <div style="margin-top: 30px; padding-top: 20px; border-top: 1px solid var(--border-color);">
                     <h3 style="font-size: 14px; font-weight: 600; margin-bottom: 15px; color: var(--text-primary);">
-                        💾 Backup & Restore Configuration
+                        <svg class="icon icon--sm" aria-hidden="true"><use href="#i-database"></use></svg> Backup & Restore Configuration
                     </h3>
 
                     <!-- Export Configuration -->
@@ -776,7 +774,7 @@
                             </label>
                         </div>
                         <button type="button" class="btn btn-primary" onclick="exportConfiguration()" style="width: 100%;">
-                            📤 Export Configuration
+                            <svg class="icon icon--sm" aria-hidden="true"><use href="#i-upload"></use></svg> Export Configuration
                         </button>
                     </div>
 
@@ -798,7 +796,7 @@
                             <span>Overwrite existing items</span>
                         </label>
                         <button type="button" class="btn btn-success" onclick="importConfiguration()" style="width: 100%;">
-                            📥 Import Configuration
+                            <svg class="icon icon--sm" aria-hidden="true"><use href="#i-download"></use></svg> Import Configuration
                         </button>
                     </div>
 
@@ -824,8 +822,8 @@
     <div class="modal-overlay" id="sshModalOverlay">
         <div class="modal">
             <div class="modal-header">
-                <div class="modal-title">➕ Add SSH Connection</div>
-                <div class="modal-close" onclick="closeSshModal()">✕</div>
+                <div class="modal-title"><svg class="icon icon--sm" aria-hidden="true"><use href="#i-plus"></use></svg> Add SSH Connection</div>
+                <div class="modal-close" onclick="closeSshModal()"><svg class="icon icon--sm" aria-hidden="true"><use href="#i-x"></use></svg></div>
             </div>
             <form id="sshForm" onsubmit="saveSshConnection(event)">
                 <div class="modal-body">
@@ -835,8 +833,7 @@
                             <input type="text" id="sshName" required placeholder="e.g., Production Server">
                             <button type="button" class="regen-btn" onclick="generateSshConnectionName()"
                                     title="Generate random connection name">
-                                🔄
-                            </button>
+                                <svg class="icon icon--sm" aria-hidden="true"><use href="#i-refresh"></use></svg>                             </button>
                         </div>
                     </div>
                     <div class="form-row">
@@ -870,7 +867,7 @@
                     <button type="button" class="btn btn-secondary" onclick="cancelSshModal()">Cancel</button>
                     <button type="button" class="btn btn-info" onclick="testSshConnection()" id="testSshBtn"
                             style="margin-right: auto;">
-                        🔌 Test Connection
+                        <svg class="icon icon--sm" aria-hidden="true"><use href="#i-channel"></use></svg> Test Connection
                     </button>
                     <button type="submit" class="btn btn-primary">Save Connection</button>
                 </div>
@@ -882,50 +879,50 @@
     <div class="modal-overlay" id="helpModalOverlay">
         <div class="modal" style="width: 900px; max-width: 95vw; max-height: 90vh; overflow-y: auto;">
             <div class="modal-header">
-                <div class="modal-title">📲 Install & Setup Guide</div>
-                <div class="modal-close" onclick="closeHelpModal()">✕</div>
+                <div class="modal-title"><svg class="icon icon--sm" aria-hidden="true"><use href="#i-qr-code"></use></svg> Install & Setup Guide</div>
+                <div class="modal-close" onclick="closeHelpModal()"><svg class="icon icon--sm" aria-hidden="true"><use href="#i-x"></use></svg></div>
             </div>
             <div class="modal-body" style="padding: 0;">
 
                 <!-- Tab Navigation -->
                 <div style="display: flex; border-bottom: 1px solid var(--border-color); background: var(--bg-panel);">
                     <div class="help-tab active" onclick="switchHelpTab('quickstart')" id="tab-quickstart">
-                        🚀 Local Service Setup
+                        <svg class="icon icon--sm" aria-hidden="true"><use href="#i-zap"></use></svg> Local Service Setup
                     </div>
                     <div class="help-tab" onclick="switchHelpTab('installation')" id="tab-installation">
-                        📲 Install App
+                        <svg class="icon icon--sm" aria-hidden="true"><use href="#i-qr-code"></use></svg> Install App
                     </div>
                     <div class="help-tab" onclick="switchHelpTab('shortcuts')" id="tab-shortcuts">
                         ⌨️ Shortcuts
                     </div>
                     <div class="help-tab" onclick="switchHelpTab('api')" id="tab-api">
-                        🔌 API Reference
+                        <svg class="icon icon--sm" aria-hidden="true"><use href="#i-channel"></use></svg> API Reference
                     </div>
                 </div>
 
                 <!-- Installation Tab -->
                 <div class="help-content" id="content-installation" style="padding: 24px;">
-                    <h3 style="font-size: 16px; color: var(--accent-cyan); margin-bottom: 16px;">📲 Install as Progressive Web App (PWA)</h3>
+                    <h3 style="font-size: 16px; color: var(--accent-cyan); margin-bottom: 16px;"><svg class="icon icon--sm" aria-hidden="true"><use href="#i-qr-code"></use></svg> Install as Progressive Web App (PWA)</h3>
 
                     <div style="background: linear-gradient(135deg, rgba(74, 158, 255, 0.1) 0%, rgba(34, 211, 238, 0.1) 100%); padding: 20px; border-radius: 8px; border: 1px solid var(--accent-blue); margin-bottom: 24px;">
                         <h4 style="font-size: 15px; color: var(--text-primary); margin-bottom: 12px; text-align: center;">
-                            ✨ Why Install as an App?
+                            <svg class="icon icon--sm" aria-hidden="true"><use href="#i-zap"></use></svg> Why Install as an App?
                         </h4>
                         <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 12px; font-size: 13px;">
                             <div style="padding: 10px;">
-                                <div style="color: var(--accent-green); margin-bottom: 4px;">✅ Works Offline</div>
+                                <div style="color: var(--accent-green); margin-bottom: 4px;"><svg class="icon icon--sm" aria-hidden="true"><use href="#i-check-circle"></use></svg> Works Offline</div>
                                 <div style="color: var(--text-secondary); font-size: 12px;">Access UI even without internet</div>
                             </div>
                             <div style="padding: 10px;">
-                                <div style="color: var(--accent-green); margin-bottom: 4px;">✅ Faster Loading</div>
+                                <div style="color: var(--accent-green); margin-bottom: 4px;"><svg class="icon icon--sm" aria-hidden="true"><use href="#i-check-circle"></use></svg> Faster Loading</div>
                                 <div style="color: var(--text-secondary); font-size: 12px;">Instant startup from cache</div>
                             </div>
                             <div style="padding: 10px;">
-                                <div style="color: var(--accent-green); margin-bottom: 4px;">✅ Desktop Icon</div>
+                                <div style="color: var(--accent-green); margin-bottom: 4px;"><svg class="icon icon--sm" aria-hidden="true"><use href="#i-check-circle"></use></svg> Desktop Icon</div>
                                 <div style="color: var(--text-secondary); font-size: 12px;">Launch from Start Menu/Dock</div>
                             </div>
                             <div style="padding: 10px;">
-                                <div style="color: var(--accent-green); margin-bottom: 4px;">✅ Auto Updates</div>
+                                <div style="color: var(--accent-green); margin-bottom: 4px;"><svg class="icon icon--sm" aria-hidden="true"><use href="#i-check-circle"></use></svg> Auto Updates</div>
                                 <div style="color: var(--text-secondary); font-size: 12px;">Always get latest features</div>
                             </div>
                         </div>
@@ -935,7 +932,7 @@
                     <div style="text-align: center; margin-bottom: 24px;">
                         <button class="btn btn-primary" id="pwaInstallBtnModal" onclick="promptPWAInstall()"
                                 style="display: none; padding: 8px 20px; font-size: 14px; background: linear-gradient(135deg, var(--accent-blue), var(--accent-cyan)); border: none; border-radius: 6px; font-weight: 600;">
-                            <span style="font-size: 16px; margin-right: 6px;">📲</span>
+                            <span style="font-size: 16px; margin-right: 6px;"><svg class="icon" aria-hidden="true"><use href="#i-qr-code"></use></svg></span>
                             Install Now
                         </button>
                         <div id="pwaInstallMessageModal" style="display: none; color: var(--text-muted); font-size: 13px; margin-top: 8px;">
@@ -946,11 +943,11 @@
                     <!-- Chrome/Edge Installation -->
                     <div style="margin-bottom: 24px;">
                         <h4 style="font-size: 14px; color: var(--text-primary); margin-bottom: 12px; display: flex; align-items: center; gap: 8px;">
-                            <span style="font-size: 20px;">🌐</span> Chrome / Edge / Brave
+                            <span style="font-size: 20px;"><svg class="icon" aria-hidden="true"><use href="#i-globe"></use></svg></span> Chrome / Edge / Brave
                         </h4>
                         <div style="background: var(--bg-panel); padding: 16px; border-radius: 8px; border-left: 3px solid var(--accent-blue);">
                             <ol style="font-size: 13px; line-height: 2; color: var(--text-secondary); padding-left: 20px;">
-                                <li>Click the <strong style="color: var(--accent-green);">📲 Install Now</strong> button above</li>
+                                <li>Click the <strong style="color: var(--accent-green);"><svg class="icon icon--sm" aria-hidden="true"><use href="#i-qr-code"></use></svg> Install Now</strong> button above</li>
                                 <li><strong>OR</strong> click the <strong style="color: var(--text-primary);">⊕</strong> icon in the address bar</li>
                                 <li>Click <strong style="color: var(--accent-green);">"Install"</strong> to add to your system</li>
                                 <li>The app will appear in your Start Menu/Applications folder</li>
@@ -961,12 +958,12 @@
                     <!-- Mobile Installation -->
                     <div style="margin-bottom: 24px;">
                         <h4 style="font-size: 14px; color: var(--text-primary); margin-bottom: 12px; display: flex; align-items: center; gap: 8px;">
-                            <span style="font-size: 20px;">📱</span> Mobile (Android / iOS)
+                            <span style="font-size: 20px;"><svg class="icon" aria-hidden="true"><use href="#i-qr-code"></use></svg></span> Mobile (Android / iOS)
                         </h4>
 
                         <!-- Android -->
                         <div style="background: var(--bg-panel); padding: 16px; border-radius: 8px; margin-bottom: 12px;">
-                            <div style="font-weight: 600; color: var(--accent-green); margin-bottom: 8px;">🤖 Android (Chrome)</div>
+                            <div style="font-weight: 600; color: var(--accent-green); margin-bottom: 8px;"><svg class="icon icon--sm" aria-hidden="true"><use href="#i-terminal"></use></svg> Android (Chrome)</div>
                             <ol style="font-size: 13px; line-height: 2; color: var(--text-secondary); padding-left: 20px;">
                                 <li>Tap the menu button (⋮) in top-right corner</li>
                                 <li>Select <strong style="color: var(--text-primary);">"Add to Home Screen"</strong> or <strong>"Install app"</strong></li>
@@ -977,7 +974,7 @@
 
                         <!-- iOS -->
                         <div style="background: var(--bg-panel); padding: 16px; border-radius: 8px;">
-                            <div style="font-weight: 600; color: var(--accent-blue); margin-bottom: 8px;">🍎 iOS (Safari)</div>
+                            <div style="font-weight: 600; color: var(--accent-blue); margin-bottom: 8px;"><svg class="icon icon--sm" aria-hidden="true"><use href="#i-monitor"></use></svg> iOS (Safari)</div>
                             <ol style="font-size: 13px; line-height: 2; color: var(--text-secondary); padding-left: 20px;">
                                 <li>Tap the <strong style="color: var(--text-primary);">Share</strong> button (□↑) at the bottom</li>
                                 <li>Scroll down and tap <strong style="color: var(--text-primary);">"Add to Home Screen"</strong></li>
@@ -989,21 +986,21 @@
 
                     <!-- Requirements -->
                     <div style="margin-bottom: 24px;">
-                        <h4 style="font-size: 14px; color: var(--text-primary); margin-bottom: 12px;">⚙️ Requirements</h4>
+                        <h4 style="font-size: 14px; color: var(--text-primary); margin-bottom: 12px;"><svg class="icon icon--sm" aria-hidden="true"><use href="#i-settings"></use></svg> Requirements</h4>
                         <div style="background: var(--bg-panel); padding: 16px; border-radius: 8px; border-left: 3px solid var(--accent-orange);">
                             <div style="font-size: 13px; color: var(--text-secondary); margin-bottom: 12px;">
                                 To use terminals, you need <strong style="color: var(--text-primary);">SDK Local Service</strong> running:
                             </div>
                             <pre style="background: var(--bg-dark); padding: 12px; border-radius: 6px; font-size: 12px; color: var(--accent-green); margin-bottom: 12px; overflow-x: auto;">java -jar sdk-local-service.jar</pre>
                             <div style="font-size: 12px; color: var(--text-muted);">
-                                💡 <strong>Note:</strong> The PWA works offline for UI, but terminal features require SLS running on <code style="background: var(--bg-dark); padding: 2px 6px; border-radius: 3px;">localhost:8088</code>
+                                <svg class="icon icon--sm" aria-hidden="true"><use href="#i-info"></use></svg> <strong>Note:</strong> The PWA works offline for UI, but terminal features require SLS running on <code style="background: var(--bg-dark); padding: 2px 6px; border-radius: 3px;">localhost:8088</code>
                             </div>
                         </div>
                     </div>
 
                     <!-- Verify Installation -->
                     <div style="margin-bottom: 24px;">
-                        <h4 style="font-size: 14px; color: var(--text-primary); margin-bottom: 12px;">✅ Verify Installation</h4>
+                        <h4 style="font-size: 14px; color: var(--text-primary); margin-bottom: 12px;"><svg class="icon icon--sm" aria-hidden="true"><use href="#i-check-circle"></use></svg> Verify Installation</h4>
                         <ul style="font-size: 13px; line-height: 2; color: var(--text-secondary); padding-left: 20px;">
                             <li>App opens in <strong style="color: var(--text-primary);">standalone window</strong> (no browser UI)</li>
                             <li>Icon appears in <strong style="color: var(--text-primary);">Start Menu</strong> / <strong>Applications</strong> / <strong>Home Screen</strong></li>
@@ -1014,7 +1011,7 @@
 
                     <!-- Uninstall -->
                     <div>
-                        <h4 style="font-size: 14px; color: var(--text-primary); margin-bottom: 12px;">🗑️ Uninstall</h4>
+                        <h4 style="font-size: 14px; color: var(--text-primary); margin-bottom: 12px;"><svg class="icon icon--sm" aria-hidden="true"><use href="#i-trash"></use></svg> Uninstall</h4>
                         <div style="background: var(--bg-panel); padding: 12px; border-radius: 6px; font-size: 13px; color: var(--text-secondary);">
                             <strong style="color: var(--text-primary);">Desktop:</strong> Right-click app in Start Menu → Uninstall<br>
                             <strong style="color: var(--text-primary);">Mobile:</strong> Long-press icon → Remove from Home Screen
@@ -1024,23 +1021,22 @@
 
                 <!-- Local Service Setup Tab -->
                 <div class="help-content active" id="content-quickstart" style="padding: 24px;">
-                    <h3 style="font-size: 16px; color: var(--accent-cyan); margin-bottom: 16px;">🚀 Local Service Setup</h3>
+                    <h3 style="font-size: 16px; color: var(--accent-cyan); margin-bottom: 16px;"><svg class="icon icon--sm" aria-hidden="true"><use href="#i-zap"></use></svg> Local Service Setup</h3>
 
                     <!-- Download Section - GitHub Links -->
                     <div style="background: linear-gradient(135deg, rgba(74, 222, 128, 0.1) 0%, rgba(34, 211, 238, 0.1) 100%); padding: 20px; border-radius: 8px; border: 1px solid var(--accent-green); margin-bottom: 24px;">
-                        <h4 style="font-size: 15px; color: var(--text-primary); margin-bottom: 16px; text-align: center;">⬇️
-                            Download SDK Local Service</h4>
+                        <h4 style="font-size: 15px; color: var(--text-primary); margin-bottom: 16px; text-align: center;"><svg class="icon icon--sm" aria-hidden="true"><use href="#i-download"></use></svg>                             Download SDK Local Service</h4>
 
                         <div style="display: flex; gap: 10px; justify-content: center; flex-wrap: wrap; margin-bottom: 12px;">
                             <a href="https://raw.githubusercontent.com/HaithamMubarak/messaging-platform-sdk/develop/agents/examples/sdk-local-service/build/libs/sdk-local-service.jar" target="_blank"
                                download
                                style="display: inline-flex; align-items: center; gap: 6px; padding: 8px 16px; background: var(--accent-green); color: #000; text-decoration: none; border-radius: 5px; font-weight: 600; font-size: 12px; transition: all 0.2s;">
-                                <span style="font-size: 14px;">📦</span> sdk-local-service.jar
+                                <span style="font-size: 14px;"><svg class="icon icon--sm" aria-hidden="true"><use href="#i-inbox"></use></svg></span> sdk-local-service.jar
                             </a>
                             <a href="https://raw.githubusercontent.com/HaithamMubarak/messaging-platform-sdk/develop/agents/examples/sdk-local-service/src/main/resources/application.properties" target="_blank"
                                download
                                style="display: inline-flex; align-items: center; gap: 6px; padding: 8px 16px; background: var(--accent-blue); color: #fff; text-decoration: none; border-radius: 5px; font-weight: 600; font-size: 12px; transition: all 0.2s;">
-                                <span style="font-size: 14px;">⚙️</span> application.properties
+                                <span style="font-size: 14px;"><svg class="icon" aria-hidden="true"><use href="#i-settings"></use></svg></span> application.properties
                             </a>
                         </div>
 
@@ -1048,10 +1044,10 @@
                             <div><strong>Requires Java 11+</strong> • Run: <code
                                     style="background: var(--bg-dark); padding: 2px 6px; border-radius: 3px;">java -jar
                                 sdk-local-service.jar</code></div>
-                            <div style="margin-top: 6px;">⚙️ Customize <strong>port, database, logging</strong> in
+                            <div style="margin-top: 6px;"><svg class="icon icon--sm" aria-hidden="true"><use href="#i-settings"></use></svg> Customize <strong>port, database, logging</strong> in
                                 application.properties
                             </div>
-                            <div style="margin-top: 6px; font-size: 11px; color: var(--text-muted);">📥 Downloads from GitHub
+                            <div style="margin-top: 6px; font-size: 11px; color: var(--text-muted);"><svg class="icon icon--sm" aria-hidden="true"><use href="#i-download"></use></svg> Downloads from GitHub
                                 - always latest version
                             </div>
                         </div>
@@ -1060,7 +1056,7 @@
                     <div style="margin-bottom: 24px;">
                         <div style="background: var(--bg-panel); padding: 16px; border-radius: 8px; border-left: 3px solid var(--accent-blue); margin-bottom: 16px;">
                             <div style="font-size: 13px; color: var(--text-secondary);">
-                                <strong style="color: var(--accent-blue);">📋 Requirement:</strong> SDK Local Service must be
+                                <strong style="color: var(--accent-blue);"><svg class="icon icon--sm" aria-hidden="true"><use href="#i-copy"></use></svg> Requirement:</strong> SDK Local Service must be
                                 running on <code style="background: var(--bg-dark); padding: 2px 6px; border-radius: 3px;">localhost:8088</code>
                             </div>
                         </div>
@@ -1086,27 +1082,27 @@
                         <h4 style="font-size: 14px; color: var(--text-primary); margin-bottom: 12px;">Features</h4>
                         <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 12px;">
                             <div style="background: var(--bg-panel); padding: 12px; border-radius: 6px;">
-                                <div style="font-size: 16px; margin-bottom: 4px;">💻</div>
+                                <div style="font-size: 16px; margin-bottom: 4px;"><svg class="icon icon--sm" aria-hidden="true"><use href="#i-monitor"></use></svg></div>
                                 <div style="font-size: 12px; font-weight: bold; color: var(--text-primary);">Local
                                     Terminals
                                 </div>
                                 <div style="font-size: 11px; color: var(--text-secondary);">CMD, Bash, PowerShell</div>
                             </div>
                             <div style="background: var(--bg-panel); padding: 12px; border-radius: 6px;">
-                                <div style="font-size: 16px; margin-bottom: 4px;">🌐</div>
+                                <div style="font-size: 16px; margin-bottom: 4px;"><svg class="icon icon--sm" aria-hidden="true"><use href="#i-globe"></use></svg></div>
                                 <div style="font-size: 12px; font-weight: bold; color: var(--text-primary);">SSH
                                     Connections
                                 </div>
                                 <div style="font-size: 11px; color: var(--text-secondary);">Save & manage servers</div>
                             </div>
                             <div style="background: var(--bg-panel); padding: 12px; border-radius: 6px;">
-                                <div style="font-size: 16px; margin-bottom: 4px;">📁</div>
+                                <div style="font-size: 16px; margin-bottom: 4px;"><svg class="icon icon--sm" aria-hidden="true"><use href="#i-inbox"></use></svg></div>
                                 <div style="font-size: 12px; font-weight: bold; color: var(--text-primary);">File Browser
                                 </div>
                                 <div style="font-size: 11px; color: var(--text-secondary);">File transfer & management</div>
                             </div>
                             <div style="background: var(--bg-panel); padding: 12px; border-radius: 6px;">
-                                <div style="font-size: 16px; margin-bottom: 4px;">💬</div>
+                                <div style="font-size: 16px; margin-bottom: 4px;"><svg class="icon icon--sm" aria-hidden="true"><use href="#i-message"></use></svg></div>
                                 <div style="font-size: 12px; font-weight: bold; color: var(--text-primary);">Remote Collaboration
                                 </div>
                                 <div style="font-size: 11px; color: var(--text-secondary);">Share terminals & collaborate live</div>
@@ -1115,27 +1111,27 @@
                     </div>
 
                     <div style="margin-top: 24px; padding-top: 20px; border-top: 1px solid var(--border-color);">
-                        <h4 style="font-size: 14px; color: var(--text-primary); margin-bottom: 12px;">💻 Source Code &
+                        <h4 style="font-size: 14px; color: var(--text-primary); margin-bottom: 12px;"><svg class="icon icon--sm" aria-hidden="true"><use href="#i-monitor"></use></svg> Source Code &
                             Documentation</h4>
                         <div style="display: flex; flex-wrap: wrap; gap: 12px;">
                             <a href="https://github.com/HaithamMubarak/messaging-platform-sdk" target="_blank"
                                style="color: var(--accent-purple); text-decoration: none; font-size: 13px; display: inline-flex; align-items: center; gap: 6px; padding: 8px 12px; background: var(--bg-panel); border-radius: 6px; border: 1px solid var(--border-color);">
-                                <span>⭐</span> View on GitHub
+                                <svg class="icon icon--sm" aria-hidden="true"><use href="#i-github"></use></svg> View on GitHub
                             </a>
                             <a href="https://github.com/HaithamMubarak/messaging-platform-sdk/blob/main/README.md"
                                target="_blank"
                                style="color: var(--accent-blue); text-decoration: none; font-size: 13px; display: inline-flex; align-items: center; gap: 6px; padding: 8px 12px; background: var(--bg-panel); border-radius: 6px; border: 1px solid var(--border-color);">
-                                <span>📖</span> README
+                                <svg class="icon icon--sm" aria-hidden="true"><use href="#i-book"></use></svg> README
                             </a>
                             <a href="https://github.com/HaithamMubarak/messaging-platform-sdk/blob/main/DEVELOPER-GUIDE.md"
                                target="_blank"
                                style="color: var(--accent-blue); text-decoration: none; font-size: 13px; display: inline-flex; align-items: center; gap: 6px; padding: 8px 12px; background: var(--bg-panel); border-radius: 6px; border: 1px solid var(--border-color);">
-                                <span>👨‍💻</span> Dev Guide
+                                <svg class="icon icon--sm" aria-hidden="true"><use href="#i-code"></use></svg> Dev Guide
                             </a>
                             <a href="https://github.com/HaithamMubarak/messaging-platform-sdk/blob/main/WEB-AGENT-GUIDE.md"
                                target="_blank"
                                style="color: var(--accent-blue); text-decoration: none; font-size: 13px; display: inline-flex; align-items: center; gap: 6px; padding: 8px 12px; background: var(--bg-panel); border-radius: 6px; border: 1px solid var(--border-color);">
-                                <span>🌐</span> Web Guide
+                                <svg class="icon icon--sm" aria-hidden="true"><use href="#i-globe"></use></svg> Web Guide
                             </a>
                         </div>
                     </div>
@@ -1194,10 +1190,10 @@
                 <!-- API Reference Tab -->
                 <div class="help-content" id="content-api" style="padding: 24px;">
                     <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
-                        <h3 style="font-size: 16px; color: var(--accent-cyan); margin: 0;">🔌 SDK Local Service REST API</h3>
+                        <h3 style="font-size: 16px; color: var(--accent-cyan); margin: 0;"><svg class="icon icon--sm" aria-hidden="true"><use href="#i-channel"></use></svg> SDK Local Service REST API</h3>
                         <a href="http://localhost:8088/health" target="_blank"
                            style="color: var(--accent-green); text-decoration: none; font-size: 12px; display: inline-flex; align-items: center; gap: 6px; padding: 6px 12px; background: rgba(74, 222, 128, 0.1); border-radius: 6px; border: 1px solid rgba(74, 222, 128, 0.3);">
-                            <span>🔗</span> Test API (Health Check)
+                            <svg class="icon icon--sm" aria-hidden="true"><use href="#i-channel"></use></svg> Test API (Health Check)
                         </a>
                     </div>
                     <div style="font-size: 12px; color: var(--text-secondary); margin-bottom: 20px;">
@@ -1465,7 +1461,7 @@
 
                     <!-- Usage Notes -->
                     <div style="background: rgba(255, 193, 7, 0.1); padding: 16px; border-radius: 8px; border-left: 3px solid var(--accent-yellow); margin-top: 24px;">
-                        <h4 style="font-size: 13px; color: var(--accent-yellow); margin-bottom: 8px;">📝 Important Notes</h4>
+                        <h4 style="font-size: 13px; color: var(--accent-yellow); margin-bottom: 8px;"><svg class="icon icon--sm" aria-hidden="true"><use href="#i-pen"></use></svg> Important Notes</h4>
                         <ul style="font-size: 12px; line-height: 1.8; color: var(--text-secondary); margin: 0; padding-left: 20px;">
                             <li><strong>Security Token:</strong> Most endpoints require an <code>X-Security-Token</code> header (auto-managed by UI)</li>
                             <li><strong>File System:</strong> Auto-creates sessions based on terminal session ID</li>
@@ -1478,7 +1474,7 @@
 
                 <!-- Documentation Tab -->
                 <div class="help-content" id="content-docs" style="padding: 24px;">
-                    <h3 style="font-size: 16px; color: var(--accent-cyan); margin-bottom: 16px;">📚 References</h3>
+                    <h3 style="font-size: 16px; color: var(--accent-cyan); margin-bottom: 16px;"><svg class="icon icon--sm" aria-hidden="true"><use href="#i-book"></use></svg> References</h3>
 
                     <div style="margin-bottom: 20px;">
                         <h4 style="font-size: 14px; color: var(--text-primary); margin-bottom: 12px;">SDK Local Service</h4>
@@ -1486,11 +1482,11 @@
                             <a href="https://raw.githubusercontent.com/HaithamMubarak/messaging-platform-sdk/develop/agents/examples/sdk-local-service/build/libs/sdk-local-service.jar"
                                download
                                style="color: var(--accent-green); text-decoration: none; font-size: 13px; display: flex; align-items: center; gap: 8px;">
-                                <span>⬇️</span> Download SDK Local Service JAR
+                                <svg class="icon icon--sm" aria-hidden="true"><use href="#i-download"></use></svg> Download SDK Local Service JAR
                             </a>
                             <a href="http://localhost:8088/health" target="_blank"
                                style="color: var(--accent-cyan); text-decoration: none; font-size: 13px; display: flex; align-items: center; gap: 8px;">
-                                <span>❤️</span> Health Check Endpoint
+                                <svg class="icon icon--sm" aria-hidden="true"><use href="#i-activity"></use></svg> Health Check Endpoint
                             </a>
                         </div>
                     </div>
@@ -1501,27 +1497,27 @@
                         <div style="display: flex; flex-direction: column; gap: 10px;">
                             <a href="../../index.html" target="_blank"
                                style="color: var(--accent-blue); text-decoration: none; font-size: 13px; display: flex; align-items: center; gap: 8px;">
-                                <span>🏠</span> SDK Examples Home
+                                <svg class="icon icon--sm" aria-hidden="true"><use href="#i-dashboard"></use></svg> SDK Examples Home
                             </a>
                             <a href="https://github.com/HaithamMubarak/messaging-platform-sdk/blob/main/README.md"
                                target="_blank"
                                style="color: var(--accent-blue); text-decoration: none; font-size: 13px; display: flex; align-items: center; gap: 8px;">
-                                <span>📖</span> SDK Main Documentation (README)
+                                <svg class="icon icon--sm" aria-hidden="true"><use href="#i-book"></use></svg> SDK Main Documentation (README)
                             </a>
                             <a href="https://github.com/HaithamMubarak/messaging-platform-sdk/blob/main/DEVELOPER-GUIDE.md"
                                target="_blank"
                                style="color: var(--accent-blue); text-decoration: none; font-size: 13px; display: flex; align-items: center; gap: 8px;">
-                                <span>👨‍💻</span> Developer Guide
+                                <svg class="icon icon--sm" aria-hidden="true"><use href="#i-code"></use></svg> Developer Guide
                             </a>
                             <a href="https://github.com/HaithamMubarak/messaging-platform-sdk/blob/main/USER-GUIDE.md"
                                target="_blank"
                                style="color: var(--accent-blue); text-decoration: none; font-size: 13px; display: flex; align-items: center; gap: 8px;">
-                                <span>📘</span> User Guide
+                                <svg class="icon icon--sm" aria-hidden="true"><use href="#i-book"></use></svg> User Guide
                             </a>
                             <a href="https://github.com/HaithamMubarak/messaging-platform-sdk/blob/main/WEB-AGENT-GUIDE.md"
                                target="_blank"
                                style="color: var(--accent-blue); text-decoration: none; font-size: 13px; display: flex; align-items: center; gap: 8px;">
-                                <span>🌐</span> Web Agent Guide
+                                <svg class="icon icon--sm" aria-hidden="true"><use href="#i-globe"></use></svg> Web Agent Guide
                             </a>
                         </div>
                     </div>
@@ -1533,17 +1529,17 @@
                             <a href="https://github.com/HaithamMubarak/messaging-platform-sdk/blob/main/ROADMAP.md"
                                target="_blank"
                                style="color: var(--accent-blue); text-decoration: none; font-size: 13px; display: flex; align-items: center; gap: 8px;">
-                                <span>🗺️</span> Project Roadmap
+                                <svg class="icon icon--sm" aria-hidden="true"><use href="#i-list"></use></svg> Project Roadmap
                             </a>
                             <a href="https://github.com/HaithamMubarak/messaging-platform-sdk/blob/main/CONTRIBUTING.md"
                                target="_blank"
                                style="color: var(--accent-blue); text-decoration: none; font-size: 13px; display: flex; align-items: center; gap: 8px;">
-                                <span>🤝</span> Contributing Guidelines
+                                <svg class="icon icon--sm" aria-hidden="true"><use href="#i-users"></use></svg> Contributing Guidelines
                             </a>
                             <a href="https://github.com/HaithamMubarak/messaging-platform-sdk/tree/main/agents/examples/web-sdk-server"
                                target="_blank"
                                style="color: var(--accent-purple); text-decoration: none; font-size: 13px; display: flex; align-items: center; gap: 8px;">
-                                <span>📂</span> Web SDK Server Source Code
+                                <svg class="icon icon--sm" aria-hidden="true"><use href="#i-inbox"></use></svg> Web SDK Server Source Code
                             </a>
                         </div>
                     </div>
@@ -1553,7 +1549,7 @@
                         <div style="display: flex; flex-direction: column; gap: 10px;">
                             <a href="https://github.com/HaithamMubarak/messaging-platform-sdk" target="_blank"
                                style="color: var(--accent-purple); text-decoration: none; font-size: 13px; display: flex; align-items: center; gap: 8px;">
-                                <span>⭐</span> GitHub Repository - SDK Source Code
+                                <svg class="icon icon--sm" aria-hidden="true"><use href="#i-github"></use></svg> GitHub Repository - SDK Source Code
                             </a>
                         </div>
                     </div>
@@ -1564,17 +1560,17 @@
                         <div style="display: flex; flex-direction: column; gap: 10px;">
                             <a href="https://xtermjs.org/" target="_blank"
                                style="color: var(--accent-blue); text-decoration: none; font-size: 13px; display: flex; align-items: center; gap: 8px;">
-                                <span>🔗</span> xterm.js Documentation
+                                <svg class="icon icon--sm" aria-hidden="true"><use href="#i-channel"></use></svg> xterm.js Documentation
                             </a>
                             <a href="https://spring.io/projects/spring-boot" target="_blank"
                                style="color: var(--accent-blue); text-decoration: none; font-size: 13px; display: flex; align-items: center; gap: 8px;">
-                                <span>🍃</span> Spring Boot Documentation
+                                 Spring Boot Documentation
                             </a>
                         </div>
                     </div>
 
                     <div style="background: var(--bg-panel); padding: 16px; border-radius: 8px; border-left: 3px solid var(--accent-cyan);">
-                        <h4 style="font-size: 13px; color: var(--text-primary); margin-bottom: 8px;">💡 Need Help?</h4>
+                        <h4 style="font-size: 13px; color: var(--text-primary); margin-bottom: 8px;"><svg class="icon icon--sm" aria-hidden="true"><use href="#i-info"></use></svg> Need Help?</h4>
                         <div style="font-size: 12px; color: var(--text-secondary); line-height: 1.6;">
                             Check the status indicator in the top-right corner. If SDK Local Service is offline, make sure
                             it's running on <code style="background: var(--bg-dark); padding: 2px 6px; border-radius: 3px;">localhost:8088</code>
@@ -1594,13 +1590,13 @@
         <div class="modal" style="width: 700px; max-width: 95vw; max-height: 90vh; overflow-y: auto;">
             <div class="modal-header">
                 <div class="modal-title">ℹ️ About SDK Terminal</div>
-                <div class="modal-close" onclick="closeAboutModal()">✕</div>
+                <div class="modal-close" onclick="closeAboutModal()"><svg class="icon icon--sm" aria-hidden="true"><use href="#i-x"></use></svg></div>
             </div>
             <div class="modal-body" style="padding: 24px;">
 
                 <!-- App Info -->
                 <div style="text-align: center; margin-bottom: 24px;">
-                    <h2 style="color: var(--accent-cyan); margin-bottom: 8px; font-size: 24px;">💬 Messaging Platform</h2>
+                    <h2 style="color: var(--accent-cyan); margin-bottom: 8px; font-size: 24px;"><svg class="icon icon--sm" aria-hidden="true"><use href="#i-message"></use></svg> Messaging Platform</h2>
                     <h3 style="color: var(--text-primary); margin-bottom: 4px; font-size: 18px;">Shared Terminal</h3>
                     <p style="color: var(--text-secondary); font-size: 14px;">Version 1.0.0</p>
                 </div>
@@ -1617,7 +1613,7 @@
                 <!-- Backend Technologies -->
                 <div style="margin-bottom: 20px;">
                     <h4 style="color: var(--accent-green); font-size: 14px; margin-bottom: 12px; display: flex; align-items: center; gap: 8px;">
-                        <span>🔧</span> Backend Technologies
+                        <svg class="icon icon--sm" aria-hidden="true"><use href="#i-wrench"></use></svg> Backend Technologies
                     </h4>
                     <div style="background: var(--bg-panel); padding: 12px; border-radius: 6px; font-size: 12px; line-height: 1.8;">
                         <div style="display: grid; grid-template-columns: 140px 1fr; gap: 8px; color: var(--text-secondary);">
@@ -1645,7 +1641,7 @@
                 <!-- Frontend Technologies -->
                 <div style="margin-bottom: 20px;">
                     <h4 style="color: var(--accent-blue); font-size: 14px; margin-bottom: 12px; display: flex; align-items: center; gap: 8px;">
-                        <span>🎨</span> Frontend Technologies
+                        <svg class="icon icon--sm" aria-hidden="true"><use href="#i-pen"></use></svg> Frontend Technologies
                     </h4>
                     <div style="background: var(--bg-panel); padding: 12px; border-radius: 6px; font-size: 12px; line-height: 1.8;">
                         <div style="display: grid; grid-template-columns: 140px 1fr; gap: 8px; color: var(--text-secondary);">
@@ -1673,7 +1669,7 @@
                 <!-- Key Libraries -->
                 <div style="margin-bottom: 20px;">
                     <h4 style="color: var(--accent-cyan); font-size: 14px; margin-bottom: 12px; display: flex; align-items: center; gap: 8px;">
-                        <span>📦</span> Key Libraries & Addons
+                        <svg class="icon icon--sm" aria-hidden="true"><use href="#i-inbox"></use></svg> Key Libraries & Addons
                     </h4>
                     <div style="background: var(--bg-panel); padding: 12px; border-radius: 6px; font-size: 12px; line-height: 1.8;">
                         <div style="display: grid; grid-template-columns: 140px 1fr; gap: 8px; color: var(--text-secondary);">
@@ -1704,7 +1700,7 @@
                 <!-- Features -->
                 <div style="margin-bottom: 20px;">
                     <h4 style="color: var(--accent-yellow); font-size: 14px; margin-bottom: 12px; display: flex; align-items: center; gap: 8px;">
-                        <span>✨</span> Features
+                        <svg class="icon icon--sm" aria-hidden="true"><use href="#i-zap"></use></svg> Features
                     </h4>
                     <div style="background: var(--bg-panel); padding: 12px; border-radius: 6px;">
                         <ul style="font-size: 12px; line-height: 1.8; color: var(--text-secondary); margin: 0; padding-left: 20px;">
@@ -1725,7 +1721,7 @@
                 <!-- Credits -->
                 <div style="margin-bottom: 20px;">
                     <h4 style="color: var(--accent-purple); font-size: 14px; margin-bottom: 12px; display: flex; align-items: center; gap: 8px;">
-                        <span>👏</span> Credits & Open Source
+                        <svg class="icon icon--sm" aria-hidden="true"><use href="#i-users"></use></svg> Credits & Open Source
                     </h4>
                     <div style="background: var(--bg-panel); padding: 12px; border-radius: 6px;">
                         <p style="font-size: 12px; line-height: 1.6; color: var(--text-secondary); margin: 0 0 8px 0;">
@@ -1758,7 +1754,7 @@
                         <a href="https://github.com/HaithamMubarak/messaging-platform-sdk/tree/main/agents/examples/web-sdk-server/src/main/resources/static/apps/terminal"
                            target="_blank"
                            style="display: inline-flex; align-items: center; gap: 5px; padding: 8px 12px; background: linear-gradient(135deg, rgba(74, 158, 255, 0.2), rgba(34, 211, 238, 0.2)); border: 1px solid var(--accent-cyan); border-radius: 6px; color: var(--accent-cyan); text-decoration: none; font-size: 11px; font-weight: 600; transition: all 0.2s ease;">
-                            <span>🎨</span>
+                            <svg class="icon icon--sm" aria-hidden="true"><use href="#i-pen"></use></svg>
                             <span>Frontend</span>
                             <span style="font-size: 9px;">↗</span>
                         </a>
@@ -1767,7 +1763,7 @@
                            target="_blank"
                            title="SDK Local Service - Backend API"
                            style="display: inline-flex; align-items: center; gap: 5px; padding: 8px 12px; background: linear-gradient(135deg, rgba(139, 92, 246, 0.2), rgba(99, 102, 241, 0.2)); border: 1px solid var(--accent-purple); border-radius: 6px; color: var(--accent-purple); text-decoration: none; font-size: 11px; font-weight: 600; transition: all 0.2s ease;">
-                            <span>⚙️</span>
+                            <svg class="icon icon--sm" aria-hidden="true"><use href="#i-settings"></use></svg>
                             <span>Backend</span>
                             <span style="font-size: 9px;">↗</span>
                         </a>
@@ -1775,7 +1771,7 @@
                         <a href="https://github.com/HaithamMubarak/messaging-platform-sdk"
                            target="_blank"
                            style="display: inline-flex; align-items: center; gap: 5px; padding: 8px 12px; background: linear-gradient(135deg, rgba(34, 211, 238, 0.2), rgba(16, 185, 129, 0.2)); border: 1px solid var(--accent-green); border-radius: 6px; color: var(--accent-green); text-decoration: none; font-size: 11px; font-weight: 600; transition: all 0.2s ease;">
-                            <span>⭐</span>
+                            <svg class="icon icon--sm" aria-hidden="true"><use href="#i-github"></use></svg>
                             <span>SDK Repo</span>
                             <span style="font-size: 9px;">↗</span>
                         </a>
@@ -1788,7 +1784,7 @@
                               background: linear-gradient(135deg, rgba(251, 146, 60, 0.2), rgba(239, 68, 68, 0.2));
                               border: 1px solid rgba(251, 146, 60, 0.5); border-radius: 8px; color: #fb923c;
                               text-decoration: none; font-size: 12px; font-weight: 600; transition: all 0.2s ease;">
-                        <span>🐛</span>
+                        <svg class="icon icon--sm" aria-hidden="true"><use href="#i-alert-circle"></use></svg>
                         <span>Report Issue / Feedback</span>
                         <span style="font-size: 10px;">↗</span>
                     </a>

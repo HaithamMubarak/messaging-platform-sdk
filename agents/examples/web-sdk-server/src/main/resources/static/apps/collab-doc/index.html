@@ -39,13 +39,15 @@
     <script src="lib/marked.min.js"></script>
 
     <!-- App Styles -->
+    <link rel="stylesheet" href="../../css/design-tokens.css">
+    <link rel="stylesheet" href="../../css/ui.css">
     <link rel="stylesheet" href="collab-doc.css">
     <link rel="stylesheet" href="../../css/app-chrome.css">
 </head>
 <body>
     <!-- Share Button -->
     <button id="shareBtn" class="share-btn" onclick="collabDoc?.openShareModal()" style="display: none;">
-        📤 Share
+        <svg class="icon icon--sm" aria-hidden="true"><use href="#i-send"></use></svg> Share
     </button>
 
     <!-- Connection Status -->
@@ -59,7 +61,7 @@
         <!-- Header -->
         <div class="app-header">
             <div class="header-left">
-                <h1>📝 Collaborative Document</h1>
+                <h1><svg class="icon" aria-hidden="true"><use href="#i-pen"></use></svg> Collaborative Document</h1>
                 <input type="text" id="docTitle" class="doc-title" placeholder="Untitled Document" maxlength="100">
             </div>
             <div class="header-center">
@@ -67,20 +69,12 @@
             </div>
             <div class="header-right">
                 <div class="view-mode-toggle">
-                    <button class="mode-btn active" data-mode="edit" title="Edit Mode">
-                        ✏️ Edit
-                    </button>
-                    <button class="mode-btn" data-mode="split" title="Split View">
-                        ↔️ Split
-                    </button>
-                    <button class="mode-btn" data-mode="preview" title="Preview Mode">
-                        👁️ Preview
-                    </button>
+                    <button aria-label="Edit Mode" class="mode-btn active" data-mode="edit" title="Edit Mode"><svg class="icon" aria-hidden="true"><use href="#i-pen"></use></svg></button>
+                    <button aria-label="Split View" class="mode-btn" data-mode="split" title="Split View"><svg class="icon" aria-hidden="true"><use href="#i-layers"></use></svg></button>
+                    <button aria-label="Preview Mode" class="mode-btn" data-mode="preview" title="Preview Mode"><svg class="icon" aria-hidden="true"><use href="#i-eye"></use></svg></button>
                 </div>
                 <div class="theme-toggle">
-                    <button id="themeBtn" onclick="collabDoc?.toggleTheme()" title="Toggle Theme">
-                        🌙
-                    </button>
+                    <button aria-label="Toggle theme" id="themeBtn" onclick="collabDoc?.toggleTheme()" title="Toggle Theme"><svg class="icon" aria-hidden="true"><use href="#i-zap"></use></svg></button>
                 </div>
             </div>
         </div>
@@ -116,29 +110,17 @@
             <div class="toolbar-separator"></div>
 
             <div class="toolbar-group">
-                <button class="toolbar-btn" onclick="collabDoc?.insertMarkdown('[', '](url)')" title="Link">
-                    🔗
-                </button>
-                <button class="toolbar-btn" onclick="collabDoc?.insertMarkdown('`', '`')" title="Code">
-                    &lt;/&gt;
-                </button>
-                <button class="toolbar-btn" onclick="collabDoc?.insertList()" title="List">
-                    ☰
-                </button>
-                <button class="toolbar-btn" onclick="collabDoc?.insertQuote()" title="Quote">
-                    ❝
-                </button>
+                <button aria-label="Link" class="toolbar-btn" onclick="collabDoc?.insertMarkdown('[', '](url)')" title="Link"><svg class="icon" aria-hidden="true"><use href="#i-channel"></use></svg></button>
+                <button aria-label="Code" class="toolbar-btn" onclick="collabDoc?.insertMarkdown('`', '`')" title="Code"><svg class="icon" aria-hidden="true"><use href="#i-code"></use></svg></button>
+                <button aria-label="List" class="toolbar-btn" onclick="collabDoc?.insertList()" title="List"><svg class="icon" aria-hidden="true"><use href="#i-list"></use></svg></button>
+                <button aria-label="Quote" class="toolbar-btn" onclick="collabDoc?.insertQuote()" title="Quote"><svg class="icon" aria-hidden="true"><use href="#i-message"></use></svg></button>
             </div>
 
             <div class="toolbar-separator"></div>
 
             <div class="toolbar-group">
-                <button class="toolbar-btn" onclick="collabDoc?.exportMarkdown()" title="Export Markdown">
-                    💾 .md
-                </button>
-                <button class="toolbar-btn" onclick="collabDoc?.exportHTML()" title="Export HTML">
-                    💾 .html
-                </button>
+                <button aria-label="Export Markdown" class="toolbar-btn" onclick="collabDoc?.exportMarkdown()" title="Export Markdown"><svg class="icon" aria-hidden="true"><use href="#i-download"></use></svg></button>
+                <button aria-label="Export HTML" class="toolbar-btn" onclick="collabDoc?.exportHTML()" title="Export HTML"><svg class="icon" aria-hidden="true"><use href="#i-code"></use></svg></button>
             </div>
         </div>
 
@@ -170,6 +152,8 @@
 
     <!-- Include Libraries -->
     <script src="../../js/config-loader.js"></script>
+    <script src="../../js/icons.js"></script>
+    <script src="../../js/ui.js"></script>
     <script src="../../lib/qrcode.min.js"></script>
     <script src="../../generated-web-agent-js/js/web-agent.libs.js"></script>
     <script src="../../generated-web-agent-js/js/web-agent.js"></script>

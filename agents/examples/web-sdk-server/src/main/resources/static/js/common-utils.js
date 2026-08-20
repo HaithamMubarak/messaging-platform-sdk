@@ -849,7 +849,10 @@
             const data = JSON.parse(json);
             return data;
         } catch (e) {
-            console.error('[ChannelAuth] Decode error:', e);
+            // Callers try several encodings in turn (plain, URL-decoded,
+            // URL-safe base64), so a miss here is an expected step in that
+            // search, not a fault. Whoever exhausts the strategies reports it.
+            console.debug('[ChannelAuth] Decode miss:', e.message);
             return null;
         }
     }

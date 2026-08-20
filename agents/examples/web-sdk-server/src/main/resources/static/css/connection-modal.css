@@ -656,10 +656,29 @@ button[id*="disconnect"]:hover,
     transform: rotate(-90deg);
 }
 
-/* The reveal control holds an icon and nothing else. */
-.connection-modal .password-toggle-btn svg {
+/* The reveal control holds an icon and nothing else.
+ *
+ * It was 34x26, which is under the size a fingertip can reliably hit — and
+ * this form is the first thing anyone who scans the QR code sees, on the
+ * device least able to hit a 26px target. 36 square, centred, everywhere. */
+.connection-modal .password-toggle-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 36px;
+    min-height: 36px;
+}
+
+/* :not([hidden]) matters. The button holds both glyphs — eye and eye-off — and
+ * the script swaps them with the `hidden` attribute, which works only because
+ * the UA stylesheet maps it to display:none. A bare `display: block` here is an
+ * author rule and beats that, so both icons painted at once, stacked inside the
+ * button, whatever the field's state. */
+.connection-modal .password-toggle-btn svg:not([hidden]) {
     width: 18px;
     height: 18px;
     min-width: 18px;
     display: block;
 }
+
+.connection-modal .password-toggle-btn svg[hidden] { display: none; }

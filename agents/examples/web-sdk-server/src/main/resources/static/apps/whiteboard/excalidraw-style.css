@@ -1394,3 +1394,29 @@ button[id*="disconnect"]:hover,
 
 /* A disabled undo arrow should look unavailable, not invisible. */
 .tool-btn:disabled { opacity: 0.35; }
+
+/* ---- on a phone ------------------------------------------------------------
+ * The toolbar buttons are 28px square, which is fine for a mouse and under the
+ * size a fingertip reliably hits. This app is meant to be joined by scanning a
+ * QR code, so the phone is not the edge case here.
+ */
+@media (max-width: 768px), (pointer: coarse) {
+    /* `.tool-group button { min-width: auto }` lives in the page's own style
+       block and outranks a bare `.tool-btn`, so the floor has to be set at the
+       same specificity or better. */
+    .tool-group button.tool-btn,
+    .toolbar .tool-btn,
+    .toolbar .action-btn,
+    /* The swatches live in .color-palette; a two-class selector also beats the
+       six single-class .color-btn rules in the page's own style block, which
+       is where the previous attempts were losing. */
+    .color-palette .color-btn,
+    .tool-group .color-btn,
+    .tool-btn,
+    .action-btn,
+    .color-btn {
+        min-width: 38px;
+        min-height: 38px;
+        padding: 0;
+    }
+}

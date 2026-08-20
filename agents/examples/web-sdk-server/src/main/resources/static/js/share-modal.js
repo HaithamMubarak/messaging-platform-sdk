@@ -253,7 +253,7 @@
                 const { encoded, isEncrypted } = this._parseChannelHash(hash);
 
                 if (!encoded) {
-                    console.warn('Invalid share link');
+                    // An ordinary hash, not a share payload — nothing to do.
                     return;
                 }
 
@@ -278,8 +278,22 @@
 
         _parseChannelHash: function(hash) {
             const parts = hash.substring(1).split('#');
+            const raw = parts[0] || '';
+
+            // Not every hash is a share payload. A page can be opened with a
+            // parameter-style hash (#channel=my-room) or an ordinary document
+            // anchor, and both used to be handed to atob() — which threw, failed
+            // all three decode strategies, and showed the reader a red "Invalid
+            // share link" toast on a link that was never a share link at all.
+            // A real payload is base64 of a JSON body: long, in the base64
+            // alphabet, and with '=' only as trailing padding.
+            const eq = raw.indexOf('=');
+            const isParamForm = eq > 0 && eq < raw.length - 2;
+            const isBase64ish = /^[A-Za-z0-9+/_-]+={0,2}$/.test(raw);
+            const looksLikePayload = raw.length >= 8 && isBase64ish && !isParamForm;
+
             return {
-                encoded: parts[0],
+                encoded: looksLikePayload ? raw : null,
                 isEncrypted: parts.length > 1 && parts[parts.length - 1] === 'encrypted'
             };
         },

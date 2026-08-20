@@ -337,7 +337,10 @@ class ReactorGame extends UserConnectionBase {
         this.updateLeaderboard();
 
         // If only one player remains and game is playing, stop the game
-        if (this.players.size < 2 && this.gameStatus === 'playing') {
+        // The roster is playerZones (self is added to it on join, line ~291);
+        // there has never been a this.players, so this threw on every departure
+        // and took the SDK's host-migration check down with it.
+        if (this.playerZones.size < 2 && this.gameStatus === 'playing') {
             console.log('[Reactor] Not enough players, stopping game');
             this.showToast('Not enough players - game stopped', 'warning');
             this.gameStatus = 'waiting';

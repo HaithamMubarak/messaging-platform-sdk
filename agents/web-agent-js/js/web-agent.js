@@ -1353,13 +1353,28 @@
                 else if (item.type === 'disconnect'){
                     delete _self._connectedAgentsMap[item.from];
                     _self._updateAgents();
-                    // Dispatch agent-disconnect event (systemEvent false for normal agent disconnects)
-                    const parsedContent = JSON.parse(item.content);
+
+                    // The context on a disconnect is optional and is not always
+                    // JSON — an empty body is normal. Parsing it unguarded threw
+                    // before the event was dispatched, so nobody was ever told
+                    // the agent had left: every roster on the channel kept a
+                    // ghost until something else happened to correct it. The
+                    // connect branch above already parses defensively; this is
+                    // the same care.
+                    let parsedContent = null;
+                    try {
+                        if (item.content) {
+                            parsedContent = JSON.parse(item.content);
+                        }
+                    } catch (e) {
+                        console.warn('Failed to parse context from DISCONNECT event:', e.message);
+                    }
+
                     _self.dispatchEvent('agent-disconnect', {
                         agentName: item.from,
                         timestamp: item.date,
                         systemEvent: item.systemEvent,
-                        agentContext: parsedContent?.agentContext || parsedContent?.metadata, // Support legacy metadata field
+                        agentContext: (parsedContent && (parsedContent.agentContext || parsedContent.metadata)) || null,
                     });
                 }
 
@@ -2756,13 +2771,24 @@
             return;
         }
 
+        // One logical send carries one id, and the HTTP retry below reuses this
+        // same payload — so a frame that arrives twice (socket slow to ack, but
+        // delivered anyway) is recognisable as the same send and dropped by the
+        // receiver. A deliberate re-offer is a new send with a new id, so it
+        // still gets through: this suppresses the transport's duplicate, not
+        // the application's retry.
+        _self._sigSeq = (_self._sigSeq || 0) + 1;
+        const tagged = Object.assign({}, signalingMsg, {
+            __sigId: (_self.agentName || 'a') + '-' + Date.now() + '-' + _self._sigSeq
+        });
+
         const payload = {
             type: 'webrtc-signaling',
             ephemeral: true,  // Mark as ephemeral to avoid storage
             to: remoteAgent,
             filter: filter,  // Add filter support
             encrypted: false,
-            content: JSON.stringify(signalingMsg),
+            content: JSON.stringify(tagged),
             sessionId: _self.sessionId,
         };
 
@@ -2825,6 +2851,22 @@
             if (sourceAgent === this.agentName) {
                 // skip self-sent signaling
                 return;
+            }
+
+            // Drop a frame the transport delivered twice. Applying the same
+            // offer or answer a second time puts the peer connection into a
+            // state it never leaves — it sits in 'connecting' while both ends
+            // go on trading ICE candidates and no media ever flows.
+            const sigId = signalingMsg && signalingMsg.__sigId;
+            if (sigId) {
+                this._seenSigIds = this._seenSigIds || [];
+                this._seenSigSet = this._seenSigSet || {};
+                if (this._seenSigSet[sigId]) return;
+                this._seenSigSet[sigId] = true;
+                this._seenSigIds.push(sigId);
+                if (this._seenSigIds.length > 500) {
+                    delete this._seenSigSet[this._seenSigIds.shift()];
+                }
             }
 
             if (this.onWebRtcSignaling) {
@@ -2950,13 +2992,30 @@
 
                 let res = false;
 
+                // Each listener is isolated. One that throws used to abort the
+                // whole dispatch and unwind into the SDK's own caller, so a
+                // single bad handler silently cost every later listener its
+                // event and cost the SDK the work it had queued after the
+                // dispatch. This is how the DOM behaves: report and carry on.
+                const report = (err) => {
+                    console.error('Listener for event \'' + event + '\' threw:', err);
+                };
+
                 if(typeof this['on'+event] === 'function'){
-                    this['on'+event].apply(this,[e]);
+                    try {
+                        this['on'+event].apply(this,[e]);
+                    } catch (err) {
+                        report(err);
+                    }
                 }
 
                 for(let i=0;i<callbacks.length && !cancelled;i++){
                     if(typeof callbacks[i] === 'function'){
-                        callbacks[i].apply(this,[e]);
+                        try {
+                            callbacks[i].apply(this,[e]);
+                        } catch (err) {
+                            report(err);
+                        }
                         res = true;
                     }
                 }

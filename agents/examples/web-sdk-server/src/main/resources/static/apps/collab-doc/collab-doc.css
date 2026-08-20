@@ -1,13 +1,14 @@
-:root {
-    --primary: #4f46e5;
-    --primary-dark: #4338ca;
-    --success: #10b981;
-    --gray-50: #f9fafb;
-    --gray-100: #f3f4f6;
-    --gray-200: #e5e7eb;
-    --gray-800: #1f2937;
-    --gray-900: #111827;
-}
+/* ==========================================================================
+   Collaborative Document, on the shared design system.
+   Requires design-tokens.css and ui.css, loaded before this file.
+
+   Selector names are unchanged: collab-doc.js drives the editor, the preview
+   and the collaborator list by class. The private indigo palette is gone.
+
+   The editor and the preview keep their own light/dark handling — this app has
+   a theme switch of its own, and the tokens describe the chrome around it
+   rather than the page being written.
+   ========================================================================== */
 
 * {
     margin: 0;
@@ -33,7 +34,7 @@ body {
     position: fixed;
     top: 20px;
     right: 20px;
-    background: var(--primary);
+    background: var(--brand);
     color: white;
     border: none;
     padding: 12px 24px;
@@ -47,7 +48,7 @@ body {
 }
 
 .share-btn:hover {
-    background: var(--primary-dark);
+    background: var(--brand-strong, #4f46e5);
     transform: translateY(-2px);
 }
 
@@ -57,7 +58,7 @@ body {
     top: 20px;
     left: 20px;
     background: rgba(255, 255, 255, 0.95);
-    color: var(--gray-800);
+    color: var(--text);
     padding: 8px 16px;
     border-radius: 20px;
     display: flex;
@@ -97,7 +98,7 @@ body {
 /* Header */
 .app-header {
     background: white;
-    border-bottom: 1px solid var(--gray-200);
+    border-bottom: 1px solid var(--border);
     padding: 12px 24px;
     display: flex;
     justify-content: space-between;
@@ -114,27 +115,27 @@ body {
 
 .header-left h1 {
     font-size: 18px;
-    color: var(--gray-800);
+    color: var(--text);
 }
 
 .doc-title {
     flex: 1;
     max-width: 300px;
     padding: 8px 12px;
-    border: 1px solid var(--gray-200);
+    border: 1px solid var(--border);
     border-radius: 6px;
     font-size: 16px;
-    color: var(--gray-800);
+    color: var(--text);
 }
 
 .doc-title:focus {
     outline: none;
-    border-color: var(--primary);
+    border-color: var(--brand);
 }
 
 .room-badge {
-    background: var(--gray-100);
-    color: var(--gray-800);
+    background: var(--surface-3);
+    color: var(--text);
     padding: 6px 12px;
     border-radius: 16px;
     font-size: 12px;
@@ -148,7 +149,7 @@ body {
 
 .view-mode-toggle {
     display: flex;
-    background: var(--gray-100);
+    background: var(--surface-3);
     border-radius: 8px;
     padding: 4px;
     gap: 4px;
@@ -159,14 +160,14 @@ body {
     background: transparent;
     border: none;
     border-radius: 6px;
-    color: var(--gray-800);
+    color: var(--text);
     font-size: 14px;
     cursor: pointer;
     transition: all 0.2s ease;
 }
 
 .mode-btn:hover {
-    background: var(--gray-200);
+    background: var(--border);
 }
 
 .mode-btn.active {
@@ -175,7 +176,7 @@ body {
 }
 
 .theme-toggle button {
-    background: var(--gray-100);
+    background: var(--surface-3);
     border: none;
     padding: 8px 12px;
     border-radius: 6px;
@@ -185,13 +186,13 @@ body {
 }
 
 .theme-toggle button:hover {
-    background: var(--gray-200);
+    background: var(--border);
 }
 
 /* Toolbar */
 .editor-toolbar {
-    background: var(--gray-50);
-    border-bottom: 1px solid var(--gray-200);
+    background: var(--surface-2);
+    border-bottom: 1px solid var(--border);
     padding: 8px 16px;
     display: flex;
     gap: 16px;
@@ -206,23 +207,23 @@ body {
 .toolbar-btn {
     padding: 8px 12px;
     background: white;
-    border: 1px solid var(--gray-200);
+    border: 1px solid var(--border);
     border-radius: 6px;
     cursor: pointer;
     font-size: 14px;
-    color: var(--gray-800);
+    color: var(--text);
     transition: all 0.2s ease;
 }
 
 .toolbar-btn:hover {
-    background: var(--gray-100);
-    border-color: var(--primary);
+    background: var(--surface-3);
+    border-color: var(--brand);
 }
 
 .toolbar-separator {
     width: 1px;
     height: 24px;
-    background: var(--gray-200);
+    background: var(--border);
 }
 
 /* Editor Layout */
@@ -241,7 +242,7 @@ body {
 .editor-layout.split .editor-pane,
 .editor-layout.split .preview-pane {
     flex: 1;
-    border-right: 1px solid var(--gray-200);
+    border-right: 1px solid var(--border);
 }
 
 .editor-layout.split .preview-pane {
@@ -297,19 +298,19 @@ body {
     overflow-y: auto;
     padding: 40px;
     background: white;
-    color: var(--gray-900);
+    color: var(--text);
 }
 
 .preview-content.dark {
-    background: var(--gray-900);
-    color: var(--gray-50);
+    background: var(--text);
+    color: var(--surface-2);
 }
 
 /* Markdown Styling */
 .preview-content h1 {
     font-size: 32px;
     margin: 24px 0 16px 0;
-    border-bottom: 2px solid var(--gray-200);
+    border-bottom: 2px solid var(--border);
     padding-bottom: 8px;
 }
 
@@ -329,7 +330,7 @@ body {
 }
 
 .preview-content code {
-    background: var(--gray-100);
+    background: var(--surface-3);
     padding: 2px 6px;
     border-radius: 4px;
     font-family: 'Courier New', monospace;
@@ -337,8 +338,8 @@ body {
 }
 
 .preview-content pre {
-    background: var(--gray-900);
-    color: var(--gray-50);
+    background: var(--text);
+    color: var(--surface-2);
     padding: 16px;
     border-radius: 8px;
     overflow-x: auto;
@@ -351,10 +352,10 @@ body {
 }
 
 .preview-content blockquote {
-    border-left: 4px solid var(--primary);
+    border-left: 4px solid var(--brand);
     padding-left: 16px;
     margin: 12px 0;
-    color: var(--gray-800);
+    color: var(--text);
     font-style: italic;
 }
 
@@ -368,7 +369,7 @@ body {
 }
 
 .preview-content a {
-    color: var(--primary);
+    color: var(--brand);
     text-decoration: none;
 }
 
@@ -378,14 +379,14 @@ body {
 
 /* Status Bar */
 .status-bar {
-    background: var(--gray-50);
-    border-top: 1px solid var(--gray-200);
+    background: var(--surface-2);
+    border-top: 1px solid var(--border);
     padding: 8px 24px;
     display: flex;
     justify-content: space-between;
     align-items: center;
     font-size: 12px;
-    color: var(--gray-800);
+    color: var(--text);
 }
 
 .status-left {
@@ -404,7 +405,7 @@ body {
     gap: 6px;
     padding: 4px 10px;
     background: white;
-    border: 1px solid var(--gray-200);
+    border: 1px solid var(--border);
     border-radius: 12px;
     font-size: 12px;
 }
@@ -417,32 +418,32 @@ body {
 
 /* Dark Theme */
 body.dark-theme .app-container {
-    background: var(--gray-900);
+    background: var(--text);
 }
 
 body.dark-theme .app-header,
 body.dark-theme .editor-toolbar,
 body.dark-theme .status-bar {
-    background: var(--gray-800);
+    background: var(--text);
     border-color: rgba(255, 255, 255, 0.1);
-    color: var(--gray-50);
+    color: var(--surface-2);
 }
 
 body.dark-theme .doc-title {
-    background: var(--gray-900);
+    background: var(--text);
     border-color: rgba(255, 255, 255, 0.1);
-    color: var(--gray-50);
+    color: var(--surface-2);
 }
 
 body.dark-theme .toolbar-btn,
 body.dark-theme .mode-btn {
-    background: var(--gray-900);
+    background: var(--text);
     border-color: rgba(255, 255, 255, 0.1);
-    color: var(--gray-50);
+    color: var(--surface-2);
 }
 
 body.dark-theme .mode-btn.active {
-    background: var(--primary);
+    background: var(--brand);
     color: white;
 }
 
@@ -472,3 +473,107 @@ body.dark-theme .mode-btn.active {
     }
 }
 
+
+/* ---- chrome ---------------------------------------------------------------- */
+.app-header,
+.toolbar,
+.editor-toolbar {
+    background: var(--surface-1);
+    border-bottom: 1px solid var(--border);
+    color: var(--text);
+}
+
+.app-header h1 {
+    display: flex;
+    align-items: center;
+    gap: var(--sp-2);
+    font-size: var(--fs-xl);
+    color: var(--text);
+}
+
+.room-badge {
+    padding: 3px 10px;
+    font-family: var(--font-mono);
+    font-size: var(--fs-xs);
+    color: var(--text-muted);
+    background: var(--surface-2);
+    border: 1px solid var(--border);
+    border-radius: var(--r-sm);
+}
+
+.mode-btn,
+.toolbar-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 34px;
+    min-height: 34px;
+    color: var(--text-body);
+    background: var(--surface-2);
+    border: 1px solid var(--border-strong);
+    border-radius: var(--r-md);
+}
+
+.mode-btn:hover,
+.toolbar-btn:hover { background: var(--surface-3); border-color: var(--brand); color: var(--text); }
+.mode-btn.active { background: var(--brand-subtle); border-color: var(--brand); color: var(--brand-ink); }
+.mode-btn:focus-visible,
+.toolbar-btn:focus-visible { outline: none; box-shadow: var(--focus-ring); }
+
+/* An icon button holds an icon: padding sized for a text label squeezes an
+   <svg>, whose default min-width is its own content, down to a sliver. */
+.mode-btn .icon,
+.toolbar-btn .icon,
+.share-btn .icon {
+    width: 18px;
+    height: 18px;
+    min-width: 18px;
+    flex: none;
+}
+
+.users-panel {
+    background: var(--surface-1);
+    border: 1px solid var(--border);
+    border-radius: var(--r-lg);
+}
+
+.users-panel h3 {
+    display: flex;
+    align-items: center;
+    font-size: var(--fs-sm);
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--text-muted);
+}
+
+.users-panel h3 .icon { margin-right: var(--sp-2); flex: none; }
+
+.connection-status {
+    color: var(--text-body);
+    background: var(--surface-2);
+    border: 1px solid var(--border);
+}
+
+.status-dot { background: var(--danger); }
+.connection-status.connected .status-dot { background: var(--success); }
+
+.share-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--sp-2);
+    color: var(--text);
+    background: var(--surface-2);
+    border: 1px solid var(--border-strong);
+    border-radius: var(--r-md);
+    font-weight: 600;
+}
+
+.share-btn:hover { background: var(--surface-3); border-color: var(--brand); }
+
+/* CodeMirror sizes itself from its content and pushed the page sideways; it
+   scrolls inside its own pane instead. */
+.CodeMirror,
+.CodeMirror-scroll {
+    max-width: 100%;
+}
