@@ -393,7 +393,13 @@ class UserConnectionBase {
 
         const wake = (why) => {
             if (this.connected || this._userDisconnected || !this.options.autoReconnect) return;
-            if (!this.channel) return;
+            // Deliberately not guarded on this.channel: _rejoin() tears the old
+            // one down before building a new one, so a failed attempt leaves it
+            // null — and guarding on it here meant that once the ladder of
+            // attempts ran out while the network was down, coming back online
+            // could never start another one. What matters is that we know which
+            // room to return to.
+            if (!this.username || !this.channelName) return;
             console.log('[UserConnectionBase] ' + why + ' — trying to rejoin now');
             this._reconnectAttempt = 0;
             clearTimeout(this._reconnectTimer);

@@ -2703,3 +2703,43 @@ body {
     text-overflow: ellipsis;
     white-space: nowrap;
 }
+
+/* ========== "Been given a code?" ==========
+ * The row is a wide field and a small button, which needs saying explicitly:
+ * .cloud-btn is width:100%, so a button in a flex row with flex-basis auto
+ * claims the whole line and leaves the input the width of its own padding.
+ * That is what happened — the field collapsed to a 26px sliver.
+ */
+.join-code-row {
+    display: flex;
+    gap: 8px;
+    align-items: stretch;
+}
+
+.join-code-row input {
+    flex: 1 1 auto;
+    min-width: 0;              /* a flex item will not shrink below its content without this */
+    padding: 12px;
+    font-size: 13px;
+    font-family: monospace;
+    letter-spacing: 0.02em;
+    border-radius: 6px;
+    border: 1px solid var(--border-color, #2a2a4a);
+    background: var(--bg-panel, #0f0f1a);
+    color: var(--text-primary, #e0e0e0);
+}
+
+.join-code-row input:focus {
+    outline: none;
+    border-color: var(--accent-blue, #4a9eff);
+}
+
+.join-code-row .cloud-btn {
+    flex: 0 0 auto;
+    width: auto;               /* beats .cloud-btn { width: 100% } */
+    padding: 10px 20px;
+    font-size: 13px;
+    font-weight: 600;
+    border-radius: 6px;
+    white-space: nowrap;
+}

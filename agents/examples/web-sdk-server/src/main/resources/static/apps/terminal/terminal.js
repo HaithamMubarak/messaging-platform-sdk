@@ -5110,6 +5110,38 @@ function generateShareUrl() {
     }
 }
 
+/**
+ * Put the top-right chrome in step with the connection.
+ *
+ * These three things used to be set by hand in three different places —
+ * connect, disconnect, and the error path — which was survivable while the
+ * only way out of a room was to press Disconnect. It is not survivable now
+ * that the connection comes back on its own: an automatic rejoin left the
+ * pill naming a room the app no longer believed it was in, with Invite still
+ * offering to share it.
+ */
+function syncCloudChrome() {
+    const label = document.getElementById('cloudStatusLabel');
+    const invite = document.getElementById('inviteBtn');
+    const group = document.getElementById('cloudIndicatorGroup');
+    const joined = !!cloudConnected;
+
+    const channel = document.getElementById('cloudChannelName')?.value?.trim() || '';
+    if (label) {
+        label.textContent = joined && channel
+            ? channel + (cloudAgentName ? ' · ' + cloudAgentName : '')
+            : 'Not in a room';
+    }
+    if (invite) invite.style.display = joined ? '' : 'none';
+    if (group) {
+        group.title = joined
+            ? 'Remote Share: connected as ' + (cloudAgentName || 'you')
+            : 'Remote Share – Disconnected';
+    }
+    updateEmptyState();
+}
+window.syncCloudChrome = syncCloudChrome;
+
 /* =========================================================================
  * Short codes
  *
@@ -6355,12 +6387,28 @@ terminalSharing.onFileSystemNotification = (sessionId, operation, details, sourc
             updateSharedTerminalsList();
         };
 
+        // The connection came back on its own. Everything the page believed
+        // about the room was set when it first joined, and none of it survived
+        // the rejoin, so it is all restored here rather than left stale.
+        terminalSharing.onRejoining = (attempt) => {
+            const label = document.getElementById('cloudStatusLabel');
+            if (label) label.textContent = 'Reconnecting…' + (attempt > 1 ? ' (' + attempt + ')' : '');
+        };
+
+        terminalSharing.onRejoined = () => {
+            cloudConnected = true;
+            cloudAgentName = terminalSharing.username || cloudAgentName;
+            syncCloudChrome();
+            showToast('success', 'Back in the room', 'Reconnected as ' + cloudAgentName);
+            try { updateSharedTerminalsList(); } catch (e) { /* list may not be built yet */ }
+        };
+
         // Called when cloud connection is lost unexpectedly
         terminalSharing.onDisconnect = (reason) => {
             console.warn('[Terminal] Cloud connection lost:', reason);
 
             cloudConnected = false;
-            updateEmptyState();
+            syncCloudChrome();
 
             // Update UI to show disconnected state
             const statusDot = document.getElementById('cloudStatus');
@@ -6432,7 +6480,7 @@ terminalSharing.onFileSystemNotification = (sessionId, operation, details, sourc
 
         cloudConnected = true;
         cloudAgentName = agentName;
-        updateEmptyState();
+        syncCloudChrome();
 
         // Remove shared terminal loader if it exists
         const loader = document.getElementById('shared-terminal-loader');
@@ -6581,7 +6629,7 @@ terminalSharing.onFileSystemNotification = (sessionId, operation, details, sourc
         showToast('error', 'Connection Failed', error.message);
         terminalSharing = null;
         cloudConnected = false;
-        updateEmptyState();
+        syncCloudChrome();
         pendingSessionToShare = null; // Clear pending session on error
         connectBtn.textContent = 'Connect to Cloud';
         connectBtn.disabled = false;
