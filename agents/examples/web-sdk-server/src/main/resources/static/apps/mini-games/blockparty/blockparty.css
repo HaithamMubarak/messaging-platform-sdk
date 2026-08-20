@@ -386,6 +386,9 @@ html, body {
 .rs-bar-fill.colour { background: #a78bfa; }
 .rs-bar-pct { min-width: 26px; text-align: right; color: var(--text); opacity: 0.8; }
 
+/* The one row on a Saboteur scoreboard that everybody looks at first. */
+.rs-row.saboteur { background: rgba(239, 68, 68, 0.14); border-color: rgba(239, 68, 68, 0.4); }
+
 /* Postcard's reference: the picture, and nothing but the picture. It sits with
    the other panels rather than over the world, because it is something you
    glance back at for two minutes, not something you dismiss. */

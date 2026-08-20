@@ -91,6 +91,13 @@
     const QUAKE_POWER = 9;
     // Memory Match: how big a build has to be before its average is worth full
     // marks to the architect, and how much a build that sorts the room can add.
+    // Saboteur: what getting away with it is worth, and what naming the right
+    // person is worth. Deliberately close together — a room that catches its
+    // saboteur should come out ahead of one that does not, without the round
+    // becoming only about the vote.
+    const SABOTEUR_ESCAPE_BONUS = 40;
+    const SABOTEUR_CAUGHT_BONUS = 30;
+
     const MEMORY_FULL_SIZE = 30;
     // How much of the architect's build the flashback may outline. A build
     // bigger than this is past remembering anyway, and the silhouette rides in
@@ -145,6 +152,15 @@
             flow: ['countdown', 'study', 'play', 'reveal'],
             relay: true, hide: false, scoreAt: 'play', shared: true
         },
+        saboteur: {
+            // Team Build with somebody in it who does not want it to work.
+            // Everything is shared and visible — that is the point: the
+            // sabotage has to happen in plain sight and look like an honest
+            // mistake. The only secret in the round is who, and it is one
+            // targeted message the host sends at the start.
+            flow: ['countdown', 'study', 'play', 'vote', 'tally'],
+            relay: true, hide: false, scoreAt: 'vote', shared: true
+        },
         memory: {
             flow: ['countdown', 'architect', 'play', 'scoring', 'reveal'],
             relay: 'architect', hide: true, scoreAt: 'scoring', buildsAt: 'scoring'
@@ -197,7 +213,16 @@
      * than there is to a Block Rush prompt — so both hand the decision to the
      * players, and both use the same vote and tally phases to do it.
      */
-    function isVoted(mode) { return mode === 'rush' || mode === 'postcard'; }
+    function isVoted(mode) { return mode === 'rush' || mode === 'postcard' || mode === 'saboteur'; }
+
+    /**
+     * What the room is voting *on*.
+     *
+     * Rush and Postcard vote for a build — the plots are the ballot. Saboteur
+     * votes for a person, and there is only one plot, so the ballot is the
+     * player list. Same votes, same tally, different list.
+     */
+    function votesOnPlayers(mode) { return mode === 'saboteur'; }
 
     /** Population standard deviation — how much a set of scores disagreed. */
     function stdev(values) {
@@ -249,6 +274,10 @@
         {
             id: 'postcard', kind: 'build', name: 'Postcard', emoji: '🖼', ready: true, defaultTime: 120, minPlayers: 3, note: 'Needs three: the room votes, and you cannot vote for yourself.',
             desc: 'Everyone gets the same picture — and only the picture. No model, no ghost, nothing to copy: work out what it shows and build that. The room votes for the best one.'
+        },
+        {
+            id: 'saboteur', kind: 'guess', name: 'Saboteur', emoji: '🕵', ready: true, defaultTime: 180, minPlayers: 3, note: 'Needs three: two to build and one to be the problem.',
+            desc: 'One blueprint, one plot, everybody on it — except one of you is quietly wrecking it and must not be caught. Build it anyway, then the room votes on who it was.'
         },
         {
             id: 'rush', kind: 'build', name: 'Block Rush', emoji: '⚡', ready: true, defaultTime: 90, minPlayers: 3, note: 'Needs three: with two it is always a tie.',
@@ -453,6 +482,8 @@
             this.locked = false;        // I have locked my build in for this round
             this.voted = null;          // block rush: who I voted for
             this.secretWord = null;     // charades: set only on the builder
+            this.myRole = null;         // saboteur: set only on the saboteur
+            this._roleRound = 0;        // ...and only for the round it was given for
             this.accuracy = 0;
             this.sandboxBackup = null;  // world to restore when the match ends
             this.results = null;
@@ -690,7 +721,7 @@
         // Anything that describes the match itself is the host's to say. A
         // client that forged one could otherwise fake a phase, a result or a
         // whole scoreboard on somebody else's screen.
-        static get HOST_ONLY() { return ['state', 'results', 'build', 'end', 'guessed', 'word', 'model', 'turn', 'quake']; }
+        static get HOST_ONLY() { return ['state', 'results', 'build', 'end', 'guessed', 'word', 'model', 'turn', 'quake', 'role']; }
 
         handleMessage(peerId, msg) {
             // Identity comes from the transport, never from the payload:
@@ -788,6 +819,15 @@
                 case 'word':
                     // Sent to the builder only.
                     this.secretWord = msg.word;
+                    this._renderHud();
+                    break;
+                case 'role':
+                    // Sent to the saboteur only, and HOST_ONLY above — a client
+                    // that could forge this could appoint somebody else, or
+                    // convince a player they were the saboteur when they were
+                    // not, which is a whole round ruined from the outside.
+                    this._takeRole(msg.role, msg.round);
+                    this.game.showToast('🕵 You are the saboteur — wreck it without being caught', 'warning', 5000);
                     this._renderHud();
                     break;
                 case 'guessed':
@@ -921,6 +961,7 @@
             h.target = null;
             h.votes = new Map();
             h.picture = null;
+            h.saboteur = null;
             h.lastCall = false;
             h.lastResults = null;      // the previous round's, not this one's
 
@@ -987,6 +1028,17 @@
                     h.teamBest = 0;
                     h.teamStill = 0;
                     takeModel();
+                    break;
+
+                case 'saboteur':
+                    h.plots = [{ name: SHARED, shared: true, x0: -18, z0: -18, size: 36 }];
+                    h.teamBest = 0;
+                    h.teamStill = 0;
+                    takeModel();
+                    // Somebody different each round where the room allows it,
+                    // so a match does not turn into one person's evening.
+                    h.saboteur = players[(h.round - 1) % players.length];
+                    this._hostSendRole();
                     break;
 
                 case 'whereonearth': {
@@ -1058,6 +1110,35 @@
          * The word goes to the current builder alone — never into the broadcast
          * state, which the whole room receives.
          */
+        /**
+         * Tell the saboteur, and only the saboteur.
+         *
+         * Exactly the shape the secret word already travels in: one targeted
+         * message, never in the broadcast state. Everyone else's client has no
+         * idea the field exists, which is the only reason a hidden role can
+         * work at all on a transport that relays everything by default.
+         */
+        _hostSendRole() {
+            const h = this.host;
+            // Stamped with the round it belongs to. The message and the state
+            // that starts the round travel separately and can arrive in either
+            // order, so a role is only ever true *for a round* — otherwise last
+            // round's saboteur is still the saboteur on their own screen.
+            if (h.saboteur === this.game.username) this._takeRole('saboteur', h.round);
+            else this.game.sendData({ type: 'mode', k: 'role', role: 'saboteur', round: h.round }, h.saboteur);
+        }
+
+        _takeRole(role, round) {
+            this.myRole = role || null;
+            this._roleRound = round || 0;
+        }
+
+        /** Am I the saboteur, in the round currently being played? */
+        _iAmSaboteur() {
+            return this.myRole === 'saboteur'
+                && !!this.state && this._roleRound === this.state.round;
+        }
+
         _hostSendWord() {
             const h = this.host;
             if (h.builder === this.game.username) this.secretWord = h.word;
@@ -1344,11 +1425,16 @@
             const h = this.host;
             if (!h || !isVoted(h.mode) || h.phase !== 'vote') return false;
             if (!target || target === name) return false;
-            if (!h.plots.some(p => p.name === target)) return false;
+            // A vote has to name something on the ballot, and the ballot is not
+            // the same list in every mode: Rush and Postcard vote for a build,
+            // so the plots are the ballot; Saboteur votes for a person, and its
+            // one shared plot is not anybody's name.
+            const ballot = votesOnPlayers(h.mode) ? this._eligiblePlayers() : h.plots.map(p => p.name);
+            if (ballot.indexOf(target) < 0) return false;
             h.votes.set(name, target);
             this._hostPublish();
             // Everyone has voted — no reason to sit out the rest of the clock.
-            if (h.votes.size >= h.plots.length) h.remain = 1;
+            if (h.votes.size >= ballot.length) h.remain = 1;
             return true;
         }
 
@@ -1529,6 +1615,7 @@
             switch (h.mode) {
                 case 'charades': this._hostFinishCharades(); return;
                 case 'teambuild': this._hostScoreTeam(); return;
+                case 'saboteur': this._hostScoreSaboteur(); return;
                 case 'memory': this._hostScoreMemory(); return;
                 case 'rush': case 'postcard': this._hostScoreRush(); return;
                 case 'territory': this._hostScoreTerritory(); return;
@@ -1701,6 +1788,60 @@
             this._hostFinish({
                 mode: 'memory', round: h.round, rounds: h.rounds, builder: h.builder,
                 architectBlocks: (h.target || []).length, average: avg,
+                rows, totals: this._hostTotalsList(), isFinal: h.round >= h.rounds
+            });
+        }
+
+        /**
+         * Score a round of Saboteur.
+         *
+         * Two jobs pulling against each other, so they are paid separately:
+         * the builders are paid for the model standing up and for working out
+         * who was wrecking it, and the saboteur is paid for the damage and for
+         * getting away with it. A saboteur who is caught still keeps the
+         * damage; a room that finishes the build still loses marks for
+         * accusing the wrong person.
+         */
+        _hostScoreSaboteur() {
+            const h = this.host;
+            const pct = this._hostTeamPct();
+            const players = h.plots[0] && h.plots[0].shared
+                ? this._eligiblePlayers() : h.plots.map(p => p.name);
+
+            const votes = new Map();
+            h.votes.forEach(target => votes.set(target, (votes.get(target) || 0) + 1));
+            const cast = h.votes.size;
+            const against = votes.get(h.saboteur) || 0;
+            // Caught means more of the room named them than named anyone else,
+            // and at least half of those who voted at all.
+            let topVotes = 0;
+            votes.forEach(n => { if (n > topVotes) topVotes = n; });
+            const caught = against > 0 && against === topVotes && against * 2 >= cast;
+
+            const rows = players.map(name => {
+                const isSab = name === h.saboteur;
+                const votedFor = h.votes.get(name) || null;
+                let points, note;
+                if (isSab) {
+                    points = Math.round(100 - pct) + (caught ? 0 : SABOTEUR_ESCAPE_BONUS);
+                    note = caught
+                        ? `the saboteur — caught, ${against} of ${cast} named them`
+                        : `the saboteur — got away with it`;
+                } else {
+                    const right = votedFor === h.saboteur;
+                    points = Math.round(pct) + (right ? SABOTEUR_CAUGHT_BONUS : 0);
+                    note = right ? `built, and named the saboteur`
+                        : (votedFor ? `built, but blamed ${votedFor}` : 'built, and named nobody');
+                }
+                h.totals.set(name, (h.totals.get(name) || 0) + points);
+                return { name, points, isSaboteur: isSab, caught, votes: votes.get(name) || 0, note };
+            }).sort((a, b) => b.points - a.points);
+
+            this._hostFinish({
+                mode: 'saboteur', round: h.round, rounds: h.rounds,
+                saboteur: h.saboteur, caught, teamPct: Math.round(pct),
+                modelName: (Models.byId(h.modelId) || {}).name || '',
+                modelEmoji: (Models.byId(h.modelId) || {}).emoji || '',
                 rows, totals: this._hostTotalsList(), isFinal: h.round >= h.rounds
             });
         }
@@ -2003,6 +2144,10 @@
                 } : null,
                 buildHeight: rules.height || BUILD_HEIGHT,
                 lastCall: !!h.lastCall,
+                // Saboteur votes on people rather than plots, and a shared plot
+                // is one row for the whole room — so the ballot needs the list.
+                players: h.mode === 'saboteur' ? this._eligiblePlayers() : null,
+                teamPct: h.mode === 'saboteur' && h.phase !== 'countdown' ? Math.round(this._hostTeamPct()) : 0,
                 votesCast: h.votes ? h.votes.size : 0,
                 voters: isVoted(h.mode) ? Array.from(h.votes.keys()) : [],
                 // The answer is only safe to send once the round is over.
@@ -2054,6 +2199,8 @@
                 case 'explore': return roundTime;
                 case 'guess': return GUESS_SECS;
                 case 'reveal': return charades ? CHARADES_REVEAL_SECS : REVEAL_SECS;
+                case 'vote': return VOTE_SECS;
+                case 'tally': return TALLY_SECS;
                 default: return 1;
             }
         }
@@ -2299,6 +2446,19 @@
                     this._startTour();
                 }
                 if (phase === 'scoring' && wasPhase !== 'scoring') this._submitBuild(false);
+                return;
+            }
+
+            if (s.mode === 'saboteur') {
+                if (phase === 'play' && wasPhase !== 'play') {
+                    this.game.showToast(this._iAmSaboteur()
+                        ? '🕵 Wreck it quietly — look like you are helping'
+                        : '🤝 Build it together. One of you is not helping.', 'info', 3400);
+                }
+                if (phase === 'vote' && wasPhase !== 'vote') {
+                    this.voted = null;
+                    this._renderPlayerVote();
+                }
                 return;
             }
 
@@ -2820,6 +2980,28 @@
                 return;
             }
 
+            if (r.mode === 'saboteur') {
+                const srows = r.rows.map((row, i) => `
+                    <div class="rs-row${row.name === this.game.username ? ' me' : ''}${row.isSaboteur ? ' saboteur' : ''}" data-player="${esc(row.name)}">
+                        <span class="rs-rank">${row.isSaboteur ? '🕵' : medal(i)}</span>
+                        <span class="rs-dot" style="background:${this.game.generateUserColor(row.name)}"></span>
+                        <span class="rs-name">${esc(row.name)}</span>
+                        <span class="rs-pct">${row.votes ? '🗳 ' + row.votes : ''}</span>
+                        <span class="rs-detail">${esc(row.note || '')}</span>
+                        <span class="rs-points">${row.points}</span>
+                    </div>`).join('');
+                this.game.showResults({
+                    title: r.isFinal ? '🏆 Final standings' : `Round ${r.round} of ${r.rounds}`,
+                    subtitle: `It was <strong>${esc(r.saboteur)}</strong> — ${r.caught ? 'and the room got them' : 'and they got away with it'}`
+                        + `. The build finished at <strong>${r.teamPct}%</strong>`,
+                    body: `<div class="rs-list">${srows}</div>
+                           <div class="rs-totals-title">Match points</div>
+                           <div class="rs-totals">${totalsOf()}</div>`,
+                    isFinal: r.isFinal, canControl: this.game.isHost()
+                });
+                return;
+            }
+
             if (r.mode === 'postcard') {
                 this.game.showResults({
                     title: r.isFinal ? '🏆 Final standings' : `Round ${r.round} of ${r.rounds}`,
@@ -2970,6 +3152,7 @@
             const s = this.state;
             if (!s || !isVoted(s.mode)) return;
             const me = this.game.username;
+            if (votesOnPlayers(s.mode)) return this._renderPlayerVote();
             const rows = (s.plots || []).map(p => {
                 const mine = p.name === me;
                 const picked = this.voted === p.name;
@@ -2994,6 +3177,41 @@
                 subtitle: s.mode === 'postcard'
                     ? `The picture was ${s.pic && s.pic.name ? `<strong>${esc(s.pic.name.toLowerCase())}</strong>` : 'the one on the right'} — you cannot vote for your own build`
                     : `The prompt was <strong>${esc(s.prompt)}</strong> — you cannot vote for your own build`,
+                body: `<div class="rs-list">${rows}</div>`,
+                isFinal: false, canControl: false
+            });
+        }
+
+        /**
+         * The ballot when the question is "which one of us was it".
+         *
+         * Everyone in the room is on it except you — you already know.
+         */
+        _renderPlayerVote() {
+            const s = this.state;
+            const me = this.game.username;
+            const players = (s.players || []).filter(Boolean);
+            const rows = players.map(name => {
+                const mine = name === me;
+                const picked = this.voted === name;
+                return `<div class="rs-row${mine ? ' me' : ''}" data-player="${esc(name)}">
+                    <span class="rs-rank">${mine ? '🫵' : '🕵'}</span>
+                    <span class="rs-dot" style="background:${this.game.generateUserColor(name)}"></span>
+                    <span class="rs-name">${esc(name)}${mine ? ' (you)' : ''}</span>
+                    <span class="rs-pct"></span>
+                    <span class="rs-detail">${mine ? 'you cannot accuse yourself' : 'laid ' + ((s.progress && s.progress[name]) || 0) + ' blocks'}</span>
+                    <span class="rs-points">
+                        <button class="vote-btn${picked ? ' picked' : ''}" data-vote="${esc(name)}"
+                            ${mine ? 'disabled title="You cannot accuse yourself"' : ''}>
+                            ${picked ? '✓ Accused' : 'Accuse'}
+                        </button>
+                    </span>
+                </div>`;
+            }).join('');
+
+            this.game.showResults({
+                title: '🕵 Who was wrecking it?',
+                subtitle: `The build finished at <strong>${this.results ? this.results.teamPct : (s.teamPct || 0)}%</strong> — one of you did not want it to`,
                 body: `<div class="rs-list">${rows}</div>`,
                 isFinal: false, canControl: false
             });
@@ -3121,7 +3339,8 @@
                 case 'quake': phaseText = `🌋 Earthquake! ${fmt(remain)}`; break;
                 case 'scoring': phaseText = 'Scoring…'; break;
                 case 'reveal': phaseText = isVoted(s.mode) ? '👀 Take a look' : '👀 Reveal'; break;
-                case 'vote': phaseText = `🗳 Vote! ${Math.ceil(remain)}s`; break;
+                case 'vote': phaseText = s.mode === 'saboteur'
+                    ? `🕵 Who was it? ${Math.ceil(remain)}s` : `🗳 Vote! ${Math.ceil(remain)}s`; break;
                 case 'tally': phaseText = '🏅 The votes are in'; break;
                 case 'final': phaseText = '🏆 Match over'; break;
                 default: phaseText = '';
@@ -3173,6 +3392,11 @@
                     peek.textContent = s.phase === 'vote'
                         ? `${s.votesCast}/${(s.plots || []).length} voted`
                         : '🖼 The picture is the brief';
+                }
+                else if (s.mode === 'saboteur') {
+                    peek.textContent = s.phase === 'vote'
+                        ? `${s.votesCast}/${(s.players || []).length} accused somebody`
+                        : (this._iAmSaboteur() ? '🕵 You are the saboteur' : `Together: ${s.teamPct || 0}%`);
                 }
                 else if (s.mode === 'territory') peek.textContent = `Your blocks: ${this._myTerritory()}`;
                 else if (s.mode === 'earthquake') {
