@@ -57,7 +57,10 @@
     // channel storage would start refusing writes. A cheap read-only call keeps
     // it alive without putting any traffic into the room.
     const SESSION_KEEPALIVE_MS = 45000;   // comfortably inside the 180s window
-    const MAX_IMAGE_CELLS = 9000;   // an imported picture is one bulk edit
+    // An imported picture is one bulk edit, chunked on the way out and undone
+    // in one step. A depth relief is a solid body rather than a single layer,
+    // so it needs materially more room than a flat mural ever did.
+    const MAX_IMAGE_CELLS = 20000;
     const SLOT_PREFIX = 'blockparty_slot_';
     const STATS_KEY = 'blockparty_stats';
     const GEO_SEEN_KEY = 'blockparty_geo_seen';
@@ -98,6 +101,13 @@
     // Ambient occlusion baked per vertex at merge time: 0 (tucked into a corner)
     // to 3 (open air).
     const AO_BASE = 0.55, AO_STEP = 0.15;
+    // Two small cheats against the flat-plastic look, both baked in at merge
+    // time so they cost nothing per frame. VARY is how much one block may
+    // differ in brightness from an identical block beside it — real bricks are
+    // never quite the same shade, and at 0 a wall of one colour reads as a
+    // decal. EDGE_LIFT catches an outside corner, so a silhouette keeps its
+    // edge against whatever is behind it.
+    const BLOCK_VARY = 0.035, EDGE_LIFT = 0.045;
     // In-world text is measured in world units, so a tag that reads well from
     // across the map blots out the view when you are standing next to it.
     const LABEL_CURSOR = 0.5;    // who is aiming where
@@ -111,7 +121,9 @@
     // recolour the floor with one value. The default is the dark blue the
     // sandbox has always had.
     const GROUND_BASE = '#2f3853';
-    const SHADOW_RADIUS = 46;     // how much of the world the sun's shadow covers
+    const SHADOW_RADIUS = 46;     // how much of the world the sun's shadow covers up close
+    const SHADOW_MAX_RADIUS = 120; // …and pulled back, before the texels are mush
+    const WATER_COLOR = 4;        // the palette slot terrain and the Earth map use for sea
 
     /**
      * Colours are small integers on the wire. 0..11 are palette swatches; any
@@ -203,6 +215,7 @@
             this.chunkMaterial = this.software
                 ? new THREE.MeshLambertMaterial({ vertexColors: true })
                 : new THREE.MeshPhongMaterial({ vertexColors: true, specular: 0x24242a, shininess: 34 });
+            this._initWater();
             this.fx = new BlockPartyFx(this.scene, { software: this.software });
             this._initCamera();
             this._bindResize();
@@ -296,6 +309,7 @@
             this._initContact();
             this.skyDome = this._skyDome();
             this.scene.add(this.skyDome);
+            this._initSun();
             // Which way the key light comes from. Replaced by the real sun once
             // the world knows where on Earth it is standing.
             this.sunDir = new THREE.Vector3(60, 90, 40).normalize();
@@ -321,6 +335,57 @@
             } catch (e) {
                 return false;
             }
+        }
+
+        /**
+         * Water, as something that moves.
+         *
+         * A sea cell is just colour 4 laid as a slab at ground level, drawn in
+         * the same merged mesh as everything else — so a harbour was a dead
+         * flat cyan carpet from the quay to the horizon, the flattest thing in
+         * the game. Splitting those cells into their own mesh costs at most one
+         * extra draw call per water-bearing chunk and lets them be shaded as a
+         * surface rather than as blocks that happen to be blue.
+         *
+         * The movement is two crossed sine waves over world position, so
+         * neighbouring chunks line up seamlessly and nothing has to be animated
+         * on the CPU.
+         */
+        _initWater() {
+            const mat = this.chunkMaterial.clone();
+            if (this.software) {
+                // No per-fragment work here; the ripple is baked into the
+                // vertex colours at merge time instead (see _rebuildChunk).
+                this.waterMaterial = mat;
+                return;
+            }
+            mat.onBeforeCompile = (shader) => {
+                shader.uniforms.uTime = { value: 0 };
+                this._waterUniforms = shader.uniforms;
+                shader.vertexShader = 'varying vec3 vWaterPos;\n' + shader.vertexShader.replace(
+                    '#include <begin_vertex>',
+                    '#include <begin_vertex>\n  vWaterPos = (modelMatrix * vec4(transformed, 1.0)).xyz;'
+                );
+                shader.fragmentShader = 'uniform float uTime;\nvarying vec3 vWaterPos;\n'
+                    + shader.fragmentShader.replace(
+                        '#include <color_fragment>',
+                        `#include <color_fragment>
+  float w1 = sin(vWaterPos.x * 0.55 + uTime * 0.85);
+  float w2 = sin(vWaterPos.z * 0.43 - uTime * 0.62);
+  float w3 = sin((vWaterPos.x + vWaterPos.z) * 0.21 + uTime * 0.33);
+  float ripple = (w1 + w2 + w3 * 0.6) * 0.4;
+  diffuseColor.rgb *= 1.0 + ripple * 0.07;
+  // The crests catch the light; the troughs go a shade deeper.
+  diffuseColor.rgb += vec3(0.05, 0.08, 0.10) * max(0.0, ripple);`
+                    );
+            };
+            mat.needsUpdate = true;
+            this.waterMaterial = mat;
+        }
+
+        /** Is this cell drawn as open water rather than as a block? */
+        _isWater(colorIndex, shapeIndex, y) {
+            return y === 0 && shapeIndex === 1 && colorIndex === WATER_COLOR;
         }
 
         /**
@@ -452,13 +517,44 @@
             this.groundMapped = true;
         }
 
+        /**
+         * The ground *beyond* the build area, wearing the same map.
+         *
+         * The plain runs PLAIN_SCALE worlds out, so what it carries is the
+         * surrounding country at a coarser zoom. It keeps its darker shade so
+         * the edge of what you can actually build on stays legible.
+         */
+        setPlainMap(canvas) {
+            if (!this.plain) return;
+            const mat = this.plain.material;
+            if (mat.map && mat.map !== this._plainTex) mat.map.dispose();
+            if (!canvas) {
+                if (!this._plainTex) this._plainTex = this._gridTexture(PLAIN_SCALE);
+                mat.map = this._plainTex;
+                this.plainMapped = false;
+                this.setGroundTint(this.groundTint);
+                mat.needsUpdate = true;
+                return;
+            }
+            const tex = new THREE.CanvasTexture(canvas);
+            tex.encoding = THREE.sRGBEncoding;
+            tex.wrapS = tex.wrapT = THREE.ClampToEdgeWrapping;
+            try { tex.anisotropy = this.renderer.capabilities.getMaxAnisotropy(); } catch (e) { /* fine */ }
+            mat.map = tex;
+            // Darker than the build area, as it always was — but by shading the
+            // paint rather than tinting bare ground.
+            mat.color.setRGB(0.72, 0.72, 0.72);
+            mat.needsUpdate = true;
+            this.plainMapped = true;
+        }
+
         setGroundTint(hex) {
             this.groundTint = hex || null;
             const c = new THREE.Color(hex || GROUND_BASE).convertSRGBToLinear();
             if (!this.groundMapped) this.ground.material.color.copy(c);
             // The land beyond the build area is the same ground, a shade darker
             // so the edge of what you can build on stays legible.
-            if (this.plain) this.plain.material.color.copy(c).multiplyScalar(0.62);
+            if (this.plain && !this.plainMapped) this.plain.material.color.copy(c).multiplyScalar(0.62);
         }
 
         /** A gradient dome, so the world has a sky rather than a clear colour. */
@@ -472,6 +568,92 @@
             dome.renderOrder = -1;
             this._paintSky(dome, SKY_ZENITH, SKY_HORIZON);
             return dome;
+        }
+
+        /**
+         * The sun itself, and the stars behind it.
+         *
+         * An entire solar almanac drives this light — real elevation and
+         * azimuth for the world's coordinates and the clock — and none of it
+         * was visible. Golden hour lit the blocks warmly with nothing in the
+         * sky to explain why, and night was just a darker gradient.
+         *
+         * A sprite rather than geometry: it always faces the camera, costs one
+         * draw call, and never needs orienting.
+         */
+        _initSun() {
+            const px = 128;
+            const cv = document.createElement('canvas');
+            cv.width = cv.height = px;
+            const g = cv.getContext('2d').createRadialGradient(px / 2, px / 2, 0, px / 2, px / 2, px / 2);
+            // A hot core with a wide, soft corona around it.
+            g.addColorStop(0.00, 'rgba(255,255,255,1)');
+            g.addColorStop(0.10, 'rgba(255,247,214,0.96)');
+            g.addColorStop(0.22, 'rgba(255,214,140,0.55)');
+            g.addColorStop(0.48, 'rgba(255,180,96,0.16)');
+            g.addColorStop(1.00, 'rgba(255,170,90,0)');
+            const ctx = cv.getContext('2d');
+            ctx.fillStyle = g;
+            ctx.fillRect(0, 0, px, px);
+
+            const tex = new THREE.CanvasTexture(cv);
+            this.sunSprite = new THREE.Sprite(new THREE.SpriteMaterial({
+                map: tex, transparent: true, depthWrite: false, depthTest: false,
+                blending: THREE.AdditiveBlending, fog: false, toneMapped: false
+            }));
+            this.sunSprite.renderOrder = -1;   // with the dome, behind the world
+            this.scene.add(this.sunSprite);
+
+            // Stars, on the same sphere, revealed as the sky darkens.
+            const count = 520;
+            const pos = new Float32Array(count * 3);
+            for (let i = 0; i < count; i++) {
+                // Even over the sphere, and only above the horizon: below it is
+                // ground, and a star under your feet reads as a bug.
+                const u = Math.random(), v = Math.random() * 0.5;
+                const th = 2 * Math.PI * u, ph = Math.acos(1 - 2 * v);
+                pos[i * 3] = Math.sin(ph) * Math.cos(th);
+                pos[i * 3 + 1] = Math.abs(Math.cos(ph));
+                pos[i * 3 + 2] = Math.sin(ph) * Math.sin(th);
+            }
+            const starGeo = new THREE.BufferGeometry();
+            starGeo.setAttribute('position', new THREE.BufferAttribute(pos, 3));
+            this.stars = new THREE.Points(starGeo, new THREE.PointsMaterial({
+                color: 0xdfe8ff, size: 1.7, sizeAttenuation: false,
+                transparent: true, opacity: 0, depthWrite: false, fog: false, toneMapped: false
+            }));
+            this.stars.renderOrder = -1;
+            this.stars.visible = false;
+            this.scene.add(this.stars);
+        }
+
+        /**
+         * Keep the sky around the camera and the sun in it.
+         *
+         * The dome's radius is smaller than the camera can pull back, so
+         * without this you fly out through it at full zoom and the sky simply
+         * stops — which is exactly what happened.
+         */
+        _followSky() {
+            const cam = this.camera;
+            if (!cam) return;
+            const R = WORLD_SPAN * 2.8;
+            if (this.skyDome) this.skyDome.position.copy(cam.position);
+            if (this.stars) {
+                this.stars.position.copy(cam.position);
+                this.stars.scale.setScalar(R * 0.94);
+            }
+            if (this.sunSprite) {
+                const d = this.sunDirTrue || this.sunDir || new THREE.Vector3(0.4, 0.8, 0.3);
+                this.sunSprite.position.set(
+                    cam.position.x + d.x * R * 0.9,
+                    cam.position.y + d.y * R * 0.9,
+                    cam.position.z + d.z * R * 0.9);
+                // Fatter near the horizon, the way a real one looks.
+                const low = 1 - Math.min(1, Math.max(0, d.y));
+                const size = R * (0.055 + low * 0.05);
+                this.sunSprite.scale.set(size, size, 1);
+            }
         }
 
         /**
@@ -516,6 +698,15 @@
             const p = Sky.palette(sun.elevation, this.skyMode);
             const d = Sky.direction(sun.elevation, sun.azimuth);
             this.sunDir = new THREE.Vector3(d.x, d.y, d.z);
+            // Sky.direction() floors elevation at 8 degrees so the key light
+            // never rakes up from underneath the world. That is right for the
+            // light and wrong for the disc: a sun drawn there could never sit
+            // on the horizon and would still be up at midnight. The sprite
+            // gets the real angle.
+            const R = Math.PI / 180, se = sun.elevation * R, sa = sun.azimuth * R;
+            this.sunDirTrue = new THREE.Vector3(
+                Math.cos(se) * Math.sin(sa), Math.sin(se), -Math.cos(se) * Math.cos(sa));
+            this.sunElev = sun.elevation;
 
             this.sun.color.set(new THREE.Color(p.key).convertSRGBToLinear());
             this.sun.intensity = p.keyIntensity;
@@ -530,6 +721,22 @@
             this.scene.background.set(new THREE.Color(p.horizon));
             if (this.scene.fog) this.scene.fog.color.set(new THREE.Color(p.horizon));
             this._updateSun();
+
+            // Show the sun the light is coming from, and let the stars out
+            // as it goes. Below the horizon there is no disc to draw.
+            if (this.sunSprite) {
+                // Degrees of real elevation: a little glow while it is just
+                // under the horizon, gone once it is properly down.
+                const up = Math.max(0, Math.min(1, (this.sunElev + 2) / 8));
+                this.sunSprite.visible = up > 0.01 && this.skyMode !== 'off';
+                this.sunSprite.material.opacity = 0.30 + up * 0.70;
+                this.sunSprite.material.color.set(new THREE.Color(p.key));
+            }
+            if (this.stars) {
+                const dark = p.night ? 1 : (p.dusk ? 0.45 : 0);
+                this.stars.visible = dark > 0.02;
+                this.stars.material.opacity = dark * 0.85;
+            }
 
             this.sky = { elevation: sun.elevation, azimuth: sun.azimuth, night: p.night, dusk: p.dusk };
             return this.sky;
@@ -701,6 +908,9 @@
                 eye.z - Math.cos(yaw) * 8
             );
             this._updateSun();
+            // First person moves the camera without _applyCamera, so the sky
+            // has to be brought along here too or you walk out of it.
+            this._followSky();
         }
 
         /**
@@ -739,7 +949,23 @@
             // snap — but the light still has to come from the right direction.
             let sx = this.target.x, sz = this.target.z;
             if (!this.software) {
-                const texel = (SHADOW_RADIUS * 2) / 2048;
+                // The box used to be a fixed 46 units, so a view of the whole
+                // map had a shadowed bullseye in the middle and flat ground
+                // everywhere else — and shadows popped in and out at its edge
+                // as the target moved. Widen it with the zoom instead.
+                const cam = this.sun.shadow.camera;
+                const want = Math.round(Math.max(SHADOW_RADIUS,
+                    Math.min(SHADOW_MAX_RADIUS, this.cam.radius * 0.55)));
+                if (want !== this._shadowR) {
+                    this._shadowR = want;
+                    cam.left = -want; cam.right = want;
+                    cam.top = want; cam.bottom = -want;
+                    cam.updateProjectionMatrix();
+                    // A wider box means fatter texels, which means acne unless
+                    // the bias grows with them.
+                    this.sun.shadow.normalBias = 0.02 * (want / SHADOW_RADIUS);
+                }
+                const texel = (this._shadowR * 2) / 2048;
                 sx = Math.round(sx / texel) * texel;
                 sz = Math.round(sz / texel) * texel;
             }
@@ -774,6 +1000,7 @@
             this.camera.position.set(x, y, z);
             this.camera.lookAt(this.target);
             this._updateSun();
+            this._followSky();
         }
 
         /**
@@ -837,6 +1064,7 @@
                 this._lastFrame = now;
                 this.stepFollow();
                 this._decayShake(dt);
+                if (this._waterUniforms) this._waterUniforms.uTime.value += dt;
                 this._applyDrift(dt);
                 this._animateAvatars(dt);
                 this._bobSpawnGhost();
@@ -986,8 +1214,36 @@
                 }
             }
             const ao = Math.max(0, 3 - solid);
-            return tint * (AO_BASE + AO_STEP * ao);
+            // The same four samples that darken a crevice can lift an outside
+            // corner: nothing around this vertex at all means it is an edge
+            // catching the light, not a flat face.
+            return tint * (AO_BASE + AO_STEP * ao + (solid === 0 ? EDGE_LIFT : 0));
         }
+
+        /**
+         * How much this particular cell differs from an identical one beside it.
+         *
+         * A hash of the position, so it is the same on every client and the
+         * same every time a chunk is rebuilt — a block that shimmered when its
+         * neighbour changed would be far worse than a flat one.
+         */
+        static cellVariation(x, y, z) {
+            let h = (Math.imul(x, 73856093) ^ Math.imul(y, 19349663) ^ Math.imul(z, 83492791)) >>> 0;
+            // Every step stays unsigned: `h ^ (h >>> 16)` alone yields a
+            // *signed* int32, and a negative one runs the variation three
+            // times past its own limit.
+            h ^= h >>> 13; h = Math.imul(h, 1274126177) >>> 0; h = (h ^ (h >>> 16)) >>> 0;
+            return 1 + ((h % 1024) / 1024 - 0.5) * 2 * BLOCK_VARY;
+        }
+
+        /**
+         * The twelve colours anyone can build with.
+         *
+         * Exposed because UI outside the scene has to match them exactly — a
+         * reference picture drawn in nearly-the-right red is worse than one
+         * drawn in grey.
+         */
+        paletteHex() { return PALETTE.slice(); }
 
         /** The linear-space colour a block draws in, palette or owner. */
         _linearFor(colorIndex, owner) {
@@ -1032,11 +1288,16 @@
             // face gets from the way it points, and baked occlusion all travel
             // as vertex colours — which is why a whole chunk is a single draw
             // call with a single material.
-            const parts = [];
-            let verts = 0;
-            const add = (tmpl, ox, oy, oz, colorIndex, owner) => {
-                parts.push({ tmpl, ox, oy, oz, color: this._linearFor(colorIndex, owner) });
-                verts += tmpl.count;
+            // Two buckets: the build, and the water it stands in.
+            const parts = [], waterParts = [];
+            let verts = 0, waterVerts = 0;
+            const add = (tmpl, ox, oy, oz, colorIndex, owner, isWater) => {
+                const part = {
+                    tmpl, ox, oy, oz, color: this._linearFor(colorIndex, owner),
+                    vary: VoxelWorld.cellVariation(Math.floor(ox), Math.floor(oy), Math.floor(oz))
+                };
+                if (isWater) { waterParts.push(part); waterVerts += tmpl.count; }
+                else { parts.push(part); verts += tmpl.count; }
             };
 
             chunk.cells.forEach(k => {
@@ -1047,8 +1308,9 @@
                 const si = this.shapes.get(k) || 0;
                 const tmpl = this._template(this._cellGeometry(si));
                 const c = this.world.get(k), owner = this.owners.get(k);
-                if (si === 0 && this.brickLook) add(tmpl, x, y, z, c, owner);
-                else add(tmpl, x + 0.5, y + shapeAt(si).cy, z + 0.5, c, owner);
+                const wet = this._isWater(c, si, y);
+                if (si === 0 && this.brickLook) add(tmpl, x, y, z, c, owner, wet);
+                else add(tmpl, x + 0.5, y + shapeAt(si).cy, z + 0.5, c, owner, wet);
             });
 
             chunk.pieces.forEach(id => {
@@ -1057,12 +1319,14 @@
                 add(this._template(BlockPartyBricks.geometry(p.w, p.d)), p.x, p.y, p.z, p.c, p.owner);
             });
 
-            if (verts) {
-                const position = new Float32Array(verts * 3);
-                const normal = new Float32Array(verts * 3);
-                const color = new Float32Array(verts * 3);
+            // Same packing for both buckets; only the material differs.
+            const build = (list, count, material, wet) => {
+                if (!count) return;
+                const position = new Float32Array(count * 3);
+                const normal = new Float32Array(count * 3);
+                const color = new Float32Array(count * 3);
                 let at = 0;
-                parts.forEach(part => {
+                list.forEach(part => {
                     const { tmpl, ox, oy, oz } = part;
                     for (let i = 0; i < tmpl.count; i++) {
                         const s3 = i * 3, d3 = (at + i) * 3;
@@ -1073,7 +1337,16 @@
                         position[d3] = px; position[d3 + 1] = py; position[d3 + 2] = pz;
                         normal[d3] = nx; normal[d3 + 1] = ny; normal[d3 + 2] = nz;
 
-                        const shade = this._shadeAt(px, py, pz, nx, ny, nz);
+                        let shade = this._shadeAt(px, py, pz, nx, ny, nz);
+                        // A software renderer gets no ripple shader, so bake a
+                        // standing wave into the colours: still flat, but no
+                        // longer one unbroken sheet of the same cyan.
+                        if (wet && this.software) {
+                            shade *= 1 + 0.05 * (Math.sin(px * 0.55) + Math.sin(pz * 0.43)) * 0.5;
+                        }
+                        // Every block a shade of its own — but not the sea,
+                        // which would speckle instead of reading as water.
+                        if (!wet) shade *= part.vary;
                         color[d3] = part.color.r * shade;
                         color[d3 + 1] = part.color.g * shade;
                         color[d3 + 2] = part.color.b * shade;
@@ -1085,13 +1358,18 @@
                 geo.setAttribute('normal', new THREE.BufferAttribute(normal, 3));
                 geo.setAttribute('color', new THREE.BufferAttribute(color, 3));
                 geo.computeBoundingSphere();
-                const mesh = new THREE.Mesh(geo, this.chunkMaterial);
+                const mesh = new THREE.Mesh(geo, material);
                 mesh.userData.chunk = ck;
-                mesh.castShadow = !this.software;
+                // Water is a surface, not a thing: it takes shadow but does not
+                // cast one, or a flat sea would shade itself.
+                mesh.castShadow = !this.software && !wet;
                 mesh.receiveShadow = !this.software;
                 this.scene.add(mesh);
                 chunk.meshes.push(mesh);
-            }
+            };
+
+            build(parts, verts, this.chunkMaterial, false);
+            build(waterParts, waterVerts, this.waterMaterial || this.chunkMaterial, true);
 
             if (!chunk.cells.size && !chunk.pieces.size) this.chunks.delete(ck);
             this._dirtyTargets();
@@ -2274,6 +2552,16 @@
             // The sun moves. Once a minute is often enough to follow it and
             // rare enough that shadow edges never visibly crawl.
             this._skyMode = localStorage.getItem('bp_sky') || 'real';
+            // What the floor shows. Kept per device like the sky, because it is
+            // about what this machine can comfortably draw and fetch, not about
+            // the world everyone shares.
+            this._groundStyle = localStorage.getItem('bp_ground') || 'coast';
+            const gs = Number(localStorage.getItem('bp_ground_strength'));
+            // Tuned by eye against a real street: at 0.85 the map reads as the
+            // subject and the blocks standing on it read as clutter. The floor
+            // is meant to be the ground, not the thing you are looking at.
+            this._groundStrength = gs > 0 ? gs : 0.7;
+            this._groundPlain = localStorage.getItem('bp_ground_plain') !== '0';
             this.voxels.skyMode = this._skyMode;
             setInterval(() => this.voxels.applySky(), 60000);
             this._buildPalette();
@@ -2285,6 +2573,7 @@
             } catch (e) { /* private mode, keep the default */ }
             this.voxels.setBrickLook(this.brickMode);
             this._bindUI();
+            this._bindScaleOut();
             this._bindMatchUI();
             this._bindWorldUI();
             this._bindChat();
@@ -2804,6 +3093,21 @@
             }
             if (!this.modes) return true;
             return quiet ? this.modes.allows(x, y, z) : this.modes.canEdit(x, y, z);
+        }
+
+        /**
+         * Whether a blow may land here.
+         *
+         * In a match this is the mode's arena rule, not its edit rule — a round
+         * whose whole verb is knocking must not refuse knocks. Outside a match
+         * it is the ordinary lock and bounds check.
+         */
+        _canKnockCell(x, y, z) {
+            if (!this.voxels.inBounds(x, y, z)) return false;
+            if (this.modes && this.modes.isMatchActive()) {
+                return this.modes.allowsKnock ? this.modes.allowsKnock(x, y, z) : false;
+            }
+            return this._canEditCell(x, y, z);
         }
 
         _denyOnce(message) {
@@ -3753,6 +4057,40 @@
                     : 'Sky: the fixed dusk — pin this world to a place for the real one', 'info', 3000);
             });
 
+            // What the floor shows. Changing it repaints; it never touches a
+            // block, so anyone may do it and nobody else is affected.
+            on('geoGround', 'change', () => {
+                const el = document.getElementById('geoGround');
+                this._groundStyle = el.value;
+                try { localStorage.setItem('bp_ground', this._groundStyle); } catch (e) { /* private mode */ }
+                this._syncGeoUI();
+                if (this._groundStyle === 'streets' && !this.geo.region) {
+                    this.showToast('Pin this world to a place first — the map needs to know where it is', 'warn', 3500);
+                    return;
+                }
+                if (this._groundStyle === 'streets') this.showToast('Fetching the map for this place…', 'info', 2000);
+                this.paintGround();
+            });
+            on('geoGroundStrength', 'input', () => {
+                const el = document.getElementById('geoGroundStrength');
+                this._groundStrength = Math.max(0.1, Math.min(1, Number(el.value) / 100));
+                const out = document.getElementById('geoGroundStrengthVal');
+                if (out) out.textContent = `${Math.round(this._groundStrength * 100)}%`;
+                try { localStorage.setItem('bp_ground_strength', String(this._groundStrength)); } catch (e) { /* fine */ }
+                // Restitching is a redraw of canvases already in hand — the
+                // tiles themselves are only fetched once per place.
+                clearTimeout(this._groundStrengthTimer);
+                this._groundStrengthTimer = setTimeout(() => {
+                    if (this._groundStyle === 'streets') this.paintGround();
+                }, 220);
+            });
+            on('geoGroundPlain', 'change', () => {
+                const el = document.getElementById('geoGroundPlain');
+                this._groundPlain = !!el.checked;
+                try { localStorage.setItem('bp_ground_plain', this._groundPlain ? '1' : '0'); } catch (e) { /* fine */ }
+                if (this._groundStyle === 'streets') this.paintGround();
+            });
+
             const replay = document.getElementById('replayBtn');
             if (replay) replay.addEventListener('click', () => {
                 if (this.startReplay(1)) this._closeWorldModal();
@@ -3859,6 +4197,28 @@
                 : 'This world is not pinned to anywhere on Earth yet.');
             const skySel = document.getElementById('geoSky');
             if (skySel && skySel.value !== this._skyMode) skySel.value = this._skyMode || 'real';
+
+            const groundSel = document.getElementById('geoGround');
+            if (groundSel && groundSel.value !== this._groundStyle) groundSel.value = this._groundStyle || 'coast';
+            const strengthRow = document.getElementById('geoGroundStrengthRow');
+            if (strengthRow) strengthRow.classList.toggle('hidden', this._groundStyle !== 'streets');
+            const strength = document.getElementById('geoGroundStrength');
+            if (strength) {
+                const pct = Math.round((this._groundStrength == null ? 0.85 : this._groundStrength) * 100);
+                if (Number(strength.value) !== pct) strength.value = String(pct);
+                const out = document.getElementById('geoGroundStrengthVal');
+                if (out) out.textContent = `${pct}%`;
+            }
+            const gPlain = document.getElementById('geoGroundPlain');
+            if (gPlain) gPlain.checked = this._groundPlain !== false;
+            const gNote = document.getElementById('geoGroundNote');
+            if (gNote) {
+                gNote.textContent = this._groundStyle === 'streets'
+                    ? 'The floor is a picture, not blocks — nothing to clear before you build. Tiles are fetched once when you arrive somewhere and kept for that place.'
+                    : this._groundStyle === 'coast'
+                        ? 'Land, sea and the line between, drawn from coastlines that ship with the game. No network, nobody watching which places get looked at.'
+                        : 'A bare grid. The world is still pinned to a real place — the floor just does not say so.';
+            }
 
             const share = document.getElementById('geoShareBtn');
             if (share) {
@@ -4001,17 +4361,94 @@
         }
 
         /**
-         * Build a quantised picture into the world.
-         *   wall   — standing up, as you would hang it
-         *   floor  — laid flat, a mosaic
-         *   relief — laid flat and extruded by brightness, so it reads as 3D
+         * Drop the background from a quantised picture.
+         *
+         * Flood fill inward from the edges, taking everything that still looks
+         * like the border did. That is the honest version of the problem: it
+         * works on a photograph of a thing against a sky, a wall or a table,
+         * and it does not work when the subject runs off the edge of the frame
+         * — which is visible in the preview rather than surprising later.
          */
-        placeImage(quant, style) {
+        _dropBackground(quant, tolerance) {
+            const { w, h, cells } = quant;
+            const at = new Map();
+            cells.forEach(c => at.set(c.y * w + c.x, c));
+            if (!cells.length) return quant;
+
+            const rgbOf = (cell) => {
+                if (isRGB(cell.c)) return [(cell.c >> 16) & 255, (cell.c >> 8) & 255, cell.c & 255];
+                const hex = PALETTE[cell.c] || PALETTE[0];
+                return [parseInt(hex.slice(1, 3), 16), parseInt(hex.slice(3, 5), 16), parseInt(hex.slice(5, 7), 16)];
+            };
+
+            // What the border looks like on average — the thing we are removing.
+            let sr = 0, sg = 0, sb = 0, n = 0;
+            for (let x = 0; x < w; x++) {
+                for (const y of [0, h - 1]) {
+                    const c = at.get(y * w + x);
+                    if (!c) continue;
+                    const [r, g, b] = rgbOf(c); sr += r; sg += g; sb += b; n++;
+                }
+            }
+            for (let y = 0; y < h; y++) {
+                for (const x of [0, w - 1]) {
+                    const c = at.get(y * w + x);
+                    if (!c) continue;
+                    const [r, g, b] = rgbOf(c); sr += r; sg += g; sb += b; n++;
+                }
+            }
+            if (!n) return quant;
+            const br = sr / n, bg = sg / n, bb = sb / n;
+            const tol = (tolerance == null ? 62 : tolerance);
+            const tol2 = tol * tol;
+
+            const gone = new Set();
+            const queue = [];
+            const seed = (x, y) => {
+                const k = y * w + x;
+                if (gone.has(k) || !at.has(k)) return;
+                const [r, g, b] = rgbOf(at.get(k));
+                const d = (r - br) * (r - br) * 0.30 + (g - bg) * (g - bg) * 0.59 + (b - bb) * (b - bb) * 0.11;
+                if (d > tol2) return;
+                gone.add(k); queue.push(k);
+            };
+            for (let x = 0; x < w; x++) { seed(x, 0); seed(x, h - 1); }
+            for (let y = 0; y < h; y++) { seed(0, y); seed(w - 1, y); }
+            while (queue.length) {
+                const k = queue.pop();
+                const x = k % w, y = (k - x) / w;
+                if (x > 0) seed(x - 1, y);
+                if (x < w - 1) seed(x + 1, y);
+                if (y > 0) seed(x, y - 1);
+                if (y < h - 1) seed(x, y + 1);
+            }
+            return { w, h, cells: cells.filter(c => !gone.has(c.y * w + c.x)) };
+        }
+
+        /**
+         * Build a quantised picture into the world.
+         *   wall    — standing up, as you would hang it
+         *   floor   — laid flat, a mosaic
+         *   relief  — laid flat and extruded by brightness, so it reads as 3D
+         *   solid   — standing up, but every column pushed back by how far away
+         *             it looks, and given a back: a shell you can walk around
+         *   terrain — laid flat and extruded much further, as a heightfield
+         *
+         * Be straight about what `solid` is and is not. One photograph knows
+         * the front of a thing and nothing else, so what comes out is a curved
+         * painted shell — convincing from the front, hollow behind. That is the
+         * ceiling of the information in the picture, not of the code.
+         */
+        placeImage(quant, style, opts) {
+            opts = opts || {};
             const place = [];
             const centre = this.voxels.target;
+            const flat = style === 'floor' || style === 'relief' || style === 'terrain';
             const ox = Math.round(centre.x - quant.w / 2);
-            const oz = Math.round(centre.z - (style === 'wall' ? 0 : quant.h / 2));
+            const oz = Math.round(centre.z - (flat ? quant.h / 2 : 0));
             const RELIEF = 8;
+            const TERRAIN = 20;
+            const depth = Math.max(1, Math.min(12, opts.depth || 6));
 
             quant.cells.forEach(cell => {
                 const x = ox + cell.x;
@@ -4020,11 +4457,32 @@
                     place.push([x, quant.h - cell.y, oz, cell.c, 0]);
                 } else if (style === 'floor') {
                     place.push([x, 0, oz + cell.y, cell.c, 0]);
+                } else if (style === 'solid') {
+                    // Bright reads as near. The front face sits at its own
+                    // distance and the column runs back from there, so the
+                    // surface curves and the thing has a body behind it.
+                    const back = Math.round((1 - cell.lum) * depth);
+                    const y = quant.h - cell.y;
+                    for (let d = 0; d < Math.max(1, Math.round(depth / 2)); d++) {
+                        place.push([x, y, oz + back + d, cell.c, 0]);
+                    }
+                } else if (style === 'terrain') {
+                    const height = 1 + Math.round(cell.lum * TERRAIN);
+                    for (let y = 0; y < height; y++) place.push([x, y, oz + cell.y, cell.c, 0]);
                 } else {
                     const height = 1 + Math.round(cell.lum * RELIEF);
                     for (let y = 0; y < height; y++) place.push([x, y, oz + cell.y, cell.c, 0]);
                 }
             });
+
+            // Stand it on the ground rather than wherever the image happened to
+            // end: an imported thing floating a block above the floor is the
+            // first thing anyone notices.
+            if (opts.ground && place.length) {
+                let low = Infinity;
+                place.forEach(r => { if (r[1] < low) low = r[1]; });
+                if (low > 0) place.forEach(r => { r[1] -= low; });
+            }
 
             const kept = place.filter(r => this.voxels.inBounds(r[0], r[1], r[2]))
                 .filter(r => this._canEditCell(r[0], r[1], r[2], true));
@@ -4033,7 +4491,7 @@
                 return 0;
             }
             if (kept.length > MAX_IMAGE_CELLS) {
-                this.showToast(`That is ${kept.length} blocks — try a smaller width or a flatter style`, 'warning', 3200);
+                this.showToast(`That is ${kept.length} blocks, past the ${MAX_IMAGE_CELLS} cap — try a smaller width, less depth, or a flatter style`, 'warning', 3600);
                 return 0;
             }
             // Through the normal edit path: it syncs, persists and undoes as one.
@@ -4057,7 +4515,8 @@
                     img.onload = () => {
                         this._importImage = img;
                         place.disabled = false;
-                        if (note) note.textContent = `${f.name} — ${img.width}x${img.height}. It lands in front of the camera.`;
+                        if (note) note.textContent = `${f.name} — ${img.width}x${img.height}. It lands in front of the camera, and never leaves this device.`;
+                        if (this._imgEstimate) this._imgEstimate();
                     };
                     img.onerror = () => { if (note) note.textContent = 'That file could not be read as an image.'; };
                     img.src = reader.result;
@@ -4065,15 +4524,107 @@
                 reader.readAsDataURL(f);
             });
 
+            // Everything the panel is currently asking for, in one place, so
+            // the estimate and the build can never be reading different things.
+            const opts = () => {
+                const val = (id, dflt) => {
+                    const el = document.getElementById(id);
+                    return el ? el.value : dflt;
+                };
+                const on = (id) => !!(document.getElementById(id) || {}).checked;
+                return {
+                    width: Number(val('imgSize', 32)) || 32,
+                    style: val('imgStyle', 'solid') || 'solid',
+                    dither: on('imgDither'),
+                    trueColor: (val('imgPalette', 'true') || 'true') === 'true',
+                    depth: Number(val('imgDepth', 6)) || 6,
+                    dropBg: on('imgDropBg'),
+                    ground: on('imgGround')
+                };
+            };
+
+            const quantise = (o) => {
+                let q = this._quantizeImage(this._importImage, o.width, o.dither, o.trueColor);
+                if (o.dropBg) q = this._dropBackground(q);
+                return q;
+            };
+
+            // Say how many blocks this is going to be *before* it is 20,000 of
+            // them. The count is the same arithmetic the build does, so it can
+            // never flatter the settings.
+            const estimate = () => {
+                const out = document.getElementById('imgEstimate');
+                const depthRow = document.getElementById('imgDepthRow');
+                const o = opts();
+                if (depthRow) depthRow.classList.toggle('hidden', o.style !== 'solid');
+                const dv = document.getElementById('imgDepthVal');
+                if (dv) dv.textContent = `${o.depth} blocks`;
+                if (!out) return;
+                if (!this._importImage) { out.textContent = ''; return; }
+                const q = quantise(o);
+                const per = o.style === 'wall' || o.style === 'floor' ? 1
+                    : o.style === 'solid' ? Math.max(1, Math.round(o.depth / 2))
+                        : (o.style === 'terrain' ? 11 : 5);      // average column height
+                this._drawImagePreview(q, o.style);
+                const n = Math.round(q.cells.length * per);
+                out.textContent = n > MAX_IMAGE_CELLS
+                    ? `≈ ${n.toLocaleString()} blocks — past the ${MAX_IMAGE_CELLS.toLocaleString()} cap`
+                    : `≈ ${n.toLocaleString()} blocks`;
+                out.style.color = n > MAX_IMAGE_CELLS ? 'var(--danger)' : '';
+            };
+            this._imgEstimate = estimate;
+            ['imgSize', 'imgStyle', 'imgPalette', 'imgDither', 'imgDropBg', 'imgGround', 'imgDepth']
+                .forEach(id => {
+                    const el = document.getElementById(id);
+                    if (el) el.addEventListener('input', estimate);
+                });
+
             place.addEventListener('click', () => {
                 if (!this._importImage) return;
-                const width = Number((document.getElementById('imgSize') || {}).value) || 32;
-                const style = (document.getElementById('imgStyle') || {}).value || 'wall';
-                const dither = !!(document.getElementById('imgDither') || {}).checked;
-                const trueColor = ((document.getElementById('imgPalette') || {}).value || 'true') === 'true';
-                const quant = this._quantizeImage(this._importImage, width, dither, trueColor);
-                if (this.placeImage(quant, style)) this._closeWorldModal();
+                const o = opts();
+                const quant = quantise(o);
+                if (this.placeImage(quant, o.style, { depth: o.depth, ground: o.ground })) {
+                    this._closeWorldModal();
+                }
             });
+        }
+
+        /**
+         * Show what the importer read off the picture.
+         *
+         * Two small pictures, both of them the actual arrays the build will use:
+         * the colours it settled on, and the depth it will push each column back
+         * by. It is worth the twenty lines — a background that failed to come
+         * off is obvious here and invisible in a block count.
+         */
+        _drawImagePreview(quant, style) {
+            const row = document.getElementById('imgPreviewRow');
+            if (!row) return;
+            if (!quant || !quant.cells.length) { row.classList.add('hidden'); return; }
+            row.classList.remove('hidden');
+
+            const depthFig = document.getElementById('imgPreviewDepthFig');
+            const usesDepth = style === 'solid' || style === 'relief' || style === 'terrain';
+            if (depthFig) depthFig.classList.toggle('hidden', !usesDepth);
+
+            const paint = (id, colourOf) => {
+                const cv = document.getElementById(id);
+                if (!cv || !cv.getContext) return;
+                cv.width = quant.w; cv.height = quant.h;
+                const ctx = cv.getContext('2d');
+                ctx.clearRect(0, 0, quant.w, quant.h);
+                quant.cells.forEach(cell => {
+                    ctx.fillStyle = colourOf(cell);
+                    ctx.fillRect(cell.x, cell.y, 1, 1);
+                });
+            };
+            paint('imgPreviewColour', cell => hexOf(cell.c));
+            if (usesDepth) {
+                paint('imgPreviewDepth', cell => {
+                    const v = Math.round(Math.max(0, Math.min(1, cell.lum)) * 255);
+                    return `rgb(${v},${v},${v})`;
+                });
+            }
         }
 
         /**
@@ -4229,19 +4780,165 @@
          */
         async paintGround() {
             if (!window.BlockPartyEarth) return;
-            if (!this.geo || !this.geo.region) { this.voxels.setGroundMap(null); return; }
+            if (!this.geo || !this.geo.region) {
+                this.voxels.setGroundMap(null);
+                this.voxels.setPlainMap(null);
+                this._syncGroundCredit();
+                return;
+            }
             const region = this.geo.region;
+
+            // Bare grid: the world is somewhere, but the floor does not say so.
+            if (this._groundStyle === 'plain') {
+                this.voxels.setGroundMap(null);
+                this.voxels.setPlainMap(null);
+                this._syncGroundCredit();
+                return;
+            }
+
+            // The real map, laid on the floor. Falls back to the coastline
+            // below if the tiles cannot be had — a world with no ground under
+            // it is worse than a world with a plainer one.
+            if (this._groundStyle === 'streets' && window.BlockPartyTerrain) {
+                try {
+                    if (await this._paintGroundTiles(region)) return;
+                } catch (e) {
+                    console.warn('[BlockParty] street ground:', e.message);
+                    this.showToast('No map tiles for this place — showing the coastline instead', 'warn', 3500);
+                }
+            }
+
             try {
                 const earth = await BlockPartyEarth.load();
                 // The room may have moved on while the coastlines were loading.
                 if (!this.geo.region || this.geo.region.key !== region.key) return;
                 const cells = this.voxels.half * 2 + 1;
                 this.voxels.setGroundMap(BlockPartyEarth.groundCanvas(earth, region, cells));
+                this.voxels.setPlainMap(null);
+                this._syncGroundCredit();
                 this._reportGroundMix(earth, region, cells);
             } catch (e) {
                 this.voxels.setGroundMap(null);
+                this.voxels.setPlainMap(null);
+                this._syncGroundCredit();
                 console.warn('[BlockParty] ground map:', e.message);
             }
+        }
+
+        /**
+         * Lay the real map over the floor, and the country around it over the
+         * plain beyond.
+         *
+         * Cached per region and strength: travelling back and forth between two
+         * places should not re-fetch a tile either time, and the stitched
+         * canvases are what the texture is made from, so keeping them is
+         * keeping the whole cost.
+         */
+        async _paintGroundTiles(region) {
+            const cells = this.voxels.half * 2 + 1;
+            const strength = this._groundStrength == null ? 0.85 : this._groundStrength;
+            const sig = `${region.key}|${strength}`;
+            const cache = this._groundCache && this._groundCache.sig === sig ? this._groundCache : null;
+
+            let ground = cache && cache.ground;
+            if (!ground) {
+                const res = await BlockPartyTerrain.groundTiles(region, cells, { strength });
+                // The room may have travelled on while the tiles were coming.
+                if (!this.geo.region || this.geo.region.key !== region.key) return true;
+                ground = res.canvas;
+            }
+            this.voxels.setGroundMap(ground);
+
+            let plain = cache && cache.plain;
+            if (this._groundPlain !== false && !plain) {
+                try {
+                    const res = await BlockPartyTerrain.surroundTiles(region, PLAIN_SCALE, { strength });
+                    if (!this.geo.region || this.geo.region.key !== region.key) return true;
+                    plain = res.canvas;
+                } catch (e) {
+                    // The floor is the point; the horizon is a bonus.
+                    console.warn('[BlockParty] surrounding ground:', e.message);
+                }
+            }
+            this.voxels.setPlainMap(this._groundPlain === false ? null : (plain || null));
+
+            this._groundCache = { sig, ground, plain };
+            this._syncGroundCredit();
+            return true;
+        }
+
+        /**
+         * Offer the next rung out.
+         *
+         * The camera has a limit and this is it — past here, seeing more ground
+         * means a block covering more ground, which is a different region and
+         * therefore a different world. That is the model, not a shortcoming, so
+         * the offer says so plainly rather than pretending to zoom.
+         */
+        _offerScaleOut() {
+            const el = document.getElementById('zoomOut');
+            if (!el || el.dataset.dismissed === '1') return;
+            if (this._replay || (this.modes && this.modes.isMatchActive())) return;
+            const now = Date.now();
+            if (this._zoomOutAt && now - this._zoomOutAt < 1200) return;
+            this._zoomOutAt = now;
+
+            const msg = document.getElementById('zoomOutMsg');
+            const go = document.getElementById('zoomOutGo');
+            const anchor2 = this.geo && this.geo.anchor;
+            const next = anchor2 ? BlockPartyGeo.nextScale(anchor2.mpc) : null;
+
+            if (!anchor2) {
+                if (msg) msg.textContent = 'This world is not on the Earth yet — pin it to a place and you can step out across it.';
+                if (go) go.classList.add('hidden');
+            } else if (!next) {
+                if (msg) msg.textContent = 'You are already at planet scale: one block is 250 km and the world is the whole Earth.';
+                if (go) go.classList.add('hidden');
+            } else if (!this.isHost()) {
+                if (msg) msg.textContent = `To see more ground a block has to cover more ground — ${next.label} at ${next.name}. Only the host can move the room.`;
+                if (go) go.classList.add('hidden');
+            } else {
+                if (msg) msg.textContent = `To see more ground you have to change what a block is. Step out to ${next.label} — ${next.name}, ${next.across} across?`;
+                if (go) {
+                    go.classList.remove('hidden');
+                    go.textContent = `Travel out to ${next.name}`;
+                }
+            }
+            el.classList.remove('hidden');
+            clearTimeout(this._zoomOutTimer);
+            this._zoomOutTimer = setTimeout(() => el.classList.add('hidden'), 9000);
+        }
+
+        _bindScaleOut() {
+            const el = document.getElementById('zoomOut');
+            if (!el) return;
+            const hide = () => { clearTimeout(this._zoomOutTimer); el.classList.add('hidden'); };
+            const no = document.getElementById('zoomOutNo');
+            if (no) no.addEventListener('click', () => {
+                // Said no once, and it stops asking for this visit.
+                el.dataset.dismissed = '1';
+                hide();
+            });
+            const go = document.getElementById('zoomOutGo');
+            if (go) go.addEventListener('click', () => {
+                hide();
+                const a = this.geo && this.geo.anchor;
+                const next = a ? BlockPartyGeo.nextScale(a.mpc) : null;
+                if (!a || !next || !this.isHost()) return;
+                this.travelTo(a.lat, a.lon, next.mpc);
+            });
+        }
+
+        /**
+         * Whoever's tiles are on screen gets the credit. OpenStreetMap's terms
+         * ask for it, and it is only fair.
+         */
+        _syncGroundCredit() {
+            const el = document.getElementById('osmCredit');
+            if (!el) return;
+            const showing = !!(this.voxels && (this.voxels.groundMapped || this.voxels.plainMapped)
+                && this._groundStyle === 'streets');
+            el.classList.toggle('hidden', !showing);
         }
 
         /**
@@ -4452,7 +5149,7 @@
                     title: 'Trace this place?',
                     body: 'The world on screen is replaced by whatever the map says is here.',
                     confirmLabel: 'Trace it'
-                }, () => this.traceMap(Object.assign({}, opts, { confirmed: true })));
+                }, () => this.traceWorld(Object.assign({}, opts, { confirmed: true })));
                 return;
             }
 
@@ -4718,7 +5415,11 @@
             el.addEventListener('wheel', (e) => {
                 e.preventDefault();
                 if (this.voxels.firstPerson) return;
+                const before = this.voxels.cam.radius;
                 this.voxels.zoom(e.deltaY * 0.02);
+                // Pulling out with nowhere left to pull: the camera is not the
+                // thing in the way, the scale is.
+                if (e.deltaY > 0 && this.voxels.cam.radius === before) this._offerScaleOut();
             }, { passive: false });
         }
 
@@ -5341,7 +6042,7 @@
 
             const x = msg.x | 0, y = msg.y | 0, z = msg.z | 0;
             if (!this.voxels.inBounds(x, y, z)) return;
-            if (!this._canEditCell(x, y, z, true)) return;
+            if (!this._canKnockCell(x, y, z)) return;
 
             // The sender is who the data channel says it is, not who the
             // payload claims — ownership drives x-ray and per-player counts.
@@ -5370,7 +6071,7 @@
         /** Hit whatever is at this cell, away from the camera. */
         knockAt(x, y, z) {
             if (!this.physics.on) return;
-            if (!this._canEditCell(x, y, z)) return;
+            if (!this._canKnockCell(x, y, z)) return;
             // Away from wherever you are looking from, so a blow pushes things
             // over rather than pulling them towards you.
             const cam = this.voxels.camera.position;
@@ -5549,17 +6250,49 @@
             if (!modal || !list) return;
 
             this._pickedMode = this._pickedMode || 'blueprint';
+            this._modeKind = this._modeKind || 'all';
             const players = Math.max(1, (this.getConnectedUsers() || []).length);
-            list.innerHTML = BlockPartyModes.MODES.map(m => `
-                <button class="mode-card${m.id === this._pickedMode ? ' selected' : ''}${m.ready ? '' : ' soon'}"
-                        data-mode="${m.id}" ${m.ready ? '' : 'disabled'}>
-                    <span class="mode-emoji">${m.emoji}</span>
-                    <span class="mode-body">
-                        <span class="mode-name">${this._esc(m.name)}${m.ready ? '' : ' <em>soon</em>'}</span>
-                        <span class="mode-desc">${this._esc(m.desc)}</span>
-                        ${this._playerNote(m, players)}
-                    </span>
-                </button>`).join('');
+
+            // Eleven modes is enough that a flat list is a wall. Group them by
+            // what kind of round they are, and let the room narrow it down.
+            const kinds = document.getElementById('modeKinds');
+            const drawKinds = () => {
+                if (!kinds) return;
+                const all = [{ id: 'all', name: `All ${BlockPartyModes.MODES.length}` }]
+                    .concat(BlockPartyModes.MODE_KINDS || []);
+                kinds.innerHTML = all.map(k => `
+                    <button class="mode-kind${k.id === this._modeKind ? ' on' : ''}" data-kind="${k.id}">${this._esc(k.name)}</button>`).join('');
+                kinds.querySelectorAll('.mode-kind').forEach(chip => {
+                    chip.addEventListener('click', () => {
+                        this._modeKind = chip.getAttribute('data-kind');
+                        drawKinds();
+                        drawList();
+                    });
+                });
+            };
+
+            const drawList = () => {
+                const shown = BlockPartyModes.MODES.filter(m =>
+                    this._modeKind === 'all' || m.kind === this._modeKind);
+                list.innerHTML = shown.map(m => {
+                    // A mode that cannot be played with the people in the room
+                    // says so on the card and cannot be picked — starting it
+                    // would only be refused a moment later.
+                    const short = players < (m.minPlayers || 1);
+                    const off = !m.ready || short;
+                    return `
+                    <button class="mode-card${m.id === this._pickedMode ? ' selected' : ''}${m.ready ? '' : ' soon'}${short ? ' short' : ''}"
+                            data-mode="${m.id}" ${off ? 'disabled' : ''}>
+                        <span class="mode-emoji">${m.emoji}</span>
+                        <span class="mode-body">
+                            <span class="mode-name">${this._esc(m.name)}${m.ready ? '' : ' <em>soon</em>'}</span>
+                            <span class="mode-desc">${this._esc(m.desc)}</span>
+                            ${this._playerNote(m, players)}
+                        </span>
+                    </button>`;
+                }).join('');
+                bindCards();
+            };
             const applyDefaults = (id) => {
                 const mode = BlockPartyModes.MODES.find(m => m.id === id);
                 const time = document.getElementById('modeTime');
@@ -5567,14 +6300,18 @@
                 // charades round is a very long silence.
                 if (mode && mode.defaultTime && time) time.value = String(mode.defaultTime);
             };
-            list.querySelectorAll('.mode-card').forEach(card => {
-                card.addEventListener('click', () => {
-                    this._pickedMode = card.getAttribute('data-mode');
-                    list.querySelectorAll('.mode-card').forEach(c => c.classList.remove('selected'));
-                    card.classList.add('selected');
-                    applyDefaults(this._pickedMode);
+            const bindCards = () => {
+                list.querySelectorAll('.mode-card').forEach(card => {
+                    card.addEventListener('click', () => {
+                        this._pickedMode = card.getAttribute('data-mode');
+                        list.querySelectorAll('.mode-card').forEach(c => c.classList.remove('selected'));
+                        card.classList.add('selected');
+                        applyDefaults(this._pickedMode);
+                    });
                 });
-            });
+            };
+            drawKinds();
+            drawList();
             applyDefaults(this._pickedMode);
 
             const isHost = this.isHost();
@@ -5672,10 +6409,43 @@
             on('lockBtn', 'click', () => { this.toggleWorldLock(); this._syncWorldControls(); });
             on('clearWorldBtn', 'click', () => this.clearWorld());
             this._bindImageImport();
+            this._bindWorldSizeNote();
             this._bindGeoUI();
             on('mapList', 'click', (e) => {
                 const btn = e.target.closest && e.target.closest('button[data-map]');
-                if (btn) this.loadMap(btn.getAttribute('data-map'));
+                if (btn) { this.loadMap(btn.getAttribute('data-map')); return; }
+                const place = e.target.closest && e.target.closest('button[data-place]');
+                if (place) { this._goToPlace(place.getAttribute('data-place')); return; }
+                const slot = e.target.closest && e.target.closest('button[data-slot]');
+                if (slot) this.loadSlot(slot.getAttribute('data-slot'), slot.getAttribute('data-label'));
+            });
+            const mapTab = (id, tab) => on(id, 'click', () => {
+                this._mapTab = tab;
+                this._renderMaps();
+            });
+            mapTab('mapTabBuilt', 'built');
+            mapTab('mapTabPlaces', 'places');
+            mapTab('mapTabSaves', 'saves');
+            on('mapSearch', 'input', () => {
+                this._mapQuery = (document.getElementById('mapSearch') || {}).value || '';
+                this._renderMaps();
+            });
+            on('mapFromPlace', 'click', () => {
+                this._mapTab = 'places';
+                this._renderMaps();
+                const search = document.getElementById('mapSearch');
+                if (search) search.focus();
+            });
+            on('mapFromSave', 'click', () => {
+                this._mapTab = 'saves';
+                this._renderMaps();
+            });
+            on('mapFromImage', 'click', () => {
+                const style = document.getElementById('imgStyle');
+                if (style) { style.value = 'terrain'; style.dispatchEvent(new Event('input')); }
+                const file = document.getElementById('imgFile');
+                if (file && file.scrollIntoView) file.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                this.showToast('Pick an image — brightness becomes height', 'info', 2600);
             });
             on('slotList', 'click', (e) => {
                 const btn = e.target.closest && e.target.closest('button[data-key]');
@@ -5706,23 +6476,133 @@
             this._fetchStats();
         }
 
+        /**
+         * Why the world is the size it is.
+         *
+         * A fair question with a real answer, and one worth having in the panel
+         * rather than only in a commit message: how many cells fit across a
+         * world is part of how a place on Earth is identified here, so it is not
+         * a number that can simply be turned up.
+         */
+        _bindWorldSizeNote() {
+            const btn = document.getElementById('worldSizeWhy');
+            const note = document.getElementById('worldSizeNote');
+            if (!btn || !note) return;
+            btn.addEventListener('click', () => {
+                const open = !note.classList.contains('hidden');
+                note.classList.toggle('hidden', open);
+                btn.textContent = open ? 'Why this size?' : 'Got it';
+            });
+        }
+
         _closeWorldModal() {
             const modal = document.getElementById('worldModal');
             if (modal) modal.classList.add('hidden');
         }
 
+        /**
+         * The map library.
+         *
+         * Three ways to not start from an empty floor, gathered in one place:
+         * the scenes that ship with the game, the fifty real places worth
+         * standing in, and — through the buttons underneath — anything this
+         * room has saved or can read off a picture. Only the last two of those
+         * ever existed before, scattered across other parts of the panel.
+         */
         _renderMaps() {
             const list = document.getElementById('mapList');
             if (!list) return;
             const host = this.isHost();
-            list.innerHTML = BlockPartyMaps.MAPS.map(m => `
-                <button class="map-card" data-map="${this._esc(m.id)}" ${host ? '' : 'disabled'}>
-                    <span class="map-emoji">${m.emoji}</span>
-                    <span class="map-body">
-                        <span class="map-name">${this._esc(m.name)}</span>
-                        <span class="map-desc">${this._esc(m.desc)}</span>
-                    </span>
-                </button>`).join('');
+            const tab = this._mapTab || 'built';
+            const q = (this._mapQuery || '').trim().toLowerCase();
+            const match = (...bits) => !q || bits.filter(Boolean).join(' ').toLowerCase().indexOf(q) >= 0;
+
+            let cards;
+            if (tab === 'saves') {
+                const slots = (this._slots || []).filter(sl => match(sl.label));
+                cards = slots.map(sl => {
+                    const m = sl.meta;
+                    const when = m && m.updatedAt ? new Date(m.updatedAt).toLocaleDateString() : '';
+                    const size = m && m.sizeBytes ? `${(m.sizeBytes / 1024).toFixed(0)} KB` : '';
+                    return `
+                    <button class="map-card" data-slot="${this._esc(sl.key)}" data-label="${this._esc(sl.label)}"
+                            ${host ? '' : 'disabled'} title="Load this saved world">
+                        <span class="map-emoji">🗂</span>
+                        <span class="map-body">
+                            <span class="map-name">${this._esc(sl.label)}</span>
+                            <span class="map-desc">${this._esc([when, size].filter(Boolean).join(' · ') || 'saved by this room')}</span>
+                        </span>
+                    </button>`;
+                }).join('');
+                if (!slots.length) {
+                    cards = `<div class="map-empty">${this._slots
+                        ? 'Nothing saved in this room yet — save a world further down the panel and it becomes a map.'
+                        : 'Reading this room\u2019s saved worlds…'}</div>`;
+                }
+            } else if (tab === 'places') {
+                const places = (window.BlockPartyPlaces ? BlockPartyPlaces.all() : [])
+                    .filter(pl => match(pl.name, pl.country));
+                cards = places.map(pl => `
+                    <button class="map-card" data-place="${this._esc(pl.id)}" ${host ? '' : 'disabled'}
+                            title="Travel there and draw the ground from the map">
+                        <span class="map-emoji">📍</span>
+                        <span class="map-body">
+                            <span class="map-name">${this._esc(pl.name)}</span>
+                            <span class="map-desc">${this._esc(pl.country)} · ${pl.mpc}m per block</span>
+                        </span>
+                    </button>`).join('');
+                if (!places.length) cards = `<div class="map-empty">No place matches “${this._esc(q)}”.</div>`;
+            } else {
+                const maps = BlockPartyMaps.MAPS.filter(m => match(m.name, m.desc));
+                cards = maps.map(m => `
+                    <button class="map-card" data-map="${this._esc(m.id)}" ${host ? '' : 'disabled'}>
+                        <span class="map-emoji">${m.emoji}</span>
+                        <span class="map-body">
+                            <span class="map-name">${this._esc(m.name)}</span>
+                            <span class="map-desc">${this._esc(m.desc)}</span>
+                        </span>
+                    </button>`).join('');
+                if (!maps.length) cards = `<div class="map-empty">No map matches “${this._esc(q)}”.</div>`;
+            }
+            list.innerHTML = cards;
+
+            const built = document.getElementById('mapTabBuilt');
+            const saves = document.getElementById('mapTabSaves');
+            if (saves) {
+                saves.classList.toggle('on', tab === 'saves');
+                saves.textContent = `Saved here · ${(this._slots || []).length}`;
+            }
+            const places = document.getElementById('mapTabPlaces');
+            if (built) {
+                built.classList.toggle('on', tab === 'built');
+                built.textContent = `Built in · ${BlockPartyMaps.MAPS.length}`;
+            }
+            if (places) {
+                places.classList.toggle('on', tab === 'places');
+                const n = window.BlockPartyPlaces ? BlockPartyPlaces.all().length : 0;
+                places.textContent = `Real places · ${n}`;
+            }
+        }
+
+        /**
+         * Travel to one of the fifty and draw it.
+         *
+         * The place carries the scale it is worth seeing at — Venice at 2m per
+         * block, Brasília at 20 — because a city laid out like an aeroplane is
+         * invisible from two metres up.
+         */
+        _goToPlace(id) {
+            const place = window.BlockPartyPlaces && BlockPartyPlaces.byId(id);
+            if (!place) return;
+            if (!this.isHost()) { this.showToast('Only the host can move the room', 'warning'); return; }
+            this.showToast(`Travelling to ${place.name}…`, 'info', 2500);
+            const moved = this.travelTo(place.lat, place.lon, place.mpc);
+            if (moved === null) return;
+            this._closeWorldModal();
+            // Draw the ground once we are actually there; travel is a save, a
+            // load and a repaint, and tracing over the world we are leaving
+            // would put this place's roads in the last place's save.
+            setTimeout(() => { if (this.isHost()) this.traceWorld(); }, 1200);
         }
 
         _syncWorldControls() {
@@ -5759,6 +6639,16 @@
         }
 
         _renderSlots(list, keys, meta) {
+            // The map library shows these as maps too — same worlds, asked for
+            // in the place people go looking for something to load.
+            this._slots = keys.map(key => ({
+                key,
+                label: key.slice(SLOT_PREFIX.length).replace(/-/g, ' ').replace(/(^|\s)\w/g, c => c.toUpperCase()),
+                meta: meta.get(key) || null
+            }));
+            const mapList = document.getElementById('mapList');
+            if (mapList && this._mapTab === 'saves') this._renderMaps();
+
             if (!keys.length) {
                 list.innerHTML = '<div class="slot-empty">No saved worlds yet — save one above.</div>';
                 return;
@@ -6408,8 +7298,11 @@
             // '*' is the shared-arena owner (a match's own scenery), not a
             // person — it was being listed as a player who had left, holding
             // every block of a Demolition Party town.
+            // '*' is the shared-arena owner and '~' is demolished rubble —
+            // scenery, not people. Both were being listed as players who had
+            // "left", holding a town's worth of blocks between them.
             const names = Array.from(new Set([...online, ...counts.keys()]))
-                .filter(n => n && n !== '*');
+                .filter(n => n && n !== '*' && n !== '~');
             const hostName = this._hostName();
 
             list.innerHTML = names.map(name => {

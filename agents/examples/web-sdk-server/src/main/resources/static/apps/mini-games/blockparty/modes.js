@@ -57,7 +57,16 @@
     // than a race plot, and letters of the word leak out as time runs down.
     const STAGE_SIZE = 22;
     const CHARADES_REVEAL_SECS = 10;
+    // When most of a race has locked in, the rest of the clock is dead time for
+    // everybody who finished. The stragglers get this long and no longer.
+    const LAST_CALL_SECS = 15;
+    const LAST_CALL_SHARE = 0.66;
     const HINT_AT = [0.45, 0.7, 0.85];   // fraction elapsed -> one more letter
+    // Never more than this share of a word, however long the round runs. Ten of
+    // the ninety-eight words are three letters, and three reveals spelled every
+    // one of them out completely by 85% — which is not a hint, it is the answer
+    // handed over while the sculptor is still working.
+    const HINT_MAX_SHARE = 0.5;
 
     // Memory Match: the architect builds for this long while the room watches.
     const ARCHITECT_SECS = 45;
@@ -83,6 +92,13 @@
     // Memory Match: how big a build has to be before its average is worth full
     // marks to the architect, and how much a build that sorts the room can add.
     const MEMORY_FULL_SIZE = 30;
+    // How much of the architect's build the flashback may outline. A build
+    // bigger than this is past remembering anyway, and the silhouette rides in
+    // the once-a-second state — only while the peek window is actually open.
+    const MEMORY_HINT_CELLS = 260;
+    // The one colour a silhouette is drawn in: slate, which is not in the
+    // palette anyone builds with, so it can never be mistaken for a hint.
+    const MEMORY_HINT_COLOUR = 11;
     const MEMORY_SPREAD_BONUS = 25;
     // Team Build: a co-op round should end when the job is done.
     const TEAM_PLATEAU_SECS = 15;
@@ -117,6 +133,14 @@
             flow: ['countdown', 'play', 'reveal'],
             relay: true, hide: false, scoreAt: 'play'
         },
+        relay: {
+            // Structurally identical to charades. The only new mechanic is the
+            // host handing the chisel on partway through, which needs no new
+            // phase and no new message: `canRelayEditFrom` already gates edits
+            // to `state.builder`, so moving that name IS the rotation.
+            flow: ['countdown', 'play', 'reveal'],
+            relay: true, hide: false, scoreAt: 'play'
+        },
         teambuild: {
             flow: ['countdown', 'study', 'play', 'reveal'],
             relay: true, hide: false, scoreAt: 'play', shared: true
@@ -126,6 +150,15 @@
             relay: 'architect', hide: true, scoreAt: 'scoring', buildsAt: 'scoring'
         },
         rush: {
+            flow: ['countdown', 'play', 'scoring', 'reveal', 'vote', 'tally'],
+            relay: false, hide: true, scoreAt: 'vote', buildsAt: 'scoring'
+        },
+        postcard: {
+            // Structurally Block Rush with a picture instead of a prompt. The
+            // reference is public — everyone gets the same one — so the only
+            // secret is what each player made of it, which is what `hide`
+            // already covers. No blueprint, no ghost, nothing to copy cell for
+            // cell: the reference is two-dimensional and stays that way.
             flow: ['countdown', 'play', 'scoring', 'reveal', 'vote', 'tally'],
             relay: false, hide: true, scoreAt: 'vote', buildsAt: 'scoring'
         },
@@ -157,6 +190,15 @@
         }
     };
 
+    /**
+     * Modes the room settles with a vote rather than with a score.
+     *
+     * There is no right answer to "build what this picture shows", any more
+     * than there is to a Block Rush prompt — so both hand the decision to the
+     * players, and both use the same vote and tally phases to do it.
+     */
+    function isVoted(mode) { return mode === 'rush' || mode === 'postcard'; }
+
     /** Population standard deviation — how much a set of scores disagreed. */
     function stdev(values) {
         if (!values || values.length < 2) return 0;
@@ -165,9 +207,18 @@
         return Math.sqrt(varc);
     }
 
+    // What kind of round it is, for the picker: building against a brief,
+    // working out what somebody means, remembering, or knocking things over.
+    const MODE_KINDS = [
+        { id: 'build', name: 'Build' },
+        { id: 'guess', name: 'Guess' },
+        { id: 'remember', name: 'Remember' },
+        { id: 'wreck', name: 'Wreck' }
+    ];
+
     const MODES = [
         {
-            id: 'blueprint', name: 'Blueprint Race', emoji: '📐', ready: true, defaultTime: 180, minPlayers: 1, note: 'Solo works: race the clock and your own memory.',
+            id: 'blueprint', kind: 'build', name: 'Blueprint Race', emoji: '📐', ready: true, defaultTime: 180, minPlayers: 1, note: 'Solo works: race the clock and your own memory.',
             desc: 'Everyone gets the same secret blueprint. Study it, then rebuild it from memory — it flashes back for 3s every 30s. Accuracy plus speed wins.'
         },
         {
@@ -176,35 +227,43 @@
             // so on a second screen the world is empty and unpinned. Solo play
             // and every other part of the round works. Fix that before turning
             // this on.
-            id: 'whereonearth', name: 'Where on Earth', emoji: '🌍', ready: true, defaultTime: 120, minPlayers: 1, note: 'Works alone — guess against your own geography.',
+            id: 'whereonearth', kind: 'guess', name: 'Where on Earth', emoji: '🌍', ready: true, defaultTime: 120, minPlayers: 1, note: 'Works alone — guess against your own geography.',
             desc: 'The room is moved to a real place, built from the map. Walk it, fly it, look at the coast — then drop a pin where you think you are. Closest wins.'
         },
         {
-            id: 'charades', name: 'Voxel Charades', emoji: '🤫', ready: true, defaultTime: 90, minPlayers: 2, note: 'Needs somebody to guess.',
+            id: 'charades', kind: 'guess', name: 'Voxel Charades', emoji: '🤫', ready: true, defaultTime: 90, minPlayers: 2, note: 'Needs somebody to guess.',
             desc: 'One player builds a secret word with no words allowed. Everyone else watches live and races to guess it in chat.'
         },
         {
-            id: 'teambuild', name: 'Team Build', emoji: '🤝', ready: true, defaultTime: 180, minPlayers: 1, note: 'Better with a crowd, fine alone.',
+            id: 'relay', kind: 'guess', name: 'Relay Sculptors', emoji: '🎽', ready: true, defaultTime: 90, minPlayers: 3, note: 'Needs three: two to sculpt, one to guess.',
+            desc: 'One word, three sculptors. Each gets a turn on the same statue, carrying on from whatever the last one left — while everyone else races to guess what it is becoming.'
+        },
+        {
+            id: 'teambuild', kind: 'build', name: 'Team Build', emoji: '🤝', ready: true, defaultTime: 180, minPlayers: 1, note: 'Better with a crowd, fine alone.',
             desc: 'One blueprint, one plot, everyone at once. Talk it out in chat — the room shares a single score, and you can see who laid what.'
         },
         {
-            id: 'memory', name: 'Memory Match', emoji: '🧠', ready: true, defaultTime: 120, minPlayers: 1, note: 'Alone, you rebuild your own from memory.',
+            id: 'memory', kind: 'remember', name: 'Memory Match', emoji: '🧠', ready: true, defaultTime: 120, minPlayers: 1, note: 'Alone, you rebuild your own from memory.',
             desc: 'One player builds while the room watches. Then it vanishes and everybody rebuilds it from memory. The architect scores on how well you remembered.'
         },
         {
-            id: 'rush', name: 'Block Rush', emoji: '⚡', ready: true, defaultTime: 90, minPlayers: 3, note: 'Needs three: with two it is always a tie.',
+            id: 'postcard', kind: 'build', name: 'Postcard', emoji: '🖼', ready: true, defaultTime: 120, minPlayers: 3, note: 'Needs three: the room votes, and you cannot vote for yourself.',
+            desc: 'Everyone gets the same picture — and only the picture. No model, no ghost, nothing to copy: work out what it shows and build that. The room votes for the best one.'
+        },
+        {
+            id: 'rush', kind: 'build', name: 'Block Rush', emoji: '⚡', ready: true, defaultTime: 90, minPlayers: 3, note: 'Needs three: with two it is always a tie.',
             desc: 'A creative prompt, no blueprint, nothing to copy. Builds are revealed together and the room votes for its favourite.'
         },
         {
-            id: 'territory', name: 'Territory', emoji: '🚩', ready: true, defaultTime: 120, minPlayers: 2, note: 'Needs somebody to take ground from.',
+            id: 'territory', kind: 'wreck', name: 'Territory', emoji: '🚩', ready: true, defaultTime: 120, minPlayers: 2, note: 'Needs somebody to take ground from.',
             desc: 'One shared arena, every block wears your colour. Build over rivals, tear theirs down — most blocks standing at the whistle wins.'
         },
         {
-            id: 'earthquake', name: 'Earthquake', emoji: '🌋', ready: true, defaultTime: 90, minPlayers: 1, note: 'Solo works: beat your own record.',
+            id: 'earthquake', kind: 'wreck', name: 'Earthquake', emoji: '🌋', ready: true, defaultTime: 90, minPlayers: 1, note: 'Solo works: beat your own record.',
             desc: 'Build the tallest thing you can from 90 blocks — then the ground shakes. Whatever is still standing scores, and height counts double. Bracing beats stacking.'
         },
         {
-            id: 'demolition', name: 'Demolition Party', emoji: '🧨', ready: true, defaultTime: 90, minPlayers: 1, note: 'Solo works: beat the clock, not the room.',
+            id: 'demolition', kind: 'wreck', name: 'Demolition Party', emoji: '🧨', ready: true, defaultTime: 90, minPlayers: 1, note: 'Solo works: beat the clock, not the room.',
             desc: 'A block town, and everyone with a wrecking ball. Hit a tower low and take the whole thing down — you score every block your own blow brings with it.'
         }
     ];
@@ -345,11 +404,28 @@
 
     // '•••' with leading letters uncovered as the round runs out.
     function wordHint(word, elapsed, total) {
+        const w = String(word || '');
+        const spots = [];
+        for (let i = 0; i < w.length; i++) if (w[i] !== ' ') spots.push(i);
+        if (!spots.length) return w;
+
         const frac = total ? elapsed / total : 0;
-        let reveal = 0;
-        HINT_AT.forEach((t, i) => { if (frac >= t) reveal = i + 1; });
-        return String(word || '').split('')
-            .map((ch, i) => (ch === ' ' ? ' ' : (i < reveal ? ch.toUpperCase() : '•')))
+        let steps = 0;
+        HINT_AT.forEach((t, i) => { if (frac >= t) steps = i + 1; });
+        const reveal = Math.min(steps, Math.max(1, Math.floor(spots.length * HINT_MAX_SHARE)));
+
+        // Which letters, and not left to right: the opening letter of a short
+        // word is most of the word. The order is a stable function of the word
+        // itself, so a letter never moves once it has been shown.
+        let seed = 0;
+        for (let i = 0; i < w.length; i++) seed = (Math.imul(seed, 31) + w.charCodeAt(i)) >>> 0;
+        const rank = (i) => {
+            let h = (Math.imul(seed ^ (i + 1), 2246822519)) >>> 0;
+            h ^= h >>> 13; return Math.imul(h, 3266489917) >>> 0;
+        };
+        const shown = new Set(spots.slice().sort((a, b) => rank(a) - rank(b)).slice(0, reveal));
+        return w.split('')
+            .map((ch, i) => (ch === ' ' ? ' ' : (shown.has(i) ? ch.toUpperCase() : '•')))
             .join('');
     }
 
@@ -421,10 +497,17 @@
             const area = this.myArea();
             if (!area) {
                 if (s.mode === 'charades') return `Only ${s.builder} builds this round — guess in chat!`;
+                if (s.mode === 'relay') return `${s.builder} has the chisel — guess in chat!`;
                 if (s.mode === 'memory') return 'You built it — let the others remember';
                 return 'You are spectating this round';
             }
             if (this.locked) return 'Your build is locked in';
+            // The relay stage is shared so everyone can watch it, but only the
+            // sculptor holding the chisel may cut it. Without this a guesser's
+            // edits landed locally and were then dropped by the host.
+            if (s.mode === 'relay' && s.builder !== this.game.username) {
+                return `${s.builder} has the chisel`;
+            }
             // Demolition is a knocking round. Anything that puts blocks into the
             // arena is a way to manufacture your own score, and anything that
             // takes them out without physics is a way to deny everyone else's.
@@ -486,11 +569,36 @@
         allowsSettle(x, y, z) {
             const s = this.state;
             if (!this._matchRunning()) return true;
-            const area = this.myArea();
-            if (!area) return false;
-            if (x < area.x0 || x > area.x0 + area.size - 1
-                || z < area.z0 || z > area.z0 + area.size - 1) return false;
-            return y <= (s.buildHeight || BUILD_HEIGHT);
+            if (y > (s.buildHeight || BUILD_HEIGHT)) return false;
+            // ANY plot, not mine. Physics settles props in whichever plot they
+            // fell in, and the host runs it for everybody — asking about the
+            // local player's own plot meant that during an Earthquake every
+            // rival's rubble failed to land and puffed into dust, while the
+            // host's came to rest and scored.
+            return this._plotAt(x, z) !== null;
+        }
+
+        /** The plot a cell sits in, or null if it is outside every one. */
+        _plotAt(x, z) {
+            const plots = (this.state && this.state.plots) || [];
+            for (let i = 0; i < plots.length; i++) {
+                const p = plots[i];
+                if (x >= p.x0 && x <= p.x0 + p.size - 1 && z >= p.z0 && z <= p.z0 + p.size - 1) return p;
+            }
+            return null;
+        }
+
+        /**
+         * May a blow land here?
+         *
+         * Knocking is not editing: it has its own round rule (`physicsAllowed`)
+         * and its own geometry (the arena), and running it through the edit
+         * rule made Demolition Party refuse the one verb it has.
+         */
+        allowsKnock(x, y, z) {
+            if (!this._matchRunning()) return true;
+            if (!this.physicsAllowed()) return false;
+            return this._plotAt(x, z) !== null;
         }
 
         /** Sandbox rules unless a round is actually running; explains refusals. */
@@ -519,7 +627,12 @@
          */
         chatBlockedFor(name) {
             const s = this.state;
-            return !!(s && s.mode === 'charades' && s.phase === 'play' && name === s.builder);
+            if (!s || s.phase !== 'play' || !name) return false;
+            if (s.mode === 'charades') return name === s.builder;
+            // Relay: a sculptor who has already had their turn still knows the
+            // answer, so the mute has to outlast the turn.
+            if (s.mode === 'relay') return (s.sculptors || []).indexOf(name) >= 0;
+            return false;
         }
 
         /**
@@ -541,6 +654,9 @@
             if (!this.relaysEdits()) return false;
             // On a shared arena everyone's edits are everyone's business; when
             // the room is watching one person, only that person's are.
+            // Relay shares one statue but not the chisel: the plot is shared so
+            // everyone can SEE it, while only the current sculptor may cut it.
+            if (this.state.mode === 'relay') return !!name && name === this.state.builder;
             const shared = (this.state.plots || []).some(p => p.shared);
             if (shared) return !!name;
             return !!name && name === this.state.builder;
@@ -574,7 +690,7 @@
         // Anything that describes the match itself is the host's to say. A
         // client that forged one could otherwise fake a phase, a result or a
         // whole scoreboard on somebody else's screen.
-        static get HOST_ONLY() { return ['state', 'results', 'build', 'end', 'guessed', 'word', 'model']; }
+        static get HOST_ONLY() { return ['state', 'results', 'build', 'end', 'guessed', 'word', 'model', 'turn', 'quake']; }
 
         handleMessage(peerId, msg) {
             // Identity comes from the transport, never from the payload:
@@ -659,6 +775,16 @@
                 case 'pin':
                     if (this.host) this.hostHandlePin(from, msg.lat, msg.lon);
                     break;
+                case 'turn':
+                    // Host-only (HOST_ONLY gate above). The state broadcast
+                    // carries the same thing a second later; this is just so it
+                    // lands the moment it happens.
+                    if (this.state) this.state.builder = msg.name;
+                    this.game.showToast(msg.name === this.game.username
+                        ? '🎽 Your turn — carry it on'
+                        : `🎽 ${msg.name} takes over`, 'info', 2200);
+                    this._renderHud();
+                    break;
                 case 'word':
                     // Sent to the builder only.
                     this.secretWord = msg.word;
@@ -732,6 +858,7 @@
                 elapsed: 0,
                 usedModels: [],
                 usedWords: [],
+                usedPictures: [],
                 totals: new Map(),
                 plots: [],
                 modelId: null,
@@ -793,6 +920,8 @@
             h.modelId = null;
             h.target = null;
             h.votes = new Map();
+            h.picture = null;
+            h.lastCall = false;
             h.lastResults = null;      // the previous round's, not this one's
 
             const stage = (name) => [{
@@ -827,6 +956,16 @@
                     h.usedWords.push(h.word);
                     this._hostSendWord();
                     break;
+
+                case 'postcard': {
+                    // One picture for the whole room. It is not secret — it is
+                    // the brief — so it simply rides in the state from here on.
+                    const pics = window.BlockPartyPictures;
+                    h.picture = pics ? pics.pick(h.usedPictures) : null;
+                    if (h.picture) h.usedPictures.push(h.picture.id);
+                    h.plots = computePlots(players);
+                    break;
+                }
 
                 case 'memory':
                     // The architect works on the stage; the rebuild plots are
@@ -874,6 +1013,23 @@
                     h.plots = [{ name: SHARED, shared: true, x0: -22, z0: -22, size: 44 }];
                     break;
 
+                case 'relay': {
+                    // Up to three sculptors, rotating who leads across rounds so
+                    // the same person does not always open.
+                    const line = [];
+                    const want = Math.min(3, Math.max(2, players.length - 1));
+                    for (let i = 0; i < want; i++) line.push(players[(h.round - 1 + i) % players.length]);
+                    h.sculptors = line;
+                    h.turnAt = -1;
+                    h.builder = line[0];
+                    h.plots = stage(SHARED);
+                    h.plots[0].shared = true;      // the statue belongs to the round
+                    h.word = Models.pickWord(h.usedWords);
+                    h.usedWords.push(h.word);
+                    this._hostSendWord();
+                    break;
+                }
+
                 case 'earthquake':
                     h.plots = computePlots(players);
                     h.spent = new Map();       // blocks each player has laid
@@ -898,10 +1054,38 @@
 
         // The word goes to the builder alone — it can never ride along in the
         // broadcast state, which everyone in the room receives.
+        /**
+         * The word goes to the current builder alone — never into the broadcast
+         * state, which the whole room receives.
+         */
         _hostSendWord() {
             const h = this.host;
             if (h.builder === this.game.username) this.secretWord = h.word;
             else this.game.sendData({ type: 'mode', k: 'word', word: h.word }, h.builder);
+        }
+
+        /**
+         * Hand the chisel to the next sculptor.
+         *
+         * Charades gives one person the stage and leaves everyone else
+         * watching; with eight players that is one performer and seven
+         * spectators, and over three rounds most people never build at all.
+         * Rotating mid-round puts three people on the same statue, and
+         * inheriting somebody else's half-finished duck is the joke.
+         */
+        _hostRelayTurn() {
+            const h = this.host;
+            const line = h.sculptors || [];
+            if (!line.length) return;
+            const share = h.roundTime / line.length;
+            const turn = Math.min(line.length - 1, Math.floor(h.elapsed / share));
+            if (turn === h.turnAt) return;
+            h.turnAt = turn;
+            h.builder = line[turn];
+            // Each new sculptor needs the word, and only them.
+            this._hostSendWord();
+            this._broadcast({ k: 'turn', name: h.builder, at: turn });
+            this._hostPublish();
         }
 
         _hostPhase(phase, secs) {
@@ -950,6 +1134,8 @@
                 }
             }
 
+            if (h.mode === 'relay' && h.phase === 'play') this._hostRelayTurn();
+
             if (h.phase === 'quake') {
                 const total = this._phaseSecs('quake');
                 const done = total - h.remain;              // seconds into the quake
@@ -964,6 +1150,19 @@
 
             if (h.remain > 0) { this._hostPublish(); return; }
 
+            this._hostAdvancePhase();
+        }
+
+        /**
+         * Leave the current phase and enter the next one in this mode's flow.
+         *
+         * Normally the clock decides this, but a phase can also be *finished* —
+         * an architect who has built what they meant to build should not have
+         * to stand there while the room watches nothing happen.
+         */
+        _hostAdvancePhase() {
+            const h = this.host;
+            if (!h) return;
             // Walk this mode's declared sequence; the hooks below are where the
             // modes actually differ.
             const flow = RULES[h.mode].flow;
@@ -1047,6 +1246,12 @@
                     z0: plot.z0, z1: plot.z0 + plot.size - 1,
                     y0: 0, y1: BUILD_HEIGHT
                 }, plot.x0, plot.z0).slice(0, MAX_SUBMIT_CELLS);
+                // The answer, with everything that makes it the answer taken
+                // out: where the blocks were, and nothing about what they were.
+                // Remembering the shape stops being the whole game; remembering
+                // the colours becomes it.
+                h.shapeHint = normalizeCells(h.target).slice(0, MEMORY_HINT_CELLS)
+                    .map(r => [r[0], r[1], r[2]]);
                 h.plots = computePlots(h.rebuilders.length ? h.rebuilders : this._eligiblePlayers());
                 h.elapsed = 0;
             }
@@ -1061,6 +1266,15 @@
         _hostRecordSubmit(name, msg) {
             const h = this.host;
             if (!h || !h.plots.some(p => p.name === name)) return;
+
+            // Memory Match: the architect saying "done" is the end of the
+            // watching, not a submission. The phase ran a flat 45 seconds
+            // whether they finished in twelve or wanted seventy — so the room
+            // either stared at a finished build or watched one get cut off.
+            if (h.mode === 'memory' && h.phase === 'architect' && name === h.builder && msg.locked) {
+                this._hostAdvancePhase();
+                return;
+            }
             // A locked-in build is final: the end-of-round sweep must not
             // overwrite it, or the lock time (and its bonus) would be lost.
             const prev = h.submissions.get(name);
@@ -1073,11 +1287,23 @@
             });
             if (msg.locked) {
                 h.locked.add(name);
-                this._hostPublish();
                 // Everyone is done — no reason to keep the clock running.
                 if (h.phase === 'play' && h.plots.every(p => h.locked.has(p.name))) {
+                    this._hostPublish();
                     this._hostPhase('scoring', SCORING_SECS);
+                    return;
                 }
+                // Most of the room is done: the last few get a short countdown
+                // instead of two more minutes everybody else has to sit through.
+                const races = h.mode === 'blueprint' || h.mode === 'memory';
+                if (races && h.phase === 'play' && !h.lastCall && h.plots.length >= 3) {
+                    const done = h.plots.filter(p => h.locked.has(p.name)).length;
+                    if (done >= Math.ceil(h.plots.length * LAST_CALL_SHARE) && h.remain > LAST_CALL_SECS) {
+                        h.lastCall = true;
+                        h.remain = LAST_CALL_SECS;
+                    }
+                }
+                this._hostPublish();
             }
         }
 
@@ -1088,8 +1314,14 @@
          */
         hostHandleGuess(name, text) {
             const h = this.host;
-            if (!h || h.mode !== 'charades' || h.phase !== 'play') return false;
-            if (name === h.builder || h.guessed) return false;
+            const guessing = h && (h.mode === 'charades' || h.mode === 'relay');
+            if (!guessing || h.phase !== 'play') return false;
+            // In relay every sculptor has seen the word, not just the one
+            // currently holding the chisel.
+            const knows = h.mode === 'relay'
+                ? (h.sculptors || []).indexOf(name) >= 0
+                : name === h.builder;
+            if (knows || h.guessed) return false;
 
             if (!guessMatches(text, h.word)) {
                 this.game.relayChat({ name, text, guess: true });
@@ -1110,7 +1342,7 @@
          */
         hostHandleVote(name, target) {
             const h = this.host;
-            if (!h || h.mode !== 'rush' || h.phase !== 'vote') return false;
+            if (!h || !isVoted(h.mode) || h.phase !== 'vote') return false;
             if (!target || target === name) return false;
             if (!h.plots.some(p => p.name === target)) return false;
             h.votes.set(name, target);
@@ -1298,9 +1530,10 @@
                 case 'charades': this._hostFinishCharades(); return;
                 case 'teambuild': this._hostScoreTeam(); return;
                 case 'memory': this._hostScoreMemory(); return;
-                case 'rush': this._hostScoreRush(); return;
+                case 'rush': case 'postcard': this._hostScoreRush(); return;
                 case 'territory': this._hostScoreTerritory(); return;
                 case 'demolition': this._hostScoreDemolition(); return;
+                case 'relay': this._hostScoreRelay(); return;
                 case 'earthquake': this._hostScoreQuake(); return;
                 default: this._hostScoreBlueprint();
             }
@@ -1427,6 +1660,12 @@
                 return {
                     name: p.name, pct: sc.pct, points,
                     matched: sc.matched, missing: sc.missing, extra: sc.extra,
+                    // The score has always been three things — where, what
+                    // shape, what colour — and players have never seen which of
+                    // them they lost. As percentages of what there was to get.
+                    place: sc.targetCount ? Math.round(100 * sc.matched / sc.targetCount) : 0,
+                    shape: sc.matched ? Math.round(100 * sc.shapeOk / sc.matched) : 0,
+                    colour: sc.matched ? Math.round(100 * sc.colorOk / sc.matched) : 0,
                     blocks: sc.builtCount, target: sc.targetCount, locked: false, at: h.roundTime
                 };
             }).sort((a, b) => b.points - a.points);
@@ -1485,7 +1724,8 @@
             }).sort((a, b) => b.points - a.points);
 
             this._hostFinish({
-                mode: 'rush', round: h.round, rounds: h.rounds, prompt: h.prompt,
+                mode: h.mode, round: h.round, rounds: h.rounds, prompt: h.prompt,
+                picture: h.picture ? { id: h.picture.id, name: h.picture.name, rows: h.picture.rows } : null,
                 rows, totals: this._hostTotalsList(), isFinal: h.round >= h.rounds
             });
         }
@@ -1653,6 +1893,52 @@
             });
         }
 
+        /**
+         * The guesser is paid for speed, as in charades. The sculptors share a
+         * pot weighted by how long each had held the chisel when it was solved
+         * — so opening well is worth as much as finishing.
+         */
+        _hostScoreRelay() {
+            const h = this.host;
+            const players = this._eligiblePlayers();
+            const line = h.sculptors || [];
+            const frac = h.guessed ? Math.max(0, (h.roundTime - h.guessed.at) / h.roundTime) : 0;
+            const pot = h.guessed ? 40 + Math.round(60 * frac) : 0;
+
+            // Seconds each sculptor actually served before the solve.
+            const share = h.roundTime / (line.length || 1);
+            const upTo = h.guessed ? h.guessed.at : h.roundTime;
+            const served = line.map((_, i) => {
+                const from = i * share, to = (i + 1) * share;
+                return Math.max(0, Math.min(upTo, to) - from);
+            });
+            const total = served.reduce((a, b) => a + b, 0) || 1;
+
+            const rows = players.map(name => {
+                const idx = line.indexOf(name);
+                const isGuesser = !!(h.guessed && h.guessed.name === name);
+                let points = 0, note = '—';
+                if (isGuesser) {
+                    points = 50 + Math.round(50 * frac);
+                    note = `guessed in ${h.guessed.at}s`;
+                } else if (idx >= 0) {
+                    points = Math.round(pot * (served[idx] / total));
+                    note = h.guessed
+                        ? `sculpted ${Math.round(served[idx])}s of it`
+                        : 'nobody guessed it';
+                }
+                h.totals.set(name, (h.totals.get(name) || 0) + points);
+                return { name, points, isBuilder: idx >= 0, isGuesser, note };
+            }).sort((a, b) => b.points - a.points);
+
+            this._hostFinish({
+                mode: 'relay', round: h.round, rounds: h.rounds,
+                word: h.word, sculptors: line,
+                guessedBy: h.guessed ? h.guessed.name : null,
+                rows, totals: this._hostTotalsList(), isFinal: h.round >= h.rounds
+            });
+        }
+
         _hostScoreTerritory() {
             const h = this.host;
             const counts = this._hostSharedCounts();
@@ -1682,6 +1968,7 @@
             if (h.demo) h.demo.forEach((n, name) => { demo[name] = n; });
             return {
                 demo,
+                sculptors: h.sculptors || null,
                 budget: rules.budget || 0,
                 mode: h.mode,
                 phase: h.phase,
@@ -1703,11 +1990,28 @@
                     ? wordHint(h.word, h.elapsed, h.roundTime) : '',
                 guessedBy: h.guessed ? h.guessed.name : null,
                 prompt: h.prompt || '',
+                // Postcard's reference. Small enough (sixteen short strings)
+                // to ride the once-a-second state, which means a dropped
+                // packet costs nothing and a mid-round joiner gets it for
+                // free. What it is *called* waits until the round is over —
+                // naming it would do the interesting half of the thinking.
+                pic: h.mode === 'postcard' && h.picture ? {
+                    id: h.picture.id,
+                    rows: h.picture.rows,
+                    name: ['reveal', 'vote', 'tally', 'final'].indexOf(h.phase) >= 0
+                        ? h.picture.name : ''
+                } : null,
                 buildHeight: rules.height || BUILD_HEIGHT,
+                lastCall: !!h.lastCall,
                 votesCast: h.votes ? h.votes.size : 0,
-                voters: h.mode === 'rush' ? Array.from(h.votes.keys()) : [],
+                voters: isVoted(h.mode) ? Array.from(h.votes.keys()) : [],
                 // The answer is only safe to send once the round is over.
                 target: h.mode === 'memory' && (h.phase === 'reveal') ? h.target : null,
+                // ...but its outline may flash back mid-round. Only while the
+                // peek window is open, so the shape is not simply sitting on
+                // the wire for anyone who cares to read it.
+                shape: (h.mode === 'memory' && h.phase === 'play' && this._peekNow(h))
+                    ? (h.shapeHint || null) : null,
                 // A race hides what the others are doing; the watching modes
                 // exist precisely so the room can see it happen.
                 hideRivals: !!rules.hide,
@@ -1905,7 +2209,8 @@
             // as an ordinary relayed edit, so only the host builds it.
             if (this.host && s.mode === 'demolition') this._hostRaiseTown();
 
-            const charades = s.mode === 'charades';
+            // Relay is a guessing round with the same chat and word plumbing.
+            const charades = s.mode === 'charades' || s.mode === 'relay';
             if (charades) {
                 // Only the builder holds the word; everyone else watches the stage.
                 if (s.builder !== g.username) this.secretWord = null;
@@ -1997,6 +2302,22 @@
                 return;
             }
 
+            if (s.mode === 'postcard') {
+                if (phase === 'play' && wasPhase !== 'play') {
+                    this.game.showToast('🖼 Build what the picture shows', 'info', 3000);
+                }
+                if (phase === 'scoring' && wasPhase !== 'scoring') this._submitBuild(false);
+                if (phase === 'vote' && wasPhase !== 'vote') {
+                    this.voted = null;
+                    this._renderVote();
+                    this._startTour();
+                }
+                if (phase === 'reveal' && wasPhase !== 'reveal' && s.pic && s.pic.name) {
+                    this.game.showToast(`🖼 It was ${s.pic.name.toLowerCase()}`, 'info', 3000);
+                }
+                return;
+            }
+
             if (s.mode === 'rush') {
                 if (phase === 'play' && wasPhase !== 'play') {
                     this.game.showToast(`⚡ Build: ${s.prompt}`, 'info', 3000);
@@ -2028,6 +2349,26 @@
                 }
             }
 
+            // Memory's flashback: the outline of what you are trying to
+            // remember, in one flat colour. It arrives with the peek and goes
+            // with it, so there is never a copy of it sitting on screen.
+            if (s.mode === 'memory') {
+                const shapePlot = this.myPlot || this.myArea();
+                const showShape = phase === 'play' && s.peek && s.shape && s.shape.length && shapePlot;
+                if (showShape && !this._shapeVisible) {
+                    this.game.voxels.showGhost('shape', s.shape.map(r => ({
+                        x: r[0], y: r[1], z: r[2], c: MEMORY_HINT_COLOUR, s: 0
+                    })), shapePlot.x0, shapePlot.z0, false);
+                    this._shapeVisible = true;
+                } else if (!showShape && this._shapeVisible) {
+                    this.game.voxels.hideGhost('shape');
+                    this._shapeVisible = false;
+                }
+            } else if (this._shapeVisible) {
+                this.game.voxels.hideGhost('shape');
+                this._shapeVisible = false;
+            }
+
             if (phase === 'reveal' && wasPhase !== 'reveal') {
                 // Every plot gets the blueprint ghosted over it, so what each
                 // player missed or added is visible at a glance.
@@ -2044,8 +2385,14 @@
             if (phase === 'play' && wasPhase === 'study' && this.myPlot) {
                 this.game.showToast('Go! Rebuild it 🧱', 'success', 1500);
             }
+            if (s.lastCall && !(prev && prev.lastCall)) {
+                this.game.showToast(this.locked
+                    ? 'Most of the room is done — 15 seconds for the stragglers'
+                    : '⏳ Last call — 15 seconds!', 'warning', 2600);
+            }
             if (phase === 'play' && s.peek && !(prev && prev.peek)) {
-                this.game.showToast('👀 Blueprint!', 'info', 1200);
+                this.game.showToast(s.mode === 'memory' ? '👀 Flashback — the shape only' : '👀 Blueprint!',
+                    'info', 1200);
             }
         }
 
@@ -2136,7 +2483,8 @@
             const g = this.game;
             const building = s.phase === 'play' || s.phase === 'study'
                 || s.phase === 'countdown' || s.phase === 'scoring';
-            const charades = s.mode === 'charades';
+            // Relay is a guessing round with the same chat and word plumbing.
+            const charades = s.mode === 'charades' || s.mode === 'relay';
             (s.plots || []).forEach(p => {
                 const mine = p.name === g.username || p.shared;
                 const n = (s.progress && s.progress[p.name]) || 0;
@@ -2150,7 +2498,7 @@
                     }
                 } else if (s.mode === 'memory' && s.phase === 'architect') {
                     label = `${p.name} is building — watch!`;
-                } else if (s.mode === 'rush' && this.results) {
+                } else if (isVoted(s.mode) && this.results) {
                     const row = this.results.rows.find(r => r.name === p.name);
                     label = row ? `${p.name} — ${row.votes} vote${row.votes === 1 ? '' : 's'}` : p.name;
                 } else if (charades) {
@@ -2342,7 +2690,21 @@
         }
 
         lockIn() {
-            if (!this._matchRunning() || this.state.phase !== 'play' || !this.myPlot) return;
+            if (!this._matchRunning() || !this.myPlot) return;
+
+            // Memory Match: the architect's "done" ends the watching rather
+            // than submitting a rebuild. Nothing is scored, so none of the
+            // accuracy bookkeeping below applies.
+            if (this.state.mode === 'memory' && this.state.phase === 'architect'
+                && this.state.builder === this.game.username) {
+                const msg = { k: 'submit', name: this.game.username, cells: [], pieces: [], locked: true };
+                if (this.host) this._hostRecordSubmit(this.game.username, msg);
+                else this._send(msg);
+                this.game.showToast('Done — the room gets a good look, then it goes', 'success', 2200);
+                return;
+            }
+
+            if (this.state.phase !== 'play') return;
             if (this.locked) return;
             this._recomputeAccuracy();
             this.locked = true;
@@ -2427,11 +2789,44 @@
             }
 
             if (r.mode === 'memory') {
+                // Three bars per rebuild: where the blocks went, what shape
+                // they were, what colour they were. A round that ends in one
+                // number tells you that you did badly; this tells you at what.
+                const bar = (label, pct, cls) => `
+                    <span class="rs-bar" title="${label}">
+                        <span class="rs-bar-label">${label}</span>
+                        <span class="rs-bar-track"><span class="rs-bar-fill ${cls}" style="width:${Math.max(0, Math.min(100, pct))}%"></span></span>
+                        <span class="rs-bar-pct">${pct}%</span>
+                    </span>`;
+                const mrows = r.rows.map((row, i) => `
+                    <div class="rs-row${row.name === this.game.username ? ' me' : ''}" data-player="${esc(row.name)}">
+                        <span class="rs-rank">${medal(i)}</span>
+                        <span class="rs-dot" style="background:${this.game.generateUserColor(row.name)}"></span>
+                        <span class="rs-name">${esc(row.name)}${row.isBuilder ? ' 🧠' : ''}</span>
+                        <span class="rs-pct">${row.pct}%</span>
+                        <span class="rs-detail">${row.isBuilder ? esc(row.note || '')
+                            : `<span class="rs-bars">${bar('place', row.place || 0, 'place')}${bar('shape', row.shape || 0, 'shape')}${bar('colour', row.colour || 0, 'colour')}</span>`}</span>
+                        <span class="rs-points">${row.points}</span>
+                    </div>`).join('');
                 this.game.showResults({
                     title: r.isFinal ? '🏆 Final standings' : `Round ${r.round} of ${r.rounds}`,
                     subtitle: `<strong>${esc(r.builder)}</strong> built ${r.architectBlocks} blocks —`
                         + ` the room remembered <strong>${r.average}%</strong> of it`,
-                    body: `<div class="rs-list">${simpleRows(r.rows, row => row.pct + '%')}</div>
+                    body: `<div class="rs-list">${mrows}</div>
+                           <div class="rs-totals-title">Match points</div>
+                           <div class="rs-totals">${totalsOf()}</div>`,
+                    isFinal: r.isFinal, canControl: this.game.isHost()
+                });
+                return;
+            }
+
+            if (r.mode === 'postcard') {
+                this.game.showResults({
+                    title: r.isFinal ? '🏆 Final standings' : `Round ${r.round} of ${r.rounds}`,
+                    subtitle: r.picture
+                        ? `The picture was <strong>${esc(r.picture.name.toLowerCase())}</strong>`
+                        : 'The room has voted',
+                    body: `<div class="rs-list">${simpleRows(r.rows, row => '🗳 ' + row.votes)}</div>
                            <div class="rs-totals-title">Match points</div>
                            <div class="rs-totals">${totalsOf()}</div>`,
                     isFinal: r.isFinal, canControl: this.game.isHost()
@@ -2515,9 +2910,65 @@
 
         // ---------- voting (Block Rush) ----------
 
+        /**
+         * Draw the round's reference picture, or take it away.
+         *
+         * Drawn as squares in the game's own palette rather than shown as an
+         * image, because that is what it is: a grid of the same twelve colours
+         * the room is building with. Redrawn only when the picture changes —
+         * this runs on every state tick.
+         */
+        _renderPicture() {
+            const card = document.getElementById('pictureCard');
+            if (!card) return;
+            const s = this.state;
+            const pic = s && s.pic;
+            const show = !!(pic && pic.rows && this._matchRunning());
+            card.classList.toggle('hidden', !show);
+            if (!show) { this._picDrawn = null; return; }
+
+            // Sit under the players panel, wherever it happens to end.
+            const players = document.getElementById('playersPanel') || document.querySelector('.players-panel');
+            if (players) {
+                const r = players.getBoundingClientRect();
+                if (r.height) card.style.top = Math.round(r.bottom + 10) + 'px';
+            }
+
+            const caption = document.getElementById('pictureCaption');
+            if (caption) {
+                caption.innerHTML = pic.name
+                    ? `It was <strong>${esc(pic.name.toLowerCase())}</strong>.`
+                    : 'This is the whole brief. There is no model to copy — work out what it shows, and build that.';
+            }
+
+            const sig = pic.id + '|' + (pic.rows[0] || '');
+            if (this._picDrawn === sig) return;
+            this._picDrawn = sig;
+
+            const cv = document.getElementById('pictureCanvas');
+            if (!cv || !cv.getContext) return;
+            const hexes = this.game.voxels.paletteHex();
+            const KEY = (window.BlockPartyPictures || {}).KEY || {};
+            const rows = pic.rows;
+            const n = rows.length;
+            const px = cv.width / (rows[0] || '').length || 20;
+            const ctx = cv.getContext('2d');
+            ctx.clearRect(0, 0, cv.width, cv.height);
+            for (let y = 0; y < n; y++) {
+                for (let x = 0; x < rows[y].length; x++) {
+                    const ch = rows[y][x];
+                    if (ch === '.') continue;
+                    const idx = KEY[ch];
+                    if (idx == null) continue;
+                    ctx.fillStyle = hexes[idx] || '#94a3b8';
+                    ctx.fillRect(Math.round(x * px), Math.round(y * px), Math.ceil(px), Math.ceil(px));
+                }
+            }
+        }
+
         _renderVote() {
             const s = this.state;
-            if (!s || s.mode !== 'rush') return;
+            if (!s || !isVoted(s.mode)) return;
             const me = this.game.username;
             const rows = (s.plots || []).map(p => {
                 const mine = p.name === me;
@@ -2540,7 +2991,9 @@
 
             this.game.showResults({
                 title: '🗳 Vote for your favourite',
-                subtitle: `The prompt was <strong>${esc(s.prompt)}</strong> — you cannot vote for your own build`,
+                subtitle: s.mode === 'postcard'
+                    ? `The picture was ${s.pic && s.pic.name ? `<strong>${esc(s.pic.name.toLowerCase())}</strong>` : 'the one on the right'} — you cannot vote for your own build`
+                    : `The prompt was <strong>${esc(s.prompt)}</strong> — you cannot vote for your own build`,
                 body: `<div class="rs-list">${rows}</div>`,
                 isFinal: false, canControl: false
             });
@@ -2548,7 +3001,7 @@
 
         castVote(name) {
             const s = this.state;
-            if (!s || s.mode !== 'rush' || s.phase !== 'vote') return;
+            if (!s || !isVoted(s.mode) || s.phase !== 'vote') return;
             if (!name || name === this.game.username) return;
             this.voted = name;
             if (this.host) this.hostHandleVote(this.game.username, name);
@@ -2605,6 +3058,13 @@
         _showHud(on) {
             const hud = document.getElementById('matchHud');
             if (hud) hud.classList.toggle('hidden', !on);
+            // The reference card belongs to the match, not to the world — and
+            // the HUD comes down without another render to take it with it.
+            if (!on) {
+                const card = document.getElementById('pictureCard');
+                if (card) card.classList.add('hidden');
+                this._picDrawn = null;
+            }
         }
 
         _startHudTicker() {
@@ -2633,7 +3093,8 @@
             setText('mhMode', `${mode ? mode.emoji : ''} ${mode ? mode.name : ''}`);
             setText('mhRound', `Round ${s.round}/${s.rounds}`);
 
-            const charades = s.mode === 'charades';
+            // Relay is a guessing round with the same chat and word plumbing.
+            const charades = s.mode === 'charades' || s.mode === 'relay';
             const iBuild = charades && s.builder === this.game.username;
 
             let phaseText;
@@ -2648,14 +3109,18 @@
                 case 'play':
                     if (charades) phaseText = `${iBuild ? 'Build it!' : 'Guess!'} ${fmt(remain)}`;
                     else if (s.mode === 'memory' && s.builder === this.game.username) phaseText = `Watching — ${fmt(remain)}`;
+                    else if (s.mode === 'memory') phaseText = `From memory — ${fmt(remain)}`;
                     else if (s.mode === 'demolition') phaseText = `🧨 Wreck it! ${fmt(remain)}`;
+                    else if (s.lastCall) phaseText = this.locked
+                        ? `✅ Locked in — last call, ${fmt(remain)}`
+                        : `⏳ Last call! ${fmt(remain)}`;
                     else phaseText = this.myArea()
                         ? (this.locked ? '✅ Locked in — waiting for the others' : `Build! ${fmt(remain)}`)
                         : `Spectating — ${fmt(remain)}`;
                     break;
                 case 'quake': phaseText = `🌋 Earthquake! ${fmt(remain)}`; break;
                 case 'scoring': phaseText = 'Scoring…'; break;
-                case 'reveal': phaseText = s.mode === 'rush' ? '👀 Take a look' : '👀 Reveal'; break;
+                case 'reveal': phaseText = isVoted(s.mode) ? '👀 Take a look' : '👀 Reveal'; break;
                 case 'vote': phaseText = `🗳 Vote! ${Math.ceil(remain)}s`; break;
                 case 'tally': phaseText = '🏅 The votes are in'; break;
                 case 'final': phaseText = '🏆 Match over'; break;
@@ -2704,6 +3169,11 @@
                         ? `${s.votesCast}/${(s.plots || []).length} voted`
                         : `⚡ ${s.prompt}`;
                 }
+                else if (s.mode === 'postcard') {
+                    peek.textContent = s.phase === 'vote'
+                        ? `${s.votesCast}/${(s.plots || []).length} voted`
+                        : '🖼 The picture is the brief';
+                }
                 else if (s.mode === 'territory') peek.textContent = `Your blocks: ${this._myTerritory()}`;
                 else if (s.mode === 'earthquake') {
                     const left = Math.max(0, (s.budget || 0) - this._spentByMe());
@@ -2713,19 +3183,34 @@
                     const mine = (s.demo && s.demo[this.game.username]) || 0;
                     peek.textContent = `Brought down: ${mine}`;
                 }
-                else if (s.mode === 'memory') peek.textContent = s.phase === 'architect' ? 'Remember it!' : 'From memory';
+                else if (s.mode === 'memory') {
+                    peek.textContent = s.phase === 'architect' ? 'Remember it!'
+                        : (s.peek ? '👀 The shape — no colours'
+                            : (s.nextPeek ? `Flashback in ${s.nextPeek}s` : 'From memory'));
+                }
                 else peek.textContent = s.peek ? '👀 Blueprint visible' : `Next peek in ${s.nextPeek}s`;
             }
 
             const lock = document.getElementById('mhLockBtn');
             if (lock) {
                 const lockable = s.mode === 'blueprint' || s.mode === 'memory';
-                const show = lockable && s.phase === 'play' && this.myPlot && !this.locked;
+                const architect = s.mode === 'memory' && s.phase === 'architect'
+                    && s.builder === this.game.username;
+                const show = architect
+                    || (lockable && s.phase === 'play' && this.myPlot && !this.locked);
                 lock.classList.toggle('hidden', !show);
+                if (show) {
+                    lock.textContent = architect ? '✅ Done — start the clock' : '✅ Lock in';
+                    lock.title = architect
+                        ? 'Stop building and give the room its look at it (L)'
+                        : 'Submit your build now and claim the speed bonus (L)';
+                }
             }
 
             const leave = document.getElementById('mhEndBtn');
             if (leave) leave.classList.toggle('hidden', !this.game.isHost());
+
+            this._renderPicture();
         }
 
         // Live accuracy of the shared build, for Team Build's HUD.
@@ -2842,7 +3327,7 @@
     }
 
     window.BlockPartyModes = {
-        MODES, ModeController, computePlots, scoreBuild, modelOrigin,
+        MODES, MODE_KINDS, ModeController, computePlots, scoreBuild, modelOrigin,
         BUILD_HEIGHT, WORLD_HALF
     };
 })();

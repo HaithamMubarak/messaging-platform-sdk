@@ -43,6 +43,7 @@ html, body {
 .brand { display: flex; align-items: center; gap: 10px; }
 .brand-mark { font-size: 22px; }
 .brand-name {
+    margin: 0;
     font-weight: 800; font-size: 18px; letter-spacing: 0.2px;
     background: linear-gradient(90deg, var(--accent), var(--accent-2));
     -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent;
@@ -304,6 +305,24 @@ html, body {
 .mode-card:hover:not(:disabled) { background: rgba(255,255,255,0.08); border-color: rgba(255,255,255,0.25); }
 .mode-card.selected { border-color: var(--accent); background: rgba(99,102,241,0.18); }
 .mode-card.soon { opacity: 0.45; cursor: not-allowed; }
+/* Playable in principle, not with the people currently in the room. Greyed
+   rather than hidden: knowing a mode exists is half the reason to invite
+   somebody else. */
+.mode-card.short { opacity: 0.55; cursor: not-allowed; border-style: dashed; }
+
+/* Eleven modes is a wall as a flat list; these narrow it to a kind of round. */
+.mode-kinds { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 10px; }
+.mode-kind {
+    font-size: 12px; color: var(--muted); cursor: pointer;
+    background: rgba(255,255,255,0.04); border: 1px solid var(--border);
+    border-radius: 999px; padding: 6px 13px;
+    transition: background .2s ease, color .2s ease, border-color .2s ease;
+}
+.mode-kind:hover { border-color: rgba(255,255,255,0.25); color: var(--text); }
+.mode-kind.on {
+    color: var(--text); font-weight: 600;
+    background: rgba(99,102,241,0.30); border-color: rgba(255,255,255,0.14);
+}
 .mode-emoji { font-size: 22px; line-height: 1.2; }
 .mode-body { display: flex; flex-direction: column; gap: 3px; }
 .mode-name { font-weight: 700; font-size: 14px; }
@@ -350,6 +369,53 @@ html, body {
 .rs-name { font-size: 13px; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .rs-pct { font-size: 13px; font-weight: 700; color: var(--accent-2); }
 .rs-detail { grid-column: 3 / span 2; font-size: 11px; color: var(--muted); }
+
+/* Memory Match's post-mortem: where the blocks went, what shape they were,
+   what colour they were. The score has always been these three things — this
+   is the first time a player gets to see which one they lost. */
+.rs-bars { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }
+.rs-bar { display: inline-flex; align-items: center; gap: 5px; font-size: 10px; color: var(--muted); }
+.rs-bar-label { min-width: 34px; }
+.rs-bar-track {
+    width: 54px; height: 4px; border-radius: 999px;
+    background: rgba(255,255,255,0.10); overflow: hidden;
+}
+.rs-bar-fill { display: block; height: 100%; border-radius: 999px; background: var(--accent); }
+.rs-bar-fill.place { background: #22c55e; }
+.rs-bar-fill.shape { background: #fbbf24; }
+.rs-bar-fill.colour { background: #a78bfa; }
+.rs-bar-pct { min-width: 26px; text-align: right; color: var(--text); opacity: 0.8; }
+
+/* Postcard's reference: the picture, and nothing but the picture. It sits with
+   the other panels rather than over the world, because it is something you
+   glance back at for two minutes, not something you dismiss. */
+.picture-card {
+    position: absolute; top: 64px; right: 16px; z-index: 11;
+    width: 232px; max-width: 46vw;
+    background: var(--panel); border: 1px solid var(--border);
+    border-radius: 14px; padding: 12px; backdrop-filter: blur(8px);
+}
+.picture-head { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; margin-bottom: 9px; }
+.picture-title {
+    font-size: 12px; color: var(--muted);
+    letter-spacing: .04em; text-transform: uppercase;
+}
+.picture-note { font-size: 10px; color: var(--muted); opacity: 0.8; }
+.picture-card canvas {
+    display: block; width: 100%; height: auto;
+    border: 1px solid var(--border); border-radius: 10px;
+    background: #0b1020; image-rendering: pixelated;
+}
+.picture-caption { margin-top: 9px; font-size: 11px; line-height: 1.5; color: var(--muted); }
+.picture-caption strong { color: var(--text); }
+
+/* Where the players panel already is, the card goes under it. */
+.picture-card.below { top: auto; }
+
+@media (max-width: 720px) {
+    .picture-card { width: 132px; padding: 9px; }
+    .picture-caption { display: none; }
+}
 .rs-points {
     grid-column: 4; grid-row: 1; font-size: 15px; font-weight: 800; text-align: right;
 }
@@ -497,6 +563,43 @@ html, body {
 }
 .map-card:hover:not(:disabled) { background: rgba(255,255,255,0.09); border-color: rgba(255,255,255,0.25); }
 .map-card:disabled { opacity: 0.45; cursor: not-allowed; }
+
+/* The map library: what ships, what is real, and what the room made. Three
+   sources that all end in the same place — a world you did not have to start
+   from an empty floor. */
+.map-tabs { display: flex; align-items: center; gap: 6px; margin-bottom: 8px; flex-wrap: wrap; }
+.map-tab {
+    font-size: 12px; color: var(--muted); cursor: pointer;
+    background: rgba(255,255,255,0.04); border: 1px solid var(--border);
+    border-radius: 999px; padding: 6px 13px;
+}
+.map-tab:hover { color: var(--text); border-color: rgba(255,255,255,0.25); }
+.map-tab.on {
+    color: var(--text); font-weight: 600;
+    background: rgba(99,102,241,0.30); border-color: rgba(255,255,255,0.14);
+}
+.map-search {
+    flex: 1 1 140px; min-width: 100px;
+    background: rgba(255,255,255,0.06); color: var(--text);
+    border: 1px solid var(--border); border-radius: 9px;
+    padding: 6px 10px; font-size: 12px; font-family: inherit;
+}
+.map-search::placeholder { color: var(--muted); }
+.map-empty { grid-column: 1 / -1; font-size: 11px; color: var(--muted); padding: 10px 4px; }
+
+.map-sources { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; }
+.map-source {
+    display: flex; align-items: flex-start; gap: 9px; text-align: left;
+    background: rgba(255,255,255,0.03); color: var(--text);
+    border: 1px dashed rgba(255,255,255,0.18); border-radius: 12px;
+    padding: 10px; cursor: pointer;
+    transition: background .2s ease, border-color .2s ease;
+}
+.map-source:hover { background: rgba(255,255,255,0.07); border-color: rgba(255,255,255,0.3); }
+.map-source .map-desc { display: block; }
+@media (max-width: 720px) {
+    .map-sources { grid-template-columns: 1fr; }
+}
 .map-emoji { font-size: 19px; line-height: 1.1; }
 .map-body { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
 .map-name { font-size: 13px; font-weight: 700; }
@@ -553,6 +656,68 @@ html, body {
     border: 1px solid var(--border); border-radius: 9px; padding: 6px 8px; font-size: 12px;
 }
 .import-check { display: flex; align-items: center; gap: 6px; font-size: 12px; color: var(--muted); }
+
+/* What the importer actually read off the picture — the colours it will build
+   in, and the depth it will push each column back by. Cheap to draw and it
+   catches a background that did not come off before 7,000 blocks do. */
+.import-preview { align-items: flex-start; }
+.import-preview figure { margin: 0; display: flex; flex-direction: column; gap: 4px; }
+.import-preview canvas {
+    width: 84px; height: 84px; display: block;
+    border: 1px solid var(--border); border-radius: 8px;
+    background:
+        linear-gradient(45deg, rgba(255,255,255,0.05) 25%, transparent 25%, transparent 75%, rgba(255,255,255,0.05) 75%),
+        linear-gradient(45deg, rgba(255,255,255,0.05) 25%, transparent 25%, transparent 75%, rgba(255,255,255,0.05) 75%);
+    background-size: 10px 10px;
+    background-position: 0 0, 5px 5px;
+    image-rendering: pixelated;
+}
+.import-preview figcaption { font-size: 10px; color: var(--muted); text-align: center; }
+
+/* A slider that matches the panel rather than the browser's default chrome. */
+.world-range {
+    flex: 1 1 120px; min-width: 90px; height: 4px; -webkit-appearance: none; appearance: none;
+    background: rgba(255,255,255,0.12); border-radius: 999px; outline: none; cursor: pointer;
+}
+.world-range::-webkit-slider-thumb {
+    -webkit-appearance: none; appearance: none;
+    width: 14px; height: 14px; border-radius: 999px; background: var(--text);
+    box-shadow: 0 1px 4px rgba(0,0,0,0.5); cursor: pointer;
+}
+.world-range::-moz-range-thumb {
+    width: 14px; height: 14px; border: none; border-radius: 999px; background: var(--text);
+    box-shadow: 0 1px 4px rgba(0,0,0,0.5); cursor: pointer;
+}
+
+/* Attribution for the map tiles on the ground. Required by OpenStreetMap's
+   terms whenever their tiles are on screen, so it lives with the world rather
+   than inside a panel somebody may never open. */
+.osm-credit {
+    /* Clear of the SDK badge the app chrome pins bottom-left, which was
+       sitting straight on top of it. */
+    position: absolute; left: 12px; bottom: 44px; z-index: 9;
+    font-size: 10px; color: rgba(232,238,252,0.72);
+    background: rgba(6,10,22,0.6); border-radius: 6px; padding: 4px 8px;
+    pointer-events: auto;
+}
+.osm-credit a { color: rgba(232,238,252,0.9); }
+
+/* Offered when the camera runs out of room: past this point "further out" is
+   not a camera move at all, it is a different world at a different scale. */
+.zoom-out {
+    position: absolute; left: 92px; top: 50%; transform: translateY(-50%); z-index: 12;
+    width: 250px; padding: 13px 14px;
+    background: var(--panel); border: 1px solid rgba(99,102,241,0.5); border-radius: 12px;
+    backdrop-filter: blur(8px); box-shadow: 0 18px 40px -14px rgba(2,6,23,0.8);
+}
+.zoom-out-text { display: flex; flex-direction: column; gap: 6px; margin-bottom: 10px; }
+.zoom-out-text strong { font-size: 12px; }
+.zoom-out-text span { font-size: 11.5px; line-height: 1.5; color: var(--muted); }
+.zoom-out-actions { display: flex; gap: 7px; }
+.zoom-out-actions .btn { font-size: 11px; padding: 7px 12px; }
+@media (max-width: 720px) {
+    .zoom-out { left: 12px; right: 12px; width: auto; top: auto; bottom: 96px; transform: none; }
+}
 
 /* Any-colour swatch: the palette's thirteenth slot is a colour picker */
 .swatch.custom {
@@ -989,4 +1154,159 @@ html, body {
 @media (max-width: 640px) {
     .cinema-range { width: 130px; }
     .cinema-at { display: none; }
+}
+
+/* ==========================================================================
+   Worlds & room — form controls and modal polish
+
+   The dropdowns in this panel were the browser's own. A <select> can be
+   styled, but the OPTION LIST it opens is drawn by the platform: it does not
+   inherit the panel, and it only picked up the near-white `color` set on the
+   control — so the list rendered light text on its own light background and
+   was effectively unreadable. Both halves have to be coloured explicitly, and
+   the control's background has to be SOLID: a translucent fill over a blurred
+   backdrop is not a colour the option list can match.
+   ========================================================================== */
+
+.bp-modal select {
+    /* Solid, so the list below can be given the same colour. */
+    background-color: #1b2440;
+    color: var(--text);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 8px 30px 8px 11px;
+    font-size: 12.5px;
+    font-family: inherit;
+    line-height: 1.3;
+    cursor: pointer;
+    max-width: 100%;
+    /* Native control furniture varies by platform and never matches a dark
+       panel; draw our own chevron instead. */
+    appearance: none;
+    -webkit-appearance: none;
+    background-image: url("data:image/svg+xml;charset=UTF-8,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 8'%3E%3Cpath d='M1 1.5 6 6.5l5-5' fill='none' stroke='%2397a3bf' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 11px center;
+    background-size: 11px 7px;
+    transition: border-color .12s ease, background-color .12s ease;
+}
+.bp-modal select:hover { background-color: #212c4e; border-color: rgba(255,255,255,0.18); }
+.bp-modal select:focus-visible {
+    outline: none;
+    border-color: var(--accent);
+    box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.28);
+}
+/* The list itself. Without this it is whatever the platform decides. */
+.bp-modal select option {
+    background-color: #1b2440;
+    color: var(--text);
+    padding: 6px 10px;
+}
+.bp-modal select option:checked { background-color: #2b3766; }
+
+/* Text inputs in the panel, matched to the selects so a row reads as one set
+   of controls rather than three unrelated widgets. */
+.bp-modal input[type="text"] {
+    background-color: #1b2440;
+    color: var(--text);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 8px 11px;
+    font-size: 12.5px;
+    font-family: inherit;
+    outline: none;
+    transition: border-color .12s ease, box-shadow .12s ease;
+}
+.bp-modal input[type="text"]::placeholder { color: #6b7794; }
+.bp-modal input[type="text"]:focus-visible,
+.bp-modal input[type="text"]:focus {
+    border-color: var(--accent);
+    box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.28);
+}
+
+/* --- Structure ----------------------------------------------------------
+   The panel is long: eight sections of similar weight scrolling past with no
+   separation. Give the heading a rule and the whole thing a rhythm. */
+.bp-modal-card { padding: 0; }
+.bp-modal-card > .bp-modal-head {
+    position: sticky;
+    top: 0;
+    z-index: 2;
+    margin: 0;
+    padding: 18px 20px 14px;
+    background: linear-gradient(180deg, var(--panel-solid) 78%, rgba(17,24,44,0));
+    border-bottom: 1px solid var(--border);
+}
+.bp-modal-card > .world-section,
+.bp-modal-card > .bp-modal-foot,
+.bp-modal-card > div:not(.bp-modal-head) { padding-left: 20px; padding-right: 20px; }
+.bp-modal-card > .world-section:last-of-type { padding-bottom: 20px; }
+
+.world-section { margin-top: 22px; }
+.world-title {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 11px;
+    font-weight: 700;
+    color: #b6c2dd;
+    text-transform: uppercase;
+    letter-spacing: .07em;
+    margin-bottom: 10px;
+}
+/* A hairline that runs to the edge of the section, so the eye can find the
+   next block without reading it. */
+.world-title::after {
+    content: "";
+    flex: 1;
+    height: 1px;
+    background: var(--border);
+}
+.import-row { margin-bottom: 10px; }
+.world-note { line-height: 1.5; }
+
+/* Checkboxes were the last native control left: a white platform box on a dark
+   panel, next to controls that had all been themed. */
+.bp-modal input[type="checkbox"] {
+    appearance: none;
+    -webkit-appearance: none;
+    width: 16px;
+    height: 16px;
+    flex: 0 0 16px;
+    margin: 0;
+    border: 1px solid rgba(255, 255, 255, 0.28);
+    border-radius: 5px;
+    background-color: #1b2440;
+    cursor: pointer;
+    display: inline-grid;
+    place-content: center;
+    transition: background-color .12s ease, border-color .12s ease;
+}
+.bp-modal input[type="checkbox"]::before {
+    content: "";
+    width: 9px;
+    height: 9px;
+    transform: scale(0);
+    transition: transform .12s ease;
+    box-shadow: inset 9px 9px #fff;
+    clip-path: polygon(14% 44%, 0 65%, 50% 100%, 100% 16%, 80% 0%, 43% 62%);
+}
+.bp-modal input[type="checkbox"]:checked {
+    background-color: var(--accent);
+    border-color: var(--accent);
+}
+.bp-modal input[type="checkbox"]:checked::before { transform: scale(1); }
+.bp-modal input[type="checkbox"]:hover { border-color: rgba(255, 255, 255, 0.45); }
+.bp-modal input[type="checkbox"]:focus-visible {
+    outline: none;
+    box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.32);
+}
+/* The label a checkbox sits in should read as one clickable thing. */
+.bp-modal .import-check,
+.bp-modal .world-toggle {
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    cursor: pointer;
+    user-select: none;
 }

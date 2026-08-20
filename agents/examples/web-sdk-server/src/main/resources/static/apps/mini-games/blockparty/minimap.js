@@ -28,7 +28,9 @@
 
     const DEFAULT_SIZE = 248;      // canvas edge, in CSS pixels
     const MIN_SIZE = 170, MAX_SIZE = 560;
-    const REDRAW_MS = 400;         // the world does not change fast enough to need more
+    // Repaints are driven by change now (see invalidate/frame), not by a clock.
+    // This is only the fallback tick for state with no hook of its own.
+    const IDLE_MS = 1000;
 
     // A dark cartographic palette, so the map reads as a map inside a dark
     // panel rather than as the daylight one painted on the ground. Published
@@ -73,7 +75,12 @@
             this.open = false;
             if (!this.canvas) return;
 
-            this.size = this._fit(this._restoreSize());
+            // The map is a rectangle. `size` stays the SHORT side and remains the
+            // basis for scale/zoom, so a wider map shows more ground rather than
+            // stretched ground — anisotropic scaling would shear the coastlines.
+            const saved = this._restoreSize();
+            this.vw = this._fit(saved.w);
+            this.vh = this._fit(saved.h);
             this.ctx = this.canvas.getContext('2d');
             this._resizeCanvas();
 
@@ -211,10 +218,28 @@
             catch (e) { return {}; }
         }
 
+        /**
+         * The remembered map size, as {w, h}.
+         *
+         * Older builds stored a single number because the map was locked
+         * square; that value is still honoured and read as both axes, so an
+         * existing player's map does not jump the first time they open it.
+         */
         _restoreSize() {
-            let n = 0;
-            try { n = +localStorage.getItem(SIZE_KEY) || 0; } catch (e) { /* fine */ }
-            return n >= MIN_SIZE && n <= MAX_SIZE ? n : DEFAULT_SIZE;
+            const ok = (n) => isFinite(n) && n >= MIN_SIZE && n <= MAX_SIZE;
+            let raw = null;
+            try { raw = localStorage.getItem(SIZE_KEY); } catch (e) { /* fine */ }
+            if (raw) {
+                if (raw.charAt(0) === '{') {
+                    try {
+                        const v = JSON.parse(raw);
+                        if (ok(+v.w) && ok(+v.h)) return { w: +v.w, h: +v.h };
+                    } catch (e) { /* fall through to the default */ }
+                } else if (ok(+raw)) {
+                    return { w: +raw, h: +raw };
+                }
+            }
+            return { w: DEFAULT_SIZE, h: DEFAULT_SIZE };
         }
 
         /**
@@ -238,10 +263,10 @@
         /** Match the backing store to the CSS size, at the screen's density. */
         _resizeCanvas() {
             const dpr = Math.min(2, window.devicePixelRatio || 1);
-            this.canvas.width = Math.round(this.size * dpr);
-            this.canvas.height = Math.round(this.size * dpr);
-            this.canvas.style.width = this.size + 'px';
-            this.canvas.style.height = this.size + 'px';
+            this.canvas.width = Math.round(this.vw * dpr);
+            this.canvas.height = Math.round(this.vh * dpr);
+            this.canvas.style.width = this.vw + 'px';
+            this.canvas.style.height = this.vh + 'px';
             this.ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
             if (this.base) {
                 this.base.width = this.canvas.width;
@@ -264,15 +289,18 @@
             grip.addEventListener('pointerdown', (e) => {
                 e.preventDefault();
                 e.stopPropagation();
-                from = { x: e.clientX, y: e.clientY, size: this.size };
+                from = { x: e.clientX, y: e.clientY, vw: this.vw, vh: this.vh };
                 try { grip.setPointerCapture(e.pointerId); } catch (err) { /* fine */ }
             });
             grip.addEventListener('pointermove', (e) => {
                 if (!from) return;
-                const by = Math.max(e.clientX - from.x, e.clientY - from.y);
-                const next = this._fit(Math.max(MIN_SIZE, Math.min(MAX_SIZE, from.size + by)));
-                if (next === this.size) return;
-                this.size = next;
+                // Independent axes: the map was locked square, so it could never
+                // be dragged to the shape of the screen it sits on.
+                const clamp = (n) => this._fit(Math.max(MIN_SIZE, Math.min(MAX_SIZE, n)));
+                const w = clamp(from.vw + (e.clientX - from.x));
+                const h = clamp(from.vh + (e.clientY - from.y));
+                if (w === this.vw && h === this.vh) return;
+                this.vw = w; this.vh = h;
                 this._resizeCanvas();
                 this.draw();
             });
@@ -280,11 +308,50 @@
                 if (!from) return;
                 from = null;
                 try { grip.releasePointerCapture(e.pointerId); } catch (err) { /* fine */ }
-                try { localStorage.setItem(SIZE_KEY, String(this.size)); } catch (err) { /* fine */ }
+                try { localStorage.setItem(SIZE_KEY, JSON.stringify({ w: this.vw, h: this.vh })); } catch (err) { /* fine */ }
                 this._reflow();
             };
             grip.addEventListener('pointerup', end);
             grip.addEventListener('pointercancel', end);
+        }
+
+        /**
+         * Ask for a repaint on the next animation frame.
+         *
+         * The map used to repaint on a 400ms setInterval no matter what, which
+         * is both too slow and too often: moving showed up to 400ms late, and
+         * a map of a world nobody is touching still walked every column twice a
+         * second. Coalescing to one frame means many invalidations in a single
+         * frame cost one draw, and an idle map costs nothing.
+         */
+        invalidate() {
+            if (!this.open || this._rafId) return;
+            this._rafId = requestAnimationFrame(() => {
+                this._rafId = 0;
+                this.draw();
+            });
+        }
+
+        /**
+         * Called from the game's own render loop, so there is no second rAF.
+         *
+         * Cheap on purpose: build a short signature of everything the map draws
+         * from live state and only repaint when it actually changed. The camera
+         * angle is quantised so a slow cinematic drift does not force a redraw
+         * every single frame.
+         */
+        frame() {
+            if (!this.open) return;
+            const g = this.game, v = g.voxels;
+            if (!v) return;
+            const f = g.fps;
+            const sig = (v.target ? v.target.x.toFixed(2) + ',' + v.target.z.toFixed(2) : '') + '|'
+                + (v.cam ? Math.round(v.cam.theta * 100) : '') + '|'
+                + (f && f.active ? f.pos.x.toFixed(2) + ',' + f.pos.z.toFixed(2) + ',' + Math.round(f.yaw * 50) : '') + '|'
+                + (v.columnsRev | 0);
+            if (sig === this._sig) return;
+            this._sig = sig;
+            this.invalidate();
         }
 
         toggle() { this.setOpen(!this.open); }
@@ -298,9 +365,16 @@
             clearInterval(this._timer);
             this._closeScope();
             if (this.open) {
+                // The panel has no layout until it is unhidden, so its width can
+                // only be measured now — and again next frame, once the rows
+                // below the map have settled and set the panel's true width.
+                this._fillStage();
                 this.draw();
+                requestAnimationFrame(() => { if (this.open && this._fillStage()) this.draw(); });
                 this.renderPlaces();
-                this._timer = setInterval(() => this.draw(), REDRAW_MS);
+                // A slow safety tick for the few things with no change hook of
+                // their own — an avatar going stale, a remembered pin ageing.
+                this._timer = setInterval(() => this.invalidate(), IDLE_MS);
             }
         }
 
@@ -329,7 +403,7 @@
             // how a map pans. While the view is moving the cached image is
             // blitted at an offset, which is exact, and the repaint happens
             // once the movement settles.
-            const key = [a.region, this.zoom, this.game.voxels.half, this.size,
+            const key = [a.region, this.zoom, this.game.voxels.half, this.vw, this.vh,
                 Math.round(c.x * 4), Math.round(c.z * 4)].join(',');
             if (key === this.baseKey) return;         // already drawn for this view
             this.baseKey = key;
@@ -356,10 +430,10 @@
          */
         _blitFits() {
             const v = this.baseView;
-            if (!v || v.zoom !== this.zoom || v.size !== this.size) return false;
+            if (!v || v.zoom !== this.zoom || v.vw !== this.vw || v.vh !== this.vh) return false;
             const c = this._centre(), s = this.scale;
-            return Math.abs((v.centre.x - c.x) * s) < this.size * 0.45
-                && Math.abs((v.centre.z - c.z) * s) < this.size * 0.45;
+            return Math.abs((v.centre.x - c.x) * s) < this.vw * 0.45
+                && Math.abs((v.centre.z - c.z) * s) < this.vh * 0.45;
         }
 
         /** Where the cached coast belongs on the canvas, now. */
@@ -376,24 +450,24 @@
          */
         _paintBase(earth) {
             const geo = this.game.geo;
-            const S = this.size;
+            const W = this.vw, H = this.vh;
             // What this image is of, so a later frame can tell whether it can
             // still be used and where it now belongs.
             const c = this._centre();
-            this.baseView = { centre: { x: c.x, z: c.z }, zoom: this.zoom, size: S };
-            const dpr = this.base.width / S;
+            this.baseView = { centre: { x: c.x, z: c.z }, zoom: this.zoom, vw: W, vh: H };
+            const dpr = this.base.width / W;
             const ctx = this.base.getContext('2d');
             ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
 
             // A sea with a little depth to it, so a coastline has somewhere to be.
-            const sky = ctx.createLinearGradient(0, 0, 0, S);
+            const sky = ctx.createLinearGradient(0, 0, 0, H);
             sky.addColorStop(0, MAP.sea);
             sky.addColorStop(1, MAP.seaDeep);
             ctx.fillStyle = sky;
-            ctx.fillRect(0, 0, S, S);
+            ctx.fillRect(0, 0, W, H);
 
             const path = BlockPartyEarth.ringPath(earth, geo.region, this.tileSpan,
-                { w: S, h: S, ox: this.tileOrigin.cx, oy: this.tileOrigin.cy });
+                { w: W, h: H, ox: this.tileOrigin.cx, oy: this.tileOrigin.cy });
 
             ctx.fillStyle = MAP.land;
             ctx.fill(path, 'evenodd');
@@ -415,6 +489,21 @@
         get viewCells() { return (this.game.voxels.half * 2 + 1) * Math.pow(2, this.zoom); }
 
         /** Screen pixels per world cell. */
+        /**
+         * The short side of the map — the basis for scale and zoom.
+         *
+         * The map used to be square and `size` was the one dimension, so
+         * callers set it to resize. It is now derived from the two axes, but
+         * assigning it still works and makes the map square, so nothing that
+         * predates the rectangle breaks.
+         */
+        get size() { return Math.min(this.vw, this.vh); }
+        set size(n) {
+            const v = this._fit(n);
+            this.vw = v;
+            this.vh = v;
+        }
+
         get scale() { return this.size / this.viewCells; }
 
         /** How many pixels one whole region tile covers at this zoom. */
@@ -472,14 +561,14 @@
         }
 
         _toCanvas(x, z) {
-            const c = this._centre(), s = this.scale, S = this.size;
-            return { cx: S / 2 + (x - c.x) * s, cy: S / 2 + (z - c.z) * s };
+            const c = this._centre(), s = this.scale;
+            return { cx: this.vw / 2 + (x - c.x) * s, cy: this.vh / 2 + (z - c.z) * s };
         }
 
         /** Canvas pixels back to world cells, unrounded. */
         _toWorldF(cx, cy) {
-            const c = this._centre(), s = this.scale, S = this.size;
-            return { x: c.x + (cx - S / 2) / s, z: c.z + (cy - S / 2) / s };
+            const c = this._centre(), s = this.scale;
+            return { x: c.x + (cx - this.vw / 2) / s, z: c.z + (cy - this.vh / 2) / s };
         }
 
         _toWorld(cx, cy) {
@@ -557,8 +646,9 @@
         /** A pointer event in the map's own pixels. */
         _at(e) {
             const rect = this.canvas.getBoundingClientRect();
-            const k = rect.width ? this.size / rect.width : 1;
-            return { cx: (e.clientX - rect.left) * k, cy: (e.clientY - rect.top) * k };
+            const kx = rect.width ? this.vw / rect.width : 1;
+            const ky = rect.height ? this.vh / rect.height : 1;
+            return { cx: (e.clientX - rect.left) * kx, cy: (e.clientY - rect.top) * ky };
         }
 
         // ---- panning the view --------------------------------------------
@@ -590,13 +680,16 @@
                 if (!from) return;
                 const rect = c.getBoundingClientRect();
                 // The canvas may be displayed smaller than it is drawn.
-                const k = rect.width ? this.size / rect.width : 1;
-                const dx = (e.clientX - from.x) * k, dy = (e.clientY - from.y) * k;
+                const kx = rect.width ? this.vw / rect.width : 1;
+                const ky = rect.height ? this.vh / rect.height : 1;
+                const dx = (e.clientX - from.x) * kx, dy = (e.clientY - from.y) * ky;
                 if (!from.moved && Math.abs(dx) + Math.abs(dy) < 5) return;
                 if (!from.moved) { from.moved = true; this._closeScope(); c.classList.add('dragging'); }
                 const s = this.scale;
                 this._lockTo({ x: from.centre.x - dx / s, z: from.centre.z - dy / s });
-                this.draw();
+                // A high-rate mouse delivers well over 60 of these a second;
+                // one draw per frame is all the screen can show anyway.
+                this.invalidate();
             });
             const end = (e) => {
                 if (!from) return;
@@ -678,14 +771,41 @@
             if (saved && isFinite(saved.x) && isFinite(saved.y)) this._place(saved.x, saved.y);
         }
 
+        /**
+         * Grow the map to whatever width the panel actually has.
+         *
+         * The panel's width is set by its widest row — the title bar, with its
+         * readout and four chips — not by the map. A square canvas therefore
+         * sat in a 294px-wide stage leaving a ~46px dead strip down its right
+         * side, inside a 312x355 panel: a portrait box containing a square map
+         * and a gap. Filling the stage costs nothing and is simply more map.
+         */
+        _fillStage() {
+            const stage = document.querySelector('.minimap-stage');
+            if (!stage) return false;
+            const avail = Math.round(stage.clientWidth || 0);
+            if (!avail) return false;
+            const w = this._fit(Math.max(MIN_SIZE, Math.min(MAX_SIZE, avail)));
+            if (w <= this.vw) return false;
+            this.vw = w;
+            this._resizeCanvas();
+            return true;
+        }
+
         /** A smaller window must not leave the map off the side of it. */
         _reflow() {
-            const fitted = this._fit(this._restoreSize());
-            if (fitted !== this.size) {
-                this.size = fitted;
+            const saved = this._restoreSize();
+            const w = this._fit(saved.w), h = this._fit(saved.h);
+            let changed = false;
+            if (w !== this.vw || h !== this.vh) {
+                this.vw = w; this.vh = h;
                 this._resizeCanvas();
-                this.draw();
+                changed = true;
             }
+            // Reapply afterwards: restoring the saved size would otherwise put
+            // the dead strip straight back the next time the window changes.
+            if (this._fillStage()) changed = true;
+            if (changed) this.draw();
             if (this.placed) this._place(this.placed.x, this.placed.y);
         }
 
@@ -754,6 +874,13 @@
             const ll = this._canvasToLatLon(at.cx, at.cy);
             const half = g.voxels.half;
             const inside = Math.abs(cell.x) <= half && Math.abs(cell.z) <= half;
+            // The camera may go anywhere there is ground, not just anywhere you
+            // can build. The plain runs well past the buildable square, so
+            // refusing every spot outside it made the button dead for most of
+            // the map.
+            const reach = g.voxels.groundReach || half;
+            const reachable = Math.abs(cell.x) <= reach && Math.abs(cell.z) <= reach;
+            const flyHint = inside ? 'Look at this spot' : 'Look at this spot, out on the plain';
 
             this.scopeAt = ll ? { lat: ll.lat, lon: ll.lon, cell, inside } : null;
 
@@ -780,7 +907,7 @@
                     <button class="mm-scope-btn primary" data-scope="travel"
                         ${why ? `disabled title="${this._esc(why)}"` : ''}>✈️ Travel here</button>
                     <button class="mm-scope-btn" data-scope="camera"
-                        ${inside ? '' : 'disabled title="Only inside this world"'}>🎥 Fly camera</button>
+                        ${reachable ? `title="${this._esc(flyHint)}"` : 'disabled title="Past the edge of the ground — travel there instead"'}>🎥 Fly camera</button>
                     <button class="mm-scope-btn" data-scope="copy" title="Copy the coordinates">📋</button>
                 </div>`;
 
@@ -788,8 +915,8 @@
             // Placed inside the map, and nudged so it never hangs off an edge.
             const r = card.getBoundingClientRect();
             const w = r.width || 190, h = r.height || 92;
-            const x = Math.max(6, Math.min(this.size - w - 6, at.cx - w / 2));
-            const y = at.cy + 12 + h > this.size ? Math.max(6, at.cy - h - 12) : at.cy + 12;
+            const x = Math.max(6, Math.min(this.vw - w - 6, at.cx - w / 2));
+            const y = at.cy + 12 + h > this.vh ? Math.max(6, at.cy - h - 12) : at.cy + 12;
             card.style.left = x + 'px';
             card.style.top = y + 'px';
             this.draw();
@@ -817,8 +944,23 @@
                     g.travelTo(spot.lat, spot.lon, (g.geo.anchor && g.geo.anchor.mpc) || 2);
                 } else if (what === 'camera') {
                     this._closeScope();
-                    if (g.fps && g.fps.active) g.fps.teleport(spot.cell.x, spot.cell.z);
-                    else g.voxels.focus(spot.cell.x, 2, spot.cell.z, 40, Math.PI * 0.3);
+                    const reach = g.voxels.groundReach || g.voxels.half;
+                    const cx = Math.max(-reach, Math.min(reach, spot.cell.x));
+                    const cz = Math.max(-reach, Math.min(reach, spot.cell.z));
+                    const clamped = cx !== spot.cell.x || cz !== spot.cell.z;
+                    // Walking off the buildable square is fine; walking off the
+                    // ground is not, so first person stays inside the world.
+                    if (g.fps && g.fps.active) {
+                        const h = g.voxels.half;
+                        g.fps.teleport(Math.max(-h, Math.min(h, cx)), Math.max(-h, Math.min(h, cz)));
+                    } else {
+                        // Pull back a little for a spot out on the empty plain:
+                        // there is nothing there to give the view a sense of scale.
+                        const far = Math.abs(cx) > g.voxels.half || Math.abs(cz) > g.voxels.half;
+                        g.voxels.focus(cx, 2, cz, far ? 90 : 40, Math.PI * 0.3);
+                    }
+                    if (clamped) g.showToast('Flew as far as the ground goes', 'info', 2400);
+                    this.invalidate();
                 } else if (what === 'copy') {
                     const text = `${spot.lat.toFixed(6)}, ${spot.lon.toFixed(6)}`;
                     const done = () => g.showToast(`Copied ${text}`, 'success', 2000);
@@ -1091,30 +1233,37 @@
 
         draw() {
             if (!this.ctx || !this.open) return;
-            const g = this.game, v = g.voxels, ctx = this.ctx, s = this.scale, S = this.size;
+            const g = this.game, v = g.voxels, ctx = this.ctx, s = this.scale;
+            const W = this.vw, H = this.vh;
 
             this._ensureBasemap();
             this._syncChrome();
 
-            ctx.clearRect(0, 0, S, S);
+            ctx.clearRect(0, 0, W, H);
             ctx.fillStyle = MAP.seaDeep;
-            ctx.fillRect(0, 0, S, S);
+            ctx.fillRect(0, 0, W, H);
 
-            const mapped = this.layers.map && this.baseReady && this._blitFits();
-            if (mapped) {
+            // A stale coast, slid to where it now belongs, is a far better
+            // answer mid-pan than the "nothing surveyed" hatch: panning used to
+            // flash grey the moment the cached image slid past 45% of the view,
+            // until the async repaint landed ~140ms later. The hatch is for a
+            // world that genuinely has no place, not for one still catching up.
+            const pinned = this.layers.map && this.baseReady && this.baseView
+                && this.baseView.vw === this.vw && this.baseView.vh === this.vh;
+            if (pinned) {
                 const o = this._blitOffset();
-                ctx.drawImage(this.base, o.dx, o.dy, S, S);
+                ctx.drawImage(this.base, o.dx, o.dy, W, H);
             } else {
                 // No place to draw: neutral grey under a faint hatch, which is
                 // how a chart says "nothing surveyed here" rather than letting
                 // an unpinned world pass for ground.
                 ctx.fillStyle = MAP.blank;
-                ctx.fillRect(0, 0, S, S);
+                ctx.fillRect(0, 0, W, H);
                 ctx.save();
                 ctx.strokeStyle = MAP.blankHatch;
                 ctx.lineWidth = 1;
                 ctx.beginPath();
-                for (let d = -S; d < S * 2; d += 9) { ctx.moveTo(d, 0); ctx.lineTo(d + S, S); }
+                for (let d = -H; d < W + H; d += 9) { ctx.moveTo(d, 0); ctx.lineTo(d + H, H); }
                 ctx.stroke();
                 ctx.restore();
             }
@@ -1125,7 +1274,8 @@
             if (this.layers.worlds) this._drawSettlements(ctx);
             if (this.layers.trails) this._drawTrails(ctx);
             if (this.layers.people) this._drawPeople(ctx);
-            this._drawCamera(ctx, v);
+            this._drawMe(ctx);
+            this._drawMarks(ctx);
             this._drawScopeMark(ctx);
             this._drawChrome(ctx);
         }
@@ -1145,7 +1295,7 @@
 
             const centre = document.getElementById('minimapCentre');
             if (centre) {
-                const ll = this._canvasToLatLon(this.size / 2, this.size / 2);
+                const ll = this._canvasToLatLon(this.vw / 2, this.vh / 2);
                 centre.textContent = ll ? window.BlockPartyGeo.format(ll.lat, ll.lon) : 'not on the Earth';
                 centre.classList.toggle('dim', !ll);
             }
@@ -1155,7 +1305,6 @@
         _spanLabel() {
             const a = this.game.geo && this.game.geo.anchor;
             if (!a) return `${Math.round(this.viewCells)} blocks`;
-            this._drawMarks(ctx);
             const m = this.viewCells * a.mpc;
             return m >= 1000 ? `${(m / 1000).toFixed(m >= 10000 ? 0 : 1)} km` : `${Math.round(m)} m`;
         }
@@ -1171,9 +1320,8 @@
         _drawGraticule(ctx) {
             const geo = this.game.geo;
             if (!geo || !geo.region) return;
-            const S = this.size;
             const nw = this._canvasToLatLon(0, 0);
-            const se = this._canvasToLatLon(S, S);
+            const se = this._canvasToLatLon(this.vw, this.vh);
             if (!nw || !se) return;
 
             const spanLon = Math.abs(se.lon - nw.lon);
@@ -1204,16 +1352,16 @@
             for (let i = Math.ceil(lonLo / step); i * step <= lonHi; i++) {
                 const lon = i * step;
                 const p = this._llToCanvas(0, lon);
-                if (!p || p.cx < -1 || p.cx > S + 1) continue;
+                if (!p || p.cx < -1 || p.cx > this.vw + 1) continue;
                 const big = major(i);
                 ctx.strokeStyle = big ? MAP.gridMajor : MAP.grid;
                 ctx.lineWidth = 1;
                 ctx.beginPath();
                 ctx.moveTo(Math.round(p.cx) + 0.5, 0);
-                ctx.lineTo(Math.round(p.cx) + 0.5, S);
+                ctx.lineTo(Math.round(p.cx) + 0.5, this.vh);
                 ctx.stroke();
                 // Not under the compass rose in the top-right corner.
-                if (p.cx < S - 58) label(this._degrees(lon, dp, 'EW'), p.cx + 3, 2, big);
+                if (p.cx < this.vw - 58) label(this._degrees(lon, dp, 'EW'), p.cx + 3, 2, big);
             }
 
             // Parallels.
@@ -1222,17 +1370,17 @@
                 const lat = i * step;
                 if (Math.abs(lat) > 85.05) continue;
                 const p = this._llToCanvas(lat, lonLo);
-                if (!p || p.cy < -1 || p.cy > S + 1) continue;
+                if (!p || p.cy < -1 || p.cy > this.vh + 1) continue;
                 const big = major(i);
                 ctx.strokeStyle = big ? MAP.gridMajor : MAP.grid;
                 ctx.lineWidth = 1;
                 ctx.beginPath();
                 ctx.moveTo(0, Math.round(p.cy) + 0.5);
-                ctx.lineTo(S, Math.round(p.cy) + 0.5);
+                ctx.lineTo(this.vw, Math.round(p.cy) + 0.5);
                 ctx.stroke();
                 // Not over the scale bar along the bottom, or the meridian
                 // labels along the top.
-                if (p.cy > 14 && p.cy < S - 26) label(this._degrees(lat, dp, 'NS'), 3, p.cy + 3, big);
+                if (p.cy > 14 && p.cy < this.vh - 26) label(this._degrees(lat, dp, 'NS'), 3, p.cy + 3, big);
             }
             ctx.restore();
         }
@@ -1247,13 +1395,13 @@
 
         /** What has been built, as seen from above. */
         _drawBuild(ctx, v, s) {
-            const S = this.size;
+            const W = this.vw, H = this.vh;
             const cell = Math.max(1, Math.ceil(s));
             v.columns.forEach((col, key) => {
                 const comma = key.indexOf(',');
                 const x = +key.slice(0, comma), z = +key.slice(comma + 1);
                 const p = this._toCanvas(x, z);
-                if (p.cx < -cell || p.cy < -cell || p.cx > S || p.cy > S) return;
+                if (p.cx < -cell || p.cy < -cell || p.cx > W || p.cy > H) return;
                 // Higher blocks read lighter, so a skyline has shape.
                 const shade = 0.55 + Math.min(0.45, col.top / 24);
                 ctx.fillStyle = this._shade(col.hex, shade);
@@ -1282,7 +1430,7 @@
             ctx.lineWidth = 1.5;
             ctx.strokeRect(x, y, w, h);
             ctx.setLineDash([]);
-            if (w < this.size * 0.6 && y > 12) {
+            if (w < this.vw * 0.6 && y > 12) {
                 ctx.fillStyle = '#9ec5ff';
                 ctx.font = '600 9px system-ui, sans-serif';
                 ctx.fillText('this world', x, y - 3);
@@ -1302,14 +1450,13 @@
             const g = this.game, geo = g.geo;
             const list = g.settlements;
             if (!list || !list.length || !geo || !geo.region) return;
-            const S = this.size;
             const here = geo.anchor && geo.anchor.region;
 
             // Bucket to an eight-pixel grid: one pin per bucket, with a count.
             const buckets = new Map();
             list.forEach(w => {
                 const p = this._llToCanvas(w.lat, w.lon);
-                if (!p || p.cx < -6 || p.cy < -6 || p.cx > S + 6 || p.cy > S + 6) return;
+                if (!p || p.cx < -6 || p.cy < -6 || p.cx > this.vw + 6 || p.cy > this.vh + 6) return;
                 const key = Math.round(p.cx / 8) + ',' + Math.round(p.cy / 8);
                 const b = buckets.get(key);
                 if (b) { b.n++; b.here = b.here || w.region === here; }
@@ -1363,7 +1510,7 @@
         _drawTrails(ctx) {
             const geo = this.game.geo;
             if (!geo || !geo.region) return;
-            const S = this.size;
+            const W = this.vw, H = this.vh;
             ctx.save();
             ctx.lineJoin = ctx.lineCap = 'round';
             geo.travellers().forEach(name => {
@@ -1394,7 +1541,7 @@
                 ctx.setLineDash([]);
 
                 pts.forEach((p, i) => {
-                    if (p.cx < -8 || p.cy < -8 || p.cx > S + 8 || p.cy > S + 8) return;
+                    if (p.cx < -8 || p.cy < -8 || p.cx > W + 8 || p.cy > H + 8) return;
                     // Newest first in the list, so the first one is the freshest.
                     ctx.globalAlpha = Math.max(0.25, 0.85 - i * 0.09);
                     ctx.fillStyle = colour;
@@ -1415,11 +1562,11 @@
          * is the short way to do it. Returns null when none of the line is.
          */
         _clipSegment(a, b) {
-            const S = this.size, pad = S * 0.2;
-            const lo = -pad, hi = S + pad;
+            const padX = this.vw * 0.2, padY = this.vh * 0.2;
+            const loX = -padX, hiX = this.vw + padX, loY = -padY, hiY = this.vh + padY;
             const dx = b.cx - a.cx, dy = b.cy - a.cy;
             let t0 = 0, t1 = 1;
-            const edges = [[-dx, a.cx - lo], [dx, hi - a.cx], [-dy, a.cy - lo], [dy, hi - a.cy]];
+            const edges = [[-dx, a.cx - loX], [dx, hiX - a.cx], [-dy, a.cy - loY], [dy, hiY - a.cy]];
             for (const [p, q] of edges) {
                 if (p === 0) { if (q < 0) return null; continue; }
                 const r = q / p;
@@ -1439,19 +1586,82 @@
          * at them — being told "they are that way, 40 km" is more use than
          * being told nothing, and it is how you decide where to pan next.
          */
+        /**
+         * Where I am *right now*, in world cells, with the way I am facing.
+         *
+         * Not where my phone says my body is. The map used to draw the local
+         * player from `geo.roster()`, which is a device GPS fix: opt-in,
+         * blurred to a 5m grid and shared at most once every 5s (geo.js
+         * SHARE_PRECISION / SHARE_THROTTLE_MS). So the dot wearing your colour
+         * sat wherever your real body was, drifted with GPS noise, and did not
+         * move when you walked — which is exactly the "my marker is in the
+         * wrong place" complaint. The in-world position is right here on the
+         * game object and is exact.
+         */
+        _mePos() {
+            const g = this.game;
+            const fps = g.fps;
+            if (fps && fps.active) {
+                // First person walks along -(sin yaw, cos yaw) in xz.
+                return {
+                    x: fps.pos.x, z: fps.pos.z,
+                    heading: Math.atan2(-Math.cos(fps.yaw), -Math.sin(fps.yaw))
+                };
+            }
+            const v = g.voxels;
+            if (!v || !v.target || !v.cam) return null;
+            // The orbit camera looks from its angle in towards the target.
+            return {
+                x: v.target.x, z: v.target.z,
+                heading: Math.atan2(-Math.sin(v.cam.theta), -Math.cos(v.cam.theta))
+            };
+        }
+
+        /**
+         * The wedge showing which way you are looking.
+         *
+         * A minimap exists to answer "where am I and which way am I facing";
+         * the second half was missing.
+         */
+        _drawHeading(ctx, cx, cy, heading, colour) {
+            if (!isFinite(heading)) return;
+            const reach = 26, spread = 0.52;          // ~60 degrees
+            const grad = ctx.createRadialGradient(cx, cy, 0, cx, cy, reach);
+            grad.addColorStop(0, 'rgba(255,255,255,0.34)');
+            grad.addColorStop(1, 'rgba(255,255,255,0)');
+            ctx.save();
+            ctx.beginPath();
+            ctx.moveTo(cx, cy);
+            ctx.arc(cx, cy, reach, heading - spread, heading + spread);
+            ctx.closePath();
+            ctx.fillStyle = grad;
+            ctx.fill();
+            ctx.strokeStyle = colour;
+            ctx.globalAlpha = 0.5;
+            ctx.lineWidth = 1;
+            ctx.stroke();
+            ctx.restore();
+        }
+
         _drawPeople(ctx) {
             const g = this.game, geo = g.geo;
             if (!geo || !geo.anchor) return;
-            const S = this.size, edge = 10;
+            const edge = 10;
 
             geo.roster().forEach(entry => {
+                // Mine is not drawn here: a GPS record says where somebody's
+                // body is, which is the wrong answer for my own avatar, and
+                // this whole method is skipped in an unpinned world. _drawMe
+                // owns the local player.
+                if (entry.name === g.username) return;
+                const me = false;
+                const colour = g.generateUserColor(entry.name);
+
                 if (!isFinite(entry.lat) || !isFinite(entry.lon)) return;
                 const at = this._llToCanvas(entry.lat, entry.lon);
                 if (!at) return;
-                const colour = g.generateUserColor(entry.name);
-                const me = entry.name === g.username;
 
-                if (at.cx < edge || at.cy < edge || at.cx > S - edge || at.cy > S - edge) {
+                if (at.cx < edge || at.cy < edge || at.cx > this.vw - edge || at.cy > this.vh - edge) {
                     this._drawOffscreen(ctx, at, colour, entry, me);
                     return;
                 }
@@ -1481,22 +1691,14 @@
                     ctx.stroke();
                     ctx.setLineDash([]);
                 }
-                if (me) {
-                    // Yours is the one you look for first: give it a ring.
-                    ctx.strokeStyle = 'rgba(255,255,255,0.55)';
-                    ctx.lineWidth = 1;
-                    ctx.beginPath();
-                    ctx.arc(at.cx, at.cy, 8, 0, Math.PI * 2);
-                    ctx.stroke();
-                }
                 ctx.restore();
             });
         }
 
         /** An arrow on the border, pointing at somebody past it. */
         _drawOffscreen(ctx, at, colour, entry, me) {
-            const S = this.size, pad = 9;
-            const cx = S / 2, cy = S / 2;
+            const pad = 9;
+            const cx = this.vw / 2, cy = this.vh / 2;
             const dx = at.cx - cx, dy = at.cy - cy;
             // Where the line out to them crosses the border box.
             const k = Math.min((cx - pad) / Math.abs(dx || 1e-6), (cy - pad) / Math.abs(dy || 1e-6));
@@ -1523,30 +1725,39 @@
         }
 
         /** The area the camera is looking at, and which way it faces. */
-        _drawCamera(ctx, v) {
-            const t = v.target;
-            const c = this._toCanvas(t.x, t.z);
+        /**
+         * The one and only "you are here".
+         *
+         * There used to be two glyphs fighting over this: an anonymous white
+         * ring at the camera target drawn here, and a coloured, ringed dot in
+         * _drawPeople placed from the device's GPS fix. The colour and the ring
+         * — the cues that read as "me" — were on the one in the wrong place.
+         * Now there is a single marker, in your own colour, at your real
+         * in-world position, showing which way you face.
+         */
+        _drawMe(ctx) {
+            const p = this._mePos();
+            if (!p) return;
+            const g = this.game;
+            const at = this._toCanvas(p.x, p.z);
+            const colour = (g.generateUserColor && g.generateUserColor(g.username)) || '#ffffff';
+
+            this._drawHeading(ctx, at.cx, at.cy, p.heading, colour);
+
             ctx.save();
-            ctx.strokeStyle = 'rgba(255,255,255,0.9)';
-            ctx.lineWidth = 1.5;
+            ctx.fillStyle = colour;
             ctx.beginPath();
-            ctx.arc(c.cx, c.cy, 5, 0, Math.PI * 2);
+            ctx.arc(at.cx, at.cy, 4.5, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.strokeStyle = 'rgba(255,255,255,0.95)';
+            ctx.lineWidth = 1.4;
             ctx.stroke();
-            const theta = v.cam.theta;
+            ctx.strokeStyle = 'rgba(255,255,255,0.5)';
+            ctx.lineWidth = 1;
             ctx.beginPath();
-            ctx.moveTo(c.cx, c.cy);
-            ctx.lineTo(c.cx - Math.cos(theta) * 13, c.cy - Math.sin(theta) * 13);
+            ctx.arc(at.cx, at.cy, 8.5, 0, Math.PI * 2);
             ctx.stroke();
             ctx.restore();
-
-            const g = this.game;
-            if (g.fps && g.fps.active) {
-                const f = this._toCanvas(g.fps.pos.x, g.fps.pos.z);
-                ctx.fillStyle = '#ffffff';
-                ctx.beginPath();
-                ctx.arc(f.cx, f.cy, 3, 0, Math.PI * 2);
-                ctx.fill();
-            }
         }
 
         /**
@@ -1616,15 +1827,15 @@
 
         /** Border, north, scale bar, and whatever the map needs to say. */
         _drawChrome(ctx) {
-            const g = this.game, S = this.size;
+            const g = this.game, W = this.vw, H = this.vh;
             ctx.save();
             ctx.strokeStyle = 'rgba(255,255,255,0.22)';
             ctx.lineWidth = 1;
-            ctx.strokeRect(0.5, 0.5, S - 1, S - 1);
+            ctx.strokeRect(0.5, 0.5, W - 1, H - 1);
 
             // North: an arrow rather than a letter, at the top right where it
             // is out of the way of the graticule labels.
-            const nx = S - 16, ny = 14;
+            const nx = W - 16, ny = 14;
             ctx.fillStyle = MAP.shadow;
             ctx.beginPath();
             ctx.arc(nx, ny, 11, 0, Math.PI * 2);
@@ -1645,7 +1856,7 @@
             // Scale bar: a round number of metres, not a round number of pixels.
             const anchor = g.geo && g.geo.anchor;
             const bar = this._scaleBar(anchor);
-            const y = S - 12;
+            const y = H - 12;
             ctx.fillStyle = MAP.shadow;
             ctx.fillRect(6, y - 13, bar.px + 12, 20);
             ctx.strokeStyle = MAP.chrome;

@@ -36,7 +36,7 @@
     <div class="top-bar">
         <div class="brand">
             <span class="brand-mark">🧱</span>
-            <span class="brand-name">BlockParty</span>
+            <h1 class="brand-name">BlockParty</h1>
             <span id="roomBadge" class="room-badge"></span>
         </div>
         <div class="top-actions">
@@ -220,6 +220,36 @@
                     </select>
                 </div>
                 <div class="import-row">
+                    <label class="world-toggle" for="geoGround" title="What the floor itself shows">🗺 Ground</label>
+                    <select id="geoGround" title="What the floor itself shows">
+                        <option value="plain">Plain — bare grid</option>
+                        <option value="coast" selected>Coastline — land, sea and the line between</option>
+                        <option value="streets">Streets — the real map, on the floor</option>
+                    </select>
+                    <label class="world-toggle" title="Paint the surrounding country across the ground beyond the build area">
+                        <input type="checkbox" id="geoGroundPlain" checked> out to the horizon
+                    </label>
+                </div>
+                <div class="import-row" id="geoGroundStrengthRow">
+                    <label class="world-toggle" for="geoGroundStrength" title="How strongly the map shows through">How strong</label>
+                    <input id="geoGroundStrength" type="range" min="25" max="100" step="5" value="70" class="world-range">
+                    <span id="geoGroundStrengthVal" class="world-note" style="margin:0">70%</span>
+                </div>
+                <div id="geoGroundNote" class="world-note">The floor is a picture, not blocks — nothing to clear before you build. Map tiles are fetched once when you arrive somewhere and kept for that place.</div>
+                <div class="import-row" style="margin-top:8px">
+                    <span class="world-note" style="margin:0">Every world is 161 × 161 blocks and 40 high, at whatever scale you chose.</span>
+                    <button id="worldSizeWhy" class="btn btn-ghost" style="font-size:11px;padding:5px 10px">Why this size?</button>
+                </div>
+                <div id="worldSizeNote" class="world-note hidden">
+                    Because the size is part of the address. The Earth is divided into worlds by
+                    fitting a fixed number of blocks across one map tile — that is how two rooms
+                    standing in the same place at the same scale end up in the same world, and how
+                    a saved build knows which patch of ground it belongs to. Widen the world and
+                    every world already pinned somewhere either goes missing or quietly covers half
+                    the ground it was built on. To see more, step out a rung; to see more detail,
+                    step in one. Each rung is its own world, and they all still exist.
+                </div>
+                <div class="import-row">
                     <button id="geoTraceBtn" class="btn btn-primary">🗺 Draw this place</button>
                     <select id="geoTraceStyle" title="What to draw here">
                         <option value="earth" selected>Ground &amp; sea — the real coastline</option>
@@ -273,7 +303,37 @@
 
             <div class="world-section">
                 <div class="world-title">Load a map</div>
+                <div class="map-tabs">
+                    <button id="mapTabBuilt" class="map-tab on" data-tab="built">Built in</button>
+                    <button id="mapTabPlaces" class="map-tab" data-tab="places">Real places</button>
+                    <button id="mapTabSaves" class="map-tab" data-tab="saves">Saved here</button>
+                    <input id="mapSearch" class="map-search" type="text" placeholder="Search maps and places…" autocomplete="off">
+                </div>
                 <div id="mapList" class="map-list"></div>
+                <div class="world-title" style="margin-top:14px">Or make one</div>
+                <div class="map-sources">
+                    <button id="mapFromPlace" class="map-source">
+                        <span class="map-emoji">📍</span>
+                        <span class="map-body">
+                            <span class="map-name">From a real place</span>
+                            <span class="map-desc">Travel somewhere and draw the ground from the map — roads, water, buildings.</span>
+                        </span>
+                    </button>
+                    <button id="mapFromSave" class="map-source">
+                        <span class="map-emoji">🗂</span>
+                        <span class="map-body">
+                            <span class="map-name">From a save</span>
+                            <span class="map-desc">Anything this room has saved is a map. Load it and build on top.</span>
+                        </span>
+                    </button>
+                    <button id="mapFromImage" class="map-source">
+                        <span class="map-emoji">🖼</span>
+                        <span class="map-body">
+                            <span class="map-name">From a picture</span>
+                            <span class="map-desc">Brightness becomes height — any image read as a heightfield.</span>
+                        </span>
+                    </button>
+                </div>
             </div>
 
             <div class="world-section">
@@ -281,9 +341,11 @@
                 <div class="import-row">
                     <input id="imgFile" type="file" accept="image/*">
                     <select id="imgStyle" title="How the picture is built">
-                        <option value="wall">Standing wall</option>
-                        <option value="floor">Flat on the ground</option>
-                        <option value="relief">3D relief (bright = tall)</option>
+                        <option value="wall">Standing wall — a mural</option>
+                        <option value="floor">Flat on the ground — a mosaic</option>
+                        <option value="relief">Relief — bright stands taller</option>
+                        <option value="solid" selected>Solid relief — depth, with a back</option>
+                        <option value="terrain">Terrain — brightness becomes height</option>
                     </select>
                     <select id="imgPalette" title="Colours to build with">
                         <option value="true" selected>True colour</option>
@@ -296,11 +358,32 @@
                         <option value="64">64 wide</option>
                     </select>
                 </div>
+                <div class="import-row" id="imgDepthRow">
+                    <label class="world-toggle" for="imgDepth" title="How far the nearest part of the picture stands out from the furthest">How deep</label>
+                    <input id="imgDepth" type="range" min="2" max="12" step="1" value="6" class="world-range">
+                    <span id="imgDepthVal" class="world-note" style="margin:0">6 blocks</span>
+                </div>
                 <div class="import-row">
                     <label class="import-check"><input id="imgDither" type="checkbox" checked> Dither (smoother shading)</label>
+                    <label class="import-check"><input id="imgDropBg" type="checkbox" checked> Drop the background</label>
+                    <label class="import-check"><input id="imgGround" type="checkbox" checked> Stand it on the ground</label>
+                </div>
+                <div class="import-row import-preview hidden" id="imgPreviewRow">
+                    <figure>
+                        <canvas id="imgPreviewColour" width="64" height="64" aria-label="The colours it will build in"></canvas>
+                        <figcaption>colours</figcaption>
+                    </figure>
+                    <figure id="imgPreviewDepthFig">
+                        <canvas id="imgPreviewDepth" width="64" height="64" aria-label="The depth it read off the picture"></canvas>
+                        <figcaption>depth — bright is near</figcaption>
+                    </figure>
+                    <span class="world-note" style="margin:0;flex:1 1 120px">What it read off your picture. The background it dropped is the empty part.</span>
+                </div>
+                <div class="import-row">
+                    <span id="imgEstimate" class="world-note" style="margin:0"></span>
                     <button id="imgPlace" class="btn btn-primary" disabled>Build it</button>
                 </div>
-                <div id="imgNote" class="world-note">Pick an image — it lands in front of the camera.</div>
+                <div id="imgNote" class="world-note">Pick an image — it lands in front of the camera, and never leaves this device.</div>
             </div>
 
             <div class="world-section">
@@ -333,6 +416,15 @@
     </div>
 
     <!-- Match HUD (only visible during a match) -->
+    <div id="pictureCard" class="picture-card hidden">
+        <div class="picture-head">
+            <span class="picture-title">Your reference</span>
+            <span class="picture-note">everyone has this one</span>
+        </div>
+        <canvas id="pictureCanvas" width="320" height="320" aria-label="The picture to build"></canvas>
+        <div id="pictureCaption" class="picture-caption">This is the whole brief. There is no model to copy — work out what it shows, and build that.</div>
+    </div>
+
     <div id="matchHud" class="match-hud hidden">
         <div class="mh-top">
             <span id="mhMode" class="mh-mode"></span>
@@ -355,6 +447,7 @@
                 <h2>🎮 Start a match</h2>
                 <button id="modeClose" class="bp-close" aria-label="Close">✕</button>
             </div>
+            <div id="modeKinds" class="mode-kinds"></div>
             <div id="modeList" class="mode-list"></div>
             <div class="mode-opts">
                 <label>Rounds
@@ -412,6 +505,17 @@
 </div>
 
 <!-- Toast Notifications -->
+<div id="zoomOut" class="zoom-out hidden">
+        <div class="zoom-out-text">
+            <strong>That is as far as the camera goes.</strong>
+            <span id="zoomOutMsg">To see more ground you have to change what a block is.</span>
+        </div>
+        <div class="zoom-out-actions">
+            <button id="zoomOutGo" class="btn btn-primary">Travel out</button>
+            <button id="zoomOutNo" class="btn btn-ghost">Stay here</button>
+        </div>
+    </div>
+    <div id="osmCredit" class="osm-credit hidden">Map data © <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap</a> contributors</div>
 <div id="toastContainer" class="toast-container"></div>
 
 <!-- SDK scripts (web-agent.* are copied into generated-web-agent-js at build time) -->
@@ -445,6 +549,7 @@
 <script src="fps.js"></script>
 <script src="models.js"></script>
 <script src="places.js"></script>
+<script src="pictures.js"></script>
 <script src="modes.js"></script>
 <script src="blockparty.js"></script>
 <script src="../../../js/app-chrome.js"></script>

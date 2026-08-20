@@ -135,6 +135,35 @@
             this._click(1200, 0.05, vol * 0.6);
         },
 
+        /**
+         * A brick hitting something. The sound a collapse is made of.
+         *
+         * Physics used to be silent until the very last block settled, which is
+         * most of why a tower coming down could read as a glitch rather than as
+         * drama. Weight is carried by pitch: a 2x4 lands lower than a cube.
+         *
+         * Its own rate limit, not the shared one — a collapse should sound like
+         * several things landing, without the placement plinks starving it or
+         * it starving them.
+         *
+         * @param {number} strength impact speed along the contact normal
+         * @param {number} mass     cells in the piece, so bigger lands deeper
+         */
+        thud(strength, mass) {
+            if (!this._ready()) return;
+            const now = performance.now();
+            if (now - (this._lastThud || 0) < 45) return;
+            this._lastThud = now;
+
+            const hit = Math.max(0, Math.min(1, (strength || 0) / 14));
+            const heft = Math.max(1, mass || 1);
+            const vol = 0.10 + hit * 0.34;
+            // Bigger pieces ring lower; a little wobble so repeats never phase.
+            const base = 96 / Math.pow(heft, 0.22) * (1 + (Math.random() - 0.5) * 0.08);
+            this._tone(base, 0.10 + hit * 0.06, vol, 'sine');
+            this._click(420 + hit * 500, 0.05 + hit * 0.04, vol * 0.7);
+        },
+
         /** A refusal: dull, low, and obviously not a placement. */
         invalid() {
             this._tone(90, 0.14, 0.3, 'sine');

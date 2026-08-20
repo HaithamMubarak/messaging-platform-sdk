@@ -359,6 +359,8 @@
                     entry.name === this.game.username, entry.live);
             });
             v.pruneGeoMarkers(shown);
+            // Somebody's pin moved: the map is drawn from this.
+            if (this.game.minimap) this.game.minimap.invalidate();
         }
 
         /**
@@ -477,6 +479,48 @@
         }
 
         static get MERCATOR() { return { lonToTileX, latToTileY, tileXToLon, tileYToLat }; }
+
+        /**
+         * The rungs of the scale ladder, and how to step up one.
+         *
+         * The Earth is divided into worlds of a fixed number of cells, so "how
+         * much ground can I see" is the same question as "how much ground is a
+         * block". These are the sizes the room may choose between — the same
+         * list the world panel offers, in one place so a step out and a picked
+         * option can never disagree.
+         */
+        static get SCALES() {
+            return [
+                { mpc: 1,      name: 'Street',        label: '1 m per block',    across: '161 m' },
+                { mpc: 2,      name: 'Block',         label: '2 m per block',    across: '322 m' },
+                { mpc: 5,      name: 'Neighbourhood', label: '5 m per block',    across: '805 m' },
+                { mpc: 20,     name: 'District',      label: '20 m per block',   across: '3.2 km' },
+                { mpc: 100,    name: 'City',          label: '100 m per block',  across: '16 km' },
+                { mpc: 1000,   name: 'Region',        label: '1 km per block',   across: '161 km' },
+                { mpc: 20000,  name: 'Continent',     label: '20 km per block',  across: '3,220 km' },
+                { mpc: 250000, name: 'Planet',        label: '250 km per block', across: 'the whole Earth' }
+            ];
+        }
+
+        /** The next rung out from where the room is standing, or null at the top. */
+        static nextScale(mpc) {
+            const rungs = Geo.SCALES;
+            // The anchor's mpc is derived from its tile, so it lands near a
+            // rung rather than exactly on one — step past anything within a
+            // few per cent of where we already are.
+            return rungs.find(r => r.mpc > (+mpc || 0) * 1.05) || null;
+        }
+
+        /** The rung the room is closest to, for saying where it is. */
+        static scaleAt(mpc) {
+            const rungs = Geo.SCALES;
+            let best = rungs[0], bestD = Infinity;
+            for (const r of rungs) {
+                const d = Math.abs(Math.log(r.mpc) - Math.log(Math.max(0.01, +mpc || 1)));
+                if (d < bestD) { bestD = d; best = r; }
+            }
+            return best;
+        }
 
         /**
          * Read a place a person typed.
