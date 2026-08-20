@@ -279,6 +279,15 @@ class UserConnectionBase {
                 });
             });
 
+            // The shared helpers in common-utils.js — the agents badge, the
+            // agents modal, the disconnect button — look for the live channel
+            // at window.channel, because they predate this class. Only chat.html
+            // ever set it, so in every app built on this base the agents badge
+            // sat at 0 for ever while the list beside it showed people. One
+            // line, and they all start working.
+            window.channel = this.channel;
+            this._syncAgentsBadge();
+
             console.log('[UserConnectionBase] Connected');
 
             // Setup automatic cleanup on page unload
@@ -288,6 +297,26 @@ class UserConnectionBase {
             this.connecting = false;
             throw error;
         }
+    }
+
+    /**
+     * Keep the shared agents badge in step with the roster.
+     *
+     * common-utils draws that badge and fills it from channel events it
+     * subscribes to when it first notices window.channel — which is after the
+     * connect event has been and gone, so it never heard the first one and the
+     * badge sat at 0 beside a list with people in it. This class knows the
+     * roster first-hand, so it says so directly, on joining and on every
+     * arrival and departure.
+     *
+     * @private
+     */
+    _syncAgentsBadge() {
+        try {
+            if (window.MiniGameUtils && typeof MiniGameUtils.setAgentsCount === 'function') {
+                MiniGameUtils.setAgentsCount(this.getUserCount());
+            }
+        } catch (e) { /* the badge is decoration; never let it break a join */ }
     }
 
     /**
@@ -362,6 +391,7 @@ class UserConnectionBase {
         }
 
         this.connected = false;
+        if (window.channel === this.channel) window.channel = null;
         console.log('[UserConnectionBase] Disconnected');
     }
 
@@ -941,6 +971,7 @@ class UserConnectionBase {
 
         // Agent connect event
         this.channel.addEventListener('agent-connect', (ev) => {
+            this._syncAgentsBadge();
             const agentName = ev.agentName;
             console.log(`[AgentSessionBase] Agent connected: ${agentName}`);
             if (agentName !== this.username) {
@@ -957,15 +988,33 @@ class UserConnectionBase {
                 if (this.options.autoCreateDataChannel) {
                     console.log(`[AgentSessionBase] Initiating DataChannel with new agent ${agentName}`);
                     this._initiateDataChannel(agentName);
-                }
 
-                // NOTE: onUserJoin is fired when DataChannel opens (when ready for communication)
+                    // onUserJoin waits for that DataChannel to open, because for
+                    // these apps "joined" means "reachable", and it is not
+                    // reachable until the channel is up.
+                } else {
+                    // No DataChannel is coming. An app that talks over the
+                    // channel alone is reachable the moment the server says the
+                    // agent connected, so waiting for an event that will never
+                    // fire left it deaf to arrivals while still hearing every
+                    // departure through onUserLeave — a roster that only ever
+                    // counted down.
+                    console.log(`[AgentSessionBase] Agent ${agentName} joined (channel-only) - firing onUserJoin`);
+                    if (typeof this.onUserJoin === 'function') {
+                        this.onUserJoin({
+                            agentName,
+                            users: this.getConnectedUsers().filter(n => n !== this.username),
+                            connectionTimeMs: null
+                        });
+                    }
+                }
             }
         });
 
         // Agent disconnect event
         this.channel.addEventListener('agent-disconnect', (ev) => {
             const agentName = ev.agentName;
+            this._syncAgentsBadge();
 
             // Release the initiation guard so this peer can be re-initiated if it
             // rejoins.

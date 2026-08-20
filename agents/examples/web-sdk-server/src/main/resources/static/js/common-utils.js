@@ -588,11 +588,22 @@
                 // }
                 // Create or attach an agents count badge next to the sidebar "Active Users" header
                 try {
-                    // Find a header that looks like the Active Users header (common variants)
-                    const candidates = Array.from(document.querySelectorAll('.sidebar h3, .sidebar .title, .sidebar header h3, h3'));
-                    let headerEl = candidates.find(el => el && /active users/i.test((el.textContent||'').trim()));
-                    // fallback: look for emoji prefix '👥' in any h3
-                    if (!headerEl) headerEl = candidates.find(el => el && (el.textContent||'').trim().startsWith('👥'));
+                    // Where the badge goes.
+                    //
+                    // Say so with an attribute if you can: this used to find the
+                    // heading by testing whether its text began with the 👥
+                    // emoji, so the moment an app replaced that emoji with a
+                    // proper icon the badge silently stopped being created —
+                    // which is exactly what a design-system conversion does.
+                    // The text heuristics are kept for the apps that have not
+                    // been marked up yet.
+                    let headerEl = document.querySelector('[data-agents-header]');
+
+                    if (!headerEl) {
+                        const candidates = Array.from(document.querySelectorAll('.sidebar h3, .sidebar .title, .sidebar header h3, h3'));
+                        headerEl = candidates.find(el => el && /active users|players|artists|spectators|people/i.test((el.textContent||'').trim()))
+                            || candidates.find(el => el && (el.textContent||'').trim().startsWith('👥'));
+                    }
 
                     if (headerEl) {
                         // If badge already exists, don't duplicate

@@ -21,6 +21,9 @@
     <meta name="description" content="A shared canvas of pixels: pick a colour and draw, and everyone in the room watches it appear.">
 
     <!-- Common Styles -->
+    <!-- The shared design system: tokens first, then the kit, then this app. -->
+    <link rel="stylesheet" href="../../css/design-tokens.css">
+    <link rel="stylesheet" href="../../css/ui.css">
     <link rel="stylesheet" href="../../css/toast.css">
     <link rel="stylesheet" href="../../css/connection-modal.css">
     <link rel="stylesheet" href="../../css/share-modal.css">
@@ -32,7 +35,7 @@
 <body>
     <!-- Share Button -->
     <button id="shareBtn" class="share-btn" onclick="pixelArtApp?.openShareModal()" style="display: none;">
-        📤 Share
+        <svg class="icon icon--sm" aria-hidden="true"><use href="#i-send"></use></svg> Share
     </button>
 
     <!-- Connection Status -->
@@ -46,13 +49,13 @@
         <!-- Header -->
         <div class="app-header">
             <div class="header-left">
-                <h1>🎨 Pixel Art Editor</h1>
+                <h1><svg class="icon icon--sm" aria-hidden="true"><use href="#i-pen"></use></svg> Pixel Art Editor</h1>
                 <span id="roomName" class="room-badge"></span>
             </div>
             <div class="header-right">
                 <span id="gridSize" class="grid-info">32x32</span>
                 <span id="userCount" class="user-count">
-                    👥 <span id="userCountNum">0</span>
+                    <svg class="icon icon--sm" aria-hidden="true"><use href="#i-users"></use></svg> <span id="userCountNum">0</span>
                 </span>
             </div>
         </div>
@@ -63,26 +66,26 @@
             <div class="toolbar-left">
                 <!-- Tools -->
                 <div class="tool-section">
-                    <h3>🛠️ Tools</h3>
+                    <h3><svg class="icon icon--sm" aria-hidden="true"><use href="#i-wrench"></use></svg> Tools</h3>
                     <div class="tool-buttons">
-                        <button class="tool-btn active" data-tool="pen" title="Pen (P)">
-                            ✏️
+                        <button class="tool-btn active" data-tool="pen" title="Pen (P)" aria-label="Pen">
+                            <svg class="icon" aria-hidden="true"><use href="#i-pen"></use></svg>
                         </button>
-                        <button class="tool-btn" data-tool="eraser" title="Eraser (E)">
-                            🧹
+                        <button class="tool-btn" data-tool="eraser" title="Eraser (E)" aria-label="Eraser">
+                            <svg class="icon" aria-hidden="true"><use href="#i-eraser"></use></svg>
                         </button>
-                        <button class="tool-btn" data-tool="fill" title="Fill (F)">
-                            🪣
+                        <button class="tool-btn" data-tool="fill" title="Fill (F)" aria-label="Fill">
+                            <svg class="icon" aria-hidden="true"><use href="#i-bucket"></use></svg>
                         </button>
-                        <button class="tool-btn" data-tool="eyedropper" title="Eyedropper (I)">
-                            💧
+                        <button class="tool-btn" data-tool="eyedropper" title="Eyedropper (I)" aria-label="Eyedropper">
+                            <svg class="icon" aria-hidden="true"><use href="#i-dropper"></use></svg>
                         </button>
                     </div>
                 </div>
 
                 <!-- Colors -->
                 <div class="tool-section">
-                    <h3>🎨 Colors</h3>
+                    <h3><svg class="icon icon--sm" aria-hidden="true"><use href="#i-layers"></use></svg> Colors</h3>
                     <div class="color-palette">
                         <!-- Primary colors -->
                         <button class="color-swatch active" data-color="#000000" style="background: #000000"></button>
@@ -118,7 +121,7 @@
 
                 <!-- Grid Size -->
                 <div class="tool-section">
-                    <h3>📐 Grid Size</h3>
+                    <h3><svg class="icon icon--sm" aria-hidden="true"><use href="#i-grid"></use></svg> Grid Size</h3>
                     <select id="gridSizeSelect" class="grid-select">
                         <option value="16">16x16</option>
                         <option value="32" selected>32x32</option>
@@ -129,12 +132,12 @@
 
                 <!-- Actions -->
                 <div class="tool-section">
-                    <h3>⚡ Actions</h3>
+                    <h3><svg class="icon icon--sm" aria-hidden="true"><use href="#i-zap"></use></svg> Actions</h3>
                     <button class="action-btn" onclick="pixelArtApp?.clearCanvas()">
-                        🗑️ Clear All
+                        <svg class="icon icon--sm" aria-hidden="true"><use href="#i-trash"></use></svg> Clear All
                     </button>
                     <button class="action-btn" onclick="pixelArtApp?.exportImage()">
-                        💾 Export PNG
+                        <svg class="icon icon--sm" aria-hidden="true"><use href="#i-download"></use></svg> Export PNG
                     </button>
                 </div>
             </div>
@@ -158,7 +161,7 @@
             <!-- Right Panel: Users & Cursors -->
             <div class="sidebar-right">
                 <div class="users-panel">
-                    <h3>👥 Artists</h3>
+                    <h3 data-agents-header><svg class="icon icon--sm" aria-hidden="true"><use href="#i-users"></use></svg> Artists</h3>
                     <div id="usersList" class="users-list"></div>
                 </div>
             </div>
@@ -167,6 +170,8 @@
 
     <!-- Include Libraries -->
     <script src="../../js/config-loader.js"></script>
+    <script src="../../js/icons.js"></script>
+    <script src="../../js/ui.js"></script>
     <script src="../../lib/qrcode.min.js"></script>
     <script src="../../generated-web-agent-js/js/web-agent.libs.js"></script>
     <script src="../../generated-web-agent-js/js/web-agent.js"></script>
