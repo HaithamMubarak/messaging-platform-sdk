@@ -21,6 +21,8 @@
     <link rel="stylesheet" href="../../css/share-modal.css">
     <link rel="stylesheet" href="../../css/connection-modal.css">
 
+    <link rel="stylesheet" href="../../css/design-tokens.css">
+    <link rel="stylesheet" href="../../css/ui.css">
     <link rel="stylesheet" href="excalidraw-style.css">
     <style>
         :root {
@@ -2499,39 +2501,39 @@
                 <!-- Group 1: Action Buttons (Sync, Undo, Redo, Clear, Save, Import, Share, Disconnect) -->
                 <div class="toolbar-group actions-group">
                     <div class="tool-group">
-                        <button id="rsyncBtn" onclick="triggerManualRsync()" class="tool-btn" title="Sync canvas to all agents">✨</button>
-                        <button id="syncModeBtn" onclick="toggleSyncMode()" class="tool-btn" title="Sync Mode">🔄</button>
+                        <button id="rsyncBtn" onclick="triggerManualRsync()" class="tool-btn" title="Sync canvas to all agents" aria-label="Sync canvas to all agents"><svg class="icon" aria-hidden="true"><use href="#i-refresh"></use></svg></button>
+                        <button id="syncModeBtn" onclick="toggleSyncMode()" class="tool-btn" title="Sync Mode" aria-label="Sync mode"><svg class="icon" aria-hidden="true"><use href="#i-settings"></use></svg></button>
                         <span title="Undo - Will be supported in future" style="display: inline-block; cursor: not-allowed;">
-                            <button id="undoBtn" class="tool-btn" disabled style="opacity: 0.3 !important; cursor: not-allowed !important; pointer-events: none !important; filter: grayscale(100%) !important; background: transparent !important; color: #666 !important;">↶</button>
+                            <button id="undoBtn" class="tool-btn" disabled style="opacity: 0.3 !important; cursor: not-allowed !important; pointer-events: none !important; filter: grayscale(100%) !important; background: transparent !important; color: #666 !important;"><svg class="icon" aria-hidden="true"><use href="#i-undo"></use></svg></button>
                         </span>
                         <span title="Redo - Will be supported in future" style="display: inline-block; cursor: not-allowed;">
-                            <button id="redoBtn" class="tool-btn" disabled style="opacity: 0.3 !important; cursor: not-allowed !important; pointer-events: none !important; filter: grayscale(100%) !important; background: transparent !important; color: #666 !important;">↷</button>
+                            <button id="redoBtn" class="tool-btn" disabled style="opacity: 0.3 !important; cursor: not-allowed !important; pointer-events: none !important; filter: grayscale(100%) !important; background: transparent !important; color: #666 !important;"><svg class="icon" aria-hidden="true"><use href="#i-redo"></use></svg></button>
                         </span>
                     </div>
 
                     <div class="tool-group">
-                        <button onclick="zoomIn()" class="tool-btn" title="Zoom In (Ctrl++)">🔍+</button>
+                        <button onclick="zoomIn()" class="tool-btn" title="Zoom In (Ctrl++)" aria-label="Zoom in"><svg class="icon" aria-hidden="true"><use href="#i-zoom-in"></use></svg></button>
                         <span id="zoomIndicator" class="zoom-indicator-toolbar">100%</span>
-                        <button onclick="zoomOut()" class="tool-btn" title="Zoom Out (Ctrl-)">🔍−</button>
-                        <button onclick="resetZoom()" class="tool-btn" title="Reset Zoom (Ctrl+0)">⊙</button>
+                        <button onclick="zoomOut()" class="tool-btn" title="Zoom Out (Ctrl-)" aria-label="Zoom out"><svg class="icon" aria-hidden="true"><use href="#i-zoom-out"></use></svg></button>
+                        <button onclick="resetZoom()" class="tool-btn" title="Reset Zoom (Ctrl+0)" aria-label="Reset zoom"><svg class="icon" aria-hidden="true"><use href="#i-target"></use></svg></button>
                     </div>
 
                     <div class="tool-group">
-                        <button onclick="clearCanvas()" class="action-btn" title="Clear canvas">🗑️</button>
-                        <button onclick="exportImage()" class="action-btn" title="Save as image">💾</button>
-                        <button onclick="importImage()" class="action-btn" title="Import image">📁</button>
-                        <button id="shareBtn" class="action-btn primary" title="Share whiteboard">🔗</button>
-                        <button id="disconnectBtn" onclick="disconnect()" class="action-btn danger" title="Disconnect from Whiteboard">🔌❌</button>
+                        <button onclick="clearCanvas()" class="action-btn" title="Clear canvas" aria-label="Clear canvas"><svg class="icon" aria-hidden="true"><use href="#i-trash"></use></svg></button>
+                        <button onclick="exportImage()" class="action-btn" title="Save as image" aria-label="Save as image"><svg class="icon" aria-hidden="true"><use href="#i-download"></use></svg></button>
+                        <button onclick="importImage()" class="action-btn" title="Import image" aria-label="Import image"><svg class="icon" aria-hidden="true"><use href="#i-upload"></use></svg></button>
+                        <button id="shareBtn" class="action-btn primary" title="Share whiteboard" aria-label="Share whiteboard"><svg class="icon" aria-hidden="true"><use href="#i-send"></use></svg></button>
+                        <button id="disconnectBtn" onclick="disconnect()" class="action-btn danger" title="Disconnect from Whiteboard" aria-label="Leave the whiteboard"><svg class="icon" aria-hidden="true"><use href="#i-log-out"></use></svg></button>
                     </div>
                 </div>
 
                 <!-- Group 2: Drawing Tools (Hand, Pen, Erase, Colors, Size) -->
                 <div class="toolbar-group drawing-tools-group">
                     <div class="tool-group">
-                        <button id="handBtn" onclick="setTool('hand')" class="tool-btn" title="Hand Tool (Pan & Zoom)">✋</button>
-                        <button id="drawBtn" onclick="setTool('draw')" class="tool-btn active" title="Draw">✏️</button>
-                        <button id="eraseBtn" onclick="setTool('erase')" class="tool-btn" title="Erase">🧹</button>
-                        <button id="magicBtn" onclick="setTool('magic')" class="tool-btn" title="Magic Pen - Auto-disappearing annotations (3s)">✨</button>
+                        <button id="handBtn" onclick="setTool('hand')" class="tool-btn" title="Hand Tool (Pan &amp; Zoom)" aria-label="Hand tool"><svg class="icon" aria-hidden="true"><use href="#i-hand"></use></svg></button>
+                        <button id="drawBtn" onclick="setTool('draw')" class="tool-btn active" title="Draw" aria-label="Draw"><svg class="icon" aria-hidden="true"><use href="#i-pen"></use></svg></button>
+                        <button id="eraseBtn" onclick="setTool('erase')" class="tool-btn" title="Erase" aria-label="Erase"><svg class="icon" aria-hidden="true"><use href="#i-eraser"></use></svg></button>
+                        <button id="magicBtn" onclick="setTool('magic')" class="tool-btn" title="Magic Pen - Auto-disappearing annotations (3s)" aria-label="Magic pen"><svg class="icon" aria-hidden="true"><use href="#i-zap"></use></svg></button>
                     </div>
 
                     <div class="tool-group">
@@ -2600,6 +2602,8 @@
 
     <!-- Load SDK Scripts from generated folder (copied at build time) -->
     <script src="../../js/config-loader.js"></script>
+    <script src="../../js/icons.js"></script>
+    <script src="../../js/ui.js"></script>
     <script src="../../lib/qrcode.min.js"></script>
     <script src="../../generated-web-agent-js/js/web-agent.libs.js"></script>
     <script src="../../generated-web-agent-js/js/web-agent.js"></script>

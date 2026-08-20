@@ -1329,3 +1329,68 @@ button[id*="disconnect"]:hover,
 }
 
 
+
+/* ==========================================================================
+   Icons in the toolbar.
+
+   Every button in this toolbar used to be a single emoji, and two different
+   actions — "sync canvas to everyone" and the magic pen — were both ✨. At a
+   glance nobody could tell the pen from the eraser from the share button, on
+   the demo the landing page points at first.
+
+   They are sprite icons now. The chrome stays light on purpose: this is a
+   whiteboard, the canvas is paper, and dark chrome around white paper is the
+   wrong way round for the one app whose subject is the paper.
+   ========================================================================== */
+
+/* The buttons are 28px square with `padding: 6px 12px` from `.tool-group
+ * button`, which leaves a content box four pixels wide. An emoji did not care
+ * — it overflowed and still read. An <svg> with the default `min-width: auto`
+ * obediently shrank into the four pixels and rendered as a sliver, which is
+ * why half this toolbar looked like empty coloured squares. An icon button
+ * holds an icon and nothing else, so the padding goes. */
+.tool-group .tool-btn,
+.tool-group button.tool-btn,
+.tool-btn,
+.action-btn.icon-only {
+    padding: 0;
+}
+
+.tool-btn .icon,
+.action-btn .icon,
+.tool-btn svg,
+.action-btn svg {
+    width: 18px;
+    height: 18px;
+    min-width: 18px;        /* a flex item's default min-width is its content */
+    flex: none;
+    stroke: currentColor;
+    pointer-events: none;   /* the button takes the click, not the glyph */
+}
+
+.tool-btn,
+.action-btn {
+    color: #334155;
+}
+
+.tool-btn:hover,
+.action-btn:hover { color: #0f172a; }
+
+/* Which tool you are holding, said with more than a faint background. */
+.tool-btn.active {
+    background: #eef2ff;
+    color: #4338ca;
+    box-shadow: inset 0 0 0 1px #c7d2fe;
+}
+
+.action-btn.primary { color: #4338ca; }
+.action-btn.danger { color: #b91c1c; }
+
+.tool-btn:focus-visible,
+.action-btn:focus-visible {
+    outline: 2px solid #6366f1;
+    outline-offset: 1px;
+}
+
+/* A disabled undo arrow should look unavailable, not invisible. */
+.tool-btn:disabled { opacity: 0.35; }

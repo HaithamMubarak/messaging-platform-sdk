@@ -1,7 +1,17 @@
 /* Share Modal - Reusable Component */
 
 /* Modal styles - shared by share-modal and decrypt-modal */
-.modal {
+/* Scoped to the two dialogs this file owns.
+ *
+ * These rules used to be a bare `.modal`, and ui.css declares its own `.modal`
+ * as `display: flex` for the kit's dialog system. Whichever stylesheet loaded
+ * last won — so an app that adopted the design system and happened to put
+ * ui.css after this file had its share dialog permanently open across the
+ * screen, swallowing every click meant for the canvas underneath. Naming the
+ * two ids makes these rules win on specificity instead of on load order, which
+ * is not something anyone should have to remember. */
+#share-modal.modal,
+#decrypt-modal.modal {
     display: none;
     position: fixed;
     inset: 0;
@@ -10,7 +20,8 @@
     backdrop-filter: blur(4px);
 }
 
-.modal.active {
+#share-modal.modal.active,
+#decrypt-modal.modal.active {
     display: flex;
     align-items: center;
     justify-content: center;
