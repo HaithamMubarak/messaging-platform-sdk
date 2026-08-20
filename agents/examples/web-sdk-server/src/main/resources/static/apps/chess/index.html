@@ -5,7 +5,7 @@
     <script src="../../js/prod-log.js"></script>
     <link rel="icon" type="image/svg+xml" href="../../favicon.svg">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5, user-scalable=yes">
-    <meta name="theme-color" content="#2c3e50">
+    <meta name="theme-color" content="#0b1120">
     <title>♟️ Chess - Multiplayer</title>
     <meta name="description" content="Two-player chess with full rules and a board that survives a refresh. Share the room link and make your move.">
     <link rel="canonical" href="https://hmdevonline.com/messaging-platform/sdk/apps/chess/index.html">
@@ -17,6 +17,10 @@
     <meta property="og:url" content="https://hmdevonline.com/messaging-platform/sdk/apps/chess/index.html">
     <meta property="og:image" content="https://hmdevonline.com/messaging-platform/sdk/images/og-image.png">
     <meta name="twitter:card" content="summary_large_image">
+
+    <!-- The shared design system: tokens first, then the kit, then this app. -->
+    <link rel="stylesheet" href="../../css/design-tokens.css">
+    <link rel="stylesheet" href="../../css/ui.css">
 
     <!-- Common Styles -->
     <link rel="stylesheet" href="../../css/toast.css">
@@ -33,7 +37,7 @@
 <body>
     <!-- Share Button -->
     <button id="shareBtn" class="share-btn" onclick="chessGame?.openShareModal()" style="display: none;">
-        📤 Share
+        <svg class="icon icon--sm" aria-hidden="true"><use href="#i-send"></use></svg> Share
     </button>
 
     <!-- Connection Status -->
@@ -88,7 +92,7 @@
 
                 <!-- Spectators -->
                 <div class="spectators-panel">
-                    <h3>👀 Spectators (<span id="spectatorCount">0</span>)</h3>
+                    <h3><svg class="icon icon--sm" aria-hidden="true"><use href="#i-eye"></use></svg> Spectators (<span id="spectatorCount">0</span>)</h3>
                     <div id="spectatorsList" class="spectators-list"></div>
                 </div>
             </div>
@@ -112,20 +116,20 @@
             <!-- Right Sidebar: Move History & Controls -->
             <div class="sidebar-right">
                 <div class="controls-panel">
-                    <h3>🎮 Controls</h3>
+                    <h3><svg class="icon icon--sm" aria-hidden="true"><use href="#i-gamepad"></use></svg> Controls</h3>
                     <button id="newGameBtn" class="btn-secondary" onclick="chessGame?.requestNewGame()" disabled>
-                        🔄 New Game
+                        <svg class="icon icon--sm" aria-hidden="true"><use href="#i-refresh"></use></svg> New Game
                     </button>
                     <button id="resignBtn" class="btn-danger" onclick="chessGame?.resign()" disabled>
-                        🏳️ Resign
+                        <svg class="icon icon--sm" aria-hidden="true"><use href="#i-ban"></use></svg> Resign
                     </button>
                     <button id="offerDrawBtn" class="btn-secondary" onclick="chessGame?.offerDraw()" disabled>
-                        🤝 Offer Draw
+                        <svg class="icon icon--sm" aria-hidden="true"><use href="#i-check"></use></svg> Offer Draw
                     </button>
                 </div>
 
                 <div class="moves-panel">
-                    <h3>📜 Move History</h3>
+                    <h3><svg class="icon icon--sm" aria-hidden="true"><use href="#i-list"></use></svg> Move History</h3>
                     <div id="moveHistory" class="move-history"></div>
                 </div>
             </div>
@@ -152,6 +156,8 @@
 
     <!-- Include Libraries (dependencies must load before the game) -->
     <script src="../../js/config-loader.js"></script>
+    <script src="../../js/icons.js"></script>
+    <script src="../../js/ui.js"></script>
     <script src="../../lib/qrcode.min.js"></script>
     <script src="../../generated-web-agent-js/js/web-agent.libs.js"></script>
     <script src="../../generated-web-agent-js/js/web-agent.js"></script>

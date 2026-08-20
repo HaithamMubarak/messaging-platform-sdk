@@ -1,14 +1,24 @@
+/* ==========================================================================
+   Chess, on the shared design system.
+   Requires design-tokens.css and ui.css, which are loaded before this file.
+
+   What changed and what did not: every selector here has the same name it had
+   before, because chess-game.js builds the board and the move list by class.
+   What changed is the vocabulary — surfaces, borders, radii, spacing, type and
+   the status colours now come from the tokens the rest of the site uses,
+   instead of the private palette this file used to declare at the top.
+
+   The two colours that are deliberately still local are the board squares. A
+   chessboard is not chrome: light and dark squares have to read as a
+   chessboard first and as part of a colour scheme second, so they keep their
+   traditional values and everything around them is what moves.
+   ========================================================================== */
+
 :root {
-    --primary: #2c3e50;
-    --primary-dark: #1a252f;
-    --success: #10b981;
-    --danger: #ef4444;
-    --warning: #f59e0b;
-    --light-square: #f0d9b5;
-    --dark-square: #b58863;
-    --gray-50: #f9fafb;
-    --gray-100: #f3f4f6;
-    --gray-800: #1f2937;
+    /* The board itself. Everything else comes from design-tokens.css. */
+    --light-square: #e8d5b0;
+    --dark-square: #9c6f4a;
+    --board-frame: rgba(148, 163, 184, 0.28);
 }
 
 * {
@@ -19,518 +29,584 @@
 
 html, body {
     width: 100%;
-    min-height: 100vh;
+    min-height: 100%;
+    /* This is an application shell, not a document: the layout is sized to the
+       viewport and there is nothing to the right of it to reach. Saying so
+       stops the stray horizontal scrollbar the old build also had — it was a
+       few pixels of nothing, and it made the whole board drift when you
+       touched the trackpad sideways. */
+    overflow-x: hidden;
 }
 
 body {
-    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-    background: linear-gradient(135deg, #2c3e50 0%, #34495e 100%);
-    color: white;
+    font-family: var(--font-sans);
+    background: var(--bg);
+    color: var(--text-body);
 }
 
 .hidden { display: none !important; }
 
-/* Share Button */
+/* ---- floating chrome ------------------------------------------------------
+ * app-chrome.js moves these into the header where the app has one; the fixed
+ * position below is the fallback for when it cannot.
+ */
 .share-btn {
     position: fixed;
-    top: 20px;
-    right: 20px;
-    background: var(--primary);
-    color: white;
-    border: none;
-    padding: 12px 24px;
-    border-radius: 8px;
-    cursor: pointer;
-    font-size: 16px;
+    top: var(--sp-4);
+    right: var(--sp-4);
+    display: inline-flex;
+    align-items: center;
+    gap: var(--sp-2);
+    padding: 0.5rem 0.875rem;
+    font: inherit;
+    font-size: var(--fs-sm);
     font-weight: 600;
-    box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+    color: var(--text);
+    background: var(--surface-2);
+    border: 1px solid var(--border-strong);
+    border-radius: var(--r-md);
+    cursor: pointer;
     z-index: 100;
-    transition: all 0.3s ease;
+    transition: background var(--dur-fast) var(--ease), border-color var(--dur-fast) var(--ease);
 }
 
-.share-btn:hover {
-    background: var(--primary-dark);
-    transform: translateY(-2px);
-}
+.share-btn:hover { background: var(--surface-3); border-color: var(--brand); }
+.share-btn:focus-visible { outline: none; box-shadow: var(--focus-ring); }
 
-/* Connection Status */
 .connection-status {
     position: fixed;
-    top: 20px;
-    left: 20px;
-    background: rgba(255, 255, 255, 0.95);
-    color: var(--gray-800);
-    padding: 8px 16px;
-    border-radius: 20px;
+    top: var(--sp-4);
+    left: var(--sp-4);
     display: flex;
     align-items: center;
-    gap: 8px;
-    font-size: 14px;
-    box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+    gap: var(--sp-2);
+    padding: 0.375rem 0.75rem;
+    font-size: var(--fs-sm);
+    color: var(--text-body);
+    background: var(--surface-2);
+    border: 1px solid var(--border);
+    border-radius: var(--r-pill);
     z-index: 100;
 }
 
 .status-dot {
-    width: 10px;
-    height: 10px;
-    border-radius: 50%;
+    width: 8px;
+    height: 8px;
+    border-radius: var(--r-pill);
     background: var(--danger);
-    animation: pulse 2s infinite;
 }
 
-.connection-status.connected .status-dot {
-    background: var(--success);
-}
+.connection-status.connected .status-dot { background: var(--success); }
 
-@keyframes pulse {
-    0%, 100% { opacity: 1; }
-    50% { opacity: 0.5; }
-}
-
-/* Game Container */
+/* ---- shell ---------------------------------------------------------------- */
 .game-container {
     display: flex;
     flex-direction: column;
-    width: 100vw;
-    height: 100vh;
+    width: 100%;
+    /* Not 100vw: with a scrollbar present that is wider than the page and the
+       whole board drifts sideways. And dvh so a phone's browser bar does not
+       take the bottom of the layout with it. */
+    height: 100dvh;
 }
 
-/* Header */
 .game-header {
-    background: rgba(0, 0, 0, 0.3);
-    padding: 16px 24px;
     display: flex;
     justify-content: space-between;
     align-items: center;
-    backdrop-filter: blur(10px);
+    gap: var(--sp-4);
+    flex: none;
+    padding: var(--sp-3) var(--sp-5);
+    background: var(--surface-1);
+    border-bottom: 1px solid var(--border);
 }
 
 .header-left {
     display: flex;
     align-items: center;
-    gap: 16px;
+    gap: var(--sp-3);
+    min-width: 0;
 }
 
 .header-left h1 {
-    font-size: 24px;
-    margin: 0;
+    display: flex;
+    align-items: center;
+    gap: var(--sp-2);
+    font-size: var(--fs-xl);
+    font-weight: 700;
+    color: var(--text);
 }
 
 .room-badge {
-    background: rgba(255, 255, 255, 0.1);
-    padding: 6px 16px;
-    border-radius: 20px;
-    font-size: 14px;
+    padding: 3px 10px;
+    font-family: var(--font-mono);
+    font-size: var(--fs-xs);
+    color: var(--text-muted);
+    background: var(--surface-2);
+    border: 1px solid var(--border);
+    border-radius: var(--r-sm);
+    max-width: 28ch;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
 }
 
 .game-status {
-    font-size: 18px;
+    font-size: var(--fs-md);
     font-weight: 600;
+    color: var(--text);
     text-align: center;
 }
 
 .turn-indicator {
-    background: rgba(255, 255, 255, 0.1);
-    padding: 8px 16px;
-    border-radius: 20px;
-    font-weight: 600;
+    padding: 0.375rem 0.875rem;
+    font-size: var(--fs-sm);
+    font-weight: 700;
+    color: var(--brand-ink);
+    background: var(--brand-subtle);
+    border: 1px solid rgba(99, 102, 241, 0.35);
+    border-radius: var(--r-pill);
+    white-space: nowrap;
 }
 
-/* Game Layout */
+/* ---- layout --------------------------------------------------------------- */
 .game-layout {
     display: flex;
-    flex: 1;
-    overflow: hidden;
-    padding: 20px;
-    gap: 20px;
+    gap: var(--sp-4);
+    flex-grow: 1;
+    min-height: 0;
+    padding: var(--sp-4);
 }
 
-/* Sidebars */
 .sidebar-left, .sidebar-right {
+    display: flex;
+    flex-direction: column;
+    gap: var(--sp-3);
     width: 280px;
-    display: flex;
-    flex-direction: column;
-    gap: 20px;
+    flex: none;
+    min-height: 0;
 }
 
-/* Player Panel */
+/* ---- players -------------------------------------------------------------- */
 .player-panel {
-    background: rgba(255, 255, 255, 0.05);
-    border: 2px solid rgba(255, 255, 255, 0.1);
-    border-radius: 12px;
-    padding: 20px;
     display: flex;
-    flex-direction: column;
-    gap: 12px;
+    align-items: center;
+    gap: var(--sp-3);
+    flex-wrap: wrap;
+    padding: var(--sp-4);
+    background: var(--surface-1);
+    border: 1px solid var(--border);
+    border-radius: var(--r-lg);
+    transition: border-color var(--dur-fast) var(--ease), box-shadow var(--dur-fast) var(--ease);
 }
 
+/* Whose move it is, said with the same ring the rest of the site uses for
+   "this one is live" rather than a colour invented here. */
 .player-panel.active {
-    border-color: var(--warning);
-    box-shadow: 0 0 20px rgba(245, 158, 11, 0.3);
+    border-color: var(--success);
+    box-shadow: 0 0 0 1px var(--success);
 }
 
 .player-icon {
-    font-size: 48px;
-    text-align: center;
+    font-size: 34px;
+    line-height: 1;
+    color: var(--text);
 }
 
+.player-info { min-width: 0; flex-grow: 1; }
+
 .player-name {
-    font-size: 18px;
-    font-weight: 700;
-    text-align: center;
+    font-size: var(--fs-md);
+    font-weight: 600;
+    color: var(--text);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
 }
 
 .player-status {
-    text-align: center;
-    font-size: 14px;
-    opacity: 0.7;
+    font-size: var(--fs-xs);
+    color: var(--text-muted);
 }
 
 .captured-pieces {
     display: flex;
     flex-wrap: wrap;
-    gap: 4px;
-    min-height: 40px;
-    background: rgba(0, 0, 0, 0.2);
-    padding: 8px;
-    border-radius: 8px;
+    gap: 2px;
+    width: 100%;
+    min-height: 30px;
+    padding: var(--sp-2);
+    background: var(--surface-2);
+    border-radius: var(--r-sm);
 }
 
-.captured-piece {
-    font-size: 20px;
-}
+.captured-piece { font-size: 18px; line-height: 1; opacity: 0.85; }
 
-/* Spectators */
-.spectators-panel {
-    background: rgba(255, 255, 255, 0.05);
-    border: 2px solid rgba(255, 255, 255, 0.1);
-    border-radius: 12px;
-    padding: 16px;
-    flex: 1;
-}
-
-.spectators-panel h3 {
-    margin-bottom: 12px;
-    font-size: 16px;
-}
-
-.spectators-list {
+/* ---- spectators, moves, controls: the same card ---------------------------- */
+.spectators-panel,
+.controls-panel,
+.moves-panel {
     display: flex;
     flex-direction: column;
-    gap: 8px;
+    gap: var(--sp-3);
+    padding: var(--sp-4);
+    background: var(--surface-1);
+    border: 1px solid var(--border);
+    border-radius: var(--r-lg);
+    min-height: 0;
 }
+
+.spectators-panel { flex-grow: 1; }
+.moves-panel { flex-grow: 1; }
+
+.spectators-panel h3,
+.controls-panel h3,
+.moves-panel h3 {
+    display: flex;
+    align-items: center;
+    /* No gap: these headings contain text nodes and a <span> for the count, and
+       a flex gap pushes them all apart — "SPECTATORS ( 0 )". The icon carries
+       its own margin instead. */
+    gap: 0;
+    font-size: var(--fs-sm);
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--text-muted);
+}
+
+.spectators-panel h3 .icon,
+.controls-panel h3 .icon,
+.moves-panel h3 .icon { margin-right: var(--sp-2); flex: none; }
+
+.spectators-list,
+.move-history {
+    display: flex;
+    flex-direction: column;
+    gap: var(--sp-2);
+    flex-grow: 1;
+    min-height: 0;
+    overflow-y: auto;
+    padding: var(--sp-2);
+    background: var(--surface-2);
+    border-radius: var(--r-md);
+}
+
+.move-history { display: block; }
 
 .spectator-item {
-    padding: 8px 12px;
-    background: rgba(255, 255, 255, 0.05);
-    border-radius: 6px;
-    font-size: 14px;
+    display: flex;
+    align-items: center;
+    gap: var(--sp-2);
+    padding: var(--sp-2);
+    font-size: var(--fs-sm);
+    color: var(--text-body);
+    background: var(--surface-3);
+    border-radius: var(--r-sm);
 }
 
-/* Board Area */
+.move-entry {
+    display: flex;
+    align-items: baseline;
+    gap: var(--sp-2);
+    padding: 3px var(--sp-2);
+    font-size: var(--fs-sm);
+    border-radius: var(--r-sm);
+}
+
+.move-entry:nth-child(odd) { background: rgba(148, 163, 184, 0.06); }
+
+.move-number {
+    min-width: 2.5ch;
+    font-family: var(--font-mono);
+    font-size: var(--fs-xs);
+    color: var(--text-faint);
+}
+
+.move-text {
+    font-family: var(--font-mono);
+    color: var(--text);
+}
+
+/* ---- buttons ---------------------------------------------------------------
+ * Named as the markup names them rather than renamed to .btn, so chess-game.js
+ * and the inline handlers keep working; the look is the kit's.
+ */
+.controls-panel button {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: var(--sp-2);
+    width: 100%;
+    min-height: 40px;
+    padding: 0.625rem 1rem;
+    font: inherit;
+    font-size: var(--fs-md);
+    font-weight: 600;
+    border-radius: var(--r-md);
+    cursor: pointer;
+    transition: background var(--dur-fast) var(--ease), border-color var(--dur-fast) var(--ease);
+}
+
+.btn-secondary {
+    color: var(--text);
+    background: var(--surface-2);
+    border: 1px solid var(--border-strong);
+}
+
+.btn-secondary:hover:not(:disabled) { background: var(--surface-3); border-color: var(--brand); }
+
+.btn-danger {
+    color: var(--danger);
+    background: var(--danger-bg);
+    border: 1px solid rgba(248, 113, 113, 0.35);
+}
+
+.btn-danger:hover:not(:disabled) { background: rgba(248, 113, 113, 0.18); }
+
+.controls-panel button:focus-visible { outline: none; box-shadow: var(--focus-ring); }
+
+.controls-panel button:disabled {
+    opacity: 0.45;
+    cursor: not-allowed;
+}
+
+/* ---- the board ------------------------------------------------------------ */
 .board-area {
     flex: 1;
     display: flex;
     align-items: center;
     justify-content: center;
     position: relative;
+    min-width: 0;
 }
 
 .chess-board {
     display: grid;
     grid-template-columns: repeat(8, 1fr);
     grid-template-rows: repeat(8, 1fr);
-    width: 640px;
-    height: 640px;
-    border: 4px solid rgba(255, 255, 255, 0.2);
-    border-radius: 8px;
-    box-shadow: 0 20px 60px rgba(0,0,0,0.5);
-    background: white;
+    /* Fits the space it is given rather than demanding 640px: that is what
+       forced the page sideways on a laptop once the sidebars were beside it. */
+    width: min(640px, 100%, calc(100dvh - 190px));
+    aspect-ratio: 1;
+    height: auto;
+    border: 3px solid var(--board-frame);
+    border-radius: var(--r-md);
+    box-shadow: var(--shadow-3);
+    overflow: hidden;
 }
 
 .chess-square {
     display: flex;
     align-items: center;
     justify-content: center;
-    font-size: 48px;
+    font-size: clamp(24px, 5.4vmin, 48px);
+    line-height: 1;
     cursor: pointer;
     position: relative;
-    transition: background-color 0.2s ease;
     user-select: none;
+    transition: background-color var(--dur-fast) var(--ease);
 }
 
-.chess-square.light {
-    background: var(--light-square);
+/* The two sides, told apart by colour rather than by whether the glyph happens
+   to be outlined or filled. The shadow keeps each readable on either square. */
+.chess-square.piece-white {
+    color: #fbfcfe;
+    text-shadow: 0 1px 2px rgba(15, 23, 42, 0.55);
 }
 
-.chess-square.dark {
-    background: var(--dark-square);
+.chess-square.piece-black {
+    color: #14181f;
+    text-shadow: 0 1px 1px rgba(255, 255, 255, 0.22);
 }
 
+.chess-square.light { background: var(--light-square); }
+.chess-square.dark { background: var(--dark-square); }
+
+/* The three board states, in the site's own accent colours rather than raw
+   yellow and green — still unmistakable against the squares. */
 .chess-square.selected {
-    background: rgba(255, 255, 0, 0.5) !important;
-    box-shadow: inset 0 0 0 3px yellow;
+    background: rgba(34, 211, 238, 0.55) !important;
+    box-shadow: inset 0 0 0 3px var(--accent);
 }
 
-.chess-square.valid-move {
-    background: rgba(0, 255, 0, 0.3) !important;
-}
+.chess-square.valid-move { background: rgba(52, 211, 153, 0.38) !important; }
 
 .chess-square.valid-move::after {
-    content: '●';
+    content: '';
     position: absolute;
-    font-size: 20px;
-    color: rgba(0, 100, 0, 0.5);
+    width: 22%;
+    height: 22%;
+    border-radius: var(--r-pill);
+    background: rgba(6, 78, 59, 0.55);
 }
 
-.chess-square.last-move {
-    background: rgba(255, 255, 100, 0.4) !important;
-}
+.chess-square.last-move { background: rgba(99, 102, 241, 0.38) !important; }
 
-.chess-square:hover {
-    filter: brightness(1.1);
-}
+.chess-square:hover { filter: brightness(1.08); }
 
-/* Promotion Dialog */
+/* ---- dialogs on the board -------------------------------------------------- */
 .promotion-dialog {
     position: absolute;
     top: 50%;
     left: 50%;
     transform: translate(-50%, -50%);
-    background: white;
-    color: var(--gray-800);
-    padding: 24px;
-    border-radius: 12px;
-    box-shadow: 0 20px 60px rgba(0,0,0,0.5);
-    z-index: 100;
-}
-
-.promotion-dialog h3 {
-    margin-bottom: 16px;
+    padding: var(--sp-5);
     text-align: center;
-}
-
-.promotion-choices {
-    display: flex;
-    gap: 12px;
-}
-
-.promotion-btn {
-    width: 80px;
-    height: 80px;
-    font-size: 48px;
-    border: 2px solid var(--gray-100);
-    background: white;
-    border-radius: 8px;
-    cursor: pointer;
-    transition: all 0.2s ease;
-}
-
-.promotion-btn:hover {
-    background: var(--gray-50);
-    border-color: var(--primary);
-    transform: scale(1.1);
-}
-
-/* Controls Panel */
-.controls-panel {
-    background: rgba(255, 255, 255, 0.05);
-    border: 2px solid rgba(255, 255, 255, 0.1);
-    border-radius: 12px;
-    padding: 16px;
-}
-
-.controls-panel h3 {
-    margin-bottom: 12px;
-    font-size: 16px;
-}
-
-.controls-panel button {
-    width: 100%;
-    padding: 12px;
-    margin-bottom: 8px;
-    border: none;
-    border-radius: 8px;
-    font-size: 14px;
-    font-weight: 600;
-    cursor: pointer;
-    transition: all 0.2s ease;
-}
-
-.btn-secondary {
-    background: rgba(255, 255, 255, 0.1);
-    color: white;
-}
-
-.btn-secondary:hover:not(:disabled) {
-    background: rgba(255, 255, 255, 0.2);
-}
-
-.btn-danger {
-    background: var(--danger);
-    color: white;
-}
-
-.btn-danger:hover:not(:disabled) {
-    background: #dc2626;
-}
-
-.controls-panel button:disabled {
-    opacity: 0.5;
-    cursor: not-allowed;
-}
-
-/* Move History */
-.moves-panel {
-    background: rgba(255, 255, 255, 0.05);
-    border: 2px solid rgba(255, 255, 255, 0.1);
-    border-radius: 12px;
-    padding: 16px;
-    flex: 1;
-    overflow: hidden;
-    display: flex;
-    flex-direction: column;
-}
-
-.moves-panel h3 {
-    margin-bottom: 12px;
-    font-size: 16px;
-}
-
-.move-history {
-    flex: 1;
-    overflow-y: auto;
-    background: rgba(0, 0, 0, 0.2);
-    border-radius: 8px;
-    padding: 12px;
-}
-
-.move-entry {
-    display: flex;
-    gap: 12px;
-    padding: 6px 8px;
-    margin-bottom: 4px;
-    background: rgba(255, 255, 255, 0.05);
-    border-radius: 4px;
-    font-family: 'Courier New', monospace;
-    font-size: 14px;
-}
-
-.move-number {
-    color: var(--warning);
-    font-weight: 700;
-    min-width: 30px;
-}
-
-.move-text {
-    flex: 1;
-}
-
-/* Lobby Panel */
-.lobby-panel {
-    position: absolute;
-    top: 50%;
-    left: 50%;
-    transform: translate(-50%, -50%);
-    background: white;
-    color: var(--gray-800);
-    padding: 40px;
-    border-radius: 16px;
-    box-shadow: 0 20px 60px rgba(0,0,0,0.5);
-    text-align: center;
-    min-width: 400px;
+    background: var(--surface-1);
+    border: 1px solid var(--border-strong);
+    border-radius: var(--r-xl);
+    box-shadow: var(--shadow-3);
     z-index: 50;
 }
 
+.promotion-dialog h3 {
+    margin-bottom: var(--sp-4);
+    font-size: var(--fs-lg);
+    color: var(--text);
+}
+
+.promotion-choices { display: flex; gap: var(--sp-3); }
+
+.promotion-btn {
+    width: 64px;
+    height: 64px;
+    font-size: 40px;
+    line-height: 1;
+    color: var(--text);
+    background: var(--surface-2);
+    border: 1px solid var(--border-strong);
+    border-radius: var(--r-md);
+    cursor: pointer;
+    transition: background var(--dur-fast) var(--ease), border-color var(--dur-fast) var(--ease);
+}
+
+.promotion-btn:hover { background: var(--surface-3); border-color: var(--brand); }
+.promotion-btn:focus-visible { outline: none; box-shadow: var(--focus-ring); }
+
+/* ---- lobby ----------------------------------------------------------------
+ * This was a white card in the middle of a dark application, which is the
+ * single loudest thing the old build did.
+ */
+.lobby-panel {
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    width: min(420px, calc(100vw - 2 * var(--sp-4)));
+    padding: var(--sp-6);
+    text-align: center;
+    background: var(--surface-1);
+    border: 1px solid var(--border-strong);
+    border-radius: var(--r-xl);
+    box-shadow: var(--shadow-3);
+    z-index: 200;
+}
+
 .lobby-panel h2 {
-    color: var(--primary);
-    margin-bottom: 24px;
-    font-size: 28px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: var(--sp-2);
+    margin-bottom: var(--sp-2);
+    font-size: var(--fs-2xl);
+    color: var(--text);
+}
+
+.lobby-panel > p {
+    margin-bottom: var(--sp-5);
+    font-size: var(--fs-md);
+    color: var(--text-muted);
 }
 
 .color-choice {
     display: flex;
     flex-direction: column;
-    gap: 12px;
-    margin: 24px 0;
+    gap: var(--sp-3);
 }
 
 .color-btn {
-    padding: 16px 24px;
-    border: 2px solid var(--gray-100);
-    background: white;
-    border-radius: 8px;
-    font-size: 18px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: var(--sp-2);
+    min-height: 48px;
+    padding: 0.75rem 1rem;
+    font: inherit;
+    font-size: var(--fs-lg);
     font-weight: 600;
+    color: var(--text);
+    background: var(--surface-2);
+    border: 1px solid var(--border-strong);
+    border-radius: var(--r-md);
     cursor: pointer;
-    transition: all 0.2s ease;
+    transition: background var(--dur-fast) var(--ease), border-color var(--dur-fast) var(--ease);
 }
 
-.color-btn:hover {
-    background: var(--primary);
-    color: white;
-    transform: translateY(-2px);
-    box-shadow: 0 4px 12px rgba(0,0,0,0.2);
-}
-
-.color-btn.spectate {
-    background: var(--gray-50);
-}
+.color-btn:hover { background: var(--surface-3); border-color: var(--brand); }
+.color-btn:focus-visible { outline: none; box-shadow: var(--focus-ring); }
+.color-btn.spectate { color: var(--text-muted); font-size: var(--fs-md); }
 
 .lobby-info {
-    margin-top: 16px;
-    font-size: 14px;
-    color: var(--gray-800);
-    font-style: italic;
+    margin-top: var(--sp-4);
+    font-size: var(--fs-sm);
+    color: var(--text-faint);
 }
 
-/* Game Over Dialog */
 .game-over-dialog {
-    position: absolute;
+    position: fixed;
     top: 50%;
     left: 50%;
     transform: translate(-50%, -50%);
-    background: white;
-    color: var(--gray-800);
-    padding: 40px;
-    border-radius: 16px;
-    box-shadow: 0 20px 60px rgba(0,0,0,0.5);
+    width: min(420px, calc(100vw - 2 * var(--sp-4)));
+    padding: var(--sp-6);
     text-align: center;
-    min-width: 400px;
-    z-index: 50;
+    background: var(--surface-1);
+    border: 1px solid var(--border-strong);
+    border-radius: var(--r-xl);
+    box-shadow: var(--shadow-3);
+    z-index: 200;
 }
 
 .game-over-dialog h2 {
-    font-size: 32px;
-    margin-bottom: 16px;
+    margin-bottom: var(--sp-3);
+    font-size: var(--fs-2xl);
+    color: var(--text);
 }
 
 .game-over-dialog .result {
-    font-size: 24px;
-    margin-bottom: 24px;
+    margin-bottom: var(--sp-5);
+    font-size: var(--fs-lg);
+    color: var(--text-body);
 }
 
-/* Mobile Responsive */
+/* ---- narrower ------------------------------------------------------------- */
 @media (max-width: 1200px) {
     .game-layout {
         flex-direction: column;
-        padding: 10px;
+        overflow-y: auto;
     }
 
     .sidebar-left, .sidebar-right {
-        width: 100%;
         flex-direction: row;
+        flex-wrap: wrap;
+        width: auto;
     }
 
-    .chess-board {
-        width: 90vw;
-        height: 90vw;
-        max-width: 500px;
-        max-height: 500px;
-    }
+    .sidebar-left > *, .sidebar-right > * { flex: 1 1 220px; }
 
-    .chess-square {
-        font-size: 32px;
-    }
+    .board-area { order: -1; }
+    .chess-board { width: min(640px, 100%, 62dvh); }
 }
 
+@media (max-width: 640px) {
+    .game-header {
+        flex-wrap: wrap;
+        gap: var(--sp-2);
+        padding: var(--sp-3);
+    }
+
+    .header-center { order: 3; width: 100%; }
+    .game-layout { padding: var(--sp-3); gap: var(--sp-3); }
+    .chess-board { width: min(100%, 54dvh); }
+    .promotion-btn { width: 54px; height: 54px; font-size: 32px; }
+}
