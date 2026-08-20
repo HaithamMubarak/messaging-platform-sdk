@@ -90,7 +90,10 @@
         .demo-btn {
             padding: 10px 20px;
             background: var(--brand);
-            color: var(--brand-ink);
+            /* --brand-ink is the indigo used AS TEXT on a dark background, not
+               the ink for a brand-filled button; on the fill it is indigo on
+               indigo. The kit's own .btn--primary uses white here. */
+            color: #fff;
             border: none;
             border-radius: var(--r-md);
             cursor: pointer;

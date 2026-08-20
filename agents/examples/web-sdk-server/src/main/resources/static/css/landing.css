@@ -158,7 +158,9 @@ section { padding-block: var(--sp-24); }
 .code-panel--min pre { padding: var(--sp-4); }
 
 /* Syntax roles — one class per token type, no inline colours. */
-.tok-com { color: #64748b; font-style: italic; }
+/* #64748b is the faint token: fine for a placeholder, 3.8:1 for a comment
+   you are meant to read. */
+.tok-com { color: #8a97ab; font-style: italic; }
 .tok-key { color: #c4b5fd; }
 .tok-str { color: #6ee7b7; }
 .tok-fn  { color: #fcd34d; }
@@ -457,8 +459,11 @@ section { padding-block: var(--sp-24); }
     color: #fff;
 }
 
-.filter-chip__n { color: var(--text-faint); font-variant-numeric: tabular-nums; }
-.filter-chip.is-on .filter-chip__n { color: rgba(255, 255, 255, 0.75); }
+/* A count is content, not a placeholder — --text-faint is below AA at 13px. */
+.filter-chip__n { color: var(--text-muted); font-variant-numeric: tabular-nums; }
+/* Full white, as the chip's own label is: dimming it was worth 0.2 of a
+   contrast point and cost the count its legibility. */
+.filter-chip.is-on .filter-chip__n { color: #fff; }
 /* A primitive nothing proves is still worth showing — greyed, not hidden, so
    the gap in coverage stays visible rather than being quietly tidied away. */
 .filter-chip.is-empty { opacity: 0.45; }

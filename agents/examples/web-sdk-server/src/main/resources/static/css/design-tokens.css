@@ -25,7 +25,10 @@
     --text-faint:    #64748b;   /* placeholders / disabled only             */
 
     /* --- Brand ---------------------------------------------------------- */
-    --brand:         #6366f1;   /* primary actions, active nav              */
+    /* #6366f1 (indigo-500) gives white text 4.466:1 — under AA by a hair, on
+       every primary button, active filter chip and filled control on the site.
+       Three percent darker is indistinguishable by eye and clears it at 4.8. */
+    --brand:         #5d60ef;   /* primary actions, active nav (4.8:1 vs #fff) */
     --brand-hover:   #818cf8;
     --brand-ink:     #a5b4fc;   /* indigo used AS TEXT on dark (7.9:1)      */
     --brand-subtle:  rgba(99, 102, 241, 0.12);

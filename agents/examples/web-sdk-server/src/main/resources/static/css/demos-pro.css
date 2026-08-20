@@ -12,23 +12,25 @@
        <span class="pro-badge pro-badge--ok">Connected</span>
    ========================================================================== */
 
+/* These are NOT aliased onto the shared design tokens, and deliberately so.
+   design-tokens.css is a dark palette — its --text is a near-white meant to sit
+   on a dark surface — while this layer is a light one, built on white glass over
+   a pale aurora. Mapping the two name-for-name reads as tidy and inverts every
+   text colour: aliasing --pro-ink to --text put #eef2f8 on #ffffff glass, a
+   contrast ratio of 1.12, which is to say invisible. The hues below already
+   match the shared palette by value. */
 :root {
-    /* The semantic colours come from the shared design tokens so this layer
-       tracks the rest of the site instead of drifting into a second palette.
-       The glass surfaces, radii and shadows below stay local: they are this
-       layer's own treatment, not a colour decision. The fallbacks keep the
-       file standalone if it is ever linked without design-tokens.css. */
-    --pro-accent:        var(--brand, #6366f1);
-    --pro-accent-2:      var(--accent, #8b5cf6);
+    --pro-accent:        #6366f1;
+    --pro-accent-2:      #8b5cf6;
     --pro-accent-3:      #06b6d4;
-    --pro-accent-ink:    var(--brand-hover, #4338ca);
-    --pro-success:       var(--success, #10b981);
-    --pro-warning:       var(--warning, #f59e0b);
-    --pro-danger:        var(--danger, #ef4444);
+    --pro-accent-ink:    #4338ca;
+    --pro-success:       #10b981;
+    --pro-warning:       #f59e0b;
+    --pro-danger:        #ef4444;
 
-    --pro-ink:           var(--text, #0f172a);
-    --pro-ink-soft:      var(--text-body, #475569);
-    --pro-ink-faint:     var(--text-muted, #94a3b8);
+    --pro-ink:           #0f172a;
+    --pro-ink-soft:      #475569;
+    --pro-ink-faint:     #5f6d81;   /* #94a3b8 was 2.9:1 on the white glass */
     --pro-line:          rgba(15, 23, 42, 0.10);
     --pro-surface:       rgba(255, 255, 255, 0.82);
     --pro-surface-solid: #ffffff;

@@ -15,7 +15,9 @@
     --border-color: #2a2a4a;
     --text-primary: #e0e0e0;
     --text-secondary: #8888aa;
-    --text-muted: #555577;
+    /* Was #555577 — 2.5:1 against the panels here, which put the sidebar
+       labels, the status bar and the gate copy below AA. */
+    --text-muted: #8b8bad;
     --accent-blue: #4a9eff;
     --accent-green: #4ade80;
     --accent-yellow: #fbbf24;
@@ -1265,7 +1267,10 @@ body {
 
 .btn-primary {
     background: var(--accent-blue);
-    color: white;
+    /* --accent-blue is a light blue — right for a border or a glyph on the dark
+       panels, but white text on it is 2.75:1. A light fill takes dark ink. */
+    color: #06121f;
+    font-weight: 600;
 }
 
 .btn-primary:hover {
