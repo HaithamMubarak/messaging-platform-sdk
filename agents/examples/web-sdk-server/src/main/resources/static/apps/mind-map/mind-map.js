@@ -1058,7 +1058,7 @@ class MindMapApp extends UserConnectionBase {
         const overlay = document.createElement('div');
         overlay.className = 'instructions-overlay';
         overlay.innerHTML = `
-            <h3>🗺️ Mind Map Controls</h3>
+            <h3>Mind Map Controls</h3>
             <ul>
                 <li>🖱️ <strong>Click & Drag</strong> - Move nodes</li>
                 <li>🖱️ <strong>Double Click</strong> - Edit node text</li>
