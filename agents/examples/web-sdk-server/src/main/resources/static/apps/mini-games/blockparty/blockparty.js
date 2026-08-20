@@ -39,6 +39,11 @@
     const BULK_CHUNK = 300;       // cells per wire message, to stay well under
                                   // the data-channel size limit
     const WORLD_CHUNK = 400;      // cells (or pieces) per world-snapshot message
+    // Past this many chunks a snapshot paces itself whether the caller asked or
+    // not. The peer data channels are unordered with no retransmits, so a burst
+    // of dozens of messages does not arrive late — it does not arrive at all,
+    // and the receiver never learns there was anything to ask for.
+    const PACE_ABOVE_CHUNKS = 8;
     const PLAIN_SCALE = 9;        // how far the ground runs past the build area
     const SHAKE_MAX = 0.55;       // blocks of camera nudge at full strength
     // Contact shading: texture pixels per world cell, how dark, and how long to
@@ -3743,16 +3748,20 @@
                 physics: !!(this.physics && this.physics.on)
             });
 
-            // Paced, when asked for.
+            // Paced whenever there is enough of it to be worth pacing.
             //
             // Peer data channels here are unordered with no retransmits — fine
-            // for cursors, fatal for a sixty-chunk world sent in one burst,
+            // for cursors, fatal for a forty-chunk world sent in one burst,
             // which simply disappears. On a fresh join there is usually no data
             // channel yet and the reliable relay carries it, which is why this
-            // only ever bit mid-match, when the channel is open. Spacing the
-            // chunks lets them through; the receiver asks again if any are
-            // still missing.
-            if (opts && opts.paced) chunks.forEach((c, i) => setTimeout(() => send(c, i), i * 14));
+            // only ever bit once a channel was open: tracing a place into
+            // 17,000 blocks left every guest with an empty world, and because
+            // *no* chunk arrived, nobody knew to ask for the rest.
+            //
+            // So the size decides, not the caller. Spacing the chunks lets them
+            // through; the receiver still asks again for any that go missing.
+            const paced = (opts && opts.paced) || chunks.length > PACE_ABOVE_CHUNKS;
+            if (paced) chunks.forEach((c, i) => setTimeout(() => send(c, i), i * 14));
             else chunks.forEach(send);
         }
 
@@ -3793,6 +3802,8 @@
 
         /** Collect a chunked snapshot; apply it once the last chunk lands. */
         _receiveWorldChunk(data) {
+            // Something is being sent to us; stop asking whether anything will be.
+            this._worldSeen = true;
             const total = data.n || 1;
             if (data.i === 0 || !this._incoming) this._incoming = { blocks: [], pieces: [], seen: 0, total };
             if (this._incoming.total !== total) this._incoming = { blocks: [], pieces: [], seen: 0, total };
@@ -3829,6 +3840,22 @@
             clearInterval(this._arenaWatch);
             this._arenaWatch = setInterval(() => {
                 if (this.isHost() || !this.connected) return;
+
+                // A guest sitting in an empty world it never asked for.
+                //
+                // The snapshot travels on a channel that makes no promises, and
+                // a client that received *nothing* has no way to know it is
+                // missing anything: it looks exactly like an empty room. So a
+                // guest with no blocks and no anchor asks once in a while — the
+                // reply is one message if the room really is empty, and the
+                // whole world if it is not. Bounded, and it stops asking the
+                // moment anything arrives.
+                if (!this._worldSeen && this.voxels.count() === 0
+                    && !(this.modes && this.modes.isMatchActive())) {
+                    this._emptyAsks = (this._emptyAsks || 0) + 1;
+                    if (this._emptyAsks <= 5) this.sendData({ type: 'requestWorld' });
+                }
+
                 const modes = this.modes;
                 if (!modes || typeof modes.arenaIsWorld !== 'function' || !modes.arenaIsWorld()) {
                     this._arenaAsks = 0;
