@@ -255,14 +255,21 @@
             <div class="top-status-indicator" id="slsIndicatorGroup" title="SDK Local Service - click to open Settings" onclick="showSettings()" style="cursor:pointer;">
                 <span class="top-status-dot" id="mlsStatus"></span>
                 <span class="top-status-icon">⚙</span>
-                <span class="top-status-label" id="mlsStatusText">Local</span>
+                <span class="top-status-label" id="mlsStatusText">Local shell: off</span>
             </div>
             <div class="top-status-divider"></div>
             <div class="top-status-indicator" id="cloudIndicatorGroup" title="Remote Share – Disconnected" onclick="openMessagingModal()" style="cursor:pointer;">
                 <span class="top-status-dot" id="cloudStatusDot"></span>
                 <span class="top-status-icon">🔗</span>
-                <span class="top-status-label" id="cloudStatusLabel">Remote</span>
+                <span class="top-status-label" id="cloudStatusLabel">Not in a room</span>
             </div>
+
+            <!-- The whole point of the app is handing this to somebody, and it
+                 used to take three clicks and a tab nobody had found. -->
+            <button class="top-status-invite" id="inviteBtn" type="button" onclick="openInvite()"
+                    title="Invite somebody to this room" style="display: none;">
+                <span>🔗</span><span>Invite</span>
+            </button>
         </div>
     </div>
 
@@ -344,6 +351,23 @@
 
             <!-- Connection Tab Content -->
             <div class="cloud-tab-content active" id="cloud-content-connection" style="padding: 24px;">
+
+                <!-- Somebody read a code out to you. This is the shortest way in,
+                     so it is the first thing on the tab. -->
+                <div class="cloud-form-row" style="margin-bottom: 18px; padding-bottom: 18px; border-bottom: 1px solid var(--border-color, #2a2a4a);">
+                    <label for="joinCodeInput" style="font-size: 12px; font-weight: 600; color: var(--text-secondary, #8888aa); margin-bottom: 8px; display: block; text-transform: uppercase; letter-spacing: 0.5px;">Been given a code?</label>
+                    <div style="display: flex; gap: 8px;">
+                        <input type="text" id="joinCodeInput" placeholder="amber-willow-42" autocomplete="off" spellcheck="false"
+                               onkeydown="if (event.key === 'Enter') { event.preventDefault(); joinByCode(); }"
+                               style="flex: 1; min-width: 0; padding: 12px; font-size: 13px; font-family: monospace; border-radius: 6px; border: 1px solid var(--border-color, #2a2a4a); background: var(--bg-panel, #0f0f1a); color: var(--text-primary, #e0e0e0);">
+                        <button type="button" class="cloud-btn" id="joinCodeBtn" onclick="joinByCode()"
+                                style="flex: 0 0 auto; padding: 10px 18px; font-size: 13px; font-weight: 600; border-radius: 6px;">
+                            Join
+                        </button>
+                    </div>
+                    <div id="joinCodeNote" style="margin-top: 8px; font-size: 12px; color: var(--text-secondary, #8888aa); display: none;"></div>
+                </div>
+
                 <div class="cloud-form-row" style="margin-bottom: 16px;">
                     <label for="cloudAgentName" style="font-size: 12px; font-weight: 600; color: var(--text-secondary, #8888aa); margin-bottom: 8px; display: block; text-transform: uppercase; letter-spacing: 0.5px;">Your Name</label>
                     <input type="text" id="cloudAgentName" placeholder="Auto-generated if empty"
@@ -361,6 +385,7 @@
                     <label for="cloudChannelPassword" style="font-size: 12px; font-weight: 600; color: var(--text-secondary, #8888aa); margin-bottom: 8px; display: block; text-transform: uppercase; letter-spacing: 0.5px;">Channel Password</label>
                     <div style="position: relative; display: flex; align-items: center;">
                         <input type="password" id="cloudChannelPassword" placeholder="Channel password" value="terminal123"
+                               autocomplete="new-password"
                                style="width: 100%; padding: 12px 42px 12px 12px; font-size: 13px; border-radius: 6px; border: 1px solid var(--border-color, #2a2a4a); background: var(--bg-panel, #0f0f1a); color: var(--text-primary, #e0e0e0); transition: border-color 0.2s;">
                         <button type="button" id="cloudPasswordToggle" onclick="toggleCloudPasswordVisibility()"
                                 style="position: absolute; right: 8px; background: transparent; border: none; cursor: pointer; padding: 6px; font-size: 16px; color: var(--text-secondary); transition: color 0.2s;"
@@ -417,6 +442,26 @@
                     </div>
                 </div>
 
+                <!-- A link is for pasting; a code is for saying out loud, which is
+                     how this app is actually used when somebody is stuck. -->
+                <div class="cloud-form-row" style="margin-bottom: 16px;">
+                    <label style="font-size: 12px; font-weight: 600; color: var(--text-secondary, #8888aa); margin-bottom: 8px; display: block; text-transform: uppercase; letter-spacing: 0.5px;">🗣️ Short code</label>
+                    <div id="sessionCodeIdle">
+                        <button type="button" class="cloud-btn cloud-btn-secondary" id="sessionCodeBtn" onclick="mintSessionCode()"
+                                style="width: 100%; padding: 12px; font-size: 12px; font-weight: 600; border-radius: 8px;">
+                            Make a code I can read out
+                        </button>
+                    </div>
+                    <div id="sessionCodeResult" style="display: none;">
+                        <div style="display: flex; gap: 8px; align-items: center;">
+                            <code id="sessionCodeValue" style="flex: 1; padding: 14px; text-align: center; font-size: 20px; font-weight: 700; letter-spacing: 0.04em; font-family: monospace; color: var(--accent-cyan, #22d3ee); background: var(--bg-darker, #08080d); border: 1px solid var(--border-color, #2a2a4a); border-radius: 8px;"></code>
+                            <button type="button" class="cloud-regen-btn" onclick="copySessionCode()" title="Copy the code"
+                                    style="min-width: 44px; height: 48px; border-radius: 6px; font-size: 16px;">📋</button>
+                        </div>
+                        <div id="sessionCodeNote" style="margin-top: 8px; font-size: 12px; color: var(--text-secondary, #8888aa);"></div>
+                    </div>
+                </div>
+
                 <button type="button" class="cloud-btn cloud-btn-secondary"
                         onclick="toggleQrCode()"
                         id="qrToggleBtn"
@@ -451,9 +496,11 @@
             <div class="sidebar-tabs">
                 <button class="sidebar-tab active sls-dependent" onclick="switchSidebarTab('sessions')" title="Terminal Sessions" data-tab="sessions">
                     <span class="sidebar-tab-icon">🖥️</span>
+                    <span class="sidebar-tab-label">Shells</span>
                 </button>
                 <button class="sidebar-tab sls-dependent" onclick="switchSidebarTab('notes')" title="Notes" data-tab="notes">
                     <span class="sidebar-tab-icon">📝</span>
+                    <span class="sidebar-tab-label">Notes</span>
                     <span class="sidebar-tab-badge" id="notesBadge" style="display: none; position: absolute; top: 4px; right: 4px;
                           background: var(--accent-cyan, #22d3ee); color: #0a0a14; border-radius: 8px;
                           font-size: 9px; font-weight: 700; min-width: 14px; height: 14px;
@@ -461,17 +508,21 @@
                 </button>
                 <button class="sidebar-tab" id="filesTabBtn" onclick="openFileExplorerForActiveTab()" title="File Explorer - Select a terminal session" data-tab="files" style="pointer-events: none; opacity: 0.5;">
                     <span class="sidebar-tab-icon">📁</span>
+                    <span class="sidebar-tab-label">Files</span>
                 </button>
                 <button class="sidebar-tab" onclick="switchSidebarTab('shared')" title="Shared with You" data-tab="shared">
                     <span class="sidebar-tab-icon">📡</span>
+                    <span class="sidebar-tab-label">Shared</span>
                     <span class="sidebar-tab-badge" id="sharedBadge" style="display: none;">0</span>
                 </button>
                 <button class="sidebar-tab sls-dependent" onclick="switchSidebarTab('myshares')" title="My Shared Terminals" data-tab="myshares">
                     <span class="sidebar-tab-icon">📤</span>
+                    <span class="sidebar-tab-label">Sharing</span>
                     <span class="sidebar-tab-badge" id="mysharesBadge" style="display: none;">0</span>
                 </button>
                 <button class="sidebar-tab sls-dependent" onclick="switchSidebarTab('settings')" title="Settings & Backup" data-tab="settings">
                     <span class="sidebar-tab-icon">⚙️</span>
+                    <span class="sidebar-tab-label">Settings</span>
                 </button>
             </div>
 

@@ -335,6 +335,10 @@ const tabSessionManager = new TabSessionManager();
  * @param {boolean} online - True if SLS is online, false if offline
  */
 function updateSlsDependentButtons(online) {
+    // "Local" was a noun with no verb. Say whether there is a shell to open.
+    const localLabel = document.getElementById('mlsStatusText');
+    if (localLabel) localLabel.textContent = online ? 'Local shell: ready' : 'Local shell: off';
+
     // Update toolbar buttons
     const buttons = document.querySelectorAll('.toolbar-btn.sls-dependent');
     buttons.forEach(btn => {
@@ -5106,6 +5110,142 @@ function generateShareUrl() {
     }
 }
 
+/* =========================================================================
+ * Short codes
+ *
+ * A link is ninety characters of base64: perfect for pasting into a chat
+ * window, useless down a telephone — and a telephone is how this app actually
+ * gets used, one person stuck and another helping. A code of two words and two
+ * digits can be said out loud, written on paper, and typed by somebody who is
+ * already having a bad day.
+ *
+ * The room and its password go to the service for as long as the code lives,
+ * which the link never does. That is a real cost, so a code is opt-in, short
+ * lived and spent after a few uses — see SessionCodeController.
+ * ========================================================================= */
+
+/** The API root, worked out the same way the config loader works it out. */
+function sessionCodeUrl(suffix) {
+    const base = (typeof window.getConfigUrl === 'function')
+        ? window.getConfigUrl().replace(/\/config$/, '/session-code')
+        : '/app/api/session-code';
+    return suffix ? base + '/' + encodeURIComponent(suffix) : base;
+}
+
+async function mintSessionCode() {
+    const channel = document.getElementById('cloudChannelName')?.value?.trim();
+    const password = document.getElementById('cloudChannelPassword')?.value?.trim();
+    const btn = document.getElementById('sessionCodeBtn');
+
+    if (!cloudConnected || !channel || !password) {
+        showToast('warning', 'Not in a room', 'Join a room first, then make a code for it.');
+        return;
+    }
+
+    if (btn) { btn.disabled = true; btn.textContent = 'Making a code…'; }
+    try {
+        const res = await fetch(sessionCodeUrl(), {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ channel, password })
+        });
+        const body = await res.json().catch(() => null);
+        if (!res.ok || !body || body.status !== 'success') {
+            throw new Error((body && body.message) || 'The service would not issue a code.');
+        }
+
+        const minutes = Math.round((body.data.expiresInSeconds || 0) / 60);
+        document.getElementById('sessionCodeValue').textContent = body.data.code;
+        document.getElementById('sessionCodeNote').textContent =
+            'Good for ' + minutes + ' minutes, and for ' + body.data.redemptions
+            + ' people. Read it out; they type it into "Been given a code?".';
+        document.getElementById('sessionCodeIdle').style.display = 'none';
+        document.getElementById('sessionCodeResult').style.display = '';
+    } catch (err) {
+        showToast('error', 'No code', err.message);
+    } finally {
+        if (btn) { btn.disabled = false; btn.textContent = 'Make a code I can read out'; }
+    }
+}
+window.mintSessionCode = mintSessionCode;
+
+function copySessionCode() {
+    const code = document.getElementById('sessionCodeValue')?.textContent || '';
+    if (!code) return;
+    navigator.clipboard.writeText(code)
+        .then(() => showToast('success', 'Copied', code))
+        .catch(() => showToast('error', 'Could not copy', 'Select the code and copy it by hand.'));
+}
+window.copySessionCode = copySessionCode;
+
+/** Turn a code somebody read out into a room, and join it. */
+async function joinByCode() {
+    const input = document.getElementById('joinCodeInput');
+    const note = document.getElementById('joinCodeNote');
+    const btn = document.getElementById('joinCodeBtn');
+    const code = (input?.value || '').trim().toLowerCase();
+
+    const say = (text, bad) => {
+        if (!note) return;
+        note.textContent = text;
+        note.style.color = bad ? 'var(--accent-red, #f87171)' : 'var(--text-secondary, #8888aa)';
+        note.style.display = text ? '' : 'none';
+    };
+
+    if (!code) { say('Type the code you were given.', true); input?.focus(); return; }
+
+    if (btn) { btn.disabled = true; btn.textContent = 'Looking…'; }
+    say('');
+    try {
+        const res = await fetch(sessionCodeUrl(code));
+        const body = await res.json().catch(() => null);
+        if (!res.ok || !body || body.status !== 'success') {
+            // The service will not say whether a code never existed, expired or
+            // was spent, and neither will this.
+            throw new Error((body && body.message) || 'That code is not valid any more.');
+        }
+
+        document.getElementById('cloudChannelName').value = body.data.channel;
+        document.getElementById('cloudChannelPassword').value = body.data.password;
+        say('Found it. Joining ' + body.data.channel + '…');
+        connectToCloud();
+    } catch (err) {
+        say(err.message, true);
+    } finally {
+        if (btn) { btn.disabled = false; btn.textContent = 'Join'; }
+    }
+}
+window.joinByCode = joinByCode;
+
+/**
+ * Hand this room to somebody.
+ *
+ * The link and its code already existed, three clicks deep behind a modal and
+ * a tab most people never opened — which for an app whose entire purpose is
+ * sharing a terminal is the wrong place for it. This is the same dialog,
+ * opened where you want it, with the link made and the code drawn.
+ */
+function openInvite() {
+    if (!cloudConnected) {
+        openMessagingModal();
+        return;
+    }
+    openMessagingModal();
+    try { switchCloudTab('sharing'); } catch (e) { /* older markup */ }
+    try { generateShareUrl(); } catch (e) { /* nothing to share yet */ }
+
+    // Show the code without being asked: somebody who pressed Invite has said
+    // what they want, and the person they are inviting is usually holding a
+    // phone.
+    const qr = document.getElementById('shareQrCode');
+    if (qr && qr.style.display === 'none') {
+        try { toggleQrCode(); } catch (e) { /* ignore */ }
+    }
+    const input = document.getElementById('shareUrlInput');
+    if (input) { input.focus(); input.select(); }
+}
+window.openInvite = openInvite;
+
 /**
  * Toggle QR code visibility
  */
@@ -6318,7 +6458,11 @@ terminalSharing.onFileSystemNotification = (sessionId, operation, details, sourc
         const cloudStatusDot = document.getElementById('cloudStatusDot');
         if (cloudStatusDot) cloudStatusDot.className = 'top-status-dot online';
         const cloudStatusLabel = document.getElementById('cloudStatusLabel');
-        if (cloudStatusLabel) cloudStatusLabel.textContent = 'Remote';
+        // "Remote" told nobody anything. The room and the name you are known by
+        // in it are the two facts you need before you hand the link to someone.
+        if (cloudStatusLabel) cloudStatusLabel.textContent = channelName + ' · ' + agentName;
+        const inviteBtn = document.getElementById('inviteBtn');
+        if (inviteBtn) inviteBtn.style.display = '';
         const cloudIndicatorGroup = document.getElementById('cloudIndicatorGroup');
         if (cloudIndicatorGroup) cloudIndicatorGroup.title = `Remote Share: Connected as ${agentName}`;
         // Also support old ID for compatibility
@@ -6489,7 +6633,9 @@ function disconnectFromCloud() {
     const cloudStatusDotManual = document.getElementById('cloudStatusDot');
     if (cloudStatusDotManual) cloudStatusDotManual.className = 'top-status-dot'; // grey = not connected
     const cloudStatusLabelDisc = document.getElementById('cloudStatusLabel');
-    if (cloudStatusLabelDisc) cloudStatusLabelDisc.textContent = 'Remote';
+    if (cloudStatusLabelDisc) cloudStatusLabelDisc.textContent = 'Not in a room';
+    const inviteBtnDisc = document.getElementById('inviteBtn');
+    if (inviteBtnDisc) inviteBtnDisc.style.display = 'none';
     const cloudIndicatorGrpDisc = document.getElementById('cloudIndicatorGroup');
     if (cloudIndicatorGrpDisc) cloudIndicatorGrpDisc.title = 'Remote Share – Disconnected';
 

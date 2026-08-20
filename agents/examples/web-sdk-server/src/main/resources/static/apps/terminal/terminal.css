@@ -2646,3 +2646,60 @@ body {
 .sls-gate__list li { padding-left: 18px; position: relative; }
 .sls-gate__list li::before { content: "•"; position: absolute; left: 4px; color: var(--accent-cyan); }
 .sls-gate__actions { display: flex; gap: 10px; flex-wrap: wrap; justify-content: center; margin-top: 4px; }
+
+/* ========== Sidebar tabs that say what they are ==========
+ * Six icons in a row, no words, and the only way to find out what any of them
+ * did was to hover and wait. The strip has the room for a label at this width;
+ * below it the icons stand alone again, where a tooltip is no use anyway but
+ * the tab count is small enough to learn.
+ */
+.sidebar-tab {
+    flex-direction: column;
+    gap: 3px;
+    position: relative;
+}
+
+.sidebar-tab-label {
+    font-size: 9.5px;
+    font-weight: 600;
+    letter-spacing: 0.02em;
+    line-height: 1;
+    white-space: nowrap;
+}
+
+.sidebar-tab.active .sidebar-tab-label { color: var(--accent-blue, #4a9eff); }
+
+@media (max-width: 420px) {
+    .sidebar-tab-label { display: none; }
+}
+
+/* ========== Invite ==========
+ * The action the whole app exists for, at the top right where it can be found.
+ */
+.top-status-invite {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    margin-left: 8px;
+    padding: 3px 10px;
+    font: inherit;
+    font-size: 11px;
+    font-weight: 600;
+    color: #0a0a14;
+    background: linear-gradient(135deg, #4a9eff, #a78bfa);
+    border: none;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: filter 0.15s;
+}
+
+.top-status-invite:hover { filter: brightness(1.1); }
+.top-status-invite:focus-visible { outline: 2px solid #a78bfa; outline-offset: 2px; }
+
+/* The room pill carries a name now, which can be long. */
+.top-status-label {
+    max-width: 22ch;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
