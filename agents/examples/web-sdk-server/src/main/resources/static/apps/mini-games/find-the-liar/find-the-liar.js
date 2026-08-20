@@ -3643,8 +3643,8 @@ function initializeConnectionModal() {
     window.loadConnectionModal({
         localStoragePrefix: 'liar_',
         channelPrefix: 'liar-',
-        title: '🤥 Join Find the Liar',
-        collapsedTitle: '🤥 Find the Liar',
+        title: 'Join Find the Liar',
+        collapsedTitle: 'Find the Liar',
         onConnect: async function(username, channel, password) {
             console.log('[FindTheLiar] Connecting...', { username, channel });
 

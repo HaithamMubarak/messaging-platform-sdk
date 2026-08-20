@@ -2830,8 +2830,8 @@ function initializeConnectionModal() {
     window.loadConnectionModal({
         localStoragePrefix: 'airhockey_',
         channelPrefix: 'hockey-',
-        title: '🏒 Join Air Hockey',
-        collapsedTitle: '🏒 Air Hockey',
+        title: 'Join Air Hockey',
+        collapsedTitle: 'Air Hockey',
         onConnect: function(username, channel, password) {
             connectAirHockey(username, channel, password);
         }

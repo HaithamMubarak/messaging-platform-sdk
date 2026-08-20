@@ -889,8 +889,8 @@ function initializeConnectionModal() {
     window.loadConnectionModal({
         localStoragePrefix: 'quiz_',
         channelPrefix: 'quiz-',
-        title: '🧠 Join Quiz Battle',
-        collapsedTitle: '🧠 Quiz Battle',
+        title: 'Join Quiz Battle',
+        collapsedTitle: 'Quiz Battle',
         onConnect: function(username, channel, password) {
             connectQuizBattle(username, channel, password);
         }

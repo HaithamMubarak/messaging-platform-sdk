@@ -701,8 +701,8 @@ function initializeConnectionModal() {
     window.loadConnectionModal({
         localStoragePrefix: 'collabdoc_',
         channelPrefix: 'doc-',
-        title: '📝 Join Document',
-        collapsedTitle: '📝 Document',
+        title: 'Join Document',
+        collapsedTitle: 'Document',
         onConnect: function(username, channel, password) {
             connectCollabDoc(username, channel, password);
         }

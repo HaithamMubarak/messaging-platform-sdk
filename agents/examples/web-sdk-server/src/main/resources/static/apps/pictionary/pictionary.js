@@ -995,8 +995,8 @@ function initializeConnectionModal() {
     window.loadConnectionModal({
         localStoragePrefix: 'pictionary_',
         channelPrefix: 'pictionary-',
-        title: '🎨 Join Pictionary',
-        collapsedTitle: '🎨 Pictionary',
+        title: 'Join Pictionary',
+        collapsedTitle: 'Pictionary',
         onConnect: function(username, channel, password) {
             connectPictionary(username, channel, password);
         }

@@ -3683,8 +3683,8 @@ function initializeCredentialInputs() {
     window.loadConnectionModal({
         localStoragePrefix: 'whiteboard_',
         channelPrefix: 'whiteboard-',
-        title: '🎨 Join Whiteboard',
-        collapsedTitle: '🎨 Join Whiteboard',
+        title: 'Join Whiteboard',
+        collapsedTitle: 'Join Whiteboard',
         onConnect: function(username, channel, password) {
             // Call the whiteboard's connect function
             connect();

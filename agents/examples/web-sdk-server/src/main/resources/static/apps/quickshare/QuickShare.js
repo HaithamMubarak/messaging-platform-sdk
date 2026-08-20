@@ -763,8 +763,8 @@ function initializeQuickShare() {
     loadConnectionModal({
         localStoragePrefix: 'quickshare_',
         channelPrefix: 'share-',
-        title: '🔗 Join Quick Share Room',
-        collapsedTitle: '🔗 Quick Share',
+        title: 'Join Quick Share Room',
+        collapsedTitle: 'Quick Share',
         onConnect: handleConnect,
         onHideModal: () => {
             document.getElementById('appContainer').classList.add('active');

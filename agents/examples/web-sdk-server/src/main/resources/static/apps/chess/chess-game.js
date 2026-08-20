@@ -824,8 +824,8 @@ function initializeConnectionModal() {
     window.loadConnectionModal({
         localStoragePrefix: 'chess_',
         channelPrefix: 'chess-',
-        title: '♟️ Join Chess Game',
-        collapsedTitle: '♟️ Chess',
+        title: 'Join Chess Game',
+        collapsedTitle: 'Chess',
         onConnect: function(username, channel, password) {
             connectChess(username, channel, password);
         }

@@ -24,10 +24,10 @@
             <div class="ch-left">
                 <div class="ch-title">{{COLLAPSED_TITLE}}</div>
             </div>
-            <button id="modalToggleBtn" class="modal-toggle-btn" aria-label="Toggle connection form">▾</button>
+            <button id="modalToggleBtn" class="modal-toggle-btn" aria-label="Toggle connection form"><svg class="chev" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg></button>
         </div>
         <div id="sharedLinkNote" class="shared-link-note" style="display: none;">
-            <p>🔗 Saved or shared channel - Enter your name to connect</p>
+            <p>Saved or shared channel — enter your name to connect</p>
         </div>
         <label for="quickUsernameInput" class="quick-username-label">Your Name</label>
         <div class="quick-username">
@@ -41,9 +41,7 @@
     <div class="modal-content">
         <div class="modal-header-row">
             <h2>{{MODAL_TITLE}}</h2>
-            <button id="modalToggleBtn2" class="modal-toggle-btn" aria-label="Toggle form">
-                <span style="font-size: 18px; display: inline-block; line-height: 1; font-weight: bold;">▼</span>
-            </button>
+            <button id="modalToggleBtn2" class="modal-toggle-btn" aria-label="Toggle form"><svg class="chev" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg></button>
         </div>
 
         <form id="connectionForm" onsubmit="return false;">
@@ -51,14 +49,14 @@
             <input type="text" id="usernameInput" placeholder="Your name" autocomplete="nickname">
 
             <div class="connection-info-note" style="margin-top: 8px;">
-                <p><strong>💡 Tip:</strong> The channel name and password are yours to invent — pick anything.
+                <p><strong>Tip:</strong> The channel name and password are yours to invent — pick anything.
                 Everyone who wants to be in the same room has to type <strong>both</strong> exactly the same,
                 because a different password is a different room, and you will simply find yourself alone in it.
                 Sharing the link afterwards carries both for you.</p>
             </div>
 
             <div id="sharedLinkWarning" class="connection-info-note" style="display: none; background: #fff3cd; border-left: 4px solid #ffc107; margin-top: 8px;">
-                <p><strong>⚠️ Shared Link Active:</strong> You're using a shared link. Changing the channel name or password will connect you to a different channel than the one shared with you.</p>
+                <p><strong>Shared link active:</strong> You're using a shared link. Changing the channel name or password will connect you to a different channel than the one shared with you.</p>
             </div>
 
             <label for="channelInput" class="form-label-visible">Channel Name</label>
@@ -68,7 +66,14 @@
             <div class="password-input-wrapper">
                 <input type="password" id="passwordInput" placeholder="Channel password" autocomplete="new-password">
                 <button type="button" id="togglePasswordBtn" class="password-toggle-btn" onclick="togglePasswordVisibility()" aria-label="Show password" title="Show password">
-                    <span id="passwordToggleIcon">👁️</span>
+                    <!-- icons.js 'eye' -->
+                    <svg id="passwordEyeShow" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                        <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/>
+                    </svg>
+                    <!-- icons.js 'eye-off' -->
+                    <svg id="passwordEyeHide" hidden width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                        <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/><path d="m1 1 22 22"/>
+                    </svg>
                 </button>
             </div>
 
@@ -140,8 +145,8 @@
 
     window.loadConnectionModal = function(config) {
         // Use embedded template - no fetch needed!
-        const collapsedTitle = config.collapsedTitle || config.title || '🔗 Connect';
-        const modalTitle = config.title || '🔗 Connect to Channel';
+        const collapsedTitle = config.collapsedTitle || config.title || 'Connect';
+        const modalTitle = config.title || 'Connect to a channel';
 
         // Replace placeholders in template
         let html = HTML_TEMPLATE;
@@ -614,21 +619,21 @@
     // Password visibility toggle (global function)
     window.togglePasswordVisibility = function() {
         const pwInput = document.getElementById('passwordInput');
-        const icon = document.getElementById('passwordToggleIcon');
+        const show = document.getElementById('passwordEyeShow');
+        const hide = document.getElementById('passwordEyeHide');
         const btn = document.getElementById('togglePasswordBtn');
-        if (pwInput && icon && btn) {
-            if (pwInput.type === 'password') {
-                pwInput.type = 'text';
-                icon.textContent = '🙈';
-                btn.setAttribute('aria-label', 'Hide password');
-                btn.setAttribute('title', 'Hide password');
-            } else {
-                pwInput.type = 'password';
-                icon.textContent = '👁️';
-                btn.setAttribute('aria-label', 'Show password');
-                btn.setAttribute('title', 'Show password');
-            }
-        }
+        if (!pwInput || !btn) return;
+
+        const revealing = pwInput.type === 'password';
+        pwInput.type = revealing ? 'text' : 'password';
+
+        // The glyphs are aria-hidden, so the button's own label is the only
+        // thing a screen reader has to go on — and it is what a test looks the
+        // button up by.
+        if (show) show.hidden = revealing;
+        if (hide) hide.hidden = !revealing;
+        btn.setAttribute('aria-label', revealing ? 'Hide password' : 'Show password');
+        btn.setAttribute('title', revealing ? 'Hide password' : 'Show password');
     };
 
 })(window);

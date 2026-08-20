@@ -1153,8 +1153,8 @@ function initializeConnectionModal() {
     window.loadConnectionModal({
         localStoragePrefix: 'mindmap_',
         channelPrefix: 'mindmap-',
-        title: '🗺️ Join Mind Map',
-        collapsedTitle: '🗺️ Mind Map',
+        title: 'Join Mind Map',
+        collapsedTitle: 'Mind Map',
         onConnect: function(username, channel, password) {
             connectMindMap(username, channel, password);
         }

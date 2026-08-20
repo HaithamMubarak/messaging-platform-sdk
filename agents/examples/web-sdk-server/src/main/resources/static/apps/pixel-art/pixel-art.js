@@ -680,8 +680,8 @@ function initializeConnectionModal() {
     window.loadConnectionModal({
         localStoragePrefix: 'pixelart_',
         channelPrefix: 'pixel-',
-        title: '🎨 Join Pixel Art Editor',
-        collapsedTitle: '🎨 Pixel Art',
+        title: 'Join Pixel Art Editor',
+        collapsedTitle: 'Pixel Art',
         onConnect: function(username, channel, password) {
             connectPixelArt(username, channel, password);
         }

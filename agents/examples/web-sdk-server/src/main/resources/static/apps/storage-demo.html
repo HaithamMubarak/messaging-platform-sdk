@@ -163,7 +163,7 @@
                         <span>Retrieved Data</span>
                         <button type="button" class="pro-copy" id="copyGetBtn" title="Copy value">⧉ Copy</button>
                     </label>
-                    <textarea class="pro-field" id="getOutput" readonly style="min-height: 120px;">No data retrieved yet</textarea>
+                    <textarea class="pro-field" id="getOutput" readonly aria-label="Retrieved value" style="min-height: 120px;">No data retrieved yet</textarea>
                 </div>
             </div>
         </div>
@@ -304,8 +304,8 @@
             window.loadConnectionModal({
                 localStoragePrefix: 'storage_',
                 channelPrefix: 'storage-',
-                title: '📦 Connect to Storage Demo',
-                collapsedTitle: '📦 Storage',
+                title: 'Connect to Storage Demo',
+                collapsedTitle: 'Storage',
                 onConnect: function(username, channel, password) {
                     console.log('[Storage] onConnect called:', { username, channel });
                     connectToChannel(username, channel, password);
