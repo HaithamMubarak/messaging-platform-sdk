@@ -572,6 +572,31 @@
     <p>Send live video stream from browser to agent using WebRTC</p>
 </div>
 
+<!--
+  This page is the raw signalling example: every offer, answer and connection
+  state is on screen so you can watch a peer connection being made. That is
+  what it is for, and it is why it looks like an instrument panel rather than
+  a product. Somebody who arrived wanting a video call should be told where
+  the video call is, instead of being left to build one out of this.
+-->
+<div class="section notice-rooms" style="display: flex; align-items: center; gap: 16px; flex-wrap: wrap;">
+    <div style="flex: 1 1 320px; min-width: 0;">
+        <strong style="color: var(--text);">This is the plumbing, on purpose.</strong>
+        <span style="color: var(--muted);">
+            Every signalling step is shown so you can read how a peer connection is made. If you
+            want an actual room — several people, chat, screen share, mesh video — that is a
+            different page.
+        </span>
+    </div>
+    <a href="rooms/index.html" class="btn" style="flex: 0 0 auto; text-decoration: none;">
+        <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                  d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z"/>
+        </svg>
+        Open Rooms
+    </a>
+</div>
+
 
 <!-- Step 1: Channel Connection -->
 <div class="section">

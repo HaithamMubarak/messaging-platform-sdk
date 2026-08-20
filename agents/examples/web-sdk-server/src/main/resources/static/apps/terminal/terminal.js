@@ -1963,10 +1963,18 @@ function closeActiveTab() {
 /**
  * What the terminal pane shows when there is no session in it.
  *
- * Three states, not two: a session open, no session but a helper to start one
- * with, and no helper at all. The last one used to render as a blank panel
- * under a greyed-out toolbar, which reads as broken rather than as not yet set
- * up — and it is the state every first-time visitor lands in.
+ * Four states, not two, and the difference between the last two is the whole
+ * point of the app:
+ *
+ *   - a session is open                → the terminal
+ *   - no session, helper running       → "start one"
+ *   - no helper, not shared with anyone→ "here is what the helper is"
+ *   - no helper, but joined a room     → "waiting for a session to be shared"
+ *
+ * That last one is the person who followed somebody's invite link. They are
+ * connected, they are in the right room, and they are exactly where they are
+ * supposed to be — telling them to go and install a local service is telling
+ * the one visitor who has done everything right that they have done it wrong.
  */
 function updateEmptyState() {
     const emptyState = document.getElementById('emptyState');
@@ -1975,8 +1983,40 @@ function updateEmptyState() {
     const noHelper = idle && slsCurrentState === 'offline' && !TEST_MODE_NO_SLS;
 
     if (emptyState) emptyState.style.display = idle && !noHelper ? 'flex' : 'none';
-    if (gate) gate.style.display = noHelper ? 'flex' : 'none';
+    if (gate) {
+        gate.style.display = noHelper ? 'flex' : 'none';
+        if (noHelper) renderSlsGate();
+    }
     updateStatusBar();
+}
+
+/** Say the true thing about where this browser has got to. */
+function renderSlsGate() {
+    const joined = !!cloudConnected;
+    const set = (id, text) => {
+        const el = document.getElementById(id);
+        if (el && text !== null) el.textContent = text;
+    };
+    const show = (id, on) => {
+        const el = document.getElementById(id);
+        if (el) el.style.display = on ? '' : 'none';
+    };
+
+    set('slsGateTitle', joined ? 'Waiting for a session' : 'Nothing to drive yet');
+    set('slsGateLead', joined
+        ? 'You are in the room' + (cloudAgentName ? ' as ' + cloudAgentName : '')
+          + '. Nothing has been shared with you yet — when somebody shares a terminal it '
+          + 'appears under Shared, and you can open it from there. Nothing needs to be '
+          + 'installed to watch or type in somebody else\'s shell.'
+        : null);
+
+    // The bullets are about setting up a shell of your own, which is not what
+    // somebody who has just joined a room came here to do.
+    show('slsGateSteps', !joined);
+    show('slsGateSetupBtn', !joined);
+    show('slsGateJoinBtn', !joined);
+    show('slsGateSharedBtn', joined);
+    show('slsGateRetryBtn', !joined);
 }
 
 /**
@@ -6180,6 +6220,7 @@ terminalSharing.onFileSystemNotification = (sessionId, operation, details, sourc
             console.warn('[Terminal] Cloud connection lost:', reason);
 
             cloudConnected = false;
+            updateEmptyState();
 
             // Update UI to show disconnected state
             const statusDot = document.getElementById('cloudStatus');
@@ -6251,6 +6292,7 @@ terminalSharing.onFileSystemNotification = (sessionId, operation, details, sourc
 
         cloudConnected = true;
         cloudAgentName = agentName;
+        updateEmptyState();
 
         // Remove shared terminal loader if it exists
         const loader = document.getElementById('shared-terminal-loader');
@@ -6395,6 +6437,7 @@ terminalSharing.onFileSystemNotification = (sessionId, operation, details, sourc
         showToast('error', 'Connection Failed', error.message);
         terminalSharing = null;
         cloudConnected = false;
+        updateEmptyState();
         pendingSessionToShare = null; // Clear pending session on error
         connectBtn.textContent = 'Connect to Cloud';
         connectBtn.disabled = false;
@@ -6402,6 +6445,10 @@ terminalSharing.onFileSystemNotification = (sessionId, operation, details, sourc
 }
 
 function disconnectFromCloud() {
+    // The pane goes back to describing the helper, since the room is no longer
+    // the reason there is nothing on screen.
+    setTimeout(updateEmptyState, 0);
+
     // Clear pending session to share
     pendingSessionToShare = null;
 
