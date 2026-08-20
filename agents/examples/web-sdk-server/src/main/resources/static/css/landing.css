@@ -508,6 +508,10 @@ section { padding-block: var(--sp-24); }
 .entry-hit:focus-visible { outline: none; box-shadow: var(--focus-ring); }
 
 .entry > *:not(.entry-hit) { position: relative; z-index: 1; pointer-events: none; }
+/* The whole card is one click target, which is right until a card has a second
+   destination — a "what it does" alongside "open it". Anything marked
+   .entry-alt sits above the card-wide link and takes its own clicks. */
+.entry .entry-alt { position: relative; z-index: 2; pointer-events: auto; }
 
 .entry:hover { background: var(--surface-2); border-color: var(--border-strong); }
 .entry:hover .demo-card__link { color: var(--accent-ink); }

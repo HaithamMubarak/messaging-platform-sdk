@@ -15,8 +15,8 @@
   <url><loc>https://hmdevonline.com/messaging-platform/sdk/docs.html?doc=README.md</loc><priority>0.5</priority></url>
 
   <!-- Games -->
-  <url><loc>https://hmdevonline.com/messaging-platform/sdk/apps/mini-games/blockparty/about.html</loc><priority>0.7</priority></url>
-  <url><loc>https://hmdevonline.com/messaging-platform/sdk/apps/mini-games/blockparty/index.html</loc><priority>0.7</priority></url>
+  <url><loc>https://hmdevonline.com/messaging-platform/sdk/apps/mini-games/blockparty/index.html</loc><priority>0.8</priority></url>
+  <url><loc>https://hmdevonline.com/messaging-platform/sdk/apps/mini-games/blockparty/play.html</loc><priority>0.7</priority></url>
   <url><loc>https://hmdevonline.com/messaging-platform/sdk/apps/mini-games/air-hockey/index.html</loc><priority>0.6</priority></url>
   <url><loc>https://hmdevonline.com/messaging-platform/sdk/apps/mini-games/quiz-battle/index.html</loc><priority>0.6</priority></url>
   <url><loc>https://hmdevonline.com/messaging-platform/sdk/apps/mini-games/find-the-liar/index.html</loc><priority>0.6</priority></url>

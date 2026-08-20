@@ -2,556 +2,734 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <script src="../../../js/prod-log.js"></script>
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>BlockParty — Co-op Voxel Builder</title>
-    <meta name="description" content="Build a 3D voxel world together in real time, anywhere on Earth. Six party modes, persistent regions, and a friend joins from a link.">
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+    <title>BlockParty — build a place that is actually somewhere</title>
+
+    <meta name="description" content="A shared voxel world pinned to real coordinates on Earth. Pick a spot, build on it with everyone in the room, and it is still there when you come back. Twelve game modes, eighteen maps, physics, first person.">
     <meta name="theme-color" content="#0b1120">
     <link rel="canonical" href="https://hmdevonline.com/messaging-platform/sdk/apps/mini-games/blockparty/index.html">
 
     <meta property="og:type" content="website">
     <meta property="og:site_name" content="Messaging Platform SDK">
-    <meta property="og:title" content="BlockParty — a shared voxel world">
-    <meta property="og:description" content="Build a 3D voxel world together in real time, anywhere on Earth. Six party modes, persistent regions, and a friend joins from a link.">
-    <meta property="og:url" content="https://hmdevonline.com/messaging-platform/sdk/apps/mini-games/blockparty/index.html">
+    <meta property="og:title" content="BlockParty — build a place that is actually somewhere">
+    <meta property="og:description" content="A shared voxel world pinned to real coordinates. Real streets on the ground, the sun where it actually is, and twelve ways to fall out with your friends.">
     <meta property="og:image" content="https://hmdevonline.com/messaging-platform/sdk/images/og-image.png">
     <meta name="twitter:card" content="summary_large_image">
+
     <link rel="icon" type="image/svg+xml" href="../../../favicon.svg">
-    <link rel="stylesheet" href="../../../css/toast.css">
-    <link rel="stylesheet" href="../../../css/share-modal.css">
-    <link rel="stylesheet" href="../../../css/connection-modal.css">
-    <link rel="stylesheet" href="../../../css/chat-panel.css">
-    <link rel="stylesheet" href="blockparty.css">
-    <link rel="stylesheet" href="../../../css/app-chrome.css">
+    <link rel="manifest" href="../../../site.webmanifest">
+    <link rel="stylesheet" href="../../../css/design-tokens.css">
+    <link rel="stylesheet" href="../../../css/ui.css">
+    <link rel="stylesheet" href="../../../css/landing.css">
+    <style>
+        /* BlockParty's own page, on the site's own system: the tokens, the
+           cards and the buttons are the shared ones — what is added here is the
+           frame the builds are shown in. */
+        .bp-hero { display: grid; gap: var(--sp-10); align-items: center; }
+        @media (min-width: 900px) { .bp-hero { grid-template-columns: minmax(0, 1fr) minmax(0, 1.05fr); } }
+
+        .bp-frame {
+            border: 1px solid var(--border-strong); border-radius: var(--r-xl);
+            overflow: hidden; box-shadow: var(--shadow-3);
+            background: linear-gradient(180deg, #16233f 0%, #0f1a30 42%, #0c1424 100%);
+        }
+        .bp-frame__bar {
+            display: flex; align-items: center; justify-content: space-between; gap: var(--sp-3);
+            padding: var(--sp-3) var(--sp-4);
+            background: rgba(6, 10, 22, 0.72); border-bottom: 1px solid var(--border);
+            font-size: var(--fs-xs); color: var(--text-muted);
+        }
+        .bp-frame__name { font-weight: 700; color: var(--text); }
+        .bp-frame__stage {
+            position: relative; min-height: 300px;
+            display: flex; align-items: flex-end; justify-content: center;
+            background:
+                radial-gradient(560px 260px at 74% 8%, rgba(251, 191, 36, 0.18), transparent 62%),
+                linear-gradient(180deg, #1a2b4d 0%, #14213c 48%, #101a2e 100%);
+        }
+        .bp-frame__stage svg { max-width: 100%; height: auto; transform: scale(1.7); transform-origin: bottom center; margin-bottom: var(--sp-10); }
+
+        .bp-stats { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 1px; background: var(--border); border: 1px solid var(--border); border-radius: var(--r-lg); overflow: hidden; }
+        @media (min-width: 720px) { .bp-stats { grid-template-columns: repeat(4, minmax(0, 1fr)); } }
+        .bp-stat { display: flex; flex-direction: column; gap: 2px; padding: var(--sp-5) var(--sp-5); background: var(--surface-1); }
+        .bp-stat__n { font-size: var(--fs-xl); font-weight: 700; color: var(--text); }
+        .bp-stat__l { font-size: var(--fs-md); font-weight: 600; color: var(--text-body); }
+        .bp-stat__s { font-size: var(--fs-xs); color: var(--text-muted); }
+
+        .bp-grid { display: grid; gap: var(--sp-5); grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); }
+        .bp-tile { padding: 0; overflow: hidden; display: flex; flex-direction: column; }
+        .bp-tile__art {
+            display: flex; align-items: flex-end; justify-content: center; min-height: 200px; padding-bottom: var(--sp-3);
+            background:
+                radial-gradient(300px 160px at 62% 12%, rgba(251, 191, 36, 0.14), transparent 62%),
+                linear-gradient(180deg, #17223c 0%, #121b30 100%);
+        }
+        .bp-tile__art svg { max-width: 100%; height: auto; }
+        .bp-tile__body { padding: var(--sp-4) var(--sp-5) var(--sp-5); border-top: 1px solid var(--border); display: flex; flex-direction: column; gap: var(--sp-2); }
+        .bp-tile__body h3 { font-size: var(--fs-base); margin: 0; }
+        .bp-tile__body p { font-size: var(--fs-sm); color: var(--text-muted); margin: 0; }
+        .bp-tags { display: flex; flex-wrap: wrap; gap: var(--sp-2); margin-top: var(--sp-1); }
+
+        .bp-split { display: grid; gap: var(--sp-8); align-items: center; }
+        @media (min-width: 900px) { .bp-split { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+        .bp-split ul { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: var(--sp-3); }
+        .bp-split li { display: flex; align-items: flex-start; gap: var(--sp-3); font-size: var(--fs-md); color: var(--text-body); }
+        .bp-split li .icon { color: var(--accent); flex-shrink: 0; margin-top: 2px; }
+
+        /* The floor wearing a map, seen the way you see it in the game. */
+        .bp-ground { overflow: hidden; min-height: 320px; }
+        .bp-ground__plane {
+            position: absolute; left: 50%; top: 34%; width: 720px; height: 720px; margin-left: -360px;
+            transform: perspective(760px) rotateX(66deg) scale(1.05); transform-origin: 50% 0%;
+            -webkit-mask-image: radial-gradient(closest-side at 50% 26%, #000 58%, transparent 100%);
+            mask-image: radial-gradient(closest-side at 50% 26%, #000 58%, transparent 100%);
+        }
+        .bp-ground__plane svg { transform: none; margin: 0; }
+        .bp-ground > div[class^="bp-ground__"]:not(.bp-ground__plane) { position: absolute; }
+        .bp-ground__a { left: 12%; top: 44%; width: 150px; }
+        .bp-ground__b { left: 42%; top: 20%; width: 130px; }
+        .bp-ground__c { left: 66%; top: 48%; width: 150px; }
+        .bp-ground svg { transform: none; margin: 0; }
+
+        /* Photograph, depth, and what actually lands in the world. */
+        .bp-steps { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 1px; background: var(--border); }
+        .bp-steps figure { margin: 0; padding: var(--sp-4); background: #0f1729; display: flex; flex-direction: column; gap: var(--sp-2); }
+        .bp-steps__art { border: 1px solid var(--border); border-radius: var(--r-md); overflow: hidden; background: #0b1120; aspect-ratio: 4 / 3; display: flex; align-items: center; justify-content: center; }
+        .bp-steps__art--vox { background: linear-gradient(180deg, #17223c, #101a2e); }
+        .bp-steps__art--vox svg { width: 100%; height: auto; transform: none; margin: 0; }
+        .bp-steps figcaption { font-size: var(--fs-xs); color: var(--text-muted); }
+        @media (max-width: 640px) { .bp-steps { grid-template-columns: 1fr; } }
+
+        .bp-modes { display: grid; gap: var(--sp-3); grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); }
+
+        /* Getting around a long page: sticky, quiet, and it scrolls sideways
+           on a phone rather than wrapping into three rows. */
+        .bp-jump { position: sticky; top: 0; z-index: 40; background: rgba(11,17,32,0.92); backdrop-filter: blur(8px); border-bottom: 1px solid var(--border); }
+        .bp-jump__inner { display: flex; align-items: center; gap: var(--sp-5); padding-block: var(--sp-3); overflow-x: auto; scrollbar-width: none; }
+        .bp-jump__inner::-webkit-scrollbar { display: none; }
+        .bp-jump__label { font-size: var(--fs-sm); font-weight: 700; color: var(--text); white-space: nowrap; }
+        .bp-jump a { font-size: var(--fs-sm); color: var(--text-muted); text-decoration: none; white-space: nowrap; }
+        .bp-jump a:hover { color: var(--text); }
+        .bp-jump__cta { margin-left: auto; color: var(--brand-ink) !important; font-weight: 600; }
+        html { scroll-behavior: smooth; scroll-padding-top: 96px; }
+
+        /* Screenshots of the running game, framed the way the panels are. */
+        .bp-shot { display: block; width: 100%; height: auto; }
+        .bp-tile__shot { display: block; width: 100%; height: auto; border-bottom: 1px solid var(--border); }
+
+        .bp-ladder { list-style: none; margin: 0; padding: var(--sp-3); display: flex; flex-direction: column; gap: 2px; }
+        .bp-rung { display: flex; align-items: center; gap: var(--sp-3); padding: var(--sp-2) var(--sp-3); border-radius: var(--r-md); font-size: var(--fs-sm); color: var(--text-muted); }
+        .bp-rung--on { background: rgba(99,102,241,0.22); border: 1px solid rgba(99,102,241,0.6); color: var(--text); font-weight: 600; }
+        .bp-rung__dot { width: 7px; height: 7px; border-radius: 999px; background: rgba(148,163,184,0.4); flex-shrink: 0; }
+        .bp-rung--on .bp-rung__dot { background: var(--accent); }
+        .bp-rung__m { min-width: 62px; }
+        .bp-rung__n { flex-grow: 1; }
+        .bp-rung__a { font-size: var(--fs-xs); opacity: .8; }
+
+        .bp-step { display: flex; flex-direction: column; gap: var(--sp-3); }
+        .bp-step__k { font-size: var(--fs-xs); font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--brand-ink); }
+        .bp-step h3 { font-size: var(--fs-base); margin: 0; }
+        .bp-step p { font-size: var(--fs-sm); color: var(--text-muted); margin: 0; }
+        .bp-step__art { display: flex; align-items: center; justify-content: center; min-height: 170px; padding: var(--sp-4); border-radius: var(--r-md); background: linear-gradient(180deg,#17223c,#101a2e); }
+
+        .bp-bar { display: flex; align-items: center; gap: var(--sp-2); font-size: var(--fs-xs); color: var(--text-muted); }
+        .bp-bar__l { min-width: 44px; }
+        .bp-bar__t { flex-grow: 1; height: 5px; border-radius: 999px; background: rgba(255,255,255,.10); overflow: hidden; }
+        .bp-bar__f { display: block; height: 100%; border-radius: 999px; }
+        .bp-bar__p { min-width: 30px; text-align: right; color: var(--text-body); }
+
+        .bp-ref { padding: var(--sp-5); display: flex; flex-direction: column; gap: var(--sp-4); }
+        .bp-ref__pic { border: 1px solid var(--border); border-radius: var(--r-md); overflow: hidden; background: #0b1120; padding: var(--sp-3); }
+        .bp-ref__note { font-size: var(--fs-sm); color: var(--text-muted); margin: 0; }
+
+        .bp-maps { display: grid; gap: var(--sp-3); grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); }
+        .bp-map { border: 1px solid var(--border); border-radius: var(--r-lg); overflow: hidden; background: var(--surface-1); }
+        .bp-map__art { height: 96px; }
+        .bp-map__body { padding: var(--sp-3) var(--sp-4) var(--sp-4); display: flex; flex-direction: column; gap: 2px; border-top: 1px solid var(--border); }
+        .bp-map__body strong { font-size: var(--fs-md); }
+        .bp-map__body span { font-size: var(--fs-xs); color: var(--text-muted); }
+        .bp-maps__more { display: flex; flex-wrap: wrap; gap: var(--sp-2); margin-top: var(--sp-5); }
+
+        .bp-mode { display: flex; flex-direction: column; gap: var(--sp-2); }
+        .bp-mode__head { display: flex; align-items: center; justify-content: space-between; }
+        .bp-mode__emoji { font-size: 20px; }
+        .bp-mode h3 { font-size: var(--fs-md); margin: 0; }
+        .bp-mode p { font-size: var(--fs-sm); color: var(--text-muted); margin: 0; }
+    </style>
+
+    <script src="../../../js/prod-log.js" defer></script>
+    <script src="../../../js/icons.js" defer></script>
+    <script src="../../../js/ui.js" defer></script>
+    <script src="../../../js/landing.js" defer></script>
 </head>
 <body>
-<!-- Connection Modal is injected dynamically by connection-modal.js -->
+<a class="skip-link" href="#main">Skip to content</a>
 
-<!-- Game Container -->
-<div id="gameContainer" class="hidden">
-    <!-- 3D canvas mounts here -->
-    <div id="sceneRoot"></div>
+<header class="site-header" id="siteHeader">
+    <div class="wrap site-header__inner">
+        <a class="brand" href="../../../index.html">
+            <svg class="logo-mark" aria-hidden="true"><use href="#i-logo"></use></svg>
+            Messaging Platform SDK
+        </a>
 
-    <!-- Top Bar -->
-    <div class="top-bar">
-        <div class="brand">
-            <span class="brand-mark">🧱</span>
-            <h1 class="brand-name">BlockParty</h1>
-            <span id="roomBadge" class="room-badge"></span>
+        <button class="btn btn--ghost btn--icon nav-toggle" id="navToggle" aria-expanded="false" aria-controls="siteNav" aria-label="Open menu">
+            <svg class="icon" aria-hidden="true"><use href="#i-menu"></use></svg>
+        </button>
+
+        <nav class="site-nav" id="siteNav" aria-label="Main">
+            <a href="../../../index.html#demos">Demos</a>
+            <a href="../../../playground.html">Playground</a>
+            <a href="../../../docs.html">Docs</a>
+            <a href="../../../developer/index.html">Portal</a>
+            <a class="btn btn--gradient" href="play.html">Open BlockParty</a>
+        </nav>
+    </div>
+</header>
+
+<nav class="bp-jump" aria-label="On this page">
+    <div class="wrap bp-jump__inner">
+        <span class="bp-jump__label">BlockParty</span>
+        <a href="#maps-head">Maps</a>
+        <a href="#ground">The ground</a>
+        <a href="#scale">Scale</a>
+        <a href="#import">Pictures</a>
+        <a href="#modes">Modes</a>
+        <a href="#memory">Memory Match</a>
+        <a href="#postcard">Postcard</a>
+        <a class="bp-jump__cta" href="play.html">Open the game →</a>
+    </div>
+</nav>
+
+<main id="main">
+
+    <section class="hero" style="padding-block: var(--sp-16) var(--sp-12)">
+        <div class="wrap bp-hero">
+            <div>
+                <span class="eyebrow">Playground · BlockParty</span>
+                <h1 style="font-size: var(--fs-hero); margin-bottom: var(--sp-4); text-wrap: balance">Build a place that is actually somewhere.</h1>
+                <p class="hero__lede">
+                    Pick a spot on Earth. BlockParty pins a voxel world to those coordinates, puts the real
+                    streets under your feet and the sun where it genuinely is for that place and this hour.
+                    Build on it with everyone in the room, in a browser, with nothing installed — and it is
+                    still standing when you come back.
+                </p>
+                <div class="hero__cta">
+                    <a class="btn btn--lg btn--gradient" href="play.html">
+                        Open BlockParty
+                        <svg class="icon" aria-hidden="true"><use href="#i-arrow-right"></use></svg>
+                    </a>
+                    <a class="btn btn--lg btn--ghost" href="#modes">See the twelve modes</a>
+                </div>
+                <p class="hero__trust">
+                    <span><svg class="icon icon--sm" aria-hidden="true"><use href="#i-check"></use></svg> Nothing to install</span>
+                    <span><svg class="icon icon--sm" aria-hidden="true"><use href="#i-check"></use></svg> Peer to peer</span>
+                    <span><svg class="icon icon--sm" aria-hidden="true"><use href="#i-check"></use></svg> The world persists</span>
+                </p>
+            </div>
+
+            <div class="bp-frame">
+                <div class="bp-frame__bar">
+                    <span><span class="bp-frame__name">BlockParty</span> · the City of London, 2 m per block</span>
+                    <span>Map data © OpenStreetMap contributors</span>
+                </div>
+                <img class="bp-shot" src="images/ground-streets.jpg" width="1440" height="900" loading="eager" decoding="async"
+                     alt="A voxel old town standing on the real streets by St Paul's, with the OpenStreetMap ground painted under the blocks and the build toolbar along the bottom.">
+            </div>
         </div>
-        <div class="top-actions">
-            <span id="blockCount" class="pill" title="Blocks in the world">0 blocks</span>
-            <span id="lockBadge" class="pill lock-badge hidden" title="The host locked the world">🔒 Locked</span>
-            <span id="geoReadout" class="pill geo-readout hidden" title="Where the pointer is in the real world"></span>
-            <span id="connectionIndicator" class="indicator disconnected" title="Connection">●</span>
-            <button id="soundBtn" class="btn btn-icon active" title="Sound">🔊</button>
-            <button id="modeBtn" class="btn btn-icon" title="This world is nowhere — click to put it on a real place">🔒</button>
-            <button id="mapBtn" class="btn btn-icon" title="Minimap (N)">🗺</button>
-            <button id="fpsBtn" class="btn btn-icon" title="Walk around in first person (G)">🚶</button>
-            <button id="xrayBtn" class="btn btn-icon" title="Show who built what (O)">🎨</button>
-            <button id="worldBtn" class="btn btn-icon" title="Saved worlds, host controls, leaderboard">🗂</button>
-            <button id="chatToggle" class="btn btn-chat" title="Chat (and guesses)">💬<span id="chatBadge" class="chat-badge hidden">0</span></button>
-            <button id="playBtn" class="btn btn-play" title="Start a match">🎮<span class="btn-word"> Play</span></button>
-            <button id="shareBtn" class="btn btn-share" style="display:none;">🔗<span class="btn-word"> Share</span></button>
-            <button id="leaveBtn" class="btn btn-ghost" title="Leave the room">🚪<span class="btn-word"> Leave</span></button>
+    </section>
+
+    <section id="top" style="padding-top: 0">
+        <div class="wrap">
+            <div class="bp-stats">
+
+                <div class="bp-stat">
+                    <span class="bp-stat__n">12</span>
+                    <span class="bp-stat__l">game modes</span>
+                    <span class="bp-stat__s">six of them work alone</span>
+                </div>
+
+                <div class="bp-stat">
+                    <span class="bp-stat__n">18</span>
+                    <span class="bp-stat__l">maps built in</span>
+                    <span class="bp-stat__s">caves, a school, an airport</span>
+                </div>
+
+                <div class="bp-stat">
+                    <span class="bp-stat__n">161 × 161</span>
+                    <span class="bp-stat__l">blocks per world</span>
+                    <span class="bp-stat__s">and forty high</span>
+                </div>
+
+                <div class="bp-stat">
+                    <span class="bp-stat__n">1 m – 250 km</span>
+                    <span class="bp-stat__l">per block</span>
+                    <span class="bp-stat__s">the whole scale ladder</span>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <section>
+        <div class="wrap">
+            <div class="section-head">
+                <span class="eyebrow">What people make</span>
+                <h2 id="maps-head">Eighteen places to start, before anyone lays a brick</h2>
+                <p>Every map is generated from a fixed seed, so it is the same scene every time — somewhere to play
+                   in, or a foundation to build on. These are six of them, straight out of the game.</p>
+            </div>
+            <div class="bp-grid">
+                <article class="card bp-tile">
+                    <img class="bp-tile__shot" src="images/map-village-green.jpg" width="1200" height="750" loading="lazy" decoding="async"
+                         alt="Village Green — Cottages round a green, a well, hedgerows and a lane">
+                    <div class="bp-tile__body">
+                        <h3>Village Green</h3>
+                        <p>Cottages round a green, a well, hedgerows and a lane</p>
+                    </div>
+                </article>
+                <article class="card bp-tile">
+                    <img class="bp-tile__shot" src="images/map-harbour.jpg" width="1200" height="750" loading="lazy" decoding="async"
+                         alt="Harbour — Deep water, a working quay, cranes and boats at their moorings">
+                    <div class="bp-tile__body">
+                        <h3>Harbour</h3>
+                        <p>Deep water, a working quay, cranes and boats at their moorings</p>
+                    </div>
+                </article>
+                <article class="card bp-tile">
+                    <img class="bp-tile__shot" src="images/map-castle-keep.jpg" width="1200" height="750" loading="lazy" decoding="async"
+                         alt="Castle Keep — Curtain walls, corner towers, a gatehouse and a moat">
+                    <div class="bp-tile__body">
+                        <h3>Castle Keep</h3>
+                        <p>Curtain walls, corner towers, a gatehouse and a moat</p>
+                    </div>
+                </article>
+                <article class="card bp-tile">
+                    <img class="bp-tile__shot" src="images/map-old-town.jpg" width="1200" height="750" loading="lazy" decoding="async"
+                         alt="Old Town Street — A parade of shops you can walk into — a bakery, a bookshop">
+                    <div class="bp-tile__body">
+                        <h3>Old Town Street</h3>
+                        <p>A parade of shops you can walk into — a bakery, a bookshop</p>
+                    </div>
+                </article>
+                <article class="card bp-tile">
+                    <img class="bp-tile__shot" src="images/map-winter-village.jpg" width="1200" height="750" loading="lazy" decoding="async"
+                         alt="Winter Village — Snow on the roofs, a frozen pond, lit lanterns and snowmen">
+                    <div class="bp-tile__body">
+                        <h3>Winter Village</h3>
+                        <p>Snow on the roofs, a frozen pond, lit lanterns and snowmen</p>
+                    </div>
+                </article>
+                <article class="card bp-tile">
+                    <img class="bp-tile__shot" src="images/map-speedway.jpg" width="1200" height="750" loading="lazy" decoding="async"
+                         alt="Speedway — A banked oval, pit boxes, a grandstand and a start-finish gantry">
+                    <div class="bp-tile__body">
+                        <h3>Speedway</h3>
+                        <p>A banked oval, pit boxes, a grandstand and a start-finish gantry</p>
+                    </div>
+                </article>
+            </div>
+        </div>
+    </section>
+
+    <section id="ground">
+        <div class="wrap bp-split">
+            <div>
+                <span class="eyebrow">The ground</span>
+                <h2 style="margin-bottom: var(--sp-4)">The map is under your feet, not in the corner</h2>
+                <p style="color: var(--text-body); margin-bottom: var(--sp-6)">
+                    Anchor a world and the floor knows where it is: the real coastline, or the real streets,
+                    parks and building footprints, stitched from map tiles at that world's own scale — and
+                    carried out across the plain that runs nine worlds further in every direction.
+                </p>
+                <ul>
+                    <li><svg class="icon icon--sm" aria-hidden="true"><use href="#i-check"></use></svg> Plain, coastline or streets — your choice, and it is a picture rather than a hundred thousand cubes to clear</li>
+                    <li><svg class="icon icon--sm" aria-hidden="true"><use href="#i-check"></use></svg> Draw this place turns those footprints into blocks you can actually build on</li>
+                    <li><svg class="icon icon--sm" aria-hidden="true"><use href="#i-check"></use></svg> Zoom is the scale ladder: a metre a block up to 250 km, each rung its own saved world</li>
+                    <li><svg class="icon icon--sm" aria-hidden="true"><use href="#i-check"></use></svg> The minimap stays offline on purpose — it draws its coastline from a file that ships with the game</li>
+                </ul>
+            </div>
+            <div class="bp-frame">
+                <div class="bp-frame__bar"><span>Worlds &amp; room · ground and scale</span><span>in the game</span></div>
+                <img class="bp-shot" src="images/world-panel.jpg" width="1440" height="900" loading="lazy" decoding="async"
+                     alt="The world panel: coordinates and metres per block, a Ground control set to Streets with a strength slider, the sky mode, and the scale ladder.">
+            </div>
+        </div>
+    </section>
+
+    
+    <section id="scale">
+        <div class="wrap bp-split">
+            <div>
+                <span class="eyebrow">Scale</span>
+                <h2 style="margin-bottom: var(--sp-4)">Zooming out means a block covers more ground</h2>
+                <p style="color: var(--text-body); margin-bottom: var(--sp-6)">
+                    The camera has a limit, and past it "see more" stops being a camera move: a world is one tile of
+                    the Earth at one scale, which is exactly why two rooms standing in the same place see the same
+                    world. So zoom is a ladder, and every rung is its own saved world — move in a rung and your street
+                    is still a street, not a shrunken county.
+                </p>
+                <p style="font-size: var(--fs-sm); color: var(--text-muted)">
+                    Every world is 161 × 161 blocks and 40 high, at every rung. The size is part of the address.
+                </p>
+            </div>
+            <div class="bp-frame">
+                <div class="bp-frame__bar"><span>How big a block is</span><span>161 × 161 either way</span></div>
+                <ul class="bp-ladder">
+                    <li class="bp-rung">
+                        <span class="bp-rung__dot"></span>
+                        <span class="bp-rung__m">1 m</span>
+                        <span class="bp-rung__n">Street</span>
+                        <span class="bp-rung__a">161 m across</span>
+                    </li>
+                    <li class="bp-rung bp-rung--on">
+                        <span class="bp-rung__dot"></span>
+                        <span class="bp-rung__m">2 m</span>
+                        <span class="bp-rung__n">Block</span>
+                        <span class="bp-rung__a">322 m across</span>
+                    </li>
+                    <li class="bp-rung">
+                        <span class="bp-rung__dot"></span>
+                        <span class="bp-rung__m">5 m</span>
+                        <span class="bp-rung__n">Neighbourhood</span>
+                        <span class="bp-rung__a">805 m across</span>
+                    </li>
+                    <li class="bp-rung">
+                        <span class="bp-rung__dot"></span>
+                        <span class="bp-rung__m">20 m</span>
+                        <span class="bp-rung__n">District</span>
+                        <span class="bp-rung__a">3.2 km across</span>
+                    </li>
+                    <li class="bp-rung">
+                        <span class="bp-rung__dot"></span>
+                        <span class="bp-rung__m">100 m</span>
+                        <span class="bp-rung__n">City</span>
+                        <span class="bp-rung__a">16 km across</span>
+                    </li>
+                    <li class="bp-rung">
+                        <span class="bp-rung__dot"></span>
+                        <span class="bp-rung__m">1 km</span>
+                        <span class="bp-rung__n">Region</span>
+                        <span class="bp-rung__a">161 km across</span>
+                    </li>
+                    <li class="bp-rung">
+                        <span class="bp-rung__dot"></span>
+                        <span class="bp-rung__m">20 km</span>
+                        <span class="bp-rung__n">Continent</span>
+                        <span class="bp-rung__a">3,220 km across</span>
+                    </li>
+                    <li class="bp-rung">
+                        <span class="bp-rung__dot"></span>
+                        <span class="bp-rung__m">250 km</span>
+                        <span class="bp-rung__n">Planet</span>
+                        <span class="bp-rung__a">the whole Earth</span>
+                    </li></ul>
+            </div>
+        </div>
+    </section>
+
+    <section id="import">
+        <div class="wrap bp-split">
+            <div class="bp-frame">
+                <div class="bp-frame__bar"><span>Turn a picture into blocks</span><span>solid relief</span></div>
+                <img class="bp-shot" src="images/picture-import.jpg" width="1440" height="900" loading="lazy" decoding="async"
+                     alt="The picture import panel: five build styles, colour mode, width and depth, background removal, and two previews showing the colours it read and the depth it will build with.">
+            </div>
+            <div>
+                <span class="eyebrow">Bring your own</span>
+                <h2 style="margin-bottom: var(--sp-4)">Point at a photo, get a building</h2>
+                <p style="color: var(--text-body); margin-bottom: var(--sp-6)">
+                    Drop in a picture and BlockParty reads its shape as well as its colours: the background is
+                    flood-filled away, depth is read off the brightness, and every column is pushed back by how
+                    far away it looks. What you get is a painted shell you can walk around.
+                </p>
+                <ul>
+                    <li><svg class="icon icon--sm" aria-hidden="true"><use href="#i-check"></use></svg> Five styles: mural, mosaic, relief, solid relief, or terrain read as a heightfield</li>
+                    <li><svg class="icon icon--sm" aria-hidden="true"><use href="#i-check"></use></svg> True colour, or dithered down to the twelve you build with</li>
+                    <li><svg class="icon icon--sm" aria-hidden="true"><use href="#i-check"></use></svg> It never leaves your browser, and it arrives as one edit — so one undo takes it back out</li>
+                    <li><svg class="icon icon--sm" aria-hidden="true"><use href="#i-check"></use></svg> One photograph knows the front of a thing. Walk behind it and it is a shell — that is the honest ceiling</li>
+                </ul>
+            </div>
+        </div>
+    </section>
+
+    <section id="modes">
+        <div class="wrap">
+            <div class="section-head">
+                <span class="eyebrow">Modes</span>
+                <h2>Twelve ways to fall out with your friends</h2>
+                <p>Every mode runs in the same world, on the same blocks, and starts from the same button.
+                   Six of them work with one player; one of them works best when nobody trusts anybody.</p>
+            </div>
+            <div class="bp-modes">
+                <div class="card bp-mode">
+                    <div class="bp-mode__head">
+                        <span class="bp-mode__emoji">📐</span>
+                        <span class="badge">Solo ok</span>
+                    </div>
+                    <h3>Blueprint Race</h3>
+                    <p>Copy the model before the clock beats you.</p>
+                </div>
+                <div class="card bp-mode">
+                    <div class="bp-mode__head">
+                        <span class="bp-mode__emoji">🖼</span>
+                        <span class="badge badge--brand">New</span>
+                    </div>
+                    <h3>Postcard</h3>
+                    <p>One picture, no model. Build what you think it shows.</p>
+                </div>
+                <div class="card bp-mode">
+                    <div class="bp-mode__head">
+                        <span class="bp-mode__emoji">🕵</span>
+                        <span class="badge badge--brand">New</span>
+                    </div>
+                    <h3>Saboteur</h3>
+                    <p>Build it together — while one of you quietly wrecks it.</p>
+                </div>
+                <div class="card bp-mode">
+                    <div class="bp-mode__head">
+                        <span class="bp-mode__emoji">🧠</span>
+                        <span class="badge">Solo ok</span>
+                    </div>
+                    <h3>Memory Match</h3>
+                    <p>Study it, lose it, draw it back from memory.</p>
+                </div>
+                <div class="card bp-mode">
+                    <div class="bp-mode__head">
+                        <span class="bp-mode__emoji">🤫</span>
+                        <span class="badge">2+</span>
+                    </div>
+                    <h3>Voxel Charades</h3>
+                    <p>Sculpt the word. No words allowed.</p>
+                </div>
+                <div class="card bp-mode">
+                    <div class="bp-mode__head">
+                        <span class="bp-mode__emoji">🎽</span>
+                        <span class="badge">3+</span>
+                    </div>
+                    <h3>Relay Sculptors</h3>
+                    <p>Three sculptors, one statue, one word.</p>
+                </div>
+                <div class="card bp-mode">
+                    <div class="bp-mode__head">
+                        <span class="bp-mode__emoji">🌍</span>
+                        <span class="badge">Solo ok</span>
+                    </div>
+                    <h3>Where on Earth</h3>
+                    <p>You are somewhere real. Work out where.</p>
+                </div>
+                <div class="card bp-mode">
+                    <div class="bp-mode__head">
+                        <span class="bp-mode__emoji">🤝</span>
+                        <span class="badge">Solo ok</span>
+                    </div>
+                    <h3>Team Build</h3>
+                    <p>One plot, everyone at once, one model.</p>
+                </div>
+                <div class="card bp-mode">
+                    <div class="bp-mode__head">
+                        <span class="bp-mode__emoji">⚡</span>
+                        <span class="badge">3+</span>
+                    </div>
+                    <h3>Block Rush</h3>
+                    <p>Sixty seconds on a prompt, then the room votes.</p>
+                </div>
+                <div class="card bp-mode">
+                    <div class="bp-mode__head">
+                        <span class="bp-mode__emoji">🚩</span>
+                        <span class="badge">2+</span>
+                    </div>
+                    <h3>Territory</h3>
+                    <p>Take ground off each other, block by block.</p>
+                </div>
+                <div class="card bp-mode">
+                    <div class="bp-mode__head">
+                        <span class="bp-mode__emoji">🌋</span>
+                        <span class="badge">Solo ok</span>
+                    </div>
+                    <h3>Earthquake</h3>
+                    <p>Build tall on a budget. Then the ground moves.</p>
+                </div>
+                <div class="card bp-mode">
+                    <div class="bp-mode__head">
+                        <span class="bp-mode__emoji">🧨</span>
+                        <span class="badge">Solo ok</span>
+                    </div>
+                    <h3>Demolition Party</h3>
+                    <p>A town goes up. You bring it down.</p>
+                </div>
+                <div class="card bp-mode">
+                    <div class="bp-mode__head">
+                        <span class="bp-mode__emoji">🎞</span>
+                        <span class="badge">Any</span>
+                    </div>
+                    <h3>Time-lapse</h3>
+                    <p>Not a match — watch the world get built again.</p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    
+    <section style="padding-top: 0">
+        <div class="wrap">
+            <div class="bp-frame">
+                <div class="bp-frame__bar"><span>Start a match</span><span>grouped by what kind of round it is</span></div>
+                <img class="bp-shot" src="images/mode-picker.jpg" width="1440" height="900" loading="lazy" decoding="async"
+                     alt="The mode picker: filter chips for all twelve modes, Build, Guess, Remember and Wreck, with each mode card showing what it does and how many players it needs.">
+            </div>
+        </div>
+    </section>
+
+    
+    <section id="memory">
+        <div class="wrap">
+            <div class="section-head">
+                <span class="eyebrow">A round of Memory Match</span>
+                <h2>Study it, lose it, draw it back</h2>
+                <p>One player builds while the room watches. Then it is taken away and everybody rebuilds it from
+                   memory — and at the end you find out which part you actually got wrong.</p>
+            </div>
+            <div class="bp-grid">
+                
+                <article class="card bp-step">
+                    <span class="bp-step__k">1 · Watch</span>
+                    <h3>Somebody builds it</h3>
+                    <div class="bp-step__art"><div style="display:grid;grid-template-columns:repeat(7,20px);gap:2px;"><span style="width:20px;height:20px"></span><span style="width:20px;height:20px"></span><span style="width:20px;height:20px;background:#b4553f;border-radius:3px;box-shadow:inset 0 -3px 0 rgba(0,0,0,.22),inset 0 3px 0 rgba(255,255,255,.14);"></span><span style="width:20px;height:20px;background:#b4553f;border-radius:3px;box-shadow:inset 0 -3px 0 rgba(0,0,0,.22),inset 0 3px 0 rgba(255,255,255,.14);"></span><span style="width:20px;height:20px;background:#b4553f;border-radius:3px;box-shadow:inset 0 -3px 0 rgba(0,0,0,.22),inset 0 3px 0 rgba(255,255,255,.14);"></span><span style="width:20px;height:20px"></span><span style="width:20px;height:20px"></span><span style="width:20px;height:20px"></span><span style="width:20px;height:20px;background:#b4553f;border-radius:3px;box-shadow:inset 0 -3px 0 rgba(0,0,0,.22),inset 0 3px 0 rgba(255,255,255,.14);"></span><span style="width:20px;height:20px;background:#b4553f;border-radius:3px;box-shadow:inset 0 -3px 0 rgba(0,0,0,.22),inset 0 3px 0 rgba(255,255,255,.14);"></span><span style="width:20px;height:20px;background:#b4553f;border-radius:3px;box-shadow:inset 0 -3px 0 rgba(0,0,0,.22),inset 0 3px 0 rgba(255,255,255,.14);"></span><span style="width:20px;height:20px;background:#b4553f;border-radius:3px;box-shadow:inset 0 -3px 0 rgba(0,0,0,.22),inset 0 3px 0 rgba(255,255,255,.14);"></span><span style="width:20px;height:20px;background:#b4553f;border-radius:3px;box-shadow:inset 0 -3px 0 rgba(0,0,0,.22),inset 0 3px 0 rgba(255,255,255,.14);"></span><span style="width:20px;height:20px"></span><span style="width:20px;height:20px;background:#b4553f;border-radius:3px;box-shadow:inset 0 -3px 0 rgba(0,0,0,.22),inset 0 3px 0 rgba(255,255,255,.14);"></span><span style="width:20px;height:20px;background:#b4553f;border-radius:3px;box-shadow:inset 0 -3px 0 rgba(0,0,0,.22),inset 0 3px 0 rgba(255,255,255,.14);"></span><span style="width:20px;height:20px;background:#b4553f;border-radius:3px;box-shadow:inset 0 -3px 0 rgba(0,0,0,.22),inset 0 3px 0 rgba(255,255,255,.14);"></span><span style="width:20px;height:20px;background:#b4553f;border-radius:3px;box-shadow:inset 0 -3px 0 rgba(0,0,0,.22),inset 0 3px 0 rgba(255,255,255,.14);"></span><span style="width:20px;height:20px;background:#b4553f;border-radius:3px;box-shadow:inset 0 -3px 0 rgba(0,0,0,.22),inset 0 3px 0 rgba(255,255,255,.14);"></span><span style="width:20px;height:20px;background:#b4553f;border-radius:3px;box-shadow:inset 0 -3px 0 rgba(0,0,0,.22),inset 0 3px 0 rgba(255,255,255,.14);"></span><span style="width:20px;height:20px;background:#b4553f;border-radius:3px;box-shadow:inset 0 -3px 0 rgba(0,0,0,.22),inset 0 3px 0 rgba(255,255,255,.14);"></span><span style="width:20px;height:20px"></span><span style="width:20px;height:20px;background:#e7e3d8;border-radius:3px;box-shadow:inset 0 -3px 0 rgba(0,0,0,.22),inset 0 3px 0 rgba(255,255,255,.14);"></span><span style="width:20px;height:20px;background:#e7e3d8;border-radius:3px;box-shadow:inset 0 -3px 0 rgba(0,0,0,.22),inset 0 3px 0 rgba(255,255,255,.14);"></span><span style="width:20px;height:20px;background:#e7e3d8;border-radius:3px;box-shadow:inset 0 -3px 0 rgba(0,0,0,.22),inset 0 3px 0 rgba(255,255,255,.14);"></span><span style="width:20px;height:20px;background:#e7e3d8;border-radius:3px;box-shadow:inset 0 -3px 0 rgba(0,0,0,.22),inset 0 3px 0 rgba(255,255,255,.14);"></span><span style="width:20px;height:20px;background:#e7e3d8;border-radius:3px;box-shadow:inset 0 -3px 0 rgba(0,0,0,.22),inset 0 3px 0 rgba(255,255,255,.14);"></span><span style="width:20px;height:20px"></span><span style="width:20px;height:20px"></span><span style="width:20px;height:20px;background:#e7e3d8;border-radius:3px;box-shadow:inset 0 -3px 0 rgba(0,0,0,.22),inset 0 3px 0 rgba(255,255,255,.14);"></span><span style="width:20px;height:20px;background:#63c9d8;border-radius:3px;box-shadow:inset 0 -3px 0 rgba(0,0,0,.22),inset 0 3px 0 rgba(255,255,255,.14);"></span><span style="width:20px;height:20px;background:#e7e3d8;border-radius:3px;box-shadow:inset 0 -3px 0 rgba(0,0,0,.22),inset 0 3px 0 rgba(255,255,255,.14);"></span><span style="width:20px;height:20px;background:#63c9d8;border-radius:3px;box-shadow:inset 0 -3px 0 rgba(0,0,0,.22),inset 0 3px 0 rgba(255,255,255,.14);"></span><span style="width:20px;height:20px;background:#e7e3d8;border-radius:3px;box-shadow:inset 0 -3px 0 rgba(0,0,0,.22),inset 0 3px 0 rgba(255,255,255,.14);"></span><span style="width:20px;height:20px"></span><span style="width:20px;height:20px"></span><span style="width:20px;height:20px;background:#e7e3d8;border-radius:3px;box-shadow:inset 0 -3px 0 rgba(0,0,0,.22),inset 0 3px 0 rgba(255,255,255,.14);"></span><span style="width:20px;height:20px;background:#e7e3d8;border-radius:3px;box-shadow:inset 0 -3px 0 rgba(0,0,0,.22),inset 0 3px 0 rgba(255,255,255,.14);"></span><span style="width:20px;height:20px;background:#a9743f;border-radius:3px;box-shadow:inset 0 -3px 0 rgba(0,0,0,.22),inset 0 3px 0 rgba(255,255,255,.14);"></span><span style="width:20px;height:20px;background:#a9743f;border-radius:3px;box-shadow:inset 0 -3px 0 rgba(0,0,0,.22),inset 0 3px 0 rgba(255,255,255,.14);"></span><span style="width:20px;height:20px;background:#e7e3d8;border-radius:3px;box-shadow:inset 0 -3px 0 rgba(0,0,0,.22),inset 0 3px 0 rgba(255,255,255,.14);"></span><span style="width:20px;height:20px"></span></div></div>
+                    <p>The architect ends their own turn when they are done, so nobody watches an empty stage.</p>
+                </article>
+                
+                <article class="card bp-step">
+                    <span class="bp-step__k">2 · Remember</span>
+                    <h3>Then it is gone</h3>
+                    <div class="bp-step__art"><div style="display:grid;grid-template-columns:repeat(7,20px);gap:2px;"><span style="width:20px;height:20px"></span><span style="width:20px;height:20px"></span><span style="width:20px;height:20px;background:#5b6478;border-radius:3px;box-shadow:inset 0 -3px 0 rgba(0,0,0,.22),inset 0 3px 0 rgba(255,255,255,.14);opacity:0.55;"></span><span style="width:20px;height:20px;background:#5b6478;border-radius:3px;box-shadow:inset 0 -3px 0 rgba(0,0,0,.22),inset 0 3px 0 rgba(255,255,255,.14);opacity:0.55;"></span><span style="width:20px;height:20px;background:#5b6478;border-radius:3px;box-shadow:inset 0 -3px 0 rgba(0,0,0,.22),inset 0 3px 0 rgba(255,255,255,.14);opacity:0.55;"></span><span style="width:20px;height:20px"></span><span style="width:20px;height:20px"></span><span style="width:20px;height:20px"></span><span style="width:20px;height:20px;background:#5b6478;border-radius:3px;box-shadow:inset 0 -3px 0 rgba(0,0,0,.22),inset 0 3px 0 rgba(255,255,255,.14);opacity:0.55;"></span><span style="width:20px;height:20px;background:#5b6478;border-radius:3px;box-shadow:inset 0 -3px 0 rgba(0,0,0,.22),inset 0 3px 0 rgba(255,255,255,.14);opacity:0.55;"></span><span style="width:20px;height:20px;background:#5b6478;border-radius:3px;box-shadow:inset 0 -3px 0 rgba(0,0,0,.22),inset 0 3px 0 rgba(255,255,255,.14);opacity:0.55;"></span><span style="width:20px;height:20px;background:#5b6478;border-radius:3px;box-shadow:inset 0 -3px 0 rgba(0,0,0,.22),inset 0 3px 0 rgba(255,255,255,.14);opacity:0.55;"></span><span style="width:20px;height:20px;background:#5b6478;border-radius:3px;box-shadow:inset 0 -3px 0 rgba(0,0,0,.22),inset 0 3px 0 rgba(255,255,255,.14);opacity:0.55;"></span><span style="width:20px;height:20px"></span><span style="width:20px;height:20px;background:#5b6478;border-radius:3px;box-shadow:inset 0 -3px 0 rgba(0,0,0,.22),inset 0 3px 0 rgba(255,255,255,.14);opacity:0.55;"></span><span style="width:20px;height:20px;background:#5b6478;border-radius:3px;box-shadow:inset 0 -3px 0 rgba(0,0,0,.22),inset 0 3px 0 rgba(255,255,255,.14);opacity:0.55;"></span><span style="width:20px;height:20px;background:#5b6478;border-radius:3px;box-shadow:inset 0 -3px 0 rgba(0,0,0,.22),inset 0 3px 0 rgba(255,255,255,.14);opacity:0.55;"></span><span style="width:20px;height:20px;background:#5b6478;border-radius:3px;box-shadow:inset 0 -3px 0 rgba(0,0,0,.22),inset 0 3px 0 rgba(255,255,255,.14);opacity:0.55;"></span><span style="width:20px;height:20px;background:#5b6478;border-radius:3px;box-shadow:inset 0 -3px 0 rgba(0,0,0,.22),inset 0 3px 0 rgba(255,255,255,.14);opacity:0.55;"></span><span style="width:20px;height:20px;background:#5b6478;border-radius:3px;box-shadow:inset 0 -3px 0 rgba(0,0,0,.22),inset 0 3px 0 rgba(255,255,255,.14);opacity:0.55;"></span><span style="width:20px;height:20px;background:#5b6478;border-radius:3px;box-shadow:inset 0 -3px 0 rgba(0,0,0,.22),inset 0 3px 0 rgba(255,255,255,.14);opacity:0.55;"></span><span style="width:20px;height:20px"></span><span style="width:20px;height:20px;background:#5b6478;border-radius:3px;box-shadow:inset 0 -3px 0 rgba(0,0,0,.22),inset 0 3px 0 rgba(255,255,255,.14);opacity:0.55;"></span><span style="width:20px;height:20px;background:#5b6478;border-radius:3px;box-shadow:inset 0 -3px 0 rgba(0,0,0,.22),inset 0 3px 0 rgba(255,255,255,.14);opacity:0.55;"></span><span style="width:20px;height:20px;background:#5b6478;border-radius:3px;box-shadow:inset 0 -3px 0 rgba(0,0,0,.22),inset 0 3px 0 rgba(255,255,255,.14);opacity:0.55;"></span><span style="width:20px;height:20px;background:#5b6478;border-radius:3px;box-shadow:inset 0 -3px 0 rgba(0,0,0,.22),inset 0 3px 0 rgba(255,255,255,.14);opacity:0.55;"></span><span style="width:20px;height:20px;background:#5b6478;border-radius:3px;box-shadow:inset 0 -3px 0 rgba(0,0,0,.22),inset 0 3px 0 rgba(255,255,255,.14);opacity:0.55;"></span><span style="width:20px;height:20px"></span><span style="width:20px;height:20px"></span><span style="width:20px;height:20px;background:#5b6478;border-radius:3px;box-shadow:inset 0 -3px 0 rgba(0,0,0,.22),inset 0 3px 0 rgba(255,255,255,.14);opacity:0.55;"></span><span style="width:20px;height:20px;background:#5b6478;border-radius:3px;box-shadow:inset 0 -3px 0 rgba(0,0,0,.22),inset 0 3px 0 rgba(255,255,255,.14);opacity:0.55;"></span><span style="width:20px;height:20px;background:#5b6478;border-radius:3px;box-shadow:inset 0 -3px 0 rgba(0,0,0,.22),inset 0 3px 0 rgba(255,255,255,.14);opacity:0.55;"></span><span style="width:20px;height:20px;background:#5b6478;border-radius:3px;box-shadow:inset 0 -3px 0 rgba(0,0,0,.22),inset 0 3px 0 rgba(255,255,255,.14);opacity:0.55;"></span><span style="width:20px;height:20px;background:#5b6478;border-radius:3px;box-shadow:inset 0 -3px 0 rgba(0,0,0,.22),inset 0 3px 0 rgba(255,255,255,.14);opacity:0.55;"></span><span style="width:20px;height:20px"></span><span style="width:20px;height:20px"></span><span style="width:20px;height:20px;background:#5b6478;border-radius:3px;box-shadow:inset 0 -3px 0 rgba(0,0,0,.22),inset 0 3px 0 rgba(255,255,255,.14);opacity:0.55;"></span><span style="width:20px;height:20px;background:#5b6478;border-radius:3px;box-shadow:inset 0 -3px 0 rgba(0,0,0,.22),inset 0 3px 0 rgba(255,255,255,.14);opacity:0.55;"></span><span style="width:20px;height:20px;background:#5b6478;border-radius:3px;box-shadow:inset 0 -3px 0 rgba(0,0,0,.22),inset 0 3px 0 rgba(255,255,255,.14);opacity:0.55;"></span><span style="width:20px;height:20px;background:#5b6478;border-radius:3px;box-shadow:inset 0 -3px 0 rgba(0,0,0,.22),inset 0 3px 0 rgba(255,255,255,.14);opacity:0.55;"></span><span style="width:20px;height:20px;background:#5b6478;border-radius:3px;box-shadow:inset 0 -3px 0 rgba(0,0,0,.22),inset 0 3px 0 rgba(255,255,255,.14);opacity:0.55;"></span><span style="width:20px;height:20px"></span></div></div>
+                    <p>A flashback outlines the shape mid-round — no colours. Remembering what shape it was stops being the whole game.</p>
+                </article>
+                
+                <article class="card bp-step">
+                    <span class="bp-step__k">3 · Compare</span>
+                    <h3>What you got wrong</h3>
+                    <div class="bp-step__art"><div style="display:flex;flex-direction:column;gap:8px;width:100%">
+                    
+        <span class="bp-bar"><span class="bp-bar__l">place</span>
+        <span class="bp-bar__t"><span class="bp-bar__f" style="width:88%;background:#22c55e"></span></span>
+        <span class="bp-bar__p">88%</span></span>
+        <span class="bp-bar"><span class="bp-bar__l">shape</span>
+        <span class="bp-bar__t"><span class="bp-bar__f" style="width:64%;background:#fbbf24"></span></span>
+        <span class="bp-bar__p">64%</span></span>
+        <span class="bp-bar"><span class="bp-bar__l">colour</span>
+        <span class="bp-bar__t"><span class="bp-bar__f" style="width:41%;background:#a78bfa"></span></span>
+        <span class="bp-bar__p">41%</span></span></div></div>
+                    <p>The score was always these three things. This is the first time you get to see which one cost you.</p>
+                </article>
+            </div>
+        </div>
+    </section>
+
+    
+    <section id="postcard">
+        <div class="wrap bp-split">
+            <div class="bp-frame">
+                <div class="bp-frame__bar"><span>A Postcard round</span><span>round 1 of 3</span></div>
+                <img class="bp-shot" src="images/postcard-round.jpg" width="1440" height="900" loading="lazy" decoding="async"
+                     alt="A Postcard round in progress: the reference picture pinned to the right, a half-built lighthouse on the player's plot, and the match clock across the top.">
+                <div class="bp-ref">
+                    <div class="bp-ref__pic"><svg viewBox="0 0 288 288" width="100%" height="100%" aria-hidden="true" style="display:block"><rect x="108" y="0" width="18" height="18" fill="#facc15"/><rect x="126" y="0" width="18" height="18" fill="#facc15"/><rect x="144" y="0" width="18" height="18" fill="#facc15"/><rect x="162" y="0" width="18" height="18" fill="#facc15"/><rect x="108" y="18" width="18" height="18" fill="#facc15"/><rect x="126" y="18" width="18" height="18" fill="#facc15"/><rect x="144" y="18" width="18" height="18" fill="#facc15"/><rect x="162" y="18" width="18" height="18" fill="#facc15"/><rect x="90" y="36" width="18" height="18" fill="#94a3b8"/><rect x="108" y="36" width="18" height="18" fill="#94a3b8"/><rect x="126" y="36" width="18" height="18" fill="#94a3b8"/><rect x="144" y="36" width="18" height="18" fill="#94a3b8"/><rect x="162" y="36" width="18" height="18" fill="#94a3b8"/><rect x="180" y="36" width="18" height="18" fill="#94a3b8"/><rect x="108" y="54" width="18" height="18" fill="#ffffff"/><rect x="126" y="54" width="18" height="18" fill="#ffffff"/><rect x="144" y="54" width="18" height="18" fill="#ffffff"/><rect x="162" y="54" width="18" height="18" fill="#ffffff"/><rect x="108" y="72" width="18" height="18" fill="#ffffff"/><rect x="126" y="72" width="18" height="18" fill="#ffffff"/><rect x="144" y="72" width="18" height="18" fill="#ffffff"/><rect x="162" y="72" width="18" height="18" fill="#ffffff"/><rect x="108" y="90" width="18" height="18" fill="#ef4444"/><rect x="126" y="90" width="18" height="18" fill="#ef4444"/><rect x="144" y="90" width="18" height="18" fill="#ef4444"/><rect x="162" y="90" width="18" height="18" fill="#ef4444"/><rect x="108" y="108" width="18" height="18" fill="#ef4444"/><rect x="126" y="108" width="18" height="18" fill="#ef4444"/><rect x="144" y="108" width="18" height="18" fill="#ef4444"/><rect x="162" y="108" width="18" height="18" fill="#ef4444"/><rect x="108" y="126" width="18" height="18" fill="#ffffff"/><rect x="126" y="126" width="18" height="18" fill="#ffffff"/><rect x="144" y="126" width="18" height="18" fill="#ffffff"/><rect x="162" y="126" width="18" height="18" fill="#ffffff"/><rect x="108" y="144" width="18" height="18" fill="#ffffff"/><rect x="126" y="144" width="18" height="18" fill="#ffffff"/><rect x="144" y="144" width="18" height="18" fill="#ffffff"/><rect x="162" y="144" width="18" height="18" fill="#ffffff"/><rect x="108" y="162" width="18" height="18" fill="#ef4444"/><rect x="126" y="162" width="18" height="18" fill="#ef4444"/><rect x="144" y="162" width="18" height="18" fill="#ef4444"/><rect x="162" y="162" width="18" height="18" fill="#ef4444"/><rect x="108" y="180" width="18" height="18" fill="#ef4444"/><rect x="126" y="180" width="18" height="18" fill="#ef4444"/><rect x="144" y="180" width="18" height="18" fill="#ef4444"/><rect x="162" y="180" width="18" height="18" fill="#ef4444"/><rect x="108" y="198" width="18" height="18" fill="#ffffff"/><rect x="126" y="198" width="18" height="18" fill="#ffffff"/><rect x="144" y="198" width="18" height="18" fill="#ffffff"/><rect x="162" y="198" width="18" height="18" fill="#ffffff"/><rect x="54" y="216" width="18" height="18" fill="#94a3b8"/><rect x="72" y="216" width="18" height="18" fill="#94a3b8"/><rect x="90" y="216" width="18" height="18" fill="#94a3b8"/><rect x="108" y="216" width="18" height="18" fill="#ffffff"/><rect x="126" y="216" width="18" height="18" fill="#ffffff"/><rect x="144" y="216" width="18" height="18" fill="#ffffff"/><rect x="162" y="216" width="18" height="18" fill="#ffffff"/><rect x="180" y="216" width="18" height="18" fill="#94a3b8"/><rect x="198" y="216" width="18" height="18" fill="#94a3b8"/><rect x="216" y="216" width="18" height="18" fill="#94a3b8"/><rect x="0" y="234" width="18" height="18" fill="#06b6d4"/><rect x="18" y="234" width="18" height="18" fill="#06b6d4"/><rect x="36" y="234" width="18" height="18" fill="#06b6d4"/><rect x="54" y="234" width="18" height="18" fill="#94a3b8"/><rect x="72" y="234" width="18" height="18" fill="#94a3b8"/><rect x="90" y="234" width="18" height="18" fill="#94a3b8"/><rect x="108" y="234" width="18" height="18" fill="#94a3b8"/><rect x="126" y="234" width="18" height="18" fill="#94a3b8"/><rect x="144" y="234" width="18" height="18" fill="#94a3b8"/><rect x="162" y="234" width="18" height="18" fill="#94a3b8"/><rect x="180" y="234" width="18" height="18" fill="#94a3b8"/><rect x="198" y="234" width="18" height="18" fill="#94a3b8"/><rect x="216" y="234" width="18" height="18" fill="#94a3b8"/><rect x="234" y="234" width="18" height="18" fill="#06b6d4"/><rect x="252" y="234" width="18" height="18" fill="#06b6d4"/><rect x="270" y="234" width="18" height="18" fill="#06b6d4"/><rect x="0" y="252" width="18" height="18" fill="#06b6d4"/><rect x="18" y="252" width="18" height="18" fill="#06b6d4"/><rect x="36" y="252" width="18" height="18" fill="#06b6d4"/><rect x="54" y="252" width="18" height="18" fill="#94a3b8"/><rect x="72" y="252" width="18" height="18" fill="#94a3b8"/><rect x="90" y="252" width="18" height="18" fill="#94a3b8"/><rect x="108" y="252" width="18" height="18" fill="#94a3b8"/><rect x="126" y="252" width="18" height="18" fill="#94a3b8"/><rect x="144" y="252" width="18" height="18" fill="#94a3b8"/><rect x="162" y="252" width="18" height="18" fill="#94a3b8"/><rect x="180" y="252" width="18" height="18" fill="#94a3b8"/><rect x="198" y="252" width="18" height="18" fill="#94a3b8"/><rect x="216" y="252" width="18" height="18" fill="#94a3b8"/><rect x="234" y="252" width="18" height="18" fill="#06b6d4"/><rect x="252" y="252" width="18" height="18" fill="#06b6d4"/><rect x="270" y="252" width="18" height="18" fill="#06b6d4"/><rect x="0" y="270" width="18" height="18" fill="#06b6d4"/><rect x="18" y="270" width="18" height="18" fill="#06b6d4"/><rect x="36" y="270" width="18" height="18" fill="#06b6d4"/><rect x="54" y="270" width="18" height="18" fill="#06b6d4"/><rect x="72" y="270" width="18" height="18" fill="#06b6d4"/><rect x="90" y="270" width="18" height="18" fill="#06b6d4"/><rect x="108" y="270" width="18" height="18" fill="#06b6d4"/><rect x="126" y="270" width="18" height="18" fill="#06b6d4"/><rect x="144" y="270" width="18" height="18" fill="#06b6d4"/><rect x="162" y="270" width="18" height="18" fill="#06b6d4"/><rect x="180" y="270" width="18" height="18" fill="#06b6d4"/><rect x="198" y="270" width="18" height="18" fill="#06b6d4"/><rect x="216" y="270" width="18" height="18" fill="#06b6d4"/><rect x="234" y="270" width="18" height="18" fill="#06b6d4"/><rect x="252" y="270" width="18" height="18" fill="#06b6d4"/><rect x="270" y="270" width="18" height="18" fill="#06b6d4"/></svg></div>
+                    <p class="bp-ref__note">One of the twelve pictures, full size: sixteen squares across, in the same
+                       twelve colours you build with — small enough that a late joiner gets it for free, and coarse
+                       enough that what it shows remains your call.</p>
+                </div>
+            </div>
+            <div>
+                <span class="eyebrow">Postcard · new</span>
+                <h2 style="margin-bottom: var(--sp-4)">One picture. No model to copy.</h2>
+                <p style="color: var(--text-body); margin-bottom: var(--sp-6)">
+                    Everyone gets the same picture and nothing else — no ghost, no blueprint, no cell-for-cell
+                    target. Work out what it shows, build that in three dimensions, and the room votes for the one
+                    it likes best. What the picture is <em>called</em> is only revealed at the end.
+                </p>
+                <ul>
+                    <li><svg class="icon icon--sm" aria-hidden="true"><use href="#i-check"></use></svg> Twelve pictures ship with the game</li>
+                    <li><svg class="icon icon--sm" aria-hidden="true"><use href="#i-check"></use></svg> Plots stay covered until the reveal</li>
+                    <li><svg class="icon icon--sm" aria-hidden="true"><use href="#i-check"></use></svg> Three players, because you cannot vote for yourself</li>
+                </ul>
+            </div>
+        </div>
+    </section>
+
+    
+    <section>
+        <div class="wrap">
+            <div class="section-head">
+                <span class="eyebrow">Somewhere to start</span>
+                <h2>Eighteen maps, fifty real places, and whatever you saved</h2>
+                <p>Nobody should have to start on an empty floor. Load a map, travel to a real place and have the
+                   ground traced from the map, or open something the room built last week — they are all in the
+                   same list.</p>
+            </div>
+            <div class="bp-frame" style="margin-bottom: var(--sp-6)">
+                <div class="bp-frame__bar"><span>Load a map</span><span>built in · real places · saved here</span></div>
+                <img class="bp-shot" src="images/map-library.jpg" width="1440" height="900" loading="lazy" decoding="async"
+                     alt="The map library: tabs for the built-in maps, fifty real places and the room's own saves, a search box, and cards for each map.">
+            </div>
+            <div class="bp-maps">
+                <div class="bp-map">
+                    <div class="bp-map__art"><svg viewBox="0 0 140 140" width="100%" height="100%" preserveAspectRatio="none" aria-hidden="true" style="display:block"><rect x="0" y="0" width="10" height="10" fill="#4e9c48"/><rect x="10" y="0" width="10" height="10" fill="#4e9c48"/><rect x="20" y="0" width="10" height="10" fill="#3f8a3f"/><rect x="30" y="0" width="10" height="10" fill="#5cae52"/><rect x="40" y="0" width="10" height="10" fill="#4e9c48"/><rect x="50" y="0" width="10" height="10" fill="#5cae52"/><rect x="60" y="0" width="10" height="10" fill="#6fbb5e"/><rect x="70" y="0" width="10" height="10" fill="#8d6b43"/><rect x="80" y="0" width="10" height="10" fill="#4e9c48"/><rect x="90" y="0" width="10" height="10" fill="#5cae52"/><rect x="100" y="0" width="10" height="10" fill="#6fbb5e"/><rect x="110" y="0" width="10" height="10" fill="#3f8a3f"/><rect x="120" y="0" width="10" height="10" fill="#4e9c48"/><rect x="130" y="0" width="10" height="10" fill="#6fbb5e"/><rect x="0" y="10" width="10" height="10" fill="#4e9c48"/><rect x="10" y="10" width="10" height="10" fill="#5cae52"/><rect x="20" y="10" width="10" height="10" fill="#8d6b43"/><rect x="30" y="10" width="10" height="10" fill="#5cae52"/><rect x="40" y="10" width="10" height="10" fill="#5cae52"/><rect x="50" y="10" width="10" height="10" fill="#5cae52"/><rect x="60" y="10" width="10" height="10" fill="#5cae52"/><rect x="70" y="10" width="10" height="10" fill="#4e9c48"/><rect x="80" y="10" width="10" height="10" fill="#4e9c48"/><rect x="90" y="10" width="10" height="10" fill="#3f8a3f"/><rect x="100" y="10" width="10" height="10" fill="#3f8a3f"/><rect x="110" y="10" width="10" height="10" fill="#4e9c48"/><rect x="120" y="10" width="10" height="10" fill="#5cae52"/><rect x="130" y="10" width="10" height="10" fill="#5cae52"/><rect x="0" y="20" width="10" height="10" fill="#5cae52"/><rect x="10" y="20" width="10" height="10" fill="#6fbb5e"/><rect x="20" y="20" width="10" height="10" fill="#5cae52"/><rect x="30" y="20" width="10" height="10" fill="#3f8a3f"/><rect x="40" y="20" width="10" height="10" fill="#4e9c48"/><rect x="50" y="20" width="10" height="10" fill="#5cae52"/><rect x="60" y="20" width="10" height="10" fill="#5cae52"/><rect x="70" y="20" width="10" height="10" fill="#4e9c48"/><rect x="80" y="20" width="10" height="10" fill="#4e9c48"/><rect x="90" y="20" width="10" height="10" fill="#4e9c48"/><rect x="100" y="20" width="10" height="10" fill="#4e9c48"/><rect x="110" y="20" width="10" height="10" fill="#8d6b43"/><rect x="120" y="20" width="10" height="10" fill="#4e9c48"/><rect x="130" y="20" width="10" height="10" fill="#8d6b43"/><rect x="0" y="30" width="10" height="10" fill="#4e9c48"/><rect x="10" y="30" width="10" height="10" fill="#6fbb5e"/><rect x="20" y="30" width="10" height="10" fill="#5cae52"/><rect x="30" y="30" width="10" height="10" fill="#5cae52"/><rect x="40" y="30" width="10" height="10" fill="#5cae52"/><rect x="50" y="30" width="10" height="10" fill="#4e9c48"/><rect x="60" y="30" width="10" height="10" fill="#5cae52"/><rect x="70" y="30" width="10" height="10" fill="#3f8a3f"/><rect x="80" y="30" width="10" height="10" fill="#6fbb5e"/><rect x="90" y="30" width="10" height="10" fill="#4e9c48"/><rect x="100" y="30" width="10" height="10" fill="#4e9c48"/><rect x="110" y="30" width="10" height="10" fill="#3f8a3f"/><rect x="120" y="30" width="10" height="10" fill="#3f8a3f"/><rect x="130" y="30" width="10" height="10" fill="#3f8a3f"/><rect x="0" y="40" width="10" height="10" fill="#4e9c48"/><rect x="10" y="40" width="10" height="10" fill="#6fbb5e"/><rect x="20" y="40" width="10" height="10" fill="#4e9c48"/><rect x="30" y="40" width="10" height="10" fill="#6fbb5e"/><rect x="40" y="40" width="10" height="10" fill="#5cae52"/><rect x="50" y="40" width="10" height="10" fill="#4e9c48"/><rect x="60" y="40" width="10" height="10" fill="#4e9c48"/><rect x="70" y="40" width="10" height="10" fill="#6fbb5e"/><rect x="80" y="40" width="10" height="10" fill="#5cae52"/><rect x="90" y="40" width="10" height="10" fill="#4e9c48"/><rect x="100" y="40" width="10" height="10" fill="#5cae52"/><rect x="110" y="40" width="10" height="10" fill="#5cae52"/><rect x="120" y="40" width="10" height="10" fill="#3f8a3f"/><rect x="130" y="40" width="10" height="10" fill="#4e9c48"/><rect x="0" y="50" width="10" height="10" fill="#3f8a3f"/><rect x="10" y="50" width="10" height="10" fill="#5cae52"/><rect x="20" y="50" width="10" height="10" fill="#6fbb5e"/><rect x="30" y="50" width="10" height="10" fill="#4e9c48"/><rect x="40" y="50" width="10" height="10" fill="#5cae52"/><rect x="50" y="50" width="10" height="10" fill="#4e9c48"/><rect x="60" y="50" width="10" height="10" fill="#6fbb5e"/><rect x="70" y="50" width="10" height="10" fill="#4e9c48"/><rect x="80" y="50" width="10" height="10" fill="#4e9c48"/><rect x="90" y="50" width="10" height="10" fill="#5cae52"/><rect x="100" y="50" width="10" height="10" fill="#4e9c48"/><rect x="110" y="50" width="10" height="10" fill="#5cae52"/><rect x="120" y="50" width="10" height="10" fill="#4e9c48"/><rect x="130" y="50" width="10" height="10" fill="#4e9c48"/><rect x="0" y="60" width="10" height="10" fill="#3f8a3f"/><rect x="10" y="60" width="10" height="10" fill="#3f8a3f"/><rect x="20" y="60" width="10" height="10" fill="#5cae52"/><rect x="30" y="60" width="10" height="10" fill="#8d6b43"/><rect x="40" y="60" width="10" height="10" fill="#4e9c48"/><rect x="50" y="60" width="10" height="10" fill="#5cae52"/><rect x="60" y="60" width="10" height="10" fill="#3f8a3f"/><rect x="70" y="60" width="10" height="10" fill="#6fbb5e"/><rect x="80" y="60" width="10" height="10" fill="#4e9c48"/><rect x="90" y="60" width="10" height="10" fill="#5cae52"/><rect x="100" y="60" width="10" height="10" fill="#6fbb5e"/><rect x="110" y="60" width="10" height="10" fill="#4e9c48"/><rect x="120" y="60" width="10" height="10" fill="#4e9c48"/><rect x="130" y="60" width="10" height="10" fill="#4e9c48"/><rect x="0" y="70" width="10" height="10" fill="#8d6b43"/><rect x="10" y="70" width="10" height="10" fill="#4e9c48"/><rect x="20" y="70" width="10" height="10" fill="#4e9c48"/><rect x="30" y="70" width="10" height="10" fill="#6fbb5e"/><rect x="40" y="70" width="10" height="10" fill="#4e9c48"/><rect x="50" y="70" width="10" height="10" fill="#4e9c48"/><rect x="60" y="70" width="10" height="10" fill="#6fbb5e"/><rect x="70" y="70" width="10" height="10" fill="#4e9c48"/><rect x="80" y="70" width="10" height="10" fill="#5cae52"/><rect x="90" y="70" width="10" height="10" fill="#8d6b43"/><rect x="100" y="70" width="10" height="10" fill="#4e9c48"/><rect x="110" y="70" width="10" height="10" fill="#5cae52"/><rect x="120" y="70" width="10" height="10" fill="#4e9c48"/><rect x="130" y="70" width="10" height="10" fill="#4e9c48"/><rect x="0" y="80" width="10" height="10" fill="#5cae52"/><rect x="10" y="80" width="10" height="10" fill="#4e9c48"/><rect x="20" y="80" width="10" height="10" fill="#5cae52"/><rect x="30" y="80" width="10" height="10" fill="#8d6b43"/><rect x="40" y="80" width="10" height="10" fill="#5cae52"/><rect x="50" y="80" width="10" height="10" fill="#4e9c48"/><rect x="60" y="80" width="10" height="10" fill="#5cae52"/><rect x="70" y="80" width="10" height="10" fill="#6fbb5e"/><rect x="80" y="80" width="10" height="10" fill="#4e9c48"/><rect x="90" y="80" width="10" height="10" fill="#6fbb5e"/><rect x="100" y="80" width="10" height="10" fill="#5cae52"/><rect x="110" y="80" width="10" height="10" fill="#5cae52"/><rect x="120" y="80" width="10" height="10" fill="#5cae52"/><rect x="130" y="80" width="10" height="10" fill="#4e9c48"/><rect x="0" y="90" width="10" height="10" fill="#3f8a3f"/><rect x="10" y="90" width="10" height="10" fill="#5cae52"/><rect x="20" y="90" width="10" height="10" fill="#5cae52"/><rect x="30" y="90" width="10" height="10" fill="#4e9c48"/><rect x="40" y="90" width="10" height="10" fill="#6fbb5e"/><rect x="50" y="90" width="10" height="10" fill="#6fbb5e"/><rect x="60" y="90" width="10" height="10" fill="#4e9c48"/><rect x="70" y="90" width="10" height="10" fill="#6fbb5e"/><rect x="80" y="90" width="10" height="10" fill="#6fbb5e"/><rect x="90" y="90" width="10" height="10" fill="#6fbb5e"/><rect x="100" y="90" width="10" height="10" fill="#4e9c48"/><rect x="110" y="90" width="10" height="10" fill="#4e9c48"/><rect x="120" y="90" width="10" height="10" fill="#5cae52"/><rect x="130" y="90" width="10" height="10" fill="#5cae52"/><rect x="0" y="100" width="10" height="10" fill="#4e9c48"/><rect x="10" y="100" width="10" height="10" fill="#4e9c48"/><rect x="20" y="100" width="10" height="10" fill="#4e9c48"/><rect x="30" y="100" width="10" height="10" fill="#4e9c48"/><rect x="40" y="100" width="10" height="10" fill="#8d6b43"/><rect x="50" y="100" width="10" height="10" fill="#5cae52"/><rect x="60" y="100" width="10" height="10" fill="#6fbb5e"/><rect x="70" y="100" width="10" height="10" fill="#6fbb5e"/><rect x="80" y="100" width="10" height="10" fill="#4e9c48"/><rect x="90" y="100" width="10" height="10" fill="#3f8a3f"/><rect x="100" y="100" width="10" height="10" fill="#3f8a3f"/><rect x="110" y="100" width="10" height="10" fill="#8d6b43"/><rect x="120" y="100" width="10" height="10" fill="#4e9c48"/><rect x="130" y="100" width="10" height="10" fill="#4e9c48"/><rect x="0" y="110" width="10" height="10" fill="#4e9c48"/><rect x="10" y="110" width="10" height="10" fill="#4e9c48"/><rect x="20" y="110" width="10" height="10" fill="#4e9c48"/><rect x="30" y="110" width="10" height="10" fill="#5cae52"/><rect x="40" y="110" width="10" height="10" fill="#8d6b43"/><rect x="50" y="110" width="10" height="10" fill="#5cae52"/><rect x="60" y="110" width="10" height="10" fill="#4e9c48"/><rect x="70" y="110" width="10" height="10" fill="#4e9c48"/><rect x="80" y="110" width="10" height="10" fill="#5cae52"/><rect x="90" y="110" width="10" height="10" fill="#3f8a3f"/><rect x="100" y="110" width="10" height="10" fill="#5cae52"/><rect x="110" y="110" width="10" height="10" fill="#6fbb5e"/><rect x="120" y="110" width="10" height="10" fill="#4e9c48"/><rect x="130" y="110" width="10" height="10" fill="#5cae52"/><rect x="0" y="120" width="10" height="10" fill="#5cae52"/><rect x="10" y="120" width="10" height="10" fill="#4e9c48"/><rect x="20" y="120" width="10" height="10" fill="#4e9c48"/><rect x="30" y="120" width="10" height="10" fill="#6fbb5e"/><rect x="40" y="120" width="10" height="10" fill="#6fbb5e"/><rect x="50" y="120" width="10" height="10" fill="#4e9c48"/><rect x="60" y="120" width="10" height="10" fill="#4e9c48"/><rect x="70" y="120" width="10" height="10" fill="#4e9c48"/><rect x="80" y="120" width="10" height="10" fill="#3f8a3f"/><rect x="90" y="120" width="10" height="10" fill="#6fbb5e"/><rect x="100" y="120" width="10" height="10" fill="#4e9c48"/><rect x="110" y="120" width="10" height="10" fill="#5cae52"/><rect x="120" y="120" width="10" height="10" fill="#4e9c48"/><rect x="130" y="120" width="10" height="10" fill="#6fbb5e"/><rect x="0" y="130" width="10" height="10" fill="#4e9c48"/><rect x="10" y="130" width="10" height="10" fill="#6fbb5e"/><rect x="20" y="130" width="10" height="10" fill="#5cae52"/><rect x="30" y="130" width="10" height="10" fill="#4e9c48"/><rect x="40" y="130" width="10" height="10" fill="#6fbb5e"/><rect x="50" y="130" width="10" height="10" fill="#5cae52"/><rect x="60" y="130" width="10" height="10" fill="#5cae52"/><rect x="70" y="130" width="10" height="10" fill="#4e9c48"/><rect x="80" y="130" width="10" height="10" fill="#3f8a3f"/><rect x="90" y="130" width="10" height="10" fill="#4e9c48"/><rect x="100" y="130" width="10" height="10" fill="#4e9c48"/><rect x="110" y="130" width="10" height="10" fill="#6fbb5e"/><rect x="120" y="130" width="10" height="10" fill="#3f8a3f"/><rect x="130" y="130" width="10" height="10" fill="#3f8a3f"/></svg></div>
+                    <div class="bp-map__body"><strong>Village Green</strong><span>Cottages, a well, a lane</span></div>
+                </div>
+                <div class="bp-map">
+                    <div class="bp-map__art"><svg viewBox="0 0 140 140" width="100%" height="100%" preserveAspectRatio="none" aria-hidden="true" style="display:block"><rect x="0" y="0" width="10" height="10" fill="#8d97a6"/><rect x="10" y="0" width="10" height="10" fill="#8d97a6"/><rect x="20" y="0" width="10" height="10" fill="#59616f"/><rect x="30" y="0" width="10" height="10" fill="#8d97a6"/><rect x="40" y="0" width="10" height="10" fill="#8d97a6"/><rect x="50" y="0" width="10" height="10" fill="#6f7887"/><rect x="60" y="0" width="10" height="10" fill="#59616f"/><rect x="70" y="0" width="10" height="10" fill="#8d97a6"/><rect x="80" y="0" width="10" height="10" fill="#8d97a6"/><rect x="90" y="0" width="10" height="10" fill="#a8b0bb"/><rect x="100" y="0" width="10" height="10" fill="#a8b0bb"/><rect x="110" y="0" width="10" height="10" fill="#8d97a6"/><rect x="120" y="0" width="10" height="10" fill="#a8b0bb"/><rect x="130" y="0" width="10" height="10" fill="#6f7887"/><rect x="0" y="10" width="10" height="10" fill="#8d97a6"/><rect x="10" y="10" width="10" height="10" fill="#8d97a6"/><rect x="20" y="10" width="10" height="10" fill="#6f7887"/><rect x="30" y="10" width="10" height="10" fill="#8d97a6"/><rect x="40" y="10" width="10" height="10" fill="#8d97a6"/><rect x="50" y="10" width="10" height="10" fill="#8d97a6"/><rect x="60" y="10" width="10" height="10" fill="#8d97a6"/><rect x="70" y="10" width="10" height="10" fill="#8d97a6"/><rect x="80" y="10" width="10" height="10" fill="#a8b0bb"/><rect x="90" y="10" width="10" height="10" fill="#6f7887"/><rect x="100" y="10" width="10" height="10" fill="#8d97a6"/><rect x="110" y="10" width="10" height="10" fill="#8d97a6"/><rect x="120" y="10" width="10" height="10" fill="#a8b0bb"/><rect x="130" y="10" width="10" height="10" fill="#6f7887"/><rect x="0" y="20" width="10" height="10" fill="#8d97a6"/><rect x="10" y="20" width="10" height="10" fill="#6f7887"/><rect x="20" y="20" width="10" height="10" fill="#8d97a6"/><rect x="30" y="20" width="10" height="10" fill="#3f4653"/><rect x="40" y="20" width="10" height="10" fill="#8d97a6"/><rect x="50" y="20" width="10" height="10" fill="#8d97a6"/><rect x="60" y="20" width="10" height="10" fill="#6f7887"/><rect x="70" y="20" width="10" height="10" fill="#6f7887"/><rect x="80" y="20" width="10" height="10" fill="#6f7887"/><rect x="90" y="20" width="10" height="10" fill="#8d97a6"/><rect x="100" y="20" width="10" height="10" fill="#8d97a6"/><rect x="110" y="20" width="10" height="10" fill="#8d97a6"/><rect x="120" y="20" width="10" height="10" fill="#8d97a6"/><rect x="130" y="20" width="10" height="10" fill="#3f4653"/><rect x="0" y="30" width="10" height="10" fill="#3f4653"/><rect x="10" y="30" width="10" height="10" fill="#8d97a6"/><rect x="20" y="30" width="10" height="10" fill="#8d97a6"/><rect x="30" y="30" width="10" height="10" fill="#8d97a6"/><rect x="40" y="30" width="10" height="10" fill="#8d97a6"/><rect x="50" y="30" width="10" height="10" fill="#8d97a6"/><rect x="60" y="30" width="10" height="10" fill="#8d97a6"/><rect x="70" y="30" width="10" height="10" fill="#8d97a6"/><rect x="80" y="30" width="10" height="10" fill="#8d97a6"/><rect x="90" y="30" width="10" height="10" fill="#8d97a6"/><rect x="100" y="30" width="10" height="10" fill="#a8b0bb"/><rect x="110" y="30" width="10" height="10" fill="#8d97a6"/><rect x="120" y="30" width="10" height="10" fill="#6f7887"/><rect x="130" y="30" width="10" height="10" fill="#6f7887"/><rect x="0" y="40" width="10" height="10" fill="#6f7887"/><rect x="10" y="40" width="10" height="10" fill="#8d97a6"/><rect x="20" y="40" width="10" height="10" fill="#8d97a6"/><rect x="30" y="40" width="10" height="10" fill="#8d97a6"/><rect x="40" y="40" width="10" height="10" fill="#8d97a6"/><rect x="50" y="40" width="10" height="10" fill="#6f7887"/><rect x="60" y="40" width="10" height="10" fill="#8d97a6"/><rect x="70" y="40" width="10" height="10" fill="#a8b0bb"/><rect x="80" y="40" width="10" height="10" fill="#8d97a6"/><rect x="90" y="40" width="10" height="10" fill="#8d97a6"/><rect x="100" y="40" width="10" height="10" fill="#6f7887"/><rect x="110" y="40" width="10" height="10" fill="#8d97a6"/><rect x="120" y="40" width="10" height="10" fill="#a8b0bb"/><rect x="130" y="40" width="10" height="10" fill="#3f4653"/><rect x="0" y="50" width="10" height="10" fill="#6f7887"/><rect x="10" y="50" width="10" height="10" fill="#a8b0bb"/><rect x="20" y="50" width="10" height="10" fill="#8d97a6"/><rect x="30" y="50" width="10" height="10" fill="#8d97a6"/><rect x="40" y="50" width="10" height="10" fill="#3f4653"/><rect x="50" y="50" width="10" height="10" fill="#8d97a6"/><rect x="60" y="50" width="10" height="10" fill="#8d97a6"/><rect x="70" y="50" width="10" height="10" fill="#8d97a6"/><rect x="80" y="50" width="10" height="10" fill="#8d97a6"/><rect x="90" y="50" width="10" height="10" fill="#a8b0bb"/><rect x="100" y="50" width="10" height="10" fill="#6f7887"/><rect x="110" y="50" width="10" height="10" fill="#6f7887"/><rect x="120" y="50" width="10" height="10" fill="#8d97a6"/><rect x="130" y="50" width="10" height="10" fill="#6f7887"/><rect x="0" y="60" width="10" height="10" fill="#a8b0bb"/><rect x="10" y="60" width="10" height="10" fill="#a8b0bb"/><rect x="20" y="60" width="10" height="10" fill="#59616f"/><rect x="30" y="60" width="10" height="10" fill="#6f7887"/><rect x="40" y="60" width="10" height="10" fill="#6f7887"/><rect x="50" y="60" width="10" height="10" fill="#6f7887"/><rect x="60" y="60" width="10" height="10" fill="#59616f"/><rect x="70" y="60" width="10" height="10" fill="#6f7887"/><rect x="80" y="60" width="10" height="10" fill="#8d97a6"/><rect x="90" y="60" width="10" height="10" fill="#6f7887"/><rect x="100" y="60" width="10" height="10" fill="#8d97a6"/><rect x="110" y="60" width="10" height="10" fill="#8d97a6"/><rect x="120" y="60" width="10" height="10" fill="#8d97a6"/><rect x="130" y="60" width="10" height="10" fill="#8d97a6"/><rect x="0" y="70" width="10" height="10" fill="#59616f"/><rect x="10" y="70" width="10" height="10" fill="#8d97a6"/><rect x="20" y="70" width="10" height="10" fill="#8d97a6"/><rect x="30" y="70" width="10" height="10" fill="#8d97a6"/><rect x="40" y="70" width="10" height="10" fill="#6f7887"/><rect x="50" y="70" width="10" height="10" fill="#8d97a6"/><rect x="60" y="70" width="10" height="10" fill="#6f7887"/><rect x="70" y="70" width="10" height="10" fill="#8d97a6"/><rect x="80" y="70" width="10" height="10" fill="#8d97a6"/><rect x="90" y="70" width="10" height="10" fill="#59616f"/><rect x="100" y="70" width="10" height="10" fill="#8d97a6"/><rect x="110" y="70" width="10" height="10" fill="#8d97a6"/><rect x="120" y="70" width="10" height="10" fill="#3f4653"/><rect x="130" y="70" width="10" height="10" fill="#59616f"/><rect x="0" y="80" width="10" height="10" fill="#a8b0bb"/><rect x="10" y="80" width="10" height="10" fill="#6f7887"/><rect x="20" y="80" width="10" height="10" fill="#59616f"/><rect x="30" y="80" width="10" height="10" fill="#6f7887"/><rect x="40" y="80" width="10" height="10" fill="#6f7887"/><rect x="50" y="80" width="10" height="10" fill="#6f7887"/><rect x="60" y="80" width="10" height="10" fill="#6f7887"/><rect x="70" y="80" width="10" height="10" fill="#8d97a6"/><rect x="80" y="80" width="10" height="10" fill="#a8b0bb"/><rect x="90" y="80" width="10" height="10" fill="#8d97a6"/><rect x="100" y="80" width="10" height="10" fill="#a8b0bb"/><rect x="110" y="80" width="10" height="10" fill="#59616f"/><rect x="120" y="80" width="10" height="10" fill="#8d97a6"/><rect x="130" y="80" width="10" height="10" fill="#6f7887"/><rect x="0" y="90" width="10" height="10" fill="#8d97a6"/><rect x="10" y="90" width="10" height="10" fill="#8d97a6"/><rect x="20" y="90" width="10" height="10" fill="#a8b0bb"/><rect x="30" y="90" width="10" height="10" fill="#8d97a6"/><rect x="40" y="90" width="10" height="10" fill="#8d97a6"/><rect x="50" y="90" width="10" height="10" fill="#59616f"/><rect x="60" y="90" width="10" height="10" fill="#6f7887"/><rect x="70" y="90" width="10" height="10" fill="#8d97a6"/><rect x="80" y="90" width="10" height="10" fill="#8d97a6"/><rect x="90" y="90" width="10" height="10" fill="#59616f"/><rect x="100" y="90" width="10" height="10" fill="#a8b0bb"/><rect x="110" y="90" width="10" height="10" fill="#6f7887"/><rect x="120" y="90" width="10" height="10" fill="#a8b0bb"/><rect x="130" y="90" width="10" height="10" fill="#6f7887"/><rect x="0" y="100" width="10" height="10" fill="#8d97a6"/><rect x="10" y="100" width="10" height="10" fill="#8d97a6"/><rect x="20" y="100" width="10" height="10" fill="#6f7887"/><rect x="30" y="100" width="10" height="10" fill="#8d97a6"/><rect x="40" y="100" width="10" height="10" fill="#8d97a6"/><rect x="50" y="100" width="10" height="10" fill="#a8b0bb"/><rect x="60" y="100" width="10" height="10" fill="#8d97a6"/><rect x="70" y="100" width="10" height="10" fill="#8d97a6"/><rect x="80" y="100" width="10" height="10" fill="#6f7887"/><rect x="90" y="100" width="10" height="10" fill="#8d97a6"/><rect x="100" y="100" width="10" height="10" fill="#6f7887"/><rect x="110" y="100" width="10" height="10" fill="#a8b0bb"/><rect x="120" y="100" width="10" height="10" fill="#a8b0bb"/><rect x="130" y="100" width="10" height="10" fill="#59616f"/><rect x="0" y="110" width="10" height="10" fill="#6f7887"/><rect x="10" y="110" width="10" height="10" fill="#8d97a6"/><rect x="20" y="110" width="10" height="10" fill="#8d97a6"/><rect x="30" y="110" width="10" height="10" fill="#a8b0bb"/><rect x="40" y="110" width="10" height="10" fill="#a8b0bb"/><rect x="50" y="110" width="10" height="10" fill="#6f7887"/><rect x="60" y="110" width="10" height="10" fill="#6f7887"/><rect x="70" y="110" width="10" height="10" fill="#8d97a6"/><rect x="80" y="110" width="10" height="10" fill="#6f7887"/><rect x="90" y="110" width="10" height="10" fill="#8d97a6"/><rect x="100" y="110" width="10" height="10" fill="#6f7887"/><rect x="110" y="110" width="10" height="10" fill="#8d97a6"/><rect x="120" y="110" width="10" height="10" fill="#6f7887"/><rect x="130" y="110" width="10" height="10" fill="#8d97a6"/><rect x="0" y="120" width="10" height="10" fill="#6f7887"/><rect x="10" y="120" width="10" height="10" fill="#8d97a6"/><rect x="20" y="120" width="10" height="10" fill="#a8b0bb"/><rect x="30" y="120" width="10" height="10" fill="#8d97a6"/><rect x="40" y="120" width="10" height="10" fill="#8d97a6"/><rect x="50" y="120" width="10" height="10" fill="#8d97a6"/><rect x="60" y="120" width="10" height="10" fill="#a8b0bb"/><rect x="70" y="120" width="10" height="10" fill="#8d97a6"/><rect x="80" y="120" width="10" height="10" fill="#59616f"/><rect x="90" y="120" width="10" height="10" fill="#8d97a6"/><rect x="100" y="120" width="10" height="10" fill="#8d97a6"/><rect x="110" y="120" width="10" height="10" fill="#a8b0bb"/><rect x="120" y="120" width="10" height="10" fill="#8d97a6"/><rect x="130" y="120" width="10" height="10" fill="#8d97a6"/><rect x="0" y="130" width="10" height="10" fill="#a8b0bb"/><rect x="10" y="130" width="10" height="10" fill="#a8b0bb"/><rect x="20" y="130" width="10" height="10" fill="#a8b0bb"/><rect x="30" y="130" width="10" height="10" fill="#a8b0bb"/><rect x="40" y="130" width="10" height="10" fill="#a8b0bb"/><rect x="50" y="130" width="10" height="10" fill="#8d97a6"/><rect x="60" y="130" width="10" height="10" fill="#8d97a6"/><rect x="70" y="130" width="10" height="10" fill="#a8b0bb"/><rect x="80" y="130" width="10" height="10" fill="#8d97a6"/><rect x="90" y="130" width="10" height="10" fill="#59616f"/><rect x="100" y="130" width="10" height="10" fill="#a8b0bb"/><rect x="110" y="130" width="10" height="10" fill="#3f4653"/><rect x="120" y="130" width="10" height="10" fill="#8d97a6"/><rect x="130" y="130" width="10" height="10" fill="#8d97a6"/></svg></div>
+                    <div class="bp-map__body"><strong>Downtown</strong><span>Blocks, crossroads, towers</span></div>
+                </div>
+                <div class="bp-map">
+                    <div class="bp-map__art"><svg viewBox="0 0 140 140" width="100%" height="100%" preserveAspectRatio="none" aria-hidden="true" style="display:block"><rect x="0" y="0" width="10" height="10" fill="#a9743f"/><rect x="10" y="0" width="10" height="10" fill="#3f86c4"/><rect x="20" y="0" width="10" height="10" fill="#a9743f"/><rect x="30" y="0" width="10" height="10" fill="#2a6fb0"/><rect x="40" y="0" width="10" height="10" fill="#2a6fb0"/><rect x="50" y="0" width="10" height="10" fill="#8d97a6"/><rect x="60" y="0" width="10" height="10" fill="#a9743f"/><rect x="70" y="0" width="10" height="10" fill="#2a6fb0"/><rect x="80" y="0" width="10" height="10" fill="#4e9c48"/><rect x="90" y="0" width="10" height="10" fill="#2a6fb0"/><rect x="100" y="0" width="10" height="10" fill="#a9743f"/><rect x="110" y="0" width="10" height="10" fill="#3f86c4"/><rect x="120" y="0" width="10" height="10" fill="#3f86c4"/><rect x="130" y="0" width="10" height="10" fill="#3f86c4"/><rect x="0" y="10" width="10" height="10" fill="#2a6fb0"/><rect x="10" y="10" width="10" height="10" fill="#2a6fb0"/><rect x="20" y="10" width="10" height="10" fill="#2a6fb0"/><rect x="30" y="10" width="10" height="10" fill="#8d97a6"/><rect x="40" y="10" width="10" height="10" fill="#2a6fb0"/><rect x="50" y="10" width="10" height="10" fill="#2a6fb0"/><rect x="60" y="10" width="10" height="10" fill="#4e9c48"/><rect x="70" y="10" width="10" height="10" fill="#3f86c4"/><rect x="80" y="10" width="10" height="10" fill="#2a6fb0"/><rect x="90" y="10" width="10" height="10" fill="#2a6fb0"/><rect x="100" y="10" width="10" height="10" fill="#2a6fb0"/><rect x="110" y="10" width="10" height="10" fill="#8d97a6"/><rect x="120" y="10" width="10" height="10" fill="#2a6fb0"/><rect x="130" y="10" width="10" height="10" fill="#a9743f"/><rect x="0" y="20" width="10" height="10" fill="#2a6fb0"/><rect x="10" y="20" width="10" height="10" fill="#2a6fb0"/><rect x="20" y="20" width="10" height="10" fill="#2a6fb0"/><rect x="30" y="20" width="10" height="10" fill="#3f86c4"/><rect x="40" y="20" width="10" height="10" fill="#2a6fb0"/><rect x="50" y="20" width="10" height="10" fill="#2a6fb0"/><rect x="60" y="20" width="10" height="10" fill="#2a6fb0"/><rect x="70" y="20" width="10" height="10" fill="#a9743f"/><rect x="80" y="20" width="10" height="10" fill="#4e9c48"/><rect x="90" y="20" width="10" height="10" fill="#3f86c4"/><rect x="100" y="20" width="10" height="10" fill="#8d97a6"/><rect x="110" y="20" width="10" height="10" fill="#2a6fb0"/><rect x="120" y="20" width="10" height="10" fill="#3f86c4"/><rect x="130" y="20" width="10" height="10" fill="#2a6fb0"/><rect x="0" y="30" width="10" height="10" fill="#2a6fb0"/><rect x="10" y="30" width="10" height="10" fill="#2a6fb0"/><rect x="20" y="30" width="10" height="10" fill="#2a6fb0"/><rect x="30" y="30" width="10" height="10" fill="#2a6fb0"/><rect x="40" y="30" width="10" height="10" fill="#2a6fb0"/><rect x="50" y="30" width="10" height="10" fill="#a9743f"/><rect x="60" y="30" width="10" height="10" fill="#a9743f"/><rect x="70" y="30" width="10" height="10" fill="#2a6fb0"/><rect x="80" y="30" width="10" height="10" fill="#3f86c4"/><rect x="90" y="30" width="10" height="10" fill="#3f86c4"/><rect x="100" y="30" width="10" height="10" fill="#2a6fb0"/><rect x="110" y="30" width="10" height="10" fill="#4e9c48"/><rect x="120" y="30" width="10" height="10" fill="#2a6fb0"/><rect x="130" y="30" width="10" height="10" fill="#4e9c48"/><rect x="0" y="40" width="10" height="10" fill="#2a6fb0"/><rect x="10" y="40" width="10" height="10" fill="#8d97a6"/><rect x="20" y="40" width="10" height="10" fill="#3f86c4"/><rect x="30" y="40" width="10" height="10" fill="#a9743f"/><rect x="40" y="40" width="10" height="10" fill="#a9743f"/><rect x="50" y="40" width="10" height="10" fill="#3f86c4"/><rect x="60" y="40" width="10" height="10" fill="#3f86c4"/><rect x="70" y="40" width="10" height="10" fill="#2a6fb0"/><rect x="80" y="40" width="10" height="10" fill="#2a6fb0"/><rect x="90" y="40" width="10" height="10" fill="#2a6fb0"/><rect x="100" y="40" width="10" height="10" fill="#2a6fb0"/><rect x="110" y="40" width="10" height="10" fill="#a9743f"/><rect x="120" y="40" width="10" height="10" fill="#a9743f"/><rect x="130" y="40" width="10" height="10" fill="#2a6fb0"/><rect x="0" y="50" width="10" height="10" fill="#8d97a6"/><rect x="10" y="50" width="10" height="10" fill="#a9743f"/><rect x="20" y="50" width="10" height="10" fill="#3f86c4"/><rect x="30" y="50" width="10" height="10" fill="#8d97a6"/><rect x="40" y="50" width="10" height="10" fill="#3f86c4"/><rect x="50" y="50" width="10" height="10" fill="#8d97a6"/><rect x="60" y="50" width="10" height="10" fill="#3f86c4"/><rect x="70" y="50" width="10" height="10" fill="#a9743f"/><rect x="80" y="50" width="10" height="10" fill="#2a6fb0"/><rect x="90" y="50" width="10" height="10" fill="#a9743f"/><rect x="100" y="50" width="10" height="10" fill="#a9743f"/><rect x="110" y="50" width="10" height="10" fill="#a9743f"/><rect x="120" y="50" width="10" height="10" fill="#3f86c4"/><rect x="130" y="50" width="10" height="10" fill="#4e9c48"/><rect x="0" y="60" width="10" height="10" fill="#3f86c4"/><rect x="10" y="60" width="10" height="10" fill="#3f86c4"/><rect x="20" y="60" width="10" height="10" fill="#2a6fb0"/><rect x="30" y="60" width="10" height="10" fill="#2a6fb0"/><rect x="40" y="60" width="10" height="10" fill="#2a6fb0"/><rect x="50" y="60" width="10" height="10" fill="#2a6fb0"/><rect x="60" y="60" width="10" height="10" fill="#3f86c4"/><rect x="70" y="60" width="10" height="10" fill="#8d97a6"/><rect x="80" y="60" width="10" height="10" fill="#2a6fb0"/><rect x="90" y="60" width="10" height="10" fill="#2a6fb0"/><rect x="100" y="60" width="10" height="10" fill="#2a6fb0"/><rect x="110" y="60" width="10" height="10" fill="#a9743f"/><rect x="120" y="60" width="10" height="10" fill="#3f86c4"/><rect x="130" y="60" width="10" height="10" fill="#2a6fb0"/><rect x="0" y="70" width="10" height="10" fill="#a9743f"/><rect x="10" y="70" width="10" height="10" fill="#8d97a6"/><rect x="20" y="70" width="10" height="10" fill="#a9743f"/><rect x="30" y="70" width="10" height="10" fill="#3f86c4"/><rect x="40" y="70" width="10" height="10" fill="#3f86c4"/><rect x="50" y="70" width="10" height="10" fill="#3f86c4"/><rect x="60" y="70" width="10" height="10" fill="#3f86c4"/><rect x="70" y="70" width="10" height="10" fill="#2a6fb0"/><rect x="80" y="70" width="10" height="10" fill="#3f86c4"/><rect x="90" y="70" width="10" height="10" fill="#2a6fb0"/><rect x="100" y="70" width="10" height="10" fill="#2a6fb0"/><rect x="110" y="70" width="10" height="10" fill="#3f86c4"/><rect x="120" y="70" width="10" height="10" fill="#2a6fb0"/><rect x="130" y="70" width="10" height="10" fill="#3f86c4"/><rect x="0" y="80" width="10" height="10" fill="#3f86c4"/><rect x="10" y="80" width="10" height="10" fill="#2a6fb0"/><rect x="20" y="80" width="10" height="10" fill="#a9743f"/><rect x="30" y="80" width="10" height="10" fill="#3f86c4"/><rect x="40" y="80" width="10" height="10" fill="#8d97a6"/><rect x="50" y="80" width="10" height="10" fill="#2a6fb0"/><rect x="60" y="80" width="10" height="10" fill="#3f86c4"/><rect x="70" y="80" width="10" height="10" fill="#8d97a6"/><rect x="80" y="80" width="10" height="10" fill="#8d97a6"/><rect x="90" y="80" width="10" height="10" fill="#2a6fb0"/><rect x="100" y="80" width="10" height="10" fill="#3f86c4"/><rect x="110" y="80" width="10" height="10" fill="#2a6fb0"/><rect x="120" y="80" width="10" height="10" fill="#3f86c4"/><rect x="130" y="80" width="10" height="10" fill="#a9743f"/><rect x="0" y="90" width="10" height="10" fill="#3f86c4"/><rect x="10" y="90" width="10" height="10" fill="#4e9c48"/><rect x="20" y="90" width="10" height="10" fill="#2a6fb0"/><rect x="30" y="90" width="10" height="10" fill="#2a6fb0"/><rect x="40" y="90" width="10" height="10" fill="#a9743f"/><rect x="50" y="90" width="10" height="10" fill="#2a6fb0"/><rect x="60" y="90" width="10" height="10" fill="#a9743f"/><rect x="70" y="90" width="10" height="10" fill="#a9743f"/><rect x="80" y="90" width="10" height="10" fill="#2a6fb0"/><rect x="90" y="90" width="10" height="10" fill="#2a6fb0"/><rect x="100" y="90" width="10" height="10" fill="#a9743f"/><rect x="110" y="90" width="10" height="10" fill="#3f86c4"/><rect x="120" y="90" width="10" height="10" fill="#3f86c4"/><rect x="130" y="90" width="10" height="10" fill="#3f86c4"/><rect x="0" y="100" width="10" height="10" fill="#2a6fb0"/><rect x="10" y="100" width="10" height="10" fill="#3f86c4"/><rect x="20" y="100" width="10" height="10" fill="#3f86c4"/><rect x="30" y="100" width="10" height="10" fill="#a9743f"/><rect x="40" y="100" width="10" height="10" fill="#3f86c4"/><rect x="50" y="100" width="10" height="10" fill="#8d97a6"/><rect x="60" y="100" width="10" height="10" fill="#a9743f"/><rect x="70" y="100" width="10" height="10" fill="#2a6fb0"/><rect x="80" y="100" width="10" height="10" fill="#a9743f"/><rect x="90" y="100" width="10" height="10" fill="#2a6fb0"/><rect x="100" y="100" width="10" height="10" fill="#a9743f"/><rect x="110" y="100" width="10" height="10" fill="#2a6fb0"/><rect x="120" y="100" width="10" height="10" fill="#2a6fb0"/><rect x="130" y="100" width="10" height="10" fill="#2a6fb0"/><rect x="0" y="110" width="10" height="10" fill="#2a6fb0"/><rect x="10" y="110" width="10" height="10" fill="#3f86c4"/><rect x="20" y="110" width="10" height="10" fill="#3f86c4"/><rect x="30" y="110" width="10" height="10" fill="#3f86c4"/><rect x="40" y="110" width="10" height="10" fill="#3f86c4"/><rect x="50" y="110" width="10" height="10" fill="#2a6fb0"/><rect x="60" y="110" width="10" height="10" fill="#2a6fb0"/><rect x="70" y="110" width="10" height="10" fill="#3f86c4"/><rect x="80" y="110" width="10" height="10" fill="#a9743f"/><rect x="90" y="110" width="10" height="10" fill="#a9743f"/><rect x="100" y="110" width="10" height="10" fill="#2a6fb0"/><rect x="110" y="110" width="10" height="10" fill="#2a6fb0"/><rect x="120" y="110" width="10" height="10" fill="#3f86c4"/><rect x="130" y="110" width="10" height="10" fill="#3f86c4"/><rect x="0" y="120" width="10" height="10" fill="#3f86c4"/><rect x="10" y="120" width="10" height="10" fill="#8d97a6"/><rect x="20" y="120" width="10" height="10" fill="#2a6fb0"/><rect x="30" y="120" width="10" height="10" fill="#2a6fb0"/><rect x="40" y="120" width="10" height="10" fill="#3f86c4"/><rect x="50" y="120" width="10" height="10" fill="#8d97a6"/><rect x="60" y="120" width="10" height="10" fill="#3f86c4"/><rect x="70" y="120" width="10" height="10" fill="#a9743f"/><rect x="80" y="120" width="10" height="10" fill="#2a6fb0"/><rect x="90" y="120" width="10" height="10" fill="#3f86c4"/><rect x="100" y="120" width="10" height="10" fill="#2a6fb0"/><rect x="110" y="120" width="10" height="10" fill="#2a6fb0"/><rect x="120" y="120" width="10" height="10" fill="#2a6fb0"/><rect x="130" y="120" width="10" height="10" fill="#2a6fb0"/><rect x="0" y="130" width="10" height="10" fill="#a9743f"/><rect x="10" y="130" width="10" height="10" fill="#8d97a6"/><rect x="20" y="130" width="10" height="10" fill="#2a6fb0"/><rect x="30" y="130" width="10" height="10" fill="#2a6fb0"/><rect x="40" y="130" width="10" height="10" fill="#a9743f"/><rect x="50" y="130" width="10" height="10" fill="#3f86c4"/><rect x="60" y="130" width="10" height="10" fill="#2a6fb0"/><rect x="70" y="130" width="10" height="10" fill="#4e9c48"/><rect x="80" y="130" width="10" height="10" fill="#3f86c4"/><rect x="90" y="130" width="10" height="10" fill="#a9743f"/><rect x="100" y="130" width="10" height="10" fill="#8d97a6"/><rect x="110" y="130" width="10" height="10" fill="#a9743f"/><rect x="120" y="130" width="10" height="10" fill="#2a6fb0"/><rect x="130" y="130" width="10" height="10" fill="#4e9c48"/></svg></div>
+                    <div class="bp-map__body"><strong>Harbour</strong><span>Quays, cranes, moorings</span></div>
+                </div>
+                <div class="bp-map">
+                    <div class="bp-map__art"><svg viewBox="0 0 140 140" width="100%" height="100%" preserveAspectRatio="none" aria-hidden="true" style="display:block"><rect x="0" y="0" width="10" height="10" fill="#2f6b36"/><rect x="10" y="0" width="10" height="10" fill="#3b7d3e"/><rect x="20" y="0" width="10" height="10" fill="#6b4a2f"/><rect x="30" y="0" width="10" height="10" fill="#4c8a49"/><rect x="40" y="0" width="10" height="10" fill="#6b4a2f"/><rect x="50" y="0" width="10" height="10" fill="#6b4a2f"/><rect x="60" y="0" width="10" height="10" fill="#3b7d3e"/><rect x="70" y="0" width="10" height="10" fill="#275a30"/><rect x="80" y="0" width="10" height="10" fill="#2f6b36"/><rect x="90" y="0" width="10" height="10" fill="#3b7d3e"/><rect x="100" y="0" width="10" height="10" fill="#3b7d3e"/><rect x="110" y="0" width="10" height="10" fill="#6b4a2f"/><rect x="120" y="0" width="10" height="10" fill="#2f6b36"/><rect x="130" y="0" width="10" height="10" fill="#3b7d3e"/><rect x="0" y="10" width="10" height="10" fill="#4c8a49"/><rect x="10" y="10" width="10" height="10" fill="#3b7d3e"/><rect x="20" y="10" width="10" height="10" fill="#275a30"/><rect x="30" y="10" width="10" height="10" fill="#2f6b36"/><rect x="40" y="10" width="10" height="10" fill="#3b7d3e"/><rect x="50" y="10" width="10" height="10" fill="#6b4a2f"/><rect x="60" y="10" width="10" height="10" fill="#275a30"/><rect x="70" y="10" width="10" height="10" fill="#3b7d3e"/><rect x="80" y="10" width="10" height="10" fill="#2f6b36"/><rect x="90" y="10" width="10" height="10" fill="#2f6b36"/><rect x="100" y="10" width="10" height="10" fill="#2f6b36"/><rect x="110" y="10" width="10" height="10" fill="#4c8a49"/><rect x="120" y="10" width="10" height="10" fill="#3b7d3e"/><rect x="130" y="10" width="10" height="10" fill="#3b7d3e"/><rect x="0" y="20" width="10" height="10" fill="#2f6b36"/><rect x="10" y="20" width="10" height="10" fill="#3b7d3e"/><rect x="20" y="20" width="10" height="10" fill="#3b7d3e"/><rect x="30" y="20" width="10" height="10" fill="#2f6b36"/><rect x="40" y="20" width="10" height="10" fill="#3b7d3e"/><rect x="50" y="20" width="10" height="10" fill="#4c8a49"/><rect x="60" y="20" width="10" height="10" fill="#6b4a2f"/><rect x="70" y="20" width="10" height="10" fill="#2f6b36"/><rect x="80" y="20" width="10" height="10" fill="#2f6b36"/><rect x="90" y="20" width="10" height="10" fill="#2f6b36"/><rect x="100" y="20" width="10" height="10" fill="#4c8a49"/><rect x="110" y="20" width="10" height="10" fill="#4c8a49"/><rect x="120" y="20" width="10" height="10" fill="#2f6b36"/><rect x="130" y="20" width="10" height="10" fill="#4c8a49"/><rect x="0" y="30" width="10" height="10" fill="#6b4a2f"/><rect x="10" y="30" width="10" height="10" fill="#2f6b36"/><rect x="20" y="30" width="10" height="10" fill="#3b7d3e"/><rect x="30" y="30" width="10" height="10" fill="#3b7d3e"/><rect x="40" y="30" width="10" height="10" fill="#2f6b36"/><rect x="50" y="30" width="10" height="10" fill="#6b4a2f"/><rect x="60" y="30" width="10" height="10" fill="#2f6b36"/><rect x="70" y="30" width="10" height="10" fill="#275a30"/><rect x="80" y="30" width="10" height="10" fill="#2f6b36"/><rect x="90" y="30" width="10" height="10" fill="#4c8a49"/><rect x="100" y="30" width="10" height="10" fill="#4c8a49"/><rect x="110" y="30" width="10" height="10" fill="#3b7d3e"/><rect x="120" y="30" width="10" height="10" fill="#2f6b36"/><rect x="130" y="30" width="10" height="10" fill="#2f6b36"/><rect x="0" y="40" width="10" height="10" fill="#2f6b36"/><rect x="10" y="40" width="10" height="10" fill="#2f6b36"/><rect x="20" y="40" width="10" height="10" fill="#2f6b36"/><rect x="30" y="40" width="10" height="10" fill="#2f6b36"/><rect x="40" y="40" width="10" height="10" fill="#3b7d3e"/><rect x="50" y="40" width="10" height="10" fill="#3b7d3e"/><rect x="60" y="40" width="10" height="10" fill="#2f6b36"/><rect x="70" y="40" width="10" height="10" fill="#2f6b36"/><rect x="80" y="40" width="10" height="10" fill="#6b4a2f"/><rect x="90" y="40" width="10" height="10" fill="#6b4a2f"/><rect x="100" y="40" width="10" height="10" fill="#2f6b36"/><rect x="110" y="40" width="10" height="10" fill="#2f6b36"/><rect x="120" y="40" width="10" height="10" fill="#3b7d3e"/><rect x="130" y="40" width="10" height="10" fill="#2f6b36"/><rect x="0" y="50" width="10" height="10" fill="#2f6b36"/><rect x="10" y="50" width="10" height="10" fill="#2f6b36"/><rect x="20" y="50" width="10" height="10" fill="#3b7d3e"/><rect x="30" y="50" width="10" height="10" fill="#2f6b36"/><rect x="40" y="50" width="10" height="10" fill="#2f6b36"/><rect x="50" y="50" width="10" height="10" fill="#4c8a49"/><rect x="60" y="50" width="10" height="10" fill="#3b7d3e"/><rect x="70" y="50" width="10" height="10" fill="#275a30"/><rect x="80" y="50" width="10" height="10" fill="#2f6b36"/><rect x="90" y="50" width="10" height="10" fill="#2f6b36"/><rect x="100" y="50" width="10" height="10" fill="#275a30"/><rect x="110" y="50" width="10" height="10" fill="#2f6b36"/><rect x="120" y="50" width="10" height="10" fill="#3b7d3e"/><rect x="130" y="50" width="10" height="10" fill="#2f6b36"/><rect x="0" y="60" width="10" height="10" fill="#3b7d3e"/><rect x="10" y="60" width="10" height="10" fill="#275a30"/><rect x="20" y="60" width="10" height="10" fill="#4c8a49"/><rect x="30" y="60" width="10" height="10" fill="#2f6b36"/><rect x="40" y="60" width="10" height="10" fill="#3b7d3e"/><rect x="50" y="60" width="10" height="10" fill="#6b4a2f"/><rect x="60" y="60" width="10" height="10" fill="#3b7d3e"/><rect x="70" y="60" width="10" height="10" fill="#2f6b36"/><rect x="80" y="60" width="10" height="10" fill="#2f6b36"/><rect x="90" y="60" width="10" height="10" fill="#3b7d3e"/><rect x="100" y="60" width="10" height="10" fill="#275a30"/><rect x="110" y="60" width="10" height="10" fill="#3b7d3e"/><rect x="120" y="60" width="10" height="10" fill="#2f6b36"/><rect x="130" y="60" width="10" height="10" fill="#2f6b36"/><rect x="0" y="70" width="10" height="10" fill="#275a30"/><rect x="10" y="70" width="10" height="10" fill="#4c8a49"/><rect x="20" y="70" width="10" height="10" fill="#4c8a49"/><rect x="30" y="70" width="10" height="10" fill="#6b4a2f"/><rect x="40" y="70" width="10" height="10" fill="#2f6b36"/><rect x="50" y="70" width="10" height="10" fill="#3b7d3e"/><rect x="60" y="70" width="10" height="10" fill="#2f6b36"/><rect x="70" y="70" width="10" height="10" fill="#2f6b36"/><rect x="80" y="70" width="10" height="10" fill="#275a30"/><rect x="90" y="70" width="10" height="10" fill="#2f6b36"/><rect x="100" y="70" width="10" height="10" fill="#4c8a49"/><rect x="110" y="70" width="10" height="10" fill="#2f6b36"/><rect x="120" y="70" width="10" height="10" fill="#3b7d3e"/><rect x="130" y="70" width="10" height="10" fill="#4c8a49"/><rect x="0" y="80" width="10" height="10" fill="#6b4a2f"/><rect x="10" y="80" width="10" height="10" fill="#2f6b36"/><rect x="20" y="80" width="10" height="10" fill="#4c8a49"/><rect x="30" y="80" width="10" height="10" fill="#2f6b36"/><rect x="40" y="80" width="10" height="10" fill="#2f6b36"/><rect x="50" y="80" width="10" height="10" fill="#2f6b36"/><rect x="60" y="80" width="10" height="10" fill="#2f6b36"/><rect x="70" y="80" width="10" height="10" fill="#275a30"/><rect x="80" y="80" width="10" height="10" fill="#3b7d3e"/><rect x="90" y="80" width="10" height="10" fill="#4c8a49"/><rect x="100" y="80" width="10" height="10" fill="#2f6b36"/><rect x="110" y="80" width="10" height="10" fill="#2f6b36"/><rect x="120" y="80" width="10" height="10" fill="#275a30"/><rect x="130" y="80" width="10" height="10" fill="#3b7d3e"/><rect x="0" y="90" width="10" height="10" fill="#2f6b36"/><rect x="10" y="90" width="10" height="10" fill="#2f6b36"/><rect x="20" y="90" width="10" height="10" fill="#2f6b36"/><rect x="30" y="90" width="10" height="10" fill="#275a30"/><rect x="40" y="90" width="10" height="10" fill="#4c8a49"/><rect x="50" y="90" width="10" height="10" fill="#3b7d3e"/><rect x="60" y="90" width="10" height="10" fill="#3b7d3e"/><rect x="70" y="90" width="10" height="10" fill="#2f6b36"/><rect x="80" y="90" width="10" height="10" fill="#3b7d3e"/><rect x="90" y="90" width="10" height="10" fill="#275a30"/><rect x="100" y="90" width="10" height="10" fill="#2f6b36"/><rect x="110" y="90" width="10" height="10" fill="#3b7d3e"/><rect x="120" y="90" width="10" height="10" fill="#6b4a2f"/><rect x="130" y="90" width="10" height="10" fill="#6b4a2f"/><rect x="0" y="100" width="10" height="10" fill="#2f6b36"/><rect x="10" y="100" width="10" height="10" fill="#2f6b36"/><rect x="20" y="100" width="10" height="10" fill="#3b7d3e"/><rect x="30" y="100" width="10" height="10" fill="#2f6b36"/><rect x="40" y="100" width="10" height="10" fill="#6b4a2f"/><rect x="50" y="100" width="10" height="10" fill="#2f6b36"/><rect x="60" y="100" width="10" height="10" fill="#3b7d3e"/><rect x="70" y="100" width="10" height="10" fill="#2f6b36"/><rect x="80" y="100" width="10" height="10" fill="#3b7d3e"/><rect x="90" y="100" width="10" height="10" fill="#2f6b36"/><rect x="100" y="100" width="10" height="10" fill="#4c8a49"/><rect x="110" y="100" width="10" height="10" fill="#4c8a49"/><rect x="120" y="100" width="10" height="10" fill="#3b7d3e"/><rect x="130" y="100" width="10" height="10" fill="#2f6b36"/><rect x="0" y="110" width="10" height="10" fill="#3b7d3e"/><rect x="10" y="110" width="10" height="10" fill="#275a30"/><rect x="20" y="110" width="10" height="10" fill="#6b4a2f"/><rect x="30" y="110" width="10" height="10" fill="#2f6b36"/><rect x="40" y="110" width="10" height="10" fill="#275a30"/><rect x="50" y="110" width="10" height="10" fill="#275a30"/><rect x="60" y="110" width="10" height="10" fill="#4c8a49"/><rect x="70" y="110" width="10" height="10" fill="#3b7d3e"/><rect x="80" y="110" width="10" height="10" fill="#2f6b36"/><rect x="90" y="110" width="10" height="10" fill="#3b7d3e"/><rect x="100" y="110" width="10" height="10" fill="#275a30"/><rect x="110" y="110" width="10" height="10" fill="#4c8a49"/><rect x="120" y="110" width="10" height="10" fill="#3b7d3e"/><rect x="130" y="110" width="10" height="10" fill="#2f6b36"/><rect x="0" y="120" width="10" height="10" fill="#3b7d3e"/><rect x="10" y="120" width="10" height="10" fill="#2f6b36"/><rect x="20" y="120" width="10" height="10" fill="#3b7d3e"/><rect x="30" y="120" width="10" height="10" fill="#2f6b36"/><rect x="40" y="120" width="10" height="10" fill="#3b7d3e"/><rect x="50" y="120" width="10" height="10" fill="#3b7d3e"/><rect x="60" y="120" width="10" height="10" fill="#2f6b36"/><rect x="70" y="120" width="10" height="10" fill="#3b7d3e"/><rect x="80" y="120" width="10" height="10" fill="#3b7d3e"/><rect x="90" y="120" width="10" height="10" fill="#3b7d3e"/><rect x="100" y="120" width="10" height="10" fill="#2f6b36"/><rect x="110" y="120" width="10" height="10" fill="#275a30"/><rect x="120" y="120" width="10" height="10" fill="#2f6b36"/><rect x="130" y="120" width="10" height="10" fill="#2f6b36"/><rect x="0" y="130" width="10" height="10" fill="#2f6b36"/><rect x="10" y="130" width="10" height="10" fill="#3b7d3e"/><rect x="20" y="130" width="10" height="10" fill="#275a30"/><rect x="30" y="130" width="10" height="10" fill="#2f6b36"/><rect x="40" y="130" width="10" height="10" fill="#2f6b36"/><rect x="50" y="130" width="10" height="10" fill="#2f6b36"/><rect x="60" y="130" width="10" height="10" fill="#6b4a2f"/><rect x="70" y="130" width="10" height="10" fill="#3b7d3e"/><rect x="80" y="130" width="10" height="10" fill="#2f6b36"/><rect x="90" y="130" width="10" height="10" fill="#2f6b36"/><rect x="100" y="130" width="10" height="10" fill="#4c8a49"/><rect x="110" y="130" width="10" height="10" fill="#275a30"/><rect x="120" y="130" width="10" height="10" fill="#3b7d3e"/><rect x="130" y="130" width="10" height="10" fill="#2f6b36"/></svg></div>
+                    <div class="bp-map__body"><strong>Pine Forest</strong><span>Conifers and a campfire</span></div>
+                </div>
+                <div class="bp-map">
+                    <div class="bp-map__art"><svg viewBox="0 0 140 140" width="100%" height="100%" preserveAspectRatio="none" aria-hidden="true" style="display:block"><rect x="0" y="0" width="10" height="10" fill="#d3dce6"/><rect x="10" y="0" width="10" height="10" fill="#e6ecf2"/><rect x="20" y="0" width="10" height="10" fill="#f2f6fa"/><rect x="30" y="0" width="10" height="10" fill="#d3dce6"/><rect x="40" y="0" width="10" height="10" fill="#8fa0b0"/><rect x="50" y="0" width="10" height="10" fill="#d3dce6"/><rect x="60" y="0" width="10" height="10" fill="#e6ecf2"/><rect x="70" y="0" width="10" height="10" fill="#d3dce6"/><rect x="80" y="0" width="10" height="10" fill="#e6ecf2"/><rect x="90" y="0" width="10" height="10" fill="#e6ecf2"/><rect x="100" y="0" width="10" height="10" fill="#e6ecf2"/><rect x="110" y="0" width="10" height="10" fill="#f2f6fa"/><rect x="120" y="0" width="10" height="10" fill="#d3dce6"/><rect x="130" y="0" width="10" height="10" fill="#d3dce6"/><rect x="0" y="10" width="10" height="10" fill="#e6ecf2"/><rect x="10" y="10" width="10" height="10" fill="#d3dce6"/><rect x="20" y="10" width="10" height="10" fill="#b9c6d3"/><rect x="30" y="10" width="10" height="10" fill="#d3dce6"/><rect x="40" y="10" width="10" height="10" fill="#e6ecf2"/><rect x="50" y="10" width="10" height="10" fill="#e6ecf2"/><rect x="60" y="10" width="10" height="10" fill="#e6ecf2"/><rect x="70" y="10" width="10" height="10" fill="#d3dce6"/><rect x="80" y="10" width="10" height="10" fill="#e6ecf2"/><rect x="90" y="10" width="10" height="10" fill="#e6ecf2"/><rect x="100" y="10" width="10" height="10" fill="#d3dce6"/><rect x="110" y="10" width="10" height="10" fill="#d3dce6"/><rect x="120" y="10" width="10" height="10" fill="#f2f6fa"/><rect x="130" y="10" width="10" height="10" fill="#f2f6fa"/><rect x="0" y="20" width="10" height="10" fill="#8fa0b0"/><rect x="10" y="20" width="10" height="10" fill="#d3dce6"/><rect x="20" y="20" width="10" height="10" fill="#8fa0b0"/><rect x="30" y="20" width="10" height="10" fill="#f2f6fa"/><rect x="40" y="20" width="10" height="10" fill="#e6ecf2"/><rect x="50" y="20" width="10" height="10" fill="#e6ecf2"/><rect x="60" y="20" width="10" height="10" fill="#e6ecf2"/><rect x="70" y="20" width="10" height="10" fill="#f2f6fa"/><rect x="80" y="20" width="10" height="10" fill="#e6ecf2"/><rect x="90" y="20" width="10" height="10" fill="#e6ecf2"/><rect x="100" y="20" width="10" height="10" fill="#e6ecf2"/><rect x="110" y="20" width="10" height="10" fill="#e6ecf2"/><rect x="120" y="20" width="10" height="10" fill="#d3dce6"/><rect x="130" y="20" width="10" height="10" fill="#e6ecf2"/><rect x="0" y="30" width="10" height="10" fill="#b9c6d3"/><rect x="10" y="30" width="10" height="10" fill="#b9c6d3"/><rect x="20" y="30" width="10" height="10" fill="#d3dce6"/><rect x="30" y="30" width="10" height="10" fill="#b9c6d3"/><rect x="40" y="30" width="10" height="10" fill="#d3dce6"/><rect x="50" y="30" width="10" height="10" fill="#e6ecf2"/><rect x="60" y="30" width="10" height="10" fill="#e6ecf2"/><rect x="70" y="30" width="10" height="10" fill="#e6ecf2"/><rect x="80" y="30" width="10" height="10" fill="#e6ecf2"/><rect x="90" y="30" width="10" height="10" fill="#d3dce6"/><rect x="100" y="30" width="10" height="10" fill="#8fa0b0"/><rect x="110" y="30" width="10" height="10" fill="#b9c6d3"/><rect x="120" y="30" width="10" height="10" fill="#d3dce6"/><rect x="130" y="30" width="10" height="10" fill="#d3dce6"/><rect x="0" y="40" width="10" height="10" fill="#f2f6fa"/><rect x="10" y="40" width="10" height="10" fill="#f2f6fa"/><rect x="20" y="40" width="10" height="10" fill="#d3dce6"/><rect x="30" y="40" width="10" height="10" fill="#e6ecf2"/><rect x="40" y="40" width="10" height="10" fill="#d3dce6"/><rect x="50" y="40" width="10" height="10" fill="#e6ecf2"/><rect x="60" y="40" width="10" height="10" fill="#d3dce6"/><rect x="70" y="40" width="10" height="10" fill="#e6ecf2"/><rect x="80" y="40" width="10" height="10" fill="#b9c6d3"/><rect x="90" y="40" width="10" height="10" fill="#e6ecf2"/><rect x="100" y="40" width="10" height="10" fill="#d3dce6"/><rect x="110" y="40" width="10" height="10" fill="#d3dce6"/><rect x="120" y="40" width="10" height="10" fill="#d3dce6"/><rect x="130" y="40" width="10" height="10" fill="#e6ecf2"/><rect x="0" y="50" width="10" height="10" fill="#e6ecf2"/><rect x="10" y="50" width="10" height="10" fill="#d3dce6"/><rect x="20" y="50" width="10" height="10" fill="#d3dce6"/><rect x="30" y="50" width="10" height="10" fill="#b9c6d3"/><rect x="40" y="50" width="10" height="10" fill="#b9c6d3"/><rect x="50" y="50" width="10" height="10" fill="#f2f6fa"/><rect x="60" y="50" width="10" height="10" fill="#f2f6fa"/><rect x="70" y="50" width="10" height="10" fill="#d3dce6"/><rect x="80" y="50" width="10" height="10" fill="#d3dce6"/><rect x="90" y="50" width="10" height="10" fill="#e6ecf2"/><rect x="100" y="50" width="10" height="10" fill="#e6ecf2"/><rect x="110" y="50" width="10" height="10" fill="#e6ecf2"/><rect x="120" y="50" width="10" height="10" fill="#e6ecf2"/><rect x="130" y="50" width="10" height="10" fill="#d3dce6"/><rect x="0" y="60" width="10" height="10" fill="#8fa0b0"/><rect x="10" y="60" width="10" height="10" fill="#d3dce6"/><rect x="20" y="60" width="10" height="10" fill="#e6ecf2"/><rect x="30" y="60" width="10" height="10" fill="#b9c6d3"/><rect x="40" y="60" width="10" height="10" fill="#d3dce6"/><rect x="50" y="60" width="10" height="10" fill="#d3dce6"/><rect x="60" y="60" width="10" height="10" fill="#d3dce6"/><rect x="70" y="60" width="10" height="10" fill="#e6ecf2"/><rect x="80" y="60" width="10" height="10" fill="#b9c6d3"/><rect x="90" y="60" width="10" height="10" fill="#d3dce6"/><rect x="100" y="60" width="10" height="10" fill="#e6ecf2"/><rect x="110" y="60" width="10" height="10" fill="#e6ecf2"/><rect x="120" y="60" width="10" height="10" fill="#f2f6fa"/><rect x="130" y="60" width="10" height="10" fill="#d3dce6"/><rect x="0" y="70" width="10" height="10" fill="#e6ecf2"/><rect x="10" y="70" width="10" height="10" fill="#b9c6d3"/><rect x="20" y="70" width="10" height="10" fill="#e6ecf2"/><rect x="30" y="70" width="10" height="10" fill="#b9c6d3"/><rect x="40" y="70" width="10" height="10" fill="#e6ecf2"/><rect x="50" y="70" width="10" height="10" fill="#f2f6fa"/><rect x="60" y="70" width="10" height="10" fill="#d3dce6"/><rect x="70" y="70" width="10" height="10" fill="#d3dce6"/><rect x="80" y="70" width="10" height="10" fill="#e6ecf2"/><rect x="90" y="70" width="10" height="10" fill="#e6ecf2"/><rect x="100" y="70" width="10" height="10" fill="#d3dce6"/><rect x="110" y="70" width="10" height="10" fill="#8fa0b0"/><rect x="120" y="70" width="10" height="10" fill="#e6ecf2"/><rect x="130" y="70" width="10" height="10" fill="#d3dce6"/><rect x="0" y="80" width="10" height="10" fill="#d3dce6"/><rect x="10" y="80" width="10" height="10" fill="#f2f6fa"/><rect x="20" y="80" width="10" height="10" fill="#d3dce6"/><rect x="30" y="80" width="10" height="10" fill="#d3dce6"/><rect x="40" y="80" width="10" height="10" fill="#d3dce6"/><rect x="50" y="80" width="10" height="10" fill="#d3dce6"/><rect x="60" y="80" width="10" height="10" fill="#e6ecf2"/><rect x="70" y="80" width="10" height="10" fill="#d3dce6"/><rect x="80" y="80" width="10" height="10" fill="#f2f6fa"/><rect x="90" y="80" width="10" height="10" fill="#e6ecf2"/><rect x="100" y="80" width="10" height="10" fill="#f2f6fa"/><rect x="110" y="80" width="10" height="10" fill="#d3dce6"/><rect x="120" y="80" width="10" height="10" fill="#f2f6fa"/><rect x="130" y="80" width="10" height="10" fill="#e6ecf2"/><rect x="0" y="90" width="10" height="10" fill="#e6ecf2"/><rect x="10" y="90" width="10" height="10" fill="#b9c6d3"/><rect x="20" y="90" width="10" height="10" fill="#d3dce6"/><rect x="30" y="90" width="10" height="10" fill="#d3dce6"/><rect x="40" y="90" width="10" height="10" fill="#d3dce6"/><rect x="50" y="90" width="10" height="10" fill="#d3dce6"/><rect x="60" y="90" width="10" height="10" fill="#d3dce6"/><rect x="70" y="90" width="10" height="10" fill="#e6ecf2"/><rect x="80" y="90" width="10" height="10" fill="#d3dce6"/><rect x="90" y="90" width="10" height="10" fill="#f2f6fa"/><rect x="100" y="90" width="10" height="10" fill="#e6ecf2"/><rect x="110" y="90" width="10" height="10" fill="#f2f6fa"/><rect x="120" y="90" width="10" height="10" fill="#d3dce6"/><rect x="130" y="90" width="10" height="10" fill="#f2f6fa"/><rect x="0" y="100" width="10" height="10" fill="#e6ecf2"/><rect x="10" y="100" width="10" height="10" fill="#e6ecf2"/><rect x="20" y="100" width="10" height="10" fill="#d3dce6"/><rect x="30" y="100" width="10" height="10" fill="#b9c6d3"/><rect x="40" y="100" width="10" height="10" fill="#b9c6d3"/><rect x="50" y="100" width="10" height="10" fill="#d3dce6"/><rect x="60" y="100" width="10" height="10" fill="#d3dce6"/><rect x="70" y="100" width="10" height="10" fill="#d3dce6"/><rect x="80" y="100" width="10" height="10" fill="#e6ecf2"/><rect x="90" y="100" width="10" height="10" fill="#d3dce6"/><rect x="100" y="100" width="10" height="10" fill="#d3dce6"/><rect x="110" y="100" width="10" height="10" fill="#b9c6d3"/><rect x="120" y="100" width="10" height="10" fill="#e6ecf2"/><rect x="130" y="100" width="10" height="10" fill="#e6ecf2"/><rect x="0" y="110" width="10" height="10" fill="#d3dce6"/><rect x="10" y="110" width="10" height="10" fill="#b9c6d3"/><rect x="20" y="110" width="10" height="10" fill="#d3dce6"/><rect x="30" y="110" width="10" height="10" fill="#d3dce6"/><rect x="40" y="110" width="10" height="10" fill="#b9c6d3"/><rect x="50" y="110" width="10" height="10" fill="#e6ecf2"/><rect x="60" y="110" width="10" height="10" fill="#e6ecf2"/><rect x="70" y="110" width="10" height="10" fill="#f2f6fa"/><rect x="80" y="110" width="10" height="10" fill="#e6ecf2"/><rect x="90" y="110" width="10" height="10" fill="#b9c6d3"/><rect x="100" y="110" width="10" height="10" fill="#d3dce6"/><rect x="110" y="110" width="10" height="10" fill="#e6ecf2"/><rect x="120" y="110" width="10" height="10" fill="#f2f6fa"/><rect x="130" y="110" width="10" height="10" fill="#e6ecf2"/><rect x="0" y="120" width="10" height="10" fill="#d3dce6"/><rect x="10" y="120" width="10" height="10" fill="#e6ecf2"/><rect x="20" y="120" width="10" height="10" fill="#e6ecf2"/><rect x="30" y="120" width="10" height="10" fill="#d3dce6"/><rect x="40" y="120" width="10" height="10" fill="#e6ecf2"/><rect x="50" y="120" width="10" height="10" fill="#d3dce6"/><rect x="60" y="120" width="10" height="10" fill="#e6ecf2"/><rect x="70" y="120" width="10" height="10" fill="#f2f6fa"/><rect x="80" y="120" width="10" height="10" fill="#b9c6d3"/><rect x="90" y="120" width="10" height="10" fill="#f2f6fa"/><rect x="100" y="120" width="10" height="10" fill="#e6ecf2"/><rect x="110" y="120" width="10" height="10" fill="#b9c6d3"/><rect x="120" y="120" width="10" height="10" fill="#d3dce6"/><rect x="130" y="120" width="10" height="10" fill="#8fa0b0"/><rect x="0" y="130" width="10" height="10" fill="#f2f6fa"/><rect x="10" y="130" width="10" height="10" fill="#d3dce6"/><rect x="20" y="130" width="10" height="10" fill="#e6ecf2"/><rect x="30" y="130" width="10" height="10" fill="#e6ecf2"/><rect x="40" y="130" width="10" height="10" fill="#b9c6d3"/><rect x="50" y="130" width="10" height="10" fill="#e6ecf2"/><rect x="60" y="130" width="10" height="10" fill="#d3dce6"/><rect x="70" y="130" width="10" height="10" fill="#f2f6fa"/><rect x="80" y="130" width="10" height="10" fill="#d3dce6"/><rect x="90" y="130" width="10" height="10" fill="#e6ecf2"/><rect x="100" y="130" width="10" height="10" fill="#e6ecf2"/><rect x="110" y="130" width="10" height="10" fill="#d3dce6"/><rect x="120" y="130" width="10" height="10" fill="#f2f6fa"/><rect x="130" y="130" width="10" height="10" fill="#f2f6fa"/></svg></div>
+                    <div class="bp-map__body"><strong>Winter Village</strong><span>Snow, lanterns, a frozen pond</span></div>
+                </div>
+                <div class="bp-map">
+                    <div class="bp-map__art"><svg viewBox="0 0 140 140" width="100%" height="100%" preserveAspectRatio="none" aria-hidden="true" style="display:block"><rect x="0" y="0" width="10" height="10" fill="#1a1d24"/><rect x="10" y="0" width="10" height="10" fill="#373d4a"/><rect x="20" y="0" width="10" height="10" fill="#2b2f3a"/><rect x="30" y="0" width="10" height="10" fill="#2b2f3a"/><rect x="40" y="0" width="10" height="10" fill="#373d4a"/><rect x="50" y="0" width="10" height="10" fill="#2b2f3a"/><rect x="60" y="0" width="10" height="10" fill="#2b2f3a"/><rect x="70" y="0" width="10" height="10" fill="#373d4a"/><rect x="80" y="0" width="10" height="10" fill="#4a5160"/><rect x="90" y="0" width="10" height="10" fill="#373d4a"/><rect x="100" y="0" width="10" height="10" fill="#22262f"/><rect x="110" y="0" width="10" height="10" fill="#2b2f3a"/><rect x="120" y="0" width="10" height="10" fill="#2b2f3a"/><rect x="130" y="0" width="10" height="10" fill="#373d4a"/><rect x="0" y="10" width="10" height="10" fill="#2b2f3a"/><rect x="10" y="10" width="10" height="10" fill="#373d4a"/><rect x="20" y="10" width="10" height="10" fill="#22262f"/><rect x="30" y="10" width="10" height="10" fill="#2b2f3a"/><rect x="40" y="10" width="10" height="10" fill="#22262f"/><rect x="50" y="10" width="10" height="10" fill="#1a1d24"/><rect x="60" y="10" width="10" height="10" fill="#373d4a"/><rect x="70" y="10" width="10" height="10" fill="#22262f"/><rect x="80" y="10" width="10" height="10" fill="#2b2f3a"/><rect x="90" y="10" width="10" height="10" fill="#22262f"/><rect x="100" y="10" width="10" height="10" fill="#2b2f3a"/><rect x="110" y="10" width="10" height="10" fill="#2b2f3a"/><rect x="120" y="10" width="10" height="10" fill="#373d4a"/><rect x="130" y="10" width="10" height="10" fill="#22262f"/><rect x="0" y="20" width="10" height="10" fill="#373d4a"/><rect x="10" y="20" width="10" height="10" fill="#2b2f3a"/><rect x="20" y="20" width="10" height="10" fill="#373d4a"/><rect x="30" y="20" width="10" height="10" fill="#4a5160"/><rect x="40" y="20" width="10" height="10" fill="#2b2f3a"/><rect x="50" y="20" width="10" height="10" fill="#373d4a"/><rect x="60" y="20" width="10" height="10" fill="#373d4a"/><rect x="70" y="20" width="10" height="10" fill="#2b2f3a"/><rect x="80" y="20" width="10" height="10" fill="#2b2f3a"/><rect x="90" y="20" width="10" height="10" fill="#2b2f3a"/><rect x="100" y="20" width="10" height="10" fill="#2b2f3a"/><rect x="110" y="20" width="10" height="10" fill="#373d4a"/><rect x="120" y="20" width="10" height="10" fill="#2b2f3a"/><rect x="130" y="20" width="10" height="10" fill="#373d4a"/><rect x="0" y="30" width="10" height="10" fill="#373d4a"/><rect x="10" y="30" width="10" height="10" fill="#2b2f3a"/><rect x="20" y="30" width="10" height="10" fill="#373d4a"/><rect x="30" y="30" width="10" height="10" fill="#4a5160"/><rect x="40" y="30" width="10" height="10" fill="#2b2f3a"/><rect x="50" y="30" width="10" height="10" fill="#2b2f3a"/><rect x="60" y="30" width="10" height="10" fill="#22262f"/><rect x="70" y="30" width="10" height="10" fill="#2b2f3a"/><rect x="80" y="30" width="10" height="10" fill="#2b2f3a"/><rect x="90" y="30" width="10" height="10" fill="#373d4a"/><rect x="100" y="30" width="10" height="10" fill="#4a5160"/><rect x="110" y="30" width="10" height="10" fill="#2b2f3a"/><rect x="120" y="30" width="10" height="10" fill="#2b2f3a"/><rect x="130" y="30" width="10" height="10" fill="#22262f"/><rect x="0" y="40" width="10" height="10" fill="#2b2f3a"/><rect x="10" y="40" width="10" height="10" fill="#22262f"/><rect x="20" y="40" width="10" height="10" fill="#2b2f3a"/><rect x="30" y="40" width="10" height="10" fill="#1a1d24"/><rect x="40" y="40" width="10" height="10" fill="#373d4a"/><rect x="50" y="40" width="10" height="10" fill="#2b2f3a"/><rect x="60" y="40" width="10" height="10" fill="#2b2f3a"/><rect x="70" y="40" width="10" height="10" fill="#4a5160"/><rect x="80" y="40" width="10" height="10" fill="#2b2f3a"/><rect x="90" y="40" width="10" height="10" fill="#2b2f3a"/><rect x="100" y="40" width="10" height="10" fill="#22262f"/><rect x="110" y="40" width="10" height="10" fill="#373d4a"/><rect x="120" y="40" width="10" height="10" fill="#373d4a"/><rect x="130" y="40" width="10" height="10" fill="#22262f"/><rect x="0" y="50" width="10" height="10" fill="#2b2f3a"/><rect x="10" y="50" width="10" height="10" fill="#2b2f3a"/><rect x="20" y="50" width="10" height="10" fill="#22262f"/><rect x="30" y="50" width="10" height="10" fill="#2b2f3a"/><rect x="40" y="50" width="10" height="10" fill="#2b2f3a"/><rect x="50" y="50" width="10" height="10" fill="#22262f"/><rect x="60" y="50" width="10" height="10" fill="#2b2f3a"/><rect x="70" y="50" width="10" height="10" fill="#22262f"/><rect x="80" y="50" width="10" height="10" fill="#373d4a"/><rect x="90" y="50" width="10" height="10" fill="#2b2f3a"/><rect x="100" y="50" width="10" height="10" fill="#373d4a"/><rect x="110" y="50" width="10" height="10" fill="#22262f"/><rect x="120" y="50" width="10" height="10" fill="#4a5160"/><rect x="130" y="50" width="10" height="10" fill="#2b2f3a"/><rect x="0" y="60" width="10" height="10" fill="#373d4a"/><rect x="10" y="60" width="10" height="10" fill="#2b2f3a"/><rect x="20" y="60" width="10" height="10" fill="#1a1d24"/><rect x="30" y="60" width="10" height="10" fill="#2b2f3a"/><rect x="40" y="60" width="10" height="10" fill="#2b2f3a"/><rect x="50" y="60" width="10" height="10" fill="#2b2f3a"/><rect x="60" y="60" width="10" height="10" fill="#2b2f3a"/><rect x="70" y="60" width="10" height="10" fill="#22262f"/><rect x="80" y="60" width="10" height="10" fill="#2b2f3a"/><rect x="90" y="60" width="10" height="10" fill="#22262f"/><rect x="100" y="60" width="10" height="10" fill="#4a5160"/><rect x="110" y="60" width="10" height="10" fill="#373d4a"/><rect x="120" y="60" width="10" height="10" fill="#4a5160"/><rect x="130" y="60" width="10" height="10" fill="#373d4a"/><rect x="0" y="70" width="10" height="10" fill="#373d4a"/><rect x="10" y="70" width="10" height="10" fill="#373d4a"/><rect x="20" y="70" width="10" height="10" fill="#373d4a"/><rect x="30" y="70" width="10" height="10" fill="#22262f"/><rect x="40" y="70" width="10" height="10" fill="#1a1d24"/><rect x="50" y="70" width="10" height="10" fill="#2b2f3a"/><rect x="60" y="70" width="10" height="10" fill="#22262f"/><rect x="70" y="70" width="10" height="10" fill="#2b2f3a"/><rect x="80" y="70" width="10" height="10" fill="#22262f"/><rect x="90" y="70" width="10" height="10" fill="#373d4a"/><rect x="100" y="70" width="10" height="10" fill="#2b2f3a"/><rect x="110" y="70" width="10" height="10" fill="#2b2f3a"/><rect x="120" y="70" width="10" height="10" fill="#1a1d24"/><rect x="130" y="70" width="10" height="10" fill="#373d4a"/><rect x="0" y="80" width="10" height="10" fill="#22262f"/><rect x="10" y="80" width="10" height="10" fill="#22262f"/><rect x="20" y="80" width="10" height="10" fill="#2b2f3a"/><rect x="30" y="80" width="10" height="10" fill="#373d4a"/><rect x="40" y="80" width="10" height="10" fill="#4a5160"/><rect x="50" y="80" width="10" height="10" fill="#373d4a"/><rect x="60" y="80" width="10" height="10" fill="#2b2f3a"/><rect x="70" y="80" width="10" height="10" fill="#2b2f3a"/><rect x="80" y="80" width="10" height="10" fill="#22262f"/><rect x="90" y="80" width="10" height="10" fill="#2b2f3a"/><rect x="100" y="80" width="10" height="10" fill="#2b2f3a"/><rect x="110" y="80" width="10" height="10" fill="#22262f"/><rect x="120" y="80" width="10" height="10" fill="#1a1d24"/><rect x="130" y="80" width="10" height="10" fill="#2b2f3a"/><rect x="0" y="90" width="10" height="10" fill="#1a1d24"/><rect x="10" y="90" width="10" height="10" fill="#2b2f3a"/><rect x="20" y="90" width="10" height="10" fill="#4a5160"/><rect x="30" y="90" width="10" height="10" fill="#2b2f3a"/><rect x="40" y="90" width="10" height="10" fill="#373d4a"/><rect x="50" y="90" width="10" height="10" fill="#2b2f3a"/><rect x="60" y="90" width="10" height="10" fill="#2b2f3a"/><rect x="70" y="90" width="10" height="10" fill="#22262f"/><rect x="80" y="90" width="10" height="10" fill="#373d4a"/><rect x="90" y="90" width="10" height="10" fill="#373d4a"/><rect x="100" y="90" width="10" height="10" fill="#1a1d24"/><rect x="110" y="90" width="10" height="10" fill="#373d4a"/><rect x="120" y="90" width="10" height="10" fill="#373d4a"/><rect x="130" y="90" width="10" height="10" fill="#373d4a"/><rect x="0" y="100" width="10" height="10" fill="#2b2f3a"/><rect x="10" y="100" width="10" height="10" fill="#2b2f3a"/><rect x="20" y="100" width="10" height="10" fill="#2b2f3a"/><rect x="30" y="100" width="10" height="10" fill="#2b2f3a"/><rect x="40" y="100" width="10" height="10" fill="#22262f"/><rect x="50" y="100" width="10" height="10" fill="#373d4a"/><rect x="60" y="100" width="10" height="10" fill="#2b2f3a"/><rect x="70" y="100" width="10" height="10" fill="#22262f"/><rect x="80" y="100" width="10" height="10" fill="#22262f"/><rect x="90" y="100" width="10" height="10" fill="#373d4a"/><rect x="100" y="100" width="10" height="10" fill="#2b2f3a"/><rect x="110" y="100" width="10" height="10" fill="#2b2f3a"/><rect x="120" y="100" width="10" height="10" fill="#2b2f3a"/><rect x="130" y="100" width="10" height="10" fill="#2b2f3a"/><rect x="0" y="110" width="10" height="10" fill="#22262f"/><rect x="10" y="110" width="10" height="10" fill="#2b2f3a"/><rect x="20" y="110" width="10" height="10" fill="#2b2f3a"/><rect x="30" y="110" width="10" height="10" fill="#373d4a"/><rect x="40" y="110" width="10" height="10" fill="#2b2f3a"/><rect x="50" y="110" width="10" height="10" fill="#373d4a"/><rect x="60" y="110" width="10" height="10" fill="#2b2f3a"/><rect x="70" y="110" width="10" height="10" fill="#4a5160"/><rect x="80" y="110" width="10" height="10" fill="#2b2f3a"/><rect x="90" y="110" width="10" height="10" fill="#2b2f3a"/><rect x="100" y="110" width="10" height="10" fill="#4a5160"/><rect x="110" y="110" width="10" height="10" fill="#2b2f3a"/><rect x="120" y="110" width="10" height="10" fill="#22262f"/><rect x="130" y="110" width="10" height="10" fill="#2b2f3a"/><rect x="0" y="120" width="10" height="10" fill="#4a5160"/><rect x="10" y="120" width="10" height="10" fill="#2b2f3a"/><rect x="20" y="120" width="10" height="10" fill="#2b2f3a"/><rect x="30" y="120" width="10" height="10" fill="#2b2f3a"/><rect x="40" y="120" width="10" height="10" fill="#2b2f3a"/><rect x="50" y="120" width="10" height="10" fill="#2b2f3a"/><rect x="60" y="120" width="10" height="10" fill="#22262f"/><rect x="70" y="120" width="10" height="10" fill="#373d4a"/><rect x="80" y="120" width="10" height="10" fill="#2b2f3a"/><rect x="90" y="120" width="10" height="10" fill="#2b2f3a"/><rect x="100" y="120" width="10" height="10" fill="#4a5160"/><rect x="110" y="120" width="10" height="10" fill="#2b2f3a"/><rect x="120" y="120" width="10" height="10" fill="#2b2f3a"/><rect x="130" y="120" width="10" height="10" fill="#2b2f3a"/><rect x="0" y="130" width="10" height="10" fill="#22262f"/><rect x="10" y="130" width="10" height="10" fill="#2b2f3a"/><rect x="20" y="130" width="10" height="10" fill="#4a5160"/><rect x="30" y="130" width="10" height="10" fill="#373d4a"/><rect x="40" y="130" width="10" height="10" fill="#2b2f3a"/><rect x="50" y="130" width="10" height="10" fill="#373d4a"/><rect x="60" y="130" width="10" height="10" fill="#2b2f3a"/><rect x="70" y="130" width="10" height="10" fill="#373d4a"/><rect x="80" y="130" width="10" height="10" fill="#373d4a"/><rect x="90" y="130" width="10" height="10" fill="#2b2f3a"/><rect x="100" y="130" width="10" height="10" fill="#2b2f3a"/><rect x="110" y="130" width="10" height="10" fill="#2b2f3a"/><rect x="120" y="130" width="10" height="10" fill="#2b2f3a"/><rect x="130" y="130" width="10" height="10" fill="#2b2f3a"/></svg></div>
+                    <div class="bp-map__body"><strong>Crystal Caves</strong><span>Tunnels and an underground lake</span></div>
+                </div>
+                <div class="bp-map">
+                    <div class="bp-map__art"><svg viewBox="0 0 140 140" width="100%" height="100%" preserveAspectRatio="none" aria-hidden="true" style="display:block"><rect x="0" y="0" width="10" height="10" fill="#4e9c48"/><rect x="10" y="0" width="10" height="10" fill="#8d97a6"/><rect x="20" y="0" width="10" height="10" fill="#d9d2c4"/><rect x="30" y="0" width="10" height="10" fill="#b4553f"/><rect x="40" y="0" width="10" height="10" fill="#b4553f"/><rect x="50" y="0" width="10" height="10" fill="#4e9c48"/><rect x="60" y="0" width="10" height="10" fill="#8d97a6"/><rect x="70" y="0" width="10" height="10" fill="#a9743f"/><rect x="80" y="0" width="10" height="10" fill="#b4553f"/><rect x="90" y="0" width="10" height="10" fill="#a9743f"/><rect x="100" y="0" width="10" height="10" fill="#a9743f"/><rect x="110" y="0" width="10" height="10" fill="#b4553f"/><rect x="120" y="0" width="10" height="10" fill="#4e9c48"/><rect x="130" y="0" width="10" height="10" fill="#4e9c48"/><rect x="0" y="10" width="10" height="10" fill="#b4553f"/><rect x="10" y="10" width="10" height="10" fill="#b4553f"/><rect x="20" y="10" width="10" height="10" fill="#d9d2c4"/><rect x="30" y="10" width="10" height="10" fill="#4e9c48"/><rect x="40" y="10" width="10" height="10" fill="#b4553f"/><rect x="50" y="10" width="10" height="10" fill="#d9d2c4"/><rect x="60" y="10" width="10" height="10" fill="#b4553f"/><rect x="70" y="10" width="10" height="10" fill="#4e9c48"/><rect x="80" y="10" width="10" height="10" fill="#b4553f"/><rect x="90" y="10" width="10" height="10" fill="#d9d2c4"/><rect x="100" y="10" width="10" height="10" fill="#4e9c48"/><rect x="110" y="10" width="10" height="10" fill="#b4553f"/><rect x="120" y="10" width="10" height="10" fill="#b4553f"/><rect x="130" y="10" width="10" height="10" fill="#b4553f"/><rect x="0" y="20" width="10" height="10" fill="#4e9c48"/><rect x="10" y="20" width="10" height="10" fill="#b4553f"/><rect x="20" y="20" width="10" height="10" fill="#4e9c48"/><rect x="30" y="20" width="10" height="10" fill="#8d97a6"/><rect x="40" y="20" width="10" height="10" fill="#4e9c48"/><rect x="50" y="20" width="10" height="10" fill="#b4553f"/><rect x="60" y="20" width="10" height="10" fill="#4e9c48"/><rect x="70" y="20" width="10" height="10" fill="#b4553f"/><rect x="80" y="20" width="10" height="10" fill="#4e9c48"/><rect x="90" y="20" width="10" height="10" fill="#b4553f"/><rect x="100" y="20" width="10" height="10" fill="#d9d2c4"/><rect x="110" y="20" width="10" height="10" fill="#b4553f"/><rect x="120" y="20" width="10" height="10" fill="#4e9c48"/><rect x="130" y="20" width="10" height="10" fill="#b4553f"/><rect x="0" y="30" width="10" height="10" fill="#d9d2c4"/><rect x="10" y="30" width="10" height="10" fill="#d9d2c4"/><rect x="20" y="30" width="10" height="10" fill="#b4553f"/><rect x="30" y="30" width="10" height="10" fill="#b4553f"/><rect x="40" y="30" width="10" height="10" fill="#4e9c48"/><rect x="50" y="30" width="10" height="10" fill="#b4553f"/><rect x="60" y="30" width="10" height="10" fill="#b4553f"/><rect x="70" y="30" width="10" height="10" fill="#b4553f"/><rect x="80" y="30" width="10" height="10" fill="#b4553f"/><rect x="90" y="30" width="10" height="10" fill="#b4553f"/><rect x="100" y="30" width="10" height="10" fill="#b4553f"/><rect x="110" y="30" width="10" height="10" fill="#a9743f"/><rect x="120" y="30" width="10" height="10" fill="#b4553f"/><rect x="130" y="30" width="10" height="10" fill="#4e9c48"/><rect x="0" y="40" width="10" height="10" fill="#d9d2c4"/><rect x="10" y="40" width="10" height="10" fill="#b4553f"/><rect x="20" y="40" width="10" height="10" fill="#b4553f"/><rect x="30" y="40" width="10" height="10" fill="#b4553f"/><rect x="40" y="40" width="10" height="10" fill="#d9d2c4"/><rect x="50" y="40" width="10" height="10" fill="#b4553f"/><rect x="60" y="40" width="10" height="10" fill="#4e9c48"/><rect x="70" y="40" width="10" height="10" fill="#d9d2c4"/><rect x="80" y="40" width="10" height="10" fill="#b4553f"/><rect x="90" y="40" width="10" height="10" fill="#d9d2c4"/><rect x="100" y="40" width="10" height="10" fill="#b4553f"/><rect x="110" y="40" width="10" height="10" fill="#d9d2c4"/><rect x="120" y="40" width="10" height="10" fill="#b4553f"/><rect x="130" y="40" width="10" height="10" fill="#a9743f"/><rect x="0" y="50" width="10" height="10" fill="#d9d2c4"/><rect x="10" y="50" width="10" height="10" fill="#b4553f"/><rect x="20" y="50" width="10" height="10" fill="#4e9c48"/><rect x="30" y="50" width="10" height="10" fill="#8d97a6"/><rect x="40" y="50" width="10" height="10" fill="#d9d2c4"/><rect x="50" y="50" width="10" height="10" fill="#b4553f"/><rect x="60" y="50" width="10" height="10" fill="#d9d2c4"/><rect x="70" y="50" width="10" height="10" fill="#b4553f"/><rect x="80" y="50" width="10" height="10" fill="#d9d2c4"/><rect x="90" y="50" width="10" height="10" fill="#b4553f"/><rect x="100" y="50" width="10" height="10" fill="#d9d2c4"/><rect x="110" y="50" width="10" height="10" fill="#4e9c48"/><rect x="120" y="50" width="10" height="10" fill="#b4553f"/><rect x="130" y="50" width="10" height="10" fill="#d9d2c4"/><rect x="0" y="60" width="10" height="10" fill="#b4553f"/><rect x="10" y="60" width="10" height="10" fill="#b4553f"/><rect x="20" y="60" width="10" height="10" fill="#4e9c48"/><rect x="30" y="60" width="10" height="10" fill="#8d97a6"/><rect x="40" y="60" width="10" height="10" fill="#d9d2c4"/><rect x="50" y="60" width="10" height="10" fill="#b4553f"/><rect x="60" y="60" width="10" height="10" fill="#a9743f"/><rect x="70" y="60" width="10" height="10" fill="#b4553f"/><rect x="80" y="60" width="10" height="10" fill="#b4553f"/><rect x="90" y="60" width="10" height="10" fill="#a9743f"/><rect x="100" y="60" width="10" height="10" fill="#d9d2c4"/><rect x="110" y="60" width="10" height="10" fill="#b4553f"/><rect x="120" y="60" width="10" height="10" fill="#8d97a6"/><rect x="130" y="60" width="10" height="10" fill="#b4553f"/><rect x="0" y="70" width="10" height="10" fill="#b4553f"/><rect x="10" y="70" width="10" height="10" fill="#4e9c48"/><rect x="20" y="70" width="10" height="10" fill="#8d97a6"/><rect x="30" y="70" width="10" height="10" fill="#d9d2c4"/><rect x="40" y="70" width="10" height="10" fill="#8d97a6"/><rect x="50" y="70" width="10" height="10" fill="#d9d2c4"/><rect x="60" y="70" width="10" height="10" fill="#d9d2c4"/><rect x="70" y="70" width="10" height="10" fill="#d9d2c4"/><rect x="80" y="70" width="10" height="10" fill="#a9743f"/><rect x="90" y="70" width="10" height="10" fill="#d9d2c4"/><rect x="100" y="70" width="10" height="10" fill="#d9d2c4"/><rect x="110" y="70" width="10" height="10" fill="#b4553f"/><rect x="120" y="70" width="10" height="10" fill="#4e9c48"/><rect x="130" y="70" width="10" height="10" fill="#d9d2c4"/><rect x="0" y="80" width="10" height="10" fill="#b4553f"/><rect x="10" y="80" width="10" height="10" fill="#b4553f"/><rect x="20" y="80" width="10" height="10" fill="#b4553f"/><rect x="30" y="80" width="10" height="10" fill="#8d97a6"/><rect x="40" y="80" width="10" height="10" fill="#d9d2c4"/><rect x="50" y="80" width="10" height="10" fill="#b4553f"/><rect x="60" y="80" width="10" height="10" fill="#b4553f"/><rect x="70" y="80" width="10" height="10" fill="#b4553f"/><rect x="80" y="80" width="10" height="10" fill="#b4553f"/><rect x="90" y="80" width="10" height="10" fill="#b4553f"/><rect x="100" y="80" width="10" height="10" fill="#8d97a6"/><rect x="110" y="80" width="10" height="10" fill="#4e9c48"/><rect x="120" y="80" width="10" height="10" fill="#b4553f"/><rect x="130" y="80" width="10" height="10" fill="#4e9c48"/><rect x="0" y="90" width="10" height="10" fill="#d9d2c4"/><rect x="10" y="90" width="10" height="10" fill="#b4553f"/><rect x="20" y="90" width="10" height="10" fill="#d9d2c4"/><rect x="30" y="90" width="10" height="10" fill="#d9d2c4"/><rect x="40" y="90" width="10" height="10" fill="#8d97a6"/><rect x="50" y="90" width="10" height="10" fill="#b4553f"/><rect x="60" y="90" width="10" height="10" fill="#d9d2c4"/><rect x="70" y="90" width="10" height="10" fill="#d9d2c4"/><rect x="80" y="90" width="10" height="10" fill="#d9d2c4"/><rect x="90" y="90" width="10" height="10" fill="#b4553f"/><rect x="100" y="90" width="10" height="10" fill="#b4553f"/><rect x="110" y="90" width="10" height="10" fill="#b4553f"/><rect x="120" y="90" width="10" height="10" fill="#b4553f"/><rect x="130" y="90" width="10" height="10" fill="#d9d2c4"/><rect x="0" y="100" width="10" height="10" fill="#b4553f"/><rect x="10" y="100" width="10" height="10" fill="#b4553f"/><rect x="20" y="100" width="10" height="10" fill="#b4553f"/><rect x="30" y="100" width="10" height="10" fill="#b4553f"/><rect x="40" y="100" width="10" height="10" fill="#8d97a6"/><rect x="50" y="100" width="10" height="10" fill="#a9743f"/><rect x="60" y="100" width="10" height="10" fill="#d9d2c4"/><rect x="70" y="100" width="10" height="10" fill="#b4553f"/><rect x="80" y="100" width="10" height="10" fill="#d9d2c4"/><rect x="90" y="100" width="10" height="10" fill="#d9d2c4"/><rect x="100" y="100" width="10" height="10" fill="#4e9c48"/><rect x="110" y="100" width="10" height="10" fill="#4e9c48"/><rect x="120" y="100" width="10" height="10" fill="#4e9c48"/><rect x="130" y="100" width="10" height="10" fill="#a9743f"/><rect x="0" y="110" width="10" height="10" fill="#b4553f"/><rect x="10" y="110" width="10" height="10" fill="#4e9c48"/><rect x="20" y="110" width="10" height="10" fill="#a9743f"/><rect x="30" y="110" width="10" height="10" fill="#b4553f"/><rect x="40" y="110" width="10" height="10" fill="#b4553f"/><rect x="50" y="110" width="10" height="10" fill="#b4553f"/><rect x="60" y="110" width="10" height="10" fill="#4e9c48"/><rect x="70" y="110" width="10" height="10" fill="#b4553f"/><rect x="80" y="110" width="10" height="10" fill="#b4553f"/><rect x="90" y="110" width="10" height="10" fill="#d9d2c4"/><rect x="100" y="110" width="10" height="10" fill="#d9d2c4"/><rect x="110" y="110" width="10" height="10" fill="#d9d2c4"/><rect x="120" y="110" width="10" height="10" fill="#d9d2c4"/><rect x="130" y="110" width="10" height="10" fill="#b4553f"/><rect x="0" y="120" width="10" height="10" fill="#b4553f"/><rect x="10" y="120" width="10" height="10" fill="#d9d2c4"/><rect x="20" y="120" width="10" height="10" fill="#b4553f"/><rect x="30" y="120" width="10" height="10" fill="#b4553f"/><rect x="40" y="120" width="10" height="10" fill="#d9d2c4"/><rect x="50" y="120" width="10" height="10" fill="#b4553f"/><rect x="60" y="120" width="10" height="10" fill="#b4553f"/><rect x="70" y="120" width="10" height="10" fill="#b4553f"/><rect x="80" y="120" width="10" height="10" fill="#4e9c48"/><rect x="90" y="120" width="10" height="10" fill="#d9d2c4"/><rect x="100" y="120" width="10" height="10" fill="#d9d2c4"/><rect x="110" y="120" width="10" height="10" fill="#8d97a6"/><rect x="120" y="120" width="10" height="10" fill="#b4553f"/><rect x="130" y="120" width="10" height="10" fill="#b4553f"/><rect x="0" y="130" width="10" height="10" fill="#b4553f"/><rect x="10" y="130" width="10" height="10" fill="#d9d2c4"/><rect x="20" y="130" width="10" height="10" fill="#b4553f"/><rect x="30" y="130" width="10" height="10" fill="#d9d2c4"/><rect x="40" y="130" width="10" height="10" fill="#b4553f"/><rect x="50" y="130" width="10" height="10" fill="#a9743f"/><rect x="60" y="130" width="10" height="10" fill="#b4553f"/><rect x="70" y="130" width="10" height="10" fill="#d9d2c4"/><rect x="80" y="130" width="10" height="10" fill="#8d97a6"/><rect x="90" y="130" width="10" height="10" fill="#a9743f"/><rect x="100" y="130" width="10" height="10" fill="#a9743f"/><rect x="110" y="130" width="10" height="10" fill="#b4553f"/><rect x="120" y="130" width="10" height="10" fill="#b4553f"/><rect x="130" y="130" width="10" height="10" fill="#d9d2c4"/></svg></div>
+                    <div class="bp-map__body"><strong>Village School</strong><span>Classrooms, a hall, a yard</span></div>
+                </div>
+                <div class="bp-map">
+                    <div class="bp-map__art"><svg viewBox="0 0 140 140" width="100%" height="100%" preserveAspectRatio="none" aria-hidden="true" style="display:block"><rect x="0" y="0" width="10" height="10" fill="#d9d2c4"/><rect x="10" y="0" width="10" height="10" fill="#4e9c48"/><rect x="20" y="0" width="10" height="10" fill="#4e9c48"/><rect x="30" y="0" width="10" height="10" fill="#8d97a6"/><rect x="40" y="0" width="10" height="10" fill="#59616f"/><rect x="50" y="0" width="10" height="10" fill="#4e9c48"/><rect x="60" y="0" width="10" height="10" fill="#59616f"/><rect x="70" y="0" width="10" height="10" fill="#59616f"/><rect x="80" y="0" width="10" height="10" fill="#8d97a6"/><rect x="90" y="0" width="10" height="10" fill="#59616f"/><rect x="100" y="0" width="10" height="10" fill="#4e9c48"/><rect x="110" y="0" width="10" height="10" fill="#8d97a6"/><rect x="120" y="0" width="10" height="10" fill="#59616f"/><rect x="130" y="0" width="10" height="10" fill="#4e9c48"/><rect x="0" y="10" width="10" height="10" fill="#59616f"/><rect x="10" y="10" width="10" height="10" fill="#59616f"/><rect x="20" y="10" width="10" height="10" fill="#4e9c48"/><rect x="30" y="10" width="10" height="10" fill="#4e9c48"/><rect x="40" y="10" width="10" height="10" fill="#8d97a6"/><rect x="50" y="10" width="10" height="10" fill="#3f4653"/><rect x="60" y="10" width="10" height="10" fill="#59616f"/><rect x="70" y="10" width="10" height="10" fill="#8d97a6"/><rect x="80" y="10" width="10" height="10" fill="#8d97a6"/><rect x="90" y="10" width="10" height="10" fill="#8d97a6"/><rect x="100" y="10" width="10" height="10" fill="#8d97a6"/><rect x="110" y="10" width="10" height="10" fill="#8d97a6"/><rect x="120" y="10" width="10" height="10" fill="#59616f"/><rect x="130" y="10" width="10" height="10" fill="#8d97a6"/><rect x="0" y="20" width="10" height="10" fill="#8d97a6"/><rect x="10" y="20" width="10" height="10" fill="#59616f"/><rect x="20" y="20" width="10" height="10" fill="#d9d2c4"/><rect x="30" y="20" width="10" height="10" fill="#59616f"/><rect x="40" y="20" width="10" height="10" fill="#8d97a6"/><rect x="50" y="20" width="10" height="10" fill="#59616f"/><rect x="60" y="20" width="10" height="10" fill="#3f4653"/><rect x="70" y="20" width="10" height="10" fill="#3f4653"/><rect x="80" y="20" width="10" height="10" fill="#59616f"/><rect x="90" y="20" width="10" height="10" fill="#59616f"/><rect x="100" y="20" width="10" height="10" fill="#59616f"/><rect x="110" y="20" width="10" height="10" fill="#59616f"/><rect x="120" y="20" width="10" height="10" fill="#4e9c48"/><rect x="130" y="20" width="10" height="10" fill="#4e9c48"/><rect x="0" y="30" width="10" height="10" fill="#59616f"/><rect x="10" y="30" width="10" height="10" fill="#59616f"/><rect x="20" y="30" width="10" height="10" fill="#8d97a6"/><rect x="30" y="30" width="10" height="10" fill="#4e9c48"/><rect x="40" y="30" width="10" height="10" fill="#59616f"/><rect x="50" y="30" width="10" height="10" fill="#59616f"/><rect x="60" y="30" width="10" height="10" fill="#8d97a6"/><rect x="70" y="30" width="10" height="10" fill="#d9d2c4"/><rect x="80" y="30" width="10" height="10" fill="#8d97a6"/><rect x="90" y="30" width="10" height="10" fill="#8d97a6"/><rect x="100" y="30" width="10" height="10" fill="#4e9c48"/><rect x="110" y="30" width="10" height="10" fill="#8d97a6"/><rect x="120" y="30" width="10" height="10" fill="#59616f"/><rect x="130" y="30" width="10" height="10" fill="#8d97a6"/><rect x="0" y="40" width="10" height="10" fill="#4e9c48"/><rect x="10" y="40" width="10" height="10" fill="#8d97a6"/><rect x="20" y="40" width="10" height="10" fill="#59616f"/><rect x="30" y="40" width="10" height="10" fill="#8d97a6"/><rect x="40" y="40" width="10" height="10" fill="#59616f"/><rect x="50" y="40" width="10" height="10" fill="#59616f"/><rect x="60" y="40" width="10" height="10" fill="#d9d2c4"/><rect x="70" y="40" width="10" height="10" fill="#4e9c48"/><rect x="80" y="40" width="10" height="10" fill="#8d97a6"/><rect x="90" y="40" width="10" height="10" fill="#59616f"/><rect x="100" y="40" width="10" height="10" fill="#4e9c48"/><rect x="110" y="40" width="10" height="10" fill="#59616f"/><rect x="120" y="40" width="10" height="10" fill="#4e9c48"/><rect x="130" y="40" width="10" height="10" fill="#8d97a6"/><rect x="0" y="50" width="10" height="10" fill="#4e9c48"/><rect x="10" y="50" width="10" height="10" fill="#8d97a6"/><rect x="20" y="50" width="10" height="10" fill="#4e9c48"/><rect x="30" y="50" width="10" height="10" fill="#8d97a6"/><rect x="40" y="50" width="10" height="10" fill="#4e9c48"/><rect x="50" y="50" width="10" height="10" fill="#8d97a6"/><rect x="60" y="50" width="10" height="10" fill="#8d97a6"/><rect x="70" y="50" width="10" height="10" fill="#59616f"/><rect x="80" y="50" width="10" height="10" fill="#8d97a6"/><rect x="90" y="50" width="10" height="10" fill="#8d97a6"/><rect x="100" y="50" width="10" height="10" fill="#d9d2c4"/><rect x="110" y="50" width="10" height="10" fill="#59616f"/><rect x="120" y="50" width="10" height="10" fill="#4e9c48"/><rect x="130" y="50" width="10" height="10" fill="#59616f"/><rect x="0" y="60" width="10" height="10" fill="#59616f"/><rect x="10" y="60" width="10" height="10" fill="#59616f"/><rect x="20" y="60" width="10" height="10" fill="#d9d2c4"/><rect x="30" y="60" width="10" height="10" fill="#59616f"/><rect x="40" y="60" width="10" height="10" fill="#4e9c48"/><rect x="50" y="60" width="10" height="10" fill="#59616f"/><rect x="60" y="60" width="10" height="10" fill="#8d97a6"/><rect x="70" y="60" width="10" height="10" fill="#8d97a6"/><rect x="80" y="60" width="10" height="10" fill="#8d97a6"/><rect x="90" y="60" width="10" height="10" fill="#59616f"/><rect x="100" y="60" width="10" height="10" fill="#8d97a6"/><rect x="110" y="60" width="10" height="10" fill="#8d97a6"/><rect x="120" y="60" width="10" height="10" fill="#4e9c48"/><rect x="130" y="60" width="10" height="10" fill="#59616f"/><rect x="0" y="70" width="10" height="10" fill="#8d97a6"/><rect x="10" y="70" width="10" height="10" fill="#59616f"/><rect x="20" y="70" width="10" height="10" fill="#4e9c48"/><rect x="30" y="70" width="10" height="10" fill="#59616f"/><rect x="40" y="70" width="10" height="10" fill="#d9d2c4"/><rect x="50" y="70" width="10" height="10" fill="#8d97a6"/><rect x="60" y="70" width="10" height="10" fill="#59616f"/><rect x="70" y="70" width="10" height="10" fill="#8d97a6"/><rect x="80" y="70" width="10" height="10" fill="#3f4653"/><rect x="90" y="70" width="10" height="10" fill="#59616f"/><rect x="100" y="70" width="10" height="10" fill="#59616f"/><rect x="110" y="70" width="10" height="10" fill="#4e9c48"/><rect x="120" y="70" width="10" height="10" fill="#8d97a6"/><rect x="130" y="70" width="10" height="10" fill="#3f4653"/><rect x="0" y="80" width="10" height="10" fill="#59616f"/><rect x="10" y="80" width="10" height="10" fill="#59616f"/><rect x="20" y="80" width="10" height="10" fill="#59616f"/><rect x="30" y="80" width="10" height="10" fill="#59616f"/><rect x="40" y="80" width="10" height="10" fill="#d9d2c4"/><rect x="50" y="80" width="10" height="10" fill="#d9d2c4"/><rect x="60" y="80" width="10" height="10" fill="#8d97a6"/><rect x="70" y="80" width="10" height="10" fill="#8d97a6"/><rect x="80" y="80" width="10" height="10" fill="#3f4653"/><rect x="90" y="80" width="10" height="10" fill="#59616f"/><rect x="100" y="80" width="10" height="10" fill="#59616f"/><rect x="110" y="80" width="10" height="10" fill="#59616f"/><rect x="120" y="80" width="10" height="10" fill="#8d97a6"/><rect x="130" y="80" width="10" height="10" fill="#8d97a6"/><rect x="0" y="90" width="10" height="10" fill="#59616f"/><rect x="10" y="90" width="10" height="10" fill="#4e9c48"/><rect x="20" y="90" width="10" height="10" fill="#59616f"/><rect x="30" y="90" width="10" height="10" fill="#3f4653"/><rect x="40" y="90" width="10" height="10" fill="#59616f"/><rect x="50" y="90" width="10" height="10" fill="#8d97a6"/><rect x="60" y="90" width="10" height="10" fill="#59616f"/><rect x="70" y="90" width="10" height="10" fill="#8d97a6"/><rect x="80" y="90" width="10" height="10" fill="#8d97a6"/><rect x="90" y="90" width="10" height="10" fill="#59616f"/><rect x="100" y="90" width="10" height="10" fill="#59616f"/><rect x="110" y="90" width="10" height="10" fill="#4e9c48"/><rect x="120" y="90" width="10" height="10" fill="#4e9c48"/><rect x="130" y="90" width="10" height="10" fill="#59616f"/><rect x="0" y="100" width="10" height="10" fill="#59616f"/><rect x="10" y="100" width="10" height="10" fill="#59616f"/><rect x="20" y="100" width="10" height="10" fill="#4e9c48"/><rect x="30" y="100" width="10" height="10" fill="#59616f"/><rect x="40" y="100" width="10" height="10" fill="#4e9c48"/><rect x="50" y="100" width="10" height="10" fill="#59616f"/><rect x="60" y="100" width="10" height="10" fill="#d9d2c4"/><rect x="70" y="100" width="10" height="10" fill="#d9d2c4"/><rect x="80" y="100" width="10" height="10" fill="#8d97a6"/><rect x="90" y="100" width="10" height="10" fill="#59616f"/><rect x="100" y="100" width="10" height="10" fill="#4e9c48"/><rect x="110" y="100" width="10" height="10" fill="#3f4653"/><rect x="120" y="100" width="10" height="10" fill="#8d97a6"/><rect x="130" y="100" width="10" height="10" fill="#8d97a6"/><rect x="0" y="110" width="10" height="10" fill="#4e9c48"/><rect x="10" y="110" width="10" height="10" fill="#d9d2c4"/><rect x="20" y="110" width="10" height="10" fill="#59616f"/><rect x="30" y="110" width="10" height="10" fill="#4e9c48"/><rect x="40" y="110" width="10" height="10" fill="#59616f"/><rect x="50" y="110" width="10" height="10" fill="#d9d2c4"/><rect x="60" y="110" width="10" height="10" fill="#4e9c48"/><rect x="70" y="110" width="10" height="10" fill="#59616f"/><rect x="80" y="110" width="10" height="10" fill="#8d97a6"/><rect x="90" y="110" width="10" height="10" fill="#59616f"/><rect x="100" y="110" width="10" height="10" fill="#8d97a6"/><rect x="110" y="110" width="10" height="10" fill="#8d97a6"/><rect x="120" y="110" width="10" height="10" fill="#59616f"/><rect x="130" y="110" width="10" height="10" fill="#8d97a6"/><rect x="0" y="120" width="10" height="10" fill="#8d97a6"/><rect x="10" y="120" width="10" height="10" fill="#d9d2c4"/><rect x="20" y="120" width="10" height="10" fill="#d9d2c4"/><rect x="30" y="120" width="10" height="10" fill="#59616f"/><rect x="40" y="120" width="10" height="10" fill="#59616f"/><rect x="50" y="120" width="10" height="10" fill="#8d97a6"/><rect x="60" y="120" width="10" height="10" fill="#8d97a6"/><rect x="70" y="120" width="10" height="10" fill="#8d97a6"/><rect x="80" y="120" width="10" height="10" fill="#59616f"/><rect x="90" y="120" width="10" height="10" fill="#59616f"/><rect x="100" y="120" width="10" height="10" fill="#4e9c48"/><rect x="110" y="120" width="10" height="10" fill="#8d97a6"/><rect x="120" y="120" width="10" height="10" fill="#59616f"/><rect x="130" y="120" width="10" height="10" fill="#8d97a6"/><rect x="0" y="130" width="10" height="10" fill="#59616f"/><rect x="10" y="130" width="10" height="10" fill="#4e9c48"/><rect x="20" y="130" width="10" height="10" fill="#3f4653"/><rect x="30" y="130" width="10" height="10" fill="#4e9c48"/><rect x="40" y="130" width="10" height="10" fill="#8d97a6"/><rect x="50" y="130" width="10" height="10" fill="#8d97a6"/><rect x="60" y="130" width="10" height="10" fill="#8d97a6"/><rect x="70" y="130" width="10" height="10" fill="#8d97a6"/><rect x="80" y="130" width="10" height="10" fill="#59616f"/><rect x="90" y="130" width="10" height="10" fill="#59616f"/><rect x="100" y="130" width="10" height="10" fill="#8d97a6"/><rect x="110" y="130" width="10" height="10" fill="#59616f"/><rect x="120" y="130" width="10" height="10" fill="#d9d2c4"/><rect x="130" y="130" width="10" height="10" fill="#8d97a6"/></svg></div>
+                    <div class="bp-map__body"><strong>International Airport</strong><span>Runway, terminal, aircraft</span></div>
+                </div></div>
+            <div class="bp-maps__more">
+                <span class="badge">Built in · 18</span>
+                <span class="badge">Real places · 50</span>
+                <span class="badge">Saved by this room</span>
+                <span class="badge">From a picture</span>
+            </div>
+        </div>
+    </section>
+
+    <section>
+        <div class="wrap">
+            <div class="link-row">
+                <p>Share the room link and whoever opens it is in the world with you. Free while the SDK is in beta.</p>
+                <a class="btn btn--gradient" href="play.html">Open BlockParty</a>
+            </div>
+        </div>
+    </section>
+
+</main>
+
+<footer class="site-footer">
+    <div class="wrap">
+        <div class="footer-bottom">
+            <span>&copy; 2026 Messaging Platform SDK</span>
+            <span><a href="../../../playground.html">Back to the playground</a></span>
         </div>
     </div>
-
-    <!-- Players panel -->
-    <div class="players-panel">
-        <div class="players-title">👥 Players</div>
-        <div id="playerList" class="player-list"></div>
-    </div>
-
-    <!-- Tool dock -->
-    <div class="tool-dock">
-        <div class="tool-group">
-            <button id="toolBuild" class="tool-btn active" data-tool="build" title="Build (B)">🧱<span>Build</span></button>
-            <button id="toolErase" class="tool-btn" data-tool="erase" title="Erase (E)">🧨<span>Erase</span></button>
-            <button id="toolPaint" class="tool-btn" data-tool="paint" title="Repaint what is already there, in the current colour and shape (P)">🖌<span>Paint</span></button>
-            <button id="toolKnock" class="tool-btn hidden" data-tool="knock" title="Knock it over — the block flies and whatever it held up comes down">🥊<span>Knock</span></button>
-            <button id="toolDrop" class="tool-btn hidden" data-tool="drop" title="Drop the current piece from above and let it land">🪂<span>Drop</span></button>
-            <button id="toolFill" class="tool-btn" title="Box fill — tap two opposite corners (F)">⬛<span>Fill</span></button>
-            <button id="toolCopy" class="tool-btn" data-tool="copy" title="Copy a box of the world — tap two opposite corners (C)">✂️<span>Copy</span></button>
-            <button id="toolStamp" class="tool-btn disabled" data-tool="stamp" title="Stamp what you copied — R turns it (X)">🖨<span>Stamp</span></button>
-            <button id="toolMirror" class="tool-btn" title="Mirror every edit across the middle (M)">🪞<span>Mirror</span></button>
-            <button id="toolBricks" class="tool-btn active" title="Build with brick pieces (K)">🧩<span>Bricks</span></button>
-            <button id="rotateBtn" class="tool-btn" title="Rotate the brick (R)">🔄<span>Rotate</span></button>
-        </div>
-        <div id="bricks" class="bricks" aria-label="Brick piece"></div>
-        <div id="shapes" class="shapes hidden" aria-label="Block shape"></div>
-        <div id="palette" class="palette" aria-label="Color palette"></div>
-        <div class="tool-group tool-extra">
-            <button id="toolPick" class="tool-btn small" title="Take a block's colour — Alt-click does it too (I)">💧<span>Pick</span></button>
-            <button id="undoBtn" class="tool-btn small" title="Undo (Z)">↶<span>Undo</span></button>
-            <button id="redoBtn" class="tool-btn small" title="Redo (Shift+Z)">↷<span>Redo</span></button>
-            <button id="resetViewBtn" class="tool-btn small" title="Reset camera (V)">🎥<span>View</span></button>
-        </div>
-    </div>
-
-    <!-- Help hint -->
-    <div id="helpHint" class="help-hint">
-        <span class="hint-text"><strong>Drag</strong> to orbit · <strong>Scroll / pinch</strong> to zoom · <strong>Tap/click</strong> to build · <strong>Right-click</strong> to remove · <strong>R</strong> rotates the brick · <strong>F</strong> box fill · <strong>P</strong> repaint · <strong>C</strong> copy · <strong>X</strong> stamp · <strong>Alt-click</strong> takes a colour · <strong>M</strong> mirror · <strong>V</strong> resets the view</span>
-        <button id="dismissHelp" class="dismiss" aria-label="Dismiss">✕</button>
-    </div>
-
-    <!-- First-person overlay -->
-    <div id="fpsHud" class="fps-hud hidden">
-        <div class="fps-cross"></div>
-        <div class="fps-info">
-            <span id="fpsCoords">x 0  y 0  z 0</span>
-            <span class="fps-keys"><strong>WASD</strong> walk · <strong>Shift</strong> run · <strong>Space</strong> jump ·
-                <strong>click</strong> build · <strong>right-click</strong> break · <strong>Esc</strong> leave</span>
-        </div>
-    </div>
-
-    <!-- Standing offer to put this world on the Earth, when it is not yet -->
-    <div id="geoCallout" class="geo-callout hidden">
-        <span class="geo-callout-text"><strong>This world is nowhere in particular.</strong> Put it on a real place and the ground becomes that place — its coastline, its sea, its streets on the map. Or stay here, off the map.</span>
-        <button id="geoCalloutPin" class="btn btn-primary">🌍 Use my location</button>
-        <button id="geoCalloutMore" class="btn btn-ghost">Pick a place</button>
-        <button id="geoCalloutHide" class="bp-close" aria-label="Dismiss">✕</button>
-    </div>
-
-    <!-- Map: the world from above. Drag to pan, double-click a spot to travel -->
-    <div id="minimapPanel" class="minimap-panel hidden">
-        <div class="minimap-head">
-            <span class="minimap-title">🗺 Map</span>
-            <span id="minimapCentre" class="minimap-centre" title="What the middle of the map is looking at">—</span>
-            <span class="minimap-tools">
-                <button id="minimapPin" class="mm-chip hidden" title="Pin this world to your location">📍</button>
-                <button id="minimapTravel" class="mm-chip" title="Arm the next tap to move the whole room">🌍 travel</button>
-                <button id="minimapLayers" class="mm-chip" title="What the map draws">▦</button>
-                <button id="minimapClose" class="mm-chip" title="Close the map (N)">✕</button>
-            </span>
-        </div>
-
-        <div class="minimap-stage">
-            <canvas id="minimap" width="248" height="248"></canvas>
-            <div id="minimapScope" class="mm-scope hidden"></div>
-            <div id="minimapLayerMenu" class="mm-menu hidden">
-                <label><input type="checkbox" data-layer="map" checked> Coast &amp; sea</label>
-                <label><input type="checkbox" data-layer="grid" checked> Lat / lon grid</label>
-                <label><input type="checkbox" data-layer="build" checked> What is built</label>
-                <label><input type="checkbox" data-layer="people" checked> People</label>
-                <label><input type="checkbox" data-layer="trails" checked> Places visited</label>
-                <label><input type="checkbox" data-layer="worlds" checked> Worlds built</label>
-            </div>
-            <span id="minimapCursor" class="mm-cursor"></span>
-        </div>
-
-        <div class="minimap-go">
-            <input id="minimapGo" type="text" placeholder="lat, lon — e.g. 51.5074, -0.1278"
-                   autocomplete="off" spellcheck="false" title="Type coordinates and press Enter">
-            <button id="minimapGoBtn" class="mm-chip go" title="Go to these coordinates">Go</button>
-        </div>
-
-        <div class="minimap-foot">
-            <button id="minimapZoomOut" class="minimap-zoom" title="Show more ground (or scroll on the map)">−</button>
-            <button id="minimapZoomIn" class="minimap-zoom" title="Show less ground, closer up">+</button>
-            <button id="minimapHome" class="minimap-zoom hidden" title="Stop holding this view and follow the world again">⌖</button>
-            <button id="minimapMe" class="minimap-zoom" title="Centre the map on where I am">◎</button>
-            <span id="minimapZoomLabel" class="minimap-span">this world</span>
-            <button id="minimapPeople" class="mm-chip count" title="Who the room knows about, and where they have been">👥 0</button>
-        </div>
-
-        <div id="minimapPlaces" class="mm-places hidden"></div>
-        <div id="minimapResize" class="mm-resize" title="Drag to resize the map"></div>
-    </div>
-
-    <!-- Time-lapse transport, while the tape is rolling -->
-    <div id="cinemaBar" class="cinema-bar hidden">
-        <button id="cinemaPlay" class="cinema-btn" title="Play / pause">❚❚</button>
-        <input id="cinemaRange" class="cinema-range" type="range" min="0" max="100" value="0"
-               aria-label="Scrub the time-lapse">
-        <span id="cinemaAt" class="cinema-at">0 / 0</span>
-        <select id="cinemaSpeed" class="cinema-speed" title="Speed">
-            <option value="0.5">0.5×</option>
-            <option value="1" selected>1×</option>
-            <option value="2">2×</option>
-            <option value="4">4×</option>
-        </select>
-        <button id="cinemaClose" class="cinema-btn" title="Back to the live world (Esc)">✕</button>
-    </div>
-
-    <!-- Ceremony: counted starts and headline moments -->
-    <div id="ceremony" class="ceremony hidden"></div>
-    <div id="banner" class="banner hidden"></div>
-
-    <!-- Following pill + fill hint -->
-    <div id="followPill" class="follow-pill hidden" title="Stop following"></div>
-    <div id="fillHint" class="fill-hint"></div>
-
-    <!-- Saved worlds, host controls, room leaderboard -->
-    <div id="worldModal" class="bp-modal hidden">
-        <div class="bp-modal-card">
-            <div class="bp-modal-head">
-                <h2>🗂 Worlds &amp; room</h2>
-                <button id="worldClose" class="bp-close" aria-label="Close">✕</button>
-            </div>
-
-            <div class="world-section">
-                <div class="world-title">This world as a real place</div>
-                <div id="geoState" class="world-note">This world is not pinned to anywhere yet.</div>
-                <div class="import-row">
-                    <button id="geoAnchorBtn" class="btn btn-primary">🌍 Pin to my location</button>
-                    <select id="geoScale" title="How much ground one block covers — the Earth is divided into worlds this size">
-                        <option value="1">Street · 1 m per block · 161 m</option>
-                        <option value="2" selected>Block · 2 m per block · 322 m</option>
-                        <option value="5">Neighbourhood · 5 m · 805 m</option>
-                        <option value="20">District · 20 m · 3.2 km</option>
-                        <option value="100">City · 100 m · 16 km</option>
-                        <option value="1000">Region · 1 km · 161 km</option>
-                        <option value="20000">Continent · 20 km · 3,220 km</option>
-                        <option value="250000">Planet · 250 km · the whole Earth</option>
-                    </select>
-                </div>
-                <div class="import-row">
-                    <input id="geoCoords" type="text" placeholder="51.5074, -0.1278" autocomplete="off">
-                    <button id="geoTravelBtn" class="btn btn-primary">✈️ Travel here</button>
-                    <button id="geoHereBtn" class="btn btn-ghost">Take me home</button>
-                </div>
-                <div class="import-row">
-                    <label class="world-toggle" for="geoSky" title="The sun's real position for this place, right now">☀️ Sky</label>
-                    <select id="geoSky" title="Where the light comes from">
-                        <option value="real" selected>Real time — the sun where it actually is</option>
-                        <option value="day">Always daytime</option>
-                        <option value="off">Fixed dusk</option>
-                    </select>
-                </div>
-                <div class="import-row">
-                    <label class="world-toggle" for="geoGround" title="What the floor itself shows">🗺 Ground</label>
-                    <select id="geoGround" title="What the floor itself shows">
-                        <option value="plain">Plain — bare grid</option>
-                        <option value="coast" selected>Coastline — land, sea and the line between</option>
-                        <option value="streets">Streets — the real map, on the floor</option>
-                    </select>
-                    <label class="world-toggle" title="Paint the surrounding country across the ground beyond the build area">
-                        <input type="checkbox" id="geoGroundPlain" checked> out to the horizon
-                    </label>
-                </div>
-                <div class="import-row" id="geoGroundStrengthRow">
-                    <label class="world-toggle" for="geoGroundStrength" title="How strongly the map shows through">How strong</label>
-                    <input id="geoGroundStrength" type="range" min="25" max="100" step="5" value="70" class="world-range">
-                    <span id="geoGroundStrengthVal" class="world-note" style="margin:0">70%</span>
-                </div>
-                <div id="geoGroundNote" class="world-note">The floor is a picture, not blocks — nothing to clear before you build. Map tiles are fetched once when you arrive somewhere and kept for that place.</div>
-                <div class="import-row" style="margin-top:8px">
-                    <span class="world-note" style="margin:0">Every world is 161 × 161 blocks and 40 high, at whatever scale you chose.</span>
-                    <button id="worldSizeWhy" class="btn btn-ghost" style="font-size:11px;padding:5px 10px">Why this size?</button>
-                </div>
-                <div id="worldSizeNote" class="world-note hidden">
-                    Because the size is part of the address. The Earth is divided into worlds by
-                    fitting a fixed number of blocks across one map tile — that is how two rooms
-                    standing in the same place at the same scale end up in the same world, and how
-                    a saved build knows which patch of ground it belongs to. Widen the world and
-                    every world already pinned somewhere either goes missing or quietly covers half
-                    the ground it was built on. To see more, step out a rung; to see more detail,
-                    step in one. Each rung is its own world, and they all still exist.
-                </div>
-                <div class="import-row">
-                    <button id="geoTraceBtn" class="btn btn-primary">🗺 Draw this place</button>
-                    <select id="geoTraceStyle" title="What to draw here">
-                        <option value="earth" selected>Ground &amp; sea — the real coastline</option>
-                        <option value="outline">Coasts &amp; borders, from the map</option>
-                        <option value="full">Everything — roads &amp; buildings</option>
-                    </select>
-                    <label class="world-toggle" title="Draw each new place from the map as you travel or change scale">
-                        <input type="checkbox" id="geoAutoTrace"> as I travel
-                    </label>
-                </div>
-                <div class="import-row">
-                    <button id="geoShareBtn" class="btn btn-ghost">📍 Share my location</button>
-                    <button id="geoGoBtn" class="btn btn-ghost">Go to my spot</button>
-                </div>
-                <div id="geoList" class="geo-list"></div>
-                <div id="geoNote" class="world-note">Your position is never read until you ask, and is rounded to about 5m before anyone sees it.</div>
-            </div>
-
-            <div class="world-section">
-                <div class="world-title">Time-lapse</div>
-                <div class="world-note">
-                    Watch this world get built, from whatever it looked like when you arrived.
-                    It plays on your screen only — nobody else sees it, and nothing is changed.
-                </div>
-                <div class="import-row">
-                    <button id="replayBtn" class="btn btn-primary">▶ Play the time-lapse</button>
-                    <span id="replayCount" class="world-note" style="margin:0"></span>
-                </div>
-            </div>
-
-            <div class="world-section">
-                <div class="world-title">Room blueprints</div>
-                <div class="world-note">
-                    Copy a build with ✂️ (two opposite corners), name it here, and it joins the
-                    blueprints Blueprint Race draws from.
-                </div>
-                <div class="import-row">
-                    <input id="blueprintName" type="text" placeholder="Name this build" maxlength="40" autocomplete="off">
-                    <button id="blueprintSave" class="btn btn-primary">Save as blueprint</button>
-                </div>
-                <div id="blueprintList" class="slot-list"></div>
-            </div>
-
-            <div class="world-section">
-                <div class="world-title">Physics</div>
-                <label class="world-toggle" title="Blocks fall when nothing holds them up">
-                    <input type="checkbox" id="physicsToggle"> 🧨 Things fall over
-                </label>
-                <div id="physicsNote" class="world-note">Off: the world holds itself up, however you build it.</div>
-            </div>
-
-            <div class="world-section">
-                <div class="world-title">Load a map</div>
-                <div class="map-tabs">
-                    <button id="mapTabBuilt" class="map-tab on" data-tab="built">Built in</button>
-                    <button id="mapTabPlaces" class="map-tab" data-tab="places">Real places</button>
-                    <button id="mapTabSaves" class="map-tab" data-tab="saves">Saved here</button>
-                    <input id="mapSearch" class="map-search" type="text" placeholder="Search maps and places…" autocomplete="off">
-                </div>
-                <div id="mapList" class="map-list"></div>
-                <div class="world-title" style="margin-top:14px">Or make one</div>
-                <div class="map-sources">
-                    <button id="mapFromPlace" class="map-source">
-                        <span class="map-emoji">📍</span>
-                        <span class="map-body">
-                            <span class="map-name">From a real place</span>
-                            <span class="map-desc">Travel somewhere and draw the ground from the map — roads, water, buildings.</span>
-                        </span>
-                    </button>
-                    <button id="mapFromSave" class="map-source">
-                        <span class="map-emoji">🗂</span>
-                        <span class="map-body">
-                            <span class="map-name">From a save</span>
-                            <span class="map-desc">Anything this room has saved is a map. Load it and build on top.</span>
-                        </span>
-                    </button>
-                    <button id="mapFromImage" class="map-source">
-                        <span class="map-emoji">🖼</span>
-                        <span class="map-body">
-                            <span class="map-name">From a picture</span>
-                            <span class="map-desc">Brightness becomes height — any image read as a heightfield.</span>
-                        </span>
-                    </button>
-                </div>
-            </div>
-
-            <div class="world-section">
-                <div class="world-title">Turn a picture into blocks</div>
-                <div class="import-row">
-                    <input id="imgFile" type="file" accept="image/*">
-                    <select id="imgStyle" title="How the picture is built">
-                        <option value="wall">Standing wall — a mural</option>
-                        <option value="floor">Flat on the ground — a mosaic</option>
-                        <option value="relief">Relief — bright stands taller</option>
-                        <option value="solid" selected>Solid relief — depth, with a back</option>
-                        <option value="terrain">Terrain — brightness becomes height</option>
-                    </select>
-                    <select id="imgPalette" title="Colours to build with">
-                        <option value="true" selected>True colour</option>
-                        <option value="palette">12-colour palette</option>
-                    </select>
-                    <select id="imgSize" title="Width in blocks">
-                        <option value="24">24 wide</option>
-                        <option value="32" selected>32 wide</option>
-                        <option value="48">48 wide</option>
-                        <option value="64">64 wide</option>
-                    </select>
-                </div>
-                <div class="import-row" id="imgDepthRow">
-                    <label class="world-toggle" for="imgDepth" title="How far the nearest part of the picture stands out from the furthest">How deep</label>
-                    <input id="imgDepth" type="range" min="2" max="12" step="1" value="6" class="world-range">
-                    <span id="imgDepthVal" class="world-note" style="margin:0">6 blocks</span>
-                </div>
-                <div class="import-row">
-                    <label class="import-check"><input id="imgDither" type="checkbox" checked> Dither (smoother shading)</label>
-                    <label class="import-check"><input id="imgDropBg" type="checkbox" checked> Drop the background</label>
-                    <label class="import-check"><input id="imgGround" type="checkbox" checked> Stand it on the ground</label>
-                </div>
-                <div class="import-row import-preview hidden" id="imgPreviewRow">
-                    <figure>
-                        <canvas id="imgPreviewColour" width="64" height="64" aria-label="The colours it will build in"></canvas>
-                        <figcaption>colours</figcaption>
-                    </figure>
-                    <figure id="imgPreviewDepthFig">
-                        <canvas id="imgPreviewDepth" width="64" height="64" aria-label="The depth it read off the picture"></canvas>
-                        <figcaption>depth — bright is near</figcaption>
-                    </figure>
-                    <span class="world-note" style="margin:0;flex:1 1 120px">What it read off your picture. The background it dropped is the empty part.</span>
-                </div>
-                <div class="import-row">
-                    <span id="imgEstimate" class="world-note" style="margin:0"></span>
-                    <button id="imgPlace" class="btn btn-primary" disabled>Build it</button>
-                </div>
-                <div id="imgNote" class="world-note">Pick an image — it lands in front of the camera, and never leaves this device.</div>
-            </div>
-
-            <div class="world-section">
-                <div class="world-title">Save this world</div>
-                <div class="save-row">
-                    <input id="slotName" type="text" maxlength="40" placeholder="Name this build…" autocomplete="off">
-                    <button id="saveSlotBtn" class="btn btn-primary">Save</button>
-                </div>
-            </div>
-
-            <div class="world-section">
-                <div class="world-title">Saved worlds</div>
-                <div id="slotList" class="slot-list"></div>
-            </div>
-
-            <div class="world-section">
-                <div class="world-title">Host controls</div>
-                <div class="host-row">
-                    <button id="lockBtn" class="btn btn-ghost">🔒 Lock world</button>
-                    <button id="clearWorldBtn" class="btn btn-ghost">🧹 Clear world</button>
-                </div>
-                <div id="worldHostNote" class="world-note hidden">Only the room host can load, lock or clear.</div>
-            </div>
-
-            <div class="world-section">
-                <div class="world-title">Room leaderboard</div>
-                <div id="leaderboard" class="leaderboard"></div>
-            </div>
-        </div>
-    </div>
-
-    <!-- Match HUD (only visible during a match) -->
-    <div id="pictureCard" class="picture-card hidden">
-        <div class="picture-head">
-            <span class="picture-title">Your reference</span>
-            <span class="picture-note">everyone has this one</span>
-        </div>
-        <canvas id="pictureCanvas" width="320" height="320" aria-label="The picture to build"></canvas>
-        <div id="pictureCaption" class="picture-caption">This is the whole brief. There is no model to copy — work out what it shows, and build that.</div>
-    </div>
-
-    <div id="matchHud" class="match-hud hidden">
-        <div class="mh-top">
-            <span id="mhMode" class="mh-mode"></span>
-            <span id="mhRound" class="mh-round"></span>
-            <span id="mhPhase" class="mh-phase"></span>
-        </div>
-        <div class="mh-timer"><div id="mhTimerFill" class="mh-timer-fill"></div></div>
-        <div class="mh-bottom">
-            <span id="mhAccuracy" class="mh-acc hidden"></span>
-            <span id="mhPeek" class="mh-peek hidden"></span>
-            <button id="mhLockBtn" class="mh-lock hidden" title="Submit your build now and claim the speed bonus (L)">✅ Lock in</button>
-            <button id="mhEndBtn" class="mh-end hidden" title="End the match and go back to the sandbox">End match</button>
-        </div>
-    </div>
-
-    <!-- Mode picker -->
-    <div id="modeModal" class="bp-modal hidden">
-        <div class="bp-modal-card">
-            <div class="bp-modal-head">
-                <h2>🎮 Start a match</h2>
-                <button id="modeClose" class="bp-close" aria-label="Close">✕</button>
-            </div>
-            <div id="modeKinds" class="mode-kinds"></div>
-            <div id="modeList" class="mode-list"></div>
-            <div class="mode-opts">
-                <label>Rounds
-                    <select id="modeRounds">
-                        <option value="1">1</option>
-                        <option value="3" selected>3</option>
-                        <option value="5">5</option>
-                    </select>
-                </label>
-                <label>Blueprints
-                    <select id="modeSource" title="Where the blueprint for each round comes from">
-                        <option value="builtin" selected>The ones that ship</option>
-                        <option value="room">This room's own</option>
-                        <option value="both">Both, mixed</option>
-                    </select>
-                </label>
-                <label>Round time
-                    <select id="modeTime">
-                        <option value="60">1 min</option>
-                        <option value="90">90 sec</option>
-                        <option value="120">2 min</option>
-                        <option value="180" selected>3 min</option>
-                        <option value="240">4 min</option>
-                    </select>
-                </label>
-            </div>
-            <div class="bp-modal-foot">
-                <span id="modeHint" class="mode-hint"></span>
-                <button id="modeStart" class="btn btn-primary">Start match</button>
-            </div>
-        </div>
-    </div>
-
-    <!-- Round / match results -->
-    <div id="resultsOverlay" class="results-overlay hidden">
-        <div class="results-card">
-            <h2 id="rsTitle"></h2>
-            <p id="rsSubtitle" class="rs-sub"></p>
-            <div id="rsBody"></div>
-            <div class="rs-actions">
-                <button id="rsAgain" class="btn btn-primary hidden">Play again</button>
-                <button id="rsSandbox" class="btn btn-ghost hidden">Back to sandbox</button>
-                <button id="rsHide" class="btn btn-ghost">Hide</button>
-            </div>
-        </div>
-    </div>
-
-    <!-- Reconnect overlay -->
-    <div id="reconnectOverlay" class="reconnect-overlay hidden">
-        <div class="reconnect-card">
-            <div class="spinner"></div>
-            <p id="reconnectMsg">Reconnecting…</p>
-        </div>
-    </div>
-</div>
-
-<!-- Toast Notifications -->
-<div id="zoomOut" class="zoom-out hidden">
-        <div class="zoom-out-text">
-            <strong>That is as far as the camera goes.</strong>
-            <span id="zoomOutMsg">To see more ground you have to change what a block is.</span>
-        </div>
-        <div class="zoom-out-actions">
-            <button id="zoomOutGo" class="btn btn-primary">Travel out</button>
-            <button id="zoomOutNo" class="btn btn-ghost">Stay here</button>
-        </div>
-    </div>
-    <div id="osmCredit" class="osm-credit hidden">Map data © <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap</a> contributors</div>
-<div id="toastContainer" class="toast-container"></div>
-
-<!-- SDK scripts (web-agent.* are copied into generated-web-agent-js at build time) -->
-<script src="../../../js/config-loader.js"></script>
-<script src="../../../lib/qrcode.min.js"></script>
-<script src="../../../generated-web-agent-js/js/web-agent.libs.js"></script>
-<script src="../../../generated-web-agent-js/js/web-agent.js"></script>
-<script src="../../../generated-web-agent-js/js/web-agent.webrtc.js"></script>
-
-<script src="../../../js/share-modal.js"></script>
-<script src="../../../js/dialog.js"></script>
-<script src="../../../js/common-utils.js"></script>
-<script src="../../../js/connection-modal.js"></script>
-<script src="../../../js/chat-panel.js"></script>
-<script src="../../../js/UserConnectionBase.js"></script>
-
-<!-- three.js (self-hosted, r128) + game -->
-<script src="../shared/libs/three.min.js"></script>
-<script src="../shared/game-kit.js"></script>
-<script src="bricks.js"></script>
-<script src="maps.js"></script>
-<script src="../shared/libs/cannon.min.js"></script>
-<script src="physics.js"></script>
-<script src="sky.js"></script>
-<script src="geo.js"></script>
-<script src="minimap.js"></script>
-<script src="terrain.js"></script>
-<script src="earth.js"></script>
-<script src="sfx.js"></script>
-<script src="fx.js"></script>
-<script src="fps.js"></script>
-<script src="models.js"></script>
-<script src="places.js"></script>
-<script src="pictures.js"></script>
-<script src="modes.js"></script>
-<script src="blockparty.js"></script>
-<script src="../../../js/app-chrome.js"></script>
+</footer>
 </body>
 </html>
