@@ -143,3 +143,44 @@ body > .connection-status {
 }
 .header-right > #gameHostIndicator span:first-child,
 #gameHostIndicator.in-header span:first-child { font-size: 13px !important; }
+
+/* --- A way back to the site ---------------------------------------------
+   Demos were dead ends: no route to the docs, the playground or a key. The
+   chip is fixed bottom-left, deliberately small and low-contrast until
+   hovered, so it never competes with a game's own UI. */
+.sdk-home-chip {
+    position: fixed;
+    left: 12px;
+    bottom: 12px;
+    z-index: 350;              /* over a canvas, under modals and toasts */
+    display: flex;
+    align-items: stretch;
+    gap: 1px;
+    border-radius: 999px;
+    overflow: hidden;
+    font: 600 12px/1 system-ui, -apple-system, "Segoe UI", sans-serif;
+    background: rgba(15, 23, 42, 0.55);
+    border: 1px solid rgba(148, 163, 184, 0.28);
+    backdrop-filter: blur(8px);
+    opacity: 0.62;
+    transition: opacity 0.18s ease;
+}
+.sdk-home-chip:hover, .sdk-home-chip:focus-within { opacity: 1; }
+.sdk-home-chip a {
+    display: flex;
+    align-items: center;
+    padding: 7px 11px;
+    color: #e2e8f0;
+    text-decoration: none;
+    white-space: nowrap;
+}
+.sdk-home-chip a:hover { background: rgba(99, 102, 241, 0.35); }
+.sdk-home-chip a:focus-visible { outline: 2px solid #818cf8; outline-offset: -2px; }
+.sdk-home-chip__home { font-weight: 700; }
+.sdk-home-chip__more { border-left: 1px solid rgba(148, 163, 184, 0.28); }
+
+@media (max-width: 640px) {
+    /* On a phone the game needs the room: keep the way out, drop the extra. */
+    .sdk-home-chip__more { display: none; }
+    .sdk-home-chip { bottom: 8px; left: 8px; }
+}

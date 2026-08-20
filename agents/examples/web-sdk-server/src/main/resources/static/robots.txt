@@ -1,13 +1,32 @@
 # Messaging Platform SDK
+#
+# The site is served under /messaging-platform/sdk/, not the domain root, so
+# every path below carries that prefix — a bare "/admin/" would only cover a
+# console that does not exist at the root. The bare paths are kept as well for
+# any deployment that does serve this tree from the root.
+#
+# Note that robots.txt is only honoured at the domain root. The operator pages
+# below also carry <meta name="robots" content="noindex, nofollow">, which is
+# what actually keeps them out of an index if this file is never fetched.
+
 User-agent: *
 Allow: /
 
-# Operator and account surfaces — nothing here is useful in an index, and the
-# admin console should not be discoverable at all.
+# Operator and account surfaces — nothing here is useful in an index.
+Disallow: /messaging-platform/sdk/admin/
+Disallow: /messaging-platform/sdk/developer/
+Disallow: /messaging-platform/sdk/error/
+Disallow: /messaging-platform/sdk/apps/test-api-key/
+Disallow: /messaging-platform/sdk/stress-test.html
+Disallow: /messaging-platform/sdk/apps/turn-stun-test.html
+Disallow: /messaging-platform/sdk/apps/mini-games/race-balls/map-system.selftest.html
+
 Disallow: /admin/
 Disallow: /developer/
 Disallow: /error/
 Disallow: /apps/test-api-key/
 Disallow: /stress-test.html
+Disallow: /apps/turn-stun-test.html
+Disallow: /apps/mini-games/race-balls/map-system.selftest.html
 
 Sitemap: https://hmdevonline.com/messaging-platform/sdk/sitemap.xml

@@ -4,6 +4,12 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Web Agent JS - JavaScript SDK Documentation</title>
+    <meta name="description" content="Reference for the Web Agent JavaScript bundle: connecting, messaging, WebRTC data channels and channel storage.">
+    <meta name="theme-color" content="#0b1120">
+    <!-- The docs shell publishes the same guide and is what the site links to;
+         this page ships inside the generated bundle, so it points at the shell
+         rather than competing with it for the same search result. -->
+    <link rel="canonical" href="https://hmdevonline.com/messaging-platform/sdk/docs.html?doc=WEB-AGENT-GUIDE.md">
     <style>
         * {
             margin: 0;
@@ -296,7 +302,7 @@
 <span class="comment">// 3. Connect to a channel</span>
 <span class="keyword">await</span> connection.<span class="function">connect</span>({
     apiKey: <span class="string">'your-api-key'</span>,
-    baseURL: <span class="string">'http://localhost:8080'</span>,
+    api: <span class="string">'https://hmdevonline.com/messaging-platform/api/v1/messaging-service'</span>,
     channelName: <span class="string">'my-room'</span>,
     channelPassword: <span class="string">'optional'</span>,
     username: <span class="string">'Player1'</span>
@@ -431,7 +437,7 @@ connection.<span class="function">setCustomMessageHandler</span>(msg => <span cl
 <span class="comment">// Connect to a channel</span>
 <span class="keyword">await</span> connection.<span class="function">connect</span>({
     apiKey: <span class="string">'your-api-key'</span>,           <span class="comment">// Required: Your API key</span>
-    baseURL: <span class="string">'http://localhost:8080'</span>, <span class="comment">// Required: API endpoint</span>
+    api: <span class="string">'https://hmdevonline.com/messaging-platform/api/v1/messaging-service'</span>, <span class="comment">// Required: API endpoint (use http://localhost:8080 against a local server)</span>
     channelName: <span class="string">'my-game-room'</span>,     <span class="comment">// Required: Channel name</span>
     channelPassword: <span class="string">'secret123'</span>,     <span class="comment">// Optional: Channel password</span>
     username: <span class="string">'Player1'</span>              <span class="comment">// Optional: Display name</span>

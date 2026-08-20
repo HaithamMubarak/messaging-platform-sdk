@@ -102,7 +102,10 @@ Full API reference: [WEB-AGENT-GUIDE.md § Channel Storage](WEB-AGENT-GUIDE.md#c
 Resume from a specific message offset to recover missed messages.
 
 ```java
-agent.receiveMessages(0L, 100L, 50);  // Start offset, end offset, max messages
+agent.receive(ReceiveConfig.builder()
+    .globalOffset(0L)   // start from this offset
+    .limit(50L)         // at most this many messages
+    .build());
 ```
 
 > ⚠️ **Recovery is scoped to the channel's lifetime.** History lives in the
@@ -188,11 +191,10 @@ import com.hmdev.messaging.agent.core.ConnectConfig;
 
 public class QuickStart {
     public static void main(String[] args) throws Exception {
-        AgentConnection agent = new AgentConnection();
-
-        agent.setOnMessage(msg -> {
-            System.out.println(msg.getFrom() + ": " + msg.getContent());
-        });
+        // The constructor takes the API URL, and your key if you have one.
+        AgentConnection agent = new AgentConnection(
+            "https://hmdevonline.com/messaging-platform/api/v1/messaging-service",
+            "your-api-key");
 
         agent.connect(ConnectConfig.builder()
             .channelName("my-channel")
@@ -200,7 +202,11 @@ public class QuickStart {
             .agentName("java-user")
             .build());
 
-        agent.sendTextMessage("Hello from Java!");
+        // Handlers are registered after connecting.
+        agent.receiveAsync(events -> events.forEach(e ->
+            System.out.println(e.getFrom() + ": " + e.getContent())));
+
+        agent.sendMessage("Hello from Java!");
         agent.disconnect();
     }
 }
@@ -211,17 +217,20 @@ public class QuickStart {
 ### Python
 
 ```python
-from messaging_agent import AgentConnection
+from hmdev.messaging.agent.core.agent_connection import AgentConnection
 
-agent = AgentConnection(
-    api_url="https://hmdevonline.com/messaging-platform/api/v1/messaging-service",
-    api_key="your-api-key"
-)
-
-agent.on_message = lambda msg: print(f"{msg['from']}: {msg['content']}")
+agent = AgentConnection.with_api_key(
+    "https://hmdevonline.com/messaging-platform/api/v1/messaging-service",
+    "your-api-key")
 
 agent.connect("my-channel", "secret123", "python-user")
-agent.send_text_message("Hello from Python!")
+
+# Handlers are registered after connecting.
+agent.receive_async(lambda events: [
+    print(f"{e.get('from')}: {e.get('content')}") for e in events
+])
+
+agent.send_message("Hello from Python!")
 agent.disconnect()
 ```
 
@@ -232,7 +241,11 @@ agent.disconnect()
 ```javascript
 const agent = new AgentConnection();
 
-agent.onMessage = (msg) => console.log(`${msg.from}: ${msg.content}`);
+agent.addEventListener('message', (ev) => {
+    ((ev.response && ev.response.data) || []).forEach((item) => {
+        if (item && item.type === 'chat-text') console.log(`${item.from}: ${item.content}`);
+    });
+});
 
 agent.connect({
     channelName: 'my-channel',
@@ -243,7 +256,7 @@ agent.connect({
     autoReceive: true
 });
 
-agent.sendTextMessage("Hello from Web!");
+agent.sendMessage("Hello from Web!");
 ```
 
 > For full Web guide with WebRTC, channel storage, and advanced features: **[WEB-AGENT-GUIDE.md](WEB-AGENT-GUIDE.md)**
@@ -316,7 +329,7 @@ revoked as soon as the replacement is issued.
 
 **Check:**
 - Both agents on same channel with same password
-- Receiver has `autoReceive: true` (Web) or calls `startReceiving()` (Java/Python)
+- Receiver has `autoReceive: true` (Web) or calls `receiveAsync()` (Java/Python)
 - `apiKeyScope` matches — if one uses `private` and the other `public`, they're on different channels
 
 ### 401 Unauthorized
@@ -336,8 +349,9 @@ revoked as soon as the replacement is issued.
 ### Debug Logging
 
 ```java
-// Java
-agent.setDebug(true);
+// Java — the agent logs through SLF4J, so raise the level of the SDK's logger
+// rather than calling a setter on the connection.
+// logback.xml:  <logger name="com.hmdev.messaging" level="DEBUG"/>
 ```
 
 ```python
@@ -347,8 +361,12 @@ logging.basicConfig(level=logging.DEBUG)
 ```
 
 ```javascript
-// Web — check browser console
-agent.onError = (error) => console.error('Error:', error);
+// Web — check browser console. A failed connect arrives as a 'connect' event
+// whose response.status is 'error'; there is no separate error event.
+agent.addEventListener('connect', (ev) => {
+    const res = ev.response || {};
+    if (res.status === 'error') console.error('Connect failed:', res.data);
+});
 ```
 
 ---

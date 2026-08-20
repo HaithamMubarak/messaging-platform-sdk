@@ -183,13 +183,26 @@ class PartyPhysicsGame extends UserConnectionBase {
     /**
      * Handle DataChannel opened (UserConnectionBase callback)
      */
-    onDataChannelOpen(peerId, dataChannel) {
+    onDataChannelOpen(peerId) {
         console.log('[PartyPhysics] DataChannel opened with', peerId);
 
-        // Forward to NetAdapter for WebRTC setup
+        // The SDK's second argument is the connection time, not the channel —
+        // the channel itself lives on the WebRTC helper, keyed by peer.
         if (this.netAdapter) {
-            this.netAdapter.setupWebRTC(peerId, dataChannel);
+            var dc = this.webrtcHelper && this.webrtcHelper.dataChannels
+                ? this.webrtcHelper.dataChannels.get(peerId)
+                : null;
+            this.netAdapter.setupWebRTC(peerId, dc);
         }
+    }
+
+    /** The SDK routes DataChannel traffic here; the net layer wants it. */
+    onDataChannelMessage(peerId, data) {
+        if (this.netAdapter) this.netAdapter.handleDataChannelMessage(peerId, data);
+    }
+
+    onDataChannelClose(peerId) {
+        if (this.netAdapter) this.netAdapter.teardownWebRTC(peerId);
     }
 
     /**
@@ -899,6 +912,9 @@ async function connectPartyPhysics(username, channel, password) {
         if (!partyPhysicsGame) {
             console.log('[PartyPhysics] Creating game instance...');
             partyPhysicsGame = new PartyPhysicsGame();
+            // The export at the bottom of this file runs at load time, when the
+            // instance does not exist yet — publish it here, where it does.
+            window.partyPhysicsGame = partyPhysicsGame;
         }
 
         // Connect to channel - UserConnectionBase will automatically call this.onConnect() after success
@@ -959,8 +975,9 @@ document.addEventListener('DOMContentLoaded', () => {
     }, 200);
 });
 
-// Export for global use
-window.partyPhysicsGame = partyPhysicsGame;
+// Export for global use. The instance is published in connect(), which is the
+// only place it exists; this line just declares the slot.
+window.partyPhysicsGame = window.partyPhysicsGame || partyPhysicsGame;
 
 // ============================================
 // CAMERA CONTROL PANEL FUNCTIONS

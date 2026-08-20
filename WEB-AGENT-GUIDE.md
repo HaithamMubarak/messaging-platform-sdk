@@ -39,18 +39,22 @@
 ```javascript
 const agent = new AgentConnection();
 
-agent.onMessage = (msg) => console.log(`${msg.from}: ${msg.content}`);
+agent.addEventListener('message', (ev) => {
+    ((ev.response && ev.response.data) || []).forEach((item) => {
+        if (item && item.type === 'chat-text') console.log(`${item.from}: ${item.content}`);
+    });
+});
 
 agent.connect({
     channelName: 'my-channel',
     channelPassword: 'secret123',
     agentName: 'web-user-1',
-    api: 'http://localhost:8082',
+    api: 'https://hmdevonline.com/messaging-platform/api/v1/messaging-service',
     apiKey: 'your-api-key',
     autoReceive: true
 });
 
-agent.sendTextMessage('Hello, World!');
+agent.sendMessage('Hello, World!');
 ```
 
 ---
@@ -72,20 +76,26 @@ agent.sendTextMessage('Hello, World!');
     <script>
         const agent = new AgentConnection();
 
-        agent.onMessage = (msg) => {
-            const div = document.createElement('div');
-            div.textContent = `${msg.from}: ${msg.content}`;
-            document.getElementById('messages').appendChild(div);
-        };
+        agent.addEventListener('message', (ev) => {
+            // One event can carry several items, and the same stream carries
+            // join/leave notices as type 'connect' and 'disconnect'. Text sent
+            // with sendMessage() arrives as 'chat-text'.
+            ((ev.response && ev.response.data) || []).forEach((item) => {
+                if (!item || item.type !== 'chat-text') return;
+                const div = document.createElement('div');
+                div.textContent = `${item.from}: ${item.content}`;
+                document.getElementById('messages').appendChild(div);
+            });
+        });
 
-        agent.onChannelConnect = () => console.log('Connected');
-        agent.onChannelDisconnect = () => console.log('Disconnected');
+        agent.addEventListener('connect', () => console.log('Connected'));
+        agent.addEventListener('disconnect', () => console.log('Disconnected'));
 
         agent.connect({
             channelName: 'chat-room',
             channelPassword: 'password123',
             agentName: 'user-' + Date.now(),
-            api: 'http://localhost:8082',
+            api: 'https://hmdevonline.com/messaging-platform/api/v1/messaging-service',
             apiKey: 'your-api-key',
             autoReceive: true
         });
@@ -93,7 +103,7 @@ agent.sendTextMessage('Hello, World!');
         function send() {
             const input = document.getElementById('input');
             if (input.value.trim()) {
-                agent.sendTextMessage(input.value);
+                agent.sendMessage(input.value);
                 input.value = '';
             }
         }
@@ -104,33 +114,50 @@ agent.sendTextMessage('Hello, World!');
 
 ### Event Handlers
 
+`AgentConnection` is an event target, not a bag of callback properties —
+register with `addEventListener(name, handler)`:
+
 ```javascript
-agent.onMessage          = (msg) => { /* message received */ };
-agent.onChannelConnect   = () => { /* connected to channel */ };
-agent.onChannelDisconnect = () => { /* disconnected */ };
-agent.onAgentJoin        = (name) => { /* agent joined */ };
-agent.onAgentLeave       = (name) => { /* agent left */ };
-agent.onError            = (err) => { /* error occurred */ };
+agent.addEventListener('connect',    (ev) => { /* ev.response.status is 'success' or 'error' */ });
+agent.addEventListener('disconnect', (ev) => { /* left the channel */ });
+agent.addEventListener('message',    (ev) => { /* ev.response.data is an array of items */ });
+
+agent.addEventListener('agent-connect',    (ev) => { /* ev.agentName joined */ });
+agent.addEventListener('agent-disconnect', (ev) => { /* ev.agentName left */ });
+
+agent.addEventListener('connection-lost',   () => { /* transport dropped; the SDK retries */ });
+agent.addEventListener('session-not-found', () => { /* the server forgot this session */ });
 ```
+
+Errors are not a separate event: a failed connect arrives as a `connect` event
+whose `ev.response.status` is `'error'`, and `ev.response.data` carries the
+reason.
 
 ### Sending Messages
 
-```javascript
-// Text
-agent.sendTextMessage('Hello World!');
+Everything goes through `sendMessage()`. Pass a string to broadcast, or an
+object to address or filter it:
 
-// JSON data
-agent.sendDataMessage({ type: 'game-state', position: { x: 100, y: 200 } });
+```javascript
+// Text, to everyone in the channel
+agent.sendMessage('Hello World!');
+
+// JSON data — the content is a string on the wire, so stringify it yourself
+agent.sendMessage(JSON.stringify({ type: 'game-state', position: { x: 100, y: 200 } }));
 
 // To a specific agent
-agent.sendTextMessage('Private message', 'specific-agent-name');
+agent.sendMessage({ content: 'Private message', to: 'specific-agent-name' });
 
 // To agents matching a filter
-agent.sendTextMessage('Team update', null, 'team=blue');
+agent.sendMessage({ content: 'Team update', filter: 'team=blue' });
 
-// Binary
-agent.sendBinaryMessage(new Uint8Array([1, 2, 3, 4]).buffer);
+// With a completion callback
+agent.sendMessage('Did it land?', (res) => console.log(res.status));
 ```
+
+`to` and `filter` are mutually exclusive — passing both throws. For binary or
+high-rate data use a WebRTC data channel (`WebRtcHelper.sendData`) rather than
+the channel; see [WebRTC](#webrtc-support).
 
 ---
 
@@ -164,17 +191,48 @@ agent.storageGet({ storageKey: 'game-state' }, (response) => {
 // Append version (keep history)
 agent.storageAdd({ storageKey: 'scores', content: { player: 'alice', score: 1500 } }, (r) => {});
 
-// All versions
-agent.storageGetList({ storageKey: 'scores' }, (response) => {
-    response.data.forEach(entry => console.log(entry));
+// All versions — note this one takes the key as a plain string, not an object.
+// Passing { storageKey } here fails server-side with a JSON parse error.
+agent.storageGetList('scores', (response) => {
+    response.data.data.versions.forEach(entry => console.log(entry));
 });
 
 // List all keys
-agent.storageKeys((response) => console.log(response.data));
+agent.storageKeys((response) => console.log(response.data.data.keys));
+
+// Every value in the channel
+agent.storageValues((response) => console.log(response.data.data.values));
 
 // Delete
 agent.storageDeleteByKey('old-data', (r) => {});
 ```
+
+#### Reading the response
+
+`storageGet` hands you the stored content directly at `response.data`:
+
+```javascript
+agent.storageGet({ storageKey: 'game-state' }, (r) => {
+    if (r.status === 'success') console.log(r.data.level, r.data.score);  // your object
+});
+```
+
+Every **other** storage call wraps the server's reply one level deeper —
+`response.data` is the server envelope and the payload is at
+`response.data.data`:
+
+| Call | Where the payload is |
+|------|----------------------|
+| `storageGet(...)` | `response.data` — the content itself |
+| `storageGetList(key, cb)` | `response.data.data.versions` — see the note on `content` below |
+| `storageKeys(cb)` | `response.data.data.keys` |
+| `storageValues(cb)` | `response.data.data.values` |
+| `storagePut` / `storageAdd` | `response.data.data` — version metadata |
+| `storageDeleteByKey(key, cb)` | `response.data.data.versionsDeleted` |
+
+`storageGet` decodes the content for you. The listing calls do not: every
+`content` field they return is **base64-encoded JSON**, so decode it yourself
+with `JSON.parse(atob(entry.content))`.
 
 ### Example: Game State Persistence
 
@@ -200,15 +258,20 @@ function loadGame() {
 function addStroke(stroke) {
     whiteboard.strokes.push(stroke);
     agent.storagePut({ storageKey: 'whiteboard', content: whiteboard }, () => {});
-    agent.sendCustomMessage('whiteboard-update', stroke); // real-time sync
+    // Real-time sync: a CUSTOM message carries your own type alongside it.
+    agent.sendMessage({
+        content: JSON.stringify(stroke),
+        type: 'CUSTOM',
+        customType: 'whiteboard-update'
+    });
 }
 
 // Load on connect
-agent.onChannelConnect = () => {
+agent.addEventListener('connect', () => {
     agent.storageGet({ storageKey: 'whiteboard' }, (r) => {
         if (r.status === 'success') redraw(r.data.strokes);
     });
-};
+});
 ```
 
 ### Example: Leaderboard
@@ -221,8 +284,10 @@ function submitScore(player, score) {
 }
 
 function loadLeaderboard() {
-    agent.storageGetList({ storageKey: 'leaderboard' }, (r) => {
-        const top10 = r.data.sort((a, b) => b.score - a.score).slice(0, 10);
+    agent.storageGetList('leaderboard', (r) => {
+        // Listing calls return content base64-encoded; storageGet does not.
+        const entries = r.data.data.versions.map((v) => JSON.parse(atob(v.content)));
+        const top10 = entries.sort((a, b) => b.score - a.score).slice(0, 10);
         displayLeaderboard(top10);
     });
 }
@@ -265,12 +330,23 @@ agent.storageGet({ storageKey: 'prefs' }, (r) => {
     const webrtc = new WebRtcHelper(agent);
 
     agent.connect({ channelName: 'video', channelPassword: 'pass', agentName: 'broadcaster',
-        api: 'http://localhost:8082', apiKey: 'your-key' });
+        api: 'https://hmdevonline.com/messaging-platform/api/v1/messaging-service', apiKey: 'your-key' });
+
+    // A stream is offered per peer. Keep the ids so you can close them later.
+    const published = new Map();
 
     async function startStreaming() {
         const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
         document.getElementById('local').srcObject = stream;
-        await webrtc.startStreamBroadcast('stream-' + Date.now(), stream, null);
+        webrtc.setLocalMediaStream(stream);
+
+        agent.getActiveAgents((res) => {
+            ((res && res.data) || []).forEach(async (peer) => {
+                const name = peer.agentName || peer;
+                if (name === 'broadcaster' || published.has(name)) return;
+                published.set(name, await webrtc.createStreamOffer(name, { stream }));
+            });
+        });
     }
 </script>
 ```
@@ -280,12 +356,14 @@ agent.storageGet({ storageKey: 'prefs' }, (r) => {
 ```javascript
 const webrtc = new WebRtcHelper(agent);
 
-webrtc.on('stream-added', (streamId, mediaStream) => {
+webrtc.on('remote-stream', (streamId, mediaStream, sourceAgent) => {
     document.getElementById('remoteVideo').srcObject = mediaStream;
 });
 
-webrtc.on('stream-removed', (streamId) => {
-    document.getElementById('remoteVideo').srcObject = null;
+webrtc.on('connection-state', (streamId, state) => {
+    if (state === 'failed' || state === 'closed') {
+        document.getElementById('remoteVideo').srcObject = null;
+    }
 });
 ```
 
@@ -296,17 +374,19 @@ const webrtc = new WebRtcHelper(agent);
 const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
 document.getElementById('localVideo').srcObject = stream;
 webrtc.setLocalMediaStream(stream);
-await webrtc.createStreamOffer('call-' + Date.now(), 'other-agent-name', { stream });
+// createStreamOffer(remoteAgent, constraints) — it returns the stream id.
+const streamId = await webrtc.createStreamOffer('other-agent-name', { stream });
 ```
 
 ### Screen Sharing
 
 ```javascript
-async function shareScreen() {
+async function shareScreen(peerName) {
     const stream = await navigator.mediaDevices.getDisplayMedia({ video: { cursor: 'always' } });
-    const streamId = 'screen-' + Date.now();
-    await webrtc.startStreamBroadcast(streamId, stream, null);
-    stream.getVideoTracks()[0].onended = () => webrtc.stopStreamBroadcast(streamId);
+    const streamId = await webrtc.createStreamOffer(peerName, { stream });
+    // closeStream() stops the tracks it holds, so the browser's own
+    // "stop sharing" bar and your UI end up doing the same thing.
+    stream.getVideoTracks()[0].onended = () => webrtc.closeStream(streamId);
 }
 ```
 
@@ -336,7 +416,7 @@ webrtc.iceServers = [
 
 ```javascript
 // Send to agents matching filter criteria
-agent.sendTextMessage('Hello team!', null, 'team=blue,level>3');
+agent.sendMessage({ content: 'Hello team!', filter: 'team=blue,level>3' });
 ```
 
 **Filter syntax:**
@@ -354,7 +434,7 @@ agent.connect({
     channelName: 'my-channel',
     channelPassword: 'password',
     agentName: 'agent-1',
-    api: 'http://localhost:8082',
+    api: 'https://hmdevonline.com/messaging-platform/api/v1/messaging-service',
     apiKey: 'your-permanent-key',
     autoReceive: true
 });
@@ -417,12 +497,12 @@ agent.connect({ channelPassword: 'Xy9$mK#pL2@nQ5!wR', ... });
 // ✅ Validate input before sending
 function send(text) {
     const clean = text.trim().replace(/<script>/gi, '');
-    if (clean.length > 0 && clean.length < 1000) agent.sendTextMessage(clean);
+    if (clean.length > 0 && clean.length < 1000) agent.sendMessage(clean);
 }
 
 // ✅ Disconnect on page unload
 window.addEventListener('beforeunload', () => {
-    if (agent?.isConnected()) agent.disconnect();
+    if (agent?.readyState) agent.disconnect();
 });
 
 // ✅ HTTPS in production — WebSocket automatically uses WSS
@@ -436,8 +516,14 @@ const api = 'https://your-domain.com';
 ### Can't Connect
 
 ```javascript
-agent.onError = (e) => console.error(e);
-// Also check: fetch('http://localhost:8082/messaging-platform/actuator/health')
+// A failed connect is reported through the 'connect' event, not a separate
+// error event: response.status is 'error' and response.data says why.
+agent.addEventListener('connect', (ev) => {
+    const res = ev.response || {};
+    if (res.status === 'error') console.error('Connect failed:', res.data);
+});
+// If connections fail, verify the api URL and key rather than the service:
+// the platform is managed and its health is not something clients poll.
 ```
 
 1. Verify server is running
@@ -488,38 +574,49 @@ webrtc.on('ice-candidate', (streamId, c) => console.log('ICE:', c));
 | Method | Description |
 |--------|-------------|
 | `connect(config)` | Connect to channel |
-| `disconnect()` | Disconnect |
-| `sendTextMessage(content, to?, filter?)` | Send text |
-| `sendDataMessage(data, to?, filter?)` | Send JSON data |
-| `sendBinaryMessage(buffer)` | Send binary |
-| `isConnected()` | Check connection state |
+| `disconnect(config?)` | Disconnect |
+| `sendMessage(content \| {content, to, filter}, callback?)` | Send a message. `to` and `filter` are mutually exclusive |
+| `receive(range, autoReceive, options?)` | Pull messages by offset |
+| `status(callback)` | Ask the server for channel status |
+| `getActiveAgents(callback)` | Agents currently in the channel |
+| `getSystemAgents(callback)` | System agents in the channel |
+| `getSessionInfo()` | Local session details |
+| `isHostAgent(agentName?)` | Whether that agent (default: you) is host |
+| `readyState` | Property — `true` once the channel is usable |
 | `storagePut(params, callback)` | Store/replace value |
 | `storageAdd(params, callback)` | Append version |
 | `storageGet(params, callback)` | Get latest version |
-| `storageGetList(params, callback)` | Get all versions |
+| `storageGetList(storageKey, callback)` | Get all versions — takes a **string**, not an object |
 | `storageKeys(callback)` | List all keys |
-| `storageDeleteByKey(key, callback)` | Delete key |
+| `storageValues(callback)` | Every value in the channel |
+| `storageDeleteByKey(storageKey, callback)` | Delete key |
 
 ### WebRtcHelper Methods
 
 | Method | Description |
 |--------|-------------|
-| `startStreamBroadcast(id, stream, target)` | Broadcast video |
-| `stopStreamBroadcast(id)` | Stop broadcast |
-| `createStreamOffer(id, target, options)` | One-to-one call |
-| `setLocalMediaStream(stream)` | Set local stream |
+| `createStreamOffer(id, target, options)` | Offer media or a data channel to a peer |
+| `setLocalMediaStream(stream)` | Set the stream offered to peers |
+| `sendData(peerId, data)` | Send over that peer's data channel |
+| `broadcastDataChannel(data)` | Send over every open data channel |
+| `getActiveDataChannels()` | Peers with an open data channel |
+| `closeDataChannel(peerId)` | Close one data channel |
+| `closeStream(id)` / `closeAllStreams()` | Tear down media |
+| `getStats(peerId)` | WebRTC statistics for a peer |
 | `on(event, handler)` | Register event handler |
 
 ### WebRtcHelper Events
 
 | Event | Parameters | Description |
 |-------|------------|-------------|
-| `stream-added` | `(streamId, stream, sourceAgent)` | Remote stream received |
-| `stream-removed` | `(streamId)` | Remote stream ended |
-| `peer-connected` | `(peerId)` | Peer connected |
-| `peer-disconnected` | `(peerId)` | Peer disconnected |
-| `peer-state-change` | `(streamId, state)` | Connection state changed |
-| `error` | `(streamId, error)` | WebRTC error |
+| `remote-stream` | `(streamId, stream, sourceAgent)` | Remote media arrived |
+| `stream-ready` | `(streamId, stream)` | Local stream ready to offer |
+| `datachannel-open` | `(peerId, channel, connectionTimeMs)` | Data channel usable |
+| `datachannel-message` | `(peerId, data)` | Data arrived from a peer |
+| `datachannel-close` | `(peerId)` | Data channel closed |
+| `datachannel-error` | `(peerId, error)` | Data channel error |
+| `connection-state` | `(peerId, state)` | Peer connection state changed |
+| `offer` / `answer` / `ice-candidate` | signalling payload | Emitted while negotiating |
 
 ---
 

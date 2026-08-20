@@ -67,6 +67,7 @@ body.sdk-app {
     align-items: center;
     gap: var(--sp-3);
     margin-left: auto;
+    min-width: 0;
 }
 
 /* ---- status pill --------------------------------------------------------- */
@@ -178,4 +179,47 @@ body.sdk-app {
 @media (max-width: 900px) {
     .sdk-stage { flex-direction: column; }
     .sdk-side { width: auto; }
+
+    /* dvh accounts for the browser's collapsing toolbar but not for the home
+       indicator drawn over the bottom of the page. Without this the last row
+       of an app — a message box, a control bar — sits underneath it. */
+    .sdk-stage { padding-bottom: calc(var(--sp-4) + env(safe-area-inset-bottom, 0px)); }
+}
+
+/* The header is a single fixed-height row and a phone is 390px wide. Left
+   alone the row does not wrap, it simply runs past the right edge — and
+   because it widens the document, every overlay sized as a percentage (the
+   connection modal above all) is laid out against the overflowed width and
+   spills too. Rooms carried its own copy of this; it belongs to the shell,
+   so Drop and Pulse get it as well.
+
+   Everything in the row either earns its width or loses its words. */
+@media (max-width: 640px) {
+    .sdk-header { gap: var(--sp-2); padding: 0 var(--sp-3); }
+    .sdk-header h1 { flex: none; }
+    .sdk-header__right { gap: var(--sp-2); }
+
+    /* The browser's own back button already goes where this link goes. */
+    .sdk-header__away { display: none; }
+
+    /* The room name is the one part that may be arbitrarily long. */
+    .sdk-room {
+        min-width: 0;
+        flex: 0 1 auto;
+        max-width: 14ch;
+    }
+
+    /* The dot still reports connected, busy or off; the sentence beside it
+       does not fit and is not news. */
+    .pill-status__text { display: none; }
+    .pill-status { padding: 6px; }
+
+    /* Remaining header buttons collapse to their icon. */
+    .sdk-header__right .btn > span:not(.sr-only) { display: none; }
+    .sdk-header__right .btn {
+        min-height: 40px;
+        width: 40px;
+        padding: 0;
+        justify-content: center;
+    }
 }

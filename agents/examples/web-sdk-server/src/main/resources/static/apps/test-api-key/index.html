@@ -2,6 +2,8 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
+    <meta name="robots" content="noindex, nofollow">
+    <meta name="theme-color" content="#0b1120">
     <script src="../../js/prod-log.js"></script>
     <link rel="icon" type="image/svg+xml" href="../../favicon.svg">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -1209,5 +1211,26 @@ testMessaging().catch(console.error);</code></pre>
             });
         }
     </script>
+<script>
+    /**
+     * Prefill from the developer console.
+     *
+     * The console hands the signed-in account's key over in sessionStorage
+     * (same origin, cleared with the tab) so this page does not ask the
+     * developer to paste a value the console never showed them. The handoff is
+     * consumed once; a direct visitor still types their own key.
+     */
+    (function () {
+        var input = document.getElementById('apiKeyInput');
+        if (!input || input.value) return;
+        try {
+            var handed = sessionStorage.getItem('verify_api_key');
+            if (handed) {
+                input.value = handed;
+                sessionStorage.removeItem('verify_api_key');
+            }
+        } catch (e) { /* private mode: fall back to typing it */ }
+    })();
+</script>
 </body>
 </html>

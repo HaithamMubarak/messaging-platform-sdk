@@ -1,13 +1,44 @@
 <?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Public pages only. The developer portal, the admin console and the
+  stress-test harness are deliberately absent — robots.txt disallows them.
+-->
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
   <url><loc>https://hmdevonline.com/messaging-platform/sdk/</loc><changefreq>weekly</changefreq><priority>1.0</priority></url>
-  <url><loc>https://hmdevonline.com/messaging-platform/sdk/playground.html</loc><changefreq>weekly</changefreq><priority>0.8</priority></url>
   <url><loc>https://hmdevonline.com/messaging-platform/sdk/docs.html</loc><changefreq>weekly</changefreq><priority>0.9</priority></url>
+  <url><loc>https://hmdevonline.com/messaging-platform/sdk/playground.html</loc><changefreq>weekly</changefreq><priority>0.8</priority></url>
+
+  <!-- Guides rendered by the docs shell -->
+  <url><loc>https://hmdevonline.com/messaging-platform/sdk/docs.html?doc=USER-GUIDE.md</loc><priority>0.7</priority></url>
   <url><loc>https://hmdevonline.com/messaging-platform/sdk/docs.html?doc=WEB-AGENT-GUIDE.md</loc><priority>0.7</priority></url>
   <url><loc>https://hmdevonline.com/messaging-platform/sdk/docs.html?doc=DEVELOPER-GUIDE.md</loc><priority>0.6</priority></url>
+  <url><loc>https://hmdevonline.com/messaging-platform/sdk/docs.html?doc=README.md</loc><priority>0.5</priority></url>
+
+  <!-- Games -->
+  <url><loc>https://hmdevonline.com/messaging-platform/sdk/apps/mini-games/blockparty/about.html</loc><priority>0.7</priority></url>
+  <url><loc>https://hmdevonline.com/messaging-platform/sdk/apps/mini-games/blockparty/index.html</loc><priority>0.7</priority></url>
+  <url><loc>https://hmdevonline.com/messaging-platform/sdk/apps/mini-games/air-hockey/index.html</loc><priority>0.6</priority></url>
+  <url><loc>https://hmdevonline.com/messaging-platform/sdk/apps/mini-games/quiz-battle/index.html</loc><priority>0.6</priority></url>
+  <url><loc>https://hmdevonline.com/messaging-platform/sdk/apps/mini-games/find-the-liar/index.html</loc><priority>0.6</priority></url>
+  <url><loc>https://hmdevonline.com/messaging-platform/sdk/apps/mini-games/fall-guys/index.html</loc><priority>0.6</priority></url>
+  <url><loc>https://hmdevonline.com/messaging-platform/sdk/apps/mini-games/reactor/reactor-client.html</loc><priority>0.6</priority></url>
+  <url><loc>https://hmdevonline.com/messaging-platform/sdk/apps/pictionary/index.html</loc><priority>0.6</priority></url>
+  <url><loc>https://hmdevonline.com/messaging-platform/sdk/apps/chess/index.html</loc><priority>0.6</priority></url>
+  <url><loc>https://hmdevonline.com/messaging-platform/sdk/apps/mini-games/race-balls/index.html</loc><priority>0.6</priority></url>
+  <url><loc>https://hmdevonline.com/messaging-platform/sdk/apps/mini-games/party-physics/index.html</loc><priority>0.6</priority></url>
+
+  <!-- Demos -->
   <url><loc>https://hmdevonline.com/messaging-platform/sdk/apps/whiteboard/index.html</loc><priority>0.7</priority></url>
+  <url><loc>https://hmdevonline.com/messaging-platform/sdk/apps/rooms/index.html</loc><priority>0.7</priority></url>
+  <url><loc>https://hmdevonline.com/messaging-platform/sdk/apps/drop/index.html</loc><priority>0.6</priority></url>
+  <url><loc>https://hmdevonline.com/messaging-platform/sdk/apps/pulse/index.html</loc><priority>0.6</priority></url>
   <url><loc>https://hmdevonline.com/messaging-platform/sdk/apps/chat.html</loc><priority>0.6</priority></url>
   <url><loc>https://hmdevonline.com/messaging-platform/sdk/apps/quickshare/quickshare.html</loc><priority>0.6</priority></url>
+  <url><loc>https://hmdevonline.com/messaging-platform/sdk/apps/collab-doc/index.html</loc><priority>0.5</priority></url>
+  <url><loc>https://hmdevonline.com/messaging-platform/sdk/apps/mind-map/index.html</loc><priority>0.5</priority></url>
+  <url><loc>https://hmdevonline.com/messaging-platform/sdk/apps/pixel-art/index.html</loc><priority>0.5</priority></url>
+  <url><loc>https://hmdevonline.com/messaging-platform/sdk/apps/terminal/index.html</loc><priority>0.5</priority></url>
+  <url><loc>https://hmdevonline.com/messaging-platform/sdk/apps/storage-demo.html</loc><priority>0.5</priority></url>
+  <url><loc>https://hmdevonline.com/messaging-platform/sdk/apps/cloud-connection-demo.html</loc><priority>0.4</priority></url>
   <url><loc>https://hmdevonline.com/messaging-platform/sdk/apps/webrtc.html</loc><priority>0.5</priority></url>
-  <url><loc>https://hmdevonline.com/messaging-platform/sdk/apps/mini-games/blockparty/index.html</loc><priority>0.7</priority></url>
 </urlset>

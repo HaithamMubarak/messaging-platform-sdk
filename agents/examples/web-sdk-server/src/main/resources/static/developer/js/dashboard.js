@@ -183,7 +183,65 @@
         return id.length > 8 ? '••••' + id.slice(-8) : id;
     }
 
+    /**
+     * Show the key for the signed-in account.
+     *
+     * It arrives with the sign-in response and already sits in sessionStorage,
+     * but the console never surfaced it: the table shows key IDs only, so the
+     * one way to obtain a usable key was "Revoke and rotate" — which breaks
+     * every client already using the old one. Masked by default; revealing is
+     * a deliberate click.
+     */
+    function renderActiveKey() {
+        const panel = document.getElementById('activeKeyPanel');
+        const code = document.getElementById('activeKeyValue');
+        const revealBtn = document.getElementById('activeKeyReveal');
+        const copyBtn = document.getElementById('activeKeyCopy');
+        const verifyLink = document.getElementById('activeKeyVerify');
+        if (!panel || !code || !revealBtn || !copyBtn) return;
+
+        const key = DeveloperAPI.getApiKey();
+        if (!key) {
+            // An older session predates the key being stored; the table still works.
+            panel.hidden = true;
+            return;
+        }
+        panel.hidden = false;
+
+        const mask = () => '•'.repeat(Math.min(48, key.length));
+        code.textContent = mask();
+        code.dataset.masked = 'true';
+
+        if (!revealBtn.dataset.bound) {
+            revealBtn.dataset.bound = 'true';
+            revealBtn.addEventListener('click', () => {
+                const masked = code.dataset.masked === 'true';
+                code.dataset.masked = masked ? 'false' : 'true';
+                code.textContent = masked ? key : mask();
+                revealBtn.setAttribute('aria-pressed', masked ? 'true' : 'false');
+                revealBtn.setAttribute('aria-label', masked ? 'Hide API key' : 'Reveal API key');
+                revealBtn.innerHTML = '';
+                revealBtn.appendChild(UI.iconNode(masked ? 'eye-off' : 'eye', 'icon--sm'));
+            });
+        }
+
+        if (!copyBtn.dataset.bound) {
+            copyBtn.dataset.bound = 'true';
+            copyBtn.addEventListener('click', () => UI.copy(key, 'API key copied.'));
+        }
+
+        // Hand the key to the verifier rather than asking the developer to paste
+        // one they had no way of reading.
+        if (verifyLink) {
+            try {
+                sessionStorage.setItem('verify_api_key', key);
+            } catch (e) { /* private mode: the verifier still accepts a paste */ }
+        }
+    }
+
     async function loadApiKeys() {
+        renderActiveKey();
+
         const tbody = document.getElementById('apiKeysBody');
         UI.tableLoading(tbody, KEY_COLUMNS);
 

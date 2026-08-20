@@ -124,18 +124,64 @@ public abstract class BaseApiConfigController {
     }
 
     /**
-     * Client identity for rate limiting. Honours X-Forwarded-For because this
-     * service always runs behind the gateway.
+     * Client identity for rate limiting.
+     *
+     * <p>Forwarding headers are only believed when the request actually reached
+     * us from a proxy we run. That matters because this endpoint is
+     * unauthenticated: it used to read the <em>leftmost</em> X-Forwarded-For
+     * token, and nginx is configured with {@code $proxy_add_x_forwarded_for},
+     * which <em>appends</em> the real address to whatever the caller sent. The
+     * leftmost token was therefore entirely caller-controlled — a script could
+     * send a fresh random value per request, land in a fresh bucket every time,
+     * and mint temporary keys without ever tripping the limit.
+     *
+     * <p>So: from a trusted proxy, prefer X-Real-IP (our nginx <em>sets</em> it
+     * rather than appending) and otherwise take the <em>rightmost</em>
+     * forwarded hop, which is the address our own proxy observed. From anywhere
+     * else, ignore the headers entirely and use the socket address.
      */
     private static String clientKey(HttpServletRequest request) {
         if (request == null) return "unknown";
+
+        String remote = request.getRemoteAddr();
+        if (!isTrustedProxy(remote)) {
+            return remote != null ? remote : "unknown";
+        }
+
+        String realIp = request.getHeader("X-Real-IP");
+        if (realIp != null && !realIp.isBlank()) return realIp.trim();
+
         String forwarded = request.getHeader("X-Forwarded-For");
         if (forwarded != null && !forwarded.isBlank()) {
-            int comma = forwarded.indexOf(',');
-            return (comma > 0 ? forwarded.substring(0, comma) : forwarded).trim();
+            int comma = forwarded.lastIndexOf(',');
+            String hop = (comma >= 0 ? forwarded.substring(comma + 1) : forwarded).trim();
+            if (!hop.isEmpty()) return hop;
         }
-        String remote = request.getRemoteAddr();
         return remote != null ? remote : "unknown";
+    }
+
+    /**
+     * Whether an address is one of our own proxies. Loopback and the private
+     * ranges cover the gateway container and any reverse proxy on the host;
+     * a public client never matches, so it can never spoof its own identity.
+     */
+    private static boolean isTrustedProxy(String address) {
+        if (address == null || address.isBlank()) return false;
+        String a = address.trim();
+        if (a.startsWith("::ffff:")) a = a.substring(7);   // IPv4-mapped IPv6
+
+        if (a.equals("127.0.0.1") || a.equals("::1") || a.equals("0:0:0:0:0:0:0:1")) return true;
+        if (a.startsWith("10.") || a.startsWith("192.168.")) return true;
+        if (a.startsWith("172.")) {                        // 172.16.0.0/12
+            int dot = a.indexOf('.', 4);
+            if (dot > 4) {
+                try {
+                    int second = Integer.parseInt(a.substring(4, dot));
+                    if (second >= 16 && second <= 31) return true;
+                } catch (NumberFormatException ignored) { /* not an IPv4 literal */ }
+            }
+        }
+        return a.startsWith("fd") || a.startsWith("fc");    // IPv6 unique-local
     }
 
     /**

@@ -69,7 +69,20 @@ const DeveloperAPI = (function () {
         }
 
         const body = await readBody(response);
-        if (!response.ok) {
+
+        // The messaging service answers failures with HTTP 200 and
+        // {"status":"error"|"unauthorized"|"forbidden", "statusMessage":…}, so
+        // response.ok alone is not success. Checking only the status code meant
+        // a refused delete still toasted "Channel deleted." and a rejected
+        // broadcast still toasted "Broadcast sent." — the console confirmed
+        // things that had not happened. The admin client already checks this.
+        const failed = body && typeof body === 'object'
+            && (body.status === 'error' || body.status === 'unauthorized' || body.status === 'forbidden');
+
+        if (!response.ok || failed) {
+            if (failed && (body.status === 'unauthorized')) {
+                sessionExpired();
+            }
             throw new Error(
                 (body && (body.error || body.message || body.statusMessage)) ||
                 'Request failed (' + response.status + ')'

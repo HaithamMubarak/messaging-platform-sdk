@@ -80,7 +80,48 @@
         });
     }
 
+    /**
+     * A way back to the site.
+     *
+     * Every demo was a dead end: a visitor arrives from the landing page, plays
+     * with the thing, and then has no route to the docs, the playground or the
+     * key they came for. The demos are the marketing, so ending the journey in
+     * them is the one thing they must not do.
+     *
+     * A small fixed chip rather than a header item, because these apps lay out
+     * their own headers and half of them have none at all.
+     */
+    function addHomeChip() {
+        if (document.querySelector('.sdk-home-chip')) return;
+        // How deep this page sits under the site root, so the link works from
+        // /apps/x.html and /apps/mini-games/y/index.html alike.
+        const path = location.pathname;
+        const cut = path.indexOf('/apps/');
+        const depth = cut < 0 ? 1 : path.slice(cut + 6).split('/').length;
+        const root = '../'.repeat(depth);
+
+        const nav = document.createElement('nav');
+        nav.className = 'sdk-home-chip';
+        nav.setAttribute('aria-label', 'Messaging Platform SDK');
+
+        const home = document.createElement('a');
+        home.href = root + 'index.html';
+        home.className = 'sdk-home-chip__home';
+        home.textContent = 'SDK';
+        home.title = 'Messaging Platform SDK';
+
+        const more = document.createElement('a');
+        more.href = root + 'playground.html';
+        more.className = 'sdk-home-chip__more';
+        more.textContent = 'More demos';
+
+        nav.appendChild(home);
+        nav.appendChild(more);
+        document.body.appendChild(nav);
+    }
+
     function start() {
+        addHomeChip();
         relocate();
         // Some apps build the header only after the connection succeeds.
         // Both the header and the host badge can appear late, so keep watching

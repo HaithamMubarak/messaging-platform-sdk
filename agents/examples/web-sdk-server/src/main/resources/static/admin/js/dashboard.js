@@ -70,17 +70,32 @@
     }
 
     /**
-     * The auth response does not carry a role, so owner status is probed with
-     * the owner-only /admins endpoint. A 403 simply means "plain admin".
+     * Owner status decides whether the Administrators section and the
+     * destructive controls are offered at all.
+     *
+     * The auth response now carries it, so normally this is just a read. An
+     * older backend omits the field, and there the only way to tell an owner
+     * from a plain admin is to call an owner-only endpoint and read the 403 —
+     * so that probe is kept as a fallback rather than removed.
+     *
+     * Either way this is presentation only: every owner-only route is enforced
+     * server side, so a tampered value hides or reveals UI, not capability.
      */
-    async function probeOwner() {
-        try {
-            await AdminAPI.listAdmins();
-            state.isOwner = true;
-        } catch (err) {
-            state.isOwner = false;
-            if (!err.forbidden) return;   // network trouble — stay conservative
+    async function resolveOwner() {
+        const info = AdminAPI.getAdminInfo();
+
+        if (info && typeof info.owner === 'boolean') {
+            state.isOwner = info.owner;
+        } else {
+            try {
+                await AdminAPI.listAdmins();
+                state.isOwner = true;
+            } catch (err) {
+                state.isOwner = false;
+                if (!err.forbidden) return;   // network trouble — stay conservative
+            }
         }
+
         document.getElementById('navAdmins').hidden = !state.isOwner;
         document.getElementById('adminRole').textContent = state.isOwner ? 'Owner' : 'Administrator';
     }
@@ -965,7 +980,7 @@
         initChrome();
         initControls();
 
-        await probeOwner();
+        await resolveOwner();
 
         window.addEventListener('hashchange', route);
         route();

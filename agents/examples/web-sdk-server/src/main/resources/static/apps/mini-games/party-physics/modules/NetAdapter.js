@@ -62,25 +62,30 @@ class NetAdapter {
      * Setup WebRTC DataChannel with peer
      */
     setupWebRTC(peerId, dataChannel) {
-        console.log('[NetAdapter] Setting up WebRTC with peer:', peerId);
+        // This is called from onDataChannelOpen, so the channel is already open:
+        // there is no onopen left to wait for, and hooking one meant the peer
+        // was never recorded at all. Waiting for it also used to be moot,
+        // because the SDK passes the connection time in this position rather
+        // than the channel — setting .onopen on a number is what threw.
+        if (!dataChannel || typeof dataChannel !== 'object') {
+            console.warn('[NetAdapter] No DataChannel for peer', peerId, '— staying on the channel transport');
+            return;
+        }
 
-        dataChannel.onopen = () => {
-            console.log('[NetAdapter] WebRTC DataChannel opened with', peerId);
-            this.rtcConnections.set(peerId, dataChannel);
-        };
+        console.log('[NetAdapter] Registering open DataChannel with peer:', peerId);
+        this.rtcConnections.set(peerId, dataChannel);
 
-        dataChannel.onclose = () => {
+        // Inbound messages are not read here: the SDK already listens on this
+        // channel and routes them to onDataChannelMessage, which the game
+        // forwards to handleDataChannelMessage. Assigning .onmessage would take
+        // them away from it.
+    }
+
+    /** Forget a peer's channel when it goes away. */
+    teardownWebRTC(peerId) {
+        if (this.rtcConnections.delete(peerId)) {
             console.log('[NetAdapter] WebRTC DataChannel closed with', peerId);
-            this.rtcConnections.delete(peerId);
-        };
-
-        dataChannel.onmessage = (event) => {
-            this.handleDataChannelMessage(peerId, event.data);
-        };
-
-        dataChannel.onerror = (error) => {
-            console.error('[NetAdapter] WebRTC DataChannel error with', peerId, error);
-        };
+        }
     }
 
     /**
@@ -88,7 +93,10 @@ class NetAdapter {
      */
     handleDataChannelMessage(peerId, data) {
         try {
-            const message = JSON.parse(data);
+            // The SDK hands this over already parsed; a raw channel would give
+            // a string. Accept either.
+            const message = typeof data === 'string' ? JSON.parse(data) : data;
+            if (!message || !message.type) return;
 
             if (message.type === 'SNAPSHOT') {
                 // Snapshot from host

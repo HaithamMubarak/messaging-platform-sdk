@@ -108,7 +108,7 @@ pip install -e .
 
 # Run tests
 pytest
-pytest --cov=messaging_agent
+pytest --cov=hmdev.messaging
 ```
 
 ---
@@ -129,18 +129,22 @@ Browser-compatible JavaScript library with no external dependencies.
 ```javascript
 const agent = new AgentConnection({ usePubKey: false });
 
-agent.onMessage = (msg) => console.log(`${msg.from}: ${msg.content}`);
+agent.addEventListener('message', (ev) => {
+    ((ev.response && ev.response.data) || []).forEach((item) => {
+        if (item && item.type === 'chat-text') console.log(`${item.from}: ${item.content}`);
+    });
+});
 
 agent.connect({
     channelName: 'my-channel',
     channelPassword: 'secret123',
     agentName: 'my-agent',
-    api: 'https://hmdevonline.com/messaging-platform/api',
+    api: 'https://hmdevonline.com/messaging-platform/api/v1/messaging-service',
     apiKey: 'your-api-key',
     autoReceive: true
 });
 
-agent.sendTextMessage('Hello!');
+agent.sendMessage('Hello!');
 agent.disconnect();
 ```
 
@@ -176,11 +180,9 @@ dependencies {
 import com.hmdev.messaging.agent.core.AgentConnection;
 import com.hmdev.messaging.agent.core.ConnectConfig;
 
-AgentConnection agent = new AgentConnection();
-
-agent.setOnMessage(msg ->
-    System.out.println(msg.getFrom() + ": " + msg.getContent())
-);
+AgentConnection agent = new AgentConnection(
+    "https://hmdevonline.com/messaging-platform/api/v1/messaging-service",
+    "your-api-key");
 
 agent.connect(ConnectConfig.builder()
     .channelName("my-channel")
@@ -188,14 +190,17 @@ agent.connect(ConnectConfig.builder()
     .agentName("java-bot")
     .build());
 
-agent.sendTextMessage("Hello from Java!");
+agent.sendMessage("Hello from Java!");
 
 // Receive messages (pull)
-EventMessageResult result = agent.receiveMessages(0L, 100L, 50);
+EventMessageResult result = agent.receive(ReceiveConfig.builder()
+    .globalOffset(0L)
+    .limit(50L)
+    .build());
 result.getEvents().forEach(msg -> System.out.println(msg.getContent()));
 
 // Receive messages (async push)
-agent.startReceiving(messages -> messages.forEach(this::process));
+agent.receiveAsync(messages -> messages.forEach(this::process));
 
 agent.disconnect();
 ```
@@ -206,13 +211,16 @@ agent.disconnect();
 |--------|-------------|
 | `connect(ConnectConfig)` | Connect to channel |
 | `disconnect()` | Close connection |
-| `sendTextMessage(content)` | Send text |
-| `sendDataMessage(JSONObject)` | Send JSON |
-| `receiveMessages(start, end, limit)` | Pull messages by offset |
-| `startReceiving(callback)` | Begin async receive |
-| `stopReceiving()` | Stop async receive |
-| `setApiKeyScope(scope)` | `"private"` (default) or `"public"` |
-| `setDebug(true)` | Enable debug logging |
+| `sendMessage(String)` | Send to everyone in the channel |
+| `sendMessage(String, String destination)` | Send to one agent |
+| `receive(ReceiveConfig)` | Pull messages by offset |
+| `receiveAsync(handler)` | Begin async receive |
+| `getActiveAgents()` | Agents currently in the channel |
+| `isHostAgent()` | Whether this agent is host |
+| `isReady()` | Whether the channel is usable |
+
+The API-key scope is set on the connect config —
+`ConnectConfig.builder().apiKeyScope("public")` — not by a separate setter.
 
 ---
 
@@ -243,7 +251,9 @@ cd agents/python-agent && pip install -e .
 from hmdev.messaging.agent.core.agent_connection import AgentConnection
 from hmdev.messaging.agent.api.models import ReceiveConfig
 
-agent = AgentConnection(api_url="https://hmdevonline.com/messaging-platform/api")
+agent = AgentConnection.with_api_key(
+    "https://hmdevonline.com/messaging-platform/api/v1/messaging-service",
+    "your-api-key")
 
 connected = agent.connect(
     channel_name="my-channel",
@@ -251,15 +261,15 @@ connected = agent.connect(
     agent_name="python-bot"
 )
 
-agent.send_text_message("Hello from Python!")
+agent.send_message("Hello from Python!")
 
 # Pull messages
-result = agent.receive(ReceiveConfig(global_offset=0, local_offset=0, limit=50))
-for msg in result.messages:
-    print(f"{msg.sender}: {msg.content}")
+result = agent.receive(ReceiveConfig(globalOffset=0, limit=50))
+for msg in result.events:
+    print(f"{msg.get('from')}: {msg.get('content')}")
 
 # Async receive
-agent.start_receiving(lambda msgs: [process(m) for m in msgs])
+agent.receive_async(lambda events: [process(e) for e in events])
 
 agent.disconnect()
 ```
@@ -268,13 +278,14 @@ agent.disconnect()
 
 | Method | Description |
 |--------|-------------|
+| `AgentConnection(api_url)` / `AgentConnection.with_api_key(api_url, key)` | Construct |
 | `connect(channel_name, channel_password, agent_name)` | Connect |
 | `disconnect()` | Close connection |
-| `send_text_message(content)` | Send text |
-| `send_data_message(dict)` | Send JSON |
+| `send_message(msg, destination='*')` | Send a message |
 | `receive(ReceiveConfig)` | Pull messages |
-| `start_receiving(callback)` | Async receive |
-| `stop_receiving()` | Stop async receive |
+| `receive_async(handler)` | Async receive |
+| `get_active_agents()` | Agents currently in the channel |
+| `is_ready()` / `is_host_agent()` | State checks |
 
 ---
 

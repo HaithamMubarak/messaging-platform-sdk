@@ -41,6 +41,7 @@
          */
         init: function(options) {
             this.options = options;
+            this.connected = false;
             this.setupEventListeners();
         },
 
@@ -51,8 +52,10 @@
             const connectBtn = document.getElementById(this.options.connectBtnId);
             if (connectBtn) {
                 connectBtn.addEventListener('click', () => {
-                    if (this.options.onConnect) {
-                        this.options.onConnect();
+                    // The button toggles: once connected it acts as Disconnect
+                    const handler = this.connected ? this.options.onDisconnect : this.options.onConnect;
+                    if (handler) {
+                        handler();
                     }
                 });
             }
@@ -85,18 +88,22 @@
             const list = document.getElementById(this.options.agentListId);
             if (!list) return;
 
+            // Callers pass either plain agent names or {agentName} objects
+            const names = (agents || []).map(a => (typeof a === 'string' ? a : a && a.agentName))
+                                        .filter(Boolean);
+
             // Filter out self
-            const otherAgents = agents.filter(a => a.agentName !== currentAgent);
+            const otherAgents = names.filter(name => name !== currentAgent);
 
             if (otherAgents.length === 0) {
                 list.innerHTML = '<div class="cloud-agent-item">No other agents connected</div>';
                 return;
             }
 
-            list.innerHTML = otherAgents.map(agent => `
+            list.innerHTML = otherAgents.map(name => `
                 <div class="cloud-agent-item">
                     <div class="cloud-agent-dot"></div>
-                    <span>${this.escapeHtml(agent.agentName)}</span>
+                    <span>${this.escapeHtml(name)}</span>
                 </div>
             `).join('');
         },
@@ -142,6 +149,7 @@
          * @param {string} agentName - Connected agent name
          */
         showConnected: function(agentName) {
+            this.connected = true;
             const connectBtn = document.getElementById(this.options.connectBtnId);
             if (connectBtn) {
                 connectBtn.textContent = 'Disconnect';
@@ -157,6 +165,7 @@
          * Show disconnected state
          */
         showDisconnected: function() {
+            this.connected = false;
             const connectBtn = document.getElementById(this.options.connectBtnId);
             if (connectBtn) {
                 connectBtn.textContent = 'Connect to Cloud';

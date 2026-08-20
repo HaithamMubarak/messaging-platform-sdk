@@ -135,7 +135,7 @@
                         </button>
                     </div>
                 </div>
-                <button type="button" class="cloud-btn" id="cloudConnectBtn" onclick="connectToCloud()">
+                <button type="button" class="cloud-btn" id="cloudConnectBtn">
                     Connect to Cloud
                 </button>
 
@@ -162,6 +162,7 @@
     <script src="../js/config-loader.js"></script>
     <script src="../generated-web-agent-js/js/web-agent.libs.js"></script>
     <script src="../generated-web-agent-js/js/web-agent.js"></script>
+    <script src="../generated-web-agent-js/js/web-agent.webrtc.js"></script>  <!-- WebRtcHelper: required for sendData -->
     <script src="../js/UserConnectionBase.js"></script>
     <script src="terminal/terminal-sharing.js"></script>  <!-- TerminalSharing (single class) -->
     <script src="../js/cloud-connection.js"></script>     <!-- CloudConnectionUI -->
@@ -171,6 +172,8 @@
         let cloudInteraction = null;
         let cloudConnected = false;
         let cloudAgentName = null;
+        let cloudConnecting = false;
+        let agentPollTimer = null;
 
         function log(message, type = 'info') {
             const logDiv = document.getElementById('messageLog');
@@ -199,6 +202,8 @@
         }
 
         async function connectToCloud() {
+            if (cloudConnecting || cloudConnected) return;
+
             const config = CloudConnectionUI.getConnectionConfig();
 
             if (!config.channelName || !config.channelPassword) {
@@ -212,25 +217,27 @@
                 CloudConnectionUI.setAgentName(config.agentName);
             }
 
+            cloudConnecting = true;
             CloudConnectionUI.showConnecting();
 
             try {
                 // Create TerminalSharing instance (data layer - single class)
-                cloudInteraction = new TerminalSharing();
+                const interaction = new TerminalSharing();
 
-                // Set up message handler
-                cloudInteraction.onMessageReceived = (message, sourceAgent) => {
+                // Set up message handler (TerminalSharing dispatches by message type)
+                interaction.registerHandler('test', (message, sourceAgent) => {
                     log(`Message from ${sourceAgent}: ${JSON.stringify(message)}`, 'info');
-                };
+                });
 
                 // Connect
-                await cloudInteraction.connect({
+                await interaction.connect({
                     username: config.agentName,
                     channelName: config.channelName,
                     channelPassword: config.channelPassword
                 });
 
                 // Connection successful
+                cloudInteraction = interaction;
                 cloudConnected = true;
                 cloudAgentName = config.agentName;
 
@@ -245,17 +252,24 @@
                 CloudConnectionUI.showDisconnected();
                 cloudInteraction = null;
                 cloudConnected = false;
+                cloudAgentName = null;
+            } finally {
+                cloudConnecting = false;
             }
         }
 
         function pollAgents() {
             if (!cloudConnected || !cloudInteraction) return;
-            const agents = cloudInteraction.getAgents();
+            const agents = cloudInteraction.getConnectedUsers();
             CloudConnectionUI.updateAgentsList(agents, cloudAgentName);
-            setTimeout(pollAgents, 2000);
+            agentPollTimer = setTimeout(pollAgents, 2000);
         }
 
         function disconnectFromCloud() {
+            if (agentPollTimer) {
+                clearTimeout(agentPollTimer);
+                agentPollTimer = null;
+            }
             if (cloudInteraction) {
                 cloudInteraction.disconnect();
             }

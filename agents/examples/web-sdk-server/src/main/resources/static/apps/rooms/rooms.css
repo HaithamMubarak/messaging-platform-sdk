@@ -394,6 +394,32 @@
     .sdk-side.is-people .side__pane--chat,
     .sdk-side.is-chat .side__pane--people { display: none; }
     .sdk-side.is-chat .side__pane--chat { flex-grow: 1; }
+
+    /* Reading is the job once the Chat tab is up, and the call was taking up
+       to 44vh of a screen that also has to hold a header, a control bar, the
+       tabs and a message box — which left the log a strip too short to read a
+       conversation in. While chat is showing, the call gives its height up and
+       the panel claims half the screen. Switching back to People restores it. */
+    .sdk-stage.is-chat .stage {
+        min-height: 0;
+        max-height: 20vh;
+        max-height: 20dvh;
+    }
+    /* No min-height here on purpose: pinning the panel to half the screen
+       makes it overflow the last pixel on a short one. Capping the call above
+       is what leaves the panel its half, and it still shrinks if it must. */
+    .sdk-stage.is-chat .sdk-side { flex: 1 1 auto; min-height: 0; }
+
+    /* The tab already says Chat; the heading under it repeats itself and the
+       log wants the line back. */
+    .sdk-stage.is-chat .side__pane--chat .sdk-side__title { display: none; }
+    /* The log is the part that grows; the title and the message box keep the
+       height they need. */
+    .sdk-stage.is-chat .side__pane--chat .log {
+        flex: 1 1 auto;
+        min-height: 0;
+        overflow-y: auto;
+    }
 }
 
 @media (max-width: 640px) {

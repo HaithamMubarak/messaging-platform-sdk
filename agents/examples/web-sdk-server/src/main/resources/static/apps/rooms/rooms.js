@@ -998,6 +998,14 @@
             if (!side) return;
             side.classList.toggle('is-people', which === 'people');
             side.classList.toggle('is-chat', which === 'chat');
+            // The stage is a sibling of the panel, so the choice is mirrored
+            // onto their shared parent: that is what lets the call shrink when
+            // the chat is the thing being read.
+            var stage = document.querySelector('.sdk-stage');
+            if (stage) {
+                stage.classList.toggle('is-people', which === 'people');
+                stage.classList.toggle('is-chat', which === 'chat');
+            }
             ['tabPeople', 'tabChat'].forEach(function (id) {
                 var b = document.getElementById(id);
                 if (!b) return;

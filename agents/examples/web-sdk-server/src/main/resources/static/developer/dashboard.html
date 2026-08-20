@@ -6,6 +6,7 @@
     <title>Developer Portal — Messaging Platform SDK</title>
     <meta name="description" content="Manage API keys, channels, usage and developer tools for the Messaging Platform SDK.">
     <meta name="robots" content="noindex">
+    <meta name="theme-color" content="#0b1120">
     <link rel="icon" type="image/svg+xml" href="../favicon.svg">
 
     <link rel="stylesheet" href="../css/design-tokens.css">
@@ -163,12 +164,36 @@
 
             <!-- ================================================== API keys -->
             <section class="section" id="section-keys" hidden>
+                <!-- The key for this session. It arrives with the sign-in response and
+                     lives in sessionStorage, so it is shown here rather than being
+                     reachable only by rotating (which breaks every live client). -->
+                <div class="panel" id="activeKeyPanel" hidden>
+                    <h3>Your API key</h3>
+                    <p class="panel__desc">
+                        The key for the account you are signed in as. Keep it on your server — anything you ship to a
+                        browser should use a temporary key instead.
+                    </p>
+                    <div class="secret-box">
+                        <code id="activeKeyValue" data-masked="true"></code>
+                        <button class="btn btn--icon btn--ghost" type="button" id="activeKeyReveal"
+                                aria-label="Reveal API key" aria-pressed="false">
+                            <svg class="icon icon--sm" aria-hidden="true"><use href="#i-eye"></use></svg>
+                        </button>
+                        <button class="btn btn--icon btn--ghost" type="button" id="activeKeyCopy" aria-label="Copy API key">
+                            <svg class="icon icon--sm" aria-hidden="true"><use href="#i-copy"></use></svg>
+                        </button>
+                    </div>
+                    <a class="btn btn--ghost btn--sm" id="activeKeyVerify"
+                       href="../apps/test-api-key/index.html" target="_blank" rel="noopener noreferrer">
+                        Verify this key
+                    </a>
+                </div>
+
                 <div class="alert alert--info">
                     <svg class="icon" aria-hidden="true"><use href="#i-info"></use></svg>
                     <p>
-                        The full secret is shown only once, when a key is created or rotated. This table lists key
-                        IDs — the public identifier you can safely copy into a support ticket.
-                        <a href="../apps/test-api-key/index.html" target="_blank" rel="noopener noreferrer">Verify a key</a>.
+                        The table below lists key <strong>IDs</strong> — the public identifier you can safely paste into
+                        a support ticket. A key's full secret is only ever shown to you, never in this table.
                     </p>
                 </div>
 

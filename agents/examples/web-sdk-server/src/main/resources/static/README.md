@@ -61,8 +61,8 @@ Real-time messaging SDK for building multiplayer games, collaborative apps, and 
 <!DOCTYPE html>
 <html>
 <head>
-    <script src="https://hmdevonline.com/messaging-platform/sdk/js/web-agent.libs.js"></script>
-    <script src="https://hmdevonline.com/messaging-platform/sdk/js/web-agent.js"></script>
+    <script src="https://hmdevonline.com/messaging-platform/sdk/generated-web-agent-js/js/web-agent.libs.js"></script>
+    <script src="https://hmdevonline.com/messaging-platform/sdk/generated-web-agent-js/js/web-agent.js"></script>
 </head>
 <body>
     <div id="messages"></div>
@@ -72,23 +72,29 @@ Real-time messaging SDK for building multiplayer games, collaborative apps, and 
     <script>
         const agent = new AgentConnection({ usePubKey: false });
 
-        agent.onMessage = msg => {
-            document.getElementById('messages').innerHTML += 
-                `<p><b>${msg.from}:</b> ${msg.content}</p>`;
-        };
+        agent.addEventListener('message', ev => {
+            const items = (ev.response && ev.response.data) || [];
+            items.forEach(item => {
+                // The same event carries join/leave notices too, as type
+                // 'connect' and 'disconnect'. Text arrives as 'chat-text'.
+                if (!item || item.type !== 'chat-text') return;
+                document.getElementById('messages').innerHTML +=
+                    `<p><b>${item.from}:</b> ${item.content}</p>`;
+            });
+        });
 
         agent.connect({
             channelName: 'my-channel',
             channelPassword: 'secret123',
             agentName: 'user-' + Math.random().toString(36).substr(2, 5),
-            api: 'https://hmdevonline.com/messaging-platform/api',
+            api: 'https://hmdevonline.com/messaging-platform/api/v1/messaging-service',
             apiKey: 'your-api-key',
             autoReceive: true
         });
 
         function send() {
             const input = document.getElementById('input');
-            agent.sendTextMessage(input.value);
+            agent.sendMessage(input.value);
             input.value = '';
         }
     </script>
@@ -104,17 +110,20 @@ import com.hmdev.messaging.agent.core.ConnectConfig;
 
 public class QuickChat {
     public static void main(String[] args) throws Exception {
-        AgentConnection agent = new AgentConnection();
-
-        agent.setOnMessage(msg -> {
-            System.out.println(msg.getFrom() + ": " + msg.getContent());
-        });
+        // The constructor takes the API URL, and your key if you have one.
+        AgentConnection agent = new AgentConnection(
+            "https://hmdevonline.com/messaging-platform/api/v1/messaging-service",
+            "your-api-key");
 
         agent.connect(ConnectConfig.builder()
             .channelName("my-channel")
             .channelPassword("secret123")
             .agentName("java-user")
             .build());
+
+        // Handlers are registered after connecting.
+        agent.receiveAsync(events -> events.forEach(e ->
+            System.out.println(e.getFrom() + ": " + e.getContent())));
 
         agent.sendMessage("Hello from Java!");
     }
@@ -124,21 +133,22 @@ public class QuickChat {
 ### Python
 
 ```python
-from messaging_agent import AgentConnection
+from hmdev.messaging.agent.core.agent_connection import AgentConnection
 
-agent = AgentConnection()
-
-@agent.on_message
-def handle_message(msg):
-    print(f"{msg['from']}: {msg['content']}")
+agent = AgentConnection.with_api_key(
+    "https://hmdevonline.com/messaging-platform/api/v1/messaging-service",
+    "your-api-key")
 
 agent.connect(
-    api_url="https://hmdevonline.com/messaging-platform/api",
-    api_key="your-api-key",
     channel_name="my-channel",
     channel_password="secret123",
     agent_name="python-user"
 )
+
+# Register the handler after connecting.
+agent.receive_async(lambda events: [
+    print(f"{e.get('from')}: {e.get('content')}") for e in events
+])
 
 agent.send_message("Hello from Python!")
 ```
@@ -238,11 +248,11 @@ Then open the demo site on the port the command prints.
 Include in your HTML:
 
 ```html
-<script src="https://hmdevonline.com/messaging-platform/sdk/js/web-agent.libs.js"></script>
-<script src="https://hmdevonline.com/messaging-platform/sdk/js/web-agent.js"></script>
+<script src="https://hmdevonline.com/messaging-platform/sdk/generated-web-agent-js/js/web-agent.libs.js"></script>
+<script src="https://hmdevonline.com/messaging-platform/sdk/generated-web-agent-js/js/web-agent.js"></script>
 
 <!-- Optional: WebRTC support -->
-<script src="https://hmdevonline.com/messaging-platform/sdk/js/web-agent.webrtc.js"></script>
+<script src="https://hmdevonline.com/messaging-platform/sdk/generated-web-agent-js/js/web-agent.webrtc.js"></script>
 ```
 
 Or use from your build:
