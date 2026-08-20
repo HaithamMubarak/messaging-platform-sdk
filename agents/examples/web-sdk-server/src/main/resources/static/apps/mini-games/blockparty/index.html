@@ -155,6 +155,54 @@
         .bp-mode__emoji { font-size: 20px; }
         .bp-mode h3 { font-size: var(--fs-md); margin: 0; }
         .bp-mode p { font-size: var(--fs-sm); color: var(--text-muted); margin: 0; }
+    
+        /* ---- "find it in the demo" recipes -------------------------------
+         * Every screenshot on this page is a real screen, but most of them sit
+         * behind one of two toolbar buttons, so a first-time visitor scrolls
+         * past a gallery of things they cannot find. These map each picture to
+         * the clicks that reach it. */
+        .bp-try { display: grid; gap: var(--sp-3); }
+        .bp-try__row {
+            display: grid;
+            grid-template-columns: 13rem 1fr;
+            gap: var(--sp-4);
+            align-items: start;
+            padding: var(--sp-4) 0;
+            border-top: 1px solid var(--border);
+        }
+        .bp-try__row:first-child { border-top: 0; }
+        .bp-try__what { font-weight: 650; color: var(--text); font-size: var(--fs-sm); }
+        .bp-try__how { margin: 0; font-size: var(--fs-sm); color: var(--text-muted); }
+        .bp-key {
+            display: inline-block;
+            padding: 1px 8px;
+            border: 1px solid var(--border-strong);
+            border-radius: var(--r-sm);
+            background: var(--surface-2);
+            color: var(--text-body);
+            font-size: 0.9em;
+            white-space: nowrap;
+        }
+        .bp-try__note {
+            margin: var(--sp-2) 0 0;
+            font-size: var(--fs-xs);
+            color: var(--text-faint);
+        }
+        @media (max-width: 720px) {
+            .bp-try__row { grid-template-columns: 1fr; gap: var(--sp-2); padding: var(--sp-3) 0; }
+        }
+    
+        /* The path to the screen in the picture, kept with the picture. */
+        .bp-where {
+            margin: 0;
+            padding: var(--sp-3) var(--sp-4);
+            border-top: 1px solid var(--border);
+            background: var(--surface-1);
+            font-size: var(--fs-xs);
+            color: var(--text-muted);
+        }
+        .bp-where b { color: var(--text-body); font-weight: 650; }
+        .bp-where a { color: var(--accent-ink, var(--brand-ink)); }
     </style>
 
     <script src="../../../js/prod-log.js" defer></script>
@@ -189,6 +237,7 @@
 <nav class="bp-jump" aria-label="On this page">
     <div class="wrap bp-jump__inner">
         <span class="bp-jump__label">BlockParty</span>
+        <a href="#try">Follow along</a>
         <a href="#maps-head">Maps</a>
         <a href="#ground">The ground</a>
         <a href="#scale">Scale</a>
@@ -234,6 +283,7 @@
                 </div>
                 <img class="bp-shot" src="images/ground-streets.jpg" width="1440" height="900" loading="eager" decoding="async"
                      alt="A voxel old town standing on the real streets by St Paul's, with the OpenStreetMap ground painted under the blocks and the build toolbar along the bottom.">
+                <p class="bp-where">In the demo: <b>🗂 Worlds &amp; room</b> → <em>Pin to my location</em> or <em>Travel here</em> → <em>Draw this place</em>. <a href="#try">All the paths →</a></p>
             </div>
         </div>
     </section>
@@ -265,6 +315,119 @@
                     <span class="bp-stat__l">per block</span>
                     <span class="bp-stat__s">the whole scale ladder</span>
                 </div>
+            </div>
+        </div>
+    </section>
+
+
+    <!-- ======================================================= Find it live -->
+    <section id="try">
+        <div class="wrap">
+            <div class="section-head">
+                <span class="eyebrow">Follow along</span>
+                <h2>Every screen below, and where it hides in the demo</h2>
+                <p>Nothing on this page is a mock-up — but almost none of it is on screen when you arrive. A new room
+                   opens on an empty world with a build toolbar, and everything else lives behind two buttons in the
+                   top bar. Open the demo beside this page and work down the list.</p>
+            </div>
+
+            <p style="margin: 0 0 var(--sp-5); font-size: var(--fs-md); color: var(--text-body)">
+                Press <span class="bp-key">Connect</span> on the card that greets you — the name, room and password are
+                already filled in. You are on your own in there, which also makes you the host, so every control below
+                is yours to press.
+            </p>
+
+            <div class="bp-try">
+
+                <div class="bp-try__row">
+                    <span class="bp-try__what">The world standing on real streets</span>
+                    <p class="bp-try__how">
+                        <span class="bp-key">🗂 Worlds &amp; room</span> → <em>Pin to my location</em>, or type coordinates
+                        and press <em>Travel here</em> → pick a <em>Ground</em> (<em>Coastline</em> or
+                        <em>Ground &amp; sea</em>) → <em>Draw this place</em>. The strip at the top of the picture above
+                        names the place and the scale it was drawn at.
+                    </p>
+                </div>
+
+                <div class="bp-try__row">
+                    <span class="bp-try__what">The eighteen maps, and the fifty real places</span>
+                    <p class="bp-try__how">
+                        <span class="bp-key">🗂 Worlds &amp; room</span> → scroll to <em>Load a map</em>. Three tabs:
+                        <em>Built in · 18</em>, <em>Real places · 50</em>, and <em>Saved here</em>, which fills up with
+                        whatever this room has kept. Below them, <em>Or make one</em> builds a map
+                        <em>From a picture</em>, <em>From a real place</em> or <em>From a save</em>.
+                    </p>
+                </div>
+
+                <div class="bp-try__row">
+                    <span class="bp-try__what">The scale ladder</span>
+                    <p class="bp-try__how">
+                        <span class="bp-key">🗂 Worlds &amp; room</span> → the dropdown beside <em>Pin to my location</em>. Eight rungs,
+                        from <em>Street · 1 m per block</em> up to <em>Planet · 250 km</em>. The world stays
+                        161 × 161 blocks at every rung — only what a block <em>means</em> changes.
+                    </p>
+                </div>
+
+                <div class="bp-try__row">
+                    <span class="bp-try__what">A photo turned into a building</span>
+                    <p class="bp-try__how">
+                        <span class="bp-key">🗂 Worlds &amp; room</span> → <em>Or make one</em> → <em>🖼 From a picture</em>. Brightness
+                        becomes height, so a light sky and a dark skyline come out as a ridge line.
+                    </p>
+                </div>
+
+                <div class="bp-try__row">
+                    <span class="bp-try__what">The twelve modes</span>
+                    <p class="bp-try__how">
+                        <span class="bp-key">🎮 Play</span> in the top bar. The picker lists all twelve with rounds,
+                        blueprint source and round time along the top.
+                        <span class="bp-try__note">
+                            Six run with one player: Blueprint Race, Where on Earth, Team Build, Memory Match,
+                            Earthquake and Demolition Party. Voxel Charades and Territory need two. Relay Sculptors,
+                            Postcard, Saboteur and Block Rush need three — the picker greys those out and says
+                            <em>“Needs 3+ players — you have 1”</em> rather than letting you start something that
+                            cannot finish. That is the likeliest reason a mode on this page looks missing.
+                        </span>
+                    </p>
+                </div>
+
+                <div class="bp-try__row">
+                    <span class="bp-try__what">Getting a second and third player</span>
+                    <p class="bp-try__how">
+                        <span class="bp-key">🔗 Share</span> copies the room link. Open it in another tab, another
+                        window, or on your phone — each one joins as a separate player, which is enough to unlock
+                        every mode. No account, no install.
+                    </p>
+                </div>
+
+                <div class="bp-try__row">
+                    <span class="bp-try__what">Memory Match and Postcard, round by round</span>
+                    <p class="bp-try__how">
+                        <span class="bp-key">🎮 Play</span> → <em>Memory Match</em> (works alone) or <em>Postcard</em>
+                        (needs three, because the room votes and you cannot vote for yourself). The scoreboards further
+                        down this page are what appears when the round ends.
+                    </p>
+                </div>
+
+                <div class="bp-try__row">
+                    <span class="bp-try__what">The time-lapse</span>
+                    <p class="bp-try__how">
+                        <span class="bp-key">🗂 Worlds &amp; room</span> → <em>Time-lapse</em> → <em>▶ Play the time-lapse</em>. It
+                        replays the room from whatever it looked like when you arrived, on your screen only — build
+                        something first or it has nothing to show.
+                    </p>
+                </div>
+
+                <div class="bp-try__row">
+                    <span class="bp-try__what">The map under your feet</span>
+                    <p class="bp-try__how">
+                        <span class="bp-key">🗺 Map</span> (or press <span class="bp-key">N</span>) opens the minimap, with
+                        the coastline, the lat/lon grid, what has been built and where everyone is standing.
+                        <span class="bp-key">🚶 Walk</span> (or <span class="bp-key">G</span>) drops you into the world in
+                        first person to walk it.
+                    </p>
+                </div>
+
             </div>
         </div>
     </section>
@@ -351,6 +514,7 @@
                 <div class="bp-frame__bar"><span>Worlds &amp; room · ground and scale</span><span>in the game</span></div>
                 <img class="bp-shot" src="images/world-panel.jpg" width="1440" height="900" loading="lazy" decoding="async"
                      alt="The world panel: coordinates and metres per block, a Ground control set to Streets with a strength slider, the sky mode, and the scale ladder.">
+                <p class="bp-where">In the demo: <b>🗂 Worlds &amp; room</b> in the top bar. <a href="#try">All the paths →</a></p>
             </div>
         </div>
     </section>
@@ -432,6 +596,7 @@
                 <div class="bp-frame__bar"><span>Turn a picture into blocks</span><span>solid relief</span></div>
                 <img class="bp-shot" src="images/picture-import.jpg" width="1440" height="900" loading="lazy" decoding="async"
                      alt="The picture import panel: five build styles, colour mode, width and depth, background removal, and two previews showing the colours it read and the depth it will build with.">
+                <p class="bp-where">In the demo: <b>🗂 Worlds &amp; room</b> → <em>Or make one</em> → <em>🖼 From a picture</em>. <a href="#try">All the paths →</a></p>
             </div>
             <div>
                 <span class="eyebrow">Bring your own</span>
@@ -575,6 +740,7 @@
                 <div class="bp-frame__bar"><span>Start a match</span><span>grouped by what kind of round it is</span></div>
                 <img class="bp-shot" src="images/mode-picker.jpg" width="1440" height="900" loading="lazy" decoding="async"
                      alt="The mode picker: filter chips for all twelve modes, Build, Guess, Remember and Wreck, with each mode card showing what it does and how many players it needs.">
+                <p class="bp-where">In the demo: <b>🎮 Play</b> in the top bar. <a href="#try">All the paths →</a></p>
             </div>
         </div>
     </section>
@@ -631,6 +797,7 @@
                 <div class="bp-frame__bar"><span>A Postcard round</span><span>round 1 of 3</span></div>
                 <img class="bp-shot" src="images/postcard-round.jpg" width="1440" height="900" loading="lazy" decoding="async"
                      alt="A Postcard round in progress: the reference picture pinned to the right, a half-built lighthouse on the player's plot, and the match clock across the top.">
+                <p class="bp-where">In the demo: <b>🎮 Play</b> → <em>Postcard</em>. It needs three players — <b>🔗 Share</b> copies the room link, and each tab you open in joins as another player. <a href="#try">All the paths →</a></p>
                 <div class="bp-ref">
                     <div class="bp-ref__pic"><svg viewBox="0 0 288 288" width="100%" height="100%" aria-hidden="true" style="display:block"><rect x="108" y="0" width="18" height="18" fill="#facc15"/><rect x="126" y="0" width="18" height="18" fill="#facc15"/><rect x="144" y="0" width="18" height="18" fill="#facc15"/><rect x="162" y="0" width="18" height="18" fill="#facc15"/><rect x="108" y="18" width="18" height="18" fill="#facc15"/><rect x="126" y="18" width="18" height="18" fill="#facc15"/><rect x="144" y="18" width="18" height="18" fill="#facc15"/><rect x="162" y="18" width="18" height="18" fill="#facc15"/><rect x="90" y="36" width="18" height="18" fill="#94a3b8"/><rect x="108" y="36" width="18" height="18" fill="#94a3b8"/><rect x="126" y="36" width="18" height="18" fill="#94a3b8"/><rect x="144" y="36" width="18" height="18" fill="#94a3b8"/><rect x="162" y="36" width="18" height="18" fill="#94a3b8"/><rect x="180" y="36" width="18" height="18" fill="#94a3b8"/><rect x="108" y="54" width="18" height="18" fill="#ffffff"/><rect x="126" y="54" width="18" height="18" fill="#ffffff"/><rect x="144" y="54" width="18" height="18" fill="#ffffff"/><rect x="162" y="54" width="18" height="18" fill="#ffffff"/><rect x="108" y="72" width="18" height="18" fill="#ffffff"/><rect x="126" y="72" width="18" height="18" fill="#ffffff"/><rect x="144" y="72" width="18" height="18" fill="#ffffff"/><rect x="162" y="72" width="18" height="18" fill="#ffffff"/><rect x="108" y="90" width="18" height="18" fill="#ef4444"/><rect x="126" y="90" width="18" height="18" fill="#ef4444"/><rect x="144" y="90" width="18" height="18" fill="#ef4444"/><rect x="162" y="90" width="18" height="18" fill="#ef4444"/><rect x="108" y="108" width="18" height="18" fill="#ef4444"/><rect x="126" y="108" width="18" height="18" fill="#ef4444"/><rect x="144" y="108" width="18" height="18" fill="#ef4444"/><rect x="162" y="108" width="18" height="18" fill="#ef4444"/><rect x="108" y="126" width="18" height="18" fill="#ffffff"/><rect x="126" y="126" width="18" height="18" fill="#ffffff"/><rect x="144" y="126" width="18" height="18" fill="#ffffff"/><rect x="162" y="126" width="18" height="18" fill="#ffffff"/><rect x="108" y="144" width="18" height="18" fill="#ffffff"/><rect x="126" y="144" width="18" height="18" fill="#ffffff"/><rect x="144" y="144" width="18" height="18" fill="#ffffff"/><rect x="162" y="144" width="18" height="18" fill="#ffffff"/><rect x="108" y="162" width="18" height="18" fill="#ef4444"/><rect x="126" y="162" width="18" height="18" fill="#ef4444"/><rect x="144" y="162" width="18" height="18" fill="#ef4444"/><rect x="162" y="162" width="18" height="18" fill="#ef4444"/><rect x="108" y="180" width="18" height="18" fill="#ef4444"/><rect x="126" y="180" width="18" height="18" fill="#ef4444"/><rect x="144" y="180" width="18" height="18" fill="#ef4444"/><rect x="162" y="180" width="18" height="18" fill="#ef4444"/><rect x="108" y="198" width="18" height="18" fill="#ffffff"/><rect x="126" y="198" width="18" height="18" fill="#ffffff"/><rect x="144" y="198" width="18" height="18" fill="#ffffff"/><rect x="162" y="198" width="18" height="18" fill="#ffffff"/><rect x="54" y="216" width="18" height="18" fill="#94a3b8"/><rect x="72" y="216" width="18" height="18" fill="#94a3b8"/><rect x="90" y="216" width="18" height="18" fill="#94a3b8"/><rect x="108" y="216" width="18" height="18" fill="#ffffff"/><rect x="126" y="216" width="18" height="18" fill="#ffffff"/><rect x="144" y="216" width="18" height="18" fill="#ffffff"/><rect x="162" y="216" width="18" height="18" fill="#ffffff"/><rect x="180" y="216" width="18" height="18" fill="#94a3b8"/><rect x="198" y="216" width="18" height="18" fill="#94a3b8"/><rect x="216" y="216" width="18" height="18" fill="#94a3b8"/><rect x="0" y="234" width="18" height="18" fill="#06b6d4"/><rect x="18" y="234" width="18" height="18" fill="#06b6d4"/><rect x="36" y="234" width="18" height="18" fill="#06b6d4"/><rect x="54" y="234" width="18" height="18" fill="#94a3b8"/><rect x="72" y="234" width="18" height="18" fill="#94a3b8"/><rect x="90" y="234" width="18" height="18" fill="#94a3b8"/><rect x="108" y="234" width="18" height="18" fill="#94a3b8"/><rect x="126" y="234" width="18" height="18" fill="#94a3b8"/><rect x="144" y="234" width="18" height="18" fill="#94a3b8"/><rect x="162" y="234" width="18" height="18" fill="#94a3b8"/><rect x="180" y="234" width="18" height="18" fill="#94a3b8"/><rect x="198" y="234" width="18" height="18" fill="#94a3b8"/><rect x="216" y="234" width="18" height="18" fill="#94a3b8"/><rect x="234" y="234" width="18" height="18" fill="#06b6d4"/><rect x="252" y="234" width="18" height="18" fill="#06b6d4"/><rect x="270" y="234" width="18" height="18" fill="#06b6d4"/><rect x="0" y="252" width="18" height="18" fill="#06b6d4"/><rect x="18" y="252" width="18" height="18" fill="#06b6d4"/><rect x="36" y="252" width="18" height="18" fill="#06b6d4"/><rect x="54" y="252" width="18" height="18" fill="#94a3b8"/><rect x="72" y="252" width="18" height="18" fill="#94a3b8"/><rect x="90" y="252" width="18" height="18" fill="#94a3b8"/><rect x="108" y="252" width="18" height="18" fill="#94a3b8"/><rect x="126" y="252" width="18" height="18" fill="#94a3b8"/><rect x="144" y="252" width="18" height="18" fill="#94a3b8"/><rect x="162" y="252" width="18" height="18" fill="#94a3b8"/><rect x="180" y="252" width="18" height="18" fill="#94a3b8"/><rect x="198" y="252" width="18" height="18" fill="#94a3b8"/><rect x="216" y="252" width="18" height="18" fill="#94a3b8"/><rect x="234" y="252" width="18" height="18" fill="#06b6d4"/><rect x="252" y="252" width="18" height="18" fill="#06b6d4"/><rect x="270" y="252" width="18" height="18" fill="#06b6d4"/><rect x="0" y="270" width="18" height="18" fill="#06b6d4"/><rect x="18" y="270" width="18" height="18" fill="#06b6d4"/><rect x="36" y="270" width="18" height="18" fill="#06b6d4"/><rect x="54" y="270" width="18" height="18" fill="#06b6d4"/><rect x="72" y="270" width="18" height="18" fill="#06b6d4"/><rect x="90" y="270" width="18" height="18" fill="#06b6d4"/><rect x="108" y="270" width="18" height="18" fill="#06b6d4"/><rect x="126" y="270" width="18" height="18" fill="#06b6d4"/><rect x="144" y="270" width="18" height="18" fill="#06b6d4"/><rect x="162" y="270" width="18" height="18" fill="#06b6d4"/><rect x="180" y="270" width="18" height="18" fill="#06b6d4"/><rect x="198" y="270" width="18" height="18" fill="#06b6d4"/><rect x="216" y="270" width="18" height="18" fill="#06b6d4"/><rect x="234" y="270" width="18" height="18" fill="#06b6d4"/><rect x="252" y="270" width="18" height="18" fill="#06b6d4"/><rect x="270" y="270" width="18" height="18" fill="#06b6d4"/></svg></div>
                     <p class="bp-ref__note">One of the twelve pictures, full size: sixteen squares across, in the same
@@ -669,6 +836,7 @@
                 <div class="bp-frame__bar"><span>Load a map</span><span>built in · real places · saved here</span></div>
                 <img class="bp-shot" src="images/map-library.jpg" width="1440" height="900" loading="lazy" decoding="async"
                      alt="The map library: tabs for the built-in maps, fifty real places and the room's own saves, a search box, and cards for each map.">
+                <p class="bp-where">In the demo: <b>🗂 Worlds &amp; room</b> → scroll to <em>Load a map</em>. <a href="#try">All the paths →</a></p>
             </div>
             <div class="bp-maps">
                 <div class="bp-map">
