@@ -32,6 +32,11 @@ dependencies {
     implementation 'org.springframework.boot:spring-boot-starter-web'
     implementation 'org.springframework.boot:spring-boot-starter-actuator'
 
+    // Redis, used only to share short session codes between instances and
+    // across restarts. Optional at runtime: without session-code.redis-enabled
+    // the store stays in memory and nothing here is contacted.
+    implementation 'org.springframework.boot:spring-boot-starter-data-redis'
+
     // Configuration
     implementation 'org.springframework.boot:spring-boot-configuration-processor'
     annotationProcessor 'org.springframework.boot:spring-boot-configuration-processor'
@@ -160,6 +165,15 @@ clean {
 bootJar {
     archiveFileName = 'web-sdk-server.jar'
     mainClass = 'com.hmdev.messaging.sdk.SdkWebApplication'
+
+    // ApiController reports this on /app/api/health; without it the endpoint
+    // has to fall back to "dev".
+    manifest {
+        attributes(
+            'Implementation-Title': 'web-sdk-server',
+            'Implementation-Version': project.version
+        )
+    }
 }
 
 // Create plain jar (for use as library/dependency)

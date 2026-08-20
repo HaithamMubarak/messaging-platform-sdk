@@ -1,6 +1,7 @@
 package com.hmdev.messaging.sdk.controller;
 
 import com.hmdev.messaging.sdk.dto.JsonResponse;
+import com.hmdev.messaging.sdk.service.SessionCodeStore;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
@@ -12,7 +13,6 @@ import java.time.Duration;
 import java.time.Instant;
 import java.util.LinkedHashMap;
 import java.util.Map;
-import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicInteger;
 
 /**
@@ -85,27 +85,12 @@ public class SessionCodeController {
 
     private static final SecureRandom RANDOM = new SecureRandom();
 
-    private final Map<String, Entry> codes = new ConcurrentHashMap<>();
+    private final SessionCodeStore store;
     private final AtomicInteger missesThisMinute = new AtomicInteger();
     private volatile Instant missWindowStarted = Instant.now();
 
-    /** What a code stands for, and how much life it has left. */
-    private static final class Entry {
-        final String channel;
-        final String password;
-        final Instant expiresAt;
-        final AtomicInteger redemptionsLeft;
-
-        Entry(String channel, String password, Instant expiresAt) {
-            this.channel = channel;
-            this.password = password;
-            this.expiresAt = expiresAt;
-            this.redemptionsLeft = new AtomicInteger(MAX_REDEMPTIONS);
-        }
-
-        boolean expired() {
-            return Instant.now().isAfter(expiresAt);
-        }
+    public SessionCodeController(SessionCodeStore store) {
+        this.store = store;
     }
 
     /**
@@ -128,19 +113,17 @@ public class SessionCodeController {
                     .body(JsonResponse.error("That channel or password is too long to be real."));
         }
 
-        sweep();
-        if (codes.size() >= MAX_LIVE_CODES) {
-            log.warn("[session-code] refusing to mint: {} codes already live", codes.size());
+        if (store.liveInMemory() >= MAX_LIVE_CODES) {
+            log.warn("[session-code] refusing to mint: {} codes already held here", store.liveInMemory());
             return ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE)
                     .body(JsonResponse.error("Too many codes are in use right now. Share the link instead."));
         }
 
         String code = mintUnusedCode();
-        codes.put(code, new Entry(channel, password,
-                Instant.now().plus(Duration.ofMinutes(TTL_MINUTES))));
+        store.put(code, channel, password, Duration.ofMinutes(TTL_MINUTES), MAX_REDEMPTIONS);
 
         // The code is safe to log; what it stands for is not.
-        log.info("[session-code] minted {} (live: {})", code, codes.size());
+        log.info("[session-code] minted {}", code);
 
         Map<String, Object> data = new LinkedHashMap<>();
         data.put("code", code);
@@ -159,26 +142,19 @@ public class SessionCodeController {
     @GetMapping(value = "/{code}", produces = MediaType.APPLICATION_JSON_VALUE)
     public ResponseEntity<JsonResponse> redeem(@PathVariable("code") String code) {
         String key = normalise(code);
-        sweep();
-
-        Entry entry = key == null ? null : codes.get(key);
-        if (entry == null || entry.expired()) {
-            if (key != null) {
-                codes.remove(key);
-            }
+        if (key == null) {
             return miss();
         }
 
-        if (entry.redemptionsLeft.decrementAndGet() < 0) {
-            codes.remove(key);
-            return miss();
-        }
-
-        Map<String, Object> data = new LinkedHashMap<>();
-        data.put("channel", entry.channel);
-        data.put("password", entry.password);
-        data.put("redemptionsLeft", Math.max(0, entry.redemptionsLeft.get()));
-        return ResponseEntity.ok(JsonResponse.success(data));
+        return store.redeem(key)
+                .map(room -> {
+                    Map<String, Object> data = new LinkedHashMap<>();
+                    data.put("channel", room.channel());
+                    data.put("password", room.password());
+                    data.put("redemptionsLeft", room.redemptionsLeft());
+                    return ResponseEntity.ok(JsonResponse.success(data));
+                })
+                .orElseGet(this::miss);
     }
 
     /**
@@ -203,17 +179,12 @@ public class SessionCodeController {
             String candidate = WORDS[RANDOM.nextInt(WORDS.length)]
                     + "-" + WORDS[RANDOM.nextInt(WORDS.length)]
                     + "-" + (10 + RANDOM.nextInt(90));
-            if (!codes.containsKey(candidate)) {
+            if (!store.exists(candidate)) {
                 return candidate;
             }
         }
         // Vanishingly unlikely; fall back to something that cannot collide.
         return "room-" + Long.toString(Math.abs(RANDOM.nextLong()), 36);
-    }
-
-    /** Drop what has expired. Cheap, and keeps the map honest about its size. */
-    private void sweep() {
-        codes.entrySet().removeIf(e -> e.getValue().expired());
     }
 
     private static String normalise(String code) {
