@@ -207,6 +207,11 @@ section { padding-block: var(--sp-24); }
 /* --- Feature grid ------------------------------------------------------- */
 .grid-3 { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: var(--sp-5); }
 .grid-2 { display: grid; grid-template-columns: repeat(auto-fit, minmax(340px, 1fr)); gap: var(--sp-5); }
+
+/* The flagship tier is four cards and wants to read as two pairs, not as a
+   row of three with one stranded underneath. */
+#flagshipGrid { grid-template-columns: repeat(auto-fit, minmax(min(100%, 420px), 1fr)); }
+@media (min-width: 900px) { #flagshipGrid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
 .grid-4 { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: var(--sp-5); }
 
 .tile-icon {

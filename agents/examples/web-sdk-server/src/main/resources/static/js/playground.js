@@ -59,7 +59,9 @@
         if (empty) empty.hidden = shown !== 0;
 
         // Section headings for a section with nothing left in it are noise.
-        document.querySelectorAll('#gameGrid, #toolGrid').forEach(function (grid) {
+        // Every grid that holds entries, not a hardcoded pair — a third tier
+        // was added and the old list silently left its heading behind.
+        document.querySelectorAll('[data-entry-grid]').forEach(function (grid) {
             var any = Array.prototype.some.call(grid.children, function (c) { return !c.hidden; });
             var section = grid.closest('section');
             if (section) section.hidden = !any;
