@@ -6337,6 +6337,7 @@
             };
 
             on('playBtn', 'click', () => this._openModePicker());
+            on('quickPlayBtn', 'click', () => this.startQuickPlay());
             on('modeClose', 'click', () => this._closeModePicker());
             on('modeModal', 'click', (e) => { if (e.target.id === 'modeModal') this._closeModePicker(); });
             on('modeStart', 'click', () => {
@@ -6478,6 +6479,22 @@
             const startBtn = document.getElementById('modeStart');
             if (startBtn) startBtn.disabled = !isHost;
             modal.classList.remove('hidden');
+        }
+
+        /** Start a short compatible round without making the host browse modes. */
+        startQuickPlay() {
+            if (!this.isHost()) { this.showToast('Only the host can start Quick Play', 'warning'); return; }
+            if (!this.modes || this.modes.isMatchActive()) { this.showToast('Finish the current match first', 'warning'); return; }
+            const players = Math.max(1, (this.getConnectedUsers() || []).length);
+            const choices = BlockPartyModes.MODES.filter(m => m.ready && players >= (m.minPlayers || 1));
+            if (!choices.length) { this.showToast('No compatible game for this room yet', 'warning'); return; }
+            // Cycle through the compatible catalog so a second click feels fresh
+            // while retaining a predictable, testable selection order.
+            const previous = choices.findIndex(m => m.id === this._lastQuickMode);
+            const pick = choices[(previous + 1 + choices.length) % choices.length];
+            this._lastQuickMode = pick.id;
+            this.showToast(`Quick Play: ${pick.emoji} ${pick.name}`, 'success', 2200);
+            this.modes.startMatch(pick.id, { rounds: 1, roundTime: pick.defaultTime || 120, source: 'builtin' });
         }
 
         // Say up front which modes want more people, rather than letting someone
