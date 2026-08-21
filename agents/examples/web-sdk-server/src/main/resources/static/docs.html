@@ -49,6 +49,8 @@
             overflow: hidden;
         }
 
+        .docs-footer { flex-shrink: 0; padding-block: var(--sp-4); }
+
         /* The docs shell is the one page on the site that scrolls its middle
            rather than its body, so the shared sticky header would fight it.
            It gets the site header's appearance without its position. */
@@ -380,6 +382,18 @@
             </div>
         </main>
     </div>
+
+    <!-- Every other page on the site closes with this. The docs shell is the
+         one page whose middle scrolls rather than its body, so the footer sits
+         outside the scrolling area and stays put. -->
+    <footer class="site-footer docs-footer">
+        <div class="wrap">
+            <div class="footer-bottom">
+                <span>&copy; 2026 Messaging Platform SDK</span>
+                <span><a href="playground.html">Back to the playground</a></span>
+            </div>
+        </div>
+    </footer>
 
     <script>
         // Every document the docs shell can render. Cross-links between them
