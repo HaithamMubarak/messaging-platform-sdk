@@ -30,16 +30,33 @@
     <!-- Three.js r150 (local) -->
     <script src="libs/three.min.js"></script>
 
-    <!-- Rapier Physics Engine (CDN - esm.sh) -->
+    <!-- Rapier physics, from a CDN — the only external runtime dependency in
+         the whole mini-games folder. It is not vendored in this repository, so
+         a blocked or offline CDN is a real failure mode; it used to be a
+         silent one, leaving a blank page and a console line nobody reads. -->
     <script type="module">
-        import * as RAPIER from 'https://esm.sh/@dimforge/rapier3d-compat@0.11.2';
-
-        await RAPIER.init();
-
-        window.RAPIER = RAPIER;
-        window.dispatchEvent(new CustomEvent('rapier-loaded'));
-        console.log('[Rapier] Loaded from esm.sh CDN');
+        try {
+            const RAPIER = await import('https://esm.sh/@dimforge/rapier3d-compat@0.11.2');
+            await RAPIER.init();
+            window.RAPIER = RAPIER;
+            window.dispatchEvent(new CustomEvent('rapier-loaded'));
+        } catch (err) {
+            console.error('[Rapier] could not load from the CDN:', err);
+            document.addEventListener('DOMContentLoaded', () => {
+                const note = document.createElement('div');
+                note.setAttribute('role', 'alert');
+                note.style.cssText = 'position:fixed;inset:auto 16px 16px 16px;z-index:9999;'
+                    + 'max-width:34rem;margin:0 auto;padding:16px 20px;border-radius:12px;'
+                    + 'background:#2a1215;border:1px solid rgba(248,113,113,.4);color:#fecaca;'
+                    + 'font:14px/1.5 Inter,system-ui,sans-serif';
+                note.textContent = 'The physics engine could not be downloaded, so this game cannot '
+                    + 'start. It is fetched from a public CDN — check the connection, or try one of '
+                    + 'the other games.';
+                document.body.appendChild(note);
+            });
+        }
     </script>
+    <link rel="stylesheet" href="../../../css/app-chrome.css">
 </head>
 <body>
     <!-- Share Button (hidden until connected) -->
@@ -141,16 +158,12 @@
                             <span class="mode-name">Fight</span>
                             <span class="mode-desc">Last one standing wins!</span>
                         </button>
-                        <button class="mode-btn host-only" data-mode="dodgeball" onclick="partyPhysicsGame?.selectMode('dodgeball')">
-                            <span class="mode-icon">⚽</span>
-                            <span class="mode-name">Dodgeball</span>
-                            <span class="mode-desc">Hit opponents with balls!</span>
-                        </button>
-                        <button class="mode-btn host-only" data-mode="race" onclick="partyPhysicsGame?.selectMode('race')">
-                            <span class="mode-icon">🏁</span>
-                            <span class="mode-name">Race</span>
-                            <span class="mode-desc">First to finish wins!</span>
-                        </button>
+                        <!-- Dodgeball and Race were offered here, and both were
+                             scenery: Maps.js defines courses for them, but no ball
+                             entity is ever spawned and no finish line is ever
+                             detected, so choosing either gave you a fight on a
+                             differently shaped floor. They come back when they
+                             are built. -->
                     </div>
                 </div>
 
@@ -306,6 +319,7 @@
 
     <!-- Main Game Script -->
     <script src="party-physics.js"></script>
+<script src="../../../js/app-chrome.js"></script>
 </body>
 </html>
 
