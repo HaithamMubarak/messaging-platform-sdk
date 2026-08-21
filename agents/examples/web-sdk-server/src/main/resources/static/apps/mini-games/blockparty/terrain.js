@@ -28,6 +28,25 @@
         { name: 'sand',     rgb: [245, 233, 198], colour: 2,  height: 0, shape: 1 },
         { name: 'building', rgb: [217, 208, 201], colour: 9,  height: 2, shape: 0 },
         { name: 'building', rgb: [196, 182, 171], colour: 9,  height: 2, shape: 0 },
+
+        // Landuse washes, which are flat ground however pale they look.
+        //
+        // classify() takes the NEAREST legend colour, so every entry it does
+        // not know about lands on whichever one happens to be closest — and
+        // the pale greys of OSM's landuse fills are all nearer to the building
+        // fill (#d9d0c9) than to bare ground (#f2efe9). A residential block or
+        // a pedestrianised square therefore came back as `building`, height 2,
+        // and a place like l'Eixample — where those two cover most of the
+        // tile — was traced as one continuous two-high slab laid over its own
+        // streets. Naming them keeps them flat, and the height<=0 rule below
+        // then leaves them to the painted ground.
+        { name: 'ground',   rgb: [224, 223, 223], colour: null, height: 0, shape: 0 }, // residential
+        { name: 'ground',   rgb: [221, 221, 232], colour: null, height: 0, shape: 0 }, // pedestrian area
+        { name: 'ground',   rgb: [242, 218, 217], colour: null, height: 0, shape: 0 }, // commercial
+        { name: 'ground',   rgb: [255, 214, 209], colour: null, height: 0, shape: 0 }, // retail
+        { name: 'ground',   rgb: [235, 219, 232], colour: null, height: 0, shape: 0 }, // industrial
+        { name: 'ground',   rgb: [255, 255, 229], colour: null, height: 0, shape: 0 }, // school, hospital
+        { name: 'grass',    rgb: [200, 250, 204], colour: 3,  height: 0, shape: 1 },   // park
         { name: 'road',     rgb: [255, 255, 255], colour: 8,  height: 0, shape: 1 },
         { name: 'road',     rgb: [249, 178, 156], colour: 1,  height: 0, shape: 1 },
         { name: 'road',     rgb: [252, 214, 164], colour: 1,  height: 0, shape: 1 },
