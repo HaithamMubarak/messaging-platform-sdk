@@ -227,17 +227,36 @@
         const half = game.voxels.half;
         const { mask, rings, points } = landMask(earth, geo.region, cells);
 
-        const blocks = [];
+        // Count first: a window with no coastline in it has no shape to draw.
         let land = 0;
+        for (let i = 0; i < mask.length; i++) if (mask[i]) land++;
+        const sea = cells * cells - land;
+
+        // This style is called "the real coastline", and a window that is all
+        // land — which is most places anybody pins to, since a coastline has
+        // to be within a couple of hundred metres to fall inside the world —
+        // has no coastline in it. Filling all 25,921 cells with land anyway
+        // laid a featureless green plate over the map the player had just
+        // imported, one block thick, hiding the streets underneath it. All sea
+        // is the same story in blue. Nothing to draw means nothing drawn; the
+        // painted ground already shows this place perfectly well.
+        if (land === 0 || sea === 0) {
+            return {
+                blocks: [], pieces: [], land, sea, rings, points, style: 'earth',
+                featureless: land === 0 ? 'sea' : 'land'
+            };
+        }
+
+        const blocks = [];
         for (let iz = 0; iz < cells; iz++) {
             for (let ix = 0; ix < cells; ix++) {
                 const isLand = mask[iz * cells + ix];
                 const wx = ix - half, wz = iz - half;
-                if (isLand) { blocks.push([wx, 0, wz, LAND]); land++; }
+                if (isLand) blocks.push([wx, 0, wz, LAND]);
                 else blocks.push([wx, 0, wz, SEA, null, SEA_SHAPE]);
             }
         }
-        return { blocks, pieces: [], land, sea: cells * cells - land, rings, points, style: 'earth' };
+        return { blocks, pieces: [], land, sea, rings, points, style: 'earth' };
     }
 
     window.BlockPartyEarth = { load, shapeFor, landMask, groundCanvas, ringPath, decode, PAINT, ASSET };

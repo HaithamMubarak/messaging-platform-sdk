@@ -5343,17 +5343,32 @@
                 const kinds = Object.entries(built.counts || {})
                     .filter(([k]) => k !== 'ground')
                     .sort((a, b) => b[1] - a[1]).slice(0, 3).map(([k]) => k).join(', ');
+                // "Ground & sea" has nothing to say about a window with no
+                // coastline in it, so it draws nothing and says so — rather
+                // than laying a featureless plate over the place and leaving
+                // the player to wonder what it built.
+                const bare = built.featureless;
+                const bareLine = bare === 'sea'
+                    ? 'Open sea here as far as the world reaches — no coastline to draw. '
+                        + 'The ground still shows the place; try a wider scale, or trace the streets instead.'
+                    : 'No coastline within this world — it is all dry land. '
+                        + 'The ground still shows the place; try a wider scale, or trace the streets instead.';
+
                 if (note) note.textContent = built.style === 'earth'
-                    ? `Ground and sea from the real coastlines — ${built.land} land, ${built.sea} sea.`
+                    ? (bare ? bareLine
+                        : `Ground and sea from the real coastlines — ${built.land} land, ${built.sea} sea.`)
                     : built.style === 'outline'
                         ? `Outlined from map tiles at zoom ${built.zoom} — coastlines and borders only.`
                         : `Traced from map tiles at zoom ${built.zoom} — mostly ${kinds}.`;
                 this.showToast(built.style === 'earth'
-                    ? `Ground and sea drawn here — ${built.land} land, ${built.sea} sea`
+                    ? (bare
+                        ? (bare === 'sea' ? 'Nothing but sea here — nothing to draw'
+                                          : 'No coastline here — nothing to draw')
+                        : `Ground and sea drawn here — ${built.land} land, ${built.sea} sea`)
                     : opts.quiet
                         ? `Drew this place from the map — ${this.voxels.count()} blocks`
                         : `Traced ${this.voxels.count()} blocks from the map in ${Date.now() - t0}ms`,
-                    'success', 3600);
+                    bare ? 'info' : 'success', bare ? 5200 : 3600);
             } catch (e) {
                 if (note) note.textContent = e.message;
                 if (!opts.quiet) this.showToast(e.message, 'error', 4200);
