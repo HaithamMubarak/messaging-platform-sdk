@@ -4084,6 +4084,10 @@
                 }
             });
 
+            [['geoStepN', 'n'], ['geoStepE', 'e'], ['geoStepS', 's'], ['geoStepW', 'w']].forEach(([id, dir]) => {
+                on(id, 'click', () => this.travelNeighbour(dir));
+            });
+
             on('geoScale', 'change', () => {
                 // Changing the scale is itself a move: the region is a
                 // different size, so it is a different region.
@@ -4284,6 +4288,11 @@
             }
             const anchorBtn = document.getElementById('geoAnchorBtn');
             if (anchorBtn) anchorBtn.disabled = !this.isHost();
+            const canStep = !!anchor && this.isHost() && !(this.modes && this.modes.isMatchActive());
+            ['geoStepN', 'geoStepE', 'geoStepS', 'geoStepW'].forEach(id => {
+                const step = document.getElementById(id);
+                if (step) step.disabled = !canStep;
+            });
 
             const list = document.getElementById('geoList');
             if (list) {
@@ -4327,6 +4336,23 @@
             if (this._groundStyle === 'streets') this.showToast('Ground: Streets — fetching the map for this place…', 'info', 2200);
             else this.showToast(`Ground: ${this._groundStyle === 'coast' ? 'Coastline' : 'Plain'}`, 'info', 1800);
             this.paintGround();
+        }
+
+        /**
+         * Move the entire room into the adjacent persistent map world. The
+         * region grid is exact, so this never leaves a sliver of real ground
+         * between worlds and returning restores the build that was there.
+         */
+        travelNeighbour(dir) {
+            if (!this.geo || !this.geo.region) {
+                this.showToast('Pin this world to a place first', 'warning');
+                return null;
+            }
+            const next = this.geo.neighbour(dir);
+            if (!next) return null;
+            const names = { n: 'north', e: 'east', s: 'south', w: 'west' };
+            this.showToast(`Crossing into the neighbouring world to the ${names[dir] || 'next'}…`, 'info', 2200);
+            return this.travelTo(next.lat, next.lon, next.mpc);
         }
 
         /**
