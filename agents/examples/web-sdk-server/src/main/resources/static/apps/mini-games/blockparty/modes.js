@@ -82,6 +82,14 @@
         { x: -38, z: -28, label: 'Old station' },
         { x: 25, z: 40, label: 'Hilltop house' }
     ];
+    const TREASURE_START = { x: 0, z: 0 };
+    const TREASURES = [
+        { x: -46, z: -35, label: 'the cedar grove' },
+        { x: 41, z: -40, label: 'the old quay' },
+        { x: 47, z: 24, label: 'the windmill hill' },
+        { x: -22, z: 43, label: 'the north ruins' },
+        { x: -42, z: 8, label: 'the stone bridge' }
+    ];
     const HINT_AT = [0.45, 0.7, 0.85];   // fraction elapsed -> one more letter
     // Never more than this share of a word, however long the round runs. Ten of
     // the ninety-eight words are three letters, and three reveals spelled every
@@ -235,6 +243,10 @@
         delivery: {
             flow: ['countdown', 'play', 'reveal'],
             relay: false, hide: false, scoreAt: 'play', noBuild: true
+        },
+        treasure: {
+            flow: ['countdown', 'play', 'reveal'],
+            relay: false, hide: false, scoreAt: 'play', noBuild: true
         }
     };
 
@@ -335,6 +347,10 @@
         {
             id: 'delivery', kind: 'race', name: 'Delivery Run', emoji: '📦', ready: true, defaultTime: 150, minPlayers: 1, note: 'Solo works: race your delivery time; return to the depot for each parcel.',
             desc: 'Pick up at the depot, carry each parcel to its marked stop, then return for the next one. The host validates every pickup and delivery from movement.'
+        },
+        {
+            id: 'treasure', kind: 'race', name: 'Treasure Hunt', emoji: '🗺️', ready: true, defaultTime: 180, minPlayers: 1, note: 'Solo works: find every cache before time runs out.',
+            desc: 'Follow compass clues to hidden caches across the world. The host confirms each find from your first-person position.'
         }
     ];
 
@@ -757,7 +773,7 @@
          */
         onAvatar(name, avatar) {
             const h = this.host;
-            if (!h || (h.mode !== 'checkpoint' && h.mode !== 'delivery') || h.phase !== 'play' || !name || !avatar || avatar.hide) return;
+            if (!h || (h.mode !== 'checkpoint' && h.mode !== 'delivery' && h.mode !== 'treasure') || h.phase !== 'play' || !name || !avatar || avatar.hide) return;
             const runner = h.runners && h.runners.get(name);
             if (!runner || runner.done || !Number.isFinite(+avatar.x) || !Number.isFinite(+avatar.z)) return;
             const now = Date.now(), x = +avatar.x, z = +avatar.z;
@@ -767,6 +783,20 @@
             // jumps farther than a very forgiving sprint envelope is ignored.
             if (moved > CHECKPOINT_MAX_SPEED * dt + 3) return;
             runner.lastX = x; runner.lastZ = z; runner.lastAt = now;
+            if (h.mode === 'treasure') {
+                let found = false;
+                TREASURES.forEach((treasure, i) => {
+                    if (runner.found.indexOf(i) < 0 && Math.hypot(x - treasure.x, z - treasure.z) <= CHECKPOINT_RADIUS) {
+                        runner.found.push(i); found = true;
+                        this.game.showToast(`${name} found treasure ${runner.found.length}/${TREASURES.length}!`, 'success', 1800);
+                    }
+                });
+                if (!found) return;
+                if (runner.found.length === TREASURES.length) { runner.done = true; runner.finishedAt = now; }
+                this._hostPublish();
+                if (h.runners.size && Array.from(h.runners.values()).every(r => r.done)) h.remain = 1;
+                return;
+            }
             if (h.mode === 'delivery') {
                 const target = runner.carrying ? DELIVERY_STOPS[runner.delivered] : DELIVERY_DEPOT;
                 if (!target || Math.hypot(x - target.x, z - target.z) > CHECKPOINT_RADIUS) return;
@@ -797,6 +827,32 @@
             }
             this._hostPublish();
             if (h.runners.size && Array.from(h.runners.values()).every(r => r.done)) h.remain = 1;
+        }
+
+        /** A local-only compass clue.  Positions remain host-confirmed. */
+        fpsGuidance(x, z, yaw) {
+            const s = this.state;
+            if (!s || s.phase !== 'play') return '';
+            let target = null, prefix = '';
+            if (s.mode === 'checkpoint') {
+                const r = s.runners && s.runners[this.game.username];
+                target = r && !r.done && s.checkpoints && s.checkpoints[r.next]; prefix = 'Gate';
+            } else if (s.mode === 'delivery') {
+                const r = s.deliveries && s.deliveries[this.game.username];
+                target = r && !r.done && s.delivery && (r.carrying ? s.delivery.stops[r.delivered] : s.delivery.depot);
+                prefix = r && r.carrying ? 'Deliver' : 'Pickup';
+            } else if (s.mode === 'treasure') {
+                const r = s.treasure && s.treasure[this.game.username];
+                const remaining = TREASURES.filter((_, i) => !r || r.found.indexOf(i) < 0);
+                target = remaining.sort((a, b) => Math.hypot(x - a.x, z - a.z) - Math.hypot(x - b.x, z - b.z))[0];
+                prefix = 'Clue';
+            }
+            if (!target) return '';
+            const bearing = Math.atan2(target.x - x, -(target.z - z));
+            let turn = (bearing - yaw) * 180 / Math.PI;
+            turn = ((turn + 540) % 360) - 180;
+            const side = Math.abs(turn) < 12 ? 'ahead' : `${Math.round(Math.abs(turn))}° ${turn > 0 ? 'right' : 'left'}`;
+            return `🧭 ${prefix}: ${target.label || 'next stop'} · ${Math.round(Math.hypot(target.x - x, target.z - z))} blocks · ${side}`;
         }
 
         /** A new host inherits nothing, so an in-flight match cannot continue. */
@@ -1209,6 +1265,17 @@
                     break;
                 }
 
+                case 'treasure': {
+                    h.plots = [];
+                    h.runners = new Map();
+                    const now = Date.now();
+                    players.forEach(name => h.runners.set(name, {
+                        found: [], done: false, startedAt: now, finishedAt: 0,
+                        lastX: TREASURE_START.x, lastZ: TREASURE_START.z, lastAt: now
+                    }));
+                    break;
+                }
+
                 default:
                     h.plots = computePlots(players);
                     takeModel();
@@ -1285,12 +1352,12 @@
             const h = this.host;
             h.phase = phase;
             h.remain = secs;
-            if ((h.mode === 'checkpoint' || h.mode === 'delivery') && phase === 'play' && h.runners) {
+            if ((h.mode === 'checkpoint' || h.mode === 'delivery' || h.mode === 'treasure') && phase === 'play' && h.runners) {
                 const now = Date.now();
                 h.runners.forEach(r => {
                     r.startedAt = now; r.lastAt = now;
-                    r.lastX = h.mode === 'delivery' ? DELIVERY_DEPOT.x : CHECKPOINTS[0].x;
-                    r.lastZ = h.mode === 'delivery' ? DELIVERY_DEPOT.z : CHECKPOINTS[0].z;
+                    r.lastX = h.mode === 'delivery' ? DELIVERY_DEPOT.x : h.mode === 'treasure' ? TREASURE_START.x : CHECKPOINTS[0].x;
+                    r.lastZ = h.mode === 'delivery' ? DELIVERY_DEPOT.z : h.mode === 'treasure' ? TREASURE_START.z : CHECKPOINTS[0].z;
                 });
             }
             this._hostPublish();
@@ -1462,6 +1529,7 @@
                 if (h.mode === 'whereonearth') this._hostScoreEarth();
                 else if (h.mode === 'checkpoint') this._hostScoreCheckpoint();
                 else if (h.mode === 'delivery') this._hostScoreDelivery();
+                else if (h.mode === 'treasure') this._hostScoreTreasure();
                 else this._hostScoreRound();
             }
         }
@@ -1746,6 +1814,7 @@
                 case 'earthquake': this._hostScoreQuake(); return;
                 case 'checkpoint': this._hostScoreCheckpoint(); return;
                 case 'delivery': this._hostScoreDelivery(); return;
+                case 'treasure': this._hostScoreTreasure(); return;
                 default: this._hostScoreBlueprint();
             }
         }
@@ -1793,6 +1862,21 @@
                 mode: 'delivery', round: h.round, rounds: h.rounds, rows,
                 totals: this._hostTotalsList(), isFinal: h.round >= h.rounds
             });
+        }
+
+        _hostScoreTreasure() {
+            const h = this.host, limit = h.roundTime * 1000;
+            const rows = this._eligiblePlayers().map(name => {
+                const r = h.runners && h.runners.get(name);
+                const complete = !!(r && r.done), found = r ? r.found.length : 0;
+                const elapsed = complete ? r.finishedAt - r.startedAt : limit;
+                const points = complete ? Math.max(10, 190 - Math.round(elapsed / 1000)) : found * 30;
+                h.totals.set(name, (h.totals.get(name) || 0) + points);
+                return { name, complete, found, elapsed, points,
+                    note: complete ? `${fmt(elapsed / 1000)} · every cache found` : `${found}/${TREASURES.length} caches found` };
+            }).sort((a, b) => (b.complete - a.complete) || (b.found - a.found) || (a.elapsed - b.elapsed));
+            this._hostFinish({ mode: 'treasure', round: h.round, rounds: h.rounds, rows,
+                totals: this._hostTotalsList(), isFinal: h.round >= h.rounds });
         }
 
         _hostFinish(results) {
@@ -2284,12 +2368,17 @@
             if (h.runners && h.mode === 'delivery') h.runners.forEach((r, name) => {
                 deliveries[name] = { carrying: r.carrying, delivered: r.delivered, done: r.done, elapsed: r.done ? r.finishedAt - r.startedAt : 0 };
             });
+            const treasure = {};
+            if (h.runners && h.mode === 'treasure') h.runners.forEach((r, name) => {
+                treasure[name] = { found: r.found.slice(), done: r.done, elapsed: r.done ? r.finishedAt - r.startedAt : 0 };
+            });
             return {
                 demo,
                 runners,
                 checkpoints: h.mode === 'checkpoint' ? CHECKPOINTS.map(p => ({ x: p.x, z: p.z, label: p.label })) : null,
                 deliveries,
                 delivery: h.mode === 'delivery' ? { depot: DELIVERY_DEPOT, stops: DELIVERY_STOPS } : null,
+                treasure,
                 sculptors: h.sculptors || null,
                 budget: rules.budget || 0,
                 mode: h.mode,
@@ -2539,6 +2628,7 @@
             if (s.mode === 'delivery' && s.delivery && g.fps) {
                 g.fps.enterAt(s.delivery.depot.x, s.delivery.depot.z);
             }
+            if (s.mode === 'treasure' && g.fps) g.fps.enterAt(TREASURE_START.x, TREASURE_START.z);
 
             // The world has just been cleared for the round; now the host puts
             // up the thing this mode exists to knock down. It reaches everyone
@@ -3200,6 +3290,17 @@
                 return;
             }
 
+            if (r.mode === 'treasure') {
+                this.game.showResults({
+                    title: r.isFinal ? '🏆 Final standings' : `🗺️ Round ${r.round} of ${r.rounds}`,
+                    subtitle: 'Every cache was confirmed by the host from first-person movement.',
+                    body: `<div class="rs-list">${simpleRows(r.rows, row => row.complete ? fmt(row.elapsed / 1000) : row.found + ' caches')}</div>
+                           <div class="rs-totals-title">Match points</div><div class="rs-totals">${totalsOf()}</div>`,
+                    isFinal: r.isFinal, canControl: this.game.isHost()
+                });
+                return;
+            }
+
             if (r.mode === 'teambuild') {
                 this.game.showResults({
                     title: r.isFinal ? '🏆 Final standings' : `Round ${r.round} of ${r.rounds}`,
@@ -3599,6 +3700,10 @@
                         const mine = s.deliveries && s.deliveries[this.game.username];
                         phaseText = mine && mine.done ? `📦 Delivered — ${fmt((mine.elapsed || 0) / 1000)}` : `📦 Deliver! ${fmt(remain)}`;
                     }
+                    else if (s.mode === 'treasure') {
+                        const mine = s.treasure && s.treasure[this.game.username];
+                        phaseText = mine && mine.done ? `🗺️ Complete — ${fmt((mine.elapsed || 0) / 1000)}` : `🗺️ Hunt! ${fmt(remain)}`;
+                    }
                     else if (s.mode === 'memory' && s.builder === this.game.username) phaseText = `Watching — ${fmt(remain)}`;
                     else if (s.mode === 'memory') phaseText = `From memory — ${fmt(remain)}`;
                     else if (s.mode === 'demolition') phaseText = `🧨 Wreck it! ${fmt(remain)}`;
@@ -3691,6 +3796,11 @@
                     const target = mine && s.delivery && (mine.carrying ? s.delivery.stops[mine.delivered] : s.delivery.depot);
                     peek.textContent = mine && mine.done ? '📦 All deliveries complete'
                         : (target ? `🧭 ${mine.carrying ? 'Deliver to' : 'Pick up at'} ${target.label} · ${(mine.delivered || 0) + 1}/${(s.delivery.stops || []).length}` : '📦 Awaiting route');
+                }
+                else if (s.mode === 'treasure') {
+                    const mine = s.treasure && s.treasure[this.game.username];
+                    peek.textContent = mine && mine.done ? '🗺️ Every cache found'
+                        : `🧭 ${mine ? mine.found.length : 0}/${TREASURES.length} caches found — follow the compass clue`;
                 }
                 else if (s.mode === 'memory') {
                     peek.textContent = s.phase === 'architect' ? 'Remember it!'

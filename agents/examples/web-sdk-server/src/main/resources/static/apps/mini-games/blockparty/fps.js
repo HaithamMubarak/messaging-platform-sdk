@@ -445,6 +445,10 @@
             const compass = document.getElementById('fpsCompass');
             if (compass) compass.textContent = `${cardinal} · ${String(Math.round(bearing)).padStart(3, '0')}°`;
 
+            const objective = document.getElementById('fpsObjective');
+            const guidance = this.game.modes && this.game.modes.fpsGuidance(this.pos.x, this.pos.z, this.yaw);
+            if (objective) { objective.textContent = guidance || ''; objective.classList.toggle('hidden', !guidance); }
+
             const place = document.getElementById('fpsPlace');
             if (place) {
                 const geo = this.game.geo;
