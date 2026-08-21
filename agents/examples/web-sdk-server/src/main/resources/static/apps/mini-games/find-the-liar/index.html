@@ -7,7 +7,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>🤥 Find the Liar</title>
     <meta name="description" content="Everyone gets the same question except one player. Ask, answer and vote out the liar. Best with four or more.">
-    <meta name="theme-color" content="#1a1a2e">
+    <meta name="theme-color" content="#0b1120">
     <link rel="canonical" href="https://hmdevonline.com/messaging-platform/sdk/apps/mini-games/find-the-liar/index.html">
 
     <meta property="og:type" content="website">
@@ -17,6 +17,8 @@
     <meta property="og:url" content="https://hmdevonline.com/messaging-platform/sdk/apps/mini-games/find-the-liar/index.html">
     <meta property="og:image" content="https://hmdevonline.com/messaging-platform/sdk/images/og-image.png">
     <meta name="twitter:card" content="summary_large_image">
+    <link rel="stylesheet" href="../../../css/design-tokens.css">
+    <link rel="stylesheet" href="../../../css/ui.css">
     <link rel="stylesheet" href="../../../css/toast.css">
     <link rel="stylesheet" href="../../../css/share-modal.css">
     <link rel="stylesheet" href="../../../css/connection-modal.css">
@@ -26,8 +28,16 @@
 </head>
 <body>
     <!-- Share Button -->
-    <button id="shareBtn" class="share-btn">📤 Share</button>
+    <button id="shareBtn" class="share-btn" type="button">
+        <svg class="icon icon--sm" aria-hidden="true"><use href="#i-qr-code"></use></svg>
+        <span>Share</span>
+    </button>
 
+    <!-- Help Button -->
+    <button class="help-btn" type="button" onclick="showHelpModal()">
+        <svg class="icon icon--sm" aria-hidden="true"><use href="#i-info"></use></svg>
+        <span>How to play</span>
+    </button>
 
     <!-- Header -->
     <header class="header">
@@ -52,17 +62,18 @@
 
     <!-- Players Sidebar -->
     <aside id="playersSidebar" class="players-sidebar">
-        <h3>👥 Players <span id="playerCountBadge" class="count-badge">0</span></h3>
+        <h3><svg class="icon icon--sm" aria-hidden="true"><use href="#i-users"></use></svg> Players <span id="playerCountBadge" class="count-badge">0</span></h3>
         <div id="playersList" class="players-list"></div>
     </aside>
 
     <!-- Score Modal -->
     <div id="scoreModal" class="modal hidden">
         <div class="modal-content score-modal-content">
-            <h2>🏆 Round Results</h2>
+            <h2><svg class="icon" aria-hidden="true"><use href="#i-trophy"></use></svg> Round Results</h2>
             <div id="scoreModalContent"></div>
-            <button id="newRoundBtn" class="btn btn-primary" onclick="liarGame.requestNewRound()">
-                🔄 New Round
+            <button id="newRoundBtn" class="btn btn-primary" type="button" onclick="liarGame.requestNewRound()">
+                <svg class="icon icon--sm" aria-hidden="true"><use href="#i-refresh"></use></svg>
+                <span>New Round</span>
             </button>
         </div>
     </div>
@@ -75,7 +86,9 @@
         <div class="modal-content help-modal-content">
             <div class="modal-header">
                 <h2>🤥 How to Play: Find the Liar</h2>
-                <button class="modal-close" onclick="closeHelpModal()">✖</button>
+                <button class="modal-close" type="button" onclick="closeHelpModal()" aria-label="Close">
+                    <svg class="icon" aria-hidden="true"><use href="#i-x"></use></svg>
+                </button>
             </div>
             <div class="modal-body help-modal-body">
 
@@ -196,13 +209,14 @@
 
             </div>
             <div class="modal-footer">
-                <button class="btn btn-primary" onclick="closeHelpModal()">Got It! 🎮</button>
+                <button class="btn btn-primary" type="button" onclick="closeHelpModal()">Got it</button>
             </div>
         </div>
     </div>
 
     <!-- Scripts -->
     <script src="../../../js/config-loader.js"></script>
+    <script src="../../../js/icons.js"></script>
     <script src="../../../lib/qrcode.min.js"></script>
     <script src="../../../generated-web-agent-js/js/web-agent.libs.js"></script>
     <script src="../../../generated-web-agent-js/js/web-agent.js"></script>

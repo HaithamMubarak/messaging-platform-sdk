@@ -447,7 +447,7 @@ class FindTheLiarGame extends UserConnectionBase {
             content.innerHTML = `
                 <div style="font-size: 80px; margin-bottom: 20px;">⏸️</div>
                 <h2 style="font-size: 36px; margin: 0 0 10px 0;">Game Paused</h2>
-                <p style="font-size: 18px; color: #aaa;">Waiting for host to resume...</p>
+                <p style="font-size: 18px; color: var(--text-muted);">Waiting for host to resume...</p>
             `;
 
             overlay.appendChild(content);
@@ -813,10 +813,10 @@ class FindTheLiarGame extends UserConnectionBase {
                 <div class="waiting-screen">
                     <span class="phase-indicator phase-waiting">Game Ended</span>
                     <h2>⚠️ Not Enough Users</h2>
-                    <p style="color:#666;margin:20px 0;">
+                    <p style="color:var(--text-muted);margin:20px 0;">
                         The game has ended because too many users disconnected.
                     </p>
-                    <p style="color:#666;margin:10px 0;">
+                    <p style="color:var(--text-muted);margin:10px 0;">
                         ${this.isHost() ? 'Click below to return to lobby.' : 'Waiting for host...'}
                     </p>
                     ${this.isHost() ? `
@@ -1525,7 +1525,7 @@ class FindTheLiarGame extends UserConnectionBase {
                     <span class="item-emoji">${this.escapeHtml(data.secretItem.imageUrl)}</span>
                     <strong>${this.escapeHtml(data.secretItem.name)}</strong>
                 </div>
-                <p style="color: #f59e0b; margin-top: 10px; font-size: 14px;">
+                <p style="color: var(--warning); margin-top: 10px; font-size: 14px;">
                     The secret has been revealed to you, but others don't know you were caught!
                 </p>
             `;
@@ -1693,10 +1693,10 @@ class FindTheLiarGame extends UserConnectionBase {
                 <div class="waiting-screen">
                     <span class="phase-indicator phase-waiting">Game Ended</span>
                     <h2>⚠️ Not Enough Users</h2>
-                    <p style="color:#666;margin:20px 0;">
+                    <p style="color:var(--text-muted);margin:20px 0;">
                         ${this.escapeHtml(data.message || 'The game has ended because too many users disconnected.')}
                     </p>
-                    <p style="color:#666;margin:10px 0;">
+                    <p style="color:var(--text-muted);margin:10px 0;">
                         Waiting for host to restart...
                     </p>
                     <div class="waiting-indicator">Waiting for host...</div>
@@ -2169,7 +2169,7 @@ class FindTheLiarGame extends UserConnectionBase {
             `;
         }).join('');
 
-        listEl.innerHTML = html || '<p style="color:#999;text-align:center;">No users</p>';
+        listEl.innerHTML = html || '<p style="color:var(--text-muted);text-align:center;">No users</p>';
 
         // Keep the sidebar count honest — it read 0 while the list showed three.
         const count = String(users.length);
@@ -2221,18 +2221,18 @@ class FindTheLiarGame extends UserConnectionBase {
                 </p>
                 
                 ${isHost ? `
-                    <div class="game-settings" style="margin: 20px 0; padding: 20px; background: ${gameStarted ? '#f9f9f9' : '#f5f5f5'}; border-radius: 10px; ${gameStarted ? 'opacity: 0.8;' : ''}">
-                        <h3 style="margin: 0 0 15px 0; font-size: 16px; color: #9c27b0;">⚙️ Game Settings ${gameStarted ? '(Read-only)' : ''}</h3>
+                    <div class="game-settings" style="margin: 20px 0; padding: 20px; background: var(--surface-2); border-radius: 10px; ${gameStarted ? 'opacity: 0.8;' : ''}">
+                        <h3 style="margin: 0 0 15px 0; font-size: 16px; color: var(--brand-ink);">⚙️ Game Settings ${gameStarted ? '(Read-only)' : ''}</h3>
                         
                         <label style="display: block; margin-bottom: 15px;">
                             <strong>Game Mode:</strong>
                             <select id="gameMode" ${gameStarted ? 'disabled' : ''}
-                                    style="padding: 8px 12px; border-radius: 5px; margin-left: 10px; border: 2px solid #ddd; font-size: 14px; width: 200px;">
+                                    style="padding: 8px 12px; border-radius: 5px; margin-left: 10px; border: 1px solid var(--border-strong); font-size: 14px; width: 200px;">
                                 <option value="${GameMode.SURVIVAL}" ${this.gameState.gameMode === GameMode.SURVIVAL ? 'selected' : ''}>🏆 Survival Mode</option>
                                 <option value="${GameMode.INVESTIGATION}" ${this.gameState.gameMode === GameMode.INVESTIGATION ? 'selected' : ''}>🔍 Investigation Mode</option>
                             </select>
                         </label>
-                        <p style="font-size: 11px; color: #666; margin: -10px 0 15px 0; padding-left: 10px;">
+                        <p style="font-size: 11px; color: var(--text-muted); margin: -10px 0 15px 0; padding-left: 10px;">
                             ${this.gameState.gameMode === GameMode.SURVIVAL 
                                 ? '📋 Elimination mode: Players can be eliminated. Game ends at 3 players.' 
                                 : '📋 Time attack: Catch liars before max rounds or they win!'}
@@ -2241,7 +2241,7 @@ class FindTheLiarGame extends UserConnectionBase {
                         <label style="display: block; margin-bottom: 15px;">
                             <strong>Number of Liars:</strong>
                             <select id="numLiars" ${gameStarted ? 'disabled' : ''}
-                                    style="padding: 8px 12px; border-radius: 5px; margin-left: 10px; border: 2px solid #ddd; font-size: 14px;">
+                                    style="padding: 8px 12px; border-radius: 5px; margin-left: 10px; border: 1px solid var(--border-strong); font-size: 14px;">
                                 <option value="1" ${this.gameState.numLiars === 1 ? 'selected' : ''}>1 Liar</option>
                                 <option value="2" ${this.gameState.numLiars === 2 ? 'selected' : ''} ${this.getPlayerCount() < 7 ? 'disabled' : ''}>2 Liars (7+ players)</option>
                             </select>
@@ -2250,7 +2250,7 @@ class FindTheLiarGame extends UserConnectionBase {
                         <label style="display: block; margin-bottom: 15px;">
                             <strong>Questions per round:</strong>
                             <select id="questionsPerRound" ${gameStarted ? 'disabled' : ''}
-                                    style="padding: 8px 12px; border-radius: 5px; margin-left: 10px; border: 2px solid #ddd; font-size: 14px;">
+                                    style="padding: 8px 12px; border-radius: 5px; margin-left: 10px; border: 1px solid var(--border-strong); font-size: 14px;">
                                 ${[3,4,5,6,7,8,9,10].map(n => 
                                     `<option value="${n}" ${n === this.gameState.questionsPerRound ? 'selected' : ''}>${n} questions</option>`
                                 ).join('')}
@@ -2260,7 +2260,7 @@ class FindTheLiarGame extends UserConnectionBase {
                         <label style="display: block; margin-bottom: 15px;">
                             <strong>Maximum rounds:</strong>
                             <select id="maxRounds" ${gameStarted ? 'disabled' : ''}
-                                    style="padding: 8px 12px; border-radius: 5px; margin-left: 10px; border: 2px solid #ddd; font-size: 14px;">
+                                    style="padding: 8px 12px; border-radius: 5px; margin-left: 10px; border: 1px solid var(--border-strong); font-size: 14px;">
                                 ${[3,5,7,10,15].map(n => 
                                     `<option value="${n}" ${n === (this.gameState.maxRounds || MAX_ROUNDS) ? 'selected' : ''}>${n} rounds</option>`
                                 ).join('')}
@@ -2275,8 +2275,8 @@ class FindTheLiarGame extends UserConnectionBase {
                         </label>
                     </div>
                 ` : `
-                    <div class="game-settings" style="margin: 20px 0; padding: 15px; background: #f5f5f5; border-radius: 10px;">
-                        <p style="margin: 0; color: #666;">
+                    <div class="game-settings" style="margin: 20px 0; padding: 15px; background: var(--surface-2); border-radius: 10px;">
+                        <p style="margin: 0; color: var(--text-muted);">
                             <strong>Game Settings:</strong><br>
                             Mode: ${this.gameState.gameMode === GameMode.SURVIVAL ? '🏆 Survival' : '🔍 Investigation'}<br>
                             ${this.gameState.numLiars} Liar(s)<br>
@@ -2293,7 +2293,7 @@ class FindTheLiarGame extends UserConnectionBase {
                             🚀 Start Round
                         </button>
                         ${gameStarted ? `
-                            <button class="btn" style="background: #ff9800; color: white;" onclick="liarGame.confirmReset()">
+                            <button class="btn" style="background: transparent; border: 1px solid rgba(251, 191, 36, 0.45); color: var(--warning);" onclick="liarGame.confirmReset()">
                                 🔄 Reset Game
                             </button>
                         ` : ''}
@@ -2399,10 +2399,10 @@ class FindTheLiarGame extends UserConnectionBase {
                         <h3>${this.escapeHtml(info.name)}</h3>
                         <p class="item-category">${this.escapeHtml(info.category)}</p>
                     </div>
-                    <p class="item-instruction" style="color: #f59e0b;">
+                    <p class="item-instruction" style="color: #b45309;">
                         🔍 You were caught! The secret is now revealed to you.
                     </p>
-                    <p style="color: #999; font-size: 13px; margin-top: 10px;">
+                    <p style="color: #64748b; font-size: 13px; margin-top: 10px;">
                         Others don't know you were caught. Play along!
                     </p>
                 </div>
@@ -2441,12 +2441,12 @@ class FindTheLiarGame extends UserConnectionBase {
                 </div>
                 ${infoHtml}
                 ${isLiar && !isRevealedLiar ? `
-                    <div style="background: rgba(156, 39, 176, 0.1); padding: 15px; border-radius: 10px; margin: 20px 0; border: 2px dashed #9c27b0;">
-                        <h4 style="margin: 0 0 10px 0; color: #9c27b0;">😈 Customize Your Celebration</h4>
+                    <div style="background: var(--brand-subtle); padding: 15px; border-radius: 10px; margin: 20px 0; border: 2px dashed var(--brand);">
+                        <h4 style="margin: 0 0 10px 0; color: var(--brand-ink);">😈 Customize Your Celebration</h4>
                         <div style="display: flex; gap: 10px; align-items: center; flex-wrap: wrap;">
                             <label style="display: flex; align-items: center; gap: 5px;">
                                 <strong>Emoji:</strong>
-                                <select id="myCelebrationEmoji" style="padding: 8px; border-radius: 5px; font-size: 20px; border: 2px solid #9c27b0;">
+                                <select id="myCelebrationEmoji" style="padding: 8px; border-radius: 5px; font-size: 20px; border: 1px solid var(--border-strong);">
                                     <option value="😈" ${!this.myCelebrationEmoji || this.myCelebrationEmoji === '😈' ? 'selected' : ''}>😈</option>
                                     <option value="👹" ${this.myCelebrationEmoji === '👹' ? 'selected' : ''}>👹</option>
                                     <option value="🤡" ${this.myCelebrationEmoji === '🤡' ? 'selected' : ''}>🤡</option>
@@ -2464,16 +2464,16 @@ class FindTheLiarGame extends UserConnectionBase {
                                 <input type="text" id="myCelebrationText" maxlength="20"
                                        value="${this.escapeHtml(this.myCelebrationText || 'HAHAHA!')}"
                                        placeholder="HAHAHA!"
-                                       style="padding: 8px; border-radius: 5px; border: 2px solid #9c27b0; flex: 1;">
+                                       style="padding: 8px; border-radius: 5px; border: 1px solid var(--border-strong); flex: 1;">
                             </label>
                         </div>
-                        <p style="font-size: 11px; color: #666; margin: 8px 0 0 0;">This will be used when you escape or use disturbances!</p>
+                        <p style="font-size: 11px; color: var(--text-muted); margin: 8px 0 0 0;">This will be used when you escape or use disturbances!</p>
                     </div>
                 ` : ''}
                 <div class="timer-bar">
                     <div class="timer-fill" style="width: 100%;"></div>
                 </div>
-                <p style="color:#666;font-size:14px;">${data.totalQuestions} questions this round</p>
+                <p style="color:var(--text-muted);font-size:14px;">${data.totalQuestions} questions this round</p>
             </div>
         `;
 
@@ -2508,7 +2508,7 @@ class FindTheLiarGame extends UserConnectionBase {
         // Determine question type label and UI
         const isMcq = question.type === 'MULTIPLE_CHOICE';
         const questionTypeLabel = isMcq ? 'Multiple Choice' : 'Open Question';
-        const questionTypeColor = isMcq ? '#4f46e5' : '#10b981';
+        const questionTypeColor = isMcq ? '#818cf8' : '#34d399';
 
         // Build answer input UI based on question type
         let answerInputHtml = '';
@@ -2531,7 +2531,7 @@ class FindTheLiarGame extends UserConnectionBase {
                         </label>
                     `).join('')}
                 </div>
-                <p style="font-size: 12px; color: #888; margin: 8px 0 12px 0; text-align: center;">
+                <p style="font-size: 12px; color: var(--text-muted); margin: 8px 0 12px 0; text-align: center;">
                     💡 Tip: Click again to deselect • Submit without selecting = "None of these"
                 </p>
                 <button id="submitAnswerBtn" class="btn btn-success" onclick="liarGame.submitMyAnswer()">
@@ -2576,7 +2576,7 @@ class FindTheLiarGame extends UserConnectionBase {
                     ${answerInputHtml}
                 </div>
                 ${this.myRole === 'LIAR' ? `
-                    <div style="text-align: center; margin-top: 20px; padding-top: 15px; border-top: 2px dashed #9c27b0;">
+                    <div style="text-align: center; margin-top: 20px; padding-top: 15px; border-top: 2px dashed var(--brand);">
                         <div style="margin-bottom: 10px;">
                             <button class="btn" style="background: linear-gradient(135deg, #9c27b0, #e91e63); color: white; font-size: 14px; padding: 10px 20px; margin: 5px;" 
                                     onclick="liarGame.sendDisturbance('celebration')"
@@ -2625,7 +2625,7 @@ class FindTheLiarGame extends UserConnectionBase {
                                 🚨 Fake Alert!
                             </button>
                         </div>
-                        <p style="font-size: 11px; color: #666; margin-top: 5px;">😈 Choose your chaos weapon!</p>
+                        <p style="font-size: 11px; color: var(--text-muted); margin-top: 5px;">😈 Choose your chaos weapon!</p>
                     </div>
                 ` : ''}
             </div>
@@ -2713,8 +2713,8 @@ class FindTheLiarGame extends UserConnectionBase {
             form.innerHTML = `
                 <div style="padding:20px;text-align:center;">
                     <span style="font-size:36px;">✅</span>
-                    <h4 style="color:#4caf50;margin-top:10px;">Submitted!</h4>
-                    <p style="color:#666;">Waiting for others...</p>
+                    <h4 style="color:var(--success);margin-top:10px;">Submitted!</h4>
+                    <p style="color:var(--text-muted);">Waiting for others...</p>
                 </div>
             `;
         }
@@ -2737,7 +2737,7 @@ class FindTheLiarGame extends UserConnectionBase {
             `
                 <h3>📝 Everyone's Answers</h3>
                 <div class="answers-grid">${answersHtml}</div>
-                <p style="color:#666;font-size:14px;margin-top:15px;">${nextMessage}</p>
+                <p style="color:var(--text-muted);font-size:14px;margin-top:15px;">${nextMessage}</p>
             `
         );
     }
@@ -2749,7 +2749,7 @@ class FindTheLiarGame extends UserConnectionBase {
         const container = document.getElementById('gameContainer');
 
         const allQuestionsHtml = !allAnswers || allAnswers.length === 0
-            ? '<p style="color:#999;">No answers recorded</p>'
+            ? '<p style="color:var(--text-muted);">No answers recorded</p>'
             : allAnswers.map((qa, qIndex) => {
                 const answersHtml = qa.answers
                     .map(({ name, answer }) => this.createAnswerCard(name, answer, qIndex, true))
@@ -2774,10 +2774,10 @@ class FindTheLiarGame extends UserConnectionBase {
             phaseIndicator,
             `
                 <h3>Review All Answers Before Voting!</h3>
-                <p style="color:#666;margin-bottom:15px;">${roundInfo} • Look for suspicious answers!</p>
+                <p style="color:var(--text-muted);margin-bottom:15px;">${roundInfo} • Look for suspicious answers!</p>
                 ${timerBar}
                 <div class="all-answers-container">${allQuestionsHtml}</div>
-                <p style="color:#888;font-size:13px;margin-top:15px;">⏳ Voting starts when timer ends...</p>
+                <p style="color:var(--text-muted);font-size:13px;margin-top:15px;">⏳ Voting starts when timer ends...</p>
             `,
             'discussion-screen'
         );
@@ -2809,7 +2809,7 @@ class FindTheLiarGame extends UserConnectionBase {
             <div class="question-screen">
                 <span class="phase-indicator phase-voting">Voting Time</span>
                 <h3>🗳️ Who is the Liar?</h3>
-                <p style="color:#666;margin-bottom:15px;">Vote for who you think doesn't know the item!</p>
+                <p style="color:var(--text-muted);margin-bottom:15px;">Vote for who you think doesn't know the item!</p>
                 <div class="timer-bar">
                     <div class="timer-fill" style="width: 100%;"></div>
                 </div>
@@ -2896,14 +2896,14 @@ class FindTheLiarGame extends UserConnectionBase {
                         ${votePassed ? '✅' : '❌'}
                     </div>
                     <h3>${votePassed ? 'PASS' : 'FAIL'}</h3>
-                    <p style="color: #666; margin-top: 10px; font-size: 16px;">
+                    <p style="color: var(--text-muted); margin-top: 10px; font-size: 16px;">
                         ${votePassed 
-                            ? `<strong style="color: #333;">🤥 Someone was caught!</strong>` 
+                            ? `<strong style="color: var(--text);">🤥 Someone was caught!</strong>` 
                             : 'No one caught this round!'}
                     </p>
                     ${votePassed 
-                        ? `<p style="color: #4caf50; margin-top: 8px; font-size: 14px;">The secret may have been revealed to caught players.</p>`
-                        : `<p style="color: #f59e0b; margin-top: 8px; font-size: 14px;">The mystery continues...</p>`}
+                        ? `<p style="color: var(--success); margin-top: 8px; font-size: 14px;">The secret may have been revealed to caught players.</p>`
+                        : `<p style="color: var(--warning); margin-top: 8px; font-size: 14px;">The mystery continues...</p>`}
                 </div>
             `;
 
@@ -2919,12 +2919,12 @@ class FindTheLiarGame extends UserConnectionBase {
                 <div class="vote-tally" style="max-width: 500px; margin: 20px auto;">
                     <h4>🗳️ Vote Results</h4>
                     ${voteHtml || '<p>No votes</p>'}
-                    <p style="margin-top: 15px; font-size: 14px; color: #666;">
+                    <p style="margin-top: 15px; font-size: 14px; color: var(--text-muted);">
                         ${voteResultMessage}
                     </p>
                 </div>
                 
-                <p style="text-align: center; color: #666; margin-top: 20px; font-size: 14px;">
+                <p style="text-align: center; color: var(--text-muted); margin-top: 20px; font-size: 14px;">
                     ${this.isHost() ? 'Click below to continue to the next round...' : 'Waiting for next round...'}
                 </p>
                 
@@ -3306,7 +3306,7 @@ class FindTheLiarGame extends UserConnectionBase {
             <div class="waiting-screen">
                 <span class="phase-indicator phase-waiting">Round Complete</span>
                 <h2>🏁 Round ${this.gameState.round} Complete!</h2>
-                <p style="color:#666;margin:20px 0;">
+                <p style="color:var(--text-muted);margin:20px 0;">
                     ${this.isHost() 
                         ? 'Click below to start a new round.'
                         : 'Waiting for host...'}
@@ -3353,7 +3353,7 @@ class FindTheLiarGame extends UserConnectionBase {
             ? `<button class="btn btn-primary" style="margin-top: 20px;" onclick="liarGame.resetGame()">
                 🎮 Start New Game
                </button>`
-            : `<p style="color: #666; margin-top: 20px;">Waiting for host to start new game...</p>`;
+            : `<p style="color: var(--text-muted); margin-top: 20px;">Waiting for host to start new game...</p>`;
 
         container.innerHTML = `
             <div class="game-over-screen">

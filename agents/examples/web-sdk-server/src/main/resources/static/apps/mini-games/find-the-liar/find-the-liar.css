@@ -1,15 +1,57 @@
+/* Bridge onto the site design system (design-tokens.css + ui.css, loaded
+   before this file). The game's original light palette is aliased onto the
+   house tokens instead of rewriting every rule:
+   - roles that are painted AS TEXT or borders map to the *-ink shades so
+     they stay legible on the dark surfaces,
+   - roles that are painted AS FILLS behind white text keep --brand,
+   - --success/--danger/--warning/--info now come straight from the house
+     tokens (the local definitions used to shadow them).
+   The paper "case file" dossier keeps its own light-paper palette on
+   purpose: it is a prop, not chrome. */
 :root {
-    --primary: #9c27b0;
-    --primary-dark: #7b1fa2;
-    --secondary: #e91e63;
-    --success: #4caf50;
-    --danger: #f44336;
-    --warning: #ff9800;
-    --info: #2196f3;
-    --dark: #333;
-    --light: #f5f5f5;
-    --liar-color: #ff5722;
-    --innocent-color: #4caf50;
+    --primary: var(--brand-ink);       /* was #9c27b0, used as accent text/borders */
+    --primary-dark: var(--brand-ink);  /* was #7b1fa2, used as strong accent text  */
+    --secondary: var(--accent);        /* was #e91e63, second gradient stop        */
+    --dark: var(--text);               /* was #333, body text on white cards       */
+    --light: var(--surface-2);         /* was #f5f5f5, card-on-card fill           */
+    --liar-color: #ff8a65;             /* game identity orange, lightened for dark */
+    --innocent-color: var(--success);
+}
+
+/* ui.css hides on the [hidden] attribute; this game toggles a .hidden class.
+   ui.css also supplies the fixed flex overlay for .modal — the scrim colour
+   and a z-index above the floating buttons live here. */
+.hidden { display: none !important; }
+.modal { background: var(--overlay); z-index: 100002; }
+.modal.hidden { display: none !important; }
+
+/* share-modal.css paints every button inside a .modal #6965db purple at
+   .modal button:not(...) specificity; match it and keep this game's modal
+   chrome on the house tokens (this file loads later, so ties go to us). */
+.modal button.btn-primary {
+    background: var(--brand);
+    color: #fff;
+    box-shadow: none;
+}
+.modal button.btn-primary:hover:not(:disabled) {
+    background: var(--brand-hover);
+    transform: none;
+    box-shadow: none;
+}
+.modal button.modal-close {
+    background: none;
+    box-shadow: none;
+    padding: 0;
+    width: 35px;
+    height: 35px;
+    border-radius: 50%;
+    color: var(--text-muted);
+}
+.modal button.modal-close:hover {
+    background: var(--surface-2);
+    color: var(--text);
+    transform: none;
+    box-shadow: none;
 }
 
 * {
@@ -21,18 +63,19 @@
 html, body {
     width: 100%;
     min-height: 100vh;
-    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-    background: linear-gradient(135deg, #9c27b0 0%, #e91e63 100%);
-    color: var(--dark);
+    font-family: var(--font-sans);
+    background: var(--bg);
+    color: var(--text-body);
     overflow-x: hidden;
 }
 
 /* Header */
 .header {
-    background: rgba(255, 255, 255, 0.95);
+    background: rgba(11, 17, 32, 0.88);
+    backdrop-filter: blur(8px);
+    border-bottom: 1px solid var(--border);
     padding: 15px 20px;
     text-align: center;
-    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.2);
     position: fixed;
     top: 0;
     left: 0;
@@ -41,22 +84,20 @@ html, body {
 }
 
 .header h1 {
-    font-size: 28px;
-    margin-bottom: 5px;
-    background: linear-gradient(135deg, var(--primary), var(--secondary));
-    -webkit-background-clip: text;
-    -webkit-text-fill-color: transparent;
-    background-clip: text;
+    font-size: 24px;
+    margin-bottom: 6px;
+    color: var(--text);
+    letter-spacing: -0.015em;
 }
 
 .header-info {
     font-size: 14px;
-    color: #666;
+    color: var(--text-muted);
 }
 
+/* Colour comes from .chip-timer; the id selector would outgun it. */
 #timerDisplay {
     font-weight: bold;
-    color: var(--primary);
 }
 
 /* Share Button */
@@ -65,21 +106,25 @@ html, body {
     top: 20px;
     right: 20px;
     z-index: 100001;
-    padding: 10px 20px;
-    background: var(--success);
-    color: white;
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 10px 16px;
+    min-height: 40px;
+    background: var(--brand);
+    color: #fff;
     border: none;
-    border-radius: 8px;
+    border-radius: var(--r-md);
     cursor: pointer;
-    font-size: 14px;
-    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
-    transition: all 0.3s;
+    font-family: inherit;
+    font-size: var(--fs-md);
+    font-weight: 600;
+    box-shadow: var(--shadow-1);
+    transition: background var(--dur-fast) var(--ease);
 }
 
 .share-btn:hover {
-    background: #45a049;
-    transform: translateY(-2px);
-    box-shadow: 0 6px 8px rgba(0, 0, 0, 0.15);
+    background: var(--brand-hover);
 }
 
 /* Disconnect Button */
@@ -88,48 +133,53 @@ html, body {
     top: 20px;
     right: 140px;
     z-index: 100001;
-    padding: 10px 20px;
-    background: #dc3545;
-    color: white;
+    padding: 10px 16px;
+    min-height: 40px;
+    background: var(--danger-strong);
+    color: #fff;
     border: none;
-    border-radius: 8px;
+    border-radius: var(--r-md);
     cursor: pointer;
-    font-size: 14px;
-    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
-    transition: all 0.3s;
+    font-family: inherit;
+    font-size: var(--fs-md);
+    font-weight: 600;
+    box-shadow: var(--shadow-1);
+    transition: filter var(--dur-fast) var(--ease);
 }
 
 .disconnect-btn:hover {
-    background: #c82333;
-    transform: translateY(-2px);
-    box-shadow: 0 6px 8px rgba(0, 0, 0, 0.15);
+    filter: brightness(1.1);
 }
 
 /* Help Button */
 .help-btn {
     position: fixed;
-    top: 15px;
-    right: 80px;
-    background: linear-gradient(135deg, #2196f3, #1976d2);
-    color: white;
-    border: none;
-    padding: 10px 18px;
-    border-radius: 25px;
-    font-size: 14px;
+    top: 20px;
+    /* Clear of the shared game control panel, which collapses to a 60px chip
+       at top-left on every game and sits above everything at z-index 100000.
+       This button was landing underneath it. */
+    left: 96px;
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    background: var(--surface-2);
+    color: var(--text-body);
+    border: 1px solid var(--border-strong);
+    padding: 10px 16px;
+    min-height: 40px;
+    border-radius: var(--r-pill);
+    font-family: inherit;
+    font-size: var(--fs-md);
     font-weight: 600;
     cursor: pointer;
-    box-shadow: 0 4px 15px rgba(33, 150, 243, 0.3);
-    transition: all 0.3s ease;
+    box-shadow: var(--shadow-1);
+    transition: background var(--dur-fast) var(--ease), color var(--dur-fast) var(--ease);
     z-index: 1000;
 }
 
 .help-btn:hover {
-    transform: translateY(-2px);
-    box-shadow: 0 6px 20px rgba(33, 150, 243, 0.4);
-}
-
-.help-btn:active {
-    transform: translateY(0);
+    background: var(--surface-3);
+    color: var(--text);
 }
 
 /* Main Container */
@@ -142,12 +192,13 @@ html, body {
 }
 
 .game-container {
-    background: white;
-    border-radius: 20px;
+    background: var(--surface-1);
+    border: 1px solid var(--border);
+    border-radius: var(--r-xl);
     padding: 30px;
     max-width: 700px;
     width: 100%;
-    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+    box-shadow: var(--shadow-2);
     text-align: center;
 }
 
@@ -157,10 +208,11 @@ html, body {
     right: 20px;
     top: 100px;
     width: 200px;
-    background: rgba(255, 255, 255, 0.95);
-    border-radius: 15px;
+    background: var(--surface-1);
+    border: 1px solid var(--border);
+    border-radius: var(--r-lg);
     padding: 15px;
-    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
+    box-shadow: var(--shadow-2);
     max-height: calc(100vh - 140px);
     overflow-y: auto;
     z-index: 90;
@@ -169,10 +221,11 @@ html, body {
 .players-sidebar h3 {
     font-size: 16px;
     margin-bottom: 10px;
-    color: var(--primary);
-    border-bottom: 2px solid var(--primary);
-    padding-bottom: 5px;
+    color: var(--text);
+    border-bottom: 1px solid var(--border-strong);
+    padding-bottom: 8px;
 }
+.players-sidebar h3 .icon { color: var(--brand-ink); }
 
 .players-list {
     display: flex;
@@ -192,19 +245,19 @@ html, body {
 }
 
 .player-item.host {
-    background: linear-gradient(135deg, #fff3e0, #ffe0b2);
-    border: 2px solid #ff9800;
+    background: var(--warning-bg);
+    border: 1px solid rgba(251, 191, 36, 0.35);
 }
 
 /* Self style takes priority - highlights current player clearly */
 .player-item.self {
-    background: linear-gradient(135deg, #e3f2fd, #bbdefb) !important;
-    border: 2px solid var(--info) !important;
+    background: var(--accent-subtle) !important;
+    border: 1px solid rgba(34, 211, 238, 0.35) !important;
 }
 
 .player-item.liar-revealed {
-    background: linear-gradient(135deg, #ffebee, #ffcdd2);
-    border: 2px solid var(--danger);
+    background: var(--danger-bg);
+    border: 1px solid rgba(248, 113, 113, 0.4);
     animation: pulse 0.5s ease-in-out 3;
 }
 
@@ -227,7 +280,7 @@ html, body {
 }
 
 .waiting-screen p {
-    color: #666;
+    color: var(--text-muted);
     margin-bottom: 20px;
 }
 
@@ -236,8 +289,9 @@ html, body {
     align-items: center;
     gap: 10px;
     padding: 15px 25px;
-    background: linear-gradient(135deg, #e8f5e9, #c8e6c9);
-    border-radius: 30px;
+    background: var(--success-bg);
+    border: 1px solid rgba(52, 211, 153, 0.35);
+    border-radius: var(--r-pill);
     color: var(--success);
     font-weight: 500;
 }
@@ -326,10 +380,11 @@ html, body {
 }
 
 .topic-card {
-    background: linear-gradient(135deg, #667eea, #764ba2);
-    color: white;
+    background: var(--surface-2);
+    border: 1px solid var(--border);
+    color: var(--text);
     padding: 30px;
-    border-radius: 15px;
+    border-radius: var(--r-lg);
     margin-bottom: 20px;
 }
 
@@ -350,6 +405,28 @@ html, body {
     margin-top: 20px;
 }
 
+.answer-input {
+    width: 100%;
+    padding: 10px 12px;
+    min-height: 72px;
+    font-family: inherit;
+    font-size: var(--fs-base);
+    line-height: var(--lh-snug);
+    color: var(--text);
+    background: var(--code-bg);
+    border: 1px solid var(--border-strong);
+    border-radius: var(--r-md);
+    resize: vertical;
+}
+.answer-input::placeholder { color: var(--text-faint); }
+
+.char-count {
+    font-size: var(--fs-sm);
+    color: var(--text-muted);
+    text-align: right;
+    margin: 4px 0 12px;
+}
+
 /* MCQ Options */
 .mcq-options {
     display: flex;
@@ -362,17 +439,17 @@ html, body {
     display: flex;
     align-items: center;
     padding: 16px 20px;
-    background: #f8f9fa;
-    border: 2px solid #e0e0e0;
-    border-radius: 12px;
+    background: var(--surface-2);
+    border: 1px solid var(--border-strong);
+    border-radius: var(--r-md);
     cursor: pointer;
     transition: all 0.3s ease;
     position: relative;
 }
 
 .mcq-option:hover {
-    background: #f0f4ff;
-    border-color: var(--primary);
+    background: var(--surface-3);
+    border-color: var(--brand);
     transform: translateX(4px);
 }
 
@@ -381,7 +458,7 @@ html, body {
     height: 20px;
     margin-right: 12px;
     cursor: pointer;
-    accent-color: var(--primary);
+    accent-color: var(--brand);
 }
 
 .mcq-option input[type="radio"]:checked + .mcq-option-text {
@@ -390,15 +467,14 @@ html, body {
 }
 
 .mcq-option:has(input[type="radio"]:checked) {
-    background: linear-gradient(135deg, rgba(156, 39, 176, 0.1), rgba(233, 30, 99, 0.1));
-    border-color: var(--primary);
-    border-width: 3px;
+    background: var(--brand-subtle);
+    border-color: var(--brand);
 }
 
 .mcq-option-text {
     flex: 1;
     font-size: 15px;
-    color: var(--dark);
+    color: var(--text-body);
     transition: all 0.3s ease;
 }
 
@@ -431,8 +507,8 @@ html, body {
     width: 40px;
     height: 40px;
     border-radius: 50%;
-    background: var(--primary);
-    color: white;
+    background: var(--brand);
+    color: #fff;
     display: flex;
     align-items: center;
     justify-content: center;
@@ -452,39 +528,40 @@ html, body {
 }
 
 .answer-text {
-    color: #666;
+    color: var(--text-muted);
     line-height: 1.4;
 }
 
 .answer-card.liar-revealed {
-    background: linear-gradient(135deg, #ffebee, #ffcdd2);
+    background: var(--danger-bg);
     border-color: var(--danger);
 }
 
 .answer-card.liar-revealed .answer-avatar {
-    background: var(--danger);
+    background: var(--danger-strong);
 }
 
 /* Voting */
 .vote-btn {
     width: 100%;
     padding: 15px;
-    border: none;
-    border-radius: 12px;
+    border-radius: var(--r-md);
     cursor: pointer;
+    font-family: inherit;
     font-size: 16px;
+    color: var(--text-body);
     transition: all 0.3s;
-    background: white;
-    border: 2px solid #ddd;
+    background: var(--surface-2);
+    border: 1px solid var(--border-strong);
     display: flex;
     align-items: center;
     gap: 15px;
 }
 
 .vote-btn:hover:not(:disabled) {
-    border-color: var(--primary);
+    border-color: var(--brand);
+    background: var(--surface-3);
     transform: translateX(5px);
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
 }
 
 .vote-btn:disabled {
@@ -493,7 +570,7 @@ html, body {
 }
 
 .vote-btn.selected {
-    background: linear-gradient(135deg, #e8f5e9, #c8e6c9);
+    background: var(--success-bg);
     border-color: var(--success);
 }
 
@@ -505,7 +582,7 @@ html, body {
 /* Timer Bar */
 .timer-bar {
     height: 8px;
-    background: #e0e0e0;
+    background: var(--surface-3);
     border-radius: 4px;
     margin: 20px 0;
     overflow: hidden;
@@ -530,13 +607,13 @@ html, body {
 }
 
 .reveal-card.found {
-    background: linear-gradient(135deg, #e8f5e9, #c8e6c9);
-    border: 3px solid var(--success);
+    background: var(--success-bg);
+    border: 1px solid rgba(52, 211, 153, 0.4);
 }
 
 .reveal-card.escaped {
-    background: linear-gradient(135deg, #ffebee, #ffcdd2);
-    border: 3px solid var(--danger);
+    background: var(--danger-bg);
+    border: 1px solid rgba(248, 113, 113, 0.4);
 }
 
 .vote-tally {
@@ -548,14 +625,16 @@ html, body {
     align-items: center;
     gap: 10px;
     padding: 10px 15px;
-    background: white;
-    border-radius: 8px;
+    background: var(--surface-2);
+    border: 1px solid var(--border);
+    border-radius: var(--r-md);
     margin: 8px 0;
 }
 
 .vote-result.eliminated {
-    opacity: 0.6;
-    background: #ffebee;
+    opacity: 0.7;
+    background: var(--danger-bg);
+    border-color: rgba(248, 113, 113, 0.4);
 }
 
 .vote-count {
@@ -568,20 +647,20 @@ html, body {
 .vote-result-investigation {
     text-align: center;
     padding: 40px 30px;
-    background: white;
-    border-radius: 16px;
+    background: var(--surface-2);
+    border-radius: var(--r-lg);
     margin: 20px auto;
     max-width: 400px;
 }
 
 .vote-result-investigation.pass {
-    background: linear-gradient(135deg, #e8f5e9 0%, #c8e6c9 100%);
-    border: 3px solid var(--success);
+    background: var(--success-bg);
+    border: 1px solid rgba(52, 211, 153, 0.4);
 }
 
 .vote-result-investigation.fail {
-    background: linear-gradient(135deg, #ffebee 0%, #ffcdd2 100%);
-    border: 3px solid var(--danger);
+    background: var(--danger-bg);
+    border: 1px solid rgba(248, 113, 113, 0.4);
 }
 
 .vote-result-investigation h3 {
@@ -600,9 +679,14 @@ html, body {
 
 /* Buttons */
 .btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
     padding: 12px 30px;
     border: none;
-    border-radius: 10px;
+    border-radius: var(--r-md);
+    font-family: inherit;
     font-size: 16px;
     cursor: pointer;
     transition: all 0.3s;
@@ -615,29 +699,29 @@ html, body {
 }
 
 .btn-primary {
-    background: linear-gradient(135deg, var(--primary), var(--secondary));
-    color: white;
+    background: var(--brand);
+    color: #fff;
 }
 
 .btn-primary:hover:not(:disabled) {
-    transform: translateY(-2px);
-    box-shadow: 0 6px 20px rgba(156, 39, 176, 0.4);
+    background: var(--brand-hover);
 }
 
 .btn-success {
-    background: linear-gradient(135deg, var(--success), #8bc34a);
-    color: white;
+    background: var(--success);
+    color: #052e16;
 }
 
 .btn-success:hover:not(:disabled) {
-    transform: translateY(-2px);
-    box-shadow: 0 6px 20px rgba(76, 175, 80, 0.4);
+    filter: brightness(1.08);
 }
 
 /* Score Modal Specific */
 .score-modal-content {
-    background: white;
-    border-radius: 20px;
+    background: var(--surface-1);
+    border: 1px solid var(--border-strong);
+    box-shadow: var(--shadow-3);
+    border-radius: var(--r-xl);
     padding: 30px;
     max-width: 500px;
     width: 90%;
@@ -646,9 +730,10 @@ html, body {
 }
 
 .score-modal-content h2 {
-    color: var(--primary);
+    color: var(--text);
     margin-bottom: 20px;
 }
+.score-modal-content h2 .icon { color: var(--warning); }
 
 /* Animations */
 @keyframes fadeIn {
@@ -682,14 +767,16 @@ html, body {
     text-transform: uppercase;
     letter-spacing: 1px;
     margin-bottom: 15px;
+    background: var(--surface-2);
+    color: var(--text-muted);
 }
 
-.phase-waiting { background: #e3f2fd; color: var(--info); }
-.phase-roles { background: #fff3e0; color: #f57c00; }
-.phase-answering { background: #e8f5e9; color: var(--success); }
-.phase-reveal { background: #fce4ec; color: var(--secondary); }
-.phase-voting { background: #f3e5f5; color: var(--primary); }
-.phase-results { background: #fff8e1; color: #f9a825; }
+.phase-waiting { background: var(--info-bg); color: var(--accent-ink); }
+.phase-roles { background: var(--warning-bg); color: var(--warning); }
+.phase-answering { background: var(--success-bg); color: var(--success); }
+.phase-reveal { background: var(--accent-subtle); color: var(--accent-ink); }
+.phase-voting { background: var(--brand-subtle); color: var(--brand-ink); }
+.phase-results { background: var(--warning-bg); color: var(--warning); }
 
 /* Responsive Design */
 @media (max-width: 900px) {
@@ -741,7 +828,7 @@ html, body {
     left: 0;
     right: 0;
     bottom: 0;
-    background: rgba(0, 0, 0, 0.5);
+    background: var(--overlay);
     display: flex;
     align-items: center;
     justify-content: center;
@@ -749,17 +836,18 @@ html, body {
 }
 
 .connection-loader-content {
-    background: white;
+    background: var(--surface-1);
+    border: 1px solid var(--border-strong);
     padding: 30px;
-    border-radius: 15px;
+    border-radius: var(--r-lg);
     text-align: center;
 }
 
 .spinner {
     width: 40px;
     height: 40px;
-    border: 4px solid #f3f3f3;
-    border-top: 4px solid var(--primary);
+    border: 4px solid var(--surface-3);
+    border-top: 4px solid var(--brand);
     border-radius: 50%;
     animation: spin 1s linear infinite;
     margin: 0 auto 15px;
@@ -775,8 +863,10 @@ html, body {
     max-width: 800px;
     max-height: 90vh;
     overflow-y: auto;
-    background: white;
-    border-radius: 20px;
+    background: var(--surface-1);
+    border: 1px solid var(--border-strong);
+    box-shadow: var(--shadow-3);
+    border-radius: var(--r-xl);
     padding: 0;
 }
 
@@ -791,9 +881,10 @@ html, body {
     justify-content: space-between;
     align-items: center;
     padding: 20px 30px;
-    background: linear-gradient(135deg, var(--primary), var(--secondary));
-    border-radius: 20px 20px 0 0;
-    color: white;
+    background: var(--surface-3);
+    border-bottom: 1px solid var(--border);
+    border-radius: var(--r-xl) var(--r-xl) 0 0;
+    color: var(--text);
 }
 
 .modal-header h2 {
@@ -802,10 +893,12 @@ html, body {
 }
 
 .modal-close {
-    background: rgba(255, 255, 255, 0.2);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    background: none;
     border: none;
-    color: white;
-    font-size: 20px;
+    color: var(--text-muted);
     width: 35px;
     height: 35px;
     border-radius: 50%;
@@ -814,13 +907,13 @@ html, body {
 }
 
 .modal-close:hover {
-    background: rgba(255, 255, 255, 0.3);
-    transform: rotate(90deg);
+    background: var(--surface-2);
+    color: var(--text);
 }
 
 .modal-footer {
     padding: 15px 30px;
-    border-top: 1px solid #eee;
+    border-top: 1px solid var(--border);
     text-align: center;
 }
 
@@ -828,7 +921,7 @@ html, body {
 .help-section {
     margin-bottom: 25px;
     padding-bottom: 20px;
-    border-bottom: 1px solid #eee;
+    border-bottom: 1px solid var(--border);
 }
 
 .help-section:last-child {
@@ -843,14 +936,14 @@ html, body {
 
 .help-section p {
     line-height: 1.6;
-    color: #555;
+    color: var(--text-body);
     margin-bottom: 10px;
 }
 
 .help-section ul, .help-section ol {
     margin-left: 20px;
     line-height: 1.8;
-    color: #555;
+    color: var(--text-body);
 }
 
 .help-section li {
@@ -876,8 +969,8 @@ html, body {
 }
 
 .innocent-role {
-    background: rgba(76, 175, 80, 0.1);
-    border-color: var(--innocent-color);
+    background: var(--success-bg);
+    border-color: rgba(52, 211, 153, 0.4);
 }
 
 .innocent-role h4 {
@@ -886,8 +979,8 @@ html, body {
 }
 
 .liar-role {
-    background: rgba(255, 87, 34, 0.1);
-    border-color: var(--liar-color);
+    background: rgba(255, 138, 101, 0.1);
+    border-color: rgba(255, 138, 101, 0.4);
 }
 
 .liar-role h4 {
@@ -902,10 +995,10 @@ html, body {
 
 /* Game Flow */
 .game-flow {
-    background: #f9f9f9;
+    background: var(--surface-2);
     padding: 15px 20px;
-    border-radius: 10px;
-    border-left: 4px solid var(--primary);
+    border-radius: var(--r-md);
+    border-left: 3px solid var(--brand);
 }
 
 .game-flow li {
@@ -914,11 +1007,11 @@ html, body {
 
 /* Mode Cards */
 .mode-card {
-    background: #f9f9f9;
+    background: var(--surface-2);
     padding: 15px;
-    border-radius: 10px;
+    border-radius: var(--r-md);
     margin-bottom: 15px;
-    border-left: 4px solid var(--info);
+    border-left: 3px solid var(--info);
 }
 
 .mode-card h4 {
@@ -945,8 +1038,8 @@ html, body {
 }
 
 .win-liars {
-    background: rgba(255, 87, 34, 0.1);
-    border-color: var(--liar-color);
+    background: rgba(255, 138, 101, 0.1);
+    border-color: rgba(255, 138, 101, 0.4);
 }
 
 .win-liars h4 {
@@ -955,8 +1048,8 @@ html, body {
 }
 
 .win-truthful {
-    background: rgba(76, 175, 80, 0.1);
-    border-color: var(--innocent-color);
+    background: var(--success-bg);
+    border-color: rgba(52, 211, 153, 0.4);
 }
 
 .win-truthful h4 {
@@ -971,10 +1064,10 @@ html, body {
 
 /* Tips List */
 .tips-list {
-    background: #fff9e6;
+    background: var(--warning-bg);
     padding: 15px 20px;
-    border-radius: 10px;
-    border-left: 4px solid var(--warning);
+    border-radius: var(--r-md);
+    border-left: 3px solid var(--warning);
 }
 
 .tips-list li {
@@ -993,10 +1086,15 @@ html, body {
     }
 
     .help-btn {
-        right: 15px;
-        top: 75px;
-        padding: 8px 15px;
-        font-size: 13px;
+        left: 76px;              /* same clearance, smaller chip on a phone */
+        top: 10px;
+        padding: 8px 12px;
+        font-size: var(--fs-sm);
+    }
+    .help-btn span { display: none; }
+    .share-btn {
+        top: 10px;
+        right: 10px;
     }
 
     .modal-header h2 {
@@ -1020,16 +1118,17 @@ html, body {
     display: inline-flex;
     align-items: center;
     padding: 3px 10px;
-    border-radius: 999px;
+    border-radius: var(--r-pill);
     font-size: 12px;
     font-weight: 700;
     letter-spacing: .02em;
-    background: rgba(15, 23, 42, .08);
-    color: #334155;
+    background: var(--surface-2);
+    border: 1px solid var(--border);
+    color: var(--text-body);
 }
-.chip-phase { background: rgba(168, 85, 247, .14); color: #7e22ce; }
+.chip-phase { background: var(--brand-subtle); border-color: rgba(99, 102, 241, .35); color: var(--brand-ink); }
 .chip-timer:empty { display: none; }
-.chip-timer { background: rgba(239, 68, 68, .12); color: #b91c1c; font-variant-numeric: tabular-nums; }
+.chip-timer { background: var(--danger-bg); border-color: rgba(248, 113, 113, .35); color: var(--danger); font-variant-numeric: tabular-nums; }
 
 /* --- The dossier -------------------------------------------------------- */
 .item-info.innocent-info,
@@ -1140,8 +1239,8 @@ html, body {
     margin-left: auto;
     min-width: 22px;
     padding: 1px 7px;
-    border-radius: 999px;
-    background: var(--primary);
+    border-radius: var(--r-pill);
+    background: var(--brand);
     color: #fff;
     font-size: 12px;
     font-weight: 700;

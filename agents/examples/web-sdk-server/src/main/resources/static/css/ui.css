@@ -770,3 +770,27 @@ body.modal-open { overflow: hidden; }
     font-variant-numeric: tabular-nums;
     white-space: nowrap;
 }
+
+
+/* --------------------------------------------------------------------------
+   Touch targets.
+
+   A finger is not a pointer. On a coarse pointer every real control gets at
+   least 44px in the direction it is short — which mostly means the icon-only
+   buttons, since text buttons already clear it from their padding.
+
+   Deliberately NOT applied to inline text links inside prose or cards: the
+   card itself is the tap target (a full-size .entry-hit sits over it), and
+   stretching "Open demo" to 44px would make the card look broken to fix a
+   target that is already 300px wide.
+   -------------------------------------------------------------------------- */
+@media (pointer: coarse) {
+    .btn--icon,
+    .nav-toggle,
+    .modal__close {
+        min-width: 44px;
+        min-height: 44px;
+    }
+
+    .btn { min-height: 44px; }
+}

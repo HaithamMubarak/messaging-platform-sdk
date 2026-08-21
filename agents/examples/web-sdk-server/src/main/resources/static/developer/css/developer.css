@@ -45,6 +45,16 @@
 }
 .auth__back { display: block; text-align: center; margin-top: var(--sp-5); font-size: var(--fs-md); }
 
+/* The temporary password can be kept, and the dashboard nags until it is not.
+   The link used to say "Skip for now", which made a standing warning sound
+   like a dismissal. */
+.auth__note {
+    margin-top: var(--sp-2);
+    text-align: center;
+    font-size: var(--fs-sm);
+    color: var(--text-muted);
+}
+
 /* Password reveal toggle sits inside the input. */
 .field--password { position: relative; }
 .field--password .field__input { padding-right: 2.75rem; }
