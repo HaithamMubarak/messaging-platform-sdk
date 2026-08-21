@@ -1237,15 +1237,13 @@ class WhiteboardGame extends UserConnectionBase {
     /**
      * Add chat message to UI
      */
+    /**
+     * The class had its own copy of this, so half the app's notices went
+     * through the function and half through the method — and only one of them
+     * learned that an event is not a message. One path now.
+     */
     _addChatMessage(from, message, color = '#333') {
-        const chatMessages = document.getElementById('chatMessages');
-        if (!chatMessages) return;
-
-        const msgElement = document.createElement('div');
-        msgElement.className = 'chat-message';
-        msgElement.innerHTML = `<strong style="color: ${MiniGameUtils.safeColor(color)}">${MiniGameUtils.escapeHtml(from)}:</strong> ${MiniGameUtils.escapeHtml(message)}`;
-        chatMessages.appendChild(msgElement);
-        chatMessages.scrollTop = chatMessages.scrollHeight;
+        addChatMessage(from, message, color);
     }
 
     /**
@@ -2568,203 +2566,77 @@ function unlockBoard() {
 }
 
 /**
- * Show board lock notification overlay
+ * The one overlay.
+ *
+ * A joiner used to get two of these in a row, each a full-screen scrim with
+ * its own hand-rolled spinner and its own @keyframes: "Establishing
+ * connection", then "Loading whiteboard state". Two waits look like two
+ * problems. There is one overlay now and the message changes as the phase
+ * does, so arriving reads as one wait that tells you where it has got to.
+ *
+ * It stays up while EITHER reason is still true, which is why hiding is a
+ * request rather than a command.
  */
-function showBoardLockNotification(message) {
+function showBoardOverlay(message, detail) {
     let overlay = document.getElementById('boardLockOverlay');
 
     if (!overlay) {
         overlay = document.createElement('div');
         overlay.id = 'boardLockOverlay';
-        overlay.style.cssText = `
-            position: fixed;
-            top: 0;
-            left: 0;
-            right: 0;
-            bottom: 0;
-            background: rgba(0, 0, 0, 0.7);
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            z-index: 99999;
-            backdrop-filter: blur(3px);
-        `;
+        overlay.className = 'wb-overlay';
+        overlay.setAttribute('role', 'status');
+        overlay.setAttribute('aria-live', 'polite');
 
         const content = document.createElement('div');
-        content.style.cssText = `
-            background: white;
-            padding: 30px 50px;
-            border-radius: 12px;
-            box-shadow: 0 10px 40px rgba(0,0,0,0.3);
-            text-align: center;
-            max-width: 400px;
-        `;
+        content.className = 'wb-overlay__card';
 
         const spinner = document.createElement('div');
-        spinner.className = 'spinner';
-        spinner.style.cssText = `
-            width: 50px;
-            height: 50px;
-            border: 5px solid #f3f3f3;
-            border-top: 5px solid #6965db;
-            border-radius: 50%;
-            animation: spin 1s linear infinite;
-            margin: 0 auto 20px;
-        `;
+        spinner.className = 'wb-overlay__spin';
 
         const messageEl = document.createElement('div');
         messageEl.id = 'boardLockMessage';
-        messageEl.style.cssText = `
-            font-size: 18px;
-            color: #333;
-            font-weight: 600;
-            margin-bottom: 10px;
-        `;
+        messageEl.className = 'wb-overlay__msg';
         messageEl.textContent = message;
 
         const subtext = document.createElement('div');
-        subtext.style.cssText = `
-            font-size: 14px;
-            color: #666;
-        `;
-        subtext.textContent = 'Please wait...';
+        subtext.id = 'boardLockDetail';
+        subtext.className = 'wb-overlay__sub';
+        subtext.textContent = detail || '';
 
-        content.appendChild(spinner);
-        content.appendChild(messageEl);
-        content.appendChild(subtext);
+        content.append(spinner, messageEl, subtext);
         overlay.appendChild(content);
         document.body.appendChild(overlay);
-
-        // Add spinner animation
-        const style = document.createElement('style');
-        style.textContent = `
-            @keyframes spin {
-                0% { transform: rotate(0deg); }
-                100% { transform: rotate(360deg); }
-            }
-        `;
-        document.head.appendChild(style);
     } else {
         const messageEl = document.getElementById('boardLockMessage');
         if (messageEl) messageEl.textContent = message;
-        overlay.style.display = 'flex';
+        const detailEl = document.getElementById('boardLockDetail');
+        if (detailEl) detailEl.textContent = detail || '';
+        overlay.hidden = false;
     }
 }
 
-/**
- * Hide board lock notification overlay
- */
-function hideBoardLockNotification() {
+/** Take the overlay down, but only once nothing still needs it up. */
+function hideBoardOverlay() {
+    if (isBoardLocked || isLoadingInitialState) return;
     const overlay = document.getElementById('boardLockOverlay');
-    if (overlay) {
-        overlay.style.display = 'none';
-    }
+    if (overlay) overlay.hidden = true;
 }
 
-function enqueueStroke(s, peerId) {
-    // Normalize minimal stroke shape
-    const stroke = {
-        x1: Number(s.x1) || 0,
-        y1: Number(s.y1) || 0,
-        x2: Number(s.x2) || 0,
-        y2: Number(s.y2) || 0,
-        color: s.color || '#000',
-        size: s.size || 1,
-        erase: !!s.erase,
-        isMagic: !!s.isMagic,  // Preserve magic flag
-        peerId: peerId || null  // Track who sent this stroke
-    };
-
-    // Text and notes keep their payload: normalising them into four numbers
-    // would deliver somebody's sticky note as an invisible zero-length line.
-    if (s.type === 'text' || s.type === 'note') {
-        stroke.type = s.type;
-        stroke.text = String(s.text || '').slice(0, 500);
-    }
-
-    incomingStrokeQueue.push(stroke);
-
-    // Safety: drop oldest if queue exceeds max
-    if (incomingStrokeQueue.length > MAX_STROKES_QUEUE) {
-        // remove oldest (keep the newest MAX_STROKES_QUEUE items)
-        incomingStrokeQueue.splice(0, incomingStrokeQueue.length - MAX_STROKES_QUEUE);
-    }
+// The two names the rest of the file already calls.
+function showBoardLockNotification(message) {
+    showBoardOverlay(message, 'One moment.');
 }
 
-function enqueueStrokes(arr, peerId) {
-    if (!Array.isArray(arr)) return;
-    for (const s of arr) enqueueStroke(s, peerId);
+function hideBoardLockNotification() {
+    hideBoardOverlay();
 }
-
-// ===== Initial State Loading Management =====
 
 function showStateLoadingLoader() {
-    try {
-        let loader = document.getElementById('stateLoadingLoader');
-        if (!loader) {
-            // Create loader overlay
-            loader = document.createElement('div');
-            loader.id = 'stateLoadingLoader';
-            loader.style.cssText = `
-                position: fixed;
-                top: 0;
-                left: 0;
-                right: 0;
-                bottom: 0;
-                background: rgba(0, 0, 0, 0.7);
-                display: flex;
-                flex-direction: column;
-                justify-content: center;
-                align-items: center;
-                z-index: 9999;
-                gap: 16px;
-            `;
-
-            const spinner = document.createElement('div');
-            spinner.style.cssText = `
-                width: 50px;
-                height: 50px;
-                border: 4px solid rgba(102, 126, 234, 0.2);
-                border-top-color: #667eea;
-                border-radius: 50%;
-                animation: spin 0.8s linear infinite;
-            `;
-
-            const text = document.createElement('div');
-            text.textContent = 'Loading whiteboard state...';
-            text.style.cssText = `
-                color: white;
-                font-size: 16px;
-                font-weight: 600;
-            `;
-
-            const styles = document.createElement('style');
-            styles.textContent = `
-                @keyframes spin {
-                    to { transform: rotate(360deg); }
-                }
-            `;
-            document.head.appendChild(styles);
-
-            loader.appendChild(spinner);
-            loader.appendChild(text);
-            document.body.appendChild(loader);
-        }
-        loader.style.display = 'flex';
-    } catch (e) {
-        console.warn('Failed to show loader', e);
-    }
+    showBoardOverlay('Fetching what is already on the board', 'Somebody else drew it before you arrived.');
 }
 
 function hideStateLoadingLoader() {
-    try {
-        const loader = document.getElementById('stateLoadingLoader');
-        if (loader) {
-            loader.style.display = 'none';
-        }
-    } catch (e) {
-        console.warn('Failed to hide loader', e);
-    }
+    hideBoardOverlay();
 }
 
 function startInitialStateLoading() {
@@ -6041,7 +5913,21 @@ function sendChat() {
     }
 }
 
+/**
+ * A line in the drawer.
+ *
+ * Everything the app had to say — somebody joined, a sync was rejected, a
+ * board failed to load — used to arrive as a chat message from a person
+ * called System, sitting in the conversation as though it had been typed.
+ * An event is not a message: it gets a quiet row with an icon and no name,
+ * the way the room panel in Rooms does it. Only people get to be people.
+ *
+ * Errors also raise a toast, because the drawer starts collapsed and an
+ * error nobody sees is not a report.
+ */
 function addChatMessage(from, message, color = '#333') {
+    if (from === 'System') { addSystemNote(message, color); return; }
+
     const chatMessages = document.getElementById('chatMessages');
     const msgElement = document.createElement('div');
     msgElement.className = 'chat-message';
@@ -6049,6 +5935,45 @@ function addChatMessage(from, message, color = '#333') {
     chatMessages.appendChild(msgElement);
     chatMessages.scrollTop = chatMessages.scrollHeight;
     bumpUnread(from);
+}
+
+/** The colours the old System messages carried are what said which kind it was. */
+function noteKindFor(color) {
+    const c = String(color || '').toLowerCase();
+    if (c === '#f44336' || c === '#ef4444') return 'error';
+    if (c === '#ff9800' || c === '#f59e0b') return 'warn';
+    if (c === '#4caf50' || c === '#10b981') return 'good';
+    return 'info';
+}
+
+function addSystemNote(message, color) {
+    const host = document.getElementById('chatMessages');
+    if (!host) return;
+    const kind = noteKindFor(color);
+
+    const row = document.createElement('div');
+    row.className = 'chat-event chat-event--' + kind;
+
+    const icon = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+    icon.setAttribute('class', 'icon icon--sm');
+    icon.setAttribute('aria-hidden', 'true');
+    const use = document.createElementNS('http://www.w3.org/2000/svg', 'use');
+    use.setAttribute('href', '#i-' + (
+        kind === 'error' ? 'alert-circle' :
+        kind === 'warn' ? 'alert-triangle' :
+        kind === 'good' ? 'check-circle' : 'info'));
+    icon.appendChild(use);
+
+    const text = document.createElement('span');
+    text.textContent = message;
+
+    row.append(icon, text);
+    host.appendChild(row);
+    host.scrollTop = host.scrollHeight;
+
+    // The drawer is shut by default, so anything that went wrong says so out
+    // loud as well as in the log.
+    if (kind === 'error' && typeof showToast === 'function') showToast(message, 'error', 5000);
 }
 
 /**

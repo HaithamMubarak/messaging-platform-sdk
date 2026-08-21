@@ -1369,7 +1369,7 @@ class UserConnectionBase {
      */
     showJoinNotification(agentName) {
         if (agentName === this.username) return; // Don't show for self
-        this.showToast(`👋 ${agentName} joined`, 'success');
+        this.showToast(`${agentName} joined`, 'success');
     }
 
     /**
@@ -1378,7 +1378,7 @@ class UserConnectionBase {
      */
     showLeaveNotification(agentName) {
         if (agentName === this.username) return; // Don't show for self
-        this.showToast(`👋 ${agentName} left`, 'info');
+        this.showToast(`${agentName} left`, 'info');
     }
 
     /**
@@ -1640,9 +1640,17 @@ class UserConnectionBase {
                 indicator.onmouseenter = () => { indicator.style.opacity = '1'; };
                 indicator.onmouseleave = () => { indicator.style.opacity = '0.85'; };
 
-                const icon = document.createElement('span');
-                icon.textContent = '👑';
-                icon.style.fontSize = '18px';
+                // The floating host pill appears on every app built on this
+                // base, so its mark comes from the shared sprite rather than
+                // being the one emoji left on an otherwise converted page.
+                const icon = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+                icon.setAttribute('class', 'icon icon--sm');
+                icon.setAttribute('aria-hidden', 'true');
+                icon.style.width = '16px';
+                icon.style.height = '16px';
+                const use = document.createElementNS('http://www.w3.org/2000/svg', 'use');
+                use.setAttribute('href', '#i-crown');
+                icon.appendChild(use);
 
                 const text = document.createElement('span');
                 text.textContent = 'Host';
@@ -2106,7 +2114,7 @@ let GameInitializer = {
         document.body.innerHTML = `
             <div style="display: flex; align-items: center; justify-content: center; height: 100vh; background: #0f0f1a; color: white; font-family: monospace; padding: 20px;">
                 <div style="max-width: 600px; background: #1a1a2e; padding: 30px; border-radius: 12px; border: 2px solid #ef4444;">
-                    <h2 style="color: #ef4444; margin-bottom: 15px;">⚠️ Game Initialization Error</h2>
+                    <h2 style="color: #ef4444; margin-bottom: 15px;">This game would not start</h2>
                     <p style="color: #94a3b8; margin-bottom: 10px;">Failed to initialize ${gameName}:</p>
                     <pre style="background: #0f0f1a; padding: 15px; border-radius: 8px; overflow-x: auto; color: #ff6b6b;">${error.message}\n\n${error.stack || ''}</pre>
                     <button onclick="location.reload()" style="margin-top: 20px; padding: 10px 20px; background: #4f46e5; color: white; border: none; border-radius: 8px; cursor: pointer;">Reload Page</button>

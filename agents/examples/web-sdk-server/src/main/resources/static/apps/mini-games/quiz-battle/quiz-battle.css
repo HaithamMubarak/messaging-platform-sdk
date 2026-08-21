@@ -1,0 +1,480 @@
+/* ==========================================================================
+   Quiz Battle — page styles on top of design-tokens.css + ui.css + sdk-app.css.
+   The kit supplies .btn, .badge, .card and the app shell; this file styles the
+   stat strip, the question screen, the answer grid and the leaderboard.
+
+   Podium colours (gold / silver / bronze) are game state, not chrome, and are
+   the one place this file keeps its own palette.
+   ========================================================================== */
+
+/* The connection modal must sit above everything on this page. */
+#connectionModal { z-index: 9999 !important; }
+#connectionModal.active { backdrop-filter: blur(8px); }
+
+:root {
+    --qb-gold:   #fbbf24;
+    --qb-silver: #b0b8c4;
+    --qb-bronze: #d08b4c;
+}
+
+/* ---- layout -------------------------------------------------------------- */
+/* Question screens can be taller than a phone viewport and the shell body is
+   overflow: hidden, so the main column owns the scrolling. */
+.quiz-main {
+    overflow-y: auto;
+    min-height: 0;
+    -webkit-overflow-scrolling: touch;
+}
+
+.quiz-card {
+    width: 100%;
+    max-width: 800px;
+    margin: 0 auto;
+}
+
+/* ---- stat strip ---------------------------------------------------------- */
+.quiz-stats {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--sp-3);
+    width: 100%;
+    max-width: 800px;
+    margin: 0 auto;
+    flex: none;
+}
+
+.quiz-stat {
+    flex: 1 1 150px;
+    display: flex;
+    align-items: center;
+    gap: var(--sp-3);
+    padding: var(--sp-3) var(--sp-4);
+    background: var(--surface-1);
+    border: 1px solid var(--border);
+    border-radius: var(--r-lg);
+    min-width: 0;
+}
+
+.quiz-stat__icon {
+    display: grid;
+    place-items: center;
+    width: 34px; height: 34px;
+    flex: none;
+    border-radius: var(--r-md);
+    background: var(--surface-2);
+    color: var(--brand-ink);
+}
+
+.quiz-stat__label {
+    font-size: var(--fs-xs);
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--text-muted);
+    white-space: nowrap;
+}
+
+.quiz-stat__value {
+    font-size: var(--fs-xl);
+    font-weight: 700;
+    color: var(--text);
+    line-height: var(--lh-tight);
+    font-variant-numeric: tabular-nums;
+}
+
+/* ---- waiting room -------------------------------------------------------- */
+.waiting-room {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: var(--sp-4);
+    text-align: center;
+    padding: var(--sp-6) var(--sp-2);
+}
+
+.waiting-room__mark {
+    display: grid;
+    place-items: center;
+    width: 56px; height: 56px;
+    border-radius: var(--r-pill);
+    background: var(--brand-subtle);
+    color: var(--brand-ink);
+}
+.waiting-room__mark .icon { width: 28px; height: 28px; }
+
+.waiting-room h2 { font-size: var(--fs-2xl); }
+.waiting-room > p { color: var(--text-muted); max-width: 42ch; }
+
+.waiting-room__actions {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: var(--sp-3);
+}
+
+.waiting-room__hint {
+    font-size: var(--fs-sm);
+    color: var(--text-muted);
+    max-width: 46ch;
+}
+
+.waiting-indicator {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--sp-2);
+    font-size: var(--fs-md);
+    color: var(--text-muted);
+    animation: qb-pulse 2s infinite;
+}
+@keyframes qb-pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.5; }
+}
+
+/* ---- players list -------------------------------------------------------- */
+.players-list {
+    width: 100%;
+    max-width: 480px;
+    background: var(--surface-2);
+    border: 1px solid var(--border);
+    border-radius: var(--r-lg);
+    padding: var(--sp-4);
+    text-align: left;
+}
+
+.players-list h3 {
+    font-size: var(--fs-sm);
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--text-muted);
+    margin-bottom: var(--sp-3);
+}
+
+.players-list__empty { color: var(--text-faint); font-size: var(--fs-md); }
+
+.player-item {
+    display: flex;
+    align-items: center;
+    gap: var(--sp-3);
+    min-height: 44px;
+    padding: var(--sp-2) var(--sp-3);
+    margin-top: var(--sp-2);
+    background: var(--surface-1);
+    border: 1px solid var(--border);
+    border-radius: var(--r-md);
+    color: var(--text-body);
+    font-size: var(--fs-md);
+}
+.player-item:first-child { margin-top: 0; }
+
+.player-item > .icon { color: var(--text-muted); }
+
+.player-item.host {
+    border-color: rgba(99, 102, 241, 0.35);
+    background: var(--brand-subtle);
+    color: var(--text);
+    font-weight: 600;
+}
+.player-item.host > .icon { color: var(--qb-gold); }
+
+.player-item__name {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.player-item__link {
+    display: inline-flex;
+    color: var(--warning);
+}
+.player-item__link.is-on { color: var(--success); }
+
+.player-item__tag { margin-left: auto; }
+
+/* ---- question screen ----------------------------------------------------- */
+.question-header { text-align: center; margin-bottom: var(--sp-5); }
+
+.question-number {
+    font-size: var(--fs-sm);
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--text-muted);
+    margin-bottom: var(--sp-2);
+}
+
+.question-text {
+    font-size: var(--fs-xl);
+    font-weight: 700;
+    color: var(--text);
+    line-height: var(--lh-snug);
+    overflow-wrap: anywhere;
+}
+
+.timer-bar {
+    height: 8px;
+    background: var(--surface-3);
+    border-radius: var(--r-pill);
+    margin: var(--sp-5) 0;
+    overflow: hidden;
+}
+
+.timer-fill {
+    height: 100%;
+    background: var(--success);
+    border-radius: inherit;
+    transition: width 0.1s linear, background var(--dur-fast) var(--ease);
+}
+
+/* ---- answers ------------------------------------------------------------- */
+.answers-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: var(--sp-3);
+    margin-top: var(--sp-5);
+}
+
+.answer-btn {
+    display: flex;
+    align-items: center;
+    gap: var(--sp-3);
+    min-height: 56px;
+    padding: var(--sp-3) var(--sp-4);
+    font-family: inherit;
+    font-size: var(--fs-base);
+    text-align: left;
+    color: var(--text);
+    background: var(--surface-2);
+    border: 2px solid var(--border-strong);
+    border-radius: var(--r-lg);
+    cursor: pointer;
+    transition: background var(--dur-fast) var(--ease),
+                border-color var(--dur-fast) var(--ease),
+                transform var(--dur-fast) var(--ease);
+}
+
+.answer-btn:hover:not(:disabled) {
+    border-color: var(--brand);
+    background: var(--surface-3);
+    transform: translateY(-2px);
+}
+
+.answer-btn:disabled { cursor: not-allowed; opacity: 0.75; }
+
+.answer-letter {
+    display: grid;
+    place-items: center;
+    width: 36px; height: 36px;
+    flex: none;
+    border-radius: var(--r-pill);
+    background: var(--brand);
+    color: #fff;
+    font-weight: 700;
+    font-size: var(--fs-base);
+}
+
+.answer-text { min-width: 0; overflow-wrap: anywhere; }
+
+.answer-btn.correct {
+    border-color: var(--success);
+    background: var(--success-bg);
+    opacity: 1;
+}
+.answer-btn.correct .answer-letter { background: var(--success); color: #06281c; }
+
+.answer-btn.wrong {
+    border-color: var(--danger);
+    background: var(--danger-bg);
+    opacity: 1;
+}
+.answer-btn.wrong .answer-letter { background: var(--danger-strong); }
+
+.answer-btn.selected {
+    border-color: var(--accent);
+    background: var(--accent-subtle);
+}
+
+/* ---- results ------------------------------------------------------------- */
+.results-screen {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: var(--sp-4);
+    text-align: center;
+}
+
+.results-screen__mark {
+    display: grid;
+    place-items: center;
+    width: 56px; height: 56px;
+    border-radius: var(--r-pill);
+    background: var(--warning-bg);
+    color: var(--qb-gold);
+}
+.results-screen__mark .icon { width: 28px; height: 28px; }
+
+.results-screen h2 { font-size: var(--fs-2xl); }
+
+.final-score {
+    font-size: var(--fs-hero);
+    font-weight: 800;
+    line-height: var(--lh-tight);
+    background: var(--gradient-brand);
+    -webkit-background-clip: text;
+    background-clip: text;
+    -webkit-text-fill-color: transparent;
+    color: transparent;
+    font-variant-numeric: tabular-nums;
+}
+
+.results-screen__note { color: var(--text-muted); font-size: var(--fs-md); }
+
+.leaderboard {
+    width: 100%;
+    max-width: 480px;
+    text-align: left;
+}
+
+.leaderboard h3 {
+    display: flex;
+    align-items: center;
+    gap: var(--sp-2);
+    font-size: var(--fs-sm);
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--text-muted);
+    margin-bottom: var(--sp-3);
+}
+.leaderboard h3 .icon { color: var(--qb-gold); }
+
+.leaderboard-item {
+    display: flex;
+    align-items: center;
+    gap: var(--sp-3);
+    min-height: 44px;
+    padding: var(--sp-3) var(--sp-4);
+    margin-top: var(--sp-2);
+    background: var(--surface-2);
+    border: 1px solid var(--border);
+    border-left-width: 3px;
+    border-radius: var(--r-md);
+    color: var(--text-body);
+    font-size: var(--fs-md);
+}
+.leaderboard-item:first-child { margin-top: 0; }
+
+.leaderboard-item__rank {
+    display: grid;
+    place-items: center;
+    width: 28px;
+    flex: none;
+    font-weight: 700;
+    color: var(--text-muted);
+    font-variant-numeric: tabular-nums;
+}
+
+.leaderboard-item__name {
+    flex: 1;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    color: var(--text);
+    font-weight: 600;
+}
+
+.leaderboard-item__score {
+    font-weight: 700;
+    color: var(--text);
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+}
+
+/* The podium keeps its own metals. */
+.leaderboard-item.rank1 { border-left-color: var(--qb-gold); }
+.leaderboard-item.rank1 .leaderboard-item__rank { color: var(--qb-gold); }
+.leaderboard-item.rank2 { border-left-color: var(--qb-silver); }
+.leaderboard-item.rank2 .leaderboard-item__rank { color: var(--qb-silver); }
+.leaderboard-item.rank3 { border-left-color: var(--qb-bronze); }
+.leaderboard-item.rank3 .leaderboard-item__rank { color: var(--qb-bronze); }
+
+/* ---- streak badge -------------------------------------------------------- */
+.streak-badge {
+    position: fixed;
+    left: 50%;
+    top: 38%;
+    transform: translateX(-50%);
+    display: inline-flex;
+    align-items: center;
+    gap: var(--sp-2);
+    font-size: 34px;
+    font-weight: 800;
+    color: var(--warning);
+    z-index: 99998;
+    pointer-events: none;
+    text-shadow: 0 2px 12px rgba(2, 6, 23, 0.6);
+    white-space: nowrap;
+}
+
+/* ---- phones -------------------------------------------------------------- */
+@media (max-width: 640px) {
+    .answers-grid { grid-template-columns: 1fr; }
+    .answer-btn { min-height: 44px; }
+
+    .quiz-stats { gap: var(--sp-2); }
+    .quiz-stat {
+        flex-basis: calc(50% - var(--sp-2));
+        padding: var(--sp-2) var(--sp-3);
+        gap: var(--sp-2);
+    }
+    .quiz-stat__icon { width: 28px; height: 28px; }
+    .quiz-stat__value { font-size: var(--fs-lg); }
+
+    .card.quiz-card { padding: var(--sp-4); }
+    .question-text { font-size: var(--fs-lg); }
+    .waiting-room { padding: var(--sp-4) 0; }
+    .waiting-room__actions { width: 100%; }
+    .waiting-room__actions .btn { flex: 1 1 100%; }
+    .final-score { font-size: var(--fs-3xl); }
+}
+
+
+/* --- the host's waiting room ---------------------------------------------
+ * It used to offer one disabled button and no explanation. Now it says what
+ * is missing and offers the thing you can do about it.
+ */
+.waiting-room h2 { display: flex; align-items: center; justify-content: center; gap: var(--sp-3); }
+.waiting-room h2 .icon { width: 24px; height: 24px; color: var(--warning); }
+.waiting-room__sub { color: var(--text-muted); margin-top: var(--sp-2); }
+
+.waiting-room__go {
+    display: flex;
+    gap: var(--sp-3);
+    justify-content: center;
+    flex-wrap: wrap;
+    margin-top: var(--sp-6);
+}
+
+.waiting-room__hint {
+    margin-top: var(--sp-4);
+    font-size: var(--fs-sm);
+    color: var(--text-muted);
+    text-wrap: pretty;
+}
+.waiting-room__hint strong { color: var(--text-body); }
+
+/* --- the leaderboard ------------------------------------------------------
+ * Places used to be medal emoji. They are sprite icons now, tinted — the
+ * ranking is carried by the tint, not by three different pictures.
+ */
+.leaderboard h3 { display: flex; align-items: center; gap: var(--sp-2); }
+.leaderboard-item .icon { width: 18px; height: 18px; vertical-align: -3px; margin-right: var(--sp-2); }
+.leaderboard-item .is-gold   { color: #fbbf24; }
+.leaderboard-item .is-silver { color: #cbd5e1; }
+.leaderboard-item .is-bronze { color: #d08a5a; }
+.leaderboard-item .is-rest   { color: var(--text-faint); }
+
+.player-item .is-host { width: 16px; height: 16px; color: var(--warning); vertical-align: -3px; }

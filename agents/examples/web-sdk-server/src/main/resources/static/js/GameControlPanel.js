@@ -20,7 +20,7 @@ class GameControlPanel {
         // Configuration
         this.config = {
             gameName: options.gameName || 'Game',
-            gameIcon: options.gameIcon || '⚙️',  // Customizable game icon
+            gameIcon: options.gameIcon || '',   // a game may pass its own mark
             agentName: options.agentName || null, // Current player/agent name
             isHost: options.isHost || false,
             isPaused: options.isPaused || false,
@@ -153,7 +153,7 @@ class GameControlPanel {
         this.collapsedIcon.className = 'control-panel-icon';
         this.collapsedIcon.innerHTML = `
             <span class="icon-emoji">${this.config.gameIcon}</span>
-            <span class="icon-host-badge" style="display: ${this.config.isHost ? 'flex' : 'none'};">👑</span>
+            <span class="icon-host-badge" style="display: ${this.config.isHost ? 'flex' : 'none'};">${this.icon('crown')}</span>
         `;
         this.collapsedIcon.title = this.config.gameName;
 
@@ -175,20 +175,34 @@ class GameControlPanel {
         this.cacheElements();
     }
 
+    /** One sprite icon. The panel floats over every game, so its icon
+     *  language is the site's, not each game's. */
+    icon(name) {
+        return '<svg class="icon icon--sm" aria-hidden="true"><use href="#i-' + name + '"></use></svg>';
+    }
+
+    /** The room code and the player's own name are strings, not markup. */
+    esc(v) {
+        return String(v == null ? '' : v).replace(/[&<>"']/g,
+            c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+    }
+
     /**
      * Create expanded panel HTML
      */
     createPanelHTML() {
         const hostBadgeVisible = this.config.isHost ? 'flex' : 'none';
-        const agentInfo = this.config.agentName ? `<div class="agent-info">👤 ${this.config.agentName}</div>` : '';
-        const roomInfo = this.config.roomCode ? `<div class="room-info">🏠 Room: ${this.config.roomCode}</div>` : '';
+        const agentInfo = this.config.agentName
+            ? `<div class="agent-info">${this.icon('users')} ${this.esc(this.config.agentName)}</div>` : '';
+        const roomInfo = this.config.roomCode
+            ? `<div class="room-info">${this.icon('channel')} ${this.esc(this.config.roomCode)}</div>` : '';
 
         return `
             <div class="panel-header" data-drag-handle>
                 <div class="panel-title">
                     <span class="game-icon">${this.config.gameIcon}</span>
                     <span class="game-name">${this.config.gameName}</span>
-                    <div class="host-badge" style="display: ${hostBadgeVisible};">👑 Host</div>
+                    <div class="host-badge" style="display: ${hostBadgeVisible};">${this.icon('crown')} Host</div>
                 </div>
                 <button class="btn-collapse" title="Collapse">−</button>
             </div>
@@ -198,36 +212,36 @@ class GameControlPanel {
             </div>
             <div class="panel-body">
                 <button class="panel-btn btn-pause" ${(this.config.isHost && this.config.isPauseEnabled) ? '' : 'disabled'}>
-                    <span class="btn-icon">${this.config.isPaused ? '▶️' : '⏸️'}</span>
+                    <span class="btn-icon">${this.icon(this.config.isPaused ? 'zap' : 'clock')}</span>
                     <span class="btn-label">${this.config.isPaused ? 'Resume' : 'Pause'}</span>
                 </button>
                 <button class="panel-btn btn-share">
-                    <span class="btn-icon">📤</span>
+                    <span class="btn-icon">${this.icon('qr-code')}</span>
                     <span class="btn-label">Share</span>
                 </button>
                 ${this.renderCustomButtons()}
                 <button class="panel-btn btn-leave">
-                    <span class="btn-icon">🚪</span>
+                    <span class="btn-icon">${this.icon('log-out')}</span>
                     <span class="btn-label">Leave Game</span>
                 </button>
                 ${this.config.showSound ? `
                 <button class="panel-btn btn-sound">
-                    <span class="btn-icon">🔊</span>
+                    <span class="btn-icon">${this.icon('activity')}</span>
                     <span class="btn-label">Sound</span>
                 </button>` : ''}
                 ${this.config.showFullscreen ? `
                 <button class="panel-btn btn-fullscreen">
-                    <span class="btn-icon">⛶</span>
+                    <span class="btn-icon">${this.icon('monitor')}</span>
                     <span class="btn-label">Fullscreen</span>
                 </button>` : ''}
                 ${this.config.showHelp ? `
                 <button class="panel-btn btn-help">
-                    <span class="btn-icon">❓</span>
+                    <span class="btn-icon">${this.icon('info')}</span>
                     <span class="btn-label">Help</span>
                 </button>` : ''}
                 ${this.config.showSettings ? `
                 <button class="panel-btn btn-settings">
-                    <span class="btn-icon">⚙️</span>
+                    <span class="btn-icon">${this.icon('settings')}</span>
                     <span class="btn-label">Settings</span>
                 </button>` : ''}
             </div>
@@ -529,9 +543,9 @@ class GameControlPanel {
             // Fallback: copy URL to clipboard
             const url = this.config.shareUrl || window.location.href;
             navigator.clipboard.writeText(url).then(() => {
-                this.showToast('✅ Link copied to clipboard!');
+                this.showToast('Link copied');
             }).catch(() => {
-                this.showToast('❌ Failed to copy link');
+                this.showToast('That link would not copy');
             });
         }
 
@@ -622,12 +636,16 @@ class GameControlPanel {
 
         // Update sound button
         if (this.btnSound) {
-            this.btnSound.querySelector('.btn-icon').textContent = this.isSoundOn ? '🔊' : '🔇';
+            // Swap what the <use> points at. Assigning textContent here would
+            // throw away the <svg> this button was built with and leave it
+            // blank — the button would still work and show nothing.
+            const use = this.btnSound.querySelector('.btn-icon use');
+            if (use) use.setAttribute('href', this.isSoundOn ? '#i-activity' : '#i-ban');
         }
 
         // Update fullscreen button
         if (this.btnFullscreen) {
-            this.btnFullscreen.querySelector('.btn-icon').textContent = this.isFullscreen ? '⛶' : '⛶';
+            // The glyph is the same either way; the label is what changes.
         }
 
         // Update host badge in expanded panel (use flex for proper display)
@@ -643,15 +661,17 @@ class GameControlPanel {
         }
 
         // Update agent info
+        // Same trap as the sound button: these two carry an icon now, so they
+        // are rebuilt rather than overwritten.
         const agentInfo = this.container.querySelector('.agent-info');
         if (agentInfo && this.config.agentName) {
-            agentInfo.textContent = `👤 ${this.config.agentName}`;
+            agentInfo.innerHTML = `${this.icon('users')} ${this.esc(this.config.agentName)}`;
         }
 
         // Update room info
         const roomInfo = this.container.querySelector('.room-info');
         if (roomInfo && this.config.roomCode) {
-            roomInfo.textContent = `🏠 Room: ${this.config.roomCode}`;
+            roomInfo.innerHTML = `${this.icon('channel')} ${this.esc(this.config.roomCode)}`;
         }
 
         // Update custom buttons visibility

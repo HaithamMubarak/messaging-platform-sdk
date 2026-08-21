@@ -566,3 +566,84 @@ body.wb .chat-message + .chat-message {
     padding: 2px 0 !important;
 }
 body.wb .chat-messages { background: var(--bg); }
+
+
+/* --- The one overlay ------------------------------------------------------
+ * Arriving in somebody else's room used to raise two full-screen scrims in a
+ * row, each with its own spinner and its own @keyframes. This is the single
+ * one that replaced them; the message changes as the phase does.
+ */
+.wb-overlay {
+    --text:        #eef2f8;
+    --text-muted:  #8a97ab;
+    --surface-1:   #101827;
+    --border:      rgba(148, 163, 184, 0.20);
+    --brand:       #5d60ef;
+
+    position: fixed;
+    inset: 0;
+    z-index: 3000;
+    display: grid;
+    place-items: center;
+    padding: var(--sp-4);
+    background: rgba(2, 6, 23, 0.74);
+    backdrop-filter: blur(4px);
+}
+
+.wb-overlay[hidden] { display: none; }
+
+.wb-overlay__card {
+    display: grid;
+    justify-items: center;
+    gap: var(--sp-3);
+    min-width: min(360px, 100%);
+    padding: var(--sp-8) var(--sp-10);
+    background: var(--surface-1);
+    border: 1px solid var(--border);
+    border-radius: var(--r-xl);
+    box-shadow: 0 24px 56px -16px rgba(2, 6, 23, 0.75);
+    text-align: center;
+}
+
+.wb-overlay__spin {
+    width: 34px;
+    height: 34px;
+    border-radius: 50%;
+    border: 3px solid rgba(148, 163, 184, 0.22);
+    border-top-color: var(--brand);
+    animation: wb-spin 0.9s linear infinite;
+}
+
+@keyframes wb-spin { to { transform: rotate(360deg); } }
+
+@media (prefers-reduced-motion: reduce) {
+    .wb-overlay__spin { animation-duration: 3s; }
+}
+
+.wb-overlay__msg { font-size: var(--fs-base); font-weight: 650; color: var(--text); }
+.wb-overlay__sub { font-size: var(--fs-sm); color: var(--text-muted); text-wrap: pretty; }
+
+
+/* --- an event is not a message -------------------------------------------
+ * Joins, loads, rejected syncs and failures used to arrive as chat from a
+ * person called System. They are quiet rows with an icon and no name now,
+ * the way the room panel in Rooms does it.
+ */
+body.wb .chat-event {
+    display: flex;
+    align-items: flex-start;
+    gap: var(--sp-2);
+    padding: 2px 0;
+    font-size: var(--fs-sm);
+    color: var(--text-muted);
+    line-height: 1.5;
+}
+
+body.wb .chat-event .icon { flex: none; margin-top: 3px; width: 14px; height: 14px; }
+body.wb .chat-event--good  { color: var(--success); }
+body.wb .chat-event--warn  { color: var(--warning); }
+body.wb .chat-event--error { color: var(--danger); }
+body.wb .chat-event--info  { color: var(--text-muted); }
+body.wb .chat-event--good .icon  { color: var(--success); }
+body.wb .chat-event--warn .icon  { color: var(--warning); }
+body.wb .chat-event--error .icon { color: var(--danger); }

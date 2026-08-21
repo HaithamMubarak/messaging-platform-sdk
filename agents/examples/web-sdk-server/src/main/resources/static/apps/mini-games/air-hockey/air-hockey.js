@@ -351,11 +351,11 @@ class AirHockeyGame extends UserConnectionBase {
 
         // Only show join toast if game hasn't started
         if (this.gameStatus !== 'playing') {
-            this.showToast(`✅ ${detail.agentName} joined!`, 'success');
+            this.showToast(`${detail.agentName} joined!`, 'success');
         } else {
             // Game is playing - pause it when a new player joins
             console.log('[AirHockey] Player joined during game - pausing game');
-            this.showToast(`🎮 ${detail.agentName} joined! Game paused.`, 'info');
+            this.showToast(`${detail.agentName} joined! Game paused.`, 'info');
 
             if (this.isHost()) {
                 // Pause the game
@@ -821,7 +821,7 @@ class AirHockeyGame extends UserConnectionBase {
 
         this.controlPanel = new GameControlPanel({
             gameName: 'Air Hockey',
-            gameIcon: '🏒',  // Air hockey icon
+            gameIcon: '<svg class="icon" aria-hidden="true"><use href="#i-gamepad"></use></svg>',
             agentName: this.username,  // Current player name
             isHost: this.isHost(),
             isPaused: this.isPaused(),
@@ -834,8 +834,8 @@ class AirHockeyGame extends UserConnectionBase {
             customButtons: [
                 {
                     id: 'reset-ball',
-                    icon: '🏒',
-                    label: 'Reset Ball',
+                    icon: '<svg class="icon icon--sm" aria-hidden="true"><use href="#i-target"></use></svg>',
+                    label: 'Reset Puck',
                     onClick: () => {
                         if (this.isHost()) {
                             this.resetBallToCenter();
@@ -847,7 +847,7 @@ class AirHockeyGame extends UserConnectionBase {
                 },
                 {
                     id: 'new-game',
-                    icon: '🆕',
+                    icon: '<svg class="icon icon--sm" aria-hidden="true"><use href="#i-refresh"></use></svg>',
                     label: 'New Game',
                     onClick: () => {
                         if (this.isHost()) {
@@ -1025,7 +1025,7 @@ class AirHockeyGame extends UserConnectionBase {
             const startBtn = document.getElementById('startButton');
             if (startBtn) startBtn.textContent = 'Start Game'; // Reset button text
 
-            this.showToast('🏒 Game Resumed!', 'success');
+            this.showToast('Game resumed!', 'success');
 
             return;
         }
@@ -1091,9 +1091,9 @@ class AirHockeyGame extends UserConnectionBase {
 
         // Show appropriate message based on player count
         if (this.players.size === 1) {
-            this.showToast('🎯 Training Mode - Full playground access!', 'success');
+            this.showToast('Training Mode - full playground access!', 'success');
         } else {
-            this.showToast('🏒 Game Started!', 'success');
+            this.showToast('Game started!', 'success');
         }
 
         // Start game loop
@@ -1159,7 +1159,7 @@ class AirHockeyGame extends UserConnectionBase {
 
         this.updateScoreBoard();
         document.getElementById('winScoreDisplay').textContent = this.winScore;
-        this.showToast('🏒 Game Started!', 'success');
+        this.showToast('Game started!', 'success');
 
         // Update host controls visibility
         this.updateHostControls();
@@ -1195,8 +1195,8 @@ class AirHockeyGame extends UserConnectionBase {
         const player = this.players.get(winner);
         const colorName = player ? player.colorName : winner;
 
-        this.showGoalOverlay(`🏆 ${colorName} Wins!`, winner);
-        this.showToast(`🏆 ${winner} wins the game!`, 'success');
+        this.showGoalOverlay(`${colorName} Wins!`, winner);
+        this.showToast(`${winner} wins the game!`, 'success');
 
         // Show control panel after delay
         setTimeout(() => {
@@ -1349,7 +1349,7 @@ class AirHockeyGame extends UserConnectionBase {
      */
     pauseGameForPlayerJoin() {
         console.log('[AirHockey] Pausing game - new player joined');
-        this.pauseGame('🎮 New Player Joined - Game Paused');
+        this.pauseGame('New Player Joined - Game Paused');
 
         // Broadcast pause to all players
         this.sendData({
@@ -1411,7 +1411,7 @@ class AirHockeyGame extends UserConnectionBase {
      */
     handleGamePausePlayerJoin(data) {
         console.log('[AirHockey] Game paused - player joined:', data.reason);
-        this.pauseGame('🎮 New Player Joined - Game Paused');
+        this.pauseGame('New Player Joined - Game Paused');
 
         // Stop puck movement
         this.puck.vx = 0;
@@ -1483,7 +1483,7 @@ class AirHockeyGame extends UserConnectionBase {
             controlPanel.classList.add('hidden');
         }
 
-        this.showToast('🏒 Game Resumed!', 'success');
+        this.showToast('Game resumed!', 'success');
 
         // Update control panel
         this.updateControlPanel();
@@ -1902,7 +1902,7 @@ class AirHockeyGame extends UserConnectionBase {
 
         // Display team-based goal message
         const teamName = data.scoringTeam ? `Team ${data.scoringTeam.charAt(0).toUpperCase() + data.scoringTeam.slice(1)}` : 'Team';
-        this.showGoalOverlay('⚽ GOAL!', `${teamName} scores!`);
+        this.showGoalOverlay('GOAL!', `${teamName} scores!`);
         this.updateScoreBoard();
 
         // Check for winner (any player reaching win score)
@@ -1976,7 +1976,7 @@ class AirHockeyGame extends UserConnectionBase {
             y: this.puck.y
         });
 
-        this.showToast('🏒 Ball reset to center', 'info');
+        this.showToast('Puck reset to center', 'info');
     }
 
     handleResetBall(data) {
@@ -1986,7 +1986,7 @@ class AirHockeyGame extends UserConnectionBase {
         this.puck.vx = 0;
         this.puck.vy = 0;
         this.goalScored = false;
-        this.showToast('🏒 Ball reset to center', 'info');
+        this.showToast('Puck reset to center', 'info');
     }
 
     startNewGame() {
@@ -2027,7 +2027,7 @@ class AirHockeyGame extends UserConnectionBase {
         this.showWaitingRoom();
         this.updateHostControls();
 
-        this.showToast('🏒 New game ready!', 'success');
+        this.showToast('New game ready!', 'success');
     }
 
     handleNewGame(data) {
@@ -2063,7 +2063,7 @@ class AirHockeyGame extends UserConnectionBase {
 
         this.updateHostControls();
 
-        this.showToast('🏒 New game ready!', 'success');
+        this.showToast('New game ready!', 'success');
     }
 
     syncState() {
@@ -2569,7 +2569,9 @@ class AirHockeyGame extends UserConnectionBase {
             html += `
                 <div class="player-item">
                     <div class="player-color" style="background: ${escapeHtml(player.color)}"></div>
-                    <div class="player-name">${escapeHtml(playerId)}${isMe ? ' (You)' : ''} ${!isMe ? (hasP2P ? '🔗' : '⏳') : ''}</div>
+                    <div class="player-name">${escapeHtml(playerId)}${isMe ? ' (You)' : ''} ${!isMe ? (hasP2P
+                        ? '<svg class="icon icon--sm p2p-state p2p-state--on" role="img" aria-label="Connected peer to peer"><title>Connected peer to peer</title><use href="#i-check-circle"></use></svg>'
+                        : '<svg class="icon icon--sm p2p-state p2p-state--wait" role="img" aria-label="Connecting"><title>Connecting</title><use href="#i-clock"></use></svg>') : ''}</div>
                 </div>
             `;
         });
@@ -2608,10 +2610,14 @@ class AirHockeyGame extends UserConnectionBase {
             .sort((a, b) => b[1].score - a[1].score);
 
         container.innerHTML = sorted.map(([playerId, player], i) => {
-            const medal = i === 0 ? '🥇' : i === 1 ? '🥈' : i === 2 ? '🥉' : '';
+            const rankNames = ['first', 'second', 'third'];
+            const rankIcons = ['trophy', 'medal', 'medal'];
+            const medal = i < 3
+                ? `<svg class="icon" role="img" aria-label="${rankNames[i]} place"><title>${rankNames[i]} place</title><use href="#i-${rankIcons[i]}"></use></svg>`
+                : '';
             return `
                 <div class="leaderboard-item">
-                    <span class="leaderboard-rank">${medal || (i + 1)}</span>
+                    <span class="leaderboard-rank leaderboard-rank--${i + 1}">${medal || (i + 1)}</span>
                     <div class="leaderboard-color" style="background: ${escapeHtml(player.color)}"></div>
                     <span class="leaderboard-name">${escapeHtml(playerId)}</span>
                     <span class="leaderboard-score">${escapeHtml(player.score)}</span>
@@ -2629,7 +2635,7 @@ class AirHockeyGame extends UserConnectionBase {
         if (playerCount < 1) {
             el.textContent = 'Waiting for players...';
         } else if (playerCount === 1) {
-            el.textContent = '🎯 Training Mode - You can move to both sides! ' +
+            el.textContent = 'Training Mode - You can move to both sides! ' +
                            (this.isHost() ? 'Click Start Game when ready' : 'Waiting for host to start...');
         } else {
             el.textContent = this.isHost() ? 'Click Start Game when ready' : 'Waiting for host to start...';
@@ -2855,6 +2861,10 @@ function toggleFullscreen() {
     // Toggle fullscreen mode class
     body.classList.toggle('fullscreen-mode');
     const isFullscreen = body.classList.contains('fullscreen-mode');
+
+    // Keep the toggle's state readable to assistive tech
+    const toggleBtn = document.getElementById('fullscreenToggle');
+    if (toggleBtn) toggleBtn.setAttribute('aria-pressed', String(isFullscreen));
 
     // Toggle icon visibility
     if (fullscreenIcon && exitFullscreenIcon) {

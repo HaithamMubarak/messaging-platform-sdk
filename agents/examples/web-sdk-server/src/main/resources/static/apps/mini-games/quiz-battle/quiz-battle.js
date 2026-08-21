@@ -14,6 +14,10 @@
 // before they are interpolated into innerHTML strings, to prevent script injection (XSS).
 function escapeHtml(s) { return String(s == null ? '' : s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
 
+// Sprite icon markup (js/icons.js). Falls back to nothing if the sprite
+// script failed to load, so a missing icon never breaks a render.
+function qbIcon(name, cls) { return typeof window.icon === 'function' ? window.icon(name, cls) : ''; }
+
 // ============================================
 // QUIZ QUESTION MANAGER
 // ============================================
@@ -161,6 +165,10 @@ class QuizBattleGame extends UserConnectionBase {
 
         // Current question data (with randomized answers for this player)
         this.currentQuestionData = null;
+
+        // Solo practice: a host playing alone against the clock. Same
+        // questions, same scoring — just no minimum-player gate.
+        this.practiceMode = false;
     }
 
     async onInitialize() {
@@ -192,6 +200,14 @@ class QuizBattleGame extends UserConnectionBase {
     onConnect(detail) {
         console.log('[QuizBattle] Connected:', detail);
         window.quizChannel = this.channel;
+
+        // The header badge was static markup — it said "not connected" for the
+        // whole of a connected game.
+        const badge = document.getElementById('quizRoomName');
+        if (badge && this.channelName) {
+            badge.textContent = this.channelName;
+            badge.title = 'You are in the room "' + this.channelName + '"';
+        }
 
         // Update URL hash with channel details (like whiteboard does)
         if (this.channelName && this.channelPassword) {
@@ -351,17 +367,22 @@ class QuizBattleGame extends UserConnectionBase {
         if (isHost) {
             container.innerHTML = `
                 <div class="waiting-room">
-                    <h2>🎮 You are the Host!</h2>
-                    <p>Waiting for players to join...</p>
+                    <h2>${this.icon('crown')} You are the host</h2>
+                    <p class="waiting-room__sub">Whoever joins this room plays with you.</p>
                     <div class="players-list">
-                        <h3>Connected Players:</h3>
+                        <h3>In the room</h3>
                         <div id="playersList"></div>
                     </div>
-                    <button class="start-game-btn" onclick="window.quizGame.startGame()" id="startGameBtn">
-                        🚀 Start Game
-                    </button>
-                    <p style="font-size:14px;color:#666;margin-top:20px;">
-                        Share the room link with friends to invite them!
+                    <div class="waiting-room__go">
+                        <button class="btn btn--primary btn--lg" onclick="window.quizGame.startGame()" id="startGameBtn">
+                            Start the quiz
+                        </button>
+                        <button class="btn btn--ghost" onclick="window.quizGame.startSolo()" id="startSoloBtn">
+                            Practise alone
+                        </button>
+                    </div>
+                    <p class="waiting-room__hint" id="startHint">
+                        Press <strong>Invite</strong> to get somebody else in, or practise alone while you wait.
                     </p>
                 </div>
             `;
@@ -403,7 +424,7 @@ class QuizBattleGame extends UserConnectionBase {
             if (player.isHost) {
                 html += `
                     <div class="player-item host">
-                        👑 ${escapeHtml(player.name)}${player.isSelf ? ' (You)' : ''}
+                        ${this.icon('crown', 'is-host')} ${escapeHtml(player.name)}${player.isSelf ? ' (You)' : ''}
                         ${!player.isSelf ? p2pIndicator : ''}
                         <span style="margin-left:auto;font-size:12px;">HOST</span>
                     </div>
@@ -429,21 +450,49 @@ class QuizBattleGame extends UserConnectionBase {
         // Enable start button if host and has enough players
         if (this.isHost()) {
             const startBtn = document.getElementById('startGameBtn');
-            if (startBtn) {
-                startBtn.disabled = !this.hasEnoughPeers(2);
+            const hint = document.getElementById('startHint');
+            const alone = !this.hasEnoughPeers(2);
+            if (startBtn) startBtn.disabled = alone;
+            // Saying "Start" is disabled without saying why is how a visitor
+            // decides the demo is broken. Practising alone is right there.
+            if (hint) {
+                hint.textContent = alone
+                    ? 'A quiz needs somebody to race. Press Invite to get them in — or practise alone while you wait.'
+                    : 'Everyone is here. Start when you are ready.';
             }
         }
     }
 
-    startGame() {
+    /** One sprite icon, for the renderers that build markup as strings. */
+    icon(name, extra) {
+        return '<svg class="icon ' + (extra || '') + '" aria-hidden="true">'
+            + '<use href="#i-' + name + '"></use></svg>';
+    }
+
+    /**
+     * Practise alone.
+     *
+     * The quiz needed two people before anything happened, so a visitor who
+     * opened it on their own got a disabled button and no way to see what the
+     * game even is. Solo runs the same rounds against nobody — the scoring and
+     * the questions are identical; there is simply no one to beat.
+     */
+    startSolo() {
+        if (!this.isHost()) return;
+        this.soloPractice = true;
+        this.startGame(true);
+    }
+
+    startGame(solo) {
         if (!this.isHost()) {
             console.warn('[QuizBattle] Only host can start game');
             return;
         }
+        if (!solo) this.soloPractice = false;
 
         if (!this.questionsLoaded) {
             console.error('[QuizBattle] Questions not loaded yet!');
-            this.showToast('⚠️ Questions still loading...', 'error');
+            this.showToast('The questions are still loading — one moment.', 'error');
             return;
         }
 
@@ -546,7 +595,7 @@ class QuizBattleGame extends UserConnectionBase {
 
         if (totalQuestions === 0) {
             console.error('[QuizBattle] No questions in pool! Cannot show question.');
-            this.showToast('⚠️ No questions available!', 'error');
+            this.showToast('No questions could be loaded.', 'error');
             return;
         }
 
@@ -561,7 +610,7 @@ class QuizBattleGame extends UserConnectionBase {
 
         if (!this.currentQuestionData) {
             console.error(`[QuizBattle] Failed to get question at index ${index}`);
-            this.showToast('⚠️ Error loading question!', 'error');
+            this.showToast('That question would not load.', 'error');
             return;
         }
 
@@ -804,14 +853,17 @@ class QuizBattleGame extends UserConnectionBase {
 
         container.innerHTML = `
             <div class="results-screen">
-                <h2>🎉 Quiz Complete!</h2>
-                <div class="final-score">Your Score: ${this.score}</div>
+                <h2>Quiz complete</h2>
+                <div class="final-score">Your score: ${this.score}</div>
                 <div class="leaderboard">
-                    <h3>🏆 Leaderboard</h3>
+                    <h3>${this.icon('trophy')} Leaderboard</h3>
                     ${sortedScores.map((entry, index) => {
                         const [name, score] = entry;
                         const rankClass = index === 0 ? 'rank1' : index === 1 ? 'rank2' : index === 2 ? 'rank3' : '';
-                        const medal = index === 0 ? '🥇' : index === 1 ? '🥈' : index === 2 ? '🥉' : '👤';
+                        const medal = index === 0 ? this.icon('trophy', 'is-gold')
+                            : index === 1 ? this.icon('medal', 'is-silver')
+                            : index === 2 ? this.icon('medal', 'is-bronze')
+                            : this.icon('users', 'is-rest');
                         return `
                             <div class="leaderboard-item ${rankClass}">
                                 <span>${medal} ${escapeHtml(name)}</span>

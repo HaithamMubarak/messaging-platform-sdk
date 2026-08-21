@@ -5,20 +5,22 @@
     <script src="../../../js/prod-log.js"></script>
     <link rel="icon" type="image/svg+xml" href="../../../favicon.svg">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <meta name="theme-color" content="#1a1a2e">
+    <meta name="theme-color" content="#0b1120">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-    <title>🏒 Air Hockey - 2-4 Players</title>
-    <meta name="description" content="Real-time multiplayer air hockey for up to four players. Share the room link and play in the browser — no login, no install.">
+    <title>Air Hockey — 2 to 6 players</title>
+    <meta name="description" content="Real-time multiplayer air hockey for up to six players. Share the room link and play in the browser — no login, no install.">
     <link rel="canonical" href="https://hmdevonline.com/messaging-platform/sdk/apps/mini-games/air-hockey/index.html">
 
     <meta property="og:type" content="website">
     <meta property="og:site_name" content="Messaging Platform SDK">
-    <meta property="og:title" content="Air Hockey — 2 to 4 players">
-    <meta property="og:description" content="Real-time multiplayer air hockey for up to four players. Share the room link and play in the browser — no login, no install.">
+    <meta property="og:title" content="Air Hockey — 2 to 6 players">
+    <meta property="og:description" content="Real-time multiplayer air hockey for up to six players. Share the room link and play in the browser — no login, no install.">
     <meta property="og:url" content="https://hmdevonline.com/messaging-platform/sdk/apps/mini-games/air-hockey/index.html">
     <meta property="og:image" content="https://hmdevonline.com/messaging-platform/sdk/images/og-image.png">
     <meta name="twitter:card" content="summary_large_image">
+    <link rel="stylesheet" href="../../../css/design-tokens.css">
+    <link rel="stylesheet" href="../../../css/ui.css">
     <link rel="stylesheet" href="../../../css/toast.css">
     <link rel="stylesheet" href="air-hockey.css">
     <link rel="stylesheet" href="../../../css/app-chrome.css">
@@ -34,7 +36,10 @@
     <!-- Top Bar -->
     <div class="top-bar">
         <div class="game-info">
-            <h1>🏒 Air Hockey</h1>
+            <span class="game-mark">
+                <svg class="icon" aria-hidden="true"><use href="#i-gamepad"></use></svg>
+            </span>
+            <h1>Air Hockey</h1>
             <span id="roomName" class="room-badge"></span>
         </div>
 
@@ -51,7 +56,7 @@
 
         <!-- Center Control Panel (shown in lobby) -->
         <div id="controlPanel" class="control-panel">
-            <h2 id="gameTitle">🏒 Air Hockey</h2>
+            <h2 id="gameTitle">Air Hockey</h2>
             <p id="gameSubtitle">Fast-paced multiplayer fun!</p>
             <div id="playersList" class="players-list"></div>
             <div id="gameMessage" class="game-message">Waiting for players...</div>
@@ -66,27 +71,30 @@
                 </label>
             </div>
             <div class="game-buttons">
-                <button id="lobbyShareBtn" class="btn-share-lobby">📤 Share</button>
-                <button id="startButton" onclick="startGame()" class="btn-start hidden">Start Game</button>
+                <button id="lobbyShareBtn" class="btn btn--lg" type="button">
+                    <svg class="icon icon--sm" aria-hidden="true"><use href="#i-qr-code"></use></svg>
+                    <span>Share</span>
+                </button>
+                <button id="startButton" onclick="startGame()" class="btn btn--primary btn--lg hidden" type="button">Start Game</button>
             </div>
         </div>
 
         <!-- Goal Animation Overlay -->
         <div id="goalOverlay" class="goal-overlay hidden">
-            <div class="goal-text">⚽ GOAL!</div>
+            <div class="goal-text">GOAL!</div>
             <div id="goalScorer" class="goal-scorer"></div>
         </div>
     </div>
 
     <!-- Side Panel -->
     <div class="side-panel">
-        <h3>🎮 Controls</h3>
+        <h3><svg class="icon" aria-hidden="true"><use href="#i-gamepad"></use></svg> Controls</h3>
         <div class="controls-info">
             <p><strong>Mouse/Touch:</strong> Move your paddle</p>
             <p>Keep the puck out of your goal!</p>
         </div>
 
-        <h3>🏆 Leaderboard</h3>
+        <h3><svg class="icon" aria-hidden="true"><use href="#i-trophy"></use></svg> Leaderboard</h3>
         <div id="leaderboard" class="leaderboard"></div>
 
         <div class="game-stats">
@@ -101,17 +109,27 @@
             </div>
         </div>
 
-        <button id="shareBtn" class="share-btn btn-share-sidebar" style="display:none;">🔗 Share Game</button>
+        <button id="shareBtn" class="share-btn btn btn--primary" type="button" style="display:none;">
+            <svg class="icon icon--sm" aria-hidden="true"><use href="#i-qr-code"></use></svg>
+            <span>Share Game</span>
+        </button>
 
         <!-- Host-only controls -->
         <div id="hostControls" class="host-controls" style="display:none;">
-            <button id="resetBallBtn" class="btn-warning btn-small" onclick="resetBall()">🏒 Reset Ball</button>
-            <button id="newGameBtn" class="btn-primary btn-small" onclick="newGame()">🆕 New Game</button>
+            <button id="resetBallBtn" class="btn btn--sm" type="button" onclick="resetBall()">
+                <svg class="icon icon--sm" aria-hidden="true"><use href="#i-target"></use></svg>
+                <span>Reset Puck</span>
+            </button>
+            <button id="newGameBtn" class="btn btn--sm btn--primary" type="button" onclick="newGame()">
+                <svg class="icon icon--sm" aria-hidden="true"><use href="#i-refresh"></use></svg>
+                <span>New Game</span>
+            </button>
         </div>
     </div>
 
     <!-- Fullscreen Toggle Button (Mobile Only) -->
-    <button id="fullscreenToggle" class="fullscreen-toggle-btn" onclick="toggleFullscreen()" style="display:none;">
+    <button id="fullscreenToggle" class="fullscreen-toggle-btn" type="button" onclick="toggleFullscreen()"
+            style="display:none;" aria-label="Toggle fullscreen" aria-pressed="false">
         <svg id="fullscreenIcon" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
             <path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3m0 18h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3"/>
         </svg>
@@ -126,6 +144,7 @@
 
 <!-- Scripts -->
 <script src="../../../js/config-loader.js"></script>
+<script src="../../../js/icons.js"></script>
 <script src="../../../lib/qrcode.min.js"></script>
 <script src="../../../generated-web-agent-js/js/web-agent.libs.js"></script>
 <script src="../../../generated-web-agent-js/js/web-agent.js"></script>
