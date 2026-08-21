@@ -125,11 +125,17 @@ class PixelArtApp extends UserConnectionBase {
                 if (!yes) { e.target.value = this.gridSize; return; }
                 this.gridSize = newSize;
                 this.initializeGrid();
+                // Everyone must resize together, or peers keep the old grid
+                // and every later pixel-set lands out of range on their side.
+                this.sendData({ type: 'grid-resize', gridSize: newSize });
             });
         });
 
-        // Keyboard shortcuts
+        // Keyboard shortcuts — not while typing in an input (the connection
+        // modal included), where a name containing "e" would switch tools.
         document.addEventListener('keydown', (e) => {
+            if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA' || e.target.isContentEditable) return;
+
             if (e.key === 'p' || e.key === 'P') this.setTool('pen');
             if (e.key === 'e' || e.key === 'E') this.setTool('eraser');
             if (e.key === 'f' || e.key === 'F') this.setTool('fill');
@@ -220,6 +226,11 @@ class PixelArtApp extends UserConnectionBase {
         console.log('[PixelArt] User left:', detail.agentName);
 
         this.users.delete(detail.agentName);
+
+        // The cursor is a DOM element on document.body; dropping the map
+        // entry alone left it floating on screen for ever.
+        const cursor = this.remoteCursors.get(detail.agentName);
+        if (cursor) cursor.remove();
         this.remoteCursors.delete(detail.agentName);
 
         this.updateUsersUI();
@@ -241,6 +252,9 @@ class PixelArtApp extends UserConnectionBase {
                 break;
             case 'canvas-sync':
                 this.handleCanvasSync(data);
+                break;
+            case 'grid-resize':
+                this.handleRemoteGridResize(data);
                 break;
             case 'cursor-move':
                 this.handleRemoteCursor(data);
@@ -351,6 +365,11 @@ class PixelArtApp extends UserConnectionBase {
     }
 
     setPixel(x, y, color, isRemote = false) {
+        // A message sent before a grid resize (or from a peer that has not
+        // resized yet) can carry out-of-range coordinates. Ignore it —
+        // throwing here used to kill the receive path for good.
+        if (x < 0 || y < 0 || x >= this.gridSize || y >= this.gridSize || !this.pixels[y]) return;
+
         if (this.pixels[y][x] === color) return;
 
         this.pixels[y][x] = color;
@@ -594,6 +613,16 @@ class PixelArtApp extends UserConnectionBase {
         };
 
         this.sendData(data, username);
+    }
+
+    handleRemoteGridResize(data) {
+        const size = parseInt(data.gridSize, 10);
+        if (!size || size === this.gridSize) return;
+        this.gridSize = size;
+        const select = document.getElementById('gridSizeSelect');
+        if (select) select.value = String(size);
+        this.initializeGrid();
+        this.showToast(`Grid changed to ${size}x${size}`, 'info');
     }
 
     handleCanvasSync(data) {

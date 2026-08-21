@@ -121,7 +121,7 @@ body {
 }
 
 .top-status-label {
-    font-size: 10px;
+    font-size: var(--fs-xs, 12px);
     font-weight: 600;
     color: var(--text-muted);
     letter-spacing: 0.03em;
@@ -284,7 +284,7 @@ body {
 }
 
 .toolbar-btn .label {
-    font-size: 10px;
+    font-size: var(--fs-xs, 12px);
     color: var(--text-secondary);
 }
 
@@ -396,11 +396,11 @@ body {
 
 .sidebar-tab-badge {
     position: absolute;
-    top: 4px;
-    right: 4px;
+    top: 2px;
+    right: 2px;
     background: #fbbf24; /* Bright yellow/gold */
     color: #0f0f1a; /* Very dark text for maximum contrast */
-    font-size: 9px;
+    font-size: var(--fs-xs, 12px);
     font-weight: 700; /* Bolder for better visibility */
     padding: 2px 5px;
     border-radius: 8px;
@@ -501,7 +501,7 @@ body {
 }
 
 .session-group-title {
-    font-size: 10px;
+    font-size: var(--fs-xs, 12px);
     font-weight: 600;
     text-transform: uppercase;
     color: var(--text-muted);
@@ -575,7 +575,7 @@ body {
 }
 
 .session-info {
-    font-size: 10px;
+    font-size: var(--fs-xs, 12px);
     color: var(--text-muted);
     white-space: nowrap;
     overflow: hidden;
@@ -657,7 +657,7 @@ body {
 }
 
 .note-preview {
-    font-size: 10px;
+    font-size: var(--fs-xs, 12px);
     color: var(--text-muted);
     white-space: nowrap;
     overflow: hidden;
@@ -665,7 +665,7 @@ body {
 }
 
 .note-meta {
-    font-size: 9px;
+    font-size: var(--fs-xs, 12px);
     color: var(--text-muted);
     margin-top: 4px;
 }
@@ -994,7 +994,7 @@ body {
     align-items: center;
     gap: 6px;
     padding: 3px 6px;
-    font-size: 10px;
+    font-size: var(--fs-xs, 12px);
     color: var(--text-muted);
     border-radius: 3px;
     transition: background 0.15s;
@@ -1370,13 +1370,17 @@ body {
     background: linear-gradient(90deg, rgba(34, 211, 238, 0.15), transparent);
 }
 
+/* Sprite "activity" glyph as a data URI: CSS content cannot reference the
+   SVG sprite, and the emoji it replaces rendered differently everywhere. */
 .tab.received-share::before {
-    content: '📡';
+    content: '';
     position: absolute;
     left: 6px;
     top: 50%;
     transform: translateY(-50%);
-    font-size: 10px;
+    width: 11px;
+    height: 11px;
+    background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%2322d3ee' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M22 12h-4l-3 9L9 3l-3 9H2'/%3E%3C/svg%3E") center / contain no-repeat;
 }
 
 .tab.received-share .tab-icon {
@@ -1388,23 +1392,16 @@ body {
     border-color: var(--accent-green);
 }
 
-/*.tab.write-access::after {
-    content: '✏️';
-    position: absolute;
-    right: 28px;
-    top: 50%;
-    transform: translateY(-50%);
-    font-size: 9px;
-}*/
-
-/* Tab read-only indicator */
+/* Tab read-only indicator — sprite "eye" glyph as a data URI (see above). */
 .tab.read-only::after {
-    content: '👁️';
+    content: '';
     position: absolute;
     right: 28px;
     top: 50%;
     transform: translateY(-50%);
-    font-size: 9px;
+    width: 12px;
+    height: 12px;
+    background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%238a97ab' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z'/%3E%3Ccircle cx='12' cy='12' r='3'/%3E%3C/svg%3E") center / contain no-repeat;
 }
 
 /* ========== Context Menu ========== */
@@ -1806,7 +1803,7 @@ body {
 }
 
 .shared-session-agent {
-    font-size: 10px;
+    font-size: var(--fs-xs, 12px);
     color: var(--text-muted);
 }
 
@@ -1826,7 +1823,7 @@ body {
     display: flex;
     align-items: center;
     gap: 4px;
-    font-size: 10px;
+    font-size: var(--fs-xs, 12px);
     color: var(--accent-purple);
     padding: 2px 6px;
     background: rgba(167, 139, 250, 0.2);
@@ -2059,7 +2056,7 @@ body {
         min-width: 50px;
     }
     .toolbar-btn .label {
-        font-size: 9px;
+        font-size: var(--fs-xs, 12px);
     }
     .modal {
         width: 90vw;
@@ -2094,13 +2091,52 @@ body {
         flex-shrink: 0;
     }
     .toolbar-btn .icon { font-size: 16px; }
-    .toolbar-btn .label { font-size: 8px; }
+    .toolbar-btn .label { font-size: var(--fs-xs, 12px); }
+    /* A 150px inline sidebar cannot hold the file explorer. On anything
+       phone-sized the sidebar is a drawer over the terminal instead — the
+       same pattern the ≤480px block always used, now for every width the
+       hamburger serves. */
+    .mobile-menu-toggle {
+        display: flex !important;
+        background: rgba(74, 158, 255, 0.2);
+        border: 1px solid var(--accent-blue);
+    }
     .sidebar {
-        width: 150px;
-        min-width: 100px;
+        position: fixed;
+        left: 0; top: 0; bottom: 0;
+        width: 300px;
+        max-width: 85vw;
+        z-index: 2000;
+        transform: translateX(-100%);
+        transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        overflow-y: auto;
+        -webkit-overflow-scrolling: touch;
+    }
+    .sidebar.mobile-visible {
+        transform: translateX(0);
+        box-shadow: 4px 0 24px rgba(0, 0, 0, 0.7);
+    }
+    body::before {
+        content: '';
+        position: fixed;
+        inset: 0;
+        background: rgba(0, 0, 0, 0.55);
+        z-index: 1999;
+        opacity: 0;
+        pointer-events: none;
+        transition: opacity 0.3s ease;
+    }
+    body.sidebar-open::before {
+        opacity: 1;
+        pointer-events: auto;
+    }
+    .resize-handle { display: none !important; }
+    .terminal-area {
+        width: 100% !important;
+        margin-left: 0 !important;
     }
     .sidebar-header {
-        font-size: 10px;
+        font-size: var(--fs-xs, 12px);
         padding: 8px 10px;
     }
     .session-item { padding: 6px 8px; }
@@ -2110,7 +2146,7 @@ body {
         font-size: 14px;
     }
     .session-name { font-size: 11px; }
-    .session-info { font-size: 9px; }
+    .session-info { font-size: var(--fs-xs, 12px); }
     .tab {
         min-width: 100px;
         max-width: 150px;
@@ -2119,9 +2155,9 @@ body {
     }
     .tab-title { font-size: 11px; }
     .status-bar {
-        font-size: 10px;
+        font-size: var(--fs-xs, 12px);
         padding: 0 8px;
-        height: 20px;
+        height: 22px;
     }
     .modal {
         width: 95vw;
@@ -2242,7 +2278,7 @@ body {
         flex-shrink: 0;
     }
     .toolbar-btn .icon { font-size: 14px; margin-bottom: 1px; }
-    .toolbar-btn .label { font-size: 7px; }
+    .toolbar-btn .label { font-size: var(--fs-xs, 12px); }
     .toolbar-separator { height: 28px; margin: 0 3px; flex-shrink: 0; }
 
     /* ── Tabs: scroll, compact ── */
@@ -2254,12 +2290,12 @@ body {
     .tab-bar-container::-webkit-scrollbar { display: none; }
     .tab { min-width: 80px; max-width: 120px; padding: 0 8px; height: 24px; flex-shrink: 0; }
     .tab-icon { font-size: 12px; }
-    .tab-title { font-size: 10px; }
+    .tab-title { font-size: var(--fs-xs, 12px); }
     .tab-close { width: 16px; height: 16px; font-size: 12px; }
     .tab-add { width: 32px; height: 32px; font-size: 16px; }
 
     /* ── Status bar: compact ── */
-    .status-bar { font-size: 9px; padding: 0 6px; height: 18px; gap: 4px; }
+    .status-bar { font-size: var(--fs-xs, 12px); padding: 0 6px; height: 22px; gap: 4px; }
     .status-bar-separator { margin: 0 2px; }
 
     /* ══ CRITICAL: Prevent zoom on ALL inputs (16px minimum) ══ */
@@ -2367,7 +2403,7 @@ body {
         width: 100%;
         justify-content: center;
         padding: 2px 0;
-        font-size: 10px;
+        font-size: var(--fs-xs, 12px);
     }
     /* compact top-status-bar on mobile */
     .top-status-bar { gap: 1px; padding: 2px 4px; }
@@ -2403,7 +2439,7 @@ body {
     .tab { min-width: 70px; max-width: 100px; }
     .status-bar-item .status-bar-label { display: none; }
     .modal-title { font-size: 12px !important; }
-    .menu-item { padding: 3px 5px; font-size: 10px; }
+    .menu-item { padding: 3px 5px; font-size: var(--fs-xs, 12px); }
     .sidebar-tab-icon { font-size: 14px; }
 }
 
@@ -2462,11 +2498,11 @@ body {
     .terminal-content::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.2); border-radius: 2px; }
 
     /* Compact chrome */
-    .menu-bar { height: 22px; padding: 2px 4px; font-size: 10px; }
+    .menu-bar { height: 24px; padding: 2px 4px; font-size: var(--fs-xs, 12px); }
     .toolbar { padding: 2px 4px; min-height: 30px; }
     .tab-bar-container { min-height: 22px; }
-    .tab { height: 22px; padding: 0 8px; font-size: 10px; }
-    .status-bar { height: 14px; font-size: 9px; padding: 0 6px; }
+    .tab { height: 24px; padding: 0 8px; font-size: var(--fs-xs, 12px); }
+    .status-bar { height: 18px; font-size: var(--fs-xs, 12px); padding: 0 6px; }
     .modal { max-height: 90vh; overflow-y: auto; }
 
     /* Sidebar hidden by default */
@@ -2553,23 +2589,17 @@ body {
         flex-shrink: 0;
     }
     .toolbar-btn .icon { font-size: 18px; margin-bottom: 1px; }
-    .toolbar-btn .label { font-size: 9px; }
+    .toolbar-btn .label { font-size: var(--fs-xs, 12px); }
     .toolbar-separator { height: 28px; flex-shrink: 0; margin: 0 2px; }
 
-    /* Sidebar: visible but compact */
-    .sidebar {
-        width: 180px;
-        min-width: 120px;
-        max-width: 35%;
-        position: relative;
-        transform: none;
-    }
+    /* Sidebar stays the fixed drawer defined in the ≤767px block; a 180px
+       inline sidebar was too narrow for the file explorer to be usable. */
     .menu-bar { padding: 2px 6px; height: 28px; gap: 2px; }
     .menu-item { padding: 4px 8px; font-size: 11px; }
     .tab-bar-container { min-height: 28px; }
     .tab { height: 28px; padding: 0 10px; font-size: 11px; }
     .tab-close { width: 20px; height: 20px; }
-    .status-bar { height: 16px; font-size: 10px; padding: 0 8px; }
+    .status-bar { height: 20px; font-size: var(--fs-xs, 12px); padding: 0 8px; }
     .modal { max-width: 95%; max-height: 85vh; margin: 20px; }
     .modal-overlay { padding: 10px; }
 }
@@ -2777,6 +2807,65 @@ svg.icon {
 svg.icon--sm { width: 1em; height: 1em; min-width: 1em; }
 svg.icon--lg { width: 1.5em; height: 1.5em; min-width: 1.5em; }
 
+/* ── Keyboard access ──────────────────────────────────────────────────────
+   Chrome that used to be clickable <div>s is now real <button>s (menu bar,
+   status indicators, modal close, tab add/close, help & cloud tabs). The
+   class rules above still style them; this only strips the UA button skin. */
+:where(button.menu-item,
+button.top-status-indicator,
+button.modal-close,
+button.tab-add,
+button.tab-close,
+button.help-tab,
+button.cloud-tab) {
+    /* :where() keeps this at zero specificity so every existing class rule
+       (base colors, hover states, responsive overrides) still wins; author
+       rules beat UA button styles regardless of specificity. */
+    appearance: none;
+    -webkit-appearance: none;
+    background: none;
+    border: none;
+    font: inherit;
+    color: inherit;
+    text-align: inherit;
+    cursor: pointer;
+}
+/* The global `* { padding: 0 }` reset already covers UA button padding, and
+   the existing class rules (including their responsive overrides) keep
+   supplying the real padding — nothing to re-declare here. */
+
+/* One visible focus style for everything keyboard-reachable in the chrome. */
+.menu-item:focus-visible,
+.top-status-indicator:focus-visible,
+.modal-close:focus-visible,
+.tab-add:focus-visible,
+.tab-close:focus-visible,
+.tab:focus-visible,
+.help-tab:focus-visible,
+.cloud-tab:focus-visible,
+.sidebar-tab:focus-visible,
+.tab-scroll-btn:focus-visible,
+.sidebar-header-btn:focus-visible {
+    outline: 2px solid var(--brand-ink, #a5b4fc);
+    outline-offset: -2px;
+}
+
+/* Keyboard focus highlights a menu item the same way hover does. */
+.context-menu-item:focus,
+.sftp-context-menu-item:focus {
+    outline: none;
+    background: rgba(74, 158, 255, 0.15);
+}
+.context-menu-item.danger:focus {
+    background: rgba(248, 113, 113, 0.15);
+}
+
+/* The toast's type glyph is a sprite icon in front of plain text. */
+.toast svg.icon {
+    margin-right: 6px;
+    vertical-align: -0.2em;
+}
+
 
 /* ── Owner-side sharing banner ────────────────────────────────────────────
    Shown across the top of any terminal panel that is being shared live.
@@ -2846,7 +2935,7 @@ svg.icon--lg { width: 1.5em; height: 1.5em; min-width: 1.5em; }
     white-space: nowrap;
 }
 .shared-invite__meta {
-    font-size: 10px;
+    font-size: var(--fs-xs, 12px);
     color: var(--text-muted);
     overflow: hidden;
     text-overflow: ellipsis;

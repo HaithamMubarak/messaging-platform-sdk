@@ -837,7 +837,7 @@ class FileEditor {
                 ? document.getElementById('fileEditorStatus')
                 : document.getElementById('fileEditorStatusPinned');
 
-            status.textContent = 'Save failed ✗';
+            status.textContent = 'Save failed';
             this.onToast('error', 'Save Failed', error.message);
         }
     }

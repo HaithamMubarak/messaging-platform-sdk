@@ -81,7 +81,7 @@
 }
 
 .sftp-toolbar-btn .label {
-    font-size: 10px;
+    font-size: var(--fs-xs, 12px);
 }
 
 .sftp-toolbar-separator {
@@ -276,7 +276,7 @@
 }
 
 .sftp-file-meta {
-    font-size: 10px;
+    font-size: var(--fs-xs, 12px);
     color: var(--text-muted);
     display: flex;
     gap: 12px;
@@ -325,7 +325,7 @@
     padding: 6px 10px;
     background: var(--bg-darker);
     border-top: 1px solid var(--border-color);
-    font-size: 10px;
+    font-size: var(--fs-xs, 12px);
     color: var(--text-muted);
     display: flex;
     justify-content: space-between;

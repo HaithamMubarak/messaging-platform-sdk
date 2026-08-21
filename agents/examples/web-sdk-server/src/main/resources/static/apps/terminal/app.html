@@ -143,130 +143,130 @@
     <div class="toast-container" id="toastContainer"></div>
 
     <!-- Session Context Menu (for sidebar) -->
-    <div class="context-menu" id="sessionContextMenu">
-        <div class="context-menu-item" onclick="contextMenuAction('open')">
+    <div class="context-menu" id="sessionContextMenu" role="menu" aria-label="Connection actions">
+        <div class="context-menu-item" role="menuitem" tabindex="-1" onclick="contextMenuAction('open')">
             <svg class="icon" aria-hidden="true"><use href="#i-arrow-right"></use></svg> Open Connection
         </div>
-        <div class="context-menu-item" onclick="contextMenuAction('openInNewTab')">
+        <div class="context-menu-item" role="menuitem" tabindex="-1" onclick="contextMenuAction('openInNewTab')">
             <svg class="icon" aria-hidden="true"><use href="#i-plus"></use></svg> Open in New Tab
         </div>
-        <div class="context-menu-item" onclick="contextMenuAction('openSftp')" id="openSftpMenuItem">
+        <div class="context-menu-item" role="menuitem" tabindex="-1" onclick="contextMenuAction('openSftp')" id="openSftpMenuItem">
             <svg class="icon" aria-hidden="true"><use href="#i-inbox"></use></svg> Open SFTP
         </div>
-        <div class="context-menu-separator"></div>
-        <div class="context-menu-item" onclick="contextMenuAction('edit')">
+        <div class="context-menu-separator" role="separator"></div>
+        <div class="context-menu-item" role="menuitem" tabindex="-1" onclick="contextMenuAction('edit')">
             <svg class="icon" aria-hidden="true"><use href="#i-pen"></use></svg> Edit Connection
         </div>
-        <div class="context-menu-item" onclick="contextMenuAction('duplicate')">
+        <div class="context-menu-item" role="menuitem" tabindex="-1" onclick="contextMenuAction('duplicate')">
             <svg class="icon" aria-hidden="true"><use href="#i-copy"></use></svg> Duplicate Connection
         </div>
-        <div class="context-menu-separator"></div>
-        <div class="context-menu-item danger" onclick="contextMenuAction('delete')">
+        <div class="context-menu-separator" role="separator"></div>
+        <div class="context-menu-item danger" role="menuitem" tabindex="-1" onclick="contextMenuAction('delete')">
             <svg class="icon" aria-hidden="true"><use href="#i-trash"></use></svg> Delete Connection
         </div>
     </div>
 
     <!-- Viewer Context Menu (for managing agent permissions in "My Shares" list) -->
-    <div class="context-menu" id="viewerContextMenu">
-        <div class="context-menu-item" onclick="viewerContextMenuAction('readonly')">
+    <div class="context-menu" id="viewerContextMenu" role="menu" aria-label="Viewer permissions">
+        <div class="context-menu-item" role="menuitem" tabindex="-1" onclick="viewerContextMenuAction('readonly')">
             <svg class="icon" aria-hidden="true"><use href="#i-eye"></use></svg> Set Read-Only
         </div>
-        <div class="context-menu-item" onclick="viewerContextMenuAction('readwrite')">
+        <div class="context-menu-item" role="menuitem" tabindex="-1" onclick="viewerContextMenuAction('readwrite')">
             <svg class="icon" aria-hidden="true"><use href="#i-pen"></use></svg> Set Read-Write
         </div>
-        <div class="context-menu-separator"></div>
-        <div class="context-menu-item" onclick="viewerContextMenuAction('reset')">
+        <div class="context-menu-separator" role="separator"></div>
+        <div class="context-menu-item" role="menuitem" tabindex="-1" onclick="viewerContextMenuAction('reset')">
             <svg class="icon" aria-hidden="true"><use href="#i-refresh"></use></svg> Reset to Global
         </div>
     </div>
 
     <!-- Terminal Right-Click Context Menu -->
-    <div class="context-menu" id="terminalContextMenu">
-        <div class="context-menu-item" onclick="terminalContextMenuAction('copy')">
+    <div class="context-menu" id="terminalContextMenu" role="menu" aria-label="Terminal actions">
+        <div class="context-menu-item" role="menuitem" tabindex="-1" onclick="terminalContextMenuAction('copy')">
             <svg class="icon" aria-hidden="true"><use href="#i-copy"></use></svg> Copy
         </div>
-        <div class="context-menu-item" onclick="terminalContextMenuAction('paste')">
+        <div class="context-menu-item" role="menuitem" tabindex="-1" onclick="terminalContextMenuAction('paste')">
             <svg class="icon" aria-hidden="true"><use href="#i-download"></use></svg> Paste
         </div>
-        <div class="context-menu-item" onclick="terminalContextMenuAction('selectAll')">
+        <div class="context-menu-item" role="menuitem" tabindex="-1" onclick="terminalContextMenuAction('selectAll')">
             <svg class="icon" aria-hidden="true"><use href="#i-grid"></use></svg> Select All
         </div>
-        <div class="context-menu-separator"></div>
-        <div class="context-menu-item" onclick="terminalContextMenuAction('clear')">
+        <div class="context-menu-separator" role="separator"></div>
+        <div class="context-menu-item" role="menuitem" tabindex="-1" onclick="terminalContextMenuAction('clear')">
             <svg class="icon" aria-hidden="true"><use href="#i-eraser"></use></svg> Clear
         </div>
-        <div class="context-menu-separator"></div>
-        <div class="context-menu-item" onclick="terminalContextMenuAction('fontIncrease')">
+        <div class="context-menu-separator" role="separator"></div>
+        <div class="context-menu-item" role="menuitem" tabindex="-1" onclick="terminalContextMenuAction('fontIncrease')">
             <svg class="icon" aria-hidden="true"><use href="#i-zoom-in"></use></svg> Increase Font Size
         </div>
-        <div class="context-menu-item" onclick="terminalContextMenuAction('fontDecrease')">
+        <div class="context-menu-item" role="menuitem" tabindex="-1" onclick="terminalContextMenuAction('fontDecrease')">
             <svg class="icon" aria-hidden="true"><use href="#i-zoom-out"></use></svg> Decrease Font Size
         </div>
-        <div class="context-menu-item" onclick="terminalContextMenuAction('fontReset')">
+        <div class="context-menu-item" role="menuitem" tabindex="-1" onclick="terminalContextMenuAction('fontReset')">
             <svg class="icon" aria-hidden="true"><use href="#i-undo"></use></svg> Reset Font Size
         </div>
     </div>
 
     <!-- Tab Context Menu -->
-    <div class="context-menu" id="tabContextMenu">
-        <div class="context-menu-item" onclick="tabContextMenuAction('rename')">
+    <div class="context-menu" id="tabContextMenu" role="menu" aria-label="Tab actions">
+        <div class="context-menu-item" role="menuitem" tabindex="-1" onclick="tabContextMenuAction('rename')">
             <svg class="icon" aria-hidden="true"><use href="#i-pen"></use></svg> Rename Tab
         </div>
-        <div class="context-menu-item" onclick="tabContextMenuAction('duplicate')">
+        <div class="context-menu-item" role="menuitem" tabindex="-1" onclick="tabContextMenuAction('duplicate')">
             <svg class="icon" aria-hidden="true"><use href="#i-copy"></use></svg> Duplicate Tab
         </div>
-        <div class="context-menu-separator"></div>
-        <div class="context-menu-item" onclick="tabContextMenuAction('toggleShare')" id="shareMenuItem">
+        <div class="context-menu-separator" role="separator"></div>
+        <div class="context-menu-item" role="menuitem" tabindex="-1" onclick="tabContextMenuAction('toggleShare')" id="shareMenuItem">
             <svg class="icon" aria-hidden="true"><use href="#i-globe"></use></svg> <span id="shareMenuText">Share Session</span>
         </div>
-        <div class="context-menu-item" onclick="tabContextMenuAction('togglePermission')" id="permissionMenuItem" style="display: none;">
+        <div class="context-menu-item" role="menuitem" tabindex="-1" onclick="tabContextMenuAction('togglePermission')" id="permissionMenuItem" style="display: none;">
             <svg class="icon" aria-hidden="true"><use href="#i-lock"></use></svg> <span class="permission-text">Enable Write Access</span>
         </div>
-        <div class="context-menu-item" onclick="tabContextMenuAction('resetPermissions')" id="resetPermissionsMenuItem" style="display: none;">
+        <div class="context-menu-item" role="menuitem" tabindex="-1" onclick="tabContextMenuAction('resetPermissions')" id="resetPermissionsMenuItem" style="display: none;">
             <svg class="icon" aria-hidden="true"><use href="#i-refresh"></use></svg> Reset All Permissions
         </div>
-        <div class="context-menu-item" onclick="tabContextMenuAction('requestPermission')" id="requestPermissionMenuItem" style="display: none;">
+        <div class="context-menu-item" role="menuitem" tabindex="-1" onclick="tabContextMenuAction('requestPermission')" id="requestPermissionMenuItem" style="display: none;">
             <svg class="icon" aria-hidden="true"><use href="#i-hand"></use></svg> Request Write Access
         </div>
-        <div class="context-menu-separator"></div>
-        <div class="context-menu-item" onclick="tabContextMenuAction('close')">
+        <div class="context-menu-separator" role="separator"></div>
+        <div class="context-menu-item" role="menuitem" tabindex="-1" onclick="tabContextMenuAction('close')">
             <svg class="icon" aria-hidden="true"><use href="#i-x"></use></svg> Close Tab
         </div>
-        <div class="context-menu-item" onclick="tabContextMenuAction('closeOthers')">
+        <div class="context-menu-item" role="menuitem" tabindex="-1" onclick="tabContextMenuAction('closeOthers')">
             <svg class="icon" aria-hidden="true"><use href="#i-refresh"></use></svg> Close Other Tabs
         </div>
-        <div class="context-menu-item" onclick="tabContextMenuAction('closeToRight')">
+        <div class="context-menu-item" role="menuitem" tabindex="-1" onclick="tabContextMenuAction('closeToRight')">
             <svg class="icon" aria-hidden="true"><use href="#i-chevron-right"></use></svg> Close Tabs to Right
         </div>
-        <div class="context-menu-item" onclick="tabContextMenuAction('closeToLeft')">
+        <div class="context-menu-item" role="menuitem" tabindex="-1" onclick="tabContextMenuAction('closeToLeft')">
             <svg class="icon" aria-hidden="true"><use href="#i-chevron-left"></use></svg> Close Tabs to Left
         </div>
-        <div class="context-menu-separator"></div>
-        <div class="context-menu-item danger" onclick="tabContextMenuAction('closeAll')">
+        <div class="context-menu-separator" role="separator"></div>
+        <div class="context-menu-item danger" role="menuitem" tabindex="-1" onclick="tabContextMenuAction('closeAll')">
             <svg class="icon" aria-hidden="true"><use href="#i-trash"></use></svg> Close All Tabs
         </div>
     </div>
 
     <!-- Menu Bar -->
     <div class="menu-bar">
-        <div class="menu-item sls-dependent" onclick="showSettings()">Settings</div>
-        <div class="menu-item" onclick="showInstallGuide()">Install</div>
-        <div class="menu-item" onclick="showAbout()">About</div>
+        <button type="button" class="menu-item sls-dependent" onclick="showSettings()">Settings</button>
+        <button type="button" class="menu-item" onclick="showInstallGuide()">Install</button>
+        <button type="button" class="menu-item" onclick="showAbout()">About</button>
         <a class="menu-item" href="index.html" style="text-decoration:none">What this is</a>
         <div class="menu-spacer"></div>
         <!-- Combined top-right status indicators -->
         <div class="top-status-bar">
-            <div class="top-status-indicator" id="slsIndicatorGroup" title="SDK Local Service - click to open Settings" onclick="showSettings()" style="cursor:pointer;">
+            <button type="button" class="top-status-indicator" id="slsIndicatorGroup" title="SDK Local Service - click to open Settings" onclick="showSettings()">
                 <span class="top-status-dot" id="mlsStatus"></span>
                 <span class="top-status-icon"><svg class="icon" aria-hidden="true"><use href="#i-settings"></use></svg></span>
                 <span class="top-status-label" id="mlsStatusText">Local shell: off</span>
-            </div>
+            </button>
             <div class="top-status-divider"></div>
-            <div class="top-status-indicator" id="cloudIndicatorGroup" title="Remote Share – Disconnected" onclick="openMessagingModal()" style="cursor:pointer;">
+            <button type="button" class="top-status-indicator" id="cloudIndicatorGroup" title="Remote Share – Disconnected" onclick="openMessagingModal()">
                 <span class="top-status-dot" id="cloudStatusDot"></span>
                 <span class="top-status-icon"><svg class="icon" aria-hidden="true"><use href="#i-channel"></use></svg></span>
                 <span class="top-status-label" id="cloudStatusLabel">Not in a room</span>
-            </div>
+            </button>
 
             <!-- The whole point of the app is handing this to somebody, and it
                  used to take three clicks and a tab nobody had found. -->
@@ -307,8 +307,8 @@
             <span class="label">Remote Share</span>
             <span id="agentCountBadge" style="display: none; position: absolute; top: 4px; right: 4px;
                   background: var(--accent-cyan, #22d3ee); color: #0a0a14; border-radius: 8px;
-                  font-size: 9px; font-weight: 700; min-width: 14px; height: 14px;
-                  line-height: 14px; text-align: center; padding: 0 3px;">0</span>
+                  font-size: 12px; font-weight: 700; min-width: 17px; height: 17px;
+                  line-height: 17px; text-align: center; padding: 0 4px;">0</span>
         </button>
         <div class="toolbar-separator"></div>
         <button class="toolbar-btn" onclick="refreshConnections()" title="Refresh Connections & Check SLS Health">
@@ -319,9 +319,9 @@
 
     <!-- Cloud Connection Modal -->
     <div class="modal-overlay" id="cloudModalOverlay">
-        <div class="modal cloud-modal" id="cloudModal" style="width: 520px; max-height: 90vh; overflow-y: auto;">
+        <div class="modal cloud-modal" id="cloudModal" role="dialog" aria-modal="true" aria-labelledby="cloudModalTitle" style="width: 520px; max-height: 90vh; overflow-y: auto;">
             <div class="modal-header" style="background: linear-gradient(135deg, rgba(74, 158, 255, 0.1), rgba(167, 139, 250, 0.1)); border-bottom: 1px solid var(--border-color, #2a2a4a); padding: 20px;">
-                <div class="modal-title" style="display: flex; align-items: center; gap: 10px; font-size: 18px;">
+                <div class="modal-title" id="cloudModalTitle" style="display: flex; align-items: center; gap: 10px; font-size: 18px;">
                     <span style="font-size: 24px;"><svg class="icon" aria-hidden="true"><use href="#i-message"></use></svg></span>
                     <span>Messaging Platform</span>
                 </div>
@@ -332,29 +332,31 @@
                         <div class="status-dot" id="cloudStatus"></div>
                         <span id="cloudStatusText" style="font-weight: 500;">Disconnected</span>
                         <!-- Host Indicator (inline badge) -->
-                        <div id="cloudHostIndicator" style="display: none; align-items: center; gap: 3px; padding: 2px 7px; background: linear-gradient(135deg, rgba(255, 215, 0, 0.15), rgba(255, 165, 0, 0.15)); border: 1px solid rgba(255, 215, 0, 0.3); border-radius: 10px; font-size: 10px; font-weight: 700; color: #ffd700; letter-spacing: 0.3px;">
-                            <span style="font-size: 10px;"><svg class="icon" aria-hidden="true"><use href="#i-shield"></use></svg></span>
+                        <div id="cloudHostIndicator" style="display: none; align-items: center; gap: 3px; padding: 2px 7px; background: linear-gradient(135deg, rgba(255, 215, 0, 0.15), rgba(255, 165, 0, 0.15)); border: 1px solid rgba(255, 215, 0, 0.3); border-radius: 10px; font-size: 12px; font-weight: 700; color: #ffd700; letter-spacing: 0.3px;">
+                            <span style="font-size: 12px;"><svg class="icon" aria-hidden="true"><use href="#i-shield"></use></svg></span>
                             <span>HOST</span>
                         </div>
                     </div>
-                    <div class="modal-close" onclick="closeCloudModal()" style="font-size: 20px; width: 32px; height: 32px;"><svg class="icon icon--sm" aria-hidden="true"><use href="#i-x"></use></svg></div>
+                    <button type="button" class="modal-close" onclick="closeCloudModal()" aria-label="Close" style="font-size: 20px; width: 32px; height: 32px;"><svg class="icon icon--sm" aria-hidden="true"><use href="#i-x"></use></svg></button>
                 </div>
             </div>
 
             <!-- Tab Navigation -->
-            <div style="display: flex; border-bottom: 1px solid var(--border-color); background: var(--bg-panel);">
-                <div class="cloud-tab active" onclick="switchCloudTab('connection')" id="cloud-tab-connection"
-                     style="flex: 1; padding: 12px 20px; text-align: center; cursor: pointer; font-size: 13px; font-weight: 500; color: var(--text-muted); border-bottom: 2px solid transparent; transition: all 0.2s;">
+            <div role="tablist" aria-label="Messaging Platform" style="display: flex; border-bottom: 1px solid var(--border-color); background: var(--bg-panel);">
+                <button type="button" class="cloud-tab active" onclick="switchCloudTab('connection')" id="cloud-tab-connection"
+                        role="tab" aria-selected="true" aria-controls="cloud-content-connection"
+                        style="flex: 1; padding: 12px 20px; text-align: center; cursor: pointer; font-size: 13px; font-weight: 500; color: var(--text-muted); border-bottom: 2px solid transparent; transition: all 0.2s;">
                     <svg class="icon icon--sm" aria-hidden="true"><use href="#i-channel"></use></svg> Connection
-                </div>
-                <div class="cloud-tab" onclick="switchCloudTab('sharing')" id="cloud-tab-sharing"
-                     style="flex: 1; padding: 12px 20px; text-align: center; cursor: pointer; font-size: 13px; font-weight: 500; color: var(--text-muted); border-bottom: 2px solid transparent; transition: all 0.2s;">
+                </button>
+                <button type="button" class="cloud-tab" onclick="switchCloudTab('sharing')" id="cloud-tab-sharing"
+                        role="tab" aria-selected="false" aria-controls="cloud-content-sharing"
+                        style="flex: 1; padding: 12px 20px; text-align: center; cursor: pointer; font-size: 13px; font-weight: 500; color: var(--text-muted); border-bottom: 2px solid transparent; transition: all 0.2s;">
                     <svg class="icon icon--sm" aria-hidden="true"><use href="#i-channel"></use></svg> Sharing
-                </div>
+                </button>
             </div>
 
             <!-- Connection Tab Content -->
-            <div class="cloud-tab-content active" id="cloud-content-connection" style="padding: 24px;">
+            <div class="cloud-tab-content active" id="cloud-content-connection" role="tabpanel" aria-labelledby="cloud-tab-connection" style="padding: 24px;">
 
                 <!-- Somebody read a code out to you. This is the shortest way in,
                      so it is the first thing on the tab. -->
@@ -418,10 +420,31 @@
             </div>
 
             <!-- Sharing Tab Content -->
-            <div class="cloud-tab-content" id="cloud-content-sharing" style="padding: 24px;">
+            <div class="cloud-tab-content" id="cloud-content-sharing" role="tabpanel" aria-labelledby="cloud-tab-sharing" style="padding: 24px;">
 
                 <div style="font-size: 13px; color: #d0d0d0; margin-bottom: 20px; padding: 14px; background: rgba(74, 158, 255, 0.08); border-radius: 6px; border-left: 3px solid var(--accent-blue, #4a9eff); line-height: 1.6;">
-                    <svg class="icon icon--sm" aria-hidden="true"><use href="#i-info"></use></svg> Share this link with others to connect and share terminal sessions in real-time via Messaging Platform.
+                    <svg class="icon icon--sm" aria-hidden="true"><use href="#i-info"></use></svg> Invite someone into this room. A short code is the best thing to hand over: it is minted by the server, expires on its own, and works for a limited number of people.
+                </div>
+
+                <!-- A code is for saying out loud, which is how this app is
+                     actually used when somebody is stuck — and unlike the link
+                     it does not carry the room password inside it. -->
+                <div class="cloud-form-row" style="margin-bottom: 16px;">
+                    <label style="font-size: 12px; font-weight: 600; color: var(--text-secondary, #8888aa); margin-bottom: 8px; display: block; text-transform: uppercase; letter-spacing: 0.5px;"><svg class="icon icon--sm" aria-hidden="true"><use href="#i-mic"></use></svg> Short code — the safest way in</label>
+                    <div id="sessionCodeIdle">
+                        <button type="button" class="cloud-btn" id="sessionCodeBtn" onclick="mintSessionCode()"
+                                style="width: 100%; padding: 12px; font-size: 13px; font-weight: 600; border-radius: 8px;">
+                            Make a code I can read out
+                        </button>
+                    </div>
+                    <div id="sessionCodeResult" style="display: none;">
+                        <div style="display: flex; gap: 8px; align-items: center;">
+                            <code id="sessionCodeValue" style="flex: 1; padding: 14px; text-align: center; font-size: 20px; font-weight: 700; letter-spacing: 0.04em; font-family: monospace; color: var(--accent-cyan, #22d3ee); background: var(--bg-darker, #08080d); border: 1px solid var(--border-color, #2a2a4a); border-radius: 8px;"></code>
+                            <button type="button" class="cloud-regen-btn" onclick="copySessionCode()" title="Copy the code"
+                                    style="min-width: 44px; height: 48px; border-radius: 6px; font-size: 16px;"><svg class="icon icon--sm" aria-hidden="true"><use href="#i-copy"></use></svg></button>
+                        </div>
+                        <div id="sessionCodeNote" style="margin-top: 8px; font-size: 12px; color: var(--text-secondary, #8888aa);"></div>
+                    </div>
                 </div>
 
                 <div class="cloud-form-row" style="margin-bottom: 16px;">
@@ -437,25 +460,10 @@
                                 style="min-width: 44px; height: 40px; border-radius: 6px; font-size: 16px;">
                             <svg class="icon icon--sm" aria-hidden="true"><use href="#i-copy"></use></svg>                         </button>
                     </div>
-                </div>
-
-                <!-- A link is for pasting; a code is for saying out loud, which is
-                     how this app is actually used when somebody is stuck. -->
-                <div class="cloud-form-row" style="margin-bottom: 16px;">
-                    <label style="font-size: 12px; font-weight: 600; color: var(--text-secondary, #8888aa); margin-bottom: 8px; display: block; text-transform: uppercase; letter-spacing: 0.5px;"><svg class="icon icon--sm" aria-hidden="true"><use href="#i-mic"></use></svg> Short code</label>
-                    <div id="sessionCodeIdle">
-                        <button type="button" class="cloud-btn cloud-btn-secondary" id="sessionCodeBtn" onclick="mintSessionCode()"
-                                style="width: 100%; padding: 12px; font-size: 12px; font-weight: 600; border-radius: 8px;">
-                            Make a code I can read out
-                        </button>
-                    </div>
-                    <div id="sessionCodeResult" style="display: none;">
-                        <div style="display: flex; gap: 8px; align-items: center;">
-                            <code id="sessionCodeValue" style="flex: 1; padding: 14px; text-align: center; font-size: 20px; font-weight: 700; letter-spacing: 0.04em; font-family: monospace; color: var(--accent-cyan, #22d3ee); background: var(--bg-darker, #08080d); border: 1px solid var(--border-color, #2a2a4a); border-radius: 8px;"></code>
-                            <button type="button" class="cloud-regen-btn" onclick="copySessionCode()" title="Copy the code"
-                                    style="min-width: 44px; height: 48px; border-radius: 6px; font-size: 16px;"><svg class="icon icon--sm" aria-hidden="true"><use href="#i-copy"></use></svg></button>
-                        </div>
-                        <div id="sessionCodeNote" style="margin-top: 8px; font-size: 12px; color: var(--text-secondary, #8888aa);"></div>
+                    <div style="font-size: 12px; color: var(--warning, #fbbf24); line-height: 1.5;">
+                        <svg class="icon icon--sm" aria-hidden="true"><use href="#i-alert-triangle"></use></svg>
+                        This link (and the QR code below) embeds the room password. Anyone who sees it can join,
+                        and it never expires — treat it like the password itself.
                     </div>
                 </div>
 
@@ -500,8 +508,8 @@
                     <span class="sidebar-tab-label">Notes</span>
                     <span class="sidebar-tab-badge" id="notesBadge" style="display: none; position: absolute; top: 4px; right: 4px;
                           background: var(--accent-cyan, #22d3ee); color: #0a0a14; border-radius: 8px;
-                          font-size: 9px; font-weight: 700; min-width: 14px; height: 14px;
-                          line-height: 14px; text-align: center; padding: 0 3px;">0</span>
+                          font-size: 12px; font-weight: 700; min-width: 17px; height: 17px;
+                          line-height: 17px; text-align: center; padding: 0 4px;">0</span>
                 </button>
                 <button class="sidebar-tab" id="filesTabBtn" onclick="openFileExplorerForActiveTab()" title="File Explorer - Select a terminal session" data-tab="files" style="pointer-events: none; opacity: 0.5;">
                     <span class="sidebar-tab-icon"><svg class="icon" aria-hidden="true"><use href="#i-inbox"></use></svg></span>
@@ -619,8 +627,8 @@
                 <button class="tab-scroll-btn" id="tabScrollLeft" onclick="scrollTabsLeft()" title="Scroll Left">
                     <svg class="icon icon--sm" aria-hidden="true"><use href="#i-chevron-left"></use></svg>
                 </button>
-                <div class="tab-bar" id="tabBar">
-                    <div class="tab-add" onclick="createLocalTerminal()" title="New Tab (Ctrl+Shift+T)"><svg class="icon icon--sm" aria-hidden="true"><use href="#i-plus"></use></svg></div>
+                <div class="tab-bar" id="tabBar" role="tablist" aria-label="Terminal tabs">
+                    <button type="button" class="tab-add" onclick="createLocalTerminal()" title="New Tab (Ctrl+Shift+T)" aria-label="New tab"><svg class="icon icon--sm" aria-hidden="true"><use href="#i-plus"></use></svg></button>
                 </div>
                 <button class="tab-scroll-btn" id="tabScrollRight" onclick="scrollTabsRight()" title="Scroll Right">
                     <svg class="icon icon--sm" aria-hidden="true"><use href="#i-chevron-right"></use></svg>
@@ -692,10 +700,10 @@
 
     <!-- Settings Modal -->
     <div class="modal-overlay" id="settingsModalOverlay">
-        <div class="modal" style="width: 500px;">
+        <div class="modal" role="dialog" aria-modal="true" aria-labelledby="settingsModalTitle" style="width: 500px;">
             <div class="modal-header">
-                <div class="modal-title"><svg class="icon icon--sm" aria-hidden="true"><use href="#i-settings"></use></svg> Settings</div>
-                <div class="modal-close" onclick="closeSettingsModal()"><svg class="icon icon--sm" aria-hidden="true"><use href="#i-x"></use></svg></div>
+                <div class="modal-title" id="settingsModalTitle"><svg class="icon icon--sm" aria-hidden="true"><use href="#i-settings"></use></svg> Settings</div>
+                <button type="button" class="modal-close" onclick="closeSettingsModal()" aria-label="Close"><svg class="icon icon--sm" aria-hidden="true"><use href="#i-x"></use></svg></button>
             </div>
             <div class="modal-body">
                 <div class="form-group">
@@ -812,10 +820,10 @@
 
     <!-- SSH Modal -->
     <div class="modal-overlay" id="sshModalOverlay">
-        <div class="modal">
+        <div class="modal" role="dialog" aria-modal="true" aria-labelledby="sshModalTitle">
             <div class="modal-header">
-                <div class="modal-title"><svg class="icon icon--sm" aria-hidden="true"><use href="#i-plus"></use></svg> Add SSH Connection</div>
-                <div class="modal-close" onclick="closeSshModal()"><svg class="icon icon--sm" aria-hidden="true"><use href="#i-x"></use></svg></div>
+                <div class="modal-title" id="sshModalTitle"><svg class="icon icon--sm" aria-hidden="true"><use href="#i-plus"></use></svg> Add SSH Connection</div>
+                <button type="button" class="modal-close" onclick="closeSshModal()" aria-label="Close"><svg class="icon icon--sm" aria-hidden="true"><use href="#i-x"></use></svg></button>
             </div>
             <form id="sshForm" onsubmit="saveSshConnection(event)">
                 <div class="modal-body">
@@ -869,34 +877,34 @@
 
     <!-- Help Modal -->
     <div class="modal-overlay" id="helpModalOverlay">
-        <div class="modal" style="width: 900px; max-width: 95vw; max-height: 90vh; overflow-y: auto;">
+        <div class="modal" role="dialog" aria-modal="true" aria-labelledby="helpModalTitle" style="width: 900px; max-width: 95vw; max-height: 90vh; overflow-y: auto;">
             <div class="modal-header">
-                <div class="modal-title"><svg class="icon icon--sm" aria-hidden="true"><use href="#i-qr-code"></use></svg> Install & Setup Guide</div>
-                <div class="modal-close" onclick="closeHelpModal()"><svg class="icon icon--sm" aria-hidden="true"><use href="#i-x"></use></svg></div>
+                <div class="modal-title" id="helpModalTitle"><svg class="icon icon--sm" aria-hidden="true"><use href="#i-qr-code"></use></svg> Install & Setup Guide</div>
+                <button type="button" class="modal-close" onclick="closeHelpModal()" aria-label="Close"><svg class="icon icon--sm" aria-hidden="true"><use href="#i-x"></use></svg></button>
             </div>
             <div class="modal-body" style="padding: 0;">
 
                 <!-- Tab Navigation -->
-                <div style="display: flex; border-bottom: 1px solid var(--border-color); background: var(--bg-panel);">
-                    <div class="help-tab active" onclick="switchHelpTab('quickstart')" id="tab-quickstart">
+                <div role="tablist" aria-label="Install and setup guide" style="display: flex; border-bottom: 1px solid var(--border-color); background: var(--bg-panel);">
+                    <button type="button" class="help-tab active" onclick="switchHelpTab('quickstart')" id="tab-quickstart" role="tab" aria-selected="true" aria-controls="content-quickstart">
                         <svg class="icon icon--sm" aria-hidden="true"><use href="#i-zap"></use></svg> Local Service Setup
-                    </div>
-                    <div class="help-tab" onclick="switchHelpTab('installation')" id="tab-installation">
+                    </button>
+                    <button type="button" class="help-tab" onclick="switchHelpTab('installation')" id="tab-installation" role="tab" aria-selected="false" aria-controls="content-installation">
                         <svg class="icon icon--sm" aria-hidden="true"><use href="#i-qr-code"></use></svg> Install App
-                    </div>
-                    <div class="help-tab" onclick="switchHelpTab('shortcuts')" id="tab-shortcuts">
+                    </button>
+                    <button type="button" class="help-tab" onclick="switchHelpTab('shortcuts')" id="tab-shortcuts" role="tab" aria-selected="false" aria-controls="content-shortcuts">
                         <svg class="icon icon--sm" aria-hidden="true"><use href="#i-list"></use></svg> Shortcuts
-                    </div>
-                    <div class="help-tab" onclick="switchHelpTab('api')" id="tab-api">
+                    </button>
+                    <button type="button" class="help-tab" onclick="switchHelpTab('api')" id="tab-api" role="tab" aria-selected="false" aria-controls="content-api">
                         <svg class="icon icon--sm" aria-hidden="true"><use href="#i-channel"></use></svg> API Reference
-                    </div>
-                    <div class="help-tab" onclick="switchHelpTab('docs')" id="tab-docs">
+                    </button>
+                    <button type="button" class="help-tab" onclick="switchHelpTab('docs')" id="tab-docs" role="tab" aria-selected="false" aria-controls="content-docs">
                         <svg class="icon icon--sm" aria-hidden="true"><use href="#i-book"></use></svg> Docs
-                    </div>
+                    </button>
                 </div>
 
                 <!-- Installation Tab -->
-                <div class="help-content" id="content-installation" style="padding: 24px;">
+                <div class="help-content" id="content-installation" role="tabpanel" aria-labelledby="tab-installation" style="padding: 24px;">
                     <h3 style="font-size: 16px; color: var(--accent-cyan); margin-bottom: 16px;"><svg class="icon icon--sm" aria-hidden="true"><use href="#i-qr-code"></use></svg> Install as Progressive Web App (PWA)</h3>
 
                     <div style="background: linear-gradient(135deg, rgba(74, 158, 255, 0.1) 0%, rgba(34, 211, 238, 0.1) 100%); padding: 20px; border-radius: 8px; border: 1px solid var(--accent-blue); margin-bottom: 24px;">
@@ -1015,7 +1023,7 @@
                 </div>
 
                 <!-- Local Service Setup Tab -->
-                <div class="help-content active" id="content-quickstart" style="padding: 24px;">
+                <div class="help-content active" id="content-quickstart" role="tabpanel" aria-labelledby="tab-quickstart" style="padding: 24px;">
                     <h3 style="font-size: 16px; color: var(--accent-cyan); margin-bottom: 16px;"><svg class="icon icon--sm" aria-hidden="true"><use href="#i-zap"></use></svg> Local Service Setup</h3>
 
                     <!-- Download Section - GitHub Links -->
@@ -1133,7 +1141,7 @@
                 </div>
 
                 <!-- Shortcuts Tab -->
-                <div class="help-content" id="content-shortcuts" style="padding: 24px;">
+                <div class="help-content" id="content-shortcuts" role="tabpanel" aria-labelledby="tab-shortcuts" style="padding: 24px;">
                     <h3 style="font-size: 16px; color: var(--accent-cyan); margin-bottom: 16px;"><svg class="icon icon--sm" aria-hidden="true"><use href="#i-list"></use></svg> Keyboard Shortcuts</h3>
 
                     <div style="margin-bottom: 20px;">
@@ -1199,7 +1207,7 @@
                 </div>
 
                 <!-- API Reference Tab -->
-                <div class="help-content" id="content-api" style="padding: 24px;">
+                <div class="help-content" id="content-api" role="tabpanel" aria-labelledby="tab-api" style="padding: 24px;">
                     <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
                         <h3 style="font-size: 16px; color: var(--accent-cyan); margin: 0;"><svg class="icon icon--sm" aria-hidden="true"><use href="#i-channel"></use></svg> SDK Local Service REST API</h3>
                         <a href="http://localhost:8088/health" target="_blank"
@@ -1484,7 +1492,7 @@
                 </div>
 
                 <!-- Documentation Tab -->
-                <div class="help-content" id="content-docs" style="padding: 24px;">
+                <div class="help-content" id="content-docs" role="tabpanel" aria-labelledby="tab-docs" style="padding: 24px;">
                     <h3 style="font-size: 16px; color: var(--accent-cyan); margin-bottom: 16px;"><svg class="icon icon--sm" aria-hidden="true"><use href="#i-book"></use></svg> References</h3>
 
                     <div style="margin-bottom: 20px;">
@@ -1598,10 +1606,10 @@
 
     <!-- About Modal -->
     <div class="modal-overlay" id="aboutModalOverlay">
-        <div class="modal" style="width: 700px; max-width: 95vw; max-height: 90vh; overflow-y: auto;">
+        <div class="modal" role="dialog" aria-modal="true" aria-labelledby="aboutModalTitle" style="width: 700px; max-width: 95vw; max-height: 90vh; overflow-y: auto;">
             <div class="modal-header">
-                <div class="modal-title"><svg class="icon icon--sm" aria-hidden="true"><use href="#i-info"></use></svg> About SDK Terminal</div>
-                <div class="modal-close" onclick="closeAboutModal()"><svg class="icon icon--sm" aria-hidden="true"><use href="#i-x"></use></svg></div>
+                <div class="modal-title" id="aboutModalTitle"><svg class="icon icon--sm" aria-hidden="true"><use href="#i-info"></use></svg> About SDK Terminal</div>
+                <button type="button" class="modal-close" onclick="closeAboutModal()" aria-label="Close"><svg class="icon icon--sm" aria-hidden="true"><use href="#i-x"></use></svg></button>
             </div>
             <div class="modal-body" style="padding: 24px;">
 
@@ -1760,7 +1768,7 @@
                            style="display: inline-flex; align-items: center; gap: 5px; padding: 8px 12px; background: linear-gradient(135deg, rgba(74, 158, 255, 0.2), rgba(34, 211, 238, 0.2)); border: 1px solid var(--accent-cyan); border-radius: 6px; color: var(--accent-cyan); text-decoration: none; font-size: 11px; font-weight: 600; transition: all 0.2s ease;">
                             <svg class="icon icon--sm" aria-hidden="true"><use href="#i-pen"></use></svg>
                             <span>Frontend</span>
-                            <span style="font-size: 9px;">↗</span>
+                            <svg class="icon icon--sm" aria-hidden="true"><use href="#i-external"></use></svg>
                         </a>
                         <!-- Backend Source -->
                         <a href="https://github.com/HaithamMubarak/messaging-platform-sdk/tree/main/agents/examples/sdk-local-service"
@@ -1769,7 +1777,7 @@
                            style="display: inline-flex; align-items: center; gap: 5px; padding: 8px 12px; background: linear-gradient(135deg, rgba(139, 92, 246, 0.2), rgba(99, 102, 241, 0.2)); border: 1px solid var(--accent-purple); border-radius: 6px; color: var(--accent-purple); text-decoration: none; font-size: 11px; font-weight: 600; transition: all 0.2s ease;">
                             <svg class="icon icon--sm" aria-hidden="true"><use href="#i-settings"></use></svg>
                             <span>Backend</span>
-                            <span style="font-size: 9px;">↗</span>
+                            <svg class="icon icon--sm" aria-hidden="true"><use href="#i-external"></use></svg>
                         </a>
                         <!-- SDK Repo -->
                         <a href="https://github.com/HaithamMubarak/messaging-platform-sdk"
@@ -1777,7 +1785,7 @@
                            style="display: inline-flex; align-items: center; gap: 5px; padding: 8px 12px; background: linear-gradient(135deg, rgba(34, 211, 238, 0.2), rgba(16, 185, 129, 0.2)); border: 1px solid var(--accent-green); border-radius: 6px; color: var(--accent-green); text-decoration: none; font-size: 11px; font-weight: 600; transition: all 0.2s ease;">
                             <svg class="icon icon--sm" aria-hidden="true"><use href="#i-github"></use></svg>
                             <span>SDK Repo</span>
-                            <span style="font-size: 9px;">↗</span>
+                            <svg class="icon icon--sm" aria-hidden="true"><use href="#i-external"></use></svg>
                         </a>
                     </div>
 
@@ -1790,7 +1798,7 @@
                               text-decoration: none; font-size: 12px; font-weight: 600; transition: all 0.2s ease;">
                         <svg class="icon icon--sm" aria-hidden="true"><use href="#i-alert-circle"></use></svg>
                         <span>Report Issue / Feedback</span>
-                        <span style="font-size: 10px;">↗</span>
+                        <svg class="icon icon--sm" aria-hidden="true"><use href="#i-external"></use></svg>
                     </a>
                 </div>
 

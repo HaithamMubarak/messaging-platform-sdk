@@ -151,10 +151,10 @@
 
                 <!-- Zoom Controls -->
                 <div class="zoom-controls">
-                    <button onclick="pixelArtApp?.zoomIn()">🔍+</button>
+                    <button onclick="pixelArtApp?.zoomIn()" aria-label="Zoom in" title="Zoom in"><svg class="icon icon--sm" aria-hidden="true"><use href="#i-zoom-in"></use></svg></button>
                     <span id="zoomLevel">100%</span>
-                    <button onclick="pixelArtApp?.zoomOut()">🔍-</button>
-                    <button onclick="pixelArtApp?.resetZoom()">↺</button>
+                    <button onclick="pixelArtApp?.zoomOut()" aria-label="Zoom out" title="Zoom out"><svg class="icon icon--sm" aria-hidden="true"><use href="#i-zoom-out"></use></svg></button>
+                    <button onclick="pixelArtApp?.resetZoom()" aria-label="Reset zoom" title="Reset zoom"><svg class="icon icon--sm" aria-hidden="true"><use href="#i-refresh"></use></svg></button>
                 </div>
             </div>
 

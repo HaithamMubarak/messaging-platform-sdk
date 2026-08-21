@@ -221,6 +221,11 @@ class MindMapApp extends UserConnectionBase {
         console.log('[MindMap] User left:', detail.agentName);
 
         this.users.delete(detail.agentName);
+
+        // The cursor is a DOM element; dropping the map entry alone left a
+        // ghost cursor on screen for ever.
+        const cursor = this.remoteCursors.get(detail.agentName);
+        if (cursor) cursor.remove();
         this.remoteCursors.delete(detail.agentName);
 
         this.updateUsersUI();
@@ -488,15 +493,22 @@ class MindMapApp extends UserConnectionBase {
         const mouseX = (e.clientX - rect.left - this.panX) / this.zoom;
         const mouseY = (e.clientY - rect.top - this.panY) / this.zoom;
 
-        // Send cursor position
+        // Track the pointer in world coordinates (used by the connect-mode
+        // preview line).
+        this.mouseWorldX = mouseX;
+        this.mouseWorldY = mouseY;
+
+        // Send cursor position in world coordinates — screen coordinates only
+        // line up when both windows share the same pan/zoom/size, so peers saw
+        // the cursor in the wrong place.
         const now = Date.now();
         if (now - this.lastCursorSend > this.cursorSendInterval) {
             this.lastCursorSend = now;
             this.sendData({
                 type: 'cursor-move',
                 username: this.username,
-                x: e.clientX - rect.left,
-                y: e.clientY - rect.top
+                x: mouseX,
+                y: mouseY
             });
         }
 
@@ -720,18 +732,25 @@ class MindMapApp extends UserConnectionBase {
                 title: 'Clear the map?',
                 body: 'Every node and connection goes, for everyone in the room.',
                 confirmLabel: 'Clear it', danger: true
-            }).then((yes) => { if (yes) this.clearAll(true); });
+            }).then((yes) => {
+                if (!yes) return;
+                this._doClearAll();
+                // The dialog promises "for everyone in the room" — this used to
+                // be re-entered with isRemote=true, which skipped the broadcast
+                // and silently forked the room.
+                this.sendData({ type: 'clear-all' });
+            });
             return;
         }
 
+        this._doClearAll();
+    }
+
+    _doClearAll() {
         this.nodes.clear();
         this.connections = [];
         this.selectedNode = null;
         this.updateNodeCount();
-
-        if (!isRemote) {
-            this.sendData({ type: 'clear-all' });
-        }
     }
 
     // ============================================
@@ -823,9 +842,18 @@ class MindMapApp extends UserConnectionBase {
             }
         });
 
-        // Draw connecting line (if in connect mode)
-        if (this.connectingMode && this.connectingFromNode) {
-            // Draw line to mouse (would need to track mouse pos)
+        // Connect-mode preview: a dashed line from the source node to the
+        // pointer, so the user can see what they are about to connect.
+        if (this.connectingMode && this.connectingFromNode &&
+            this.mouseWorldX !== undefined && this.mouseWorldY !== undefined) {
+            this.ctx.strokeStyle = 'rgba(0, 0, 0, 0.4)';
+            this.ctx.lineWidth = 2;
+            this.ctx.setLineDash([5, 5]);
+            this.ctx.beginPath();
+            this.ctx.moveTo(this.connectingFromNode.x, this.connectingFromNode.y);
+            this.ctx.lineTo(this.mouseWorldX, this.mouseWorldY);
+            this.ctx.stroke();
+            this.ctx.setLineDash([]);
         }
 
         // Draw nodes
@@ -834,6 +862,10 @@ class MindMapApp extends UserConnectionBase {
         });
 
         this.ctx.restore();
+
+        // Remote cursors live in world coordinates; keep them pinned to the
+        // map while this window pans or zooms.
+        this.remoteCursors.forEach(cursor => this.positionRemoteCursor(cursor));
     }
 
     drawNode(node, isSelected = false) {
@@ -966,7 +998,21 @@ class MindMapApp extends UserConnectionBase {
             this.remoteCursors.set(data.username, cursor);
         }
 
-        cursor.style.transform = `translate(${data.x}px, ${data.y}px)`;
+        // The wire carries world coordinates; place the cursor through this
+        // window's own pan/zoom.
+        cursor.dataset.worldX = data.x;
+        cursor.dataset.worldY = data.y;
+        this.positionRemoteCursor(cursor);
+    }
+
+    /** Project a remote cursor's world coordinates into this window's view. */
+    positionRemoteCursor(cursor) {
+        const wx = parseFloat(cursor.dataset.worldX);
+        const wy = parseFloat(cursor.dataset.worldY);
+        if (isNaN(wx) || isNaN(wy)) return;
+        const x = wx * this.zoom + this.panX;
+        const y = wy * this.zoom + this.panY;
+        cursor.style.transform = `translate(${x}px, ${y}px)`;
     }
 
     // ============================================

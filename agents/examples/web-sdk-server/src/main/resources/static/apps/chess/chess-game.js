@@ -577,6 +577,11 @@ class ChessGame extends UserConnectionBase {
         this.validMoves = [];
         this.lastMove = null;
 
+        // Remove any game-over dialog(s) left from the previous game.
+        // Without this the dialog covered the fresh board, and a second
+        // game over stacked another one behind it.
+        this.removeGameOverDialog();
+
         // Clear captured pieces
         document.getElementById('whiteCaptured').innerHTML = '';
         document.getElementById('blackCaptured').innerHTML = '';
@@ -587,6 +592,13 @@ class ChessGame extends UserConnectionBase {
         this.renderBoard();
         this.updatePlayersUI();
         this.updateGameStatus();
+
+        // The previous game over disabled Resign and Offer Draw and nothing
+        // re-enabled them. If both seats are still taken the new game is live,
+        // so the controls come back.
+        if (this.whitePlayer && this.blackPlayer) {
+            this.enableControls();
+        }
 
         this.showToast('New game started!', 'success');
     }
@@ -627,6 +639,16 @@ class ChessGame extends UserConnectionBase {
     }
 
     handleDrawOffer(data) {
+        // Only the two players may answer a draw offer. Spectators receive the
+        // broadcast too; without this guard any of them could accept on the
+        // players' behalf.
+        if (this.myColor !== 'white' && this.myColor !== 'black') {
+            this.showToast(`${data.from} offered a draw`, 'info');
+            return;
+        }
+        // The offerer cannot accept their own offer.
+        if (data.from === this.username) return;
+
         MiniGameUtils.ask({
             title: 'A draw is offered', body: `${data.from} offers a draw.`,
             confirmLabel: 'Accept', cancelLabel: 'Play on'
@@ -663,7 +685,14 @@ class ChessGame extends UserConnectionBase {
         this.disableControls();
     }
 
+    /** Remove any game-over dialog(s) from the board area. */
+    removeGameOverDialog() {
+        document.querySelectorAll('.game-over-dialog').forEach(d => d.remove());
+    }
+
     showGameOverDialog(message) {
+        // Never stack two of them.
+        this.removeGameOverDialog();
         const dialog = document.createElement('div');
         dialog.className = 'game-over-dialog';
         dialog.innerHTML = `
@@ -705,6 +734,8 @@ class ChessGame extends UserConnectionBase {
     }
 
     handleGameSync(data) {
+        // A full state reset: any stale game-over dialog goes with it.
+        this.removeGameOverDialog();
         this.chess.load(data.fen);
         this.whitePlayer = data.whitePlayer;
         this.blackPlayer = data.blackPlayer;

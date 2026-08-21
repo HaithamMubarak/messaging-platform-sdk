@@ -22,6 +22,7 @@
     var CHUNK = 16 * 1024;          // what a data channel carries comfortably
     var MAX_FILE = 64 * 1024 * 1024;
     var SEND_GAP_MS = 12;           // let the channel drain between chunks
+    var RECEIVE_STALL_MS = 30000;   // give up on a receive after this long without a chunk
 
     class Drop extends UserConnectionBase {
         constructor() {
@@ -44,7 +45,30 @@
         }
         onDisconnect() { this._status('off', 'Disconnected'); }
         onUserJoin() { this._sync(); }
-        onUserLeave() { this._sync(); }
+
+        onUserLeave(detail) {
+            // Any transfer still in flight with the leaver is dead; say so
+            // instead of leaving a bar frozen mid-way for ever.
+            var name = detail && detail.agentName;
+            if (name) {
+                var dropped = [];
+                this.transfers.forEach(function (row) {
+                    var inFlight = row.state === 'offered' || row.state === 'accepted' || row.state === 'sending';
+                    if (!inFlight) return;
+                    if ((row.dir === 'out' && row.to === name) || (row.dir === 'in' && row.from === name)) {
+                        clearTimeout(row._stall);
+                        row.state = 'cancelled';
+                        row.parts = [];
+                        dropped.push(row.name);
+                    }
+                });
+                if (dropped.length) {
+                    this.render();
+                    UI.toast(name + ' left — transfer of ' + dropped.join(', ') + ' cancelled', 'warning', 5000);
+                }
+            }
+            this._sync();
+        }
         onDataChannelOpen() { this._sync(); }
         onDataChannelClose() { this._sync(); }
 
@@ -83,10 +107,17 @@
             this.transfers.set(id, row);
             this.render();
 
-            this._say({
+            var sent = this._say({
                 type: 'offer', id: id, name: row.name, size: row.size,
                 mime: row.mime, chunks: total, by: this.username
             }, this.target);
+            if (!sent) {
+                // sendData returns 0 when there is no channel to carry it;
+                // an offer nobody received must not sit there looking pending.
+                row.state = 'failed';
+                this.render();
+                UI.toast('Could not reach ' + (this.target || 'the room') + ' — the offer was not sent', 'error', 5000);
+            }
         }
 
         async _stream(row) {
@@ -97,7 +128,15 @@
                 if (row.state === 'cancelled') return;
                 var slice = row.file.slice(i * CHUNK, (i + 1) * CHUNK);
                 var buf = await slice.arrayBuffer();
-                this._say({ type: 'chunk', id: row.id, i: i, b: toB64(buf) }, row.to);
+                var sent = this._say({ type: 'chunk', id: row.id, i: i, b: toB64(buf) }, row.to);
+                if (!sent) {
+                    // sendData said the chunk went nowhere. Marking this "sent"
+                    // anyway is a lie the receiver pays for.
+                    row.state = 'failed';
+                    this.render();
+                    UI.toast('Sending ' + row.name + ' failed — lost the connection to ' + (row.to || 'the room'), 'error', 5000);
+                    return;
+                }
                 row.done = i + 1;
                 if (i % 8 === 0 || i === row.total - 1) this.render();
                 // Yielding keeps the tab responsive and the channel from
@@ -109,8 +148,13 @@
             this.render();
         }
 
+        /**
+         * Returns how many peers the message actually went to — 0 means it
+         * went nowhere (sendData warns but does not throw), and callers must
+         * not report success on 0.
+         */
         _say(payload, to) {
-            if (to) this.sendData(payload, to); else this.sendData(payload);
+            return to ? this.sendData(payload, to) : this.sendData(payload);
         }
 
         // ---- receiving -------------------------------------------------------
@@ -150,11 +194,30 @@
 
                 case 'accept': {
                     var out = this.transfers.get(d.id);
-                    if (!out || out.dir !== 'out' || out.state !== 'offered') break;
+                    if (!out || out.dir !== 'out') break;
+                    if (out.state !== 'offered') {
+                        // The file already went (or is going) to the first
+                        // acceptor. Tell this one, instead of leaving them
+                        // sitting at 0% for ever.
+                        this._say({ type: 'taken', id: d.id, by: this.username, winner: out.to }, d.by || from);
+                        break;
+                    }
                     // Whoever accepted is who it goes to, so a broadcast offer
                     // does not stream to the whole room at once.
                     out.to = d.by || out.to;
                     this._stream(out);
+                    break;
+                }
+
+                case 'taken': {
+                    var late = this.transfers.get(d.id);
+                    if (!late || late.dir !== 'in') break;
+                    if (late.state !== 'accepted' && late.state !== 'offered') break;
+                    clearTimeout(late._stall);
+                    late.state = 'taken';
+                    late.parts = [];
+                    this.render();
+                    UI.toast(late.name + ' went to ' + (d.winner || 'someone else') + ' — first to accept receives', 'info', 5000);
                     break;
                 }
 
@@ -174,7 +237,7 @@
                     row.parts[d.i] = fromB64(d.b);
                     row.done++;
                     if (row.done >= row.total) this._finish(row);
-                    else if (row.done % 8 === 0) this.render();
+                    else { this._watch(row); if (row.done % 8 === 0) this.render(); }
                     break;
                 }
             }
@@ -185,7 +248,34 @@
             if (!row || row.dir !== 'in') return;
             row.state = 'accepted';
             this.render();
-            this._say({ type: 'accept', id: id, by: this.username }, row.from);
+            var sent = this._say({ type: 'accept', id: id, by: this.username }, row.from);
+            if (!sent) {
+                // The sender never heard the accept; do not sit at "receiving".
+                row.state = 'offered';
+                this.render();
+                UI.toast('Could not reach ' + (row.from || 'the sender') + ' — try accepting again', 'error', 5000);
+                return;
+            }
+            this._watch(row);
+        }
+
+        /**
+         * A receive with no chunk for RECEIVE_STALL_MS is dead. Without this a
+         * sender whose stream silently went nowhere left the receiver at
+         * "receiving" for ever.
+         */
+        _watch(row) {
+            var self = this;
+            clearTimeout(row._stall);
+            row._stall = setTimeout(function () {
+                if (row.state !== 'accepted') return;
+                row.state = 'failed';
+                row.parts = [];
+                self.render();
+                UI.toast('Receiving ' + row.name + ' stalled — nothing arrived for '
+                    + Math.round(RECEIVE_STALL_MS / 1000) + 's. Ask '
+                    + (row.from || 'the sender') + ' to send it again.', 'error', 6000);
+            }, RECEIVE_STALL_MS);
         }
 
         decline(id) {
@@ -197,6 +287,7 @@
         }
 
         _finish(row) {
+            clearTimeout(row._stall);
             var blob = new Blob(row.parts, { type: row.mime });
             // Only trust the size we were promised if the bytes agree with it.
             row.state = (row.size && blob.size !== row.size) ? 'damaged' : 'ready';
@@ -261,7 +352,7 @@
         _row(row) {
             var pct = row.total ? Math.round((row.done / row.total) * 100) : 0;
             var who = row.dir === 'out'
-                ? 'to ' + (row.to || 'everyone')
+                ? 'to ' + (row.to || 'first to accept')
                 : 'from ' + (row.from || 'someone');
 
             var kids = [
@@ -310,7 +401,12 @@
             }, [
                 UI.el('span', { class: 'avatar', style: 'background:var(--surface-3);color:var(--text-body)' },
                     UI.iconNode('users', 'icon--sm')),
-                UI.el('span', { class: 'peer__name' }, 'Everyone')
+                UI.el('span', { class: 'peer__id' }, [
+                    UI.el('span', { class: 'peer__name' }, 'Everyone'),
+                    // Honest about the semantics: the offer goes to the room,
+                    // the file streams to whoever accepts first.
+                    UI.el('span', { class: 'peer__link' }, 'first to accept receives')
+                ])
             ]);
 
             var rows = names.map(function (name) {
@@ -336,7 +432,8 @@
 
     var STATE_TEXT = {
         offered: 'waiting', accepted: 'receiving', sending: 'sending',
-        sent: 'sent', ready: 'ready', declined: 'declined', damaged: 'incomplete', cancelled: 'cancelled'
+        sent: 'sent', ready: 'ready', declined: 'declined', damaged: 'incomplete', cancelled: 'cancelled',
+        failed: 'failed', taken: 'went to another peer'
     };
 
     // ---- helpers ------------------------------------------------------------

@@ -357,7 +357,7 @@ class NoteEditor {
             const statusSpan = this.mode === 'popup'
                 ? document.getElementById('noteEditorStatus')
                 : document.getElementById('noteEditorStatusPinned');
-            statusSpan.textContent = 'Save failed ✗';
+            statusSpan.textContent = 'Save failed';
             this.onToast('error', 'Save Failed', 'Failed to save note');
         }
     }

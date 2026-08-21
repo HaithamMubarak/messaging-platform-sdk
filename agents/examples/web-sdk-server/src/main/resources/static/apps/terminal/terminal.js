@@ -63,14 +63,6 @@ const HEALTH_CHECK_INTERVAL = 30000;
 const BANNER_SSH_DISCONNECTED = '<<SSH_DISCONNECTED>>';
 const BANNER_STREAM_CLOSED = '<<STREAM_CLOSED>>';
 
-// Toast icons for different message types
-const TOAST_ICONS = {
-    success: '✓',
-    error: '✕',
-    warning: '⚠',
-    info: 'ℹ'
-};
-
 // ========================================
 // SECTION 2: STATE VARIABLES
 // ========================================
@@ -310,7 +302,7 @@ class TabSessionManager {
      * Close mobile sidebar when switching (for mobile UX)
      */
     closeMobileSidebar() {
-        if (window.innerWidth <= 480 && typeof closeMobileSidebar === 'function') {
+        if (window.innerWidth <= 767 && typeof closeMobileSidebar === 'function') {
             closeMobileSidebar();
         }
         return this;
@@ -1382,10 +1374,12 @@ function showToast(type, title, message, duration = 4000) {
     toast.className = `toast toast-${type}`;
     toast.dataset.toastKey = toastKey;
 
-    // Always plain text. Titles and messages routinely carry names supplied by
-    // other agents in the room — never hand them to innerHTML.
-    const icons = { success: '✓', error: '✕', info: 'ℹ', warning: '⚠' };
-    toast.textContent = `${icons[type] || 'ℹ'} ${title}: ${message}`;
+    // Sprite icon for the type; the text itself stays plain text. Titles and
+    // messages routinely carry names supplied by other agents in the room —
+    // never hand them to innerHTML.
+    const iconNames = { success: 'check-circle', error: 'alert-circle', info: 'info', warning: 'alert-triangle' };
+    toast.appendChild(svgIconEl(iconNames[type] || 'info'));
+    toast.appendChild(document.createTextNode(` ${title}: ${message}`));
 
     container.appendChild(toast);
     activeToasts.push(toast);
@@ -1876,13 +1870,18 @@ function createTab(sessionId, title, icon, type) {
     tab.className = 'tab active';
     tab.id = `tab-${sessionId}`;
     tab.dataset.sessionId = sessionId;
+    // Keyboard path: the tab is a focusable role="tab"; arrows/Enter/Delete are
+    // handled by the delegated tablist handler in initTabBarA11y().
+    tab.setAttribute('role', 'tab');
+    tab.setAttribute('aria-selected', 'true');
+    tab.setAttribute('tabindex', '0');
     const iconName = normalizeTabIcon(icon, type);
     tab.dataset.icon = iconName;
     tab.innerHTML = `
         <span class="tab-icon">${svgIcon(iconName)}</span>
         <span class="tab-title">${escapeHtml(title)}</span>
         <span class="tab-shared-badge" style="display: none;" title="Sharing live">${svgIcon('activity')}</span>
-        <span class="tab-close" title="Close tab">${svgIcon('x')}</span>
+        <button type="button" class="tab-close" title="Close tab" aria-label="Close tab" tabindex="-1">${svgIcon('x')}</button>
     `;
     // .onclick (not addEventListener) so the SSH temp-id swap can rebind it
     tab.querySelector('.tab-close').onclick = (e) => {
@@ -2040,8 +2039,8 @@ function switchToSession(sessionId) {
     // Use TabSessionManager for core switching logic
     tabSessionManager.switchTo(sessionId);
 
-    // Mobile: Auto-close sidebar
-    if (window.innerWidth <= 480) {
+    // Mobile: Auto-close sidebar (any width where the sidebar is a drawer)
+    if (window.innerWidth <= 767) {
         tabSessionManager.closeMobileSidebar();
     }
 
@@ -3769,7 +3768,7 @@ window.cancelSshModal = function() {
     const form = document.getElementById('sshForm');
     form.reset();
     delete form.dataset.editId;
-    document.querySelector('#sshModalOverlay .modal-title').textContent = '➕ Add SSH Connection';
+    document.querySelector('#sshModalOverlay .modal-title').innerHTML = svgIcon('plus') + ' Add SSH Connection';
     closeSshModal();
 }
 
@@ -3819,7 +3818,7 @@ async function testSshConnection() {
         if (result.success) {
             showToast('success', 'Connection Successful',
                      `Connected to ${data.username}@${data.host}:${data.port}`, 5000);
-            testBtn.innerHTML = '✅ Success';
+            testBtn.innerHTML = svgIcon('check-circle') + ' Success';
             testBtn.classList.add('success');
 
             // Reset button after 3 seconds
@@ -3837,7 +3836,7 @@ async function testSshConnection() {
         showToast('error', 'Connection Failed',
                  error.message || 'Could not connect to SSH server', 8000);
 
-        testBtn.innerHTML = '❌ Failed';
+        testBtn.innerHTML = svgIcon('alert-circle') + ' Failed';
         testBtn.classList.add('error');
 
         // Reset button after 3 seconds
@@ -3896,7 +3895,7 @@ async function saveSshConnection(e) {
         const form = document.getElementById('sshForm');
         form.reset();
         delete form.dataset.editId;
-        document.querySelector('#sshModalOverlay .modal-title').textContent = '➕ Add SSH Connection';
+        document.querySelector('#sshModalOverlay .modal-title').innerHTML = svgIcon('plus') + ' Add SSH Connection';
 
         closeSshModal();
         refreshConnections();
@@ -4189,17 +4188,25 @@ window.closeHelpModal = function() {
 
 window.switchHelpTab = function(tabName) {
     // Remove active class from all tabs and content
-    document.querySelectorAll('.help-tab').forEach(tab => tab.classList.remove('active'));
+    document.querySelectorAll('.help-tab').forEach(tab => {
+        tab.classList.remove('active');
+        tab.setAttribute('aria-selected', 'false');
+    });
     document.querySelectorAll('.help-content').forEach(content => content.classList.remove('active'));
 
     // Add active class to selected tab and content
-    document.getElementById('tab-' + tabName).classList.add('active');
+    const tabEl = document.getElementById('tab-' + tabName);
+    tabEl.classList.add('active');
+    tabEl.setAttribute('aria-selected', 'true');
     document.getElementById('content-' + tabName).classList.add('active');
 }
 
 window.switchCloudTab = function(tabName) {
     // Remove active class from all cloud tabs
-    document.querySelectorAll('.cloud-tab').forEach(tab => tab.classList.remove('active'));
+    document.querySelectorAll('.cloud-tab').forEach(tab => {
+        tab.classList.remove('active');
+        tab.setAttribute('aria-selected', 'false');
+    });
 
     // Hide all cloud tab content using inline style to override existing inline styles
     document.querySelectorAll('.cloud-tab-content').forEach(content => {
@@ -4208,7 +4215,9 @@ window.switchCloudTab = function(tabName) {
     });
 
     // Add active class to selected tab
-    document.getElementById('cloud-tab-' + tabName).classList.add('active');
+    const cloudTabEl = document.getElementById('cloud-tab-' + tabName);
+    cloudTabEl.classList.add('active');
+    cloudTabEl.setAttribute('aria-selected', 'true');
 
     // Show selected content using inline style
     const selectedContent = document.getElementById('cloud-content-' + tabName);
@@ -4258,11 +4267,28 @@ window.closeAboutModal = function() {
 let contextMenuTarget = null;    // SSH connection context menu target
 let tabContextMenuTarget = null; // Tab context menu target sessionId
 
+// The element that had focus before a context menu opened, so closing the
+// menu with Escape (or after an action) puts focus back where it was.
+let _contextMenuOpener = null;
+
 function hideContextMenus() {
+    // Only give focus back if it currently sits inside a menu — a mouse click
+    // elsewhere must not have its focus stolen.
+    const active = document.activeElement;
+    const focusWasInMenu = active && active.closest &&
+        active.closest('.context-menu, .sftp-context-menu');
+
     document.getElementById('tabContextMenu')?.classList.remove('visible');
     document.getElementById('sessionContextMenu')?.classList.remove('visible');
     document.getElementById('viewerContextMenu')?.classList.remove('visible');
     document.getElementById('terminalContextMenu')?.classList.remove('visible');
+    // Dynamically created menus (notes) remove themselves entirely.
+    document.querySelectorAll('.note-context-menu').forEach(m => m.remove());
+
+    if (focusWasInMenu && _contextMenuOpener && typeof _contextMenuOpener.focus === 'function') {
+        _contextMenuOpener.focus();
+    }
+    _contextMenuOpener = null;
 }
 
 // ========================================
@@ -4277,11 +4303,14 @@ function hideContextMenus() {
  * @param {number}      y     - desired top  (clientY)
  */
 function positionContextMenu(menu, x, y) {
-    // Make it briefly visible off-screen so the browser calculates its size
-    const prevVisibility = menu.style.visibility;
-    const prevDisplay    = menu.style.display;
-    menu.style.visibility = 'hidden';
-    menu.style.display    = 'block';
+    // Park it off-screen so the browser calculates its size. (This used to
+    // toggle `visibility: hidden`, but the items' `transition: all` then held
+    // their inherited visibility at hidden for 150ms after the menu opened,
+    // which broke moving keyboard focus into the menu.)
+    const prevDisplay = menu.style.display;
+    menu.style.left    = '-9999px';
+    menu.style.top     = '0px';
+    menu.style.display = 'block';
 
     const mw = menu.offsetWidth  || 200;
     const mh = menu.offsetHeight || 100;
@@ -4292,10 +4321,37 @@ function positionContextMenu(menu, x, y) {
     const left = (x + mw > vw) ? Math.max(0, x - mw) : x;
     const top  = (y + mh > vh) ? Math.max(0, y - mh) : y;
 
-    menu.style.visibility = prevVisibility || '';
-    menu.style.display    = prevDisplay    || '';
+    menu.style.display = prevDisplay || '';
     menu.style.left = left + 'px';
     menu.style.top  = top  + 'px';
+
+    // Every menu — static or dynamically built — passes through here when it
+    // opens, so this is the one place to wire menu semantics and keyboard
+    // access (roles, roving focus, and a focus target for the arrow keys).
+    wireContextMenuA11y(menu);
+}
+
+/**
+ * Give a context menu ARIA menu semantics and move focus into it.
+ * Safe to call repeatedly; attributes are only added when missing.
+ */
+function wireContextMenuA11y(menu) {
+    if (!menu.hasAttribute('role')) menu.setAttribute('role', 'menu');
+    const items = menu.querySelectorAll('.context-menu-item, .sftp-context-menu-item');
+    items.forEach(item => {
+        if (!item.hasAttribute('role')) item.setAttribute('role', 'menuitem');
+        if (!item.hasAttribute('tabindex')) item.setAttribute('tabindex', '-1');
+    });
+    if (!(_contextMenuOpener && document.activeElement &&
+          document.activeElement.closest &&
+          document.activeElement.closest('.context-menu, .sftp-context-menu'))) {
+        _contextMenuOpener = document.activeElement;
+    }
+    // Note: offsetParent is null for children of position:fixed menus, so
+    // visibility is checked via computed style instead.
+    const first = Array.from(items).find(i =>
+        getComputedStyle(i).display !== 'none' && !i.classList.contains('disabled'));
+    if (first) first.focus();
 }
 
 // ========================================
@@ -4717,7 +4773,7 @@ async function editSshConnection(connectionId) {
         document.getElementById('sshForm').dataset.editId = connectionId;
 
         // Update modal title
-        document.querySelector('#sshModalOverlay .modal-title').textContent = 'Edit SSH Connection';
+        document.querySelector('#sshModalOverlay .modal-title').innerHTML = svgIcon('pen') + ' Edit SSH Connection';
 
         showSshModal();
     } catch (error) {
@@ -4744,7 +4800,7 @@ async function duplicateSshConnection(connectionId) {
         // Clear edit ID so it creates a new one
         delete document.getElementById('sshForm').dataset.editId;
 
-        document.querySelector('#sshModalOverlay .modal-title').textContent = '➕ Add SSH Connection';
+        document.querySelector('#sshModalOverlay .modal-title').innerHTML = svgIcon('plus') + ' Add SSH Connection';
 
         showSshModal();
     } catch (error) {
@@ -5430,15 +5486,22 @@ function openInvite() {
     try { switchCloudTab('sharing'); } catch (e) { /* older markup */ }
     try { generateShareUrl(); } catch (e) { /* nothing to share yet */ }
 
-    // Show the code without being asked: somebody who pressed Invite has said
+    // Show the QR without being asked: somebody who pressed Invite has said
     // what they want, and the person they are inviting is usually holding a
     // phone.
     const qr = document.getElementById('shareQrCode');
     if (qr && qr.style.display === 'none') {
         try { toggleQrCode(); } catch (e) { /* ignore */ }
     }
-    const input = document.getElementById('shareUrlInput');
-    if (input) { input.focus(); input.select(); }
+    // The short code is the primary offer — the link embeds the room password.
+    // Land focus on the code (or the button that mints one), not on the link.
+    const codeResult = document.getElementById('sessionCodeResult');
+    const codeBtn = document.getElementById('sessionCodeBtn');
+    if (codeResult && codeResult.style.display !== 'none') {
+        codeResult.querySelector('button')?.focus();
+    } else if (codeBtn) {
+        codeBtn.focus();
+    }
 }
 window.openInvite = openInvite;
 
@@ -7094,6 +7157,9 @@ function createSharedTerminalSession(sessionId, sessionInfo, ownerAgent) {
     // Replace "Shared Terminal - Connecting..." with connected success message
     terminal.write('\x1b[1A\x1b[2K'); // erase the "Shared Terminal - Connecting..." line
     terminal.writeln(`\x1b[1;36mShared Terminal\x1b[0m - \x1b[1;32mConnected ✓\x1b[0m`);
+    // Be honest about what a late joiner is looking at: the stream starts at
+    // the moment they attach, and nothing that scrolled past before exists here.
+    terminal.writeln('\x1b[2mJoined live — earlier output is not shown\x1b[0m');
     terminal.writeln('');
 
     // Show last known prompt once — only on first connect, never replayed
@@ -7245,7 +7311,7 @@ window.respondToPermission = function respondToPermission(sessionId, granted, re
 
     showToast(
         granted ? 'success' : 'info',
-        granted ? '✓ Permission Granted' : '✕ Permission Denied',
+        granted ? 'Permission Granted' : 'Permission Denied',
         `${granted ? 'Granted' : 'Denied'} write access to ${requester}`
     );
 };
@@ -8996,7 +9062,7 @@ function initMobileFeatures() {
     }, false);
 
     // Auto-close sidebar when switching to a terminal tab (mobile only)
-    if (window.innerWidth <= 480) {
+    if (window.innerWidth <= 767) {
         // Override switchToSession to auto-close sidebar on mobile
         const originalSwitchToSession = window.switchToSession;
         window.switchToSession = function(sessionId) {
@@ -9426,6 +9492,198 @@ function escapeXML(str) {
 // Initialize mobile features on load
 if (typeof window !== 'undefined') {
     window.addEventListener('DOMContentLoaded', initMobileFeatures);
+}
+
+// ========================================
+// Keyboard & screen-reader access
+// ========================================
+// Three patterns in this app were mouse-only: the context menus (divs with
+// onclick), the modals (no focus trap, no focus restore), and the tab bar
+// (divs, no keyboard path). This section closes all three without touching
+// any of the open/close call sites: menus are wired centrally when they open
+// (wireContextMenuA11y via positionContextMenu), modals are watched for their
+// `visible` class, and the tab bar gets one delegated keydown handler.
+
+const A11Y_FOCUSABLE = 'a[href], button:not([disabled]), input:not([disabled]), ' +
+    'select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])';
+
+/** All keyboard-reachable items of the currently open context menu, if any. */
+function openContextMenuItems() {
+    const menu = document.querySelector('.context-menu.visible, .sftp-context-menu.visible');
+    if (!menu || getComputedStyle(menu).display === 'none') return null;
+    const items = Array.from(menu.querySelectorAll('.context-menu-item, .sftp-context-menu-item'))
+        .filter(i => getComputedStyle(i).display !== 'none')
+        .filter(i => !i.classList.contains('disabled'));
+    return { menu, items };
+}
+
+function initContextMenuKeyboard() {
+    // Capture phase, so Escape closes the menu before the modal handler sees it.
+    document.addEventListener('keydown', (e) => {
+        const open = openContextMenuItems();
+        if (!open) return;
+        const { menu, items } = open;
+        const idx = items.indexOf(document.activeElement);
+
+        switch (e.key) {
+            case 'Escape':
+            case 'Esc':
+                e.preventDefault();
+                e.stopPropagation();
+                hideContextMenus();
+                menu.classList.remove('visible'); // covers the sftp menu too
+                break;
+            case 'ArrowDown':
+                e.preventDefault();
+                if (items.length) items[(idx + 1) % items.length].focus();
+                break;
+            case 'ArrowUp':
+                e.preventDefault();
+                if (items.length) items[(idx - 1 + items.length) % items.length].focus();
+                break;
+            case 'Home':
+                e.preventDefault();
+                if (items.length) items[0].focus();
+                break;
+            case 'End':
+                e.preventDefault();
+                if (items.length) items[items.length - 1].focus();
+                break;
+            case 'Enter':
+            case ' ':
+                if (idx !== -1) {
+                    e.preventDefault();
+                    document.activeElement.click();
+                }
+                break;
+            case 'Tab':
+                // A menu is not a place to Tab through; close it and move on.
+                hideContextMenus();
+                menu.classList.remove('visible');
+                break;
+        }
+    }, true);
+}
+
+// ---------- Modal focus management ----------
+
+function initModalA11y() {
+    document.querySelectorAll('.modal-overlay').forEach((overlay) => {
+        let opener = null;
+
+        overlay.addEventListener('keydown', (e) => {
+            if (e.key !== 'Tab' || !overlay.classList.contains('visible')) return;
+            const items = Array.from(overlay.querySelectorAll(A11Y_FOCUSABLE))
+                .filter(n => n.offsetParent !== null);
+            if (!items.length) return;
+            const first = items[0];
+            const last = items[items.length - 1];
+            if (e.shiftKey && (document.activeElement === first || !overlay.contains(document.activeElement))) {
+                e.preventDefault();
+                last.focus();
+            } else if (!e.shiftKey && (document.activeElement === last || !overlay.contains(document.activeElement))) {
+                e.preventDefault();
+                first.focus();
+            }
+        });
+
+        let wasVisible = overlay.classList.contains('visible');
+        const observer = new MutationObserver(() => {
+            const visible = overlay.classList.contains('visible');
+            if (visible === wasVisible) return; // some other class changed
+            wasVisible = visible;
+            if (visible) {
+                opener = document.activeElement;
+                // Focus the first control in the dialog once it is rendered.
+                setTimeout(() => {
+                    if (!overlay.classList.contains('visible')) return;
+                    if (overlay.contains(document.activeElement)) return; // e.g. an input already focused by the opener
+                    const target = overlay.querySelector('[data-autofocus]') ||
+                        Array.from(overlay.querySelectorAll(A11Y_FOCUSABLE)).find(n => n.offsetParent !== null);
+                    if (target) target.focus();
+                }, 0);
+            } else if (opener) {
+                if (typeof opener.focus === 'function' && document.contains(opener)) opener.focus();
+                opener = null;
+            }
+        });
+        observer.observe(overlay, { attributes: true, attributeFilter: ['class'] });
+    });
+}
+
+// ---------- Tab bar keyboard access ----------
+
+function syncTabBarAria() {
+    const tabBar = document.getElementById('tabBar');
+    if (!tabBar) return;
+    tabBar.querySelectorAll('.tab').forEach((tab) => {
+        const active = tab.classList.contains('active');
+        tab.setAttribute('role', 'tab');
+        tab.setAttribute('aria-selected', active ? 'true' : 'false');
+        tab.setAttribute('tabindex', active ? '0' : '-1');
+    });
+}
+
+function initTabBarA11y() {
+    const tabBar = document.getElementById('tabBar');
+    if (!tabBar) return;
+
+    // Whatever code path toggles `active`, the roving tabindex follows.
+    const observer = new MutationObserver(syncTabBarAria);
+    observer.observe(tabBar, { childList: true, subtree: true, attributes: true, attributeFilter: ['class'] });
+    syncTabBarAria();
+
+    tabBar.addEventListener('keydown', (e) => {
+        const current = e.target.closest ? e.target.closest('.tab') : null;
+        if (!current) return;
+        const tabs = Array.from(tabBar.querySelectorAll('.tab'));
+        const idx = tabs.indexOf(current);
+        if (idx === -1) return;
+
+        switch (e.key) {
+            case 'ArrowRight': {
+                e.preventDefault();
+                const next = tabs[(idx + 1) % tabs.length];
+                next.focus();
+                next.click();
+                break;
+            }
+            case 'ArrowLeft': {
+                e.preventDefault();
+                const prev = tabs[(idx - 1 + tabs.length) % tabs.length];
+                prev.focus();
+                prev.click();
+                break;
+            }
+            case 'Home':
+                e.preventDefault();
+                if (tabs.length) { tabs[0].focus(); tabs[0].click(); }
+                break;
+            case 'End':
+                e.preventDefault();
+                if (tabs.length) { tabs[tabs.length - 1].focus(); tabs[tabs.length - 1].click(); }
+                break;
+            case 'Enter':
+            case ' ':
+                e.preventDefault();
+                current.click();
+                break;
+            case 'Delete': {
+                e.preventDefault();
+                const closeBtn = current.querySelector('.tab-close');
+                if (closeBtn) closeBtn.click();
+                break;
+            }
+        }
+    });
+}
+
+if (typeof window !== 'undefined') {
+    window.addEventListener('DOMContentLoaded', () => {
+        initContextMenuKeyboard();
+        initModalA11y();
+        initTabBarA11y();
+    });
 }
 
 // Note: beforeunload handler is already registered in the cleanup section above

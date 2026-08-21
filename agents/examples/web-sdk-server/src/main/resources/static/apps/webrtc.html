@@ -672,7 +672,7 @@
         </div>
     </div>
 
-    <div id="connectionStatus"></div>
+    <div id="connectionStatus" role="status" aria-live="polite"></div>
 </div>
 
 <!-- Step 2: Camera Setup -->
@@ -693,15 +693,16 @@
             <option value="p2p" selected>Peer-to-peer</option>
             <option value="relay">WebRTC Relay</option>
         </select>
+        <div class="small"><svg class="icon icon--sm" aria-hidden="true"><use href="#i-info"></use></svg> In peer-to-peer mode, while your camera or screen is on it is sent automatically to every agent that joins the channel.</div>
     </div>
     <div class="controls">
-        <button id="toggleCameraBtn" onclick="toggleCamera()" class="btn" disabled>
+        <button id="toggleCameraBtn" onclick="toggleCamera()" class="btn" disabled aria-pressed="false">
             <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z"/>
             </svg>
             <span id="cameraButtonText">Start Camera</span>
         </button>
-        <button id="toggleScreenBtn" onclick="toggleScreenShare()" class="btn ghost" disabled>
+        <button id="toggleScreenBtn" onclick="toggleScreenShare()" class="btn ghost" disabled aria-pressed="false">
             <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/>
             </svg>
@@ -713,7 +714,7 @@
 <!-- Stream Status -->
 <div class="section">
     <h2><svg class="icon icon--sm" aria-hidden="true"><use href="#i-activity"></use></svg> Stream Status</h2>
-    <div id="streamStatus"></div>
+    <div id="streamStatus" role="status" aria-live="polite"></div>
     <div class="small" style="margin-top: 12px; color: var(--muted);">
         <svg class="icon icon--sm" aria-hidden="true"><use href="#i-info"></use></svg> Stream automatically starts when you enable camera or screen sharing and broadcasts to all connected agents.
     </div>
@@ -813,6 +814,7 @@
     // Global variables
     let channel = null;
     let webrtcHelper = null;
+    let isConnectingChannel = false;   // a connect is in flight; ignore further clicks
     let localStream = null;
     let currentStreamId = null;
     let iceCount = 0;
@@ -1214,6 +1216,22 @@
     // Step 1: Connect to Channel
     async function connectToChannel() {
         console.log('[DEBUG] connectToChannel() called');
+
+        // Busy guard: a second click while a connect is in flight used to
+        // build a second AgentConnection and leak the first.
+        if (isConnectingChannel) {
+            log('Connection already in progress', 'info');
+            return;
+        }
+        if (channel) {
+            log('Already connected — disconnect first', 'info');
+            return;
+        }
+        isConnectingChannel = true;
+        const connectBtnEl = document.getElementById('connectBtn');
+        if (connectBtnEl) connectBtnEl.disabled = true;
+
+        try {
         const channelName = document.getElementById('channelName').value.trim();
         const password = document.getElementById('channelPassword').value.trim();
 
@@ -1238,8 +1256,8 @@
 
         console.log('[DEBUG] Form values in connectToChannel:', {
             channelName: channelName,
-            password: password,
-            apiKey: apiKey,
+            password: password ? '(set)' : '(empty)',
+            apiKey: apiKey ? '(set)' : '(empty)',
             agentName: agentName
         });
 
@@ -1272,10 +1290,14 @@
                 webrtcHelper.setLocalMediaStream(localStream);
             }
 
-            // Connect to channel using Promise
+            // Connect to channel using Promise, with a watchdog so a server
+            // that never answers does not leave the page stuck "connecting".
             await new Promise((resolve, reject) => {
+                const watchdog = setTimeout(() => reject(new Error('Connection timeout')), 10000);
+
                 // Set up event listener for connection
                 channel.addEventListener('connect', function (event) {
+                    clearTimeout(watchdog);
                     if (event.response && event.response.status === 'success') {
                         resolve();
                     } else {
@@ -1368,6 +1390,17 @@
             const errorMsg = error.message || 'Unknown error';
             log('Connection failed: ' + errorMsg, 'error');
             showStatus('connectionStatus', 'Connection failed: ' + errorMsg, 'error');
+
+            // Tear the half-built connection down so a retry starts clean
+            // instead of stacking a second one on top of it.
+            try { if (channel && channel.disconnect) channel.disconnect(); } catch (e) { /* best effort */ }
+            channel = null;
+            webrtcHelper = null;
+        }
+        } finally {
+            isConnectingChannel = false;
+            const btn = document.getElementById('connectBtn');
+            if (btn) btn.disabled = false;
         }
     }
 
@@ -1460,6 +1493,10 @@
                     'currentStreamId=', currentStreamId);
 
                 if (mode === 'p2p' && !isRelayAgent) {
+                    // Disclose it where the user can see it, not only in the
+                    // debug log: their camera/screen is about to go to the
+                    // agent that just joined.
+                    showStatus('streamStatus', 'P2P mode: ' + newAgentName + ' joined - your stream is now being sent to them', 'info');
                     log('P2P mode: sending stream to agent', newAgentName);
                     startVideoStream([newAgentName]);
 
@@ -1598,11 +1635,13 @@
             stopCamera();
             document.getElementById('cameraButtonText').textContent = 'Start Camera';
             document.getElementById('toggleCameraBtn').classList.remove('danger');
+            setPressed('toggleCameraBtn', false);
         } else if (!localStream && !isScreenSharing) {
             // Camera is not active, start it
             await startCamera();
             document.getElementById('cameraButtonText').textContent = 'Stop Camera';
             document.getElementById('toggleCameraBtn').classList.add('danger');
+            setPressed('toggleCameraBtn', true);
         }
     }
 
@@ -1613,11 +1652,13 @@
             stopScreenShare();
             document.getElementById('screenButtonText').textContent = 'Share Screen';
             document.getElementById('toggleScreenBtn').classList.remove('danger');
+            setPressed('toggleScreenBtn', false);
         } else {
             // Screen share is not active, start it
             await startScreenShare();
             document.getElementById('screenButtonText').textContent = 'Stop Share';
             document.getElementById('toggleScreenBtn').classList.add('danger');
+            setPressed('toggleScreenBtn', true);
         }
     }
 
@@ -1668,6 +1709,7 @@
                             // Reset screen share button state
                             document.getElementById('screenButtonText').textContent = 'Share Screen';
                             document.getElementById('toggleScreenBtn').classList.remove('danger');
+                            setPressed('toggleScreenBtn', false);
                         }
                     }, 50);
                 };
@@ -1748,6 +1790,7 @@
                 // Update camera button to show "Stop Camera"
                 document.getElementById('cameraButtonText').textContent = 'Stop Camera';
                 document.getElementById('toggleCameraBtn').classList.add('danger');
+                setPressed('toggleCameraBtn', true);
                 document.getElementById('toggleCameraBtn').style.display = 'inline-flex'; // Show camera button
             } else {
                 // hide badge
@@ -1755,6 +1798,7 @@
                 // Show camera button in "Start" state
                 document.getElementById('cameraButtonText').textContent = 'Start Camera';
                 document.getElementById('toggleCameraBtn').classList.remove('danger');
+                setPressed('toggleCameraBtn', false);
                 document.getElementById('toggleCameraBtn').style.display = 'inline-flex';
             }
 
@@ -1959,6 +2003,12 @@
         }
     }
 
+    // Helper: keep aria-pressed in step with a toggle button's visual state
+    function setPressed(id, on) {
+        const el = document.getElementById(id);
+        if (el) el.setAttribute('aria-pressed', on ? 'true' : 'false');
+    }
+
     // Helper: get selected streaming mode (p2p | relay)
     function getStreamingMode() {
         try {
@@ -2041,10 +2091,10 @@
                 // API key is NOT stored - it will be fetched fresh when connecting
 
                 log('Channel details loaded from shared link!', 'success');
-                console.log('[DEBUG] Shared link auth:', auth);
+                // Never log the auth payload or the password itself.
                 console.log('[DEBUG] Form values:', {
                     channelName: document.getElementById('channelName').value,
-                    password: document.getElementById('channelPassword').value,
+                    password: document.getElementById('channelPassword').value ? '(set)' : '(empty)',
                     apiKey: '(will be fetched on connect)'
                 });
                 showStatus('connectionStatus', 'Shared link processed - ready to connect', 'success');
@@ -2293,11 +2343,13 @@
             document.getElementById('toggleCameraBtn').style.display = 'inline-flex';
             document.getElementById('cameraButtonText').textContent = 'Start Camera';
             document.getElementById('toggleCameraBtn').classList.remove('danger');
+            setPressed('toggleCameraBtn', false);
 
             document.getElementById('toggleScreenBtn').disabled = true;
             document.getElementById('toggleScreenBtn').style.display = 'inline-flex';
             document.getElementById('screenButtonText').textContent = 'Share Screen';
             document.getElementById('toggleScreenBtn').classList.remove('danger');
+            setPressed('toggleScreenBtn', false);
 
             // Disable mute buttons
             document.getElementById('muteLocalVideoBtn').disabled = true;
@@ -2322,8 +2374,15 @@
             // Clear stream status
             showStatus('streamStatus', '', 'info');
 
+            // Drop the dead connection objects so the next connect starts
+            // clean instead of being refused as "already connected".
+            channel = null;
+            webrtcHelper = null;
+
         } catch (error) {
             log('Disconnection error: ' + error.message, 'error');
+            channel = null;
+            webrtcHelper = null;
         }
     }
 

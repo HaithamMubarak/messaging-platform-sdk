@@ -651,8 +651,8 @@
                 <li>If messages are exchanged successfully, your API key is working! ✅</li>
             </ol>
             <p style="margin-top: 16px; color: var(--text-faint); font-size: 13px;">
-                💡 <strong>Tip:</strong> Both agents join a test channel called <code>api-key-test-channel</code>
-                with password <code>test123</code>. This is for testing purposes only.
+                <strong>Tip:</strong> Both agents join a fresh test channel named <code>api-key-test-&lt;random&gt;</code>
+                (a new one on every page load) with password <code>test123</code>. This is for testing purposes only.
             </p>
             <p style="margin-top: 12px; color: var(--text-faint); font-size: 13px;">
                 ⚡ <strong>Ephemeral Messages:</strong> By default, messages are sent as ephemeral (not stored in DB).
@@ -827,6 +827,10 @@ testMessaging().catch(console.error);</code></pre>
         let agent2 = null;
         let messageCount = 0;
         let apiKeyVisible = false;
+        // Contents this page actually sent (confirmed by the server). Success
+        // is only declared when one of these comes back from the other agent -
+        // any stray chat in the channel is not proof the key works.
+        const sentThisSession = new Set();
 
         // ============================================
         // API KEY VISIBILITY TOGGLE
@@ -949,8 +953,12 @@ testMessaging().catch(console.error);</code></pre>
                     messages.forEach(msg => {
                         if (msg && msg.from !== AGENT1_NAME && msg.type === 'chat-text') {
                             const content = msg.content || '';
-                            addLog('agent1Log', 'received', `📩 From ${msg.from}: ${content}`);
-                            checkTestSuccess();
+                            addLog('agent1Log', 'received', `From ${msg.from}: ${content}`);
+                            // Success only when this is a message this page
+                            // itself sent, coming back from the other agent.
+                            if (msg.from === AGENT2_NAME && sentThisSession.has(content)) {
+                                checkTestSuccess();
+                            }
                         }
                     });
                 });
@@ -993,8 +1001,12 @@ testMessaging().catch(console.error);</code></pre>
                     messages.forEach(msg => {
                         if (msg && msg.from !== AGENT2_NAME && msg.type === 'chat-text') {
                             const content = msg.content || '';
-                            addLog('agent2Log', 'received', `📩 From ${msg.from}: ${content}`);
-                            checkTestSuccess();
+                            addLog('agent2Log', 'received', `From ${msg.from}: ${content}`);
+                            // Success only when this is a message this page
+                            // itself sent, coming back from the other agent.
+                            if (msg.from === AGENT1_NAME && sentThisSession.has(content)) {
+                                checkTestSuccess();
+                            }
                         }
                     });
                 });
@@ -1073,6 +1085,7 @@ testMessaging().catch(console.error);</code></pre>
             document.getElementById('disconnectBtn').style.display = 'none';
             document.getElementById('resultsBanner').className = 'results-banner';
             messageCount = 0;
+            sentThisSession.clear();
         }
 
         // ============================================
@@ -1085,28 +1098,33 @@ testMessaging().catch(console.error);</code></pre>
             const customMsg = input.value.trim();
             const isEphemeral = document.getElementById('agent1Ephemeral').checked;
 
+            let msg;
             if (!customMsg) {
                 // Default message if input is empty
                 messageCount++;
-                const msg = `Hello from Alice! (Message #${messageCount})`;
-                agent1.sendMessage({
-                    content: msg,
-                    type: 'chat-text',
-                    ephemeral: isEphemeral
-                });
-                const ephemeralTag = isEphemeral ? ' ⚡[ephemeral]' : '';
-                addLog('agent1Log', 'sent', `📤 Sent: ${msg}${ephemeralTag}`);
+                msg = `Hello from Alice! (Message #${messageCount})`;
             } else {
-                // Use custom message
-                agent1.sendMessage({
-                    content: customMsg,
-                    type: 'chat-text',
-                    ephemeral: isEphemeral
-                });
-                const ephemeralTag = isEphemeral ? ' ⚡[ephemeral]' : '';
-                addLog('agent1Log', 'sent', `📤 Sent: ${customMsg}${ephemeralTag}`);
+                msg = customMsg;
                 input.value = ''; // Clear input after sending
             }
+
+            const ephemeralTag = isEphemeral ? ' [ephemeral]' : '';
+            // The server answers every send; a failure must not be logged
+            // as "Sent" on the very page whose job is verifying the key.
+            agent1.sendMessage({
+                content: msg,
+                type: 'chat-text',
+                ephemeral: isEphemeral
+            }, (response) => {
+                if (response && response.status === 'success') {
+                    sentThisSession.add(msg);
+                    addLog('agent1Log', 'sent', `Sent: ${msg}${ephemeralTag}`);
+                } else {
+                    const why = (response && (response.statusMessage || response.data)) || 'unknown error';
+                    addLog('agent1Log', 'error', `Send failed: ${why}`);
+                    showResults(false, 'Send Failed', 'Agent 1 could not send a message: ' + why);
+                }
+            });
         }
 
         function sendFromAgent2() {
@@ -1116,28 +1134,31 @@ testMessaging().catch(console.error);</code></pre>
             const customMsg = input.value.trim();
             const isEphemeral = document.getElementById('agent2Ephemeral').checked;
 
+            let msg;
             if (!customMsg) {
                 // Default message if input is empty
                 messageCount++;
-                const msg = `Hello from Bob! (Message #${messageCount})`;
-                agent2.sendMessage({
-                    content: msg,
-                    type: 'chat-text',
-                    ephemeral: isEphemeral
-                });
-                const ephemeralTag = isEphemeral ? ' ⚡[ephemeral]' : '';
-                addLog('agent2Log', 'sent', `📤 Sent: ${msg}${ephemeralTag}`);
+                msg = `Hello from Bob! (Message #${messageCount})`;
             } else {
-                // Use custom message
-                agent2.sendMessage({
-                    content: customMsg,
-                    type: 'chat-text',
-                    ephemeral: isEphemeral
-                });
-                const ephemeralTag = isEphemeral ? ' ⚡[ephemeral]' : '';
-                addLog('agent2Log', 'sent', `📤 Sent: ${customMsg}${ephemeralTag}`);
+                msg = customMsg;
                 input.value = ''; // Clear input after sending
             }
+
+            const ephemeralTag = isEphemeral ? ' [ephemeral]' : '';
+            agent2.sendMessage({
+                content: msg,
+                type: 'chat-text',
+                ephemeral: isEphemeral
+            }, (response) => {
+                if (response && response.status === 'success') {
+                    sentThisSession.add(msg);
+                    addLog('agent2Log', 'sent', `Sent: ${msg}${ephemeralTag}`);
+                } else {
+                    const why = (response && (response.statusMessage || response.data)) || 'unknown error';
+                    addLog('agent2Log', 'error', `Send failed: ${why}`);
+                    showResults(false, 'Send Failed', 'Agent 2 could not send a message: ' + why);
+                }
+            });
         }
 
         // ============================================

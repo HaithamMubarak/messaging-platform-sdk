@@ -1436,6 +1436,11 @@ Accessed: ${this.formatDate(info.atime)}
         this.contextMenu.style.left = event.clientX + 'px';
         this.contextMenu.style.top = event.clientY + 'px';
         this.contextMenu.classList.add('visible');
+
+        // Menu semantics + keyboard focus (shared helper from terminal.js).
+        if (typeof window.wireContextMenuA11y === 'function') {
+            window.wireContextMenuA11y(this.contextMenu);
+        }
     }
 
     /**
