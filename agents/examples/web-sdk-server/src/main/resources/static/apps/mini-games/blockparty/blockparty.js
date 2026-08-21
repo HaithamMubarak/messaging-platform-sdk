@@ -3728,6 +3728,12 @@
             // that world is replaced under it.
             if (this.physics && this.physics.on && this.isHost()) this.physics.flush();
             if (!snap) return;
+            // A normal world load/import must never inherit the translucent
+            // coloured match pads. They are scene-only objects, so a stale
+            // arena survived replacing the voxel world and looked like a big
+            // green square over imported places. Active matches own their
+            // arena; every sandbox restore clears it first.
+            if (!(this.modes && this.modes.isMatchActive())) this.voxels.clearArena();
             // A snapshot that says nothing about place does not move the world.
             //
             // Loading a map is a change of *build*, not of where the room is —
