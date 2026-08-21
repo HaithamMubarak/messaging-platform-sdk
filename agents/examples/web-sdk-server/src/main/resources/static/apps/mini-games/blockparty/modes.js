@@ -73,6 +73,15 @@
     ];
     const CHECKPOINT_RADIUS = 4;
     const CHECKPOINT_MAX_SPEED = 13; // generous for jitter, not teleporting
+    // Delivery Run uses a shared depot and three deliberately spaced stops.
+    // A runner must return to the depot for the next parcel; the host never
+    // accepts a client-side "delivered" claim.
+    const DELIVERY_DEPOT = { x: 0, z: 0, label: 'Parcel depot' };
+    const DELIVERY_STOPS = [
+        { x: 43, z: -31, label: 'Riverside café' },
+        { x: -38, z: -28, label: 'Old station' },
+        { x: 25, z: 40, label: 'Hilltop house' }
+    ];
     const HINT_AT = [0.45, 0.7, 0.85];   // fraction elapsed -> one more letter
     // Never more than this share of a word, however long the round runs. Ten of
     // the ninety-eight words are three letters, and three reveals spelled every
@@ -222,6 +231,10 @@
             // seeing their relayed FPS position inside the next checkpoint.
             flow: ['countdown', 'play', 'reveal'],
             relay: false, hide: false, scoreAt: 'play', noBuild: true
+        },
+        delivery: {
+            flow: ['countdown', 'play', 'reveal'],
+            relay: false, hide: false, scoreAt: 'play', noBuild: true
         }
     };
 
@@ -318,6 +331,10 @@
         {
             id: 'checkpoint', kind: 'race', name: 'Checkpoint Race', emoji: '🏁', ready: true, defaultTime: 120, minPlayers: 1, note: 'Solo works: set a clean time; races use the host-validated route.',
             desc: 'Run the waypoint course in first person. The host validates each checkpoint from your movement feed, then ranks the fastest finishers.'
+        },
+        {
+            id: 'delivery', kind: 'race', name: 'Delivery Run', emoji: '📦', ready: true, defaultTime: 150, minPlayers: 1, note: 'Solo works: race your delivery time; return to the depot for each parcel.',
+            desc: 'Pick up at the depot, carry each parcel to its marked stop, then return for the next one. The host validates every pickup and delivery from movement.'
         }
     ];
 
@@ -740,7 +757,7 @@
          */
         onAvatar(name, avatar) {
             const h = this.host;
-            if (!h || h.mode !== 'checkpoint' || h.phase !== 'play' || !name || !avatar || avatar.hide) return;
+            if (!h || (h.mode !== 'checkpoint' && h.mode !== 'delivery') || h.phase !== 'play' || !name || !avatar || avatar.hide) return;
             const runner = h.runners && h.runners.get(name);
             if (!runner || runner.done || !Number.isFinite(+avatar.x) || !Number.isFinite(+avatar.z)) return;
             const now = Date.now(), x = +avatar.x, z = +avatar.z;
@@ -750,6 +767,25 @@
             // jumps farther than a very forgiving sprint envelope is ignored.
             if (moved > CHECKPOINT_MAX_SPEED * dt + 3) return;
             runner.lastX = x; runner.lastZ = z; runner.lastAt = now;
+            if (h.mode === 'delivery') {
+                const target = runner.carrying ? DELIVERY_STOPS[runner.delivered] : DELIVERY_DEPOT;
+                if (!target || Math.hypot(x - target.x, z - target.z) > CHECKPOINT_RADIUS) return;
+                if (!runner.carrying) {
+                    runner.carrying = true;
+                    this.game.showToast(`${name} picked up parcel ${runner.delivered + 1}`, 'info', 1800);
+                } else {
+                    runner.carrying = false;
+                    runner.delivered++;
+                    runner.splits.push(now - runner.startedAt);
+                    if (runner.delivered >= DELIVERY_STOPS.length) {
+                        runner.done = true; runner.finishedAt = now;
+                        this.game.showToast(`${name} completed every delivery!`, 'success', 2200);
+                    }
+                }
+                this._hostPublish();
+                if (h.runners.size && Array.from(h.runners.values()).every(r => r.done)) h.remain = 1;
+                return;
+            }
             const target = CHECKPOINTS[runner.next];
             if (!target || Math.hypot(x - target.x, z - target.z) > CHECKPOINT_RADIUS) return;
             runner.splits.push(now - runner.startedAt);
@@ -1162,6 +1198,17 @@
                     break;
                 }
 
+                case 'delivery': {
+                    h.plots = [];
+                    h.runners = new Map();
+                    const now = Date.now();
+                    players.forEach(name => h.runners.set(name, {
+                        carrying: false, delivered: 0, done: false, startedAt: now, finishedAt: 0,
+                        lastX: DELIVERY_DEPOT.x, lastZ: DELIVERY_DEPOT.z, lastAt: now, splits: []
+                    }));
+                    break;
+                }
+
                 default:
                     h.plots = computePlots(players);
                     takeModel();
@@ -1238,11 +1285,12 @@
             const h = this.host;
             h.phase = phase;
             h.remain = secs;
-            if (h.mode === 'checkpoint' && phase === 'play' && h.runners) {
+            if ((h.mode === 'checkpoint' || h.mode === 'delivery') && phase === 'play' && h.runners) {
                 const now = Date.now();
                 h.runners.forEach(r => {
                     r.startedAt = now; r.lastAt = now;
-                    r.lastX = CHECKPOINTS[0].x; r.lastZ = CHECKPOINTS[0].z;
+                    r.lastX = h.mode === 'delivery' ? DELIVERY_DEPOT.x : CHECKPOINTS[0].x;
+                    r.lastZ = h.mode === 'delivery' ? DELIVERY_DEPOT.z : CHECKPOINTS[0].z;
                 });
             }
             this._hostPublish();
@@ -1413,6 +1461,7 @@
             if (rules.scoreAt === phase) {
                 if (h.mode === 'whereonearth') this._hostScoreEarth();
                 else if (h.mode === 'checkpoint') this._hostScoreCheckpoint();
+                else if (h.mode === 'delivery') this._hostScoreDelivery();
                 else this._hostScoreRound();
             }
         }
@@ -1696,6 +1745,7 @@
                 case 'relay': this._hostScoreRelay(); return;
                 case 'earthquake': this._hostScoreQuake(); return;
                 case 'checkpoint': this._hostScoreCheckpoint(); return;
+                case 'delivery': this._hostScoreDelivery(); return;
                 default: this._hostScoreBlueprint();
             }
         }
@@ -1719,6 +1769,28 @@
             }).sort((a, b) => (b.complete - a.complete) || (b.gates - a.gates) || (a.elapsed - b.elapsed));
             this._hostFinish({
                 mode: 'checkpoint', round: h.round, rounds: h.rounds, rows,
+                totals: this._hostTotalsList(), isFinal: h.round >= h.rounds
+            });
+        }
+
+        _hostScoreDelivery() {
+            const h = this.host;
+            const limit = h.roundTime * 1000;
+            const rows = this._eligiblePlayers().map(name => {
+                const r = h.runners && h.runners.get(name);
+                const complete = !!(r && r.done);
+                const elapsed = complete ? r.finishedAt - r.startedAt : limit;
+                const delivered = r ? r.delivered : 0;
+                const points = complete ? Math.max(10, 170 - Math.round(elapsed / 1000)) : delivered * 25;
+                h.totals.set(name, (h.totals.get(name) || 0) + points);
+                return {
+                    name, complete, delivered, elapsed, points,
+                    note: complete ? `${fmt(elapsed / 1000)} · all ${DELIVERY_STOPS.length} parcels delivered`
+                        : `${delivered}/${DELIVERY_STOPS.length} parcels delivered`
+                };
+            }).sort((a, b) => (b.complete - a.complete) || (b.delivered - a.delivered) || (a.elapsed - b.elapsed));
+            this._hostFinish({
+                mode: 'delivery', round: h.round, rounds: h.rounds, rows,
                 totals: this._hostTotalsList(), isFinal: h.round >= h.rounds
             });
         }
@@ -2205,13 +2277,19 @@
             const demo = {};
             if (h.demo) h.demo.forEach((n, name) => { demo[name] = n; });
             const runners = {};
-            if (h.runners) h.runners.forEach((r, name) => {
+            if (h.runners && h.mode === 'checkpoint') h.runners.forEach((r, name) => {
                 runners[name] = { next: r.next, done: r.done, gates: Math.max(0, r.next - 1), elapsed: r.done ? r.finishedAt - r.startedAt : 0 };
+            });
+            const deliveries = {};
+            if (h.runners && h.mode === 'delivery') h.runners.forEach((r, name) => {
+                deliveries[name] = { carrying: r.carrying, delivered: r.delivered, done: r.done, elapsed: r.done ? r.finishedAt - r.startedAt : 0 };
             });
             return {
                 demo,
                 runners,
                 checkpoints: h.mode === 'checkpoint' ? CHECKPOINTS.map(p => ({ x: p.x, z: p.z, label: p.label })) : null,
+                deliveries,
+                delivery: h.mode === 'delivery' ? { depot: DELIVERY_DEPOT, stops: DELIVERY_STOPS } : null,
                 sculptors: h.sculptors || null,
                 budget: rules.budget || 0,
                 mode: h.mode,
@@ -2458,6 +2536,9 @@
                 const start = (s.checkpoints || [])[0];
                 if (start && g.fps) g.fps.enterAt(start.x, start.z);
             }
+            if (s.mode === 'delivery' && s.delivery && g.fps) {
+                g.fps.enterAt(s.delivery.depot.x, s.delivery.depot.z);
+            }
 
             // The world has just been cleared for the round; now the host puts
             // up the thing this mode exists to knock down. It reaches everyone
@@ -2505,6 +2586,11 @@
 
             if (s.mode === 'checkpoint') {
                 this._syncCheckpointMarkers();
+                return;
+            }
+
+            if (s.mode === 'delivery') {
+                this._syncDeliveryMarkers();
                 return;
             }
 
@@ -2688,6 +2774,29 @@
             if (!this._checkpointMarkers) return;
             this._checkpointMarkers.forEach(name => this.game.voxels.removeGeoMarker(name));
             this._checkpointMarkers = null;
+        }
+
+        _syncDeliveryMarkers() {
+            const s = this.state;
+            if (!s || s.mode !== 'delivery' || !s.delivery) return;
+            const mine = s.deliveries && s.deliveries[this.game.username];
+            const active = mine && !mine.done
+                ? (mine.carrying ? s.delivery.stops[mine.delivered] : s.delivery.depot) : null;
+            const keep = new Set();
+            [s.delivery.depot].concat(s.delivery.stops || []).forEach((point, i) => {
+                const name = '__delivery_' + i;
+                keep.add(name);
+                const on = !!active && active.x === point.x && active.z === point.z;
+                this.game.voxels.setGeoMarker(name, point.x, point.z,
+                    on ? '#fbbf24' : (i === 0 ? '#38bdf8' : '#64748b'), false, on);
+            });
+            this._deliveryMarkers = keep;
+        }
+
+        _clearDeliveryMarkers() {
+            if (!this._deliveryMarkers) return;
+            this._deliveryMarkers.forEach(name => this.game.voxels.removeGeoMarker(name));
+            this._deliveryMarkers = null;
         }
 
         // `strong` is the blueprint you are studying; the faint set is the
@@ -3074,6 +3183,17 @@
                     title: r.isFinal ? '🏆 Final standings' : `🏁 Round ${r.round} of ${r.rounds}`,
                     subtitle: 'Every gate was host-validated from first-person movement.',
                     body: `<div class="rs-list">${simpleRows(r.rows, row => row.complete ? fmt(row.elapsed / 1000) : row.gates + ' gates')}</div>
+                           <div class="rs-totals-title">Match points</div><div class="rs-totals">${totalsOf()}</div>`,
+                    isFinal: r.isFinal, canControl: this.game.isHost()
+                });
+                return;
+            }
+
+            if (r.mode === 'delivery') {
+                this.game.showResults({
+                    title: r.isFinal ? '🏆 Final standings' : `📦 Round ${r.round} of ${r.rounds}`,
+                    subtitle: 'Pickups and drop-offs were host-validated from first-person movement.',
+                    body: `<div class="rs-list">${simpleRows(r.rows, row => row.complete ? fmt(row.elapsed / 1000) : row.delivered + ' parcels')}</div>
                            <div class="rs-totals-title">Match points</div><div class="rs-totals">${totalsOf()}</div>`,
                     isFinal: r.isFinal, canControl: this.game.isHost()
                 });
@@ -3475,6 +3595,10 @@
                         const mine = s.runners && s.runners[this.game.username];
                         phaseText = mine && mine.done ? `🏁 Finished — ${fmt((mine.elapsed || 0) / 1000)}` : `🏁 Run! ${fmt(remain)}`;
                     }
+                    else if (s.mode === 'delivery') {
+                        const mine = s.deliveries && s.deliveries[this.game.username];
+                        phaseText = mine && mine.done ? `📦 Delivered — ${fmt((mine.elapsed || 0) / 1000)}` : `📦 Deliver! ${fmt(remain)}`;
+                    }
                     else if (s.mode === 'memory' && s.builder === this.game.username) phaseText = `Watching — ${fmt(remain)}`;
                     else if (s.mode === 'memory') phaseText = `From memory — ${fmt(remain)}`;
                     else if (s.mode === 'demolition') phaseText = `🧨 Wreck it! ${fmt(remain)}`;
@@ -3562,6 +3686,12 @@
                     peek.textContent = mine && mine.done ? '🏁 Course complete'
                         : (next ? `🧭 ${next.label} · gate ${(mine.gates || 0) + 1}/${(s.checkpoints || []).length - 1}` : '🧭 Find the next gate');
                 }
+                else if (s.mode === 'delivery') {
+                    const mine = s.deliveries && s.deliveries[this.game.username];
+                    const target = mine && s.delivery && (mine.carrying ? s.delivery.stops[mine.delivered] : s.delivery.depot);
+                    peek.textContent = mine && mine.done ? '📦 All deliveries complete'
+                        : (target ? `🧭 ${mine.carrying ? 'Deliver to' : 'Pick up at'} ${target.label} · ${(mine.delivered || 0) + 1}/${(s.delivery.stops || []).length}` : '📦 Awaiting route');
+                }
                 else if (s.mode === 'memory') {
                     peek.textContent = s.phase === 'architect' ? 'Remember it!'
                         : (s.peek ? '👀 The shape — no colours'
@@ -3643,6 +3773,7 @@
             g.voxels.clearArena();
             g.voxels.clearGhosts();
             this._clearCheckpointMarkers();
+            this._clearDeliveryMarkers();
             this._ghostVisible = false;
             g.voxels.clearAll();
             g.undoStack.length = 0;
