@@ -23,6 +23,9 @@
     const HEIGHT = 1.8;          // how tall
     const SPEED = 5.2;           // blocks per second, walking
     const SPRINT = 8.5;
+    const HOVERBOARD_SPEED = 12.5;
+    const BIKE_SPEED = 11;
+    const BIKE_SPRINT = 15.5;
     const GRAVITY = 22;
     const JUMP = 7.6;
     const REACH = 6;             // how far you can place or break
@@ -45,11 +48,25 @@
             this.keys = new Set();
             this._last = 0;
             this._bound = false;
+            this.vehicle = 'foot';
         }
 
         // ---------------------------------------------------------- lifecycle
 
         toggle() { this.active ? this.exit() : this.enter(); }
+
+        /** Cycle the first two vehicles without a menu: it is useful on touch
+         * screens and keeps riding available before entering first person. */
+        cycleVehicle() {
+            this.vehicle = this.vehicle === 'foot' ? 'hoverboard'
+                : this.vehicle === 'hoverboard' ? 'bike' : 'foot';
+            const labels = { foot: ['🚶', 'on foot'], hoverboard: ['🛹', 'hoverboard'], bike: ['🚲', 'bike'] };
+            const item = labels[this.vehicle];
+            const btn = document.getElementById('vehicleBtn');
+            if (btn) { btn.firstChild.textContent = item[0]; btn.title = `Vehicle: ${item[1]} — click to change (H)`; btn.classList.toggle('active', this.vehicle !== 'foot'); }
+            this.game.showToast(this.vehicle === 'foot' ? 'On foot' : `${item[0]} ${item[1]} ready — press G or keep riding`, 'info', 1800);
+            if (this.active) this._broadcast(false);
+        }
 
         /**
          * Drop in at a chosen spot rather than wherever the camera was aimed.
@@ -262,7 +279,10 @@
             if (this.keys.has('Space')) this.jump();
             if (wish.lengthSq() > 0) wish.normalize();
 
-            const speed = (this.keys.has('ShiftLeft') || this.keys.has('ShiftRight')) ? SPRINT : SPEED;
+            const sprinting = this.keys.has('ShiftLeft') || this.keys.has('ShiftRight');
+            const speed = this.vehicle === 'hoverboard' ? HOVERBOARD_SPEED
+                : this.vehicle === 'bike' ? (sprinting ? BIKE_SPRINT : BIKE_SPEED)
+                    : (sprinting ? SPRINT : SPEED);
             this.vel.x = wish.x * speed;
             this.vel.z = wish.z * speed;
             this.vel.y -= GRAVITY * dt;
@@ -364,6 +384,7 @@
                 type: 'avatar', name: g.username, hide: !!leaving,
                 x: +this.pos.x.toFixed(2), y: +this.pos.y.toFixed(2), z: +this.pos.z.toFixed(2),
                 yaw: +this.yaw.toFixed(3), moving,
+                vehicle: this.vehicle,
                 color: typeof g.generateUserColor === 'function' ? g.generateUserColor(g.username) : '#6366f1'
             };
             // The host never receives its own relay. Feed its runner position
@@ -434,7 +455,8 @@
             if (hud) {
                 const speed = Math.hypot(this.vel.x, this.vel.z);
                 const motion = speed > SPRINT * 0.8 ? 'running' : speed > 0.2 ? 'walking' : 'standing';
-                hud.textContent = `x ${Math.round(this.pos.x)} · y ${Math.round(this.pos.y)} · z ${Math.round(this.pos.z)} · ${motion}`;
+                const ride = this.vehicle === 'foot' ? '' : ` · ${this.vehicle}`;
+                hud.textContent = `x ${Math.round(this.pos.x)} · y ${Math.round(this.pos.y)} · z ${Math.round(this.pos.z)} · ${motion}${ride}`;
             }
 
             // Yaw zero faces -Z, which is north in the geo projection. A

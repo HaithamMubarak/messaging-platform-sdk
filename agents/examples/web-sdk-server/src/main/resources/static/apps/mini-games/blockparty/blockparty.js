@@ -5911,6 +5911,7 @@
             on('toolFill', 'click', () => this.toggleFill());
             on('toolBricks', 'click', () => this.toggleBrickMode());
             on('fpsBtn', 'click', () => this.toggleFirstPerson());
+            on('vehicleBtn', 'click', () => this.fps.cycleVehicle());
             on('groundBtn', 'click', () => this.cycleGround());
             on('rotateBtn', 'click', () => this.rotateBrick());
             on('toolMirror', 'click', () => this.toggleMirror());
@@ -5959,6 +5960,7 @@
                 }
                 else if (k === 'v') { this.stopFollowing(); this.voxels.resetView(); }
                 else if (k === 'g') { this.toggleFirstPerson(); }
+                else if (k === 'h') { this.fps.cycleVehicle(); }
                 else if (k === 'n') { this.minimap.toggle(); }
                 else if (k === 'k') { this.toggleBrickMode(); }
                 // 1..N pick a shape
