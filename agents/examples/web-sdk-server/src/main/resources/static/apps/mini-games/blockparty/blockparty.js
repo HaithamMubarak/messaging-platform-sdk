@@ -2534,6 +2534,7 @@
             this.voxels = new VoxelWorld(document.getElementById('sceneRoot'));
             this.modes = new BlockPartyModes.ModeController(this);
             this.fps = new BlockPartyFPS(this);
+            this.pois = new BlockPartyPois(this);
             this.geo = new BlockPartyGeo(this);
             this.physics = new BlockPartyPhysics(this);
             // The renderer drives the simulation, so the two never drift: one

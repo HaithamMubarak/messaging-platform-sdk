@@ -412,6 +412,7 @@
          */
         step(dt) {
             this._move(dt);
+            if (this.game.pois) this.game.pois.update(this.pos);
             this._broadcast(false);
 
             const eye = this.pos.clone();
