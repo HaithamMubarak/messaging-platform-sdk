@@ -167,6 +167,14 @@
                 lastTouch = null;
             });
 
+            const border = document.getElementById('fpsBorderTravel');
+            if (border) border.addEventListener('click', (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                const dir = border.dataset.dir;
+                if (dir) this.game.travelNeighbour(dir, true);
+            });
+
             // Coarse-pointer devices can look around on the canvas and walk
             // with the separate pad. The original touch gesture only looked
             // and built, so Walk mode on a phone could never actually walk.
@@ -443,6 +451,33 @@
                     place.textContent = `${BlockPartyGeo.format(latLon.lat, latLon.lon)}${scale}`;
                 } else {
                     place.textContent = 'Off the map · local world coordinates';
+                }
+            }
+
+            // A region edge is a real map border, not an invisible wall. The
+            // prompt turns a walk to the edge into an intentional crossing;
+            // guests can see where the road leads, while the host moves the
+            // shared room only after pressing the button.
+            const border = document.getElementById('fpsBorder');
+            const borderText = document.getElementById('fpsBorderText');
+            const borderGo = document.getElementById('fpsBorderTravel');
+            const lim = this.game.voxels.half - 0.5;
+            const near = 6;
+            let edge = null;
+            if (this.pos.z <= -lim + near) edge = 'n';
+            else if (this.pos.x >= lim - near) edge = 'e';
+            else if (this.pos.z >= lim - near) edge = 's';
+            else if (this.pos.x <= -lim + near) edge = 'w';
+            const geo = this.game.geo;
+            const canCross = !!(edge && geo && geo.region && !(this.game.modes && this.game.modes.isMatchActive()));
+            if (border) border.classList.toggle('hidden', !canCross);
+            if (canCross) {
+                const names = { n: 'North', e: 'East', s: 'South', w: 'West' };
+                if (borderText) borderText.textContent = `Border ahead · ${names[edge]} world`;
+                if (borderGo) {
+                    borderGo.dataset.dir = edge;
+                    borderGo.textContent = this.game.isHost() ? `Cross to ${names[edge]}` : 'Host moves room';
+                    borderGo.disabled = !this.game.isHost();
                 }
             }
         }

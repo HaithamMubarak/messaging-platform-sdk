@@ -4343,7 +4343,7 @@
          * region grid is exact, so this never leaves a sliver of real ground
          * between worlds and returning restores the build that was there.
          */
-        travelNeighbour(dir) {
+        travelNeighbour(dir, enterFromEdge) {
             if (!this.geo || !this.geo.region) {
                 this.showToast('Pin this world to a place first', 'warning');
                 return null;
@@ -4352,7 +4352,16 @@
             if (!next) return null;
             const names = { n: 'north', e: 'east', s: 'south', w: 'west' };
             this.showToast(`Crossing into the neighbouring world to the ${names[dir] || 'next'}…`, 'info', 2200);
-            return this.travelTo(next.lat, next.lon, next.mpc);
+            const moved = this.travelTo(next.lat, next.lon, next.mpc);
+            // Crossing on foot arrives at the matching opposite edge, so the
+            // region transition reads as one continuous road rather than a
+            // teleport back to the map centre.
+            if (moved && enterFromEdge && this.fps && this.fps.active) {
+                const h = this.voxels.half - 2;
+                const landing = { n: [0, h], e: [-h, 0], s: [0, -h], w: [h, 0] }[dir] || [0, 0];
+                this.fps.teleport(landing[0], landing[1]);
+            }
+            return moved;
         }
 
         /**
