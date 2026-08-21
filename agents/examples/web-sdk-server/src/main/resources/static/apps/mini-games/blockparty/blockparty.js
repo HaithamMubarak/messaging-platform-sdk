@@ -511,6 +511,11 @@
                 mat.map = this._gridTex;
                 this.groundMapped = false;
                 this.setGroundTint(this.groundTint);
+                // A real-world import may have a surrounding map available
+                // while the tight centre tile is still loading or unavailable.
+                // Do not put the coloured/grid build plane over that map: it
+                // is still a raycast target while invisible.
+                this.ground.visible = !this.geoAnchor;
                 mat.needsUpdate = true;
                 return;
             }
@@ -523,6 +528,7 @@
             mat.color.setRGB(1, 1, 1);
             mat.needsUpdate = true;
             this.groundMapped = true;
+            this.ground.visible = true;
         }
 
         /**
