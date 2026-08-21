@@ -4,31 +4,36 @@
     box-sizing: border-box;
 }
 
+/* The app's own variable names, now pointed at the site's design tokens
+   (../../css/design-tokens.css, loaded first). The fallbacks keep the page
+   usable if the tokens ever fail to load. Only the CHROME follows the site;
+   the terminal canvas itself stays its own dark monospace surface — the
+   xterm theme object in terminal.js is deliberately untouched. */
 :root {
-    --bg-dark: #1a1a2e;
-    --bg-darker: #16162a;
-    --bg-panel: #0f0f1a;
-    --bg-sidebar: #12121f;
-    --bg-tab: #1e1e3a;
-    --bg-tab-active: #2d2d5a;
-    --bg-input: #1e1e38;
-    --border-color: #2a2a4a;
-    --text-primary: #e0e0e0;
-    --text-secondary: #8888aa;
-    /* Was #555577 — 2.5:1 against the panels here, which put the sidebar
-       labels, the status bar and the gate copy below AA. */
-    --text-muted: #8b8bad;
-    --accent-blue: #4a9eff;
-    --accent-green: #4ade80;
-    --accent-yellow: #fbbf24;
+    --bg-dark: var(--bg, #1a1a2e);
+    --bg-darker: var(--code-bg, #16162a);
+    --bg-panel: var(--surface-1, #0f0f1a);
+    --bg-sidebar: var(--surface-1, #12121f);
+    --bg-tab: var(--surface-2, #1e1e3a);
+    --bg-tab-active: var(--surface-3, #2d2d5a);
+    --bg-input: var(--surface-2, #1e1e38);
+    --border-color: var(--border-strong, #2a2a4a);
+    --text-primary: var(--text, #e0e0e0);
+    --text-secondary: var(--text-body, #8888aa);
+    /* --text-muted is NOT re-declared here: the site token (#8a97ab, 5.4:1 on
+       the page background) cascades straight through from design-tokens.css.
+       Re-declaring it as var(--text-muted) would be a self-reference cycle. */
+    --accent-blue: var(--brand, #4a9eff);
+    --accent-green: var(--success, #4ade80);
+    --accent-yellow: var(--warning, #fbbf24);
     --accent-orange: #fb923c;
-    --accent-red: #f87171;
-    --accent-purple: #a78bfa;
-    --accent-cyan: #22d3ee;
+    --accent-red: var(--danger, #f87171);
+    --accent-purple: var(--brand-ink, #a78bfa);
+    --accent-cyan: var(--accent, #22d3ee);
 }
 
 body {
-    font-family: 'Segoe UI', -apple-system, BlinkMacSystemFont, sans-serif;
+    font-family: var(--font-sans, 'Segoe UI'), -apple-system, BlinkMacSystemFont, sans-serif;
     background: var(--bg-dark);
     color: var(--text-primary);
     height: 100vh;
@@ -2771,3 +2776,94 @@ svg.icon {
 }
 svg.icon--sm { width: 1em; height: 1em; min-width: 1em; }
 svg.icon--lg { width: 1.5em; height: 1.5em; min-width: 1.5em; }
+
+
+/* ── Owner-side sharing banner ────────────────────────────────────────────
+   Shown across the top of any terminal panel that is being shared live.
+   A tab badge is easy to miss; this is not. */
+.sharing-banner {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 12px;
+    background: var(--warning-bg, rgba(251, 191, 36, 0.12));
+    border-bottom: 1px solid var(--border-color);
+    color: var(--accent-yellow);
+    font-size: 12px;
+    font-weight: 600;
+    flex: none;
+}
+.sharing-banner__label {
+    flex: 1;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+.sharing-banner__stop {
+    flex: none;
+    padding: 3px 12px;
+    border: 1px solid var(--accent-red);
+    border-radius: 4px;
+    background: transparent;
+    color: var(--accent-red);
+    font-size: 11px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background 0.15s, color 0.15s;
+}
+.sharing-banner__stop:hover {
+    background: var(--danger-bg, rgba(248, 113, 113, 0.12));
+}
+
+/* ── "Shared with You" invitations ────────────────────────────────────────
+   A share is an invitation: it lists here and opens only on Watch. */
+.shared-invite {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 10px;
+    border-bottom: 1px solid var(--border-color);
+    cursor: pointer;
+    transition: background 0.15s;
+}
+.shared-invite:hover {
+    background: rgba(255, 255, 255, 0.04);
+}
+.shared-invite > svg.icon {
+    color: var(--accent-cyan);
+}
+.shared-invite__body {
+    flex: 1;
+    min-width: 0;
+}
+.shared-invite__name {
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--text-primary);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+.shared-invite__meta {
+    font-size: 10px;
+    color: var(--text-muted);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+.shared-invite__btn {
+    flex: none;
+    padding: 4px 12px;
+    border: 1px solid var(--accent-blue);
+    border-radius: 4px;
+    background: transparent;
+    color: var(--accent-blue);
+    font-size: 11px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background 0.15s, color 0.15s;
+}
+.shared-invite__btn:hover {
+    background: var(--brand-subtle, rgba(74, 158, 255, 0.15));
+}

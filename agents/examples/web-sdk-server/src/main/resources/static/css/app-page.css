@@ -1,0 +1,293 @@
+/* ==========================================================================
+   Messaging Platform SDK — app feature pages
+   --------------------------------------------------------------------------
+   The shared frame for a first-party app's own page: Whiteboard, Rooms, the
+   shared terminal, BlockParty. Every one of those pages is the same shape —
+   a hero with a real screenshot, a stat strip, a jump bar, then sections that
+   each show a screen and say where in the app it hides.
+
+   Generalised out of the BlockParty page (which grew ~200 lines of inline CSS
+   before a second page needed the same thing). Load AFTER design-tokens.css,
+   ui.css and landing.css.
+
+   Prefix: .ap-
+   ========================================================================== */
+
+/* --- Sticky in-page nav ---------------------------------------------------
+   Quiet, and it scrolls sideways on a phone rather than wrapping to
+   three rows. */
+.ap-jump {
+    position: sticky;
+    top: 0;
+    z-index: 40;
+    background: rgba(11, 17, 32, 0.92);
+    backdrop-filter: blur(8px);
+    border-bottom: 1px solid var(--border);
+}
+.ap-jump__inner {
+    display: flex;
+    align-items: center;
+    gap: var(--sp-5);
+    padding-block: var(--sp-3);
+    overflow-x: auto;
+    scrollbar-width: none;
+}
+.ap-jump__inner::-webkit-scrollbar { display: none; }
+.ap-jump__label {
+    font-size: var(--fs-sm);
+    font-weight: 700;
+    color: var(--text);
+    white-space: nowrap;
+}
+.ap-jump a {
+    font-size: var(--fs-sm);
+    color: var(--text-muted);
+    text-decoration: none;
+    white-space: nowrap;
+}
+.ap-jump a:hover { color: var(--text); }
+.ap-jump__cta {
+    margin-left: auto;
+    color: var(--brand-ink) !important;
+    font-weight: 600;
+}
+
+/* Pages that use .ap-jump anchor their sections below it. */
+.ap-page { scroll-behavior: smooth; scroll-padding-top: 96px; }
+
+/* --- Hero ---------------------------------------------------------------- */
+.ap-hero { display: grid; gap: var(--sp-10); align-items: center; }
+@media (min-width: 900px) {
+    .ap-hero { grid-template-columns: minmax(0, 1fr) minmax(0, 1.05fr); }
+}
+
+/* --- A screenshot in a window ------------------------------------------- */
+.ap-frame {
+    border: 1px solid var(--border-strong);
+    border-radius: var(--r-xl);
+    overflow: hidden;
+    box-shadow: var(--shadow-3);
+    background: var(--surface-1);
+}
+.ap-frame__bar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--sp-3);
+    padding: var(--sp-3) var(--sp-4);
+    background: rgba(6, 10, 22, 0.72);
+    border-bottom: 1px solid var(--border);
+    font-size: var(--fs-xs);
+    color: var(--text-muted);
+}
+.ap-frame__name { font-weight: 700; color: var(--text); }
+.ap-shot { display: block; width: 100%; height: auto; }
+
+/* The path to the screen in the picture, kept with the picture. */
+.ap-where {
+    margin: 0;
+    padding: var(--sp-3) var(--sp-4);
+    border-top: 1px solid var(--border);
+    background: var(--surface-1);
+    font-size: var(--fs-xs);
+    color: var(--text-muted);
+}
+.ap-where b { color: var(--text-body); font-weight: 650; }
+.ap-where a { color: var(--accent-ink); }
+
+/* --- Stat strip ---------------------------------------------------------- */
+.ap-stats {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 1px;
+    background: var(--border);
+    border: 1px solid var(--border);
+    border-radius: var(--r-lg);
+    overflow: hidden;
+}
+@media (min-width: 720px) {
+    .ap-stats { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+}
+.ap-stat {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    padding: var(--sp-5);
+    background: var(--surface-1);
+}
+.ap-stat__n { font-size: var(--fs-xl); font-weight: 700; color: var(--text); }
+.ap-stat__l { font-size: var(--fs-md); font-weight: 600; color: var(--text-body); }
+.ap-stat__s { font-size: var(--fs-xs); color: var(--text-muted); }
+
+/* --- Feature tiles ------------------------------------------------------- */
+.ap-grid {
+    display: grid;
+    gap: var(--sp-5);
+    grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+}
+.ap-tile { padding: 0; overflow: hidden; display: flex; flex-direction: column; }
+.ap-tile__shot {
+    display: block;
+    width: 100%;
+    height: auto;
+    border-bottom: 1px solid var(--border);
+}
+.ap-tile__body {
+    padding: var(--sp-4) var(--sp-5) var(--sp-5);
+    display: flex;
+    flex-direction: column;
+    gap: var(--sp-2);
+    flex-grow: 1;
+}
+.ap-tile__body h3 { font-size: var(--fs-base); margin: 0; }
+.ap-tile__body p { font-size: var(--fs-sm); color: var(--text-muted); margin: 0; }
+.ap-tags { display: flex; flex-wrap: wrap; gap: var(--sp-2); margin-top: auto; padding-top: var(--sp-2); }
+
+/* --- Text beside a picture ---------------------------------------------- */
+.ap-split { display: grid; gap: var(--sp-8); align-items: center; }
+@media (min-width: 900px) {
+    .ap-split { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+.ap-split--top { align-items: start; }
+.ap-split--wide-right { }
+@media (min-width: 900px) {
+    .ap-split--wide-right { grid-template-columns: minmax(0, 0.85fr) minmax(0, 1.15fr); }
+}
+.ap-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: var(--sp-3); }
+.ap-list li {
+    display: flex;
+    align-items: flex-start;
+    gap: var(--sp-3);
+    font-size: var(--fs-md);
+    color: var(--text-body);
+}
+.ap-list li .icon { color: var(--accent); flex-shrink: 0; margin-top: 2px; }
+
+/* --- "Find it in the app" recipes ---------------------------------------
+   Every screenshot on these pages is a real screen, but most sit behind a
+   button a first-time visitor will not find. These map each picture to the
+   clicks that reach it. */
+.ap-try { display: grid; gap: var(--sp-3); }
+.ap-try__row {
+    display: grid;
+    grid-template-columns: 13rem 1fr;
+    gap: var(--sp-4);
+    align-items: start;
+    padding: var(--sp-4) 0;
+    border-top: 1px solid var(--border);
+}
+.ap-try__row:first-child { border-top: 0; }
+.ap-try__what { font-weight: 650; color: var(--text); font-size: var(--fs-sm); }
+.ap-try__how { margin: 0; font-size: var(--fs-sm); color: var(--text-muted); }
+.ap-try__note {
+    /* Second column, under the description it belongs to — the row is a
+       two-column grid, so a third child lands back under the label. */
+    grid-column: 2;
+    margin: var(--sp-2) 0 0;
+    font-size: var(--fs-xs);
+    color: var(--text-faint);
+}
+@media (max-width: 720px) {
+    .ap-try__row { grid-template-columns: 1fr; gap: var(--sp-2); padding: var(--sp-3) 0; }
+    .ap-try__note { grid-column: 1; }
+}
+
+/* --- A key on a keyboard ------------------------------------------------- */
+.ap-key {
+    display: inline-block;
+    padding: 1px 8px;
+    border: 1px solid var(--border-strong);
+    border-radius: var(--r-sm);
+    background: var(--surface-2);
+    color: var(--text-body);
+    font-family: var(--font-mono);
+    font-size: 0.85em;
+    white-space: nowrap;
+}
+
+/* --- Shortcut table ------------------------------------------------------ */
+.ap-keys {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
+    gap: 1px;
+    background: var(--border);
+    border: 1px solid var(--border);
+    border-radius: var(--r-lg);
+    overflow: hidden;
+}
+.ap-keys__row {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: var(--sp-3);
+    padding: var(--sp-3) var(--sp-4);
+    background: var(--surface-1);
+    font-size: var(--fs-sm);
+}
+.ap-keys__row span { color: var(--text-muted); }
+
+/* --- Numbered steps ------------------------------------------------------ */
+.ap-steps {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 1px;
+    background: var(--border);
+    border: 1px solid var(--border);
+    border-radius: var(--r-lg);
+    overflow: hidden;
+}
+@media (max-width: 760px) { .ap-steps { grid-template-columns: 1fr; } }
+.ap-steps figure {
+    margin: 0;
+    padding: var(--sp-4);
+    background: var(--surface-1);
+    display: flex;
+    flex-direction: column;
+    gap: var(--sp-2);
+}
+.ap-steps__art {
+    border: 1px solid var(--border);
+    border-radius: var(--r-md);
+    overflow: hidden;
+    background: var(--bg);
+}
+.ap-steps__art img { display: block; width: 100%; height: auto; }
+.ap-steps figcaption { font-size: var(--fs-xs); color: var(--text-muted); }
+.ap-steps__k {
+    font-size: var(--fs-xs);
+    font-weight: 700;
+    letter-spacing: .06em;
+    text-transform: uppercase;
+    color: var(--brand-ink);
+}
+
+/* --- A row of small labelled things (tools, commands, themes) ------------ */
+.ap-chips { display: flex; flex-wrap: wrap; gap: var(--sp-2); }
+.ap-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--sp-2);
+    padding: var(--sp-2) var(--sp-3);
+    border: 1px solid var(--border);
+    border-radius: var(--r-pill);
+    background: var(--surface-1);
+    font-size: var(--fs-sm);
+    color: var(--text-body);
+}
+.ap-chip .icon { color: var(--brand-ink); }
+
+/* --- An honest note about a limitation ---------------------------------- */
+.ap-note {
+    display: flex;
+    gap: var(--sp-3);
+    padding: var(--sp-4) var(--sp-5);
+    border: 1px solid var(--border);
+    border-left: 3px solid var(--warning);
+    border-radius: var(--r-md);
+    background: var(--surface-1);
+    font-size: var(--fs-md);
+    color: var(--text-body);
+}
+.ap-note .icon { color: var(--warning); flex-shrink: 0; margin-top: 2px; }
+.ap-note p { margin: 0; }
+.ap-note p + p { margin-top: var(--sp-2); }

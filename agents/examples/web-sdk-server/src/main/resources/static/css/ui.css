@@ -49,7 +49,11 @@ img, svg { max-width: 100%; }
    user-agent rule for [hidden]. */
 [hidden] { display: none !important; }
 
-.visually-hidden {
+/* Two names for one thing: the landing pages have always written .sr-only and
+   sdk-app.css already keys a rule off it, so an app page that loads ui.css but
+   not landing.css was rendering its screen-reader text on screen. */
+.visually-hidden,
+.sr-only {
     position: absolute !important;
     width: 1px; height: 1px;
     padding: 0; margin: -1px;

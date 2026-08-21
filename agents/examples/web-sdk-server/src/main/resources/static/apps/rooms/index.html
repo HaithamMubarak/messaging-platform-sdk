@@ -1,153 +1,415 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" class="ap-page">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-    <title>Rooms — video and screen share on the Messaging Platform SDK</title>
-    <meta name="description" content="Camera, microphone and screen share in a shared room. The streams go peer to peer; the channel only carries who is here and who is presenting.">
+    <title>Rooms — a video call the server never sees</title>
+
+    <meta name="description" content="Camera, microphone and screen share in a shared room. The media goes straight from one browser to the other; the channel carries only who is here and what they have switched on — and the control bar shows you the measured proof.">
     <meta name="theme-color" content="#0b1120">
     <link rel="canonical" href="https://hmdevonline.com/messaging-platform/sdk/apps/rooms/index.html">
+
     <meta property="og:type" content="website">
     <meta property="og:site_name" content="Messaging Platform SDK">
-    <meta property="og:title" content="Rooms">
-    <meta property="og:description" content="Camera, microphone and screen share in a shared room. The streams go peer to peer; the channel only carries who is here and who is presenting.">
+    <meta property="og:title" content="Rooms — a video call the server never sees">
+    <meta property="og:description" content="Cameras, microphones and screens go peer to peer. The channel carries only who is here and what they switched on — and the bar shows you the round-trip time and the route it actually took.">
     <meta property="og:url" content="https://hmdevonline.com/messaging-platform/sdk/apps/rooms/index.html">
     <meta property="og:image" content="https://hmdevonline.com/messaging-platform/sdk/images/og-image.png">
     <meta name="twitter:card" content="summary_large_image">
-    <meta name="twitter:title" content="Rooms">
-    <meta name="twitter:description" content="Camera, microphone and screen share in a shared room. The streams go peer to peer; the channel only carries who is here and who is presenting.">
-    <meta name="twitter:image" content="https://hmdevonline.com/messaging-platform/sdk/images/og-image.png">
 
     <link rel="icon" type="image/svg+xml" href="../../favicon.svg">
+    <link rel="manifest" href="../../site.webmanifest">
     <link rel="stylesheet" href="../../css/design-tokens.css">
     <link rel="stylesheet" href="../../css/ui.css">
-    <link rel="stylesheet" href="../../css/sdk-app.css">
-    <link rel="stylesheet" href="../../css/toast.css">
-    <link rel="stylesheet" href="../../css/connection-modal.css">
-    <link rel="stylesheet" href="../../css/share-modal.css">
-    <link rel="stylesheet" href="rooms.css">
+    <link rel="stylesheet" href="../../css/landing.css">
+    <link rel="stylesheet" href="../../css/app-page.css">
 
-    <script src="../../js/prod-log.js"></script>
+    <script src="../../js/prod-log.js" defer></script>
+    <script src="../../js/icons.js" defer></script>
+    <script src="../../js/ui.js" defer></script>
+    <script src="../../js/landing.js" defer></script>
 </head>
-<body class="sdk-app">
+<body>
+<a class="skip-link" href="#main">Skip to content</a>
 
-<header class="sdk-header">
-    <span class="sdk-header__mark">
-        <svg class="icon" aria-hidden="true"><use href="#i-video"></use></svg>
-    </span>
-    <h1>Rooms</h1>
-    <span class="sdk-room" id="roomName">not connected</span>
-
-    <div class="sdk-header__right">
-        <span class="pill-status is-off" id="statusPill">
-            <span class="pill-status__dot"></span>
-            <span class="pill-status__text">Not connected</span>
-        </span>
-        <button class="btn btn--ghost" id="shareBtn" type="button" title="Invite someone (QR or link)">
-            <svg class="icon icon--sm" aria-hidden="true"><use href="#i-qr-code"></use></svg>
-            <span>Invite</span>
-        </button>
-        <a class="btn btn--ghost sdk-header__away" href="../../playground.html">
-            <svg class="icon icon--sm" aria-hidden="true"><use href="#i-arrow-right"></use></svg>
-            <span>Playground</span>
+<header class="site-header" id="siteHeader">
+    <div class="wrap site-header__inner">
+        <a class="brand" href="../../index.html">
+            <svg class="logo-mark" aria-hidden="true"><use href="#i-logo"></use></svg>
+            Messaging Platform SDK
         </a>
+
+        <button class="btn btn--ghost btn--icon nav-toggle" id="navToggle" aria-expanded="false" aria-controls="siteNav" aria-label="Open menu">
+            <svg class="icon" aria-hidden="true"><use href="#i-menu"></use></svg>
+        </button>
+
+        <nav class="site-nav" id="siteNav" aria-label="Main">
+            <a href="../../index.html#demos">Demos</a>
+            <a href="../../playground.html">Playground</a>
+            <a href="../../docs.html">Docs</a>
+            <a href="../../developer/index.html">Portal</a>
+            <a class="btn btn--gradient" href="app.html">Open Rooms</a>
+        </nav>
     </div>
 </header>
 
-<main class="sdk-stage">
-    <div class="sdk-main">
-        <section class="stage" id="stage" aria-label="Shared screen"></section>
+<nav class="ap-jump" aria-label="On this page">
+    <div class="wrap ap-jump__inner">
+        <span class="ap-jump__label">Rooms</span>
+        <a href="#green">Before you join</a>
+        <a href="#call">The call</a>
+        <a href="#present">Presenting</a>
+        <a href="#room">The room panel</a>
+        <a href="#proof">The proof</a>
+        <a href="#keys">Shortcuts</a>
+        <a class="ap-jump__cta" href="app.html">Open Rooms →</a>
+    </div>
+</nav>
 
-        <div class="controls">
-            <button class="btn" id="micBtn" type="button" title="Microphone (M)">
-                <svg class="icon icon--sm" aria-hidden="true"><use href="#i-mic-off"></use></svg>
-                <span>Unmute</span>
-            </button>
-            <button class="btn" id="camBtn" type="button" title="Camera (V)">
-                <svg class="icon icon--sm" aria-hidden="true"><use href="#i-video-off"></use></svg>
-                <span>Camera</span>
-            </button>
-            <button class="btn" id="shareScreenBtn" type="button" title="Share your screen (S)">
-                <svg class="icon icon--sm" aria-hidden="true"><use href="#i-monitor"></use></svg>
-                <span>Share screen</span>
-            </button>
+<main id="main">
 
-            <div class="controls__menu">
-                <button class="btn btn--icon" id="gearBtn" type="button" aria-label="Camera and microphone">
-                    <svg class="icon icon--sm" aria-hidden="true"><use href="#i-settings"></use></svg>
-                </button>
-                <div class="menu" id="deviceMenu" hidden>
-                    <label class="menu__row">
-                        <span class="menu__label">Camera</span>
-                        <select class="menu__select" id="camPick" disabled></select>
-                    </label>
-                    <label class="menu__row">
-                        <span class="menu__label">Microphone</span>
-                        <select class="menu__select" id="micPick" disabled></select>
-                    </label>
-                    <p class="menu__note">Device names appear once you allow access.</p>
+    <section class="hero" style="padding-block: var(--sp-16) var(--sp-12)">
+        <div class="wrap ap-hero">
+            <div>
+                <span class="eyebrow">Playground · Rooms</span>
+                <h1 style="font-size: var(--fs-hero); margin-bottom: var(--sp-4); text-wrap: balance">A video call the server never sees.</h1>
+                <p class="hero__lede">
+                    Cameras, microphones and screens go straight from one browser to the other. The channel
+                    carries only the small facts a room needs — who is here, who is talking, who is presenting —
+                    which is why a room of four costs the same in messages as a room of two. And because the
+                    whole claim is "this went peer to peer", the control bar shows you the round-trip time and
+                    the route it actually took.
+                </p>
+                <div class="hero__cta">
+                    <a class="btn btn--lg btn--gradient" href="app.html">
+                        Open Rooms
+                        <svg class="icon" aria-hidden="true"><use href="#i-arrow-right"></use></svg>
+                    </a>
+                    <a class="btn btn--lg btn--ghost" href="#green">Start with the green room</a>
+                </div>
+                <p class="hero__trust">
+                    <span><svg class="icon icon--sm" aria-hidden="true"><use href="#i-check"></use></svg> Nothing to install</span>
+                    <span><svg class="icon icon--sm" aria-hidden="true"><use href="#i-check"></use></svg> Nothing on until you say so</span>
+                    <span><svg class="icon icon--sm" aria-hidden="true"><use href="#i-check"></use></svg> No media server</span>
+                </p>
+            </div>
+
+            <div class="ap-frame">
+                <div class="ap-frame__bar">
+                    <span><span class="ap-frame__name">Rooms</span> · two people, one channel</span>
+                    <span>67 ms · peer-to-peer</span>
+                </div>
+                <img class="ap-shot" src="images/rooms-call.jpg" width="1440" height="900" loading="eager" decoding="async"
+                     alt="A Rooms call with two camera tiles side by side, a member list and a room chat down the right-hand side, and a control bar showing 67 ms, 1 peer, peer-to-peer.">
+                <p class="ap-where">In the app: <b>Connect</b> → <em>Join with camera</em>. The bottom-right readout is measured from the connection itself. <a href="#proof">How →</a></p>
+            </div>
+        </div>
+    </section>
+
+    <section style="padding-top: 0">
+        <div class="wrap">
+            <div class="ap-stats">
+                <div class="ap-stat">
+                    <span class="ap-stat__n">8</span>
+                    <span class="ap-stat__l">people per room</span>
+                    <span class="ap-stat__s">a full mesh, so the size is capped rather than left to find out</span>
+                </div>
+                <div class="ap-stat">
+                    <span class="ap-stat__n">0</span>
+                    <span class="ap-stat__l">media servers</span>
+                    <span class="ap-stat__s">nothing to deploy but the channel</span>
+                </div>
+                <div class="ap-stat">
+                    <span class="ap-stat__n">2.5 s</span>
+                    <span class="ap-stat__l">between quality readings</span>
+                    <span class="ap-stat__s">round-trip time and route, read from the connection</span>
+                </div>
+                <div class="ap-stat">
+                    <span class="ap-stat__n">200 ms</span>
+                    <span class="ap-stat__l">speaking detector</span>
+                    <span class="ap-stat__s">measured off the audio, not asked for over the wire</span>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- ===================================================== the green room -->
+    <section id="green">
+        <div class="wrap">
+            <div class="section-head">
+                <span class="eyebrow">Before you join</span>
+                <h2>Nothing is on until you switch it on</h2>
+                <p>Arriving in a room transmits nothing — no camera, no microphone, not even a permission
+                   prompt. The mic button honestly reads <em>Unmute</em> before you have ever unmuted, because
+                   off is where it starts. The green room is where you find out what the room is about to see,
+                   while the room is already live behind it and you can read the chat.</p>
+            </div>
+
+            <div class="ap-split">
+                <div class="ap-frame">
+                    <div class="ap-frame__bar"><span class="ap-frame__name">The green room</span><span>nothing is being captured</span></div>
+                    <img class="ap-shot" src="images/rooms-lobby-live.jpg" width="1440" height="900" loading="lazy" decoding="async"
+                         alt="The green room: a mirrored camera preview, an input level bar, and two buttons — Join with camera, or Join muted.">
+                </div>
+                <div>
+                    <ul class="ap-list">
+                        <li><svg class="icon icon--sm" aria-hidden="true"><use href="#i-check"></use></svg>
+                            <span><strong>Test my camera</strong> borrows the camera privately and gives it straight back when you leave the card. The room never sees the test.</span></li>
+                        <li><svg class="icon icon--sm" aria-hidden="true"><use href="#i-check"></use></svg>
+                            <span>The preview is <strong>mirrored</strong>, the way a mirror is. Nobody else's is — their text would come out backwards.</span></li>
+                        <li><svg class="icon icon--sm" aria-hidden="true"><use href="#i-check"></use></svg>
+                            <span>The bar under it is your microphone, measured. If it does not move, the room will not hear you either.</span></li>
+                        <li><svg class="icon icon--sm" aria-hidden="true"><use href="#i-check"></use></svg>
+                            <span><strong>Join muted</strong> is a first-class button, not a thing you do by remembering to press the mic before you press join.</span></li>
+                        <li><svg class="icon icon--sm" aria-hidden="true"><use href="#i-check"></use></svg>
+                            <span>Refused permission is named and explained — which browser control gives it back, or that there is no camera at all — instead of one raw error in a toast that vanishes.</span></li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- ========================================================== the call -->
+    <section id="call">
+        <div class="wrap">
+            <div class="section-head">
+                <span class="eyebrow">The call</span>
+                <h2>Faces the size the window allows</h2>
+                <p>Every stream is one direct connection per viewer, offered by the sender and answered by the
+                   receiver. Nothing about the picture goes through the channel — only the sentence that says
+                   which stream is a camera and which is a screen.</p>
+            </div>
+
+            <div class="ap-grid">
+                <article class="card ap-tile">
+                    <img class="ap-tile__shot" src="images/rooms-alone.jpg" width="1440" height="900" loading="lazy" decoding="async"
+                         alt="A room with one person in it, showing an invitation to send somebody the link.">
+                    <div class="ap-tile__body">
+                        <h3>Alone in a room</h3>
+                        <p>The one useful thing to do next is fetch somebody, so that is what the stage offers —
+                           not a single lonely square of your own face.</p>
+                        <div class="ap-tags"><span class="badge">Invite</span><span class="badge">QR code</span></div>
+                    </div>
+                </article>
+
+                <article class="card ap-tile">
+                    <img class="ap-tile__shot" src="images/rooms-pinned.jpg" width="1440" height="900" loading="lazy" decoding="async"
+                         alt="One participant pinned large on the stage while the member list continues down the right.">
+                    <div class="ap-tile__body">
+                        <h3>Click anyone to pin them</h3>
+                        <p>A pin outranks the presenter, because you chose it and the presenter did not. Click
+                           again to let the room go back to whatever it was doing.</p>
+                        <div class="ap-tags"><span class="badge">Pin</span><span class="badge badge--brand">G — everyone</span></div>
+                    </div>
+                </article>
+
+                <article class="card ap-tile">
+                    <img class="ap-tile__shot" src="images/rooms-devices.jpg" width="720" height="500" loading="lazy" decoding="async"
+                         alt="The device menu, showing a live self-preview, an input level bar and pickers for camera, microphone and speaker.">
+                    <div class="ap-tile__body">
+                        <h3>Swap devices mid-call, not blind</h3>
+                        <p>The menu shows the camera it is about to pick and the level of the microphone it is
+                           listening to. Change either and the stream is re-acquired and re-offered to everyone
+                           automatically. Where the browser supports it, you can send the room's voices to a
+                           different speaker.</p>
+                        <div class="ap-tags"><span class="badge">Camera</span><span class="badge">Microphone</span><span class="badge">Speaker</span></div>
+                    </div>
+                </article>
+            </div>
+
+            <div class="ap-try" style="margin-top: var(--sp-8)">
+                <div class="ap-try__row">
+                    <span class="ap-try__what">Voice you can see</span>
+                    <p class="ap-try__how">Whoever is speaking gets a green ring, read off the audio itself five times a
+                        second — so it follows the voice, not the button. And muted is muted: the ring never appears for
+                        somebody whose microphone is off, whatever the analyser last heard.</p>
+                </div>
+                <div class="ap-try__row">
+                    <span class="ap-try__what">Camera off, still audible</span>
+                    <p class="ap-try__how">Sound is deliberately not tied to the picture. Voices play from their own
+                        element that exists for as long as the person does, so turning your camera off does not turn you
+                        off — which is the ordinary case in a call, not an edge one.</p>
+                </div>
+                <div class="ap-try__row">
+                    <span class="ap-try__what">Hands, up and down</span>
+                    <p class="ap-try__how"><span class="ap-key">H</span> puts your hand up. It rings your tile for
+                        everybody and lands once in the room log, rather than being a thing you have to say out loud
+                        over whoever is already talking.</p>
+                </div>
+                <div class="ap-try__row">
+                    <span class="ap-try__what">Connecting, not muted</span>
+                    <p class="ap-try__how">Somebody who has just arrived and not yet said what they have switched on
+                        reads <em>connecting…</em> — not a mute icon that would be wrong for the first few seconds of
+                        every arrival.</p>
+                </div>
+                <div class="ap-try__row">
+                    <span class="ap-try__what">When the media cannot get through</span>
+                    <p class="ap-try__how">An unanswered offer is re-sent, three times, six seconds apart. If it still
+                        will not connect, the room says so — on that person's tile and once out loud — instead of
+                        leaving you believing you are on camera to somebody who has been looking at your initials.</p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- ====================================================== presenting -->
+    <section id="present">
+        <div class="wrap ap-split">
+            <div>
+                <span class="eyebrow">Presenting</span>
+                <h2 style="margin-bottom: var(--sp-4)">The one thing you can forget you are doing</h2>
+                <p style="color: var(--text-body); font-size: var(--fs-lg); margin-bottom: var(--sp-5)">
+                    Share your screen and every stage in the room switches to it, with a red-dot tag naming the
+                    presenter and a corner badge reporting the route the pixels took and the resolution that
+                    actually arrived. On your own screen a bar stays put under the call for as long as you are
+                    sharing, with the stop button in it.
+                </p>
+                <ul class="ap-list">
+                    <li><svg class="icon icon--sm" aria-hidden="true"><use href="#i-check"></use></svg>
+                        <span>Stopping from the browser's own "stop sharing" bar reaches the room too — it is the same event either way.</span></li>
+                    <li><svg class="icon icon--sm" aria-hidden="true"><use href="#i-check"></use></svg>
+                        <span>The browser is offered the tab's audio along with the picture, so a shared video is not silent for everyone watching.</span></li>
+                    <li><svg class="icon icon--sm" aria-hidden="true"><use href="#i-check"></use></svg>
+                        <span>You see your own share on your own stage, so you know what the room is looking at.</span></li>
+                </ul>
+                <p style="margin-top: var(--sp-5)"><a class="btn btn--ghost" href="app.html">Try it — press <span class="ap-key" style="margin-inline: 6px">S</span></a></p>
+            </div>
+
+            <div class="ap-frame">
+                <div class="ap-frame__bar"><span class="ap-frame__name">Presenting</span><span>relayed · 1440×900</span></div>
+                <img class="ap-shot" src="images/rooms-presenting.jpg" width="1440" height="900" loading="lazy" decoding="async"
+                     alt="A screen share filling the stage, tagged 'You are presenting', with a red bar underneath carrying a Stop sharing button.">
+                <p class="ap-where">In the app: <b>Share screen</b>, or <b>S</b>. The bar under the stage follows the share around.</p>
+            </div>
+        </div>
+    </section>
+
+    <!-- ======================================================= the panel -->
+    <section id="room">
+        <div class="wrap">
+            <div class="section-head">
+                <span class="eyebrow">The room panel</span>
+                <h2>Who is here, and what has been said</h2>
+                <p>Reconciled against the channel roster every second and a half — because the join event does
+                   not reliably beat the roster, and a member list that is occasionally a person short is worse
+                   than none at all. What everyone has switched on is re-announced on a slow heartbeat, so a
+                   message that goes missing cannot leave a stale microphone icon on your screen for the rest of
+                   the call.</p>
+            </div>
+
+            <div class="ap-try">
+                <div class="ap-try__row">
+                    <span class="ap-try__what">Messages keep their order</span>
+                    <p class="ap-try__how">Stamped by whoever said them, so your reply does not jump above the thing you
+                        replied to — but a stranger's clock is trusted only to place a message in the recent past, never
+                        in the future.</p>
+                </div>
+                <div class="ap-try__row">
+                    <span class="ap-try__what">A message the room never got says so</span>
+                    <p class="ap-try__how">Your own message appears the instant you send it, which is right — and wrong
+                        to leave alone when the send then fails. A failed one is marked <em>not delivered · retry</em>
+                        rather than sitting in your log looking delivered.</p>
+                </div>
+                <div class="ap-try__row">
+                    <span class="ap-try__what">Events are not messages</span>
+                    <p class="ap-try__how">Joined, left, started sharing, raised a hand: quiet inline lines with their own
+                        icon, never fake chat from a person called System.</p>
+                </div>
+                <div class="ap-try__row">
+                    <span class="ap-try__what">On a phone</span>
+                    <p class="ap-try__how">People and Chat become tabs, because a call whose member list has pushed the
+                        chat off the bottom of the screen has neither. Opening Chat gives the call some of its height
+                        back; every control in the bar is a 44-pixel target.</p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- ======================================================== the proof -->
+    <section id="proof">
+        <div class="wrap ap-split">
+            <div class="ap-frame">
+                <div class="ap-frame__bar"><span class="ap-frame__name">The control bar</span><span>measured, not decorative</span></div>
+                <img class="ap-shot" src="images/rooms-keys.jpg" width="1440" height="900" loading="lazy" decoding="async"
+                     alt="The keyboard shortcut list open over a live call.">
+            </div>
+            <div>
+                <span class="eyebrow">The proof</span>
+                <h2 style="margin-bottom: var(--sp-4)">A demo that says "peer to peer" should be able to show it</h2>
+                <p style="color: var(--text-body); font-size: var(--fs-lg); margin-bottom: var(--sp-5)">
+                    Every two and a half seconds Rooms reads the standard statistics report from each connection
+                    and puts three things in the bar: how many people you are connected to, the worst
+                    round-trip time of any of those links, and whether the media is genuinely going direct or is
+                    being carried by a TURN relay.
+                </p>
+                <div class="ap-note">
+                    <svg class="icon" aria-hidden="true"><use href="#i-alert-triangle"></use></svg>
+                    <div>
+                        <p>When a relay <em>is</em> carrying your call, the bar says <strong>relayed</strong> rather
+                           than claiming otherwise. Two people behind strict networks may need one; that is what a
+                           relay is for, and it is worth being honest about which of the two happened.</p>
+                    </div>
+                </div>
+                <p style="margin-top: var(--sp-5); font-size: var(--fs-md); color: var(--text-muted)">
+                    A dropped connection is not a departure, either: the status pill turns amber, the room retries
+                    up to eight times with backoff, and on the way back in it re-offers every stream you were
+                    sending.
+                </p>
+            </div>
+        </div>
+    </section>
+
+    <!-- ====================================================== shortcuts -->
+    <section id="keys">
+        <div class="wrap">
+            <div class="section-head">
+                <span class="eyebrow">Shortcuts</span>
+                <h2>Five keys, and a list of them in the app</h2>
+                <p>Press <span class="ap-key">?</span> in the room for this list. It used to live in the tooltips,
+                   which is to say nowhere.</p>
+            </div>
+            <div class="ap-keys">
+                <div class="ap-keys__row"><span class="ap-key">M</span> <span>Mute or unmute your microphone</span></div>
+                <div class="ap-keys__row"><span class="ap-key">V</span> <span>Camera on or off</span></div>
+                <div class="ap-keys__row"><span class="ap-key">S</span> <span>Start or stop sharing your screen</span></div>
+                <div class="ap-keys__row"><span class="ap-key">G</span> <span>Everyone at once, or follow the presenter</span></div>
+                <div class="ap-keys__row"><span class="ap-key">H</span> <span>Raise or lower your hand</span></div>
+                <div class="ap-keys__row"><span class="ap-key">?</span> <span>This list</span></div>
+                <div class="ap-keys__row"><span class="ap-key">Esc</span> <span>Close whatever is open</span></div>
+                <div class="ap-keys__row"><span>Click a tile</span> <span>Pin that person to the stage</span></div>
+            </div>
+        </div>
+    </section>
+
+    <section>
+        <div class="wrap">
+            <div class="ap-note" style="margin-bottom: var(--sp-8)">
+                <svg class="icon" aria-hidden="true"><use href="#i-info"></use></svg>
+                <div>
+                    <p><strong>What Rooms does not do.</strong> There is no recording, no background blur, no noise
+                       suppression, no reactions, and the host cannot mute anybody else — the crown is a label, not a
+                       power. Rooms hold eight people, because a mesh costs one upload per viewer and it is better to
+                       cap the room than to let it discover your uplink.</p>
                 </div>
             </div>
 
-            <button class="btn btn--icon" id="viewBtn" type="button" title="Show everyone (G)" aria-label="Show everyone">
-                <svg class="icon icon--sm" aria-hidden="true"><use href="#i-grid"></use></svg>
-            </button>
-
-            <span class="controls__stats" id="connStats">0 peers</span>
-            <button class="btn btn--danger" id="leaveBtn" type="button">
-                <svg class="icon icon--sm" aria-hidden="true"><use href="#i-log-out"></use></svg>
-                <span>Leave</span>
-            </button>
-        </div>
-    </div>
-
-    <aside class="sdk-side sdk-side--wide is-people" id="side">
-        <div class="tabs" role="tablist" aria-label="Room panel">
-            <button class="tabs__btn is-on" id="tabPeople" type="button" role="tab" aria-selected="true">
-                People <span class="tabs__n" id="peopleCountTab">0</span>
-            </button>
-            <button class="tabs__btn" id="tabChat" type="button" role="tab" aria-selected="false">
-                Chat <span class="tabs__n tabs__n--unread" id="unreadCount" hidden>0</span>
-            </button>
-        </div>
-
-        <div class="side__pane side__pane--people">
-            <div class="sdk-side__title">
-                <span>In the room</span>
-                <span id="peopleCount" style="font-weight:500">0</span>
+            <div class="link-row">
+                <p>Share the room link and whoever opens it lands in the room with you — same name, same password,
+                   nothing installed. Free while the SDK is in beta.</p>
+                <a class="btn btn--gradient" href="app.html">Open Rooms</a>
             </div>
-            <div class="people" id="people"></div>
         </div>
+    </section>
 
-        <div class="side__pane side__pane--chat">
-            <div class="sdk-side__title">
-                <span>Room chat</span>
-            </div>
-            <div class="sdk-scroll log" id="log"></div>
-
-            <form class="composer" id="chatForm">
-            <input id="chatInput" class="composer__input" type="text" maxlength="800"
-                   placeholder="Message the room…" autocomplete="off">
-            <button class="btn btn--primary btn--icon" type="submit" aria-label="Send">
-                <svg class="icon icon--sm" aria-hidden="true"><use href="#i-send"></use></svg>
-            </button>
-            </form>
-        </div>
-    </aside>
 </main>
 
-<script src="../../js/config-loader.js"></script>
-<script src="../../generated-web-agent-js/js/web-agent.libs.js"></script>
-<script src="../../generated-web-agent-js/js/web-agent.js"></script>
-<script src="../../generated-web-agent-js/js/web-agent.webrtc.js"></script>
-<script src="../../js/icons.js"></script>
-<script src="../../js/ui.js"></script>
-<script src="../../lib/qrcode.min.js"></script>
-<script src="../../js/share-modal.js"></script>
-<script src="../../js/dialog.js"></script>
-<script src="../../js/common-utils.js"></script>
-<script src="../../js/connection-modal.js"></script>
-<script src="../../js/UserConnectionBase.js"></script>
-<script src="rooms.js"></script>
+<footer class="site-footer">
+    <div class="wrap">
+        <div class="footer-bottom">
+            <span>&copy; 2026 Messaging Platform SDK</span>
+            <span><a href="../../playground.html">Back to the playground</a></span>
+        </div>
+    </div>
+</footer>
 </body>
 </html>

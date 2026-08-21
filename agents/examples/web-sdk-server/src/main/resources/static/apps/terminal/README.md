@@ -2,7 +2,7 @@
 
 A modern web-based terminal emulator with real-time collaboration features, SSH support, file management, and integrated code editing capabilities.
 
-**Live App:** [https://hmdevonline.com/messaging-platform/sdk/apps/terminal/index.html](https://hmdevonline.com/messaging-platform/sdk/apps/terminal/index.html) *(requires SDK Local Service running)*
+**Live App:** [https://hmdevonline.com/messaging-platform/sdk/apps/terminal/app.html](https://hmdevonline.com/messaging-platform/sdk/apps/terminal/app.html) *(requires SDK Local Service running)*
 
 **GitHub:** [Terminal App Source Code](https://github.com/HaithamMubarak/messaging-platform-sdk/tree/main/agents/examples/web-sdk-server/src/main/resources/static/apps/terminal)
 
@@ -20,7 +20,7 @@ The Shared Terminal is a full-featured web terminal that runs in the browser whi
 - ✏️ **Integrated Code Editor** - Edit files with syntax highlighting
 - 📝 **Notes Management** - Create and organize markdown notes
 - 💾 **Session Persistence** - Auto-save and restore terminal sessions
-- 🎨 **Modern UI** - Clean, responsive interface with dark/light themes
+- 🎨 **Modern UI** - Clean, responsive dark interface using the site's shared design tokens
 
 ---
 
@@ -169,9 +169,9 @@ Local Shell or Remote Server
 - Tab-based interface with drag & drop
 - Session persistence and auto-restore
 - Terminal resize and auto-fit
-- Search in terminal output
-- Copy/paste support
-- Custom font sizes
+- Copy/paste support (right-click menu)
+- Custom font sizes (Ctrl+= / Ctrl+-)
+- Application shortcuts: Ctrl+Shift+T new tab, Ctrl+Shift+W close tab, Ctrl+PgUp/PgDn cycle tabs
 
 #### SSH Connections
 - Save SSH connection profiles
@@ -199,7 +199,6 @@ Local Shell or Remote Server
 - Tree view navigation
 - Create files and directories
 - Delete, rename, move operations
-- Change file permissions (chmod)
 - File upload/download
 - Drag & drop file upload
 - Chunked transfer for large files
@@ -230,8 +229,8 @@ Local Shell or Remote Server
 ### User Interface
 
 #### Multi-Tab System
-- Unlimited tabs
-- Tab reordering via drag & drop
+- Up to 20 concurrent tabs
+- Middle-click to close a tab
 - Tab context menu:
   - Close tab, Close others, Close to right/left
   - Close all tabs
@@ -302,8 +301,6 @@ Local Shell or Remote Server
   - Unicode support
   - Terminal addons:
     - `xterm-addon-fit` - Auto-sizing
-    - `xterm-addon-web-links` - Clickable URLs
-    - `xterm-addon-search` - Search functionality
 
 #### Code Editor
 - **CodeMirror 5.65.x** - Versatile text editor
@@ -364,7 +361,7 @@ The terminal app requires **TWO components** working together:
 
 1. **Access the App:**
    ```
-   https://hmdevonline.com/messaging-platform/sdk/apps/terminal/index.html
+   https://hmdevonline.com/messaging-platform/sdk/apps/terminal/app.html
    ```
 
 2. **Install Options:**
@@ -391,7 +388,7 @@ The terminal app requires **TWO components** working together:
 
 1. **Open Safari:**
    ```
-   https://hmdevonline.com/messaging-platform/sdk/apps/terminal/index.html
+   https://hmdevonline.com/messaging-platform/sdk/apps/terminal/app.html
    ```
 
 2. **Add to Home Screen:**
@@ -408,7 +405,7 @@ The terminal app requires **TWO components** working together:
 
 1. **Open Chrome:**
    ```
-   https://hmdevonline.com/messaging-platform/sdk/apps/terminal/index.html
+   https://hmdevonline.com/messaging-platform/sdk/apps/terminal/app.html
    ```
 
 2. **Install Options:**
@@ -688,7 +685,7 @@ Frontend available at: `http://localhost:8084/apps/terminal`
 ### First Time Setup
 
 1. **Install PWA** (if not already installed):
-   - Visit https://hmdevonline.com/messaging-platform/sdk/apps/terminal/index.html
+   - Visit https://hmdevonline.com/messaging-platform/sdk/apps/terminal/app.html
    - Click install button or use browser menu
    - Launch from desktop/home screen
 
@@ -779,7 +776,6 @@ If PWA shows "Local Service Offline":
 4. Right-click for actions:
    - Create, delete, rename
    - Download, upload
-   - Change permissions
 
 ### Editing Files
 1. In file explorer, click a file

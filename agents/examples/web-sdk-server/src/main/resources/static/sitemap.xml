@@ -28,8 +28,10 @@
   <url><loc>https://hmdevonline.com/messaging-platform/sdk/apps/mini-games/party-physics/index.html</loc><priority>0.6</priority></url>
 
   <!-- Demos -->
-  <url><loc>https://hmdevonline.com/messaging-platform/sdk/apps/whiteboard/index.html</loc><priority>0.7</priority></url>
-  <url><loc>https://hmdevonline.com/messaging-platform/sdk/apps/rooms/index.html</loc><priority>0.7</priority></url>
+  <url><loc>https://hmdevonline.com/messaging-platform/sdk/apps/whiteboard/index.html</loc><priority>0.8</priority></url>
+  <url><loc>https://hmdevonline.com/messaging-platform/sdk/apps/whiteboard/app.html</loc><priority>0.7</priority></url>
+  <url><loc>https://hmdevonline.com/messaging-platform/sdk/apps/rooms/index.html</loc><priority>0.8</priority></url>
+  <url><loc>https://hmdevonline.com/messaging-platform/sdk/apps/rooms/app.html</loc><priority>0.7</priority></url>
   <url><loc>https://hmdevonline.com/messaging-platform/sdk/apps/drop/index.html</loc><priority>0.6</priority></url>
   <url><loc>https://hmdevonline.com/messaging-platform/sdk/apps/pulse/index.html</loc><priority>0.6</priority></url>
   <url><loc>https://hmdevonline.com/messaging-platform/sdk/apps/chat.html</loc><priority>0.6</priority></url>
@@ -37,7 +39,8 @@
   <url><loc>https://hmdevonline.com/messaging-platform/sdk/apps/collab-doc/index.html</loc><priority>0.5</priority></url>
   <url><loc>https://hmdevonline.com/messaging-platform/sdk/apps/mind-map/index.html</loc><priority>0.5</priority></url>
   <url><loc>https://hmdevonline.com/messaging-platform/sdk/apps/pixel-art/index.html</loc><priority>0.5</priority></url>
-  <url><loc>https://hmdevonline.com/messaging-platform/sdk/apps/terminal/index.html</loc><priority>0.5</priority></url>
+  <url><loc>https://hmdevonline.com/messaging-platform/sdk/apps/terminal/index.html</loc><priority>0.7</priority></url>
+  <url><loc>https://hmdevonline.com/messaging-platform/sdk/apps/terminal/app.html</loc><priority>0.5</priority></url>
   <url><loc>https://hmdevonline.com/messaging-platform/sdk/apps/storage-demo.html</loc><priority>0.5</priority></url>
   <url><loc>https://hmdevonline.com/messaging-platform/sdk/apps/cloud-connection-demo.html</loc><priority>0.4</priority></url>
   <url><loc>https://hmdevonline.com/messaging-platform/sdk/apps/webrtc.html</loc><priority>0.5</priority></url>

@@ -30,15 +30,15 @@ class NoteEditor {
             <div class="note-editor-modal">
                 <div class="note-editor-header">
                     <div class="note-editor-title-section">
-                        <span class="note-editor-icon">📝</span>
+                        <span class="note-editor-icon"><svg class="icon icon--sm" aria-hidden="true"><use href="#i-pen"></use></svg></span>
                         <input type="text" class="note-editor-title-input" id="noteEditorTitleInput" placeholder="Untitled Note">
                     </div>
                     <div class="note-editor-actions">
                         <button class="note-editor-btn secondary" onclick="noteEditor.pinToSide()" title="Pin to right side">
-                            📌 Pin
+                            <svg class="icon icon--sm" aria-hidden="true"><use href="#i-target"></use></svg> Pin
                         </button>
                         <button class="note-editor-btn secondary" onclick="noteEditor.close()">
-                            ✕ Close
+                            <svg class="icon icon--sm" aria-hidden="true"><use href="#i-x"></use></svg> Close
                         </button>
                     </div>
                 </div>
@@ -49,10 +49,10 @@ class NoteEditor {
                     <span class="note-editor-status" id="noteEditorStatus">Ready</span>
                     <div class="note-editor-footer-actions">
                         <button class="note-editor-btn small" onclick="noteEditor.toggleSharing()" id="noteEditorShareBtn">
-                            🔒 Private
+                            <svg class="icon icon--sm" aria-hidden="true"><use href="#i-lock"></use></svg> Private
                         </button>
                         <button class="note-editor-btn small primary" onclick="noteEditor.save()">
-                            💾 Save
+                            <svg class="icon icon--sm" aria-hidden="true"><use href="#i-hard-drive"></use></svg> Save
                         </button>
                     </div>
                 </div>
@@ -73,15 +73,15 @@ class NoteEditor {
             <div class="note-editor-pinned-content">
                 <div class="note-editor-header">
                     <div class="note-editor-title-section">
-                        <span class="note-editor-icon">📝</span>
+                        <span class="note-editor-icon"><svg class="icon icon--sm" aria-hidden="true"><use href="#i-pen"></use></svg></span>
                         <input type="text" class="note-editor-title-input" id="noteEditorTitleInputPinned" placeholder="Untitled Note">
                     </div>
                     <div class="note-editor-actions">
                         <button class="note-editor-btn secondary small" onclick="noteEditor.unpinToPopup()" title="Unpin to popup">
-                            ⬅️
+                            <svg class="icon icon--sm" aria-hidden="true"><use href="#i-chevron-left"></use></svg>
                         </button>
                         <button class="note-editor-btn secondary small" onclick="noteEditor.close()">
-                            ✕
+                            <svg class="icon icon--sm" aria-hidden="true"><use href="#i-x"></use></svg>
                         </button>
                     </div>
                 </div>
@@ -92,10 +92,10 @@ class NoteEditor {
                     <span class="note-editor-status" id="noteEditorStatusPinned">Ready</span>
                     <div class="note-editor-footer-actions">
                         <button class="note-editor-btn small" onclick="noteEditor.toggleSharing()" id="noteEditorShareBtnPinned">
-                            🔒 Private
+                            <svg class="icon icon--sm" aria-hidden="true"><use href="#i-lock"></use></svg> Private
                         </button>
                         <button class="note-editor-btn small primary" onclick="noteEditor.save()">
-                            💾 Save
+                            <svg class="icon icon--sm" aria-hidden="true"><use href="#i-hard-drive"></use></svg> Save
                         </button>
                     </div>
                 </div>
@@ -221,7 +221,7 @@ class NoteEditor {
 
         titleInput.value = note.title || 'Untitled Note';
         contentTextarea.value = note.content || '';
-        shareBtn.textContent = note.shared ? '🔗 Shared' : '🔒 Private';
+        shareBtn.textContent = note.shared ? 'Shared' : 'Private';
         shareBtn.classList.toggle('shared', note.shared);
 
         this.popupOverlay.classList.add('visible');
@@ -241,7 +241,7 @@ class NoteEditor {
 
         titleInput.value = note.title || 'Untitled Note';
         contentTextarea.value = note.content || '';
-        shareBtn.textContent = note.shared ? '🔗 Shared' : '🔒 Private';
+        shareBtn.textContent = note.shared ? 'Shared' : 'Private';
         shareBtn.classList.toggle('shared', note.shared);
 
         this.pinnedPanel.classList.add('visible');
@@ -272,7 +272,7 @@ class NoteEditor {
         };
 
         this.showPinned(note);
-        this.onToast('info', '📌 Pinned', 'Note pinned to right side');
+        this.onToast('info', '<svg class="icon icon--sm" aria-hidden="true"><use href="#i-target"></use></svg> Pinned', 'Note pinned to right side');
     }
 
     /**
@@ -296,7 +296,7 @@ class NoteEditor {
         };
 
         this.showPopup(note);
-        this.onToast('info', '📝 Unpinned', 'Note back to popup mode');
+        this.onToast('info', 'Unpinned', 'Note back to popup mode');
     }
 
     /**
@@ -335,7 +335,7 @@ class NoteEditor {
                 throw new Error('Failed to save note');
             }
 
-            statusSpan.textContent = '💾 Saved';
+            statusSpan.textContent = '<svg class="icon icon--sm" aria-hidden="true"><use href="#i-hard-drive"></use></svg> Saved';
             statusSpan.classList.add('saved');
 
             setTimeout(() => {
@@ -344,7 +344,7 @@ class NoteEditor {
             }, 2000);
 
             if (!isAutoSave) {
-                this.onToast('success', '💾 Saved', 'Note saved successfully');
+                this.onToast('success', '<svg class="icon icon--sm" aria-hidden="true"><use href="#i-hard-drive"></use></svg> Saved', 'Note saved successfully');
             }
 
             // Notify sidebar to update
@@ -379,7 +379,7 @@ class NoteEditor {
         const newShared = !isShared;
 
         titleInput.dataset.shared = newShared;
-        shareBtn.textContent = newShared ? '🔗 Shared' : '🔒 Private';
+        shareBtn.textContent = newShared ? 'Shared' : 'Private';
         shareBtn.classList.toggle('shared', newShared);
 
         this.markAsModified();

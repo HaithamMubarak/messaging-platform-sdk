@@ -2,7 +2,7 @@
   "name": "Messaging Platform - Shared Terminal",
   "short_name": "Shared Terminal",
   "description": "Web-based terminal emulator with SSH, SFTP, and real-time terminal sharing via Messaging Platform",
-  "start_url": "./index.html",
+  "start_url": "./app.html",
   "display": "standalone",
   "background_color": "#0a0a14",
   "theme_color": "#1a1a2e",
@@ -58,22 +58,9 @@
       "purpose": "any maskable"
     }
   ],
-  "categories": ["utilities", "developer tools", "productivity"],
-  "shortcuts": [
-    {
-      "name": "New Local Terminal",
-      "short_name": "Local",
-      "description": "Open a new local terminal",
-      "url": "./index.html?action=new-local",
-      "icons": [{ "src": "icons/icon-96x96.png", "sizes": "96x96" }]
-    },
-    {
-      "name": "Messaging Platform",
-      "short_name": "Messaging",
-      "description": "Connect to messaging platform for sharing",
-      "url": "./index.html?action=messaging",
-      "icons": [{ "src": "icons/icon-96x96.png", "sizes": "96x96" }]
-    }
+  "categories": [
+    "utilities",
+    "developer tools",
+    "productivity"
   ]
 }
-

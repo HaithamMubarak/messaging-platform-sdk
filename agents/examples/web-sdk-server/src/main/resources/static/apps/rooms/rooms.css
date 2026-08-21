@@ -6,13 +6,13 @@
     min-height: 0;
     display: grid;
     place-items: center;
-    background: #070c17;
+    background: var(--code-bg);
     border: 1px solid var(--border-strong);
     border-radius: var(--r-lg);
     overflow: hidden;
 }
 
-.stage__video { width: 100%; height: 100%; object-fit: contain; background: #000; }
+.stage__video { width: 100%; height: 100%; object-fit: contain; background: #05080f; }
 
 .stage__tag {
     position: absolute;
@@ -44,12 +44,17 @@
     border-radius: var(--r-lg);
 }
 
-.controls__leave { margin-left: auto; }
-
-.btn--danger {
-    background: var(--danger-bg);
-    border-color: rgba(248, 113, 113, 0.35);
-    color: var(--danger);
+/* Leave is the one irreversible button in the bar, so it is pushed away from
+   the things you press by accident and never sits next to Share screen. */
+.controls__leave { position: relative; margin-left: var(--sp-3); }
+.controls__leave::before {
+    content: '';
+    position: absolute;
+    left: calc(var(--sp-2) * -1);
+    top: 20%;
+    bottom: 20%;
+    width: 1px;
+    background: var(--border);
 }
 
 .btn:disabled { opacity: 0.45; cursor: not-allowed; }
@@ -69,7 +74,7 @@
 }
 
 .tile.is-presenting { border: 2px solid var(--brand); }
-.tile__video { width: 100%; height: 100%; object-fit: cover; background: #000; }
+.tile__video { width: 100%; height: 100%; object-fit: cover; background: #05080f; }
 
 .tile__name {
     position: absolute;
@@ -122,7 +127,7 @@
     padding: 1px 6px;
     border-radius: var(--r-sm);
     background: var(--overlay);
-    font-size: 10px;
+    font-size: var(--fs-xs);
     font-weight: 700;
     letter-spacing: 0.06em;
     color: var(--brand-ink);
@@ -135,7 +140,7 @@
     padding: 1px 6px;
     border-radius: var(--r-sm);
     background: var(--brand);
-    font-size: 10px;
+    font-size: var(--fs-xs);
     font-weight: 700;
     color: #fff;
 }
@@ -159,7 +164,7 @@
 .msg__body { display: flex; flex-direction: column; min-width: 0; }
 .msg__head { display: flex; align-items: baseline; gap: var(--sp-2); }
 .msg__name { font-size: var(--fs-sm); font-weight: 700; color: var(--text); }
-.msg__time { font-size: 10px; color: var(--text-faint); font-variant-numeric: tabular-nums; }
+.msg__time { font-size: var(--fs-xs); color: var(--text-faint); font-variant-numeric: tabular-nums; }
 .msg__text { font-size: var(--fs-md); color: var(--text-body); overflow-wrap: anywhere; text-wrap: pretty; }
 
 /* An event is not a message: quieter, inline, and never with an avatar. */
@@ -244,10 +249,12 @@
 }
 
 /* Flex rather than grid so the last row centres under the others: a room of
-   three should not leave one face hanging off the left-hand edge. */
+   three should not leave one face hanging off the left-hand edge. The width is
+   worked out in JS (_fit) because the stage's height is the binding constraint
+   as often as its width, and flex-basis cannot express that. */
 .grid .tile {
-    flex: 0 1 calc((100% - (var(--cols, 2) - 1) * var(--sp-3)) / var(--cols, 2));
-    min-width: 220px;
+    flex: 0 0 var(--tileW, calc((100% - (var(--cols, 2) - 1) * var(--sp-3)) / var(--cols, 2)));
+    min-width: 0;
 }
 
 /* Nothing inside a tile is laid out over a hidden element. */
@@ -260,7 +267,7 @@
  * rather than the button. */
 .tile.is-speaking {
     border-color: var(--success);
-    box-shadow: 0 0 0 2px var(--success), 0 0 18px rgba(52, 211, 153, 0.35);
+    box-shadow: 0 0 0 2px var(--success), 0 0 18px var(--success-bg);
 }
 
 .tile { transition: box-shadow var(--dur-fast) var(--ease), border-color var(--dur-fast) var(--ease); }
@@ -428,17 +435,9 @@
        Invite button — a button that cannot be pressed because something
        invisible to the reader is sitting on it. Everything here earns its
        width or loses its words. */
-    .sdk-header { gap: var(--sp-2); padding: 0 var(--sp-3); }
-    .sdk-header h1 { font-size: var(--fs-lg); flex: none; }
-    .sdk-header__right { gap: var(--sp-2); min-width: 0; }
-    .sdk-header__away { display: none; }        /* the browser has a back button */
-    .sdk-room { min-width: 0; flex: 0 1 auto; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-
-    /* The dot still says connected, busy or off — the sentence beside it does
-       not fit and is not news. */
-    .pill-status__text { display: none; }
-    .pill-status { padding: 6px; }
-    #shareBtn span { display: none; }
+    /* The header collapse itself lives in sdk-app.css — the shell owns it.
+       What is left here is the two buttons this app adds to it. */
+    #shareBtn span, #helpBtn { display: none; }
     #shareBtn { min-height: 40px; width: 40px; padding: 0; }
 
     .controls { gap: var(--sp-2); padding: var(--sp-2) var(--sp-3); }
@@ -462,3 +461,213 @@
     .sdk-side--wide { width: 46vw; min-height: 0; }
     .stage { min-height: 0; }
 }
+
+
+/* ---- the presenting bar ---------------------------------------------------
+ * Sharing your screen is the one thing in a call you can forget you are doing.
+ * A badge on a tile is not enough when the tile is not the thing you are
+ * looking at, so the stop button follows the share around.
+ */
+.presenting {
+    display: flex;
+    align-items: center;
+    gap: var(--sp-3);
+    flex: none;
+    padding: var(--sp-2) var(--sp-4);
+    background: var(--danger-bg);
+    border: 1px solid rgba(248, 113, 113, 0.35);
+    border-radius: var(--r-lg);
+    font-size: var(--fs-md);
+    color: var(--text);
+}
+
+.presenting[hidden] { display: none; }
+.presenting__text { flex-grow: 1; }
+.presenting__dot {
+    width: 8px; height: 8px;
+    border-radius: var(--r-pill);
+    background: var(--danger);
+    flex: none;
+    animation: presenting-pulse 2s var(--ease) infinite;
+}
+
+@keyframes presenting-pulse { 50% { opacity: 0.25; } }
+
+/* ---- the green room -------------------------------------------------------
+ * You are in the channel but sending nothing: this is where you find out what
+ * the room is about to see and hear before it does. It sits on the stage
+ * rather than over the whole app, so the member list and chat stay live behind
+ * it — you can talk your way in before you turn anything on.
+ */
+.lobby {
+    position: absolute;
+    inset: 0;
+    z-index: 10;
+    display: grid;
+    place-items: center;
+    padding: var(--sp-4);
+    background: rgba(5, 8, 15, 0.92);
+    backdrop-filter: blur(6px);
+    overflow-y: auto;
+}
+
+.lobby[hidden] { display: none; }
+
+.lobby__card {
+    display: grid;
+    gap: var(--sp-4);
+    width: min(460px, 100%);
+    text-align: center;
+}
+
+.lobby__preview {
+    position: relative;
+    aspect-ratio: 16 / 9;
+    border-radius: var(--r-lg);
+    border: 1px solid var(--border-strong);
+    background: var(--surface-1);
+    overflow: hidden;
+    display: grid;
+    place-items: center;
+}
+
+/* Your own picture is a mirror, the way it is in every other product and every
+   actual mirror. Nobody else's is: their text would come out backwards. */
+.lobby__video, .tile--self .tile__video { transform: scaleX(-1); }
+.lobby__video { width: 100%; height: 100%; object-fit: cover; background: #05080f; }
+.lobby__video[hidden] { display: none; }
+
+.lobby__off {
+    display: grid;
+    justify-items: center;
+    gap: var(--sp-2);
+    color: var(--text-muted);
+    font-size: var(--fs-sm);
+}
+.lobby__off .icon { color: var(--text-faint); }
+.lobby__off[hidden] { display: none; }
+
+.lobby h2 { font-size: var(--fs-xl); margin: 0; }
+.lobby p { font-size: var(--fs-md); color: var(--text-muted); margin: 0; text-wrap: pretty; }
+.lobby__row { display: flex; gap: var(--sp-2); justify-content: center; flex-wrap: wrap; }
+.lobby__row .btn { flex: 0 1 auto; }
+
+/* ---- an input level you can see ------------------------------------------- */
+.level {
+    display: block;
+    height: 6px;
+    border-radius: var(--r-pill);
+    background: var(--surface-3);
+    overflow: hidden;
+}
+
+.level__fill {
+    display: block;
+    height: 100%;
+    width: 0;
+    border-radius: var(--r-pill);
+    background: var(--success);
+    transition: width 90ms linear;
+}
+
+/* ---- the device menu's own preview ---------------------------------------- */
+.menu__preview {
+    position: relative;
+    aspect-ratio: 16 / 9;
+    border-radius: var(--r-md);
+    border: 1px solid var(--border);
+    background: var(--surface-1);
+    overflow: hidden;
+    display: grid;
+    place-items: center;
+}
+
+.menu__video { width: 100%; height: 100%; object-fit: cover; transform: scaleX(-1); background: #05080f; }
+.menu__video[hidden] { display: none; }
+.menu__previewNote { font-size: var(--fs-xs); color: var(--text-faint); padding: var(--sp-3); text-align: center; }
+.menu__previewNote[hidden] { display: none; }
+
+/* ---- pin, hand, and the states a tile can be in ---------------------------- */
+.tile { cursor: pointer; }
+.tile:focus-visible { outline: none; box-shadow: var(--focus-ring); }
+
+.tile__pin, .tile__hand, .tile__warn {
+    position: absolute;
+    display: grid;
+    place-items: center;
+    width: 22px; height: 22px;
+    border-radius: var(--r-pill);
+    background: var(--overlay);
+}
+
+.tile__pin  { top: var(--sp-2); right: var(--sp-2); color: var(--brand-ink); }
+.tile__hand { bottom: var(--sp-2); right: calc(var(--sp-2) + 26px); color: var(--warning); }
+.tile__warn { bottom: var(--sp-2); right: calc(var(--sp-2) + 52px); color: var(--warning); }
+
+.tile.is-pinned { border-color: var(--brand); }
+.tile.is-hand   { box-shadow: 0 0 0 2px var(--warning); }
+
+/* Somebody who has not said what they have switched on yet is connecting, not
+   muted. Guessing "muted" and correcting it six seconds later is worse than
+   saying nothing. */
+.tile__joining {
+    position: absolute;
+    left: 50%; bottom: var(--sp-2);
+    transform: translateX(-50%);
+    padding: 1px 8px;
+    border-radius: var(--r-pill);
+    background: var(--overlay);
+    font-size: var(--fs-xs);
+    color: var(--text-muted);
+}
+
+/* ---- the empty room -------------------------------------------------------
+ * Alone in a room, the honest next action is to fetch somebody.
+ */
+.alone {
+    display: grid;
+    justify-items: center;
+    gap: var(--sp-3);
+    padding: var(--sp-6);
+    text-align: center;
+    max-width: 34rem;
+}
+
+.alone .icon { color: var(--text-faint); }
+.alone h3 { font-size: var(--fs-base); margin: 0; color: var(--text); }
+.alone p { font-size: var(--fs-sm); color: var(--text-muted); margin: 0; text-wrap: pretty; }
+
+/* ---- shortcuts ------------------------------------------------------------ */
+.keys { display: grid; grid-template-columns: auto 1fr; gap: var(--sp-3) var(--sp-4); margin: 0; }
+.keys dt { margin: 0; }
+.keys dd { margin: 0; font-size: var(--fs-md); color: var(--text-body); }
+
+.keys kbd {
+    display: inline-block;
+    min-width: 2rem;
+    padding: 2px 8px;
+    text-align: center;
+    border: 1px solid var(--border-strong);
+    border-radius: var(--r-sm);
+    background: var(--surface-2);
+    font-family: var(--font-mono);
+    font-size: var(--fs-sm);
+    color: var(--text);
+}
+
+/* A message the room never received should not sit there looking sent. */
+.msg.is-failed { opacity: 0.65; }
+.msg__fail {
+    font-size: var(--fs-xs);
+    color: var(--danger);
+    background: none;
+    border: 0;
+    padding: 0;
+    cursor: pointer;
+    font: inherit;
+    font-size: var(--fs-xs);
+}
+.msg__fail:hover { text-decoration: underline; }
+
+/* A button whose device the browser refused is not merely off. */
+.btn.is-blocked { border-color: rgba(248, 113, 113, 0.5); color: var(--danger); }

@@ -50,6 +50,11 @@
             this.known = [];
             this.devices = { cams: [], mics: [], cam: null, mic: null };
             this.view = 'auto';          // 'auto' follows the presenter; 'grid' shows everyone
+            this.pinned = null;          // somebody clicked a tile to make them big
+            this.hand = false;           // my own hand, up or down
+            this.blocked = {};           // devices the browser refused us
+            this.unreachable = {};       // peers whose media never got through
+            this.ready = false;          // past the green room
         }
 
         // ---- lifecycle -------------------------------------------------------
@@ -92,12 +97,14 @@
 
         onReconnecting(attempt, waitMs) {
             this._status('busy', 'Reconnecting…');
+            this._syncComposer();
             if (attempt === 1) this.note('Connection lost — trying to get back in', 'leave');
             void waitMs;
         }
 
         onReconnected() {
             UI.toast('Back in ' + this.channelName, 'success');
+            this._syncComposer();
             this.note('Reconnected', 'join');
             // What I am sending has to be offered again over the new session;
             // what they were sending arrives again when they notice me rejoin.
@@ -107,6 +114,7 @@
 
         onReconnectFailed() {
             this._status('off', 'Disconnected');
+            this._syncComposer();
             this.note('Could not get back into the room. Reload to try again.', 'leave');
             UI.toast('Could not reconnect', 'error', 6000);
         }
@@ -122,8 +130,10 @@
             this._watchRoster();
             this._watchStats();
             this._announce();
+            this._syncComposer();
             this._sync();
             this._loadDevices();
+            if (!this.ready) this.openLobby();
         }
 
         onDisconnect(detail) {
@@ -139,6 +149,7 @@
             }
             this._status('off', 'Disconnected');
             this.note('You left the room');
+            this._syncComposer();
         }
 
         onUserJoin() { this._roster(); }
@@ -162,9 +173,18 @@
         _roster() {
             var now = this._names(), was = this.known || [], self = this;
 
+            // A mesh costs one upload per viewer, so the room has a size. Say
+            // so when it is reached, rather than at the unrelated moment
+            // somebody presses the camera button.
+            if (now.length > MESH_LIMIT && was.length <= MESH_LIMIT) {
+                UI.toast('This room is full for video — ' + MESH_LIMIT
+                    + ' is the limit for peer-to-peer. Chat still works for everyone.', 'warning', 7000);
+            }
+
             now.forEach(function (n) {
                 if (n === self.username || was.indexOf(n) !== -1) return;
                 self.note(n + ' joined', 'join');
+                if (now.length > MESH_LIMIT) return;   // past the cap, nothing new is offered
                 // Somebody arriving can only see me if I offer to them, and
                 // they have no way to know what I already have switched on.
                 self._offerAllTo(n);
@@ -202,6 +222,8 @@
             });
             this.state.delete(name);
             this.speaking.delete(name);
+            delete this.unreachable[name];
+            if (this.pinned === name) this.pinned = null;
             this._deafen(name);
             if (this.meters) this.meters.delete(name);
         }
@@ -212,6 +234,14 @@
             this.renderPeople();
             this.renderStage();
             this._syncButtons();
+            this._syncPresenting();
+            this._syncComposer();
+        }
+
+        /** The bar that follows a screen share around. */
+        _syncPresenting() {
+            var bar = document.getElementById('presentingBar');
+            if (bar) bar.hidden = !this.screen;
         }
 
         _status(kind, text) {
@@ -230,23 +260,35 @@
          * else, so everything goes through the host and carries an id, because
          * the host then sees its own relay come back.
          */
-        _say(payload) {
+        _say(payload, onFail) {
             if (!payload.id) {
                 payload.id = this.username + ':' + Date.now().toString(36)
                     + Math.random().toString(36).slice(2, 6);
             }
+            var self = this, sent;
             try {
                 if (this.isHost()) {
                     payload._relayed = true;
-                    this.sendCustomEventMessage(payload, '*');
+                    sent = this.sendCustomEventMessage(payload, '*');
                 } else {
-                    this.sendCustomEventMessage(payload, this._getHostName() || '*');
+                    sent = this.sendCustomEventMessage(payload, this._getHostName() || '*');
                 }
-                return true;
             } catch (err) {
                 if (this.connected) console.warn('[Rooms] send failed:', err.message);
+                if (onFail) onFail(err);
                 return false;
             }
+            // A refused send rejects the promise rather than throwing, so the
+            // try/catch above catches nothing and the failure arrives later.
+            // Without this, a message the room never received sits in your own
+            // log looking delivered.
+            if (sent && sent.catch) {
+                sent.catch(function (err) {
+                    if (self.connected) console.warn('[Rooms] send failed:', err && err.message);
+                    if (onFail) onFail(err);
+                });
+            }
+            return true;
         }
 
         /**
@@ -264,6 +306,7 @@
                 mic: this._live(this.cam, 'audio'),
                 camOn: this._live(this.cam, 'video'),
                 sharing: !!this.screen,
+                hand: !!this.hand,
                 // The labels ride along, so a peer who missed the one-shot
                 // announcement stops holding unlabelled media at the next beat
                 // instead of holding it for the rest of the call.
@@ -309,9 +352,13 @@
             switch (d.type) {
                 case 'state': {
                     var was = this.state.get(d.by) || {};
-                    this.state.set(d.by, { mic: !!d.mic, camOn: !!d.camOn, sharing: !!d.sharing });
+                    this.state.set(d.by, {
+                        mic: !!d.mic, camOn: !!d.camOn, sharing: !!d.sharing, hand: !!d.hand
+                    });
                     if (d.sharing && !was.sharing) this.note(d.by + ' started sharing their screen', 'share');
                     if (!d.sharing && was.sharing) this.note(d.by + ' stopped sharing', 'share');
+                    if (d.hand && !was.hand) this.note(d.by + ' raised their hand', 'hand');
+                    if (!d.hand && was.hand) this.note(d.by + ' lowered their hand', 'hand');
                     (d.pubs || []).forEach(this._label, this);
                     this._sync();
                     break;
@@ -381,9 +428,18 @@
                 if (state === 'connected' || state === 'connecting') return;
 
                 if (attempt >= 3) {
+                    // Silence here is the worst outcome: the publisher believes
+                    // they are on camera and the other person sees an avatar for
+                    // the rest of the call. Say it on both the tile and once out
+                    // loud.
                     console.warn('[Rooms] gave up offering ' + kind + ' to ' + peer);
+                    self.unreachable[peer] = true;
+                    UI.toast('Could not get your ' + (kind === 'screen' ? 'screen' : 'video')
+                        + ' through to ' + peer + ' — their network may be blocking it', 'warning', 6000);
+                    self._sync();
                     return;
                 }
+                delete self.unreachable[peer];
                 console.warn('[Rooms] no answer for ' + kind + ' to ' + peer + ' (' + state + '), offering again');
                 self._close(id);
                 byPeer.delete(peer);
@@ -470,6 +526,7 @@
                 host.appendChild(el);
             }
             if (el.srcObject !== stream) el.srcObject = stream;
+            if (this.devices.spk && el.setSinkId) el.setSinkId(this.devices.spk).catch(function () {});
             this._play(el);
         }
 
@@ -623,6 +680,7 @@
                 var list = await navigator.mediaDevices.enumerateDevices();
                 this.devices.cams = list.filter(function (d) { return d.kind === 'videoinput'; });
                 this.devices.mics = list.filter(function (d) { return d.kind === 'audioinput'; });
+                this.devices.spks = list.filter(function (d) { return d.kind === 'audiooutput'; });
                 this.renderDevices();
             } catch (err) { /* labels need permission; the menu simply stays short */ }
         }
@@ -640,6 +698,70 @@
             };
             fill('camPick', this.devices.cams, this.devices.cam, 'Camera');
             fill('micPick', this.devices.mics, this.devices.mic, 'Microphone');
+
+            // Choosing where the room comes out is only offered where the
+            // browser can actually honour it: setSinkId is not universal, and a
+            // dropdown that does nothing is worse than no dropdown.
+            var row = document.getElementById('spkRow');
+            var canRoute = !!(document.createElement('audio').setSinkId);
+            if (row) row.hidden = !canRoute || !(this.devices.spks || []).length;
+            if (canRoute) fill('spkPick', this.devices.spks || [], this.devices.spk, 'Speaker');
+        }
+
+        /**
+         * Show what the picker is picking.
+         *
+         * Switching camera used to be blind: you chose from a list of names and
+         * found out what you had chosen when the room did. The menu borrows the
+         * live camera when there is one, and asks for a private preview when
+         * there is not — dropped again the moment the menu closes.
+         */
+        async previewDevices(open) {
+            var video = document.getElementById('devicePreview');
+            var note = document.getElementById('devicePreviewNote');
+            var fill = document.getElementById('levelFill');
+            if (!video) return;
+
+            if (!open) {
+                if (this._menuPreview) {
+                    this._menuPreview.getTracks().forEach(function (t) { t.stop(); });
+                    this._menuPreview = null;
+                }
+                clearInterval(this._lobbyMeter);
+                this._lobbyMeter = null;
+                video.srcObject = null;
+                video.hidden = true;
+                if (fill) fill.style.width = '0';
+                return;
+            }
+
+            var stream = this.cam;
+            if (!stream) {
+                try {
+                    stream = this._menuPreview = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
+                    this._loadDevices();
+                } catch (err) {
+                    if (note) note.textContent = 'Allow the camera to see yourself here';
+                    return;
+                }
+            }
+            var showing = !!(stream && stream.getVideoTracks().some(function (t) { return t.enabled; }));
+            video.srcObject = stream;
+            video.hidden = !showing;
+            if (note) {
+                note.hidden = showing;
+                note.textContent = 'Camera off — turn it on to see yourself';
+            }
+            this._meterOn(stream, fill);
+        }
+
+        /** Send the room's voices to a chosen output. */
+        useSpeaker(deviceId) {
+            this.devices.spk = deviceId;
+            if (!this.ears) return;
+            this.ears.forEach(function (el) {
+                if (el.setSinkId) el.setSinkId(deviceId).catch(function () { /* the browser may refuse */ });
+            });
         }
 
         async useDevice(kind, deviceId) {
@@ -663,9 +785,11 @@
             try {
                 this.cam = await navigator.mediaDevices.getUserMedia(want);
             } catch (err) {
-                UI.toast('Could not use the ' + (wantVideo ? 'camera' : 'microphone') + ': ' + err.message, 'error', 5000);
+                this._mediaRefused(err, wantVideo);
                 return false;
             }
+            delete this.blocked.cam;
+            delete this.blocked.mic;
             // The answering side of a connection uses this when it has nothing
             // of its own to send.
             if (this.webrtcHelper && this.webrtcHelper.setLocalMediaStream) {
@@ -677,6 +801,36 @@
             this._loadDevices();          // labels appear once permission is given
             this._sync();
             return true;
+        }
+
+        /**
+         * Why the camera did not come on, and what to do about it.
+         *
+         * A raw browser message in a toast that vanishes in five seconds is a
+         * dead end: the button looks unchanged, pressing it again fails
+         * instantly, and nothing says the permission is the browser's to give
+         * back. So the failure is named, kept on the button, and explained.
+         */
+        _mediaRefused(err, wantVideo) {
+            var what = wantVideo ? 'camera' : 'microphone';
+            var name = (err && err.name) || '';
+            var msg, help = '';
+            if (name === 'NotAllowedError' || name === 'SecurityError') {
+                msg = 'Your browser is blocking the ' + what;
+                help = 'Click the padlock in the address bar → Site settings → allow, then press the button again.';
+                this.blocked[wantVideo ? 'cam' : 'mic'] = true;
+            } else if (name === 'NotFoundError' || name === 'OverconstrainedError') {
+                msg = 'No ' + what + ' found on this device';
+                help = 'Plug one in, or pick another under the gear button.';
+            } else if (name === 'NotReadableError') {
+                msg = 'Something else is already using the ' + what;
+                help = 'Close the other app or tab holding it, then try again.';
+            } else {
+                msg = 'Could not use the ' + what + (err && err.message ? ': ' + err.message : '');
+            }
+            UI.toast(msg + (help ? ' — ' + help : ''), 'error', 8000);
+            this.note(msg, 'leave');
+            this._syncButtons();
         }
 
         async stopCamera(quiet) {
@@ -732,7 +886,11 @@
                     return;
                 }
                 try {
-                    this.screen = await navigator.mediaDevices.getDisplayMedia({ video: true, audio: false });
+                    // Offer to bring the tab's sound with the picture; a shared
+                    // video that is silent for everybody watching is a bug from
+                    // where they are sitting. The browser decides whether the
+                    // checkbox appears, and refusing it is not an error.
+                    this.screen = await navigator.mediaDevices.getDisplayMedia({ video: true, audio: true });
                 } catch (err) {
                     if (err && err.name !== 'NotAllowedError') {
                         UI.toast('Screen share failed: ' + err.message, 'error', 5000);
@@ -755,7 +913,32 @@
         setView(view) {
             this.view = view;
             var btn = document.getElementById('viewBtn');
-            if (btn) btn.classList.toggle('btn--primary', view === 'grid');
+            if (btn) {
+                btn.classList.toggle('btn--primary', view === 'grid');
+                btn.setAttribute('aria-pressed', String(view === 'grid'));
+            }
+            this._sync();
+        }
+
+        /**
+         * Make one person big.
+         *
+         * A call with no way to enlarge anybody is a wall of equal squares, so
+         * clicking a tile pins that person to the stage and clicking again lets
+         * the room go back to whatever it was doing. A pin outranks the
+         * presenter, because you chose it and the presenter did not.
+         */
+        pin(name) {
+            this.pinned = (this.pinned === name) ? null : name;
+            if (this.pinned) this.view = 'auto';
+            this._sync();
+        }
+
+        /** Put a hand up. Everybody's roster shows it; the log says it once. */
+        toggleHand() {
+            this.hand = !this.hand;
+            this.note(this.hand ? 'You raised your hand' : 'You lowered your hand', 'hand');
+            this._announce();
             this._sync();
         }
 
@@ -852,9 +1035,54 @@
         send(text) {
             text = String(text || '').trim();
             if (!text) return;
-            var at = Date.now();
-            this.say(this.username, text, at);
-            this._say({ type: 'chat', by: this.username, text: text, at: at });
+            if (!this.connected) {
+                UI.toast('You are not in the room — nothing was sent', 'warning');
+                return;
+            }
+            var at = Date.now(), self = this;
+            var mid = 'm' + at.toString(36) + Math.random().toString(36).slice(2, 5);
+            this._log({ kind: 'chat', from: this.username, text: text.slice(0, 800), at: at, mid: mid });
+            this._say({ type: 'chat', by: this.username, text: text, at: at }, function () {
+                self._undelivered(mid);
+            });
+        }
+
+        /**
+         * The room never got it.
+         *
+         * Your own message appears the instant you press send, which is the
+         * right thing to do and the wrong thing to leave alone when the send
+         * then fails: it sits in your log looking delivered while nobody else
+         * has it. Mark it, and offer the one action that helps.
+         */
+        _undelivered(mid) {
+            for (var i = 0; i < this.messages.length; i++) {
+                if (this.messages[i].mid === mid) { this.messages[i].failed = true; break; }
+            }
+            this.renderChat();
+        }
+
+        retry(mid) {
+            var m = null;
+            for (var i = 0; i < this.messages.length; i++) {
+                if (this.messages[i].mid === mid) { m = this.messages[i]; break; }
+            }
+            if (!m) return;
+            this.messages.splice(this.messages.indexOf(m), 1);
+            this.renderChat();
+            this.send(m.text);
+        }
+
+        /** The composer is only live while the room is. */
+        _syncComposer() {
+            var input = document.getElementById('chatInput');
+            var send = document.getElementById('chatSend');
+            var on = !!this.connected;
+            if (input) {
+                input.disabled = !on;
+                input.placeholder = on ? 'Message the room…' : 'Reconnecting…';
+            }
+            if (send) send.disabled = !on;
         }
 
         // ---- rendering --------------------------------------------------------
@@ -862,9 +1090,18 @@
         renderStage() {
             var stage = document.getElementById('stage');
             if (!stage) return;
+            if (this.lobbyOpen) return;          // the green room owns the stage
+
+            // A pin is a decision somebody made; a presenter is a thing that
+            // happened. The decision wins.
+            if (this.pinned && this._names().indexOf(this.pinned) !== -1) {
+                this._renderPinned(stage, this.pinned);
+                return;
+            }
 
             var presenter = this.presenter;
             if (this.view === 'grid' || !presenter) { this._renderGrid(stage); return; }
+            stage.setAttribute('aria-label', presenter + ' is presenting');
 
             var stream = presenter === this.username ? this.screen : this._streamFrom(presenter, 'screen');
             if (!stream) {
@@ -897,10 +1134,89 @@
         /** Everyone at once — the view when nobody is presenting. */
         _renderGrid(stage) {
             var users = this.getUserList() || [], self = this;
+            stage.setAttribute('aria-label', 'Everyone in the room');
+
+            // Alone in a room, the only useful next action is to fetch
+            // somebody, so that is what the stage offers instead of one
+            // lonely square of yourself.
+            if (users.length < 2) {
+                var mine = users[0];
+                var invite = UI.el('button', { class: 'btn btn--primary', type: 'button' }, [
+                    UI.iconNode('qr-code', 'icon--sm'), UI.el('span', {}, 'Invite someone')
+                ]);
+                invite.addEventListener('click', function () { self.invite(); });
+                var wrapOne = UI.el('div', { class: 'grid' });
+                wrapOne.style.setProperty('--cols', '1');
+                if (mine) wrapOne.appendChild(this._tile('stage', mine));
+                stage.replaceChildren(wrapOne, UI.el('div', { class: 'alone' }, [
+                    UI.iconNode('users', 'icon--lg'),
+                    UI.el('h3', {}, 'You are the only one here'),
+                    UI.el('p', {}, 'Send someone the link and they land in this room — same name, same password, nothing to install.'),
+                    invite
+                ]));
+                return;
+            }
+
             var wrap = stage.querySelector('.grid');
             if (!wrap) { wrap = UI.el('div', { class: 'grid' }); stage.replaceChildren(wrap); }
-            wrap.style.setProperty('--cols', String(Math.ceil(Math.sqrt(Math.max(1, users.length)))));
+            // The invitation the empty room showed is a sibling of the grid, so
+            // it has to be taken away by hand when somebody arrives — replacing
+            // the grid's children leaves it sitting under a room full of people.
+            var alone = stage.querySelector('.alone');
+            if (alone) alone.remove();
+            this._fit(wrap, stage, users.length);
             wrap.replaceChildren.apply(wrap, users.map(function (u) { return self._tile('stage', u); }));
+        }
+
+        /**
+         * How big a face can be.
+         *
+         * Ceil(sqrt(n)) columns is the obvious answer and the wrong one on a
+         * wide stage: two people in a 1040x730 box came out as two small
+         * squares with four hundred pixels of nothing under them. Every column
+         * count is tried, the one that makes the largest tile wins, and the
+         * size is handed to CSS in pixels — the constraint is the stage's
+         * height as often as its width, and no flex-basis can say that.
+         */
+        _fit(wrap, stage, n) {
+            var GAP = 12, RATIO = 16 / 10;
+            var W = stage.clientWidth - GAP * 2;
+            var H = stage.clientHeight - GAP * 2;
+            if (!(W > 0 && H > 0) || n < 1) return;
+
+            // A wide stage never stacks more rows than columns, and a tall one
+            // never does the reverse. Purely by area, two people on a wide
+            // stage come out one above the other — mathematically the larger
+            // tile, and not what anybody means by a video call.
+            var wide = W >= H;
+            var best = { w: 0, cols: 1, rows: 1 };
+            for (var cols = 1; cols <= n; cols++) {
+                var rows = Math.ceil(n / cols);
+                if (wide ? rows > cols : cols > rows) continue;
+                var w = (W - (cols - 1) * GAP) / cols;
+                var h = w / RATIO;
+                var maxH = (H - (rows - 1) * GAP) / rows;
+                if (h > maxH) { h = maxH; w = h * RATIO; }
+                if (w > best.w) best = { w: w, cols: cols, rows: rows };
+            }
+            if (!best.w) best = { w: (W - GAP) / 2, cols: Math.ceil(Math.sqrt(n)), rows: 1 };
+            wrap.style.setProperty('--cols', String(best.cols));
+            wrap.style.setProperty('--tileW', Math.floor(best.w) + 'px');
+        }
+
+        /** One person, made big because somebody clicked them. */
+        _renderPinned(stage, name) {
+            var users = this.getUserList() || [], self = this;
+            var user = users.filter(function (u) { return u.name === name; })[0];
+            if (!user) { this.pinned = null; this._renderGrid(stage); return; }
+            stage.setAttribute('aria-label', name + ' pinned');
+            var wrap = stage.querySelector('.grid');
+            if (!wrap) { wrap = UI.el('div', { class: 'grid' }); stage.replaceChildren(wrap); }
+            var gone = stage.querySelector('.alone');
+            if (gone) gone.remove();
+            this._fit(wrap, stage, 1);
+            wrap.style.setProperty('--cols', '1');
+            wrap.replaceChildren(self._tile('stage', user));
         }
 
         _stageMeta(stage, stream) {
@@ -950,19 +1266,38 @@
                 host: UI.el('span', { class: 'tile__host', title: 'Host' }, 'HOST'),
                 badge: UI.el('span', { class: 'tile__badge' }, 'Sharing'),
                 label: UI.el('span', { class: 'tile__name' }, user.name),
-                muted: UI.el('span', { class: 'tile__muted', title: 'Muted' }, UI.iconNode('mic-off', 'icon--sm'))
+                muted: UI.el('span', { class: 'tile__muted', title: 'Muted' }, UI.iconNode('mic-off', 'icon--sm')),
+                hand: UI.el('span', { class: 'tile__hand', title: 'Hand up' }, UI.iconNode('hand', 'icon--sm')),
+                warn: UI.el('span', { class: 'tile__warn', title: 'Their video could not get through' },
+                    UI.iconNode('alert-triangle', 'icon--sm')),
+                pin: UI.el('span', { class: 'tile__pin', title: 'Pinned' }, UI.iconNode('target', 'icon--sm')),
+                joining: UI.el('span', { class: 'tile__joining' }, 'connecting…')
             };
             t.video.muted = true;
-            t.el = UI.el('div', { class: 'tile' + (big ? ' tile--big' : '') },
-                [t.video, t.avatar, t.host, t.badge, t.label, t.muted]);
+            t.el = UI.el('div', {
+                class: 'tile' + (big ? ' tile--big' : ''),
+                tabindex: '0', role: 'button',
+                title: 'Click to pin ' + user.name + ' to the stage'
+            }, [t.video, t.avatar, t.host, t.badge, t.label, t.muted, t.hand, t.warn, t.pin, t.joining]);
+
+            var self = this, who = user.name;
+            t.el.addEventListener('click', function () { self.pin(who); });
+            t.el.addEventListener('keydown', function (e) {
+                if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); self.pin(who); }
+            });
             return t;
         }
 
         _fillTile(t, user) {
             var name = user.name, me = !!user.isSelf;
+            // Somebody who has not announced yet is connecting, not muted:
+            // guessing "muted" and correcting it six seconds later puts a wrong
+            // icon on a stranger's face for the whole of their arrival.
+            var heard = me || this.state.has(name);
             var st = me
-                ? { mic: this._live(this.cam, 'audio'), camOn: this._live(this.cam, 'video'), sharing: !!this.screen }
-                : (this.state.get(name) || { mic: false, camOn: false, sharing: false });
+                ? { mic: this._live(this.cam, 'audio'), camOn: this._live(this.cam, 'video'),
+                    sharing: !!this.screen, hand: !!this.hand }
+                : (this.state.get(name) || { mic: false, camOn: false, sharing: false, hand: false });
             var stream = me ? this.cam : this._streamFrom(name, 'cam');
             var showing = !!(stream && st.camOn);
 
@@ -972,10 +1307,17 @@
             t.avatar.hidden = showing;
             t.host.hidden = !user.isHost;
             t.badge.hidden = !st.sharing;
-            t.muted.hidden = !!st.mic;
+            t.muted.hidden = !heard || !!st.mic;
+            t.hand.hidden = !st.hand;
+            t.warn.hidden = !this.unreachable[name];
+            t.pin.hidden = this.pinned !== name;
+            t.joining.hidden = heard;
             t.label.textContent = me ? name + ' (you)' : name;
+            t.el.classList.toggle('tile--self', me);
             t.el.classList.toggle('is-speaking', this.isSpeaking(name));
             t.el.classList.toggle('is-presenting', !!st.sharing);
+            t.el.classList.toggle('is-pinned', this.pinned === name);
+            t.el.classList.toggle('is-hand', !!st.hand);
         }
 
         /** Forget the tiles of people who are no longer here. */
@@ -1034,6 +1376,105 @@
             b.hidden = !this.unread;
         }
 
+        /**
+         * The green room.
+         *
+         * You are in the channel and sending nothing, which is the right
+         * default and a strange first second: the room is live behind a card
+         * that shows what it is about to see and hear. Everything here already
+         * existed — the camera, the level meter, the device pickers — it was
+         * only ever reachable after you had already appeared in front of
+         * everybody.
+         */
+        openLobby() {
+            var self = this, stage = document.getElementById('stage');
+            if (!stage) return;
+            this.lobbyOpen = true;
+
+            var video = UI.el('video', { class: 'lobby__video', autoplay: true, playsinline: true, muted: true });
+            video.muted = true;
+            video.hidden = true;
+            var off = UI.el('div', { class: 'lobby__off' }, [
+                UI.iconNode('video-off', 'icon--lg'),
+                UI.el('span', {}, 'Camera off — nobody sees anything yet')
+            ]);
+            var level = UI.el('span', { class: 'level', hidden: true }, UI.el('span', { class: 'level__fill' }));
+
+            var testCam = UI.el('button', { class: 'btn btn--ghost', type: 'button' }, [
+                UI.iconNode('video', 'icon--sm'), UI.el('span', {}, 'Test my camera')
+            ]);
+            var joinOn = UI.el('button', { class: 'btn btn--primary btn--lg', type: 'button' }, [
+                UI.iconNode('video', 'icon--sm'), UI.el('span', {}, 'Join with camera')
+            ]);
+            var joinOff = UI.el('button', { class: 'btn btn--ghost btn--lg', type: 'button' }, 'Join muted');
+
+            var lobby = UI.el('div', { class: 'lobby', id: 'lobby' }, [
+                UI.el('div', { class: 'lobby__card' }, [
+                    UI.el('div', { class: 'lobby__preview' }, [video, off]),
+                    level,
+                    UI.el('h2', {}, 'Ready to join ' + this.channelName + '?'),
+                    UI.el('p', {}, 'Nothing is being sent yet. Check yourself here first — the room only sees you when you say so.'),
+                    UI.el('div', { class: 'lobby__row' }, [testCam]),
+                    UI.el('div', { class: 'lobby__row' }, [joinOn, joinOff])
+                ])
+            ]);
+            stage.replaceChildren(lobby);
+
+            var preview = null;
+            var stop = function () {
+                if (preview) { preview.getTracks().forEach(function (t) { t.stop(); }); preview = null; }
+                if (self._lobbyMeter) { clearInterval(self._lobbyMeter); self._lobbyMeter = null; }
+            };
+
+            testCam.addEventListener('click', async function () {
+                if (preview) { stop(); video.hidden = true; off.hidden = false; level.hidden = true; return; }
+                try {
+                    preview = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
+                } catch (err) { self._mediaRefused(err, true); return; }
+                video.srcObject = preview;
+                video.hidden = false;
+                off.hidden = true;
+                self._loadDevices();
+                level.hidden = false;
+                self._meterOn(preview, level.firstChild);
+            });
+
+            var enter = function (withCamera) {
+                stop();
+                self.lobbyOpen = false;
+                self.ready = true;
+                self._sync();
+                var mic = document.getElementById('micBtn');
+                if (mic) mic.focus();
+                if (withCamera) self.toggleCamera();
+            };
+            joinOn.addEventListener('click', function () { enter(true); });
+            joinOff.addEventListener('click', function () { enter(false); });
+        }
+
+        /** Paint an audio level onto a bar, so a microphone can be checked. */
+        _meterOn(stream, bar) {
+            if (!bar || !stream || !stream.getAudioTracks().length) return;
+            try {
+                this.audio = this.audio || new (window.AudioContext || window.webkitAudioContext)();
+                var node = this.audio.createAnalyser();
+                node.fftSize = 512;
+                this.audio.createMediaStreamSource(stream).connect(node);
+                var data = new Uint8Array(node.frequencyBinCount);
+                clearInterval(this._lobbyMeter);
+                this._lobbyMeter = setInterval(function () {
+                    node.getByteTimeDomainData(data);
+                    var sum = 0;
+                    for (var i = 0; i < data.length; i++) {
+                        var v = (data[i] - 128) / 128;
+                        sum += v * v;
+                    }
+                    var rms = Math.sqrt(sum / data.length);
+                    bar.style.width = Math.min(100, Math.round(rms * 320)) + '%';
+                }, 90);
+            } catch (err) { /* a meter is a nicety, not a requirement */ }
+        }
+
         /** Hand the room to somebody: a link, and a code they can point a phone at. */
         invite() {
             if (!this.connected) { UI.toast('Join the room first', 'info'); return; }
@@ -1059,16 +1500,33 @@
         _syncButtons() {
             var camOn = this._live(this.cam, 'video');
             var micOn = this._live(this.cam, 'audio');
-            set('camBtn', camOn, camOn ? 'Camera on' : 'Camera', camOn ? 'video' : 'video-off');
-            set('micBtn', micOn, micOn ? 'Mute' : 'Unmute', micOn ? 'mic' : 'mic-off');
+            var blocked = this.blocked;
+            set('camBtn', camOn, camOn ? 'Camera on' : 'Camera', camOn ? 'video' : 'video-off',
+                camOn ? 'camera on' : 'camera off', blocked.cam);
+            set('micBtn', micOn, micOn ? 'Mute' : 'Unmute', micOn ? 'mic' : 'mic-off',
+                micOn ? 'microphone live' : 'microphone off', blocked.mic);
             set('shareScreenBtn', !!this.screen, this.screen ? 'Stop sharing' : 'Share screen', 'monitor');
+            var hand = document.getElementById('handBtn');
+            if (hand) {
+                hand.classList.toggle('btn--primary', !!this.hand);
+                hand.setAttribute('aria-pressed', String(!!this.hand));
+            }
+            var view = document.getElementById('viewBtn');
+            if (view) view.setAttribute('aria-pressed', String(this.view === 'grid'));
 
-            function set(id, on, label, icon) {
+            // The label is what a screen reader has to go on, and on a phone
+            // the label is display:none — which takes it out of the tree
+            // altogether. The state travels in its own line instead.
+            function set(id, on, label, icon, spoken, isBlocked) {
                 var b = document.getElementById(id);
                 if (!b) return;
                 b.classList.toggle('btn--primary', !!on);
+                b.classList.toggle('is-blocked', !!isBlocked);
+                b.setAttribute('aria-pressed', String(!!on));
                 var span = b.querySelector('span');
                 if (span) span.textContent = label;
+                var sr = b.querySelector('.sr-only');
+                if (sr && spoken) sr.textContent = isBlocked ? spoken + ', blocked by the browser' : spoken;
                 var use = b.querySelector('use');
                 if (use) use.setAttribute('href', '#i-' + icon);
             }
@@ -1083,18 +1541,25 @@
                 if (m.kind !== 'chat') {
                     return UI.el('div', { class: 'ev ev--' + m.kind }, [
                         UI.iconNode(m.kind === 'leave' ? 'log-out'
-                            : m.kind === 'share' ? 'monitor' : 'users', 'icon--sm'),
+                            : m.kind === 'share' ? 'monitor'
+                            : m.kind === 'hand' ? 'hand' : 'users', 'icon--sm'),
                         UI.el('span', {}, m.text)
                     ]);
                 }
-                return UI.el('div', { class: 'msg' }, [
+                var head = [
+                    UI.el('span', { class: 'msg__name' }, m.from),
+                    UI.el('span', { class: 'msg__time' }, clock(m.at))
+                ];
+                if (m.failed) {
+                    var again = UI.el('button', { class: 'msg__fail', type: 'button' }, 'not delivered · retry');
+                    again.addEventListener('click', function () { self.retry(m.mid); });
+                    head.push(again);
+                }
+                return UI.el('div', { class: 'msg' + (m.failed ? ' is-failed' : '') }, [
                     UI.el('span', { class: 'avatar msg__who', style: 'background:' + self.generateUserColor(m.from) },
                         initials(m.from)),
                     UI.el('div', { class: 'msg__body' }, [
-                        UI.el('span', { class: 'msg__head' }, [
-                            UI.el('span', { class: 'msg__name' }, m.from),
-                            UI.el('span', { class: 'msg__time' }, clock(m.at))
-                        ]),
+                        UI.el('span', { class: 'msg__head' }, head),
                         UI.el('p', { class: 'msg__text' }, m.text)
                     ])
                 ]);
@@ -1132,23 +1597,80 @@
         on('shareBtn', 'click', function () { if (app) app.invite(); });
         on('tabPeople', 'click', function () { if (app) app.setPane('people'); });
         on('tabChat', 'click', function () { if (app) app.setPane('chat'); });
-        on('leaveBtn', 'click', function () {
-            if (app) { try { app.disconnect(); } catch (e) { /* ignore */ } }
-            location.href = '../../playground.html';
+
+        // A tablist is expected to answer the arrow keys, not just clicks.
+        ['tabPeople', 'tabChat'].forEach(function (id) {
+            on(id, 'keydown', function (e) {
+                if (e.key !== 'ArrowLeft' && e.key !== 'ArrowRight') return;
+                e.preventDefault();
+                var to = id === 'tabPeople' ? 'chat' : 'people';
+                if (app) app.setPane(to);
+                var next = document.getElementById(to === 'chat' ? 'tabChat' : 'tabPeople');
+                if (next) next.focus();
+            });
         });
+        window.addEventListener('resize', function () { if (app) app.renderStage(); });
+
+        on('stopShareBtn', 'click', function () { if (app && app.screen) app.toggleScreen(); });
+        on('handBtn', 'click', function () { if (app) app.toggleHand(); });
+        on('helpBtn', 'click', function () { showKeys(true); });
+
+        // Leaving is the one thing in this bar you cannot take back, and on a
+        // phone it is an icon the width of a thumb next to Share screen.
+        on('leaveBtn', 'click', async function () {
+            var go = function () {
+                if (app) { try { app.disconnect(); } catch (e) { /* ignore */ } }
+                location.href = 'index.html';
+            };
+            if (!app || !app.connected) { go(); return; }
+            if (window.UI && UI.confirm) {
+                var yes = await UI.confirm({
+                    title: 'Leave the room?',
+                    body: 'Your camera and microphone stop and the room carries on without you.',
+                    confirmLabel: 'Leave', cancelLabel: 'Stay', danger: true
+                });
+                if (yes) go();
+            } else { go(); }
+        });
+
+        var menu = function () { return document.getElementById('deviceMenu'); };
+        var showMenu = function (open) {
+            var m = menu(), g = document.getElementById('gearBtn');
+            if (!m) return;
+            m.hidden = !open;
+            if (g) g.setAttribute('aria-expanded', String(!!open));
+            if (app) app.previewDevices(open);
+            if (open) { var first = m.querySelector('select:not([disabled])'); if (first) first.focus(); }
+            else if (g) g.focus();
+        };
+        window.__roomsShowMenu = showMenu;
 
         on('gearBtn', 'click', function (e) {
             e.stopPropagation();
-            var m = document.getElementById('deviceMenu');
-            if (m) m.hidden = !m.hidden;
+            showMenu(!!(menu() && menu().hidden));
         });
         on('deviceMenu', 'click', function (e) { e.stopPropagation(); });
         document.addEventListener('click', function () {
-            var m = document.getElementById('deviceMenu');
-            if (m) m.hidden = true;
+            if (menu() && !menu().hidden) showMenu(false);
         });
         on('camPick', 'change', function () { if (app) app.useDevice('cam', this.value); });
         on('micPick', 'change', function () { if (app) app.useDevice('mic', this.value); });
+        on('spkPick', 'change', function () { if (app) app.useSpeaker(this.value); });
+
+        // The shortcuts dialog, and the one key that opens it.
+        var keys = function () { return document.getElementById('keysModal'); };
+        var showKeys = function (open) {
+            var m = keys();
+            if (!m) return;
+            m.hidden = !open;
+            if (open) { var c = m.querySelector('[data-close]'); if (c) c.focus(); }
+        };
+        var km = keys();
+        if (km) {
+            km.querySelectorAll('[data-close]').forEach(function (el) {
+                el.addEventListener('click', function () { showKeys(false); });
+            });
+        }
 
         var form = document.getElementById('chatForm');
         if (form) {
@@ -1160,14 +1682,22 @@
             });
         }
 
-        // The shortcuts a call is expected to have.
+        // The shortcuts a call is expected to have — and, at last, somewhere
+        // they are written down.
         window.addEventListener('keydown', function (e) {
-            if (!app || e.metaKey || e.ctrlKey || e.altKey) return;
+            if (e.key === 'Escape') {
+                if (keys() && !keys().hidden) { showKeys(false); e.preventDefault(); return; }
+                if (menu() && !menu().hidden) { showMenu(false); e.preventDefault(); return; }
+            }
+            if (e.metaKey || e.ctrlKey || e.altKey) return;
             if (/^(INPUT|TEXTAREA|SELECT)$/.test(e.target.tagName)) return;
+            if (e.key === '?') { showKeys(!!(keys() && keys().hidden)); e.preventDefault(); return; }
+            if (!app) return;
             var k = e.key.toLowerCase();
             if (k === 'm') app.toggleMic();
             else if (k === 'v') app.toggleCamera();
             else if (k === 's') app.toggleScreen();
+            else if (k === 'h') app.toggleHand();
             else if (k === 'g') app.setView(app.view === 'grid' ? 'auto' : 'grid');
             else return;
             e.preventDefault();

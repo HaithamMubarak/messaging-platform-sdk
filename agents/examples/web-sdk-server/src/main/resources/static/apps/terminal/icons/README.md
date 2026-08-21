@@ -100,7 +100,7 @@ Open browser DevTools (F12) and:
 
 After generating icons:
 
-1. Open terminal: `http://localhost:8084/apps/terminal/index.html`
+1. Open terminal: `http://localhost:8084/apps/terminal/app.html`
 2. Wait 5-10 seconds (browser checks PWA requirements)
 3. Look for install button in the toolbar OR browser's install prompt
 4. Click to install as a standalone app!

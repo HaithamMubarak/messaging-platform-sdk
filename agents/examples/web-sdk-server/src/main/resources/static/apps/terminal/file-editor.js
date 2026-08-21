@@ -70,13 +70,13 @@ class FileEditor {
                 <div class="file-editor-header">
                     <div class="file-editor-actions">
                         <button class="file-editor-btn secondary small" onclick="fileEditor.saveAllFiles()" title="Save all files">
-                            💾 Save All
+                            <svg class="icon icon--sm" aria-hidden="true"><use href="#i-hard-drive"></use></svg> Save All
                         </button>
                         <button class="file-editor-btn secondary small" onclick="fileEditor.pinToSide()" title="Pin to right side">
-                            📌 Pin
+                            <svg class="icon icon--sm" aria-hidden="true"><use href="#i-target"></use></svg> Pin
                         </button>
                         <button class="file-editor-btn secondary small" onclick="fileEditor.close()" style="margin-left: auto;">
-                            ✕ Close
+                            <svg class="icon icon--sm" aria-hidden="true"><use href="#i-x"></use></svg> Close
                         </button>
                     </div>
                     <div class="file-editor-tabs" id="fileEditorTabs">
@@ -84,12 +84,12 @@ class FileEditor {
                     </div>
                 </div>
                 <div class="file-editor-reload-bar" id="fileEditorReloadBar" style="display: none;">
-                    <span class="reload-message">📝 This file was modified by another user</span>
+                    <span class="reload-message"><svg class="icon icon--sm" aria-hidden="true"><use href="#i-alert-circle"></use></svg> This file was modified by another user</span>
                     <button class="file-editor-btn small primary" onclick="fileEditor.reloadCurrentFile()">
-                        🔄 Reload
+                        <svg class="icon icon--sm" aria-hidden="true"><use href="#i-refresh"></use></svg> Reload
                     </button>
                     <button class="file-editor-btn small secondary" onclick="fileEditor.dismissReload()">
-                        ✕ Dismiss
+                        <svg class="icon icon--sm" aria-hidden="true"><use href="#i-x"></use></svg> Dismiss
                     </button>
                 </div>
                 <div class="file-editor-body">
@@ -124,13 +124,13 @@ class FileEditor {
             <div class="file-editor-header">
                 <div class="file-editor-actions">
                     <button class="file-editor-btn secondary small" onclick="fileEditor.saveAllFiles()" title="Save all">
-                        💾
+                        <svg class="icon icon--sm" aria-hidden="true"><use href="#i-hard-drive"></use></svg>
                     </button>
                     <button class="file-editor-btn secondary small" onclick="fileEditor.unpinToPopup()" title="Unpin to popup">
-                        ⬅️
+                        <svg class="icon icon--sm" aria-hidden="true"><use href="#i-chevron-left"></use></svg>
                     </button>
                     <button class="file-editor-btn secondary small" onclick="fileEditor.close()" style="margin-left: auto;">
-                        ✕
+                        <svg class="icon icon--sm" aria-hidden="true"><use href="#i-x"></use></svg>
                     </button>
                 </div>
                 <div class="file-editor-tabs" id="fileEditorTabsPinned">
@@ -138,12 +138,12 @@ class FileEditor {
                     </div>
                 </div>
                 <div class="file-editor-reload-bar" id="fileEditorReloadBarPinned" style="display: none;">
-                    <span class="reload-message">📝 This file was modified by another user</span>
+                    <span class="reload-message"><svg class="icon icon--sm" aria-hidden="true"><use href="#i-alert-circle"></use></svg> This file was modified by another user</span>
                     <button class="file-editor-btn small primary" onclick="fileEditor.reloadCurrentFile()">
-                        🔄 Reload
+                        <svg class="icon icon--sm" aria-hidden="true"><use href="#i-refresh"></use></svg> Reload
                     </button>
                     <button class="file-editor-btn small secondary" onclick="fileEditor.dismissReload()">
-                        ✕ Dismiss
+                        <svg class="icon icon--sm" aria-hidden="true"><use href="#i-x"></use></svg> Dismiss
                     </button>
                 </div>
                 <div class="file-editor-body">
@@ -496,7 +496,7 @@ class FileEditor {
                      title="${this.escapeHtml(tooltipInfo)}"
                      onclick="fileEditor.switchTab('${tab.id}')">
                     <span class="file-editor-tab-name">${this.escapeHtml(fileName)}${modifiedMarker}</span>
-                    <span class="file-editor-tab-close" onclick="event.stopPropagation(); fileEditor.closeTab('${tab.id}')">✕</span>
+                    <span class="file-editor-tab-close" onclick="event.stopPropagation(); fileEditor.closeTab('${tab.id}')"><svg class="icon icon--sm" aria-hidden="true"><use href="#i-x"></use></svg></span>
                 </div>
             `;
         }).join('');
@@ -777,7 +777,7 @@ class FileEditor {
             tab.modified = false;
             this.renderTabs();
 
-            status.textContent = '💾 Saved';
+            status.textContent = 'Saved';
             status.classList.remove('modified');
             status.classList.add('saved');
 
@@ -787,7 +787,7 @@ class FileEditor {
             }, 2000);
 
             if (!isAutoSave) {
-                this.onToast('success', '💾 Saved', this.getFileName(tab.filePath));
+                this.onToast('success', 'Saved', this.getFileName(tab.filePath));
             }
 
             console.log('[FileEditor] File saved successfully:', tab.filePath);
@@ -866,7 +866,7 @@ class FileEditor {
             await this.saveFile(tab.id);
         }
 
-        this.onToast('success', '💾 Saved All', `${modifiedTabs.length} file(s) saved`);
+        this.onToast('success', 'Saved All', `${modifiedTabs.length} file(s) saved`);
     }
 
     /**
@@ -888,7 +888,7 @@ class FileEditor {
             this.loadTabContent(this.activeTabId);
         }
 
-        this.onToast('info', '📌 Pinned', 'Editor pinned to right side');
+        this.onToast('info', '<svg class="icon icon--sm" aria-hidden="true"><use href="#i-target"></use></svg> Pinned', 'Editor pinned to right side');
     }
 
     /**
@@ -910,7 +910,7 @@ class FileEditor {
             this.loadTabContent(this.activeTabId);
         }
 
-        this.onToast('info', '📝 Unpinned', 'Editor back to popup mode');
+        this.onToast('info', 'Unpinned', 'Editor back to popup mode');
     }
 
     /**
@@ -1097,11 +1097,11 @@ class FileEditor {
 
         if (reloadBar) {
             const message = reloadBar.querySelector('.reload-message');
-            if (message) message.textContent = `📝 This file was modified by ${userName}`;
+            if (message) message.textContent = `This file was modified by ${userName}`;
             reloadBar.style.display = 'flex';
         }
 
-        this.onToast('warning', '⚠️ File Modified', `${this.getFileName(filePath)} was saved by ${userName}`);
+        this.onToast('warning', 'File Modified', `${this.getFileName(filePath)} was saved by ${userName}`);
     }
 
     /**
@@ -1158,9 +1158,9 @@ class FileEditor {
             this.renderTabs();
             this.dismissReload();
 
-            status.textContent = '🔄 Reloaded';
+            status.textContent = '<svg class="icon icon--sm" aria-hidden="true"><use href="#i-refresh"></use></svg> Reloaded';
             setTimeout(() => { status.textContent = 'Ready'; }, 2000);
-            this.onToast('success', '🔄 Reloaded', this.getFileName(tab.filePath));
+            this.onToast('success', '<svg class="icon icon--sm" aria-hidden="true"><use href="#i-refresh"></use></svg> Reloaded', this.getFileName(tab.filePath));
 
         } catch (error) {
             console.error('[FileEditor] Failed to reload file:', error);

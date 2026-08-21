@@ -1,0 +1,568 @@
+/* ==========================================================================
+   Whiteboard — the chrome around the paper.
+   --------------------------------------------------------------------------
+   The board itself stays white, because it is paper and because every stroke
+   ever drawn on it was drawn for a white background. Everything around the
+   paper — rail, bar, panels — is the site's dark chrome on the site's tokens,
+   which is also how Figma, FigJam and Miro arrange a canvas app: dark frame,
+   light artboard.
+
+   Load AFTER design-tokens.css, ui.css and excalidraw-style.css. This file is
+   the last word on the app's chrome; the older layers below it dressed a
+   toolbar that no longer exists.
+   ========================================================================== */
+
+/* --------------------------------------------------------------------------
+   The palette, put back.
+
+   Both older layers on this page declare their own :root with the *same names*
+   the design system uses — `--text`, `--border`, `--text-muted`, `--danger`,
+   `--accent` and friends — at light-theme values, and they are declared after
+   design-tokens.css, so they win everywhere. Renaming them would mean touching
+   several hundred declarations across two files that still dress the light
+   parts of this app (the modals, the connect card) and genuinely want them.
+
+   So the dark chrome re-declares the handful it needs, on itself. Anything
+   inside these containers gets the site's values; everything outside keeps the
+   light ones it was written for.
+   -------------------------------------------------------------------------- */
+.wb-bar,
+.wb-rail,
+.wb-sheet,
+body.wb .unified-footer {
+    --text:          #eef2f8;
+    --text-body:     #c4cede;
+    --text-muted:    #8a97ab;
+    --text-faint:    #64748b;
+    --border:        rgba(148, 163, 184, 0.14);
+    --border-strong: rgba(148, 163, 184, 0.28);
+    --surface-1:     #101827;
+    --surface-2:     #16203a;
+    --surface-3:     #1e2a3d;
+    --danger:        #f87171;
+    --danger-bg:     rgba(248, 113, 113, 0.12);
+    --success:       #34d399;
+    --warning:       #fbbf24;
+    --accent:        #22d3ee;
+    --brand:         #5d60ef;
+    --brand-hover:   #818cf8;
+    --brand-ink:     #a5b4fc;
+    --brand-subtle:  rgba(99, 102, 241, 0.18);
+    color: var(--text-body);
+}
+
+/* The page is one screen. It never scrolls; the board pans instead. */
+html, body.wb { height: 100%; overflow: hidden; margin: 0; }
+
+body.wb {
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--font-sans);
+}
+
+/* --- The paper -----------------------------------------------------------
+ * The board fills the window. It used to sit inside a padded container with a
+ * rounded card and a drop shadow, which made a drawing surface look like a
+ * widget on a page.
+ */
+body.wb .main-container { padding: 0; gap: 0; }
+
+body.wb .canvas-container {
+    background: #fff;
+    border-radius: 0;
+    box-shadow: none;
+    border: 0;
+}
+
+/* Buttons that sit on the paper rather than in the chrome. */
+.wb-empty .wb-btn {
+    color: #334155;
+    border-color: #cbd5e1;
+    background: #fff;
+    padding: 0 var(--sp-4);
+    font-weight: 600;
+}
+.wb-empty .wb-btn:hover { background: #f1f5f9; color: #0f172a; }
+
+/* The board had a debug frame on it — `border: 1px dashed green` on the bare
+   `canvas` selector. The main canvas overrode it with the pale edge that shows
+   where the paper stops, and kept it; the overlay canvases did not, and wore
+   the dashed green one instead. Overlays carry no border at all. */
+#whiteboard-magic, #whiteboard-preview { border: 0 !important; }
+
+/* --- The top bar ---------------------------------------------------------
+ * Room, history, zoom, and the things you do to a whole board. Ordered by how
+ * often a hand reaches for them, left to right, with the destructive ones
+ * fenced off at the end.
+ */
+.wb-bar {
+    position: fixed;
+    top: var(--sp-3);
+    left: 50%;
+    transform: translateX(-50%);
+    z-index: 2000;
+    display: flex;
+    align-items: center;
+    gap: var(--sp-2);
+    max-width: calc(100vw - var(--sp-6));
+    padding: var(--sp-2);
+    background: var(--surface-1);
+    border: 1px solid var(--border-strong);
+    border-radius: var(--r-lg);
+    box-shadow: var(--shadow-3);
+    overflow-x: auto;
+    scrollbar-width: none;
+}
+.wb-bar::-webkit-scrollbar { display: none; }
+
+.wb-bar__brand {
+    display: flex;
+    align-items: center;
+    gap: var(--sp-2);
+    padding-inline: var(--sp-2);
+    font-size: var(--fs-md);
+    font-weight: 700;
+    color: var(--text);
+    white-space: nowrap;
+}
+.wb-bar__brand .icon { color: var(--brand-ink); }
+.wb-bar__brand span { color: inherit; opacity: 1; }
+
+.wb-room {
+    padding: 2px 8px;
+    border-radius: var(--r-sm);
+    background: var(--surface-3);
+    border: 1px solid var(--border);
+    font-family: var(--font-mono);
+    font-size: var(--fs-xs);
+    color: var(--text-muted);
+    max-width: 12rem;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.wb-sep { width: 1px; align-self: stretch; margin-inline: var(--sp-1); background: var(--border); flex: none; }
+
+/* --- Buttons, one grammar for the whole app ------------------------------ */
+.wb-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: var(--sp-2);
+    min-width: 34px;
+    height: 34px;
+    padding: 0 var(--sp-2);
+    font: inherit;
+    font-size: var(--fs-md);
+    color: var(--text-body);
+    background: transparent;
+    border: 1px solid transparent;
+    border-radius: var(--r-md);
+    cursor: pointer;
+    flex: none;
+    transition: background var(--dur-fast) var(--ease), color var(--dur-fast) var(--ease);
+}
+
+.wb-btn .icon { width: 18px; height: 18px; }
+.wb-btn:hover:not(:disabled) { background: var(--surface-2); color: var(--text); }
+.wb-btn:focus-visible { outline: none; box-shadow: var(--focus-ring); }
+.wb-btn:disabled { opacity: 0.35; cursor: not-allowed; }
+
+.wb-btn.active {
+    background: var(--brand-subtle);
+    border-color: var(--brand);
+    color: var(--brand-ink);
+}
+
+.wb-btn--primary { background: var(--brand); color: #fff; }
+.wb-btn--primary:hover:not(:disabled) { background: var(--brand-hover); color: #fff; }
+.wb-btn--danger { color: var(--danger); }
+.wb-btn--danger:hover:not(:disabled) { background: var(--danger-bg); color: var(--danger); }
+
+.wb-btn__word { display: inline; }
+@media (max-width: 900px) { .wb-btn__word { display: none; } }
+
+.wb-zoom {
+    min-width: 3.5rem;
+    text-align: center;
+    font-family: var(--font-mono);
+    font-size: var(--fs-xs);
+    color: var(--text-muted);
+    background: none;
+    border: 0;
+    cursor: pointer;
+}
+.wb-zoom:hover { color: var(--text); }
+
+/* --- The tool rail -------------------------------------------------------
+ * Down the left, because that is where a drawing app keeps its tools and
+ * because the old arrangement put Clear and Disconnect where the pen should
+ * be. Style — colour and weight — sits under the tools, in the same rail.
+ */
+.wb-rail {
+    position: fixed;
+    left: var(--sp-3);
+    top: 50%;
+    transform: translateY(-50%);
+    z-index: 1900;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    padding: var(--sp-2);
+    background: var(--surface-1);
+    border: 1px solid var(--border-strong);
+    border-radius: var(--r-lg);
+    box-shadow: var(--shadow-3);
+    max-height: calc(100vh - var(--sp-16));
+    overflow-y: auto;
+    scrollbar-width: none;
+}
+.wb-rail::-webkit-scrollbar { display: none; }
+
+.wb-rail__sep { height: 1px; margin: var(--sp-2) var(--sp-1); background: var(--border); }
+
+.wb-rail__label {
+    font-size: 0.625rem;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--text-faint);
+    padding: var(--sp-1) var(--sp-2) 2px;
+}
+
+/* --- Colour --------------------------------------------------------------- */
+.wb-colors {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 4px;
+    padding: var(--sp-1);
+}
+
+.wb-color {
+    width: 22px;
+    height: 22px;
+    padding: 0;
+    border: 2px solid transparent;
+    border-radius: var(--r-sm);
+    cursor: pointer;
+    box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.25);
+}
+.wb-color:focus-visible { outline: none; box-shadow: var(--focus-ring); }
+.wb-color.active { border-color: var(--brand-ink); }
+
+.wb-swatch { position: relative; display: inline-grid; place-items: center; }
+.wb-swatch input[type="color"] {
+    position: absolute;
+    inset: 0;
+    opacity: 0;
+    width: 100%;
+    height: 100%;
+    cursor: pointer;
+    border: 0;
+    padding: 0;
+}
+
+/* --- Weight --------------------------------------------------------------- */
+.wb-sizes { display: flex; justify-content: center; gap: 4px; padding: var(--sp-1); }
+
+.wb-size {
+    display: grid;
+    place-items: center;
+    width: 24px; height: 24px;
+    background: transparent;
+    border: 1px solid transparent;
+    border-radius: var(--r-sm);
+    cursor: pointer;
+}
+.wb-size i { display: block; border-radius: var(--r-pill); background: var(--text-body); }
+.wb-size:hover { background: var(--surface-2); }
+.wb-size.active { border-color: var(--brand); background: var(--brand-subtle); }
+.wb-size:focus-visible { outline: none; box-shadow: var(--focus-ring); }
+
+/* --- The empty board -----------------------------------------------------
+ * A blank page and seventeen unlabelled buttons is not a first impression.
+ */
+.wb-empty {
+    position: fixed;
+    left: 50%;
+    top: 50%;
+    transform: translate(-50%, -50%);
+    z-index: 900;
+    display: grid;
+    justify-items: center;
+    gap: var(--sp-3);
+    max-width: 30rem;
+    padding: var(--sp-6) var(--sp-8);
+    text-align: center;
+    pointer-events: none;
+    color: #64748b;
+}
+
+.wb-empty[hidden] { display: none; }
+.wb-empty h2 { font-size: var(--fs-xl); margin: 0; color: #334155; }
+.wb-empty p { font-size: var(--fs-md); margin: 0; text-wrap: pretty; }
+.wb-empty kbd {
+    display: inline-block;
+    padding: 1px 6px;
+    border: 1px solid #cbd5e1;
+    border-radius: var(--r-sm);
+    background: #f1f5f9;
+    font-family: var(--font-mono);
+    font-size: 0.85em;
+    color: #334155;
+}
+.wb-empty button { pointer-events: auto; }
+
+/* --- The shortcut sheet --------------------------------------------------- */
+.wb-sheet {
+    position: fixed;
+    inset: 0;
+    z-index: 4000;
+    display: grid;
+    place-items: center;
+    padding: var(--sp-4);
+    background: var(--overlay);
+}
+.wb-sheet[hidden] { display: none; }
+
+.wb-sheet__card {
+    width: min(560px, 100%);
+    max-height: 84vh;
+    overflow-y: auto;
+    padding: var(--sp-6);
+    background: var(--surface-1);
+    border: 1px solid var(--border-strong);
+    border-radius: var(--r-xl);
+    box-shadow: var(--shadow-3);
+}
+
+.wb-sheet__head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--sp-4);
+    margin-bottom: var(--sp-4);
+}
+.wb-sheet__head h2 { font-size: var(--fs-xl); margin: 0; color: var(--text); }
+
+.wb-keys { display: grid; grid-template-columns: auto 1fr; gap: var(--sp-2) var(--sp-4); margin: 0; }
+.wb-keys dt { margin: 0; white-space: nowrap; }
+.wb-keys dd { margin: 0; font-size: var(--fs-md); color: var(--text-body); }
+.wb-keys h3 {
+    grid-column: 1 / -1;
+    margin: var(--sp-3) 0 0;
+    font-size: var(--fs-xs);
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--text-faint);
+}
+
+.wb-keys kbd, .wb-kbd {
+    display: inline-block;
+    min-width: 1.75rem;
+    padding: 2px 7px;
+    text-align: center;
+    border: 1px solid var(--border-strong);
+    border-radius: var(--r-sm);
+    background: var(--surface-2);
+    font-family: var(--font-mono);
+    font-size: var(--fs-sm);
+    color: var(--text);
+}
+
+/* --- Typing on the board -------------------------------------------------
+ * The box sits where the words will land and is the size they will be, so
+ * what you type is what you get.
+ */
+.wb-typing {
+    position: absolute;
+    z-index: 1500;
+    min-width: 160px;
+    min-height: 1.5em;
+    padding: 4px 6px;
+    margin: 0;
+    background: transparent;
+    border: 1px dashed var(--brand);
+    border-radius: var(--r-sm);
+    outline: none;
+    resize: none;
+    overflow: hidden;
+    font-family: Inter, ui-sans-serif, system-ui, sans-serif;
+    caret-color: currentColor;
+}
+
+.wb-typing--note {
+    border: 0;
+    border-radius: 10px;
+    padding: 18px;
+    box-shadow: 0 4px 12px rgba(15, 23, 42, 0.18);
+}
+
+/* --- Mobile ---------------------------------------------------------------
+ * The rail goes to the bottom, where a thumb is, and scrolls sideways.
+ */
+@media (max-width: 720px) {
+    .wb-rail {
+        left: var(--sp-2);
+        right: var(--sp-2);
+        top: auto;
+        bottom: calc(var(--sp-3) + env(safe-area-inset-bottom, 0px));
+        transform: none;
+        flex-direction: row;
+        align-items: center;
+        max-height: none;
+        overflow-x: auto;
+        overflow-y: hidden;
+    }
+
+    .wb-rail__sep { width: 1px; height: 24px; margin: 0 var(--sp-1); }
+    .wb-rail__label { display: none; }
+    .wb-colors { grid-template-columns: repeat(3, 1fr); flex: none; }
+    .wb-sizes { flex: none; }
+    .wb-btn { min-width: 40px; height: 40px; }
+    .wb-bar { top: var(--sp-2); gap: var(--sp-1); padding: var(--sp-1); }
+    .wb-bar__brand span { display: none; }
+}
+
+
+/* The base class floats a "Host" pill bottom-right; the footer already says
+   who is in the room, and the pill lands on the chat toggle. */
+#gameHostIndicator { display: none !important; }
+
+/* --- Who is here, and what they said -------------------------------------
+ * The drawer at the bottom kept its own near-white palette from before the
+ * app had a dark frame, so the one strip of the screen that is not paper
+ * looked like a second, paler application.
+ */
+body.wb .unified-footer {
+    background: var(--surface-1);
+    border-top: 1px solid var(--border);
+    color: var(--text-body);
+    box-shadow: 0 -8px 24px -12px rgba(2, 6, 23, 0.8);
+}
+
+body.wb .footer-header {
+    background: var(--surface-1);
+    border-bottom: 1px solid var(--border);
+}
+body.wb .footer-header:hover { background: var(--surface-2); }
+body.wb .footer-title,
+body.wb .chat-indicator { color: var(--text-body); display: flex; align-items: center; gap: var(--sp-2); }
+body.wb .footer-title .icon,
+body.wb .chat-indicator .icon { color: var(--text-muted); }
+body.wb .user-count-badge { background: var(--brand); color: #fff; }
+
+body.wb .users-section { border-right: 1px solid var(--border); }
+body.wb .users-section-title { color: var(--text-faint); }
+body.wb .user-item { color: var(--text-body); background: transparent; }
+body.wb .chat-messages { background: var(--bg); border: 1px solid var(--border); color: var(--text-body); }
+body.wb .chat-message { color: var(--text-body); }
+body.wb .chat-message-text { color: var(--text-body); }
+
+body.wb .chat-input {
+    background: var(--surface-2);
+    border: 1px solid var(--border-strong);
+    color: var(--text);
+}
+body.wb .chat-input::placeholder { color: var(--text-faint); }
+body.wb .chat-input:focus { border-color: var(--brand); box-shadow: var(--focus-ring); outline: none; }
+body.wb .chat-send-btn { background: var(--brand); color: #fff; border: 0; }
+body.wb .chat-send-btn:hover { background: var(--brand-hover); }
+
+.chat-unread {
+    min-width: 18px;
+    padding: 0 6px;
+    border-radius: var(--r-pill);
+    background: var(--brand);
+    color: #fff;
+    font-size: var(--fs-xs);
+    font-weight: 700;
+    text-align: center;
+}
+.chat-unread[hidden] { display: none; }
+
+
+/* --- The drawer, laid out like a chat panel -------------------------------
+ * The composer carried `order: -1` — it sat above the conversation, which is
+ * the wrong way round in every messaging app anyone has used. And the drawer
+ * opened to 60vh whether there were four messages or four hundred.
+ */
+body.wb .unified-footer.expanded { max-height: 42vh; }
+
+body.wb .footer-content {
+    gap: var(--sp-5);
+    padding: var(--sp-4) var(--sp-5);
+}
+
+body.wb .users-section {
+    flex: 0 0 220px;
+    padding-right: var(--sp-5);
+}
+
+body.wb .chat-section { gap: var(--sp-3); }
+
+body.wb .chat-input-container {
+    order: 0;                 /* the composer belongs under the conversation */
+    margin-top: 0;
+    padding-bottom: 0;
+}
+
+body.wb .chat-messages {
+    order: -1;
+    flex: 1 1 auto;
+    min-height: 80px;
+    border-radius: var(--r-md);
+}
+
+body.wb .chat-message {
+    display: grid;
+    grid-template-columns: auto 1fr;
+    gap: var(--sp-2);
+    align-items: baseline;
+    padding: 0;
+    border: 0;
+    background: none;
+}
+body.wb .chat-message strong { color: var(--brand-ink); }
+
+body.wb .user-item {
+    background: var(--surface-2);
+    border: 1px solid var(--border);
+}
+body.wb .user-item:hover { background: var(--surface-3); }
+
+/* On a phone the drawer takes the screen and the rail is at the bottom, so
+   the two would sit on top of each other. */
+@media (max-width: 720px) {
+    body.wb .unified-footer.expanded { max-height: 60vh; }
+    body.wb .unified-footer.expanded ~ .wb-rail,
+    body.wb .unified-footer.expanded + .wb-rail { display: none; }
+    body.wb .footer-content { flex-direction: column; }
+    body.wb .users-section {
+        flex: 0 0 auto;
+        border-right: 0;
+        border-bottom: 1px solid var(--border);
+        padding-right: 0;
+        padding-bottom: var(--sp-3);
+    }
+}
+
+
+/* The rail is fixed down the left and the drawer is fixed across the bottom,
+   so an open drawer used to put the member list underneath the tools. The
+   drawer keeps a gutter the width of the rail instead. */
+@media (min-width: 721px) {
+    body.wb .unified-footer { padding-left: 176px; }
+}
+
+/* Messages are lines in a conversation, not cards. */
+body.wb .chat-message,
+body.wb .chat-message + .chat-message {
+    border: 0 !important;
+    background: none !important;
+    box-shadow: none !important;
+    padding: 2px 0 !important;
+}
+body.wb .chat-messages { background: var(--bg); }
