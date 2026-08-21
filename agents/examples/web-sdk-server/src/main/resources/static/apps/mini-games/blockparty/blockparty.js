@@ -2580,6 +2580,10 @@
             if (!groundDefaultVersion) {
                 try { localStorage.setItem('bp_ground_default_version', '2'); } catch (e) { /* private mode */ }
             }
+            // Ready before FPS opens: this is a per-device preference, and only
+            // a host walking into an edge can ever move the shared room.
+            try { this._autoRegionCross = localStorage.getItem('bp_auto_region_cross') !== '0'; }
+            catch (e) { this._autoRegionCross = true; }
             const gs = Number(localStorage.getItem('bp_ground_strength'));
             // Tuned by eye against a real street: at 0.85 the map reads as the
             // subject and the blocks standing on it read as clutter. The floor
@@ -4087,6 +4091,11 @@
             [['geoStepN', 'n'], ['geoStepE', 'e'], ['geoStepS', 's'], ['geoStepW', 'w']].forEach(([id, dir]) => {
                 on(id, 'click', () => this.travelNeighbour(dir));
             });
+            on('geoAutoCross', 'change', () => {
+                const el = document.getElementById('geoAutoCross');
+                this._autoRegionCross = !!(el && el.checked);
+                try { localStorage.setItem('bp_auto_region_cross', this._autoRegionCross ? '1' : '0'); } catch (e) { /* private mode */ }
+            });
 
             on('geoScale', 'change', () => {
                 // Changing the scale is itself a move: the region is a
@@ -4293,6 +4302,14 @@
                 const step = document.getElementById(id);
                 if (step) step.disabled = !canStep;
             });
+            const autoCross = document.getElementById('geoAutoCross');
+            if (autoCross) {
+                if (this._autoRegionCross == null) {
+                    try { this._autoRegionCross = localStorage.getItem('bp_auto_region_cross') !== '0'; } catch (e) { this._autoRegionCross = true; }
+                }
+                autoCross.checked = !!this._autoRegionCross;
+                autoCross.disabled = !canStep;
+            }
 
             const list = document.getElementById('geoList');
             if (list) {

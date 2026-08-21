@@ -462,6 +462,24 @@
             const borderText = document.getElementById('fpsBorderText');
             const borderGo = document.getElementById('fpsBorderTravel');
             const lim = this.game.voxels.half - 0.5;
+            // The central build region has changed only after an intentional
+            // host walk into its edge. Map ground is already present around it,
+            // so the new region arrives as the continuation of the same road.
+            // A short cooldown prevents one held key from stepping two regions.
+            const wants = this.game._autoRegionCross && this.game.isHost()
+                && !(this.game.modes && this.game.modes.isMatchActive());
+            const now = performance.now();
+            let crossing = null;
+            if (wants && now >= (this._crossAt || 0)) {
+                if (this.pos.z <= -lim && this.vel.z < -0.1) crossing = 'n';
+                else if (this.pos.x >= lim && this.vel.x > 0.1) crossing = 'e';
+                else if (this.pos.z >= lim && this.vel.z > 0.1) crossing = 's';
+                else if (this.pos.x <= -lim && this.vel.x < -0.1) crossing = 'w';
+                if (crossing && this.game.geo && this.game.geo.region) {
+                    this._crossAt = now + 1400;
+                    this.game.travelNeighbour(crossing, true);
+                }
+            }
             const near = 6;
             let edge = null;
             if (this.pos.z <= -lim + near) edge = 'n';
