@@ -1,0 +1,190 @@
+/* Pulse — the poll, the question list, and the version history. */
+
+.poll { display: flex; flex-direction: column; gap: var(--sp-4); flex: none; }
+
+.poll__head { display: flex; align-items: center; gap: var(--sp-3); }
+.poll__meta { font-size: var(--fs-xs); color: var(--text-muted); }
+.poll__meta--right { margin-left: auto; font-family: var(--font-mono); color: var(--text-faint); }
+.poll__q { font-size: var(--fs-xl); text-wrap: pretty; }
+.poll__options { display: flex; flex-direction: column; gap: var(--sp-3); }
+
+/* A poll option is a button: the bar is the target, not a radio beside it. */
+.poll-option {
+    display: flex;
+    flex-direction: column;
+    gap: var(--sp-2);
+    width: 100%;
+    padding: var(--sp-3);
+    font: inherit;
+    text-align: left;
+    color: var(--text-body);
+    background: var(--surface-2);
+    border: 1px solid var(--border);
+    border-radius: var(--r-md);
+    cursor: pointer;
+    transition: border-color var(--dur-fast) var(--ease), background var(--dur-fast) var(--ease);
+}
+
+.poll-option:hover { background: var(--surface-3); }
+.poll-option:focus-visible { outline: none; box-shadow: var(--focus-ring); }
+.poll-option.is-mine { border-color: var(--brand); background: var(--brand-subtle); }
+
+.poll-option__row { display: flex; align-items: baseline; justify-content: space-between; gap: var(--sp-3); }
+.poll-option__label { font-size: var(--fs-md); font-weight: 600; color: var(--text); }
+.poll-option__n { font-family: var(--font-mono); font-size: var(--fs-sm); color: var(--text-muted); }
+.poll-option.is-mine .poll-option__n { color: var(--brand-ink); }
+
+.poll-option__track {
+    display: block;
+    height: 10px;
+    border-radius: var(--r-pill);
+    background: var(--surface-3);
+    overflow: hidden;
+}
+
+.poll-option__fill {
+    display: block;
+    height: 100%;
+    border-radius: var(--r-pill);
+    background: var(--brand);
+    transition: width var(--dur) var(--ease);
+}
+
+.poll-option.is-mine .poll-option__fill { background: var(--gradient-brand); }
+
+/* ---- asking -------------------------------------------------------------- */
+.ask { display: flex; gap: var(--sp-2); flex: none; }
+
+.ask__input {
+    flex-grow: 1;
+    min-width: 0;
+    padding: 0.625rem 0.875rem;
+    font: inherit;
+    font-size: var(--fs-md);
+    color: var(--text);
+    background: var(--surface-1);
+    border: 1px solid var(--border-strong);
+    border-radius: var(--r-md);
+    outline: none;
+}
+
+.ask__input:focus { border-color: var(--brand); box-shadow: var(--focus-ring); }
+.ask__input::placeholder { color: var(--text-faint); }
+
+/* ---- questions ----------------------------------------------------------- */
+.questions { display: flex; flex-direction: column; gap: var(--sp-2); }
+
+.q {
+    display: flex;
+    align-items: flex-start;
+    gap: var(--sp-3);
+    padding: var(--sp-3) var(--sp-4);
+    background: var(--surface-1);
+    border: 1px solid var(--border);
+    border-radius: var(--r-lg);
+}
+
+.q.is-answered { opacity: 0.72; }
+
+.q__vote {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 2px;
+    flex: none;
+    padding: 4px 10px;
+    font: inherit;
+    color: var(--text-body);
+    background: var(--surface-2);
+    border: 1px solid var(--border-strong);
+    border-radius: var(--r-md);
+    cursor: pointer;
+}
+
+.q__vote:hover { background: var(--surface-3); }
+.q__vote:focus-visible { outline: none; box-shadow: var(--focus-ring); }
+.q__vote.is-mine { background: var(--brand-subtle); border-color: rgba(99,102,241,.35); color: var(--brand-ink); }
+.q__n { font-family: var(--font-mono); font-size: var(--fs-sm); font-weight: 700; }
+
+.q__body { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.q__text { font-size: 0.9375rem; color: var(--text); text-wrap: pretty; }
+.q__meta { font-size: var(--fs-xs); color: var(--text-muted); }
+.q .badge, .q .btn { margin-left: auto; flex: none; align-self: center; }
+
+/* ---- version history ----------------------------------------------------- */
+.versions { display: flex; flex-direction: column; gap: 0; padding: var(--sp-4); }
+
+.ver {
+    display: flex;
+    align-items: center;
+    gap: var(--sp-3);
+    padding: var(--sp-2) 0;
+    font-size: var(--fs-xs);
+    color: var(--text-muted);
+    border-left: 1px solid var(--border-strong);
+    margin-left: 4px;
+    padding-left: var(--sp-4);
+    position: relative;
+}
+
+.ver:first-child { border-left-color: transparent; }
+.ver:last-child { border-left-color: transparent; }
+
+.ver__dot {
+    position: absolute;
+    left: -5px;
+    width: 9px; height: 9px;
+    border-radius: var(--r-pill);
+    background: var(--text-faint);
+}
+
+.ver.is-now .ver__dot { background: var(--brand); box-shadow: 0 0 0 3px rgba(99,102,241,0.2); }
+.ver__v { font-family: var(--font-mono); font-weight: 600; color: var(--text-body); }
+.ver.is-now .ver__v { color: var(--text); }
+.ver__tally { margin-left: auto; font-family: var(--font-mono); }
+.ver.is-now .ver__tally { color: var(--brand-ink); }
+
+.sdk-note code { font-family: var(--font-mono); color: var(--brand-ink); }
+
+/* An option you cannot vote for any more still shows its result. */
+.poll-option.is-shut { cursor: default; opacity: 0.9; }
+.poll-option.is-shut:hover { background: var(--surface-2); }
+.poll__head .btn { margin-left: var(--sp-2); }
+
+.btn--sm { min-height: 30px; padding: 0.3125rem 0.625rem; font-size: var(--fs-sm); }
+
+/* A version row is a button: click it to see the poll as it stood then. */
+.ver {
+    width: 100%;
+    font: inherit;
+    text-align: left;
+    background: none;
+    cursor: pointer;
+}
+
+.ver:hover .ver__v { color: var(--brand-ink); }
+.ver:focus-visible { outline: none; box-shadow: var(--focus-ring); border-radius: var(--r-sm); }
+.ver.is-viewing .ver__dot { background: var(--accent); box-shadow: 0 0 0 3px rgba(34,211,238,0.22); }
+.ver.is-viewing .ver__v, .ver.is-viewing .ver__tally { color: var(--accent-ink); }
+
+/* ---- the scrub bar ------------------------------------------------------- */
+.scrub {
+    display: flex;
+    align-items: center;
+    gap: var(--sp-2);
+    margin-top: var(--sp-3);
+    padding-top: var(--sp-3);
+    border-top: 1px solid var(--border);
+}
+
+.scrub__end { font-family: var(--font-mono); font-size: var(--fs-xs); color: var(--text-faint); flex: none; }
+.scrub__end--now { color: var(--brand-ink); }
+
+.scrub__range {
+    flex-grow: 1;
+    min-width: 0;
+    accent-color: var(--brand);
+    cursor: grab;
+}
+
+.scrub__range:active { cursor: grabbing; }

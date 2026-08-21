@@ -117,12 +117,15 @@ class PixelArtApp extends UserConnectionBase {
         // Grid size
         document.getElementById('gridSizeSelect').addEventListener('change', (e) => {
             const newSize = parseInt(e.target.value);
-            if (confirm(`Change grid to ${newSize}x${newSize}? This will clear the canvas.`)) {
+            MiniGameUtils.ask({
+                title: 'Change the grid?',
+                body: `A ${newSize}×${newSize} grid clears everything drawn on this one.`,
+                confirmLabel: 'Change it', danger: true
+            }).then((yes) => {
+                if (!yes) { e.target.value = this.gridSize; return; }
                 this.gridSize = newSize;
                 this.initializeGrid();
-            } else {
-                e.target.value = this.gridSize;
-            }
+            });
         });
 
         // Keyboard shortcuts
@@ -165,6 +168,11 @@ class PixelArtApp extends UserConnectionBase {
     }
 
     onConnect(detail) {
+        // Dismiss the connection dialog — without this it stays over the app
+        // even though the session is live.
+        if (window.ConnectionModal && typeof window.ConnectionModal.hide === 'function') {
+            window.ConnectionModal.hide();
+        }
         console.log('[PixelArt] Connected:', detail);
 
         // Show app container
@@ -268,8 +276,8 @@ class PixelArtApp extends UserConnectionBase {
         this.users.forEach((user, username) => {
             html += `
                 <div class="user-item">
-                    <div class="user-color-indicator" style="background: ${user.color}"></div>
-                    <span>${username}</span>
+                    <div class="user-color-indicator" style="background: ${MiniGameUtils.safeColor(user.color)}"></div>
+                    <span>${MiniGameUtils.escapeHtml(username)}</span>
                 </div>
             `;
         });
@@ -440,13 +448,17 @@ class PixelArtApp extends UserConnectionBase {
     }
 
     clearCanvas(isRemote = false) {
-        if (!isRemote && !confirm('Clear the entire canvas?')) return;
+        if (isRemote) { this.initializeGrid(); return; }
 
-        this.initializeGrid();
-
-        if (!isRemote) {
+        MiniGameUtils.ask({
+            title: 'Clear the canvas?',
+            body: 'Everything drawn here goes, for everyone in the room.',
+            confirmLabel: 'Clear it', danger: true
+        }).then((yes) => {
+            if (!yes) return;
+            this.initializeGrid();
             this.sendData({ type: 'clear' });
-        }
+        });
     }
 
     // ============================================
@@ -556,8 +568,8 @@ class PixelArtApp extends UserConnectionBase {
         const color = user ? user.color : '#999';
 
         cursor.innerHTML = `
-            <div class="remote-cursor-dot" style="background: ${color}"></div>
-            <div class="remote-cursor-label" style="background: ${color}">${username}</div>
+            <div class="remote-cursor-dot" style="background: ${MiniGameUtils.safeColor(color)}"></div>
+            <div class="remote-cursor-label" style="background: ${MiniGameUtils.safeColor(color)}">${MiniGameUtils.escapeHtml(username)}</div>
         `;
 
         document.body.appendChild(cursor);
@@ -565,10 +577,9 @@ class PixelArtApp extends UserConnectionBase {
     }
 
     startCursorLoop() {
-        // Remove cursors that haven't moved in 2 seconds
-        setInterval(() => {
-            // Cursor cleanup handled automatically by user leave
-        }, 2000);
+        // Nothing to do: remote cursors are removed when their owner leaves.
+        // This used to run an empty callback every 2s for the life of the page,
+        // with the handle discarded so it could never be cleared.
     }
 
     // ============================================
@@ -658,7 +669,7 @@ async function connectPixelArt(username, channel, password) {
         console.log('[PixelArt] Connected and ready!');
     } catch (error) {
         console.error('[PixelArt] Connection failed:', error);
-        alert('Failed to connect: ' + error.message);
+        if (window.ConnectionModal) ConnectionModal.fail(error);
         pixelArtApp = null;
     } finally {
         isConnecting = false;
@@ -669,8 +680,8 @@ function initializeConnectionModal() {
     window.loadConnectionModal({
         localStoragePrefix: 'pixelart_',
         channelPrefix: 'pixel-',
-        title: '🎨 Join Pixel Art Editor',
-        collapsedTitle: '🎨 Pixel Art',
+        title: 'Join Pixel Art Editor',
+        collapsedTitle: 'Pixel Art',
         onConnect: function(username, channel, password) {
             connectPixelArt(username, channel, password);
         }

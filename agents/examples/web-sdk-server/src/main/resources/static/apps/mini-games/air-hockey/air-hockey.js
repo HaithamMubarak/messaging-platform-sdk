@@ -2818,7 +2818,7 @@ async function connectAirHockey(username, channel, password) {
         console.log('[AirHockey] Connected and ready!');
     } catch (error) {
         console.error('[AirHockey] Connection failed:', error);
-        alert('Failed to connect: ' + error.message);
+        if (window.ConnectionModal) ConnectionModal.fail(error);
         airHockeyGame = null;
     } finally {
         isConnecting = false;
@@ -2830,8 +2830,8 @@ function initializeConnectionModal() {
     window.loadConnectionModal({
         localStoragePrefix: 'airhockey_',
         channelPrefix: 'hockey-',
-        title: '🏒 Join Air Hockey',
-        collapsedTitle: '🏒 Air Hockey',
+        title: 'Join Air Hockey',
+        collapsedTitle: 'Air Hockey',
         onConnect: function(username, channel, password) {
             connectAirHockey(username, channel, password);
         }

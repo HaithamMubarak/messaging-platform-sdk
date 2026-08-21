@@ -2,17 +2,33 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
+    <script src="../js/prod-log.js"></script>
+    <link rel="icon" type="image/svg+xml" href="../favicon.svg">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Channel Storage Demo - Web Agent</title>
+    <title>Channel storage — the storage API, plainly, on the Messaging Platform SDK</title>
+    <meta name="description" content="Put a value in a channel, read it back, list the keys and watch the versions accumulate — the storage API with nothing built on top of it.">
+    <meta name="theme-color" content="#0b1120">
+    <link rel="canonical" href="https://hmdevonline.com/messaging-platform/sdk/apps/storage-demo.html">
+    <meta property="og:type" content="website">
+    <meta property="og:site_name" content="Messaging Platform SDK">
+    <meta property="og:title" content="Channel storage">
+    <meta property="og:description" content="Put a value in a channel, read it back, list the keys and watch the versions accumulate — the storage API with nothing built on top of it.">
+    <meta property="og:url" content="https://hmdevonline.com/messaging-platform/sdk/apps/storage-demo.html">
+    <meta property="og:image" content="https://hmdevonline.com/messaging-platform/sdk/images/og-image.png">
+    <meta name="twitter:card" content="summary_large_image">
+    <meta name="twitter:title" content="Channel storage">
+    <meta name="twitter:description" content="Put a value in a channel, read it back, list the keys and watch the versions accumulate — the storage API with nothing built on top of it.">
+    <meta name="twitter:image" content="https://hmdevonline.com/messaging-platform/sdk/images/og-image.png">
 
     <!-- Modal CSS -->
+    <!-- The shared design system: tokens first, then the kit, then this demo. -->
+    <link rel="stylesheet" href="../css/design-tokens.css">
+    <link rel="stylesheet" href="../css/ui.css">
     <link rel="stylesheet" href="../css/toast.css">
     <link rel="stylesheet" href="../css/connection-modal.css">
     <link rel="stylesheet" href="../css/share-modal.css">
     <!-- Professional design layer (additive, namespaced .pro-*) -->
     <link rel="stylesheet" href="../css/demos-pro.css">
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap">
 
     <style>
         /* Layout + demo-specific bits only — components come from demos-pro.css */
@@ -84,12 +100,13 @@
             font-family: 'JetBrains Mono', monospace; color: var(--pro-accent-ink); font-size: 0.85em;
         }
     </style>
+    <link rel="stylesheet" href="../css/app-chrome.css">
 </head>
 <body class="pro-scope pro-bg">
     <div class="container">
         <div class="app-head">
             <div>
-                <h1 class="pro-title">💾 Channel Storage</h1>
+                <h1 class="pro-title"><svg class="icon" aria-hidden="true"><use href="#i-database"></use></svg> Channel Storage</h1>
                 <p class="pro-subtitle">Persistent key-value storage for channels — PUT · GET · LIST · DELETE</p>
             </div>
             <div class="pro-conn" id="connPill">
@@ -102,7 +119,7 @@
         <div class="grid">
             <!-- PUT (Replace) -->
             <div class="pro-card pro-card--hover">
-                <div class="pro-card__title">📝 PUT — Store / Replace</div>
+                <div class="pro-card__title"><svg class="icon icon--sm" aria-hidden="true"><use href="#i-pen"></use></svg> PUT — Store / Replace</div>
                 <p class="pro-card__hint">Replace all versions with new content. <kbd>Ctrl</kbd>+<kbd>Enter</kbd> to save.</p>
 
                 <div class="form-group">
@@ -113,7 +130,7 @@
                 <div class="form-group">
                     <label class="pro-label" style="display:flex;justify-content:space-between;align-items:center;">
                         <span>Value (JSON)</span>
-                        <button type="button" class="pro-copy" id="prettyBtn" title="Format JSON">✨ Format</button>
+                        <button type="button" class="pro-copy" id="prettyBtn" title="Format JSON"><svg class="icon icon--sm" aria-hidden="true"><use href="#i-zap"></use></svg> Format</button>
                     </label>
                     <textarea class="pro-field" id="putValue" placeholder='{"name": "value"}'>{"message": "Hello Storage!", "timestamp": 0}</textarea>
                     <div class="pro-field-msg" id="jsonMsg"></div>
@@ -124,17 +141,17 @@
                     <input type="text" class="pro-field" id="putDescription" placeholder="e.g., User settings">
                 </div>
 
-                <button onclick="storagePut()" id="putBtn" class="pro-btn pro-btn--primary pro-btn--block">💾 PUT (Replace)</button>
+                <button onclick="storagePut()" id="putBtn" class="pro-btn pro-btn--primary pro-btn--block"><svg class="icon icon--sm" aria-hidden="true"><use href="#i-database"></use></svg> PUT (Replace)</button>
 
                 <div class="example-buttons">
-                    <button onclick="exampleGameState()" class="pro-btn pro-btn--sm">🎮 Game State</button>
-                    <button onclick="exampleSettings()" class="pro-btn pro-btn--sm">⚙️ Settings</button>
+                    <button onclick="exampleGameState()" class="pro-btn pro-btn--sm"><svg class="icon icon--sm" aria-hidden="true"><use href="#i-gamepad"></use></svg> Game State</button>
+                    <button onclick="exampleSettings()" class="pro-btn pro-btn--sm"><svg class="icon icon--sm" aria-hidden="true"><use href="#i-settings"></use></svg> Settings</button>
                 </div>
             </div>
 
             <!-- GET -->
             <div class="pro-card pro-card--hover">
-                <div class="pro-card__title">📖 GET — Retrieve</div>
+                <div class="pro-card__title"><svg class="icon icon--sm" aria-hidden="true"><use href="#i-book"></use></svg> GET — Retrieve</div>
                 <p class="pro-card__hint">Get the latest version by key.</p>
 
                 <div class="form-group">
@@ -142,14 +159,14 @@
                     <input type="text" class="pro-field" id="getKey" placeholder="e.g., game-settings" value="demo-data">
                 </div>
 
-                <button onclick="storageGet()" id="getBtn" class="pro-btn pro-btn--primary pro-btn--block">📖 GET</button>
+                <button onclick="storageGet()" id="getBtn" class="pro-btn pro-btn--primary pro-btn--block"><svg class="icon icon--sm" aria-hidden="true"><use href="#i-book"></use></svg> GET</button>
 
                 <div class="form-group" style="margin-top: 16px;">
                     <label class="pro-label" style="display:flex;justify-content:space-between;align-items:center;">
                         <span>Retrieved Data</span>
-                        <button type="button" class="pro-copy" id="copyGetBtn" title="Copy value">⧉ Copy</button>
+                        <button type="button" class="pro-copy" id="copyGetBtn" title="Copy value"><svg class="icon icon--sm" aria-hidden="true"><use href="#i-copy"></use></svg> Copy</button>
                     </label>
-                    <textarea class="pro-field" id="getOutput" readonly style="min-height: 120px;">No data retrieved yet</textarea>
+                    <textarea class="pro-field" id="getOutput" readonly aria-label="Retrieved value" style="min-height: 120px;">No data retrieved yet</textarea>
                 </div>
             </div>
         </div>
@@ -157,30 +174,30 @@
         <!-- List Operations -->
         <div class="pro-card">
             <div class="pro-card__title">
-                📋 List Operations
+                <svg class="icon icon--sm" aria-hidden="true"><use href="#i-list"></use></svg> List Operations
                 <span class="pro-badge" id="keyCountBadge" style="display:none;"></span>
             </div>
             <div class="grid" style="margin-bottom:0;">
                 <div class="row-actions" style="align-content:start;">
-                    <button onclick="listKeys()" class="pro-btn pro-btn--primary">🔑 List All Keys</button>
-                    <button onclick="listValues()" class="pro-btn">📊 List All Values</button>
+                    <button onclick="listKeys()" class="pro-btn pro-btn--primary"><svg class="icon icon--sm" aria-hidden="true"><use href="#i-key"></use></svg> List All Keys</button>
+                    <button onclick="listValues()" class="pro-btn"><svg class="icon icon--sm" aria-hidden="true"><use href="#i-bar-chart"></use></svg> List All Values</button>
                 </div>
                 <div id="listOutput" class="output" style="min-height: 150px;">
-                    <div class="pro-empty"><span class="pro-empty__icon">📭</span><span class="pro-empty__text">Nothing listed yet — click a button</span></div>
+                    <div class="pro-empty"><span class="pro-empty__icon"><svg class="icon icon--lg" aria-hidden="true"><use href="#i-inbox"></use></svg></span><span class="pro-empty__text">Nothing listed yet — click a button</span></div>
                 </div>
             </div>
         </div>
 
         <!-- Delete -->
         <div class="pro-card">
-            <div class="pro-card__title">🗑️ Delete</div>
+            <div class="pro-card__title"><svg class="icon icon--sm" aria-hidden="true"><use href="#i-trash"></use></svg> Delete</div>
             <div class="grid" style="margin-bottom:0;">
                 <div>
                     <div class="form-group">
                         <label class="pro-label">Key to Delete</label>
                         <input type="text" class="pro-field" id="deleteKey" placeholder="e.g., old-data">
                     </div>
-                    <button onclick="storageDelete()" class="pro-btn pro-btn--danger pro-btn--block">🗑️ Delete All Versions</button>
+                    <button onclick="storageDelete()" class="pro-btn pro-btn--danger pro-btn--block"><svg class="icon icon--sm" aria-hidden="true"><use href="#i-trash"></use></svg> Delete All Versions</button>
                 </div>
             </div>
         </div>
@@ -188,8 +205,8 @@
         <!-- Activity Log -->
         <div class="pro-card">
             <div class="pro-card__title" style="justify-content:space-between;">
-                <span>📜 Activity Log</span>
-                <button id="clearLogBtn" onclick="clearLog()" class="pro-btn pro-btn--ghost pro-btn--sm">🧹 Clear</button>
+                <span><svg class="icon icon--sm" aria-hidden="true"><use href="#i-list"></use></svg> Activity Log</span>
+                <button id="clearLogBtn" onclick="clearLog()" class="pro-btn pro-btn--ghost pro-btn--sm"><svg class="icon icon--sm" aria-hidden="true"><use href="#i-eraser"></use></svg> Clear</button>
             </div>
             <div id="log" class="output">
                 <div class="log-entry">
@@ -202,9 +219,11 @@
 
     <!-- Web Agent Scripts -->
     <script src="../js/config-loader.js"></script>
+    <script src="../js/icons.js"></script>
     <script src="../generated-web-agent-js/js/web-agent.libs.js"></script>
     <script src="../generated-web-agent-js/js/web-agent.js"></script>
     <script src="../generated-web-agent-js/js/web-agent.webrtc.js"></script>
+    <script src="../js/dialog.js"></script>
     <script src="../js/common-utils.js"></script>
     <script src="../js/connection-modal.js"></script>
     <script src="../js/demo-kit.js"></script>
@@ -263,12 +282,12 @@
                 JSON.parse(txt);
                 el.classList.remove('pro-field--invalid');
                 msg.className = 'pro-field-msg pro-field-msg--ok';
-                msg.textContent = '✓ Valid JSON';
+                msg.textContent = 'Valid JSON';
                 return true;
             } catch (e) {
                 el.classList.add('pro-field--invalid');
                 msg.className = 'pro-field-msg pro-field-msg--err';
-                msg.textContent = '⛔ ' + e.message;
+                msg.textContent = e.message;
                 return false;
             }
         }
@@ -289,8 +308,8 @@
             window.loadConnectionModal({
                 localStoragePrefix: 'storage_',
                 channelPrefix: 'storage-',
-                title: '📦 Connect to Storage Demo',
-                collapsedTitle: '📦 Storage',
+                title: 'Connect to Storage Demo',
+                collapsedTitle: 'Storage',
                 onConnect: function(username, channel, password) {
                     console.log('[Storage] onConnect called:', { username, channel });
                     connectToChannel(username, channel, password);
@@ -314,7 +333,7 @@
 
         async function connectToChannel(username, channel, password) {
             try {
-                log('🔄 Connecting to channel...', 'info');
+                log('Connecting to channel...', 'info');
                 setConnPill('busy', 'Connecting…');
 
                 // Get API configuration
@@ -331,7 +350,7 @@
 
                     if (resp.status === 'success') {
                         connected = true;
-                        log(`✅ Connected as ${username} to channel: ${channel}`, 'success');
+                        log(`Connected as ${username} to channel: ${channel}`, 'success');
                         setConnPill('live', `${username} · ${channel}`);
                         DemoKit.toast(`Connected to ${channel}`, 'ok');
                         enableButtons();
@@ -354,21 +373,21 @@
                             }
                         }, 100);
                     } else {
-                        log(`❌ Connection failed: ${resp.statusMessage || 'Unknown error'}`, 'error');
+                        log(`Connection failed: ${resp.statusMessage || 'Unknown error'}`, 'error');
                         connected = false;
                         disableButtons();
                     }
                 });
 
                 agent.addEventListener('error', function(ev) {
-                    log(`❌ Connection error: ${ev.error || 'Unknown error'}`, 'error');
+                    log(`Connection error: ${ev.error || 'Unknown error'}`, 'error');
                     setConnPill('off', 'Connection error');
                     connected = false;
                     disableButtons();
                 });
 
                 agent.addEventListener('disconnect', function() {
-                    log('⚠️ Disconnected from channel', 'error');
+                    log('Disconnected from channel', 'error');
                     setConnPill('off', 'Disconnected');
                     connected = false;
                     disableButtons();
@@ -390,7 +409,7 @@
                 });
 
             } catch (error) {
-                log(`❌ Connection failed: ${error.message}`, 'error');
+                log(`Connection failed: ${error.message}`, 'error');
                 connected = false;
                 disableButtons();
             }
@@ -432,7 +451,7 @@
         // Storage PUT
         function storagePut() {
             if (!agent || !connected) {
-                alert('Not connected to channel');
+                log('Not connected to a channel yet', 'error');
                 return;
             }
 
@@ -441,7 +460,7 @@
             const description = document.getElementById('putDescription').value.trim();
 
             if (!key) {
-                alert('Key is required');
+                log('A key is required', 'error');
                 return;
             }
 
@@ -462,11 +481,11 @@
                 }, function(response) {
                     console.log('[Storage PUT] Response:', response);
                     if (response.status === 'success') {
-                        log(`✅ PUT successful: ${key}`, 'success');
+                        log(`PUT successful: ${key}`, 'success');
                         DemoKit.toast(`Saved “${key}”`, 'ok');
                         document.getElementById('getKey').value = key;
                     } else {
-                        log(`❌ PUT failed: ${response.statusMessage || 'Unknown error'}`, 'error');
+                        log(`PUT failed: ${response.statusMessage || 'Unknown error'}`, 'error');
                         DemoKit.toast('PUT failed', 'err');
                     }
                 });
@@ -478,13 +497,13 @@
         // Storage GET
         function storageGet() {
             if (!agent || !connected) {
-                alert('Not connected to channel');
+                log('Not connected to a channel yet', 'error');
                 return;
             }
 
             const key = document.getElementById('getKey').value.trim();
             if (!key) {
-                alert('Key is required');
+                log('A key is required', 'error');
                 return;
             }
 
@@ -498,11 +517,11 @@
                     const out = document.getElementById('getOutput');
                     out.value = formatted;
                     DemoKit.pop(out);
-                    log(`✅ GET successful: ${key}`, 'success');
+                    log(`GET successful: ${key}`, 'success');
                     DemoKit.toast(`Loaded “${key}”`, 'ok', 1600);
                 } else {
                     document.getElementById('getOutput').value = 'Error: ' + (response.statusMessage || response.data || 'Unknown error');
-                    log(`❌ GET failed: ${response.statusMessage || 'Unknown error'}`, 'error');
+                    log(`GET failed: ${response.statusMessage || 'Unknown error'}`, 'error');
                     DemoKit.toast('GET failed', 'err');
                 }
             });
@@ -512,7 +531,7 @@
         // List keys
         function listKeys() {
             if (!agent || !connected) {
-                alert('Not connected to channel');
+                log('Not connected to a channel yet', 'error');
                 return;
             }
 
@@ -523,14 +542,14 @@
                     // Handle both formats: data.keys array or data directly as array
                     const keys = response.data?.data?.keys || [];
 
-                    log(`📋 Found ${keys.length} key(s)`, 'success');
+                    log(`Found ${keys.length} key(s)`, 'success');
                     badge.style.display = '';
                     badge.textContent = `${keys.length} key${keys.length === 1 ? '' : 's'}`;
                     DemoKit.pop(badge);
 
                     const output = document.getElementById('listOutput');
                     if (keys.length === 0) {
-                        output.innerHTML = '<div class="pro-empty"><span class="pro-empty__icon">🗃️</span><span class="pro-empty__text">No keys stored yet</span></div>';
+                        output.innerHTML = '<div class="pro-empty"><span class="pro-empty__icon"><svg class="icon icon--lg" aria-hidden="true"><use href="#i-database"></use></svg></span><span class="pro-empty__text">No keys stored yet</span></div>';
                     } else {
                         output.innerHTML = '';
                         keys.forEach(key => {
@@ -540,8 +559,8 @@
                             item.innerHTML =
                                 `<span class="key"></span>` +
                                 `<span style="display:flex;gap:6px;">` +
-                                `<button class="pro-btn pro-btn--sm" data-load>📖 Load</button>` +
-                                `<button class="pro-copy" data-copy>⧉</button>` +
+                                `<button class="pro-btn pro-btn--sm" data-load><svg class="icon icon--sm" aria-hidden="true"><use href="#i-book"></use></svg> Load</button>` +
+                                `<button class="pro-copy" data-copy aria-label="Copy value" title="Copy value"><svg class="icon icon--sm" aria-hidden="true"><use href="#i-copy"></use></svg></button>` +
                                 `</span>`;
                             item.querySelector('.key').textContent = key;
                             item.querySelector('[data-load]').addEventListener('click', () => loadKey(key));
@@ -550,7 +569,7 @@
                         });
                     }
                 } else {
-                    log(`❌ List keys failed: ${response.statusMessage || 'Unknown error'}`, 'error');
+                    log(`List keys failed: ${response.statusMessage || 'Unknown error'}`, 'error');
                     DemoKit.toast('Could not list keys', 'err');
                 }
             });
@@ -559,7 +578,7 @@
         // List values
         function listValues() {
             if (!agent || !connected) {
-                alert('Not connected to channel');
+                log('Not connected to a channel yet', 'error');
                 return;
             }
 
@@ -567,40 +586,43 @@
                 console.log('[Storage VALUES] Response:', response);
                 if (response.status === 'success') {
                     const values = response.data;
-                    log(`📊 Found ${values.length} value(s)`, 'success');
+                    log(`Found ${values.length} value(s)`, 'success');
 
                     const output = document.getElementById('listOutput');
                     output.innerHTML = '<pre>' + JSON.stringify(values, null, 2) + '</pre>';
                 } else {
-                    log(`❌ List values failed: ${response.statusMessage || 'Unknown error'}`, 'error');
+                    log(`List values failed: ${response.statusMessage || 'Unknown error'}`, 'error');
                 }
             });
         }
 
         // Delete
-        function storageDelete() {
+        async function storageDelete() {
             if (!agent || !connected) {
-                alert('Not connected to channel');
+                log('Not connected to a channel yet', 'error');
                 return;
             }
 
             const key = document.getElementById('deleteKey').value.trim();
             if (!key) {
-                alert('Key is required');
+                log('A key is required', 'error');
                 return;
             }
 
-            if (!confirm(`Delete all versions of "${key}"?`)) {
-                return;
-            }
+            const sure = await MiniGameUtils.ask({
+                title: 'Delete every version?',
+                body: `All stored versions of "${key}" go, for everyone on this channel.`,
+                confirmLabel: 'Delete', danger: true
+            });
+            if (!sure) return;
 
             agent.storageDeleteByKey(key, function(response) {
                 console.log('[Storage DELETE] Response:', response);
                 if (response.status === 'success') {
-                    log(`✅ Deleted: ${key}`, 'success');
+                    log(`Deleted: ${key}`, 'success');
                     document.getElementById('deleteKey').value = '';
                 } else {
-                    log(`❌ Delete failed: ${response.statusMessage || 'Unknown error'}`, 'error');
+                    log(`Delete failed: ${response.statusMessage || 'Unknown error'}`, 'error');
                 }
             });
         }
@@ -640,5 +662,6 @@
             MiniGameUtils.setupCleanupOnUnload(() => agent, 'Storage');
         }
     </script>
+<script src="../js/app-chrome.js"></script>
 </body>
 </html>

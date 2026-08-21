@@ -1,6 +1,7 @@
 package com.hmdev.messaging.sdk.config;
 
 import lombok.RequiredArgsConstructor;
+import org.springframework.http.CacheControl;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.web.client.RestTemplate;
@@ -12,6 +13,7 @@ import javax.servlet.*;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 import java.io.IOException;
+import java.util.concurrent.TimeUnit;
 
 /**
  * Web MVC Configuration
@@ -26,8 +28,17 @@ public class WebConfig implements WebMvcConfigurer {
     @Override
     public void addCorsMappings(CorsRegistry registry) {
         if (properties.getCorsEnabled()) {
+            // The property is a single comma-separated string, so it has to be
+            // split — passing it whole made Spring compare the entire blob
+            // against the Origin header and reject everything.
+            String[] origins = java.util.Arrays.stream(
+                            properties.getCorsAllowedOrigins().split(","))
+                    .map(String::trim)
+                    .filter(o -> !o.isEmpty())
+                    .toArray(String[]::new);
+
             registry.addMapping("/**")
-                    .allowedOrigins(properties.getCorsAllowedOrigins())
+                    .allowedOrigins(origins)
                     .allowedMethods("GET", "POST", "PUT", "DELETE", "OPTIONS")
                     .allowedHeaders("*")
                     .allowCredentials(false)
@@ -37,10 +48,48 @@ public class WebConfig implements WebMvcConfigurer {
 
     @Override
     public void addResourceHandlers(ResourceHandlerRegistry registry) {
-        // Serve static resources - let Spring Boot handle index.html files automatically
+        // Assets that only change when the file itself is replaced. Each needs
+        // its own location: the part of the path matched by ** is resolved
+        // relative to the location, so "/images/**" -> "classpath:/static/"
+        // would look for static/<file>, not static/images/<file>.
+        registry.addResourceHandler("/images/**")
+                .addResourceLocations("classpath:/static/images/")
+                .setCacheControl(CacheControl.maxAge(7, TimeUnit.DAYS).cachePublic());
+
+        registry.addResourceHandler("/lib/**")
+                .addResourceLocations("classpath:/static/lib/")
+                .setCacheControl(CacheControl.maxAge(7, TimeUnit.DAYS).cachePublic());
+
+        // Everything else — HTML, CSS, JS — is served unversioned, so a long
+        // max-age would pin browsers to a stale deploy. no-cache means "you may
+        // keep it, but revalidate", which combined with the ETag filter below
+        // turns repeat visits into 304s instead of full re-downloads. The
+        // previous setCachePeriod(0) sent no-store, which forbade even that.
         registry.addResourceHandler("/**")
                 .addResourceLocations("classpath:/static/", "classpath:/generated/")
-                .setCachePeriod(0); // Disable caching for development
+                .setCacheControl(CacheControl.noCache());
+    }
+
+    /**
+     * Baseline response headers. No CSP here on purpose: many of the bundled
+     * demo pages still carry inline scripts, and a policy strict enough to be
+     * worth having would break them. The consoles were externalised and can
+     * take one later.
+     */
+    @Bean
+    public Filter securityHeadersFilter() {
+        return (request, response, chain) -> {
+            HttpServletResponse http = (HttpServletResponse) response;
+            http.setHeader("X-Content-Type-Options", "nosniff");
+            http.setHeader("Referrer-Policy", "strict-origin-when-cross-origin");
+            http.setHeader("X-Frame-Options", "SAMEORIGIN");
+            // geolocation=(self): the apps served from here may ask for a
+            // position, but nothing they embed may. Denying it outright made
+            // the browser refuse every request from our own pages, which is
+            // what pins BlockParty's world to a real place.
+            http.setHeader("Permissions-Policy", "geolocation=(self), payment=(), usb=()");
+            chain.doFilter(request, response);
+        };
     }
 
 

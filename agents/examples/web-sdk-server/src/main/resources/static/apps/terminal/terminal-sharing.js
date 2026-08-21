@@ -72,6 +72,8 @@ class TerminalSharing extends UserConnectionBase {
         this.onOwnerDisconnect = null;       // (sessionId, owner) => {}
         this.onConnectionError = null;       // (sessionId, error) => {}
         this.onDisconnect = null;            // (reason) => {} - called when cloud connection is lost
+        this.onRejoining = null;             // (attempt) => {} - an automatic rejoin is being tried
+        this.onRejoined = null;              // () => {} - an automatic rejoin succeeded
         this.onFileSystemRequest = null;     // (sessionId, operation, params, sourceAgent, requestId) => {}
         this.onFileSystemResponse = null;    // (sessionId, requestId, data, sourceAgent) => {}
         this.onFileSystemNavigate = null;    // (sessionId, path, sourceAgent) => {}
@@ -848,6 +850,25 @@ class TerminalSharing extends UserConnectionBase {
         // Fire onDisconnect callback for the UI to handle
         if (typeof this.onDisconnect === 'function') {
             this.onDisconnect();
+        }
+    }
+
+    /**
+     * The base rejoins on its own after a dropped connection, and it does so by
+     * making a fresh session — so nothing the page set up at connect time is
+     * still true afterwards. These two hand that news to the UI, which would
+     * otherwise go on showing a room it no longer belongs to.
+     */
+    onReconnecting(attempt) {
+        if (typeof this.onRejoining === 'function') {
+            try { this.onRejoining(attempt); } catch (e) { console.warn(e); }
+        }
+    }
+
+    onReconnected() {
+        console.log('[TerminalSharing] Rejoined ' + this.channelName + ' as ' + this.username);
+        if (typeof this.onRejoined === 'function') {
+            try { this.onRejoined(); } catch (e) { console.warn(e); }
         }
     }
 

@@ -225,7 +225,7 @@
          *
          * Node.js Environment:
          * - Reads from process.env.TURN_SERVER, process.env.STUN_SERVER, etc.
-         * - Example: TURN_SERVER=host.docker.internal:3478
+         * - Example: TURN_SERVER=turn.example.com:3478
          *
          * Browser Environment:
          * - First checks this.channel object properties (turnServer, stunServer, turnUsername, turnPassword)
@@ -239,15 +239,18 @@
             // NODE.JS ENVIRONMENT - Read from process.env
             // =================================================================
             if (typeof process !== 'undefined' && process.env) {
+                // No hardcoded defaults here: this file ships to browsers, so a
+                // literal host or credential is public the moment it is written.
+                // Node.js callers must supply whatever they want used.
                 const turnServer = process.env.TURN_SERVER;
                 const stunServer = process.env.STUN_SERVER;
-                const turnUsername = process.env.TURN_USERNAME || 'webrtc';
-                const turnPassword = process.env.TURN_PASSWORD || 'turnpassword123';
+                const turnUsername = process.env.TURN_USERNAME;
+                const turnPassword = process.env.TURN_PASSWORD;
 
                 // If custom TURN/STUN servers are configured in environment
                 if (turnServer || stunServer) {
-                    const turn = turnServer || 'coturn:3478';
-                    const stun = stunServer || 'coturn:3478';
+                    const turn = turnServer || stunServer;
+                    const stun = stunServer || turnServer;
 
                     console.log(`[WebRTC] Node.js: Using TURN/STUN from process.env - TURN: ${turn}, STUN: ${stun}`);
 

@@ -7,6 +7,60 @@
 // COLLABORATIVE DOCUMENT CLASS
 // ============================================
 
+/**
+ * Render the shared document to HTML without letting it execute.
+ *
+ * The document is edited by everyone in the room, so its text is untrusted:
+ * `marked` passes raw inline HTML straight through by default, which meant one
+ * participant typing `<img src=x onerror=...>` ran script in every other
+ * participant's preview pane. marked v12 dropped the old `sanitize` option and
+ * there is no sanitizer vendored here, so the parser itself is configured to
+ * refuse the two things that carry script: raw HTML, and non-http URLs.
+ *
+ * Markdown itself is untouched — headings, lists, emphasis, code and ordinary
+ * links all still render. Raw HTML now shows as the literal text it is.
+ */
+const SAFE_MARKDOWN_URL = /^(?:https?:|mailto:|#|\/|\.{0,2}\/|[^:]*$)/i;
+
+function escapeMarkdownHtml(value) {
+    return String(value == null ? '' : value).replace(/[&<>"']/g, function (c) {
+        return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c];
+    });
+}
+
+let safeMarkdownReady = false;
+
+function renderMarkdownSafely(content) {
+    if (!safeMarkdownReady) {
+        // marked v12 passes a token to renderer methods; older builds pass a
+        // string. Handle both so a library bump cannot silently reopen this.
+        const rawText = (t) => (typeof t === 'string' ? t : (t && (t.raw ?? t.text)) || '');
+
+        marked.use({
+            renderer: {
+                html: (token) => escapeMarkdownHtml(rawText(token)),
+                link(token, title, text) {
+                    const href = typeof token === 'string' ? token : (token && token.href) || '';
+                    const label = typeof token === 'string' ? text : (token && token.text) || '';
+                    if (!SAFE_MARKDOWN_URL.test(String(href).trim())) {
+                        return escapeMarkdownHtml(label);      // drop javascript:, data:, etc.
+                    }
+                    return `<a href="${escapeMarkdownHtml(href)}" target="_blank" rel="noopener noreferrer">`
+                        + `${escapeMarkdownHtml(label)}</a>`;
+                },
+                image(token, title, text) {
+                    const href = typeof token === 'string' ? token : (token && token.href) || '';
+                    const alt = typeof token === 'string' ? text : (token && token.text) || '';
+                    if (!SAFE_MARKDOWN_URL.test(String(href).trim())) return escapeMarkdownHtml(alt);
+                    return `<img src="${escapeMarkdownHtml(href)}" alt="${escapeMarkdownHtml(alt)}">`;
+                }
+            }
+        });
+        safeMarkdownReady = true;
+    }
+    return marked.parse(String(content == null ? '' : content));
+}
+
 class CollabDoc extends UserConnectionBase {
     constructor() {
         super({
@@ -83,6 +137,11 @@ class CollabDoc extends UserConnectionBase {
     }
 
     onConnect(detail) {
+        // Dismiss the connection dialog — without this it stays over the app
+        // even though the session is live.
+        if (window.ConnectionModal && typeof window.ConnectionModal.hide === 'function') {
+            window.ConnectionModal.hide();
+        }
         console.log('[CollabDoc] Connected:', detail);
 
         // Show app container
@@ -295,7 +354,7 @@ class CollabDoc extends UserConnectionBase {
             cursorEl = document.createElement('div');
             cursorEl.className = 'remote-cursor';
             cursorEl.style.background = user.color;
-            cursorEl.innerHTML = `<div class="remote-cursor-label" style="background: ${user.color}">${data.username}</div>`;
+            cursorEl.innerHTML = `<div class="remote-cursor-label" style="background: ${MiniGameUtils.safeColor(user.color)}">${MiniGameUtils.escapeHtml(data.username)}</div>`;
 
             // Add to CodeMirror wrapper
             const cmWrapper = this.editor.getWrapperElement();
@@ -348,8 +407,7 @@ class CollabDoc extends UserConnectionBase {
 
     updatePreview() {
         const content = this.editor.getValue();
-        const html = marked.parse(content);
-        document.getElementById('previewContent').innerHTML = html;
+        document.getElementById('previewContent').innerHTML = renderMarkdownSafely(content);
     }
 
     toggleTheme() {
@@ -518,15 +576,15 @@ ${html}
         let html = `
             <div class="user-badge">
                 <div class="user-color-dot" style="background: var(--primary)"></div>
-                <span>${this.username}</span>
+                <span>${MiniGameUtils.escapeHtml(this.username)}</span>
             </div>
         `;
 
         this.users.forEach((user, username) => {
             html += `
                 <div class="user-badge">
-                    <div class="user-color-dot" style="background: ${user.color}"></div>
-                    <span>${username}</span>
+                    <div class="user-color-dot" style="background: ${MiniGameUtils.safeColor(user.color)}"></div>
+                    <span>${MiniGameUtils.escapeHtml(username)}</span>
                 </div>
             `;
         });
@@ -632,7 +690,7 @@ async function connectCollabDoc(username, channel, password) {
         console.log('[CollabDoc] Connected and ready!');
     } catch (error) {
         console.error('[CollabDoc] Connection failed:', error);
-        alert('Failed to connect: ' + error.message);
+        if (window.ConnectionModal) ConnectionModal.fail(error);
         collabDoc = null;
     } finally {
         isConnecting = false;
@@ -643,8 +701,8 @@ function initializeConnectionModal() {
     window.loadConnectionModal({
         localStoragePrefix: 'collabdoc_',
         channelPrefix: 'doc-',
-        title: '📝 Join Document',
-        collapsedTitle: '📝 Document',
+        title: 'Join Document',
+        collapsedTitle: 'Document',
         onConnect: function(username, channel, password) {
             connectCollabDoc(username, channel, password);
         }

@@ -1,0 +1,190 @@
+/* ==========================================================================
+   Shared app chrome fixes for the collaboration demos.
+
+   Each of these apps has its own header bar, but the floating "Share" button
+   and connection pill were positioned at the top corners of the viewport —
+   designed for a full-bleed canvas with no header. They landed on top of the
+   app title and toolbar in every one of them.
+
+   js/app-chrome.js moves both into the header's action row where one exists,
+   and the rules below make them flow there. Apps without a header action row
+   fall back to a bottom-left dock. Load this AFTER the app's own stylesheet.
+   ========================================================================== */
+
+/* Only float controls that are loose in the document. Apps that already place
+   these inside their own header (the mini-games do) must be left alone — an
+   unscoped rule here yanked their header contents down to the corner. */
+body > .share-btn,
+body > .connection-status {
+    position: fixed;
+    left: 16px;
+    right: auto;
+    top: auto;
+    z-index: 400;
+}
+
+body > .share-btn {
+    bottom: 64px;
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 10px 18px;
+    font-size: 14px;
+    font-weight: 600;
+    border-radius: 10px;
+    box-shadow: 0 6px 20px rgba(2, 6, 23, 0.35);
+}
+.share-btn:hover { transform: none; filter: brightness(1.07); }
+
+body > .connection-status {
+    bottom: 16px;
+    padding: 7px 14px;
+    font-size: 13px;
+    border-radius: 999px;
+    box-shadow: 0 4px 14px rgba(2, 6, 23, 0.25);
+}
+
+/* The status pill is only interesting while something is wrong; once the room
+   badge in the header is showing, keep it quiet rather than shouting. */
+.connection-status.connected { opacity: 0.75; }
+.connection-status.connected:hover { opacity: 1; }
+
+@media (max-width: 640px) {
+    .share-btn { bottom: 60px; padding: 8px 14px; font-size: 13px; }
+    .connection-status { bottom: 14px; font-size: 12px; }
+}
+
+
+/* --- Relocated into the header action row -------------------------------- */
+/* js/app-chrome.js adds .in-header once the control has been moved. */
+/* Selectors key off the header parent rather than the .in-header class:
+   several of these apps reassign className on connect, which silently dropped
+   the class and left the control fixed to the viewport corner again. */
+.header-right > .share-btn,
+.header-right > .connection-status,
+.share-btn.in-header,
+.connection-status.in-header {
+    position: static;
+    inset: auto;
+    z-index: auto;
+    box-shadow: none;
+    flex: none;
+}
+
+.header-right > .connection-status,
+.connection-status.in-header {
+    opacity: 1;
+    gap: 6px;
+    padding: 5px 10px;
+    font-size: 12px;
+    font-weight: 600;
+    line-height: 1;
+    white-space: nowrap;
+    border-radius: 999px;
+    background: rgba(15, 23, 42, 0.08);
+    color: inherit;
+    width: auto;
+    min-width: 0;
+    max-width: none;
+    overflow: visible;
+}
+
+/* Once connected the header's own room badge carries the useful information,
+   so the pill collapses to its dot instead of competing for header width.
+   The state stays readable via the accessible name and the tooltip. */
+.header-right > .connection-status.connected,
+.connection-status.in-header.connected { padding: 5px; gap: 0; }
+.header-right > .connection-status.connected > :not(.status-dot),
+.connection-status.in-header.connected > :not(.status-dot) {
+    position: absolute;
+    width: 1px; height: 1px;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
+    white-space: nowrap;
+}
+/* Dark-headered apps (pictionary, chess) need the inverse treatment. */
+.game-header .header-right > .connection-status,
+.game-header .connection-status.in-header {
+    background: rgba(255, 255, 255, 0.16);
+    color: #fff;
+}
+
+.header-right > .share-btn,
+.share-btn.in-header {
+    padding: 8px 16px;
+    font-size: 14px;
+    border-radius: 8px;
+}
+.header-right > .share-btn:hover,
+.share-btn.in-header:hover { filter: brightness(1.07); transform: none; }
+
+/* The host badge, once moved into the header by js/app-chrome.js. */
+/* Header rows must stay a single centred line; chess otherwise stacked the
+   relocated controls vertically. */
+/* Chess never styled .header-right at all, so the relocated controls stacked
+   as block elements. Declaring the row here makes every app's header behave
+   the same way. */
+.app-header .header-right,
+.game-header .header-right {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 10px;
+}
+
+.header-right > #gameHostIndicator,
+#gameHostIndicator.in-header {
+    position: static !important;
+    inset: auto !important;
+    box-shadow: none !important;
+    animation: none !important;
+    flex: none;
+    line-height: 1;
+}
+.header-right > #gameHostIndicator span:first-child,
+#gameHostIndicator.in-header span:first-child { font-size: 13px !important; }
+
+/* --- A way back to the site ---------------------------------------------
+   Demos were dead ends: no route to the docs, the playground or a key. The
+   chip is fixed bottom-left, deliberately small and low-contrast until
+   hovered, so it never competes with a game's own UI. */
+.sdk-home-chip {
+    position: fixed;
+    left: 12px;
+    bottom: 12px;
+    z-index: 350;              /* over a canvas, under modals and toasts */
+    display: flex;
+    align-items: stretch;
+    gap: 1px;
+    border-radius: 999px;
+    overflow: hidden;
+    font: 600 12px/1 system-ui, -apple-system, "Segoe UI", sans-serif;
+    /* At 0.55 the app's own canvas showed through enough to take the label
+       below AA; the chip has to be its own surface to be readable on anything. */
+    background: rgba(15, 23, 42, 0.86);
+    border: 1px solid rgba(148, 163, 184, 0.28);
+    backdrop-filter: blur(8px);
+    /* Dimmed so it stays out of the way, but it is the way out of the app:
+       at 0.62 its label fell below AA even before the resting opacity. */
+    opacity: 0.82;
+    transition: opacity 0.18s ease;
+}
+.sdk-home-chip:hover, .sdk-home-chip:focus-within { opacity: 1; }
+.sdk-home-chip a {
+    display: flex;
+    align-items: center;
+    padding: 7px 11px;
+    color: #e2e8f0;
+    text-decoration: none;
+    white-space: nowrap;
+}
+.sdk-home-chip a:hover { background: rgba(99, 102, 241, 0.35); }
+.sdk-home-chip a:focus-visible { outline: 2px solid #818cf8; outline-offset: -2px; }
+.sdk-home-chip__home { font-weight: 700; }
+.sdk-home-chip__more { border-left: 1px solid rgba(148, 163, 184, 0.28); }
+
+@media (max-width: 640px) {
+    /* On a phone the game needs the room: keep the way out, drop the extra. */
+    .sdk-home-chip__more { display: none; }
+    .sdk-home-chip { bottom: 8px; left: 8px; }
+}

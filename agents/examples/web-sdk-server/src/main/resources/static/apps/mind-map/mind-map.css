@@ -1,14 +1,12 @@
-:root {
-    --primary: #0891b2;
-    --primary-dark: #0e7490;
-    --success: #10b981;
-    --danger: #ef4444;
-    --gray-50: #f9fafb;
-    --gray-100: #f3f4f6;
-    --gray-200: #e5e7eb;
-    --gray-800: #1f2937;
-    --gray-900: #111827;
-}
+/* ==========================================================================
+   Mind Map, on the shared design system.
+   Requires design-tokens.css and ui.css, loaded before this file.
+
+   Selector names are unchanged: mind-map.js builds the nodes, the connections
+   and the collaborator list by class. The private cyan palette and the
+   gradient behind it are gone; the node colours are not, because those are
+   chosen by the people using it and are content rather than chrome.
+   ========================================================================== */
 
 * {
     margin: 0;
@@ -23,8 +21,9 @@ html, body {
 }
 
 body {
-    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-    background: linear-gradient(135deg, #06b6d4 0%, #3b82f6 100%);
+    font-family: var(--font-sans);
+    background: var(--bg);
+    color: var(--text-body);
 }
 
 .hidden { display: none !important; }
@@ -34,7 +33,7 @@ body {
     position: fixed;
     top: 20px;
     right: 20px;
-    background: var(--primary);
+    background: var(--brand);
     color: white;
     border: none;
     padding: 12px 24px;
@@ -48,7 +47,7 @@ body {
 }
 
 .share-btn:hover {
-    background: var(--primary-dark);
+    background: var(--brand-strong, #4f46e5);
     transform: translateY(-2px);
 }
 
@@ -58,7 +57,7 @@ body {
     top: 20px;
     left: 20px;
     background: rgba(255, 255, 255, 0.95);
-    color: var(--gray-800);
+    color: var(--text);
     padding: 8px 16px;
     border-radius: 20px;
     display: flex;
@@ -98,7 +97,7 @@ body {
 /* Header */
 .app-header {
     background: white;
-    border-bottom: 1px solid var(--gray-200);
+    border-bottom: 1px solid var(--border);
     padding: 12px 24px;
     display: flex;
     justify-content: space-between;
@@ -114,12 +113,12 @@ body {
 
 .header-left h1 {
     font-size: 20px;
-    color: var(--gray-800);
+    color: var(--text);
 }
 
 .room-badge {
-    background: var(--gray-100);
-    color: var(--gray-800);
+    background: var(--surface-3);
+    color: var(--text);
     padding: 6px 12px;
     border-radius: 16px;
     font-size: 12px;
@@ -132,17 +131,17 @@ body {
 }
 
 .node-count, .user-count {
-    background: var(--gray-100);
+    background: var(--surface-3);
     padding: 6px 12px;
     border-radius: 16px;
     font-size: 12px;
-    color: var(--gray-800);
+    color: var(--text);
 }
 
 /* Toolbar */
 .toolbar {
     background: white;
-    border-bottom: 1px solid var(--gray-200);
+    border-bottom: 1px solid var(--border);
     padding: 8px 16px;
     display: flex;
     gap: 12px;
@@ -156,24 +155,24 @@ body {
 
 .toolbar-btn {
     padding: 8px 16px;
-    background: var(--gray-50);
-    border: 1px solid var(--gray-200);
+    background: var(--surface-2);
+    border: 1px solid var(--border);
     border-radius: 6px;
     cursor: pointer;
     font-size: 14px;
-    color: var(--gray-800);
+    color: var(--text);
     transition: all 0.2s ease;
 }
 
 .toolbar-btn:hover {
-    background: var(--gray-100);
-    border-color: var(--primary);
+    background: var(--surface-3);
+    border-color: var(--brand);
 }
 
 .toolbar-separator {
     width: 1px;
     height: 24px;
-    background: var(--gray-200);
+    background: var(--border);
 }
 
 /* Canvas Container */
@@ -241,7 +240,7 @@ body {
 .context-menu {
     position: fixed;
     background: white;
-    border: 1px solid var(--gray-200);
+    border: 1px solid var(--border);
     border-radius: 8px;
     box-shadow: 0 8px 24px rgba(0,0,0,0.15);
     padding: 8px;
@@ -258,12 +257,12 @@ body {
     cursor: pointer;
     border-radius: 4px;
     font-size: 14px;
-    color: var(--gray-800);
+    color: var(--text);
     transition: background 0.2s ease;
 }
 
 .context-menu button:hover {
-    background: var(--gray-50);
+    background: var(--surface-2);
 }
 
 /* Color Picker Dialog */
@@ -281,7 +280,7 @@ body {
 
 .color-picker-dialog h3 {
     margin-bottom: 16px;
-    color: var(--gray-800);
+    color: var(--text);
 }
 
 .color-grid {
@@ -301,18 +300,18 @@ body {
 }
 
 .color-option:hover {
-    border-color: var(--gray-800);
+    border-color: var(--text);
     transform: scale(1.1);
 }
 
 .color-picker-dialog button:not(.color-option) {
     width: 100%;
     padding: 10px;
-    background: var(--gray-100);
+    background: var(--surface-3);
     border: none;
     border-radius: 6px;
     cursor: pointer;
-    color: var(--gray-800);
+    color: var(--text);
 }
 
 /* Text Edit Modal */
@@ -329,23 +328,33 @@ body {
     z-index: 1000;
 }
 
+/* Unqualified on purpose in the original, which means it also lands on the
+   shared connection form. A flat 400px minimum is wider than a phone, so the
+   form that asks for the room and its password was cut off at the edge of the
+   screen on the one device most likely to be handed a shared link. */
 .modal-content {
     background: white;
     padding: 32px;
     border-radius: 12px;
     box-shadow: 0 20px 60px rgba(0,0,0,0.3);
-    min-width: 400px;
+    min-width: min(400px, 100%);
+    max-width: calc(100vw - 32px);
+    box-sizing: border-box;
+}
+
+@media (max-width: 480px) {
+    .modal-content { padding: 20px; }
 }
 
 .modal-content h3 {
     margin-bottom: 16px;
-    color: var(--gray-800);
+    color: var(--text);
 }
 
 .modal-content input {
     width: 100%;
     padding: 12px;
-    border: 2px solid var(--gray-200);
+    border: 2px solid var(--border);
     border-radius: 8px;
     font-size: 16px;
     margin-bottom: 16px;
@@ -353,7 +362,7 @@ body {
 
 .modal-content input:focus {
     outline: none;
-    border-color: var(--primary);
+    border-color: var(--brand);
 }
 
 .modal-actions {
@@ -373,21 +382,21 @@ body {
 }
 
 .btn-primary {
-    background: var(--primary);
+    background: var(--brand);
     color: white;
 }
 
 .btn-primary:hover {
-    background: var(--primary-dark);
+    background: var(--brand-strong, #4f46e5);
 }
 
 .btn-secondary {
-    background: var(--gray-100);
-    color: var(--gray-800);
+    background: var(--surface-3);
+    color: var(--text);
 }
 
 .btn-secondary:hover {
-    background: var(--gray-200);
+    background: var(--border);
 }
 
 /* Users Panel */
@@ -396,7 +405,7 @@ body {
     bottom: 20px;
     right: 20px;
     background: white;
-    border: 1px solid var(--gray-200);
+    border: 1px solid var(--border);
     border-radius: 12px;
     padding: 16px;
     box-shadow: 0 8px 24px rgba(0,0,0,0.15);
@@ -407,7 +416,7 @@ body {
 .users-panel h3 {
     font-size: 14px;
     margin-bottom: 12px;
-    color: var(--gray-800);
+    color: var(--text);
 }
 
 .users-list {
@@ -421,17 +430,17 @@ body {
     align-items: center;
     gap: 8px;
     padding: 8px;
-    background: var(--gray-50);
+    background: var(--surface-2);
     border-radius: 6px;
     font-size: 13px;
-    color: var(--gray-800);
+    color: var(--text);
 }
 
 .user-color-indicator {
     width: 12px;
     height: 12px;
     border-radius: 50%;
-    border: 1px solid var(--gray-800);
+    border: 1px solid var(--text);
 }
 
 /* Instructions Overlay */
@@ -469,7 +478,7 @@ body {
 }
 
 .instructions-overlay button {
-    background: var(--primary);
+    background: var(--brand);
     color: white;
     border: none;
     padding: 10px 24px;
@@ -497,3 +506,180 @@ body {
     }
 }
 
+
+/* ---- surfaces --------------------------------------------------------------
+ * The chrome was white cards on a cyan gradient. With the gradient gone they
+ * need real surfaces, and the canvas behind them needs to be the page rather
+ * than a colour of its own.
+ */
+.app-header,
+.toolbar {
+    background: var(--surface-1);
+    border-bottom: 1px solid var(--border);
+    color: var(--text);
+}
+
+.app-header h1 {
+    display: flex;
+    align-items: center;
+    gap: var(--sp-2);
+    font-size: var(--fs-xl);
+    color: var(--text);
+}
+
+.room-badge,
+.node-count,
+.user-count {
+    padding: 3px 10px;
+    font-family: var(--font-mono);
+    font-size: var(--fs-xs);
+    color: var(--text-muted);
+    background: var(--surface-2);
+    border: 1px solid var(--border);
+    border-radius: var(--r-sm);
+}
+
+.toolbar-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--text);
+    background: var(--surface-2);
+    border: 1px solid var(--border-strong);
+    border-radius: var(--r-md);
+}
+
+.toolbar-btn:hover { background: var(--surface-3); border-color: var(--brand); }
+.toolbar-btn:focus-visible { outline: none; box-shadow: var(--focus-ring); }
+
+/* Icon buttons hold an icon and nothing else: padding meant for a text label
+   squeezes an <svg>, whose default min-width is its content, into a sliver. */
+.toolbar-btn .icon,
+.context-menu .icon,
+.share-btn .icon {
+    width: 18px;
+    height: 18px;
+    min-width: 18px;
+    flex: none;
+}
+
+.context-menu {
+    background: var(--surface-1);
+    border: 1px solid var(--border-strong);
+    border-radius: var(--r-md);
+    box-shadow: var(--shadow-3);
+    overflow: hidden;
+}
+
+.context-menu button {
+    display: flex;
+    align-items: center;
+    gap: var(--sp-2);
+    width: 100%;
+    padding: var(--sp-2) var(--sp-3);
+    font: inherit;
+    font-size: var(--fs-sm);
+    text-align: left;
+    color: var(--text-body);
+    background: transparent;
+    border: none;
+    cursor: pointer;
+}
+
+.context-menu button:hover { background: var(--surface-3); color: var(--text); }
+
+.users-panel {
+    background: var(--surface-1);
+    border: 1px solid var(--border);
+    border-radius: var(--r-lg);
+}
+
+.users-panel h3 {
+    display: flex;
+    align-items: center;
+    font-size: var(--fs-sm);
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--text-muted);
+}
+
+.users-panel h3 .icon { margin-right: var(--sp-2); flex: none; }
+
+.user-item {
+    padding: var(--sp-2) var(--sp-3);
+    font-size: var(--fs-sm);
+    color: var(--text-body);
+    background: var(--surface-2);
+    border-radius: var(--r-sm);
+}
+
+.connection-status {
+    color: var(--text-body);
+    background: var(--surface-2);
+    border: 1px solid var(--border);
+}
+
+.status-dot { background: var(--danger); }
+.connection-status.connected .status-dot { background: var(--success); }
+
+.share-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--sp-2);
+    color: var(--text);
+    background: var(--surface-2);
+    border: 1px solid var(--border-strong);
+    border-radius: var(--r-md);
+    font-weight: 600;
+}
+
+.share-btn:hover { background: var(--surface-3); border-color: var(--brand); }
+
+/* The two counters in the header hold an icon and a number. */
+.node-count,
+.user-count {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+}
+
+.node-count .icon,
+.user-count .icon { flex: none; }
+
+/* ---- this app's own dialogs -----------------------------------------------
+ * Scoped by id on purpose. `.modal-content` is also the class the shared
+ * connection form uses, and that one is light by design — restyling the bare
+ * class would repaint somebody else's dialog. These two are mind map's own.
+ *
+ * They were white cards, which was consistent when the app was white. Now that
+ * the text colour comes from the tokens, a white card meant a near-white
+ * heading on white: the "Edit Node Text" title was invisible.
+ */
+#textEditModal .modal-content,
+#colorPickerDialog {
+    background: var(--surface-1);
+    border: 1px solid var(--border-strong);
+    border-radius: var(--r-xl);
+    box-shadow: var(--shadow-3);
+    color: var(--text-body);
+}
+
+#textEditModal .modal-content h3,
+#colorPickerDialog h3,
+#colorPickerDialog h4 { color: var(--text); }
+
+#textEditModal input[type="text"],
+#textEditModal textarea {
+    width: 100%;
+    padding: 0.625rem 0.75rem;
+    font: inherit;
+    color: var(--text);
+    background: var(--surface-2);
+    border: 1px solid var(--border-strong);
+    border-radius: var(--r-md);
+    outline: none;
+}
+
+#textEditModal input[type="text"]:focus,
+#textEditModal textarea:focus { border-color: var(--brand); box-shadow: var(--focus-ring); }

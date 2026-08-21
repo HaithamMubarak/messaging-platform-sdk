@@ -4,29 +4,36 @@
     box-sizing: border-box;
 }
 
+/* The app's own variable names, now pointed at the site's design tokens
+   (../../css/design-tokens.css, loaded first). The fallbacks keep the page
+   usable if the tokens ever fail to load. Only the CHROME follows the site;
+   the terminal canvas itself stays its own dark monospace surface — the
+   xterm theme object in terminal.js is deliberately untouched. */
 :root {
-    --bg-dark: #1a1a2e;
-    --bg-darker: #16162a;
-    --bg-panel: #0f0f1a;
-    --bg-sidebar: #12121f;
-    --bg-tab: #1e1e3a;
-    --bg-tab-active: #2d2d5a;
-    --bg-input: #1e1e38;
-    --border-color: #2a2a4a;
-    --text-primary: #e0e0e0;
-    --text-secondary: #8888aa;
-    --text-muted: #555577;
-    --accent-blue: #4a9eff;
-    --accent-green: #4ade80;
-    --accent-yellow: #fbbf24;
+    --bg-dark: var(--bg, #1a1a2e);
+    --bg-darker: var(--code-bg, #16162a);
+    --bg-panel: var(--surface-1, #0f0f1a);
+    --bg-sidebar: var(--surface-1, #12121f);
+    --bg-tab: var(--surface-2, #1e1e3a);
+    --bg-tab-active: var(--surface-3, #2d2d5a);
+    --bg-input: var(--surface-2, #1e1e38);
+    --border-color: var(--border-strong, #2a2a4a);
+    --text-primary: var(--text, #e0e0e0);
+    --text-secondary: var(--text-body, #8888aa);
+    /* --text-muted is NOT re-declared here: the site token (#8a97ab, 5.4:1 on
+       the page background) cascades straight through from design-tokens.css.
+       Re-declaring it as var(--text-muted) would be a self-reference cycle. */
+    --accent-blue: var(--brand, #4a9eff);
+    --accent-green: var(--success, #4ade80);
+    --accent-yellow: var(--warning, #fbbf24);
     --accent-orange: #fb923c;
-    --accent-red: #f87171;
-    --accent-purple: #a78bfa;
-    --accent-cyan: #22d3ee;
+    --accent-red: var(--danger, #f87171);
+    --accent-purple: var(--brand-ink, #a78bfa);
+    --accent-cyan: var(--accent, #22d3ee);
 }
 
 body {
-    font-family: 'Segoe UI', -apple-system, BlinkMacSystemFont, sans-serif;
+    font-family: var(--font-sans, 'Segoe UI'), -apple-system, BlinkMacSystemFont, sans-serif;
     background: var(--bg-dark);
     color: var(--text-primary);
     height: 100vh;
@@ -1265,7 +1272,10 @@ body {
 
 .btn-primary {
     background: var(--accent-blue);
-    color: white;
+    /* --accent-blue is a light blue — right for a border or a glyph on the dark
+       panels, but white text on it is 2.75:1. A light fill takes dark ink. */
+    color: #06121f;
+    font-weight: 600;
 }
 
 .btn-primary:hover {
@@ -2595,3 +2605,265 @@ body {
     }
 }
 
+
+/* ========== Nothing to drive ==========
+ * The state a visitor who has never run the helper actually lands in. It used
+ * to be a blank panel under a greyed-out toolbar, which reads as broken rather
+ * than as "not set up yet".
+ */
+.sls-gate {
+    display: none;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 14px;
+    height: 100%;
+    padding: 32px;
+    text-align: center;
+    color: var(--text-muted);
+}
+
+.sls-gate__icon { font-size: 56px; opacity: 0.55; }
+
+.sls-gate__title {
+    margin: 0;
+    font-size: 20px;
+    font-weight: 700;
+    color: var(--text-primary);
+}
+
+.sls-gate__lead {
+    margin: 0;
+    max-width: 60ch;
+    font-size: 14px;
+    line-height: 1.6;
+    text-wrap: pretty;
+}
+
+.sls-gate__list {
+    margin: 0;
+    padding: 0;
+    max-width: 60ch;
+    list-style: none;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    font-size: 13px;
+    line-height: 1.5;
+    text-align: left;
+}
+
+.sls-gate__list li { padding-left: 18px; position: relative; }
+.sls-gate__list li::before { content: "•"; position: absolute; left: 4px; color: var(--accent-cyan); }
+.sls-gate__actions { display: flex; gap: 10px; flex-wrap: wrap; justify-content: center; margin-top: 4px; }
+
+/* ========== Sidebar tabs that say what they are ==========
+ * Six icons in a row, no words, and the only way to find out what any of them
+ * did was to hover and wait. The strip has the room for a label at this width;
+ * below it the icons stand alone again, where a tooltip is no use anyway but
+ * the tab count is small enough to learn.
+ */
+.sidebar-tab {
+    flex-direction: column;
+    gap: 3px;
+    position: relative;
+}
+
+.sidebar-tab-label {
+    font-size: 9.5px;
+    font-weight: 600;
+    letter-spacing: 0.02em;
+    line-height: 1;
+    white-space: nowrap;
+}
+
+.sidebar-tab.active .sidebar-tab-label { color: var(--accent-blue, #4a9eff); }
+
+@media (max-width: 420px) {
+    .sidebar-tab-label { display: none; }
+}
+
+/* ========== Invite ==========
+ * The action the whole app exists for, at the top right where it can be found.
+ */
+.top-status-invite {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    margin-left: 8px;
+    padding: 3px 10px;
+    font: inherit;
+    font-size: 11px;
+    font-weight: 600;
+    color: #0a0a14;
+    background: linear-gradient(135deg, #4a9eff, #a78bfa);
+    border: none;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: filter 0.15s;
+}
+
+.top-status-invite:hover { filter: brightness(1.1); }
+.top-status-invite:focus-visible { outline: 2px solid #a78bfa; outline-offset: 2px; }
+
+/* The room pill carries a name now, which can be long. */
+.top-status-label {
+    max-width: 22ch;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+/* ========== "Been given a code?" ==========
+ * The row is a wide field and a small button, which needs saying explicitly:
+ * .cloud-btn is width:100%, so a button in a flex row with flex-basis auto
+ * claims the whole line and leaves the input the width of its own padding.
+ * That is what happened — the field collapsed to a 26px sliver.
+ */
+.join-code-row {
+    display: flex;
+    gap: 8px;
+    align-items: stretch;
+}
+
+.join-code-row input {
+    flex: 1 1 auto;
+    min-width: 0;              /* a flex item will not shrink below its content without this */
+    padding: 12px;
+    font-size: 13px;
+    font-family: monospace;
+    letter-spacing: 0.02em;
+    border-radius: 6px;
+    border: 1px solid var(--border-color, #2a2a4a);
+    background: var(--bg-panel, #0f0f1a);
+    color: var(--text-primary, #e0e0e0);
+}
+
+.join-code-row input:focus {
+    outline: none;
+    border-color: var(--accent-blue, #4a9eff);
+}
+
+.join-code-row .cloud-btn {
+    flex: 0 0 auto;
+    width: auto;               /* beats .cloud-btn { width: 100% } */
+    padding: 10px 20px;
+    font-size: 13px;
+    font-weight: 600;
+    border-radius: 6px;
+    white-space: nowrap;
+}
+
+/* ── Sprite icons ──────────────────────────────────────────────────────────
+   The menus, modals and sidebar used to label themselves with emoji, which
+   render differently on every platform and carry no accessible name. They are
+   now <svg class="icon"> references into the shared sprite.
+
+   Only `svg.icon` is styled, so this cannot touch anything else in the app —
+   the shared ui.css is deliberately NOT linked here, because its bare-tag
+   rules for body, headings and links would fight the terminal's own theme.
+
+   Sizing is in `em`, so an icon inside a wrapper that sets a font-size (the
+   sidebar tabs, the empty-state block) scales exactly as the glyph did. */
+svg.icon {
+    width: 1.25em;
+    height: 1.25em;
+    flex: none;
+    vertical-align: -0.2em;
+    /* A flex child's default min-width:auto squeezes an svg to a sliver when
+       the row is tight; icons must keep their box. */
+    min-width: 1em;
+}
+svg.icon--sm { width: 1em; height: 1em; min-width: 1em; }
+svg.icon--lg { width: 1.5em; height: 1.5em; min-width: 1.5em; }
+
+
+/* ── Owner-side sharing banner ────────────────────────────────────────────
+   Shown across the top of any terminal panel that is being shared live.
+   A tab badge is easy to miss; this is not. */
+.sharing-banner {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 12px;
+    background: var(--warning-bg, rgba(251, 191, 36, 0.12));
+    border-bottom: 1px solid var(--border-color);
+    color: var(--accent-yellow);
+    font-size: 12px;
+    font-weight: 600;
+    flex: none;
+}
+.sharing-banner__label {
+    flex: 1;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+.sharing-banner__stop {
+    flex: none;
+    padding: 3px 12px;
+    border: 1px solid var(--accent-red);
+    border-radius: 4px;
+    background: transparent;
+    color: var(--accent-red);
+    font-size: 11px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background 0.15s, color 0.15s;
+}
+.sharing-banner__stop:hover {
+    background: var(--danger-bg, rgba(248, 113, 113, 0.12));
+}
+
+/* ── "Shared with You" invitations ────────────────────────────────────────
+   A share is an invitation: it lists here and opens only on Watch. */
+.shared-invite {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 10px;
+    border-bottom: 1px solid var(--border-color);
+    cursor: pointer;
+    transition: background 0.15s;
+}
+.shared-invite:hover {
+    background: rgba(255, 255, 255, 0.04);
+}
+.shared-invite > svg.icon {
+    color: var(--accent-cyan);
+}
+.shared-invite__body {
+    flex: 1;
+    min-width: 0;
+}
+.shared-invite__name {
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--text-primary);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+.shared-invite__meta {
+    font-size: 10px;
+    color: var(--text-muted);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+.shared-invite__btn {
+    flex: none;
+    padding: 4px 12px;
+    border: 1px solid var(--accent-blue);
+    border-radius: 4px;
+    background: transparent;
+    color: var(--accent-blue);
+    font-size: 11px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background 0.15s, color 0.15s;
+}
+.shared-invite__btn:hover {
+    background: var(--brand-subtle, rgba(74, 158, 255, 0.15));
+}

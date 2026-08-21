@@ -70,7 +70,7 @@ class FileExplorer {
         this.panel.innerHTML = `
             <div class="sftp-header">
                 <div class="sftp-header-title">
-                    <span>📁</span>
+                    <span><svg class="icon icon--sm" aria-hidden="true"><use href="#i-inbox"></use></svg></span>
                     <span>File Explorer</span>
                     <span id="sftpConnectionName" style="font-weight: normal; color: var(--text-muted);"></span>
                 </div>
@@ -78,40 +78,40 @@ class FileExplorer {
 
             <div class="sftp-toolbar">
                 <button class="sftp-toolbar-btn" onclick="fileExplorer.goUp()" title="Go Up (Parent Directory)">
-                    <span>⬆️</span>
+                    <span><svg class="icon icon--sm" aria-hidden="true"><use href="#i-chevron-up"></use></svg></span>
                 </button>
                 <button class="sftp-toolbar-btn" onclick="fileExplorer.goHome()" title="Go Home">
-                    <span>🏠</span>
+                    <span><svg class="icon icon--sm" aria-hidden="true"><use href="#i-hard-drive"></use></svg></span>
                 </button>
                 <button class="sftp-toolbar-btn" onclick="fileExplorer.refresh()" title="Refresh Directory">
-                    <span>🔄</span>
+                    <span><svg class="icon icon--sm" aria-hidden="true"><use href="#i-refresh"></use></svg></span>
                 </button>
                 <button class="sftp-toolbar-btn" onclick="window.refreshCurrentSftp?window.refreshCurrentSftp():void(0)" title="Refresh SFTP Connection (use if connection times out)">
-                    <span>🔌</span>
+                    <span><svg class="icon icon--sm" aria-hidden="true"><use href="#i-channel"></use></svg></span>
                     <span class="label" style="font-size: 0.8em;">Reconnect</span>
                 </button>
                 <div class="sftp-toolbar-separator"></div>
                 <button class="sftp-toolbar-btn" onclick="fileExplorer.createNewFile()" title="New File">
-                    <span>📄</span>
+                    <span><svg class="icon icon--sm" aria-hidden="true"><use href="#i-plus"></use></svg></span>
                 </button>
                 <button class="sftp-toolbar-btn" onclick="fileExplorer.createNewFolder()" title="New Folder">
-                    <span>📁</span>
+                    <span><svg class="icon icon--sm" aria-hidden="true"><use href="#i-layers"></use></svg></span>
                 </button>
                 <div class="sftp-toolbar-separator"></div>
                 <button class="sftp-toolbar-btn" onclick="fileExplorer.uploadFile()" title="Upload File">
-                    <span>⬆️</span>
+                    <span><svg class="icon icon--sm" aria-hidden="true"><use href="#i-upload"></use></svg></span>
                     <span class="label">Upload</span>
                 </button>
                 <button class="sftp-toolbar-btn" onclick="fileExplorer.downloadSelected()" title="Download Selected">
-                    <span>⬇️</span>
+                    <span><svg class="icon icon--sm" aria-hidden="true"><use href="#i-download"></use></svg></span>
                     <span class="label">Download</span>
                 </button>
                 <div class="sftp-toolbar-separator"></div>
                 <button class="sftp-toolbar-btn" onclick="fileExplorer.editSelected()" title="Edit File">
-                    <span>✏️</span>
+                    <span><svg class="icon icon--sm" aria-hidden="true"><use href="#i-pen"></use></svg></span>
                 </button>
                 <button class="sftp-toolbar-btn" onclick="fileExplorer.deleteSelected()" title="Delete Selected">
-                    <span>🗑️</span>
+                    <span><svg class="icon icon--sm" aria-hidden="true"><use href="#i-trash"></use></svg></span>
                 </button>
             </div>
 
@@ -121,13 +121,13 @@ class FileExplorer {
             </div>
 
             <div class="sftp-filter-bar">
-                <input type="text" id="sftpFilterInput" placeholder="🔍 Filter files..." autocomplete="off" oninput="fileExplorer.filterFiles(this.value)" title="Filter files by name (highlights matching files)">
-                <button class="sftp-filter-clear" onclick="fileExplorer.clearFilter()" title="Clear filter">✕</button>
+                <input type="text" id="sftpFilterInput" placeholder="Filter files…" autocomplete="off" oninput="fileExplorer.filterFiles(this.value)" title="Filter files by name (highlights matching files)">
+                <button class="sftp-filter-clear" onclick="fileExplorer.clearFilter()" title="Clear filter"><svg class="icon icon--sm" aria-hidden="true"><use href="#i-x"></use></svg></button>
             </div>
 
             <div class="sftp-file-list" id="sftpFileList">
                 <div class="sftp-empty">
-                    <div class="sftp-empty-icon">📂</div>
+                    <div class="sftp-empty-icon"><svg class="icon icon--lg" aria-hidden="true"><use href="#i-inbox"></use></svg></div>
                     <div class="sftp-empty-text">Connect to SSH session to browse files</div>
                 </div>
             </div>
@@ -142,7 +142,7 @@ class FileExplorer {
                 <div class="sftp-upload-info">
                     <span class="sftp-upload-filename" id="sftpUploadFilename">file.txt</span>
                     <span class="sftp-upload-percent" id="sftpUploadPercent">0%</span>
-                    <button class="sftp-upload-cancel" id="sftpUploadCancel" title="Cancel upload">✕</button>
+                    <button class="sftp-upload-cancel" id="sftpUploadCancel" title="Cancel upload"><svg class="icon icon--sm" aria-hidden="true"><use href="#i-x"></use></svg></button>
                 </div>
                 <div class="sftp-upload-bar">
                     <div class="sftp-upload-bar-fill" id="sftpUploadBarFill" style="width: 0%"></div>
@@ -164,27 +164,27 @@ class FileExplorer {
         this.contextMenu.id = 'sftpContextMenu';
         this.contextMenu.innerHTML = `
             <div class="sftp-context-menu-item" onclick="fileExplorer.openSelected()">
-                <span class="icon">📂</span> Open
+                <svg class="icon icon--sm" aria-hidden="true"><use href="#i-arrow-right"></use></svg> Open
             </div>
             <div class="sftp-context-menu-item" onclick="fileExplorer.editSelected()">
-                <span class="icon">✏️</span> Edit
+                <svg class="icon icon--sm" aria-hidden="true"><use href="#i-code"></use></svg> Edit
             </div>
             <div class="sftp-context-menu-item" onclick="fileExplorer.downloadSelected()">
-                <span class="icon">⬇️</span> Download
+                <svg class="icon icon--sm" aria-hidden="true"><use href="#i-download"></use></svg> Download
             </div>
             <div class="sftp-context-menu-separator"></div>
             <div class="sftp-context-menu-item" onclick="fileExplorer.renameSelected()">
-                <span class="icon">📝</span> Rename
+                <svg class="icon icon--sm" aria-hidden="true"><use href="#i-pen"></use></svg> Rename
             </div>
             <div class="sftp-context-menu-item" onclick="fileExplorer.copyPath()">
-                <span class="icon">📋</span> Copy Path
+                <svg class="icon icon--sm" aria-hidden="true"><use href="#i-copy"></use></svg> Copy Path
             </div>
             <div class="sftp-context-menu-item" onclick="fileExplorer.showProperties()">
-                <span class="icon">ℹ️</span> Properties
+                <svg class="icon icon--sm" aria-hidden="true"><use href="#i-info"></use></svg> Properties
             </div>
             <div class="sftp-context-menu-separator"></div>
             <div class="sftp-context-menu-item danger" onclick="fileExplorer.deleteSelected()">
-                <span class="icon">🗑️</span> Delete
+                <svg class="icon icon--sm" aria-hidden="true"><use href="#i-trash"></use></svg> Delete
             </div>
         `;
 
@@ -533,7 +533,7 @@ class FileExplorer {
         if (this.files.length === 0) {
             this.fileList.innerHTML = `
                 <div class="sftp-empty">
-                    <div class="sftp-empty-icon">📂</div>
+                    <div class="sftp-empty-icon"><svg class="icon icon--lg" aria-hidden="true"><use href="#i-inbox"></use></svg></div>
                     <div class="sftp-empty-text">Directory is empty</div>
                 </div>
             `;
@@ -902,7 +902,7 @@ class FileExplorer {
                 this.uploadAbortController = null;
                 progressContainer.classList.remove('visible');
                 if (this.onToast) {
-                    this.onToast('info', '🚫 Upload Cancelled', 'File upload was cancelled');
+                    this.onToast('info', 'Upload Cancelled', 'File upload was cancelled');
                 }
             }
         };
@@ -1170,7 +1170,11 @@ class FileExplorer {
             ? `Delete folder "${this.selectedFile.name}" and all its contents?`
             : `Delete file "${this.selectedFile.name}"?`;
 
-        if (!confirm(confirmMsg)) return;
+        const sure = await AppDialog.ask({
+            title: this.selectedFile.isDirectory ? 'Delete this folder?' : 'Delete this file?',
+            body: confirmMsg, confirmLabel: 'Delete', danger: true
+        });
+        if (!sure) return;
 
         try {
             let result;
@@ -1215,7 +1219,7 @@ class FileExplorer {
      * Create new file
      */
     async createNewFile() {
-        const name = prompt('Enter file name:', 'new-file.txt');
+        const name = await AppDialog.askFor('Name for the new file', 'new-file.txt', { title: 'New file' });
         if (!name) return;
 
         const path = this.currentPath.endsWith('/')
@@ -1274,7 +1278,7 @@ class FileExplorer {
      * Create new folder
      */
     async createNewFolder() {
-        const name = prompt('Enter folder name:', 'new-folder');
+        const name = await AppDialog.askFor('Name for the new folder', 'new-folder', { title: 'New folder' });
         if (!name) return;
 
         const path = this.currentPath.endsWith('/')
@@ -1324,7 +1328,7 @@ class FileExplorer {
     async renameSelected() {
         if (!this.selectedFile) return;
 
-        const newName = prompt('Enter new name:', this.selectedFile.name);
+        const newName = await AppDialog.askFor('New name', this.selectedFile.name, { title: 'Rename' });
         if (!newName || newName === this.selectedFile.name) return;
 
         const oldPath = this.selectedFile.path;
@@ -1402,7 +1406,6 @@ class FileExplorer {
                 throw new Error(info.error);
             }
 
-            // Simple alert for now - could be made into a modal
             const props = `
 Name: ${info.name}
 Path: ${info.path}
@@ -1413,7 +1416,7 @@ Modified: ${this.formatDate(info.mtime)}
 Accessed: ${this.formatDate(info.atime)}
             `.trim();
 
-            alert(props);
+            AppDialog.tell(props, { title: info.name });
 
         } catch (error) {
             console.error('[SFTP] Properties error:', error);
@@ -1453,7 +1456,7 @@ Accessed: ${this.formatDate(info.atime)}
     showError(message) {
         this.fileList.innerHTML = `
             <div class="sftp-empty">
-                <div class="sftp-empty-icon">❌</div>
+                <div class="sftp-empty-icon"><svg class="icon icon--lg" aria-hidden="true"><use href="#i-alert-circle"></use></svg></div>
                 <div class="sftp-empty-text">${this.escapeHtml(message)}</div>
             </div>
         `;
@@ -1521,23 +1524,15 @@ Accessed: ${this.formatDate(info.atime)}
      * Get file icon based on type
      */
     getFileIcon(file) {
-        if (file.isDirectory) return '📁';
-        if (file.isLink) return '🔗';
+        // Neutral sprite icons (shared site icon set) instead of per-type emoji
+        const svg = (name) => `<svg class="icon icon--sm" aria-hidden="true"><use href="#i-${name}"></use></svg>`;
+        if (file.isDirectory) return svg('inbox');
+        if (file.isLink) return svg('external');
 
         const type = file.type || 'file';
-        const icons = {
-            'folder': '📁',
-            'text': '📄',
-            'image': '🖼️',
-            'archive': '📦',
-            'executable': '⚙️',
-            'document': '📑',
-            'audio': '🎵',
-            'video': '🎬',
-            'file': '📄'
-        };
-
-        return icons[type] || '📄';
+        if (type === 'folder') return svg('inbox');
+        if (type === 'document' || type === 'text') return svg('book');
+        return svg('code');
     }
 
     /**

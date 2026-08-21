@@ -1,8 +1,8 @@
 # Messaging Platform SDK - User Guide
 
 **Version:** 1.0.0  
-**Last Updated:** December 27, 2025  
-**Status:** Production Ready
+**Last Updated:** August 18, 2026  
+**Status:** Beta — free to use, APIs may still change
 
 ---
 
@@ -23,7 +23,7 @@
 > The default production messaging service URL is `https://hmdevonline.com/messaging-platform/api/v1/messaging-service`.  
 > - Java and Python agents use this URL as the default if no URL is specified  
 > - Web agents require explicit URL configuration in the `connect()` call  
-> - For local development, use `http://localhost:8082`
+> - The messaging service is fully managed: there is nothing to install, run or configure
 
 ---
 
@@ -31,7 +31,7 @@
 
 The Messaging Platform SDK provides client libraries for building real-time messaging applications with support for:
 
-- ✅ **Real-time messaging** - WebSocket-based communication
+- ✅ **Real-time messaging** - WebSocket by default, with HTTP long-polling as a fallback; UDP in development
 - ✅ **Advanced filtering** - Target specific agents with filter queries
 - ✅ **WebRTC support** - Audio/video streaming
 - ✅ **Channel storage** - Persistent key-value data per channel
@@ -54,7 +54,7 @@ The Messaging Platform SDK provides client libraries for building real-time mess
 
 ### 1. Real-Time Messaging
 
-Send and receive messages instantly across connected agents using WebSocket.
+Send and receive messages instantly across connected agents. The default transport is a WebSocket, which falls back to HTTP long-polling where a socket cannot be held open; UDP is in development.
 
 **Supported message types:**
 - Text messages
@@ -102,7 +102,10 @@ Full API reference: [WEB-AGENT-GUIDE.md § Channel Storage](WEB-AGENT-GUIDE.md#c
 Resume from a specific message offset to recover missed messages.
 
 ```java
-agent.receiveMessages(0L, 100L, 50);  // Start offset, end offset, max messages
+agent.receive(ReceiveConfig.builder()
+    .globalOffset(0L)   // start from this offset
+    .limit(50L)         // at most this many messages
+    .build());
 ```
 
 > ⚠️ **Recovery is scoped to the channel's lifetime.** History lives in the
@@ -144,10 +147,11 @@ pip install messaging-platform-python-agent
 
 #### Web Agent
 ```html
-<script src="js/web-agent.libs.js"></script>
-<script src="js/web-agent.js"></script>
+<!-- Hosted, ready to use -->
+<script src="https://hmdevonline.com/messaging-platform/sdk/generated-web-agent-js/js/web-agent.libs.js"></script>
+<script src="https://hmdevonline.com/messaging-platform/sdk/generated-web-agent-js/js/web-agent.js"></script>
 <!-- Optional: WebRTC support -->
-<script src="js/web-agent.webrtc.js"></script>
+<script src="https://hmdevonline.com/messaging-platform/sdk/generated-web-agent-js/js/web-agent.webrtc.js"></script>
 ```
 
 ---
@@ -187,11 +191,10 @@ import com.hmdev.messaging.agent.core.ConnectConfig;
 
 public class QuickStart {
     public static void main(String[] args) throws Exception {
-        AgentConnection agent = new AgentConnection();
-
-        agent.setOnMessage(msg -> {
-            System.out.println(msg.getFrom() + ": " + msg.getContent());
-        });
+        // The constructor takes the API URL, and your key if you have one.
+        AgentConnection agent = new AgentConnection(
+            "https://hmdevonline.com/messaging-platform/api/v1/messaging-service",
+            "your-api-key");
 
         agent.connect(ConnectConfig.builder()
             .channelName("my-channel")
@@ -199,7 +202,11 @@ public class QuickStart {
             .agentName("java-user")
             .build());
 
-        agent.sendTextMessage("Hello from Java!");
+        // Handlers are registered after connecting.
+        agent.receiveAsync(events -> events.forEach(e ->
+            System.out.println(e.getFrom() + ": " + e.getContent())));
+
+        agent.sendMessage("Hello from Java!");
         agent.disconnect();
     }
 }
@@ -210,17 +217,20 @@ public class QuickStart {
 ### Python
 
 ```python
-from messaging_agent import AgentConnection
+from hmdev.messaging.agent.core.agent_connection import AgentConnection
 
-agent = AgentConnection(
-    api_url="https://hmdevonline.com/messaging-platform/api",
-    api_key="your-api-key"
-)
-
-agent.on_message = lambda msg: print(f"{msg['from']}: {msg['content']}")
+agent = AgentConnection.with_api_key(
+    "https://hmdevonline.com/messaging-platform/api/v1/messaging-service",
+    "your-api-key")
 
 agent.connect("my-channel", "secret123", "python-user")
-agent.send_text_message("Hello from Python!")
+
+# Handlers are registered after connecting.
+agent.receive_async(lambda events: [
+    print(f"{e.get('from')}: {e.get('content')}") for e in events
+])
+
+agent.send_message("Hello from Python!")
 agent.disconnect()
 ```
 
@@ -231,18 +241,22 @@ agent.disconnect()
 ```javascript
 const agent = new AgentConnection();
 
-agent.onMessage = (msg) => console.log(`${msg.from}: ${msg.content}`);
+agent.addEventListener('message', (ev) => {
+    ((ev.response && ev.response.data) || []).forEach((item) => {
+        if (item && item.type === 'chat-text') console.log(`${item.from}: ${item.content}`);
+    });
+});
 
 agent.connect({
     channelName: 'my-channel',
     channelPassword: 'secret123',
     agentName: 'web-user',
-    api: 'https://hmdevonline.com/messaging-platform/api',
+    api: 'https://hmdevonline.com/messaging-platform/api/v1/messaging-service',
     apiKey: 'your-api-key',
     autoReceive: true
 });
 
-agent.sendTextMessage("Hello from Web!");
+agent.sendMessage("Hello from Web!");
 ```
 
 > For full Web guide with WebRTC, channel storage, and advanced features: **[WEB-AGENT-GUIDE.md](WEB-AGENT-GUIDE.md)**
@@ -304,19 +318,18 @@ agent.sendTextMessage("Hello from Web!");
 ### Connection Failed
 
 **Check:**
-1. Messaging service is running: `docker ps`
-2. API URL is correct
-3. API key is valid
+1. The `api` URL passed to `connect()` matches the one documented above
+2. Your API key is valid and has not been revoked — verify it with the API key tester
+3. The channel name and password match on every agent joining the room
 
-```bash
-curl http://localhost:8082/messaging-platform/api/v1/messaging-service/health
-```
+If a key stops working, rotate it from the developer portal; the previous key is
+revoked as soon as the replacement is issued.
 
 ### Messages Not Received
 
 **Check:**
 - Both agents on same channel with same password
-- Receiver has `autoReceive: true` (Web) or calls `startReceiving()` (Java/Python)
+- Receiver has `autoReceive: true` (Web) or calls `receiveAsync()` (Java/Python)
 - `apiKeyScope` matches — if one uses `private` and the other `public`, they're on different channels
 
 ### 401 Unauthorized
@@ -336,8 +349,9 @@ curl http://localhost:8082/messaging-platform/api/v1/messaging-service/health
 ### Debug Logging
 
 ```java
-// Java
-agent.setDebug(true);
+// Java — the agent logs through SLF4J, so raise the level of the SDK's logger
+// rather than calling a setter on the connection.
+// logback.xml:  <logger name="com.hmdev.messaging" level="DEBUG"/>
 ```
 
 ```python
@@ -347,8 +361,12 @@ logging.basicConfig(level=logging.DEBUG)
 ```
 
 ```javascript
-// Web — check browser console
-agent.onError = (error) => console.error('Error:', error);
+// Web — check browser console. A failed connect arrives as a 'connect' event
+// whose response.status is 'error'; there is no separate error event.
+agent.addEventListener('connect', (ev) => {
+    const res = ev.response || {};
+    if (res.status === 'error') console.error('Connect failed:', res.data);
+});
 ```
 
 ---

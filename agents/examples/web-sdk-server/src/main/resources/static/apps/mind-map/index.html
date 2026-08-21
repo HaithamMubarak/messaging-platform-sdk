@@ -2,9 +2,23 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
+    <script src="../../js/prod-log.js"></script>
+    <link rel="icon" type="image/svg+xml" href="../../favicon.svg">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5, user-scalable=yes">
     <meta name="theme-color" content="#0891b2">
-    <title>🗺️ Mind Map - Collaborative Builder</title>
+    <link rel="canonical" href="https://hmdevonline.com/messaging-platform/sdk/apps/mind-map/index.html">
+    <meta property="og:type" content="website">
+    <meta property="og:site_name" content="Messaging Platform SDK">
+    <meta property="og:title" content="Mind map">
+    <meta property="og:description" content="Build a map of nodes and connections with other people in real time. Everything you drag lands on their screen as you drag it.">
+    <meta property="og:url" content="https://hmdevonline.com/messaging-platform/sdk/apps/mind-map/index.html">
+    <meta property="og:image" content="https://hmdevonline.com/messaging-platform/sdk/images/og-image.png">
+    <meta name="twitter:card" content="summary_large_image">
+    <meta name="twitter:title" content="Mind map">
+    <meta name="twitter:description" content="Build a map of nodes and connections with other people in real time. Everything you drag lands on their screen as you drag it.">
+    <meta name="twitter:image" content="https://hmdevonline.com/messaging-platform/sdk/images/og-image.png">
+    <title>Mind map — build one together on the Messaging Platform SDK</title>
+    <meta name="description" content="Build a map of nodes and connections with other people in real time. Everything you drag lands on their screen as you drag it.">
 
     <!-- Common Styles -->
     <link rel="stylesheet" href="../../css/toast.css">
@@ -12,12 +26,15 @@
     <link rel="stylesheet" href="../../css/share-modal.css">
 
     <!-- App Styles -->
+    <link rel="stylesheet" href="../../css/design-tokens.css">
+    <link rel="stylesheet" href="../../css/ui.css">
     <link rel="stylesheet" href="mind-map.css">
+    <link rel="stylesheet" href="../../css/app-chrome.css">
 </head>
 <body>
     <!-- Share Button -->
     <button id="shareBtn" class="share-btn" onclick="mindMapApp?.openShareModal()" style="display: none;">
-        📤 Share
+        <svg class="icon icon--sm" aria-hidden="true"><use href="#i-send"></use></svg> Share
     </button>
 
     <!-- Connection Status -->
@@ -31,15 +48,16 @@
         <!-- Header -->
         <div class="app-header">
             <div class="header-left">
-                <h1>🗺️ Mind Map</h1>
+                <h1><svg class="icon" aria-hidden="true"><use href="#i-layers"></use></svg> Mind Map</h1>
                 <span id="roomName" class="room-badge"></span>
             </div>
             <div class="header-right">
                 <span id="nodeCount" class="node-count">
-                    📦 <span id="nodeCountNum">0</span> nodes
+                    <svg class="icon icon--sm" aria-hidden="true"><use href="#i-layers"></use></svg>
+                    <span id="nodeCountNum">0</span> nodes
                 </span>
                 <span id="userCount" class="user-count">
-                    👥 <span id="userCountNum">0</span>
+                    <svg class="icon icon--sm" aria-hidden="true"><use href="#i-users"></use></svg> <span id="userCountNum">0</span>
                 </span>
             </div>
         </div>
@@ -47,40 +65,24 @@
         <!-- Toolbar -->
         <div class="toolbar">
             <div class="toolbar-group">
-                <button class="toolbar-btn" onclick="mindMapApp?.addNode()" title="Add Node (A)">
-                    ➕ Add Node
-                </button>
-                <button class="toolbar-btn" onclick="mindMapApp?.deleteSelected()" title="Delete (Del)">
-                    🗑️ Delete
-                </button>
+                <button class="toolbar-btn" onclick="mindMapApp?.addNode()" title="Add Node (A)"><svg class="icon" aria-hidden="true"><use href="#i-plus"></use></svg></button>
+                <button class="toolbar-btn" onclick="mindMapApp?.deleteSelected()" title="Delete (Del)"><svg class="icon" aria-hidden="true"><use href="#i-trash"></use></svg></button>
             </div>
 
             <div class="toolbar-separator"></div>
 
             <div class="toolbar-group">
-                <button class="toolbar-btn" onclick="mindMapApp?.zoomIn()" title="Zoom In (+)">
-                    🔍+
-                </button>
-                <button class="toolbar-btn" onclick="mindMapApp?.zoomOut()" title="Zoom Out (-)">
-                    🔍-
-                </button>
-                <button class="toolbar-btn" onclick="mindMapApp?.resetView()" title="Reset View (0)">
-                    ↺ Reset
-                </button>
+                <button class="toolbar-btn" onclick="mindMapApp?.zoomIn()" title="Zoom In (+)"><svg class="icon" aria-hidden="true"><use href="#i-zoom-in"></use></svg></button>
+                <button class="toolbar-btn" onclick="mindMapApp?.zoomOut()" title="Zoom Out (-)"><svg class="icon" aria-hidden="true"><use href="#i-zoom-out"></use></svg></button>
+                <button class="toolbar-btn" onclick="mindMapApp?.resetView()" title="Reset View (0)"><svg class="icon" aria-hidden="true"><use href="#i-target"></use></svg></button>
             </div>
 
             <div class="toolbar-separator"></div>
 
             <div class="toolbar-group">
-                <button class="toolbar-btn" onclick="mindMapApp?.clearAll()" title="Clear All">
-                    🗑️ Clear
-                </button>
-                <button class="toolbar-btn" onclick="mindMapApp?.exportImage()" title="Export PNG">
-                    💾 Export
-                </button>
-                <button class="toolbar-btn" onclick="mindMapApp?.exportJSON()" title="Export JSON">
-                    📄 JSON
-                </button>
+                <button class="toolbar-btn" onclick="mindMapApp?.clearAll()" title="Clear All"><svg class="icon" aria-hidden="true"><use href="#i-ban"></use></svg></button>
+                <button class="toolbar-btn" onclick="mindMapApp?.exportImage()" title="Export PNG"><svg class="icon" aria-hidden="true"><use href="#i-download"></use></svg></button>
+                <button class="toolbar-btn" onclick="mindMapApp?.exportJSON()" title="Export JSON"><svg class="icon" aria-hidden="true"><use href="#i-code"></use></svg></button>
             </div>
         </div>
 
@@ -93,10 +95,10 @@
 
             <!-- Context Menu -->
             <div id="contextMenu" class="context-menu hidden">
-                <button onclick="mindMapApp?.contextMenuAction('edit')">✏️ Edit Text</button>
-                <button onclick="mindMapApp?.contextMenuAction('color')">🎨 Change Color</button>
-                <button onclick="mindMapApp?.contextMenuAction('connect')">🔗 Connect Nodes</button>
-                <button onclick="mindMapApp?.contextMenuAction('delete')">🗑️ Delete</button>
+                <button onclick="mindMapApp?.contextMenuAction('edit')"><svg class="icon icon--sm" aria-hidden="true"><use href="#i-pen"></use></svg> Edit Text</button>
+                <button onclick="mindMapApp?.contextMenuAction('color')"><svg class="icon icon--sm" aria-hidden="true"><use href="#i-layers"></use></svg> Change Color</button>
+                <button onclick="mindMapApp?.contextMenuAction('connect')"><svg class="icon icon--sm" aria-hidden="true"><use href="#i-channel"></use></svg> Connect Nodes</button>
+                <button onclick="mindMapApp?.contextMenuAction('delete')"><svg class="icon icon--sm" aria-hidden="true"><use href="#i-trash"></use></svg> Delete</button>
             </div>
 
             <!-- Color Picker Dialog -->
@@ -118,7 +120,7 @@
 
         <!-- Users Panel -->
         <div class="users-panel">
-            <h3>👥 Collaborators</h3>
+            <h3 data-agents-header><svg class="icon icon--sm" aria-hidden="true"><use href="#i-users"></use></svg> Collaborators</h3>
             <div id="usersList" class="users-list"></div>
         </div>
     </div>
@@ -137,18 +139,23 @@
 
     <!-- Include Libraries -->
     <script src="../../js/config-loader.js"></script>
+    <script src="../../js/icons.js"></script>
+    <script src="../../js/ui.js"></script>
     <script src="../../lib/qrcode.min.js"></script>
-    <script src="../../generated-web-agent-js/messaging-web-agent.js"></script>
+    <script src="../../generated-web-agent-js/js/web-agent.libs.js"></script>
+    <script src="../../generated-web-agent-js/js/web-agent.js"></script>
+    <script src="../../generated-web-agent-js/js/web-agent.webrtc.js"></script>
     <script src="../../js/UserConnectionBase.js"></script>
-    <script src="../../js/MiniGameUtils.js"></script>
 
     <!-- App Logic -->
     <script src="mind-map.js"></script>
 
     <!-- Connection Modal & Share -->
+    <script src="../../js/dialog.js"></script>
     <script src="../../js/common-utils.js"></script>
     <script src="../../js/connection-modal.js"></script>
     <script src="../../js/share-modal.js"></script>
+<script src="../../js/app-chrome.js"></script>
 </body>
 </html>
 

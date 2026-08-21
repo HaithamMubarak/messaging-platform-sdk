@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+    <title>Pulse — live questions and polls on the Messaging Platform SDK</title>
+    <meta name="description" content="Live audience questions and polls where every vote appends a version, so the result has a history you can scrub back through.">
+    <meta name="theme-color" content="#0b1120">
+    <link rel="canonical" href="https://hmdevonline.com/messaging-platform/sdk/apps/pulse/index.html">
+    <meta property="og:type" content="website">
+    <meta property="og:site_name" content="Messaging Platform SDK">
+    <meta property="og:title" content="Pulse">
+    <meta property="og:description" content="Live audience questions and polls where every vote appends a version, so the result has a history you can scrub back through.">
+    <meta property="og:url" content="https://hmdevonline.com/messaging-platform/sdk/apps/pulse/index.html">
+    <meta property="og:image" content="https://hmdevonline.com/messaging-platform/sdk/images/og-image.png">
+    <meta name="twitter:card" content="summary_large_image">
+    <meta name="twitter:title" content="Pulse">
+    <meta name="twitter:description" content="Live audience questions and polls where every vote appends a version, so the result has a history you can scrub back through.">
+    <meta name="twitter:image" content="https://hmdevonline.com/messaging-platform/sdk/images/og-image.png">
+
+    <link rel="icon" type="image/svg+xml" href="../../favicon.svg">
+    <link rel="stylesheet" href="../../css/design-tokens.css">
+    <link rel="stylesheet" href="../../css/ui.css">
+    <link rel="stylesheet" href="../../css/sdk-app.css">
+    <link rel="stylesheet" href="../../css/toast.css">
+    <link rel="stylesheet" href="../../css/connection-modal.css">
+    <link rel="stylesheet" href="../../css/share-modal.css">
+    <link rel="stylesheet" href="pulse.css">
+
+    <script src="../../js/prod-log.js"></script>
+</head>
+<body class="sdk-app">
+
+<header class="sdk-header">
+    <span class="sdk-header__mark">
+        <svg class="icon" aria-hidden="true"><use href="#i-activity"></use></svg>
+    </span>
+    <h1>Pulse</h1>
+    <span class="sdk-room" id="roomName">not connected</span>
+
+    <div class="sdk-header__right">
+        <span class="pill-status is-off" id="statusPill">
+            <span class="pill-status__dot"></span>
+            <span class="pill-status__text">Not connected</span>
+        </span>
+        <button class="btn btn--ghost" id="shareBtn" type="button" style="display:none">
+            <svg class="icon icon--sm" aria-hidden="true"><use href="#i-copy"></use></svg>
+            <span>Share room</span>
+        </button>
+        <a class="btn btn--ghost sdk-header__away" href="../../playground.html">
+            <svg class="icon icon--sm" aria-hidden="true"><use href="#i-arrow-right"></use></svg>
+            Playground
+        </a>
+    </div>
+</header>
+
+<main class="sdk-stage">
+    <div class="sdk-main">
+        <section class="card poll" id="poll" aria-label="Live poll"></section>
+
+        <div class="sdk-side__title" style="margin-top: var(--sp-2)">
+            <span>Questions</span>
+            <span style="font-weight:500; text-transform:none; letter-spacing:0">sorted by votes</span>
+        </div>
+
+        <form class="ask" id="askForm">
+            <input id="askInput" class="ask__input" type="text" maxlength="240"
+                   placeholder="Ask a question…" autocomplete="off">
+            <button class="btn btn--primary" type="submit">
+                <svg class="icon icon--sm" aria-hidden="true"><use href="#i-send"></use></svg>
+                Ask
+            </button>
+        </form>
+
+        <div class="sdk-scroll questions" id="questions"></div>
+    </div>
+
+    <aside class="sdk-side">
+        <div class="sdk-side__title">
+            <span>History</span>
+            <span style="font-weight:500; text-transform:none; letter-spacing:0">newest first</span>
+        </div>
+        <div class="card sdk-scroll versions" id="versions"></div>
+        <p class="sdk-note">
+            Every vote appends a version with <code>storageAdd</code>; this panel reads them back with
+            <code>storageGetList</code>. Nothing else on the site demonstrates either.
+        </p>
+    </aside>
+</main>
+
+<script src="../../js/config-loader.js"></script>
+<script src="../../generated-web-agent-js/js/web-agent.libs.js"></script>
+<script src="../../generated-web-agent-js/js/web-agent.js"></script>
+<script src="../../generated-web-agent-js/js/web-agent.webrtc.js"></script>
+<script src="../../js/icons.js"></script>
+<script src="../../js/ui.js"></script>
+<script src="../../js/share-modal.js"></script>
+<script src="../../js/dialog.js"></script>
+<script src="../../js/common-utils.js"></script>
+<script src="../../js/connection-modal.js"></script>
+<script src="../../js/UserConnectionBase.js"></script>
+<script src="pulse.js"></script>
+</body>
+</html>

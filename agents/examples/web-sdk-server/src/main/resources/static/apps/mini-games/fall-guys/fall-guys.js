@@ -1674,6 +1674,10 @@ class FallGuysGame extends UserConnectionBase {
             }
         });
 
+        // Which course the lobby is set to. The host owns this value and
+        // broadcasts it; everyone else follows.
+        this.mapKey = (window.MAP_ORDER && window.MAP_ORDER[0].key) || 'obstacleRush';
+
         // Three.js
         this.scene = null;
         this.camera = null;
@@ -1696,6 +1700,12 @@ class FallGuysGame extends UserConnectionBase {
 
         // Player colors
         this.playerColors = new Map();
+
+        // Ready state per player. This was read in a dozen places but never
+        // created, so updatePlayerList() threw on connect — which aborted
+        // onConnect() before the lobby was ever shown, leaving no way to start
+        // a race at all.
+        this.playersReady = new Map();
 
         // Update rate limiting
         this.lastUpdateSent = 0;
@@ -1844,9 +1854,9 @@ class FallGuysGame extends UserConnectionBase {
         console.log('[FallGuys] Creating game world...');
         console.log('[FallGuys] Scene:', this.scene);
         console.log('[FallGuys] Physics world:', this.physicsWorld);
-        console.log('[FallGuys] Map data:', MAP_DATA.obstacleRush);
+        console.log('[FallGuys] Map:', this.mapKey);
 
-        this.gameWorld = new GameWorld(this.scene, this.physicsWorld, MAP_DATA.obstacleRush);
+        this.gameWorld = new GameWorld(this.scene, this.physicsWorld, this.currentMap());
         console.log('[FallGuys] Game world created:', this.gameWorld);
         console.log('[FallGuys] Platforms:', this.gameWorld.platforms.length);
 
@@ -1984,6 +1994,14 @@ class FallGuysGame extends UserConnectionBase {
             case 'playerAnnounce':
                 this.handlePlayerAnnounce(data);
                 break;
+            case 'mapSelect':
+                // The host owns the course. Ignore the message if it did not
+                // come from them, and never let it bounce back at the host.
+                if (this.isHost()) break;
+                if (this._getHostName && from !== this._getHostName()) break;
+                this.applyMap(data.mapKey);
+                break;
+
             case 'countdown':
                 this.handleCountdown(data.value);
                 break;
@@ -2073,7 +2091,7 @@ class FallGuysGame extends UserConnectionBase {
         }
 
         // Check for death (fall off map) - use Cannon body position
-        if (this.localPlayer.body.position.y < MAP_DATA.obstacleRush.killZoneY) {
+        if (this.localPlayer.body.position.y < this.currentMap().killZoneY) {
             this.respawnPlayer();
         }
 
@@ -2194,6 +2212,77 @@ class FallGuysGame extends UserConnectionBase {
         // Show mobile controls
         if ('ontouchstart' in window) {
             document.getElementById('mobileControls')?.classList.remove('hidden');
+        }
+    }
+
+    /** The map object the world is currently built from. */
+    currentMap() {
+        return MAP_DATA[this.mapKey] || MAP_DATA.obstacleRush;
+    }
+
+    /**
+     * Rebuild the course. Safe to call mid-lobby: the old world's meshes and
+     * physics bodies are disposed first, then everyone is put back on the line.
+     */
+    applyMap(mapKey, { broadcast = false } = {}) {
+        if (!MAP_DATA[mapKey] || mapKey === this.mapKey) {
+            if (mapKey === this.mapKey) this.updateMapPicker();
+            return;
+        }
+        this.mapKey = mapKey;
+
+        if (this.gameWorld) {
+            this.gameWorld.dispose();
+            this.gameWorld = new GameWorld(this.scene, this.physicsWorld, this.currentMap());
+        }
+
+        const map = this.currentMap();
+        if (this.scene) {
+            this.scene.background = new THREE.Color(map.skyColor);
+            if (this.scene.fog) {
+                this.scene.fog.color = new THREE.Color(map.fog.color);
+                this.scene.fog.near = map.fog.near;
+                this.scene.fog.far = map.fog.far;
+            }
+        }
+
+        this.resetPlayerPositions();
+        this.updateMapPicker();
+
+        if (broadcast && this.isHost()) {
+            this.sendData({ type: 'mapSelect', mapKey: mapKey });
+        }
+        this.showToast('Course: ' + map.name, 'info');
+    }
+
+    /** Host-only: called by the lobby buttons. */
+    hostSelectMap(mapKey) {
+        if (!this.isHost()) {
+            this.showToast('Only the host can change the course', 'warning');
+            return;
+        }
+        this.applyMap(mapKey, { broadcast: true });
+    }
+
+    /** Paint the lobby picker to match the current selection and host rights. */
+    updateMapPicker() {
+        const host = this.isHost();
+        const picker = document.getElementById('mapPicker');
+        if (picker) picker.dataset.host = host ? 'true' : 'false';
+
+        document.querySelectorAll('#mapPicker .map-option').forEach((option) => {
+            const selected = option.dataset.map === this.mapKey;
+            option.classList.toggle('selected', selected);
+            option.setAttribute('aria-pressed', selected ? 'true' : 'false');
+            option.disabled = !host;
+            option.title = host ? '' : 'Only the host can change the course';
+        });
+
+        const note = document.getElementById('mapPickerNote');
+        if (note) {
+            note.textContent = host
+                ? 'You are the host — pick the course everyone races.'
+                : 'The host picks the course.';
         }
     }
 
@@ -2468,12 +2557,16 @@ class FallGuysGame extends UserConnectionBase {
             type: 'lobbyState',
             players: Array.from(this.playerColors.entries()),
             readyStates: Array.from(this.playersReady.entries()),
-            gameState: this.gameState
+            gameState: this.gameState,
+            mapKey: this.mapKey
         });
     }
 
     handleLobbyState(data) {
         console.log('[FallGuys] Received lobby state:', data);
+
+        // A client that joined mid-lobby learns the course from here.
+        if (!this.isHost() && data.mapKey) this.applyMap(data.mapKey);
 
         // Update player colors from host (host is authoritative)
         if (data.players) {
@@ -2708,7 +2801,22 @@ class FallGuysGame extends UserConnectionBase {
         container.appendChild(item);
     }
 
+    /**
+     * Whether the host is allowed to start a race.
+     *
+     * This was called but never defined, which threw and aborted
+     * updateHostControls() — the second reason the lobby never appeared.
+     * The lobby has no ready-up control, so the rule is simply "there is at
+     * least one racer"; solo runs are allowed for practice. If a ready button
+     * is added later, gate on this.playersReady here.
+     */
+    checkAllReady() {
+        return true;
+    }
+
     updateHostControls() {
+        this.updateMapPicker();
+
         const isHost = this.isHost();
         console.log('[FallGuys] updateHostControls - isHost:', isHost);
 
@@ -2915,7 +3023,7 @@ async function connectFallGuys(username, channel, password) {
         console.log('[FallGuys] Connected and ready!');
     } catch (error) {
         console.error('[FallGuys] Connection failed:', error);
-        alert('Failed to connect: ' + error.message);
+        if (window.ConnectionModal) ConnectionModal.fail(error);
         fallGuysGame = null;
 
         // Re-enable connect button on error
@@ -2942,7 +3050,7 @@ window.connect = async function() {
     const password = pwEl.value.trim();
 
     if (!username || !channel) {
-        alert('Please enter username and channel name');
+        if (window.ConnectionModal) ConnectionModal.fail(new Error('Your name and the channel are both needed.'));
         return;
     }
 

@@ -12,6 +12,49 @@
 
     const MiniGameUtils = {
         /**
+         * Escape a string for interpolation into HTML.
+         *
+         * Anything that arrived from another peer — a username, a chat line, a
+         * colour — is attacker-controlled: a peer can join a room under any
+         * name it likes. Several of these apps used to interpolate those values
+         * straight into innerHTML, so a name like `<img src=x onerror=...>` ran
+         * script in every other participant's page, on join alone.
+         *
+         * Use this at every interpolation point, or build the node with
+         * textContent instead.
+         *
+         * @param {*} value
+         * @returns {string} safe to place in element content or a quoted attribute
+         */
+        escapeHtml: function(value) {
+            return String(value == null ? '' : value).replace(/[&<>"']/g, function(c) {
+                return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c];
+            });
+        },
+
+        /**
+         * Validate a peer-supplied colour before it goes into a style attribute.
+         *
+         * Escaping alone is not enough inside `style="background: HERE"`: a peer
+         * can still inject further CSS declarations. Only recognised colour
+         * syntax is allowed through; anything else falls back.
+         *
+         * @param {*} value  a colour from a remote peer
+         * @param {string} [fallback]
+         * @returns {string} a colour safe to interpolate into a style attribute
+         */
+        safeColor: function(value, fallback) {
+            const safe = fallback || '#64748b';
+            if (typeof value !== 'string') return safe;
+            const v = value.trim();
+            if (/^#[0-9a-f]{3,8}$/i.test(v)) return v;
+            if (/^rgba?\(\s*[\d.\s,%]+\)$/i.test(v)) return v;
+            if (/^hsla?\(\s*[\d.\s,%deg]+\)$/i.test(v)) return v;
+            if (/^[a-z]{3,20}$/i.test(v)) return v;          // named colours
+            return safe;
+        },
+
+        /**
          * Setup cleanup on page unload/navigation
          *
          * NOTE: This function is now DEPRECATED and does nothing!
@@ -45,7 +88,7 @@
                 ShareModal.show(channelName, channelPassword, apiKey);
             } else {
                 console.error('ShareModal not available. Make sure share-modal.js is loaded.');
-                alert('Share functionality not available');
+                if (window.UI && UI.toast) UI.toast('Sharing is not available on this page', 'error');
             }
         },
 
@@ -545,11 +588,22 @@
                 // }
                 // Create or attach an agents count badge next to the sidebar "Active Users" header
                 try {
-                    // Find a header that looks like the Active Users header (common variants)
-                    const candidates = Array.from(document.querySelectorAll('.sidebar h3, .sidebar .title, .sidebar header h3, h3'));
-                    let headerEl = candidates.find(el => el && /active users/i.test((el.textContent||'').trim()));
-                    // fallback: look for emoji prefix '👥' in any h3
-                    if (!headerEl) headerEl = candidates.find(el => el && (el.textContent||'').trim().startsWith('👥'));
+                    // Where the badge goes.
+                    //
+                    // Say so with an attribute if you can: this used to find the
+                    // heading by testing whether its text began with the 👥
+                    // emoji, so the moment an app replaced that emoji with a
+                    // proper icon the badge silently stopped being created —
+                    // which is exactly what a design-system conversion does.
+                    // The text heuristics are kept for the apps that have not
+                    // been marked up yet.
+                    let headerEl = document.querySelector('[data-agents-header]');
+
+                    if (!headerEl) {
+                        const candidates = Array.from(document.querySelectorAll('.sidebar h3, .sidebar .title, .sidebar header h3, h3'));
+                        headerEl = candidates.find(el => el && /active users|players|artists|spectators|people/i.test((el.textContent||'').trim()))
+                            || candidates.find(el => el && (el.textContent||'').trim().startsWith('👥'));
+                    }
 
                     if (headerEl) {
                         // If badge already exists, don't duplicate
@@ -795,7 +849,10 @@
             const data = JSON.parse(json);
             return data;
         } catch (e) {
-            console.error('[ChannelAuth] Decode error:', e);
+            // Callers try several encodings in turn (plain, URL-decoded,
+            // URL-safe base64), so a miss here is an expected step in that
+            // search, not a fault. Whoever exhausts the strategies reports it.
+            console.debug('[ChannelAuth] Decode miss:', e.message);
             return null;
         }
     }
@@ -884,6 +941,25 @@
     window.encodeChannelAuthEncrypted = encodeChannelAuthEncrypted;
     window.decodeChannelAuth = decodeChannelAuth;
     window.decodeChannelAuthEncrypted = decodeChannelAuthEncrypted;
+
+    /* ------------------------------------------------------------------ ask
+     * Questions and notices, from js/dialog.js — kept here as the names these
+     * apps already call so no page has to change twice.
+     */
+    MiniGameUtils.ask = function (opts) {
+        if (window.AppDialog) return AppDialog.ask(opts);
+        // dialog.js is not on the page: fall back rather than lose the question.
+        return Promise.resolve(window.confirm((opts && opts.body) || ''));
+    };
+    MiniGameUtils.confirmDialog = function (body, opts) {
+        return MiniGameUtils.ask(Object.assign({ body: body, confirmLabel: 'Yes', cancelLabel: 'No' }, opts || {}));
+    };
+    MiniGameUtils.tell = function (body, opts) {
+        return MiniGameUtils.ask(Object.assign({ body: body, cancellable: false }, opts || {}));
+    };
+    MiniGameUtils.askFor = function (body, value, opts) {
+        return MiniGameUtils.ask(Object.assign({ body: body, input: true, value: value }, opts || {}));
+    };
 
     // Expose to window
     window.MiniGameUtils = MiniGameUtils;

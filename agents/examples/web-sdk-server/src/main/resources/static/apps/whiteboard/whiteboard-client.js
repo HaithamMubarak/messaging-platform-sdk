@@ -681,19 +681,26 @@ class UndoRedoManager {
     }
 
     /**
-     * Update undo/redo button states
-     * OVERRIDE: Keep buttons permanently disabled - undo/redo not supported in whiteboard yet
+     * Update undo/redo button states.
+     *
+     * This used to force both buttons disabled for ever, under a comment
+     * saying undo would arrive one day — while the whole command stack below
+     * it worked. The buttons now say what the stacks say.
      */
     updateButtons() {
         const undoBtn = document.getElementById('undoBtn');
         const redoBtn = document.getElementById('redoBtn');
-
-        // Force buttons to stay disabled - undo/redo will be supported in future
         if (undoBtn) {
-            undoBtn.disabled = true;
+            undoBtn.disabled = this.undoStack.length === 0;
+            undoBtn.title = this.undoStack.length
+                ? `Undo ${this.undoStack[this.undoStack.length - 1].type} (Ctrl+Z)`
+                : 'Nothing to undo (Ctrl+Z)';
         }
         if (redoBtn) {
-            redoBtn.disabled = true;
+            redoBtn.disabled = this.redoStack.length === 0;
+            redoBtn.title = this.redoStack.length
+                ? 'Redo (Ctrl+Shift+Z)'
+                : 'Nothing to redo (Ctrl+Shift+Z)';
         }
     }
 
@@ -729,7 +736,7 @@ const undoRedoManager = UndoRedoManager.getInstance();
 function showUndoRedoToast(username, action) {
     const icon = action === 'undo' ? '↶' : '↷';
     const actionText = action === 'undo' ? 'undid' : 'redid';
-    showToast(`${icon} ${username} ${actionText} an action`, 2000);
+    showToast(`${username} ${actionText} an action`, 'info', 2000);
 }
 
 /**
@@ -1236,7 +1243,7 @@ class WhiteboardGame extends UserConnectionBase {
 
         const msgElement = document.createElement('div');
         msgElement.className = 'chat-message';
-        msgElement.innerHTML = `<strong style="color: ${color}">${from}:</strong> ${message}`;
+        msgElement.innerHTML = `<strong style="color: ${MiniGameUtils.safeColor(color)}">${MiniGameUtils.escapeHtml(from)}:</strong> ${MiniGameUtils.escapeHtml(message)}`;
         chatMessages.appendChild(msgElement);
         chatMessages.scrollTop = chatMessages.scrollHeight;
     }
@@ -1251,12 +1258,12 @@ class WhiteboardGame extends UserConnectionBase {
         let html = '';
 
         // Add yourself
-        html += `<div class="user-item"><span class="user-color" style="background: ${window.currentColor || '#000'}"></span>${this.username} (You)</div>`;
+        html += `<div class="user-item"><span class="user-color" style="background: ${MiniGameUtils.safeColor(window.currentColor, '#000')}"></span>${MiniGameUtils.escapeHtml(this.username)} (You)</div>`;
 
         // Add other users
         this.users.forEach((user, name) => {
             if (name !== this.username) {
-                html += `<div class="user-item"><span class="user-color" style="background: ${user.color}"></span>${name}</div>`;
+                html += `<div class="user-item"><span class="user-color" style="background: ${MiniGameUtils.safeColor(user.color)}"></span>${MiniGameUtils.escapeHtml(name)}</div>`;
             }
         });
 
@@ -1476,7 +1483,7 @@ class WhiteboardGame extends UserConnectionBase {
         if (agentName === this.username) return;
 
         // Show success notification
-        this.showToast(`✅ ${agentName} joined the whiteboard!`, 'success');
+        this.showToast(`${agentName} joined the whiteboard!`, 'success');
 
         // Add to users map with color
         const color = this.generateUserColor(agentName);
@@ -1545,7 +1552,7 @@ class WhiteboardGame extends UserConnectionBase {
         // Unlock board if it was locked (non-host user waiting for connection)
         if (isBoardLocked) {
             unlockBoard();
-            this.showToast('✅ Connected! You can now draw on the whiteboard', 'success', 3000);
+            this.showToast('Connected! You can now draw on the whiteboard', 'success', 3000);
             console.log('[WhiteboardGame] Board unlocked - DataChannel ready');
         }
 
@@ -1702,6 +1709,7 @@ class WhiteboardGame extends UserConnectionBase {
             connEl.classList.remove('online');
             connEl.classList.add('offline');
         }
+        setRoomBadge(null, false);
 
         // Show notifications
         this.showToast('Disconnected from whiteboard. Please reconnect.', 'warning');
@@ -2535,7 +2543,7 @@ function lockBoard(message = 'Connecting to whiteboard...') {
     if (boardLockTimeout) clearTimeout(boardLockTimeout);
     boardLockTimeout = setTimeout(() => {
         unlockBoard();
-        showToast('⚠️ Connection timeout - Board access restored with limited functionality', 'warning', 5000);
+        showToast('Connection timeout - Board access restored with limited functionality', 'warning', 5000);
     }, BOARD_LOCK_TIMEOUT_MS);
 
     console.log('[Whiteboard] Board locked:', message);
@@ -2666,6 +2674,13 @@ function enqueueStroke(s, peerId) {
         isMagic: !!s.isMagic,  // Preserve magic flag
         peerId: peerId || null  // Track who sent this stroke
     };
+
+    // Text and notes keep their payload: normalising them into four numbers
+    // would deliver somebody's sticky note as an invisible zero-length line.
+    if (s.type === 'text' || s.type === 'note') {
+        stroke.type = s.type;
+        stroke.text = String(s.text || '').slice(0, 500);
+    }
 
     incomingStrokeQueue.push(stroke);
 
@@ -2948,6 +2963,7 @@ function loadAndDrawCanvasImage(dataUrl, originalDimensions, onSuccess, onError)
 function addStrokeToBoardState(stroke) {
     // Add stroke to persistent board state
     boardState.push(stroke);
+    if (boardState.length === 1) syncEmptyHint();
 
     // Track stroke for history (incremental snapshots)
     trackStrokeForHistory(stroke);
@@ -2964,6 +2980,7 @@ function addStrokeToBoardState(stroke) {
 
 function clearBoardState() {
     boardState = [];
+    if (typeof syncEmptyHint === 'function') syncEmptyHint();
     lastBroadcastStrokeCount = 0;  // Reset broadcast counter
     lastBroadcastCanvasHash = null;  // Reset canvas hash
 }
@@ -3059,7 +3076,7 @@ function saveBoardStateToStorage() {
         // Check if size is approaching limit
         if (imageSizeBytes > 18 * 1024 * 1024) { // 18 MB warning threshold
             console.warn(`[Storage] ⚠️ Storage size is large: ${imageSizeMB} MB`);
-            addChatMessage('⚠️ Warning', `Canvas storage is large (${imageSizeMB} MB). Consider clearing some content.`, '#FF9800');
+            addChatMessage('Warning', `Canvas storage is large (${imageSizeMB} MB). Consider clearing some content.`, '#FF9800');
         }
 
         // Prepare board state object (simplified - just the image)
@@ -3102,18 +3119,18 @@ function saveBoardStateToStorage() {
 
                 // Show error notification to user
                 const errorMsg = response.error || response.message || 'Unknown error';
-                addChatMessage('❌ Sync Error', `Failed to save: ${errorMsg}`, '#f44336');
+                addChatMessage('Sync Error', `Failed to save: ${errorMsg}`, '#f44336');
 
                 // Check if it's a size limit error
                 if (errorMsg.includes('exceeds maximum') || errorMsg.includes('PAYLOAD_TOO_LARGE')) {
-                    addChatMessage('💡 Tip', 'Canvas is too large. Try clearing some content to reduce size.', '#FF9800');
+                    addChatMessage('Tip', 'Canvas is too large. Try clearing some content to reduce size.', '#FF9800');
                 }
             }
         );
 
     } catch (e) {
         console.error('[Storage] Error saving board state:', e);
-        addChatMessage('❌ Sync Error', `Failed to save board state: ${e.message}`, '#f44336');
+        addChatMessage('Sync Error', `Failed to save board state: ${e.message}`, '#f44336');
     }
 }
 
@@ -3170,14 +3187,14 @@ function loadBoardStateFromStorage() {
                                 finishInitialStateLoading();
                             } catch (e) {
                                 console.error('[Storage] Failed to render JPG image:', e);
-                                addChatMessage('❌ Load Error', `Failed to render image: ${e.message}`, '#f44336');
+                                addChatMessage('Load Error', `Failed to render image: ${e.message}`, '#f44336');
                                 initialStateLoaded = true;
                                 finishInitialStateLoading();
                             }
                         };
                         img.onerror = function () {
                             console.error('[Storage] Failed to load JPG image');
-                            addChatMessage('❌ Load Error', 'Failed to load whiteboard image', '#f44336');
+                            addChatMessage('Load Error', 'Failed to load whiteboard image', '#f44336');
                             initialStateLoaded = true;
                             finishInitialStateLoading();
                         };
@@ -3260,7 +3277,7 @@ function loadBoardStateFromStorage() {
 
                 } catch (e) {
                     console.error('[Storage] Error applying loaded board state:', e);
-                    addChatMessage('❌ Load Error', `Failed to apply board state: ${e.message}`, '#f44336');
+                    addChatMessage('Load Error', `Failed to apply board state: ${e.message}`, '#f44336');
                     initialStateLoaded = true;
                     finishInitialStateLoading();
                 }
@@ -3274,7 +3291,7 @@ function loadBoardStateFromStorage() {
 
                 // Show error notification to user
                 const errorMsg = response.error || response.message || 'Unknown error';
-                addChatMessage('❌ Load Error', `Failed to load board state: ${errorMsg}`, '#f44336');
+                addChatMessage('Load Error', `Failed to load board state: ${errorMsg}`, '#f44336');
 
                 initialStateLoaded = true;
                 finishInitialStateLoading();
@@ -3283,7 +3300,7 @@ function loadBoardStateFromStorage() {
 
     } catch (e) {
         console.error('[Storage] Error loading board state:', e);
-        addChatMessage('❌ Load Error', `Failed to load board state: ${e.message}`, '#f44336');
+        addChatMessage('Load Error', `Failed to load board state: ${e.message}`, '#f44336');
         initialStateLoaded = true;
     }
 }
@@ -3295,6 +3312,11 @@ function applyBoardState(strokes) {
 
     // Apply all strokes immediately without animation
     strokes.forEach(stroke => {
+        if (stroke.type === 'text' || stroke.type === 'note') {
+            if (window.WhiteboardTools) WhiteboardTools.paint(ctx, stroke);
+            addStrokeToBoardState(stroke);
+            return;
+        }
         // Draw directly to canvas
         const cssW = canvas.clientWidth || Math.max(1, Math.floor(canvas.width / (canvas._dpr || 1)));
         const cssH = canvas.clientHeight || Math.max(1, Math.floor(canvas.height / (canvas._dpr || 1)));
@@ -3361,6 +3383,13 @@ function _processStrokeQueueFrame() {
         const groups = [];
         let currentGroup = null;
         for (const s of toProcess) {
+            // A note is not part of anybody's path.
+            if (s.type === 'text' || s.type === 'note') {
+                if (window.WhiteboardTools) WhiteboardTools.paint(ctx, s);
+                currentGroup = null;
+                continue;
+            }
+
             const color = s.color || '#000';
             const size = s.size || 1;
             const erase = !!s.erase;
@@ -3683,8 +3712,8 @@ function initializeCredentialInputs() {
     window.loadConnectionModal({
         localStoragePrefix: 'whiteboard_',
         channelPrefix: 'whiteboard-',
-        title: '🎨 Join Whiteboard',
-        collapsedTitle: '🎨 Join Whiteboard',
+        title: 'Join Whiteboard',
+        collapsedTitle: 'Join Whiteboard',
         onConnect: function(username, channel, password) {
             // Call the whiteboard's connect function
             connect();
@@ -3697,179 +3726,47 @@ function initializeCredentialInputs() {
 }
 
 // Make header toolbar draggable - VERTICAL ONLY (stays centered horizontally)
-function initDraggableHeader() {
-    const header = document.querySelector('.header');
-    if (!header) return;
-
-    let isDragging = false;
-    let initialY = 0;
-    let yOffset = 0;
-    const minTop = 5;
-    const maxTopOffset = window.innerHeight - 60;
-
-    // Load saved Y position from localStorage
-    try {
-        const savedPos = localStorage.getItem('whiteboard_toolbar_top');
-        if (savedPos) {
-            const top = parseInt(savedPos, 10);
-            // Validate is within bounds
-            const validTop = Math.max(minTop, Math.min(maxTopOffset, top));
-            yOffset = validTop;
-            header.style.top = validTop + 'px';
-            console.log(`[Toolbar] Restored vertical position: ${validTop}px`);
-        }
-    } catch (e) {
-        console.warn('Failed to load toolbar position', e);
-    }
-
-    function dragStart(e) {
-        // Don't drag if clicking on buttons, inputs, or interactive elements
-        const target = e.target;
-        if (target.tagName === 'BUTTON' ||
-            target.tagName === 'INPUT' ||
-            target.classList.contains('color-btn') ||
-            target.closest('button') ||
-            target.closest('input')) {
-            return;
-        }
-
-        isDragging = true;
-        if (e.type === "touchstart") {
-            initialY = e.touches[0].clientY - yOffset;
-        } else {
-            initialY = e.clientY - yOffset;
-        }
-        header.classList.add('dragging');
-    }
-
-    function drag(e) {
-        if (!isDragging) return;
-        e.preventDefault();
-
-        let currentY;
-        if (e.type === "touchmove") {
-            currentY = e.touches[0].clientY - initialY;
-        } else {
-            currentY = e.clientY - initialY;
-        }
-
-        // Constrain Y within viewport bounds
-        const constrainedY = Math.max(minTop, Math.min(maxTopOffset, currentY));
-        yOffset = constrainedY;
-
-        // Keep header centered horizontally with transform translateX(-50%)
-        // Only modify top for vertical dragging
-        header.style.top = constrainedY + 'px';
-    }
-
-    function dragEnd(e) {
-        if (!isDragging) return;
-        isDragging = false;
-        header.classList.remove('dragging');
-
-        // Save Y position to localStorage
-        try {
-            localStorage.setItem('whiteboard_toolbar_top', String(yOffset));
-        } catch (e) {
-            console.warn('Failed to save toolbar position', e);
-        }
-    }
-
-    // Mouse events
-    header.addEventListener('mousedown', dragStart);
-    document.addEventListener('mousemove', drag);
-    document.addEventListener('mouseup', dragEnd);
-
-    // Touch events for mobile
-    header.addEventListener('touchstart', dragStart, {passive: false});
-    document.addEventListener('touchmove', drag, {passive: false});
-    document.addEventListener('touchend', dragEnd);
-
-    // Double-click to reset position
-    header.addEventListener('dblclick', (e) => {
-        const target = e.target;
-        if (target.tagName === 'BUTTON' ||
-            target.tagName === 'INPUT' ||
-            target.classList.contains('color-btn') ||
-            target.closest('button') ||
-            target.closest('input')) {
-            return;
-        }
-
-        console.log('[Toolbar] Double-click detected, resetting toolbar to top-center');
-        yOffset = 16; // Default top position (var(--space-4) = 16px)
-        header.style.top = yOffset + 'px';
-        localStorage.removeItem('whiteboard_toolbar_top');
-
-        try {
-            addChatMessage('System', 'Toolbar reset to top-center ↻', '#4CAF50');
-        } catch (err) {
-            console.log('Toolbar reset to top-center');
-        }
-    });
-
-    // Keyboard shortcut to reset (Ctrl+Shift+R)
+/**
+ * Hold Space to move the board.
+ *
+ * These two handlers used to live inside initDraggableHeader() — a function
+ * that made the toolbar draggable up and down, which mostly meant people
+ * grabbing for a button moved the toolbar instead. Dropping the dragging took
+ * Space-to-pan with it, because this was buried in the same body. It is its
+ * own function now, and the dragging is gone.
+ */
+function initSpacePan() {
     document.addEventListener('keydown', (e) => {
-        // Space key: enable pan mode (Excalidraw-style)
-        if (e.code === 'Space' && !e.repeat) {
-            // Don't activate pan mode if user is typing in an input field
-            const activeElement = document.activeElement;
-            if (activeElement && (
-                activeElement.tagName === 'INPUT' ||
-                activeElement.tagName === 'TEXTAREA' ||
-                activeElement.isContentEditable
-            )) {
-                return;
-            }
+        if (e.code !== 'Space' || e.repeat) return;
 
-            e.preventDefault();
-            spaceKeyPressed = true;
-
-            // Change cursor to indicate pan mode
-            if (canvas) {
-                canvas.style.cursor = 'grab';
-            }
+        // Not while somebody is typing — in the chat box, or in a text or
+        // sticky note on the board.
+        const active = document.activeElement;
+        if (active && (
+            active.tagName === 'INPUT' ||
+            active.tagName === 'TEXTAREA' ||
+            active.isContentEditable
+        )) {
+            return;
         }
 
-        // Ctrl+Shift+R: reset toolbar position
-        if (e.ctrlKey && e.shiftKey && e.key === 'R') {
-            e.preventDefault();
-            console.log('[Toolbar] Resetting toolbar to top-center');
-            yOffset = 16;
-            header.style.top = yOffset + 'px';
-            localStorage.removeItem('whiteboard_toolbar_top');
-
-            try {
-                addChatMessage('System', 'Toolbar position reset to top-center (Ctrl+Shift+R)', '#4CAF50');
-            } catch (err) {
-                console.log('Toolbar reset to top-center');
-            }
-        }
+        e.preventDefault();
+        spaceKeyPressed = true;
+        if (canvas) canvas.style.cursor = 'grab';
     });
 
-    // Space key release: disable pan mode
     document.addEventListener('keyup', (e) => {
-        if (e.code === 'Space') {
-            spaceKeyPressed = false;
+        if (e.code !== 'Space') return;
+        spaceKeyPressed = false;
 
-            // Stop panning if active
-            if (isPanning && !e.touches) {
-                isPanning = false;
-                saveViewportTransform();
-            }
-
-            // Restore cursor
-            if (canvas && currentTool !== 'hand') {
-                canvas.style.cursor = getCursorForTool(currentTool);
-            }
+        if (isPanning && !e.touches) {
+            isPanning = false;
+            saveViewportTransform();
+        }
+        if (canvas && currentTool !== 'hand') {
+            canvas.style.cursor = getCursorForTool(currentTool);
         }
     });
-
-    console.log('[Toolbar] ✓ Vertical-only draggable toolbar initialized');
-    console.log('[Toolbar] 💡 Drag header UP/DOWN to reposition vertically');
-    console.log('[Toolbar] 💡 Header stays CENTERED HORIZONTALLY');
-    console.log('[Toolbar] 💡 Double-click empty toolbar space to reset to top');
-    console.log('[Toolbar] 💡 Or press Ctrl+Shift+R to reset');
 }
 
 // Initialize
@@ -3904,6 +3801,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Setup canvas event listeners (drawing, pan, zoom)
     setupCanvas();
+    syncEmptyHint();
 
     window.addEventListener('resize', handleResize);
 
@@ -3922,8 +3820,51 @@ document.addEventListener('DOMContentLoaded', () => {
     // Initialize username/channel/password inputs
     initializeCredentialInputs();
 
-    // Make header toolbar draggable
-    initDraggableHeader();
+    // Hold Space to move the board. (The toolbar used to be draggable too;
+    // that is gone, but the pan lived in the same function.)
+    initSpacePan();
+
+    // ------------------------------------------------------------------
+    // The shortcuts. Every one of these existed as a tooltip or as nothing at
+    // all; Ctrl+Z in particular was advertised on a permanently disabled
+    // button. Tools are single keys, the way they are in every drawing app.
+    // ------------------------------------------------------------------
+    document.addEventListener('keydown', (e) => {
+        const typingSomewhere = (() => {
+            const a = document.activeElement;
+            return !!(a && (a.tagName === 'INPUT' || a.tagName === 'TEXTAREA' || a.isContentEditable));
+        })();
+
+        if (e.key === 'Escape') {
+            if (window.WhiteboardTools && WhiteboardTools.typing()) { WhiteboardTools.closeEditor(true); return; }
+            if (closeShortcutSheet()) return;
+            closeSyncModeModal();
+            return;
+        }
+
+        if ((e.ctrlKey || e.metaKey) && (e.key === 'z' || e.key === 'Z')) {
+            e.preventDefault();
+            if (e.shiftKey) triggerRedo(); else triggerUndo();
+            return;
+        }
+        if ((e.ctrlKey || e.metaKey) && (e.key === 'y' || e.key === 'Y')) {
+            e.preventDefault();
+            triggerRedo();
+            return;
+        }
+
+        if (e.ctrlKey || e.metaKey || e.altKey || typingSomewhere) return;
+
+        const byKey = {
+            v: 'hand', h: 'hand', p: 'draw', d: 'draw', e: 'erase', m: 'magic',
+            l: 'line', a: 'arrow', r: 'rect', o: 'ellipse', g: 'diamond',
+            t: 'text', n: 'note'
+        };
+        const tool = byKey[e.key.toLowerCase()];
+        if (tool) { e.preventDefault(); setTool(tool); return; }
+
+        if (e.key === '?') { e.preventDefault(); toggleShortcutSheet(); }
+    });
 
     // Keyboard shortcuts for zoom
     document.addEventListener('keydown', (e) => {
@@ -3944,119 +3885,21 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
 
-    // Sidebar toggle for mobile
-    const sidebarToggle = document.getElementById('sidebarToggle');
-    const sidebar = document.querySelector('.sidebar');
-    if (sidebarToggle && sidebar) {
-        sidebarToggle.addEventListener('click', () => {
-            sidebar.classList.toggle('closed');
+    // The sidebar, the chat box and their toggles were wired up here.
+    // None of those elements exist in the page — the room list and chat
+    // live in the drawer along the bottom — so every one of these blocks
+    // was guarded, found nothing, and did nothing.
 
-            // Update aria attributes
-            const expanded = !sidebar.classList.contains('closed');
-            sidebarToggle.setAttribute('aria-expanded', expanded ? 'true' : 'false');
-            sidebarToggle.title = expanded ? 'Hide sidebar' : 'Show sidebar';
-
-            if (!sidebarToggle.getAttribute('aria-controls')) {
-                sidebarToggle.setAttribute('aria-controls', 'sidebar');
-            }
-
-            // Resize canvas after sidebar animation
-            requestAnimationFrame(() => handleResize());
-        });
-
-        // Initialize aria attributes
-        sidebarToggle.setAttribute('aria-controls', 'sidebar');
-        sidebarToggle.title = sidebar.classList.contains('closed') ? 'Show sidebar' : 'Hide sidebar';
-    }
-
-    // Chat input: Enter key should send message
-    const chatInput = document.getElementById('chatInput');
-    if (chatInput) {
-        chatInput.addEventListener('keydown', (ev) => {
-            if (ev.key === 'Enter') {
-                ev.preventDefault();
-                sendChat();
-            }
-        });
-    }
-
-    // Toolbar toggle button setup - removed (now using toggleToolbar() function integrated with whiteboard icon)
-
-    // Chat toggle button setup - collapse/expand chat
-    const chatToggleBtn = document.getElementById('chatToggleBtn');
-    const chatBox = document.querySelector('.chat-box');
-
-    if (chatToggleBtn && chatBox) {
-        // Always start collapsed
-        chatBox.className = 'chat-box collapsed';
-        updateChatToggleButton();
-
-        chatToggleBtn.addEventListener('click', () => {
-            const classes = chatBox.className;
-
-            if (classes.includes('collapsed')) {
-                chatBox.className = 'chat-box chat-normal';
-            } else if (classes.includes('chat-normal')) {
-                chatBox.className = 'chat-box chat-expanded';
-            } else if (classes.includes('chat-expanded')) {
-                chatBox.className = 'chat-box chat-minimized';
-            } else if (classes.includes('chat-minimized')) {
-                chatBox.className = 'chat-box collapsed';
-            } else {
-                chatBox.className = 'chat-box chat-minimized';
-            }
-
-            updateChatToggleButton();
-        });
-
-        function updateChatToggleButton() {
-            const classes = chatBox.className;
-
-            if (classes.includes('collapsed')) {
-                chatToggleBtn.textContent = '▼';
-                chatToggleBtn.title = 'Expand chat - Click to show';
-            } else if (classes.includes('chat-expanded')) {
-                chatToggleBtn.textContent = '▲';
-                chatToggleBtn.title = 'Collapse chat - Click to minimize';
-            } else if (classes.includes('chat-minimized')) {
-                chatToggleBtn.textContent = '◀';
-                chatToggleBtn.title = 'Minimize more - Click to continue';
-            } else {
-                chatToggleBtn.textContent = '▼';
-                chatToggleBtn.title = 'Minimize chat - Click to expand';
-            }
-        }
-    }
-    setupCanvas();
-
-    // Start the rAF render loop after canvas is ready
+    // NOTE: setupCanvas() runs once, earlier in this same handler. It used to
+    // run again here, which attached every pointer, wheel and touch listener a
+    // second time: each mouse move drew and broadcast the same segment twice,
+    // and one wheel notch zoomed 10% instead of 5%.
     startRenderLoop();
 
-    // Header share button setup
-    const headerShare = document.getElementById('header-share-btn');
-    if (headerShare) {
-        headerShare.onclick = function () {
-            const ch = channelName || (document.getElementById('channelInput') ? document.getElementById('channelInput').value.trim() : '');
-            const pw = channelPassword || (document.getElementById('passwordInput') ? document.getElementById('passwordInput').value.trim() : '');
-            if (ch && pw) {
-                if (typeof ShareModal !== 'undefined' && typeof ShareModal.show === 'function') {
-                    ShareModal.show(ch, pw);
-                } else if (typeof MiniGameUtils !== 'undefined' && typeof MiniGameUtils.showShareModal === 'function') {
-                    MiniGameUtils.showShareModal(ch, pw, '');
-                } else if (typeof MiniGameUtils !== 'undefined' && typeof MiniGameUtils.showToast === 'function') {
-                    MiniGameUtils.showToast('Share UI not available', 'error');
-                } else {
-                    alert('Share UI not available');
-                }
-            } else {
-                if (typeof MiniGameUtils !== 'undefined' && typeof MiniGameUtils.showToast === 'function') {
-                    MiniGameUtils.showToast('No active channel to share', 'error');
-                } else {
-                    alert('No active channel to share');
-                }
-            }
-        };
-    }
+    // A second share button, #header-share-btn, was wired up here. The page
+    // has only ever had one share button (#shareBtn, in the top bar), so this
+    // found nothing every time.
+
 });
 
 // Debounced resize to avoid excessive redraws
@@ -4124,6 +3967,7 @@ function resizeCanvas() {
 
 // Debounced resize handler
 function handleResize() {
+    if (window.WhiteboardTools) WhiteboardTools.resize();
     // Cancel any pending resize
     if (resizeTimeout) clearTimeout(resizeTimeout);
     if (resizeRAF) cancelAnimationFrame(resizeRAF);
@@ -4612,21 +4456,24 @@ async function connect() {
     if (!channelName || !channelPassword) {
         connecting = false; // Reset connecting flag on validation error
         if (isMobilePortrait()) showConnectionModal();
-        alert('Please enter room name and password');
+        if (window.ConnectionModal) ConnectionModal.fail(new Error('The room name and its password are both needed.'));
         return;
     }
 
-    // Save connection settings
+    // Save connection settings.
+    //
+    // The password is deliberately NOT among them: the shared connection modal
+    // keeps room passwords in sessionStorage and actively deletes any it finds
+    // in localStorage, and this line was putting one back on every connect.
     try {
         localStorage.setItem('whiteboard_username', username);
         localStorage.setItem('whiteboard_channel', channelName);
-        localStorage.setItem('whiteboard_password', channelPassword);
     } catch (e) {
         console.warn('Failed to save connection settings:', e);
     }
 
-    // Update document title with channel name
-    document.title = channelName || 'Whiteboard';
+    // The room is what changed, not what the app is.
+    document.title = channelName ? channelName + ' — Whiteboard' : 'Whiteboard';
 
     try {
         // Initialize and connect via WhiteboardGame framework
@@ -4671,6 +4518,7 @@ async function connect() {
             connEl.classList.remove('offline');
             connEl.classList.add('online');
         }
+        setRoomBadge(channelName, true);
 
         // Add self to users
         users.set(username, {color: currentColor});
@@ -4710,8 +4558,6 @@ async function connect() {
         // Show share button
         try {
             MiniGameUtils.toggleShareButton(true);
-            const hs = document.getElementById('header-share-btn');
-            if (hs) hs.style.display = 'inline-block';
         } catch (e) {
             console.warn('Failed to show share button:', e);
         }
@@ -4750,8 +4596,8 @@ async function connect() {
 
     } catch (error) {
         console.error('[Whiteboard] Connection failed:', error);
+        if (window.ConnectionModal) ConnectionModal.fail(error);
         connecting = false; // Reset connecting flag on error
-        alert('Connection failed: ' + error.message);
         if (isMobilePortrait()) showConnectionModal();
     }
 }
@@ -4854,7 +4700,7 @@ function fetchCanvasFromStorage(fromPeer, actionType) {
 
                         // Show notification
                         if (actionType === 'sync') {
-                            MiniGameUtils.showToast(`✓ Canvas synced from ${fromPeer}`, 'success', 3000);
+                            MiniGameUtils.showToast(`Canvas synced from ${fromPeer}`, 'success', 3000);
                             addChatMessage('System', `Canvas synced from ${fromPeer}`, '#4CAF50');
                         }
 
@@ -5083,7 +4929,7 @@ function handleBoardStateChunk(peerId, data) {
                 }, () => {
                     // User rejected - discard the sync
                     console.log(`[Board State] ⛔ User rejected sync from ${peerId}`);
-                    MiniGameUtils.showToast(`🚫 Sync from ${peerId} rejected`, 'warning');
+                    MiniGameUtils.showToast(`Sync from ${peerId} rejected`, 'warning');
                     addChatMessage('System', `You rejected sync from ${peerId}`, '#FF9800');
                     window._receivingBoardState = null;
                 });
@@ -5106,7 +4952,7 @@ function shouldConfirmSyncOverwrite(peerId, actionType) {
     // OFFLINE MODE: Reject all incoming syncs
     if (syncMode === 'offline') {
         console.log(`[Board State] ⛔ OFFLINE MODE - Rejecting sync from ${peerId}`);
-        MiniGameUtils.showToast(`🚫 Sync blocked (Offline Mode)`, 'info');
+        MiniGameUtils.showToast(`Sync blocked (Offline Mode)`, 'info');
         window._receivingBoardState = null;
         return 'auto-reject';
     }
@@ -5116,7 +4962,7 @@ function shouldConfirmSyncOverwrite(peerId, actionType) {
         // Still protect during active drawing
         if (drawing) {
             console.log(`[Board State] ⛔ Auto-rejecting sync from ${peerId} - user is actively drawing`);
-            MiniGameUtils.showToast(`🚫 Sync from ${peerId} blocked - you're drawing`, 'warning');
+            MiniGameUtils.showToast(`Sync from ${peerId} blocked - you're drawing`, 'warning');
             addChatMessage('System', `Sync from ${peerId} auto-rejected (you're drawing)`, '#FF9800');
             window._receivingBoardState = null;
             return 'auto-reject';
@@ -5136,7 +4982,7 @@ function shouldConfirmSyncOverwrite(peerId, actionType) {
     // Auto-reject if user is actively drawing (too disruptive)
     if (drawing) {
         console.log(`[Board State] ⛔ Auto-rejecting sync from ${peerId} - user is actively drawing`);
-        MiniGameUtils.showToast(`🚫 Sync from ${peerId} blocked - you're drawing`, 'warning');
+        MiniGameUtils.showToast(`Sync from ${peerId} blocked - you're drawing`, 'warning');
         addChatMessage('System', `Sync from ${peerId} auto-rejected (you're drawing)`, '#FF9800');
         window._receivingBoardState = null;
         return 'auto-reject'; // Special value to trigger auto-rejection
@@ -5162,13 +5008,11 @@ function shouldConfirmSyncOverwrite(peerId, actionType) {
  */
 function confirmSyncOverwrite(peerId, actionType, onAccept, onReject) {
     const actionLabel = actionType === 'import' ? 'imported an image' : 'wants to sync the canvas';
-    const message = `${peerId} ${actionLabel}. Accept and replace your current canvas?`;
-
-    if (confirm(message)) {
-        onAccept();
-    } else {
-        onReject();
-    }
+    MiniGameUtils.ask({
+        title: 'Replace your canvas?',
+        body: `${peerId} ${actionLabel}. Accepting replaces what is on your board now.`,
+        confirmLabel: 'Accept', cancelLabel: 'Keep mine'
+    }).then((yes) => { if (yes) onAccept(); else onReject(); });
 }
 
 /**
@@ -5178,7 +5022,7 @@ function applySyncToCanvas(fullDataUrl, state, peerId) {
     // Validate data
     if (!fullDataUrl || fullDataUrl.length < 100) {
         console.error('[Board State] Invalid data URL received from', peerId);
-        MiniGameUtils.showToast(`❌ Received invalid data from ${peerId}`, 'error');
+        MiniGameUtils.showToast(`Received invalid data from ${peerId}`, 'error');
         addChatMessage('System', `Failed to sync from ${peerId} (invalid data)`, '#f44336');
         window._receivingBoardState = null;
         return;
@@ -5199,7 +5043,7 @@ function applySyncToCanvas(fullDataUrl, state, peerId) {
                 console.log('[Board State] Canvas snapshot saved for resize preservation');
             } catch (e) {
                 console.warn('[Board State] Failed to save canvas snapshot:', e);
-                MiniGameUtils.showToast('⚠️ Warning: Image may not persist on resize', 'warning');
+                MiniGameUtils.showToast('Warning: Image may not persist on resize', 'warning');
             }
 
             // Show appropriate toast based on action type
@@ -5228,7 +5072,7 @@ function applySyncToCanvas(fullDataUrl, state, peerId) {
         },
         (err) => {
             console.error(`[Board State] Failed to load image from ${peerId}:`, err);
-            MiniGameUtils.showToast(`❌ Failed to apply sync from ${peerId}`, 'error');
+            MiniGameUtils.showToast(`Failed to apply sync from ${peerId}`, 'error');
             addChatMessage('System', `Failed to sync board from ${peerId}: ${err.message}`, '#f44336');
             window._receivingBoardState = null;
         }
@@ -5239,7 +5083,7 @@ function applySyncToCanvas(fullDataUrl, state, peerId) {
 function startDrawing(e) {
     // Block drawing while board is locked (waiting for DataChannel connection)
     if (isBoardLocked) {
-        showToast('⏳ Waiting for connection...', 'info', 2000);
+        showToast('Waiting for connection...', 'info', 2000);
         return;
     }
 
@@ -5251,12 +5095,6 @@ function startDrawing(e) {
 
     // Convert viewport to canvas coordinates to check boundaries
     const pos = viewportToCanvas(e.clientX, e.clientY);
-
-    // DEBUG: Log click position
-    console.log(`[DEBUG] Click at viewport (${e.clientX}, ${e.clientY}) → canvas (${Math.round(pos.x)}, ${Math.round(pos.y)})`);
-    console.log(`[DEBUG] Canvas bounds: 0-${CANVAS_CONFIG.WIDTH} x 0-${CANVAS_CONFIG.HEIGHT}`);
-    console.log(`[DEBUG] Outside canvas? ${isOutsideCanvas(pos.x, pos.y)}`);
-    console.log(`[DEBUG] Current tool: ${currentTool}, isPanning: ${isPanning}`);
 
     // AUTO HAND MODE: If clicking outside canvas bounds, automatically activate hand mode
     if (!isTouchEvent && e.button === 0) {
@@ -5293,6 +5131,14 @@ function startDrawing(e) {
         // Block drawing when panning
         if (isPanning) return;
 
+        // Shapes, text and sticky notes are their own gesture: they preview on
+        // their own layer and commit whole, so the freehand path below never
+        // sees them.
+        if (window.WhiteboardTools && WhiteboardTools.owns(currentTool)) {
+            WhiteboardTools.begin(pos, e);
+            return;
+        }
+
         // NOTE: Snapshot capture moved to stopDrawing() for better mobile performance
         // Capturing canvas.toDataURL() here causes 50-500ms delay on mobile!
 
@@ -5315,6 +5161,12 @@ function startDrawing(e) {
 }
 
 function draw(e) {
+
+    // A shape being dragged out owns the pointer until it is let go.
+    if (window.WhiteboardTools && WhiteboardTools.active()) {
+        WhiteboardTools.move(viewportToCanvas(e.clientX, e.clientY), e);
+        return;
+    }
 
     // PANNING MODE: Handle panning (space key, middle mouse, or hand tool)
     if (isPanning && !e.touches) {
@@ -5516,6 +5368,11 @@ function draw(e) {
 }
 
 function stopDrawing() {
+    if (window.WhiteboardTools && WhiteboardTools.active()) {
+        WhiteboardTools.end();
+        return;
+    }
+
     // PANNING MODE: Stop panning
     if (isPanning) {
         isPanning = false;
@@ -5552,9 +5409,11 @@ function stopDrawing() {
     // Stop the stroke send loop
     stopStrokeSendLoop();
 
-    // Schedule history snapshot for 2 seconds after drawing stops
-    // This prevents blocking the UI during drawing (especially on mobile)
-    scheduleHistorySnapshot();
+    // One gesture is one undo step. This used to wait two seconds and then
+    // fold everything drawn in that window into a single command, so an undo
+    // could take back three unrelated strokes. Capturing is a slice of an
+    // array — there is nothing here worth deferring.
+    captureHistorySnapshot();
 }
 
 /**
@@ -5582,6 +5441,13 @@ function drawStroke(stroke) {
     }
 
     try {
+        // Not every stroke is a line. Text and sticky notes carry their words
+        // in the stroke itself and are painted rather than drawn.
+        if (stroke.type === 'text' || stroke.type === 'note') {
+            if (window.WhiteboardTools) WhiteboardTools.paint(ctx, stroke);
+            return;
+        }
+
         // Strokes are stored in absolute canvas coordinates (0-1920, 0-1080)
         // Draw them directly without conversion
         const x1 = stroke.x1;
@@ -5740,17 +5606,15 @@ function setTool(tool) {
         previousTool = tool;
     }
 
-    // Only affect tool buttons (draw/erase/hand), not all buttons
-    document.querySelectorAll('.tool-btn').forEach(btn => {
-        btn.classList.remove('active');
-        btn.style.opacity = '0.7';
+    // Only the tools. This used to strip .active and set opacity:0.7 inline on
+    // every .tool-btn — which included sync, settings and all four zoom
+    // buttons, so picking the pen faded half the toolbar.
+    if (window.WhiteboardTools && WhiteboardTools.typing()) WhiteboardTools.closeEditor(false);
+    document.querySelectorAll('[data-tool]').forEach(btn => {
+        const on = btn.getAttribute('data-tool') === tool;
+        btn.classList.toggle('active', on);
+        btn.setAttribute('aria-pressed', String(on));
     });
-
-    const selectedBtn = document.getElementById(tool + 'Btn');
-    if (selectedBtn) {
-        selectedBtn.classList.add('active');
-        selectedBtn.style.opacity = '1';
-    }
 
     // Update canvas cursor based on tool (unless space key is pressed)
     if (!spaceKeyPressed) {
@@ -5795,7 +5659,12 @@ function updateSize(size) {
 }
 
 function clearCanvas() {
-    if (confirm('Clear whiteboard for everyone?')) {
+    MiniGameUtils.ask({
+        title: 'Clear the whiteboard?',
+        body: 'It clears for everyone in the room. Undo puts it back.',
+        confirmLabel: 'Clear it', danger: true
+    }).then((yes) => {
+        if (!yes) return;
         // Capture any pending strokes first
         if (pendingStrokesForHistory.length > 0) {
             captureHistorySnapshot();
@@ -5823,23 +5692,56 @@ function clearCanvas() {
         }
 
         console.log('[Clear] Canvas cleared, previous state saved for undo');
-    }
+    });
 }
 
+/**
+ * Save the board as a picture.
+ *
+ * On white paper, and deliberately: the eraser paints white rather than
+ * cutting holes, so a PNG exported with a transparent background came out with
+ * every eraser mark as an opaque white smear over whatever the file was later
+ * placed on. The board looks like paper; the export is paper.
+ */
 function exportImage() {
+    const flat = document.createElement('canvas');
+    flat.width = canvas.width;
+    flat.height = canvas.height;
+    const fctx = flat.getContext('2d');
+    fctx.fillStyle = '#ffffff';
+    fctx.fillRect(0, 0, flat.width, flat.height);
+    fctx.drawImage(canvas, 0, 0);
+
     const link = document.createElement('a');
     link.download = `whiteboard-${Date.now()}.png`;
-    link.href = canvas.toDataURL();
+    link.href = flat.toDataURL('image/png');
     link.click();
+    if (typeof showToast === 'function') showToast('Saved as a PNG', 'success', 2500);
 }
 
-function importImage() {
+/**
+ * Bring a picture in.
+ *
+ * The import replaces the board rather than compositing onto it, and everyone
+ * else in the room already got a "replace your canvas?" dialog before it
+ * landed on theirs. The person pressing the button got no warning at all,
+ * which is the wrong way round.
+ */
+async function importImage() {
+    if (boardState.length > 0 || canvasSnapshot) {
+        const yes = await MiniGameUtils.ask({
+            title: 'Replace the board with a picture?',
+            body: 'Importing paints the image over the whole board — what is drawn now goes. Ctrl+Z puts it back.',
+            confirmLabel: 'Import it', danger: true
+        });
+        if (!yes) return;
+    }
     console.log('[Import] Opening file picker...');
     const fileInput = document.getElementById('imageImportInput');
 
     if (!fileInput) {
         console.error('[Import] File input not found!');
-        MiniGameUtils.showToast('❌ Error: File input not found', 'error');
+        MiniGameUtils.showToast('Error: File input not found', 'error');
         return;
     }
 
@@ -5852,21 +5754,21 @@ function importImage() {
         }
 
         console.log(`[Import] Loading file: ${file.name} (${Math.round(file.size / 1024)}KB)`);
-        MiniGameUtils.showToast(`📂 Loading ${file.name}...`, 'info');
+        MiniGameUtils.showToast(`Loading ${file.name}...`, 'info');
 
         // Validate it's an image
         if (!file.type.startsWith('image/')) {
             const errorMsg = 'Please select an image file (PNG, JPG, etc.)';
             console.error('[Import] Invalid file type:', file.type);
-            MiniGameUtils.showToast('❌ Invalid file type', 'error');
-            alert(errorMsg);
+            MiniGameUtils.showToast('Invalid file type', 'error');
+            MiniGameUtils.tell(errorMsg, { title: 'That file is not an image' });
             return;
         }
 
         // Check file size (warn if > 5MB)
         if (file.size > 5 * 1024 * 1024) {
             console.warn('[Import] Large file detected:', Math.round(file.size / 1024 / 1024) + 'MB');
-            MiniGameUtils.showToast('⚠️ Large file may take time to process...', 'warning');
+            MiniGameUtils.showToast('Large file may take time to process...', 'warning');
         }
 
         const reader = new FileReader();
@@ -5880,7 +5782,7 @@ function importImage() {
                 // Validate canvas is ready
                 if (!canvas || !ctx) {
                     console.error('[Import] Canvas not ready!');
-                    MiniGameUtils.showToast('❌ Canvas not ready. Please try again.', 'error');
+                    MiniGameUtils.showToast('Canvas not ready. Please try again.', 'error');
                     fileInput.value = '';
                     return;
                 }
@@ -5907,7 +5809,7 @@ function importImage() {
                         console.log(`[Import] ✓ Image drawn on canvas (scale=${result.scale.toFixed(2)}, offset=${Math.round(result.offsetX)},${Math.round(result.offsetY)})`);
 
                         // Show success notification
-                        MiniGameUtils.showToast(`✅ Image imported: ${file.name}`, 'success');
+                        MiniGameUtils.showToast(`Image imported: ${file.name}`, 'success');
                         addChatMessage('System', `📷 You imported: ${file.name}`, '#4CAF50');
 
                         // Save canvas snapshot to preserve image on window resize
@@ -5916,7 +5818,7 @@ function importImage() {
                             console.log('[Import] Canvas snapshot saved for resize preservation');
                         } catch (e) {
                             console.warn('[Import] Failed to save canvas snapshot:', e);
-                            MiniGameUtils.showToast('⚠️ Warning: Image may not persist on resize', 'warning');
+                            MiniGameUtils.showToast('Warning: Image may not persist on resize', 'warning');
                         }
 
                         // Check if we have other users to broadcast to
@@ -5925,20 +5827,20 @@ function importImage() {
                         if (otherUsers.length > 0) {
                             // Broadcast canvas to all connected agents via DataChannel
                             console.log(`[Import] Broadcasting to ${otherUsers.length} users...`);
-                            MiniGameUtils.showToast(`📡 Broadcasting to ${otherUsers.length} user(s)...`, 'info');
+                            MiniGameUtils.showToast(`Broadcasting to ${otherUsers.length} user(s)...`, 'info');
 
                             try {
                                 broadcastCanvasToAllAgents('import');
                                 console.log('[Import] ✓ Broadcast completed');
-                                MiniGameUtils.showToast('✅ Image shared with others', 'success');
+                                MiniGameUtils.showToast('Image shared with others', 'success');
                             } catch (broadcastErr) {
                                 console.error('[Import] ❌ Broadcast failed:', broadcastErr);
-                                MiniGameUtils.showToast('⚠️ Failed to share with others', 'warning');
+                                MiniGameUtils.showToast('Failed to share with others', 'warning');
                                 addChatMessage('System', 'Failed to broadcast image to others', '#FF9800');
                             }
                         } else {
                             console.log('[Import] No other users to broadcast to');
-                            MiniGameUtils.showToast('ℹ️ Image imported (you\'re alone)', 'info');
+                            MiniGameUtils.showToast('Image imported — nobody else is here to see it', 'info');
                         }
 
                         // Capture FULL snapshot after importing image (includes canvas image data)
@@ -5961,8 +5863,9 @@ function importImage() {
                     },
                     (err) => {
                         console.error('[Import] Failed to draw image:', err);
-                        MiniGameUtils.showToast('❌ Failed to draw image on canvas', 'error');
-                        alert('Failed to draw image on canvas. Please try again.\n\nError: ' + err.message);
+                        MiniGameUtils.showToast('Failed to draw image on canvas', 'error');
+                        MiniGameUtils.tell('The image could not be drawn on the canvas: ' + err.message,
+                            { title: 'Import failed' });
                         fileInput.value = '';
                     }
                 );
@@ -5970,8 +5873,9 @@ function importImage() {
 
             img.onerror = function (err) {
                 console.error('[Import] Failed to load image:', err);
-                MiniGameUtils.showToast('❌ Failed to load image file', 'error');
-                alert('Failed to load image. The file may be corrupted or in an unsupported format.\n\nPlease try another file.');
+                MiniGameUtils.showToast('Failed to load image file', 'error');
+                MiniGameUtils.tell('The file may be damaged, or in a format this browser cannot read. Try another one.',
+                    { title: 'That image would not load' });
                 fileInput.value = '';
             };
 
@@ -5979,16 +5883,16 @@ function importImage() {
                 img.src = event.target.result;
             } catch (e) {
                 console.error('[Import] Failed to set image source:', e);
-                MiniGameUtils.showToast('❌ Failed to process image data', 'error');
-                alert('Failed to process image data. Please try again.');
+                MiniGameUtils.showToast('Failed to process image data', 'error');
+                MiniGameUtils.tell('The image data could not be read.', { title: 'Import failed' });
                 fileInput.value = '';
             }
         };
 
         reader.onerror = function (err) {
             console.error('[Import] Failed to read file:', err);
-            MiniGameUtils.showToast('❌ Failed to read file', 'error');
-            alert('Failed to read file. Please check the file and try again.');
+            MiniGameUtils.showToast('Failed to read file', 'error');
+            MiniGameUtils.tell('The file could not be read.', { title: 'Import failed' });
             fileInput.value = '';
         };
 
@@ -5996,8 +5900,8 @@ function importImage() {
             reader.readAsDataURL(file);
         } catch (e) {
             console.error('[Import] Failed to start reading file:', e);
-            MiniGameUtils.showToast('❌ Failed to read file', 'error');
-            alert('Failed to read file. Please try again.');
+            MiniGameUtils.showToast('Failed to read file', 'error');
+            MiniGameUtils.tell('The file could not be read.', { title: 'Import failed' });
             fileInput.value = '';
         }
     };
@@ -6009,7 +5913,7 @@ function importImage() {
 function broadcastCanvasToAllAgents(actionType = 'sync') {
     if (!connected || !webrtcHelper) {
         console.log('[Broadcast] ⚠️ Not connected or no WebRTC helper - skipping broadcast');
-        MiniGameUtils.showToast('⚠️ Not connected - cannot broadcast', 'warning');
+        MiniGameUtils.showToast('Not connected - cannot broadcast', 'warning');
         return;
     }
 
@@ -6036,7 +5940,7 @@ function broadcastCanvasToAllAgents(actionType = 'sync') {
         console.log(`[Broadcast] ✓ Canvas broadcast queued for all ${successCount} agents`);
     } else {
         console.warn(`[Broadcast] ⚠️ Canvas broadcast partial: ${successCount} success, ${errorCount} failed`);
-        MiniGameUtils.showToast(`⚠️ Broadcast to ${errorCount} user(s) failed`, 'warning');
+        MiniGameUtils.showToast(`Broadcast to ${errorCount} user(s) failed`, 'warning');
     }
 }
 
@@ -6141,9 +6045,31 @@ function addChatMessage(from, message, color = '#333') {
     const chatMessages = document.getElementById('chatMessages');
     const msgElement = document.createElement('div');
     msgElement.className = 'chat-message';
-    msgElement.innerHTML = `<strong style="color: ${color}">${from}:</strong> ${message}`;
+    msgElement.innerHTML = `<strong style="color: ${MiniGameUtils.safeColor(color)}">${MiniGameUtils.escapeHtml(from)}:</strong> ${MiniGameUtils.escapeHtml(message)}`;
     chatMessages.appendChild(msgElement);
     chatMessages.scrollTop = chatMessages.scrollHeight;
+    bumpUnread(from);
+}
+
+/**
+ * The drawer opens collapsed and stays that way, so messages used to arrive
+ * with no sign of it anywhere on screen. They get counted on the bar instead.
+ */
+let unreadChat = 0;
+
+function bumpUnread(from) {
+    const footer = document.getElementById('unifiedFooter');
+    if (!footer || !footer.classList.contains('collapsed')) return;
+    if (from === username || from === 'System') return;
+    unreadChat++;
+    renderUnread();
+}
+
+function renderUnread() {
+    const badge = document.getElementById('chatUnread');
+    if (!badge) return;
+    badge.textContent = unreadChat > 99 ? '99+' : String(unreadChat);
+    badge.hidden = unreadChat === 0;
 }
 
 // Initialize ShareModal on page load
@@ -6284,7 +6210,7 @@ function showToast(message, type = 'info') {
  */
 function showConnectToast(username) {
     console.log(`[Toast] 📞 showConnectToast called for: ${username}`);
-    showToast(`👋 ${username} joined`, 'success');
+    showToast(`${username} joined`, 'success');
 }
 
 /**
@@ -6293,7 +6219,7 @@ function showConnectToast(username) {
  */
 function showDisconnectToast(username) {
     console.log(`[Toast] 👋 showDisconnectToast called for: ${username}`);
-    showToast(`👋 ${username} left`, 'info');
+    showToast(`${username} left`, 'info');
 }
 
 /**
@@ -6302,7 +6228,7 @@ function showDisconnectToast(username) {
  */
 function showImageImportToast(username) {
     console.log(`[Toast] 🖼️ showImageImportToast called for: ${username}`);
-    showToast(`🖼️ ${username} imported an image`, 'info');
+    showToast(`${username} imported an image`, 'info');
 }
 
 /**
@@ -6311,7 +6237,7 @@ function showImageImportToast(username) {
  */
 function showUndoToast(username) {
     console.log(`[Toast] ⏪ showUndoToast called for: ${username}`);
-    showToast(`⏪ ${username} undid last action`, 'info');
+    showToast(`${username} undid their last action`, 'info');
 }
 
 /**
@@ -6320,7 +6246,7 @@ function showUndoToast(username) {
  */
 function showRedoToast(username) {
     console.log(`[Toast] ⏩ showRedoToast called for: ${username}`);
-    showToast(`⏩ ${username} redid last action`, 'info');
+    showToast(`${username} redid their last action`, 'info');
 }
 
 /**
@@ -6329,7 +6255,7 @@ function showRedoToast(username) {
  */
 function showSyncToast(username) {
     console.log(`[Toast] ✨ showSyncToast called for: ${username}`);
-    showToast(`✨ ${username} synced the canvas`, 'success');
+    showToast(`${username} pushed their board to the room`, 'success');
 }
 
 /**
@@ -6338,7 +6264,7 @@ function showSyncToast(username) {
  */
 function showClearToast(username) {
     console.log(`[Toast] 🗑️ showClearToast called for: ${username}`);
-    showToast(`🗑️ ${username} cleared the canvas`, 'warning');
+    showToast(`${username} cleared the board`, 'warning');
 }
 
 // ============================================
@@ -6354,6 +6280,12 @@ function toggleFooter() {
 
     footer.classList.toggle('collapsed');
     footer.classList.toggle('expanded');
+    if (footer.classList.contains('expanded')) {
+        unreadChat = 0;
+        renderUnread();
+        const messages = document.getElementById('chatMessages');
+        if (messages) messages.scrollTop = messages.scrollHeight;
+    }
 
     // Note: Footer state is NOT saved to localStorage - always starts collapsed on page load
 }
@@ -6379,13 +6311,20 @@ function disconnect() {
     }
 
     // Show confirmation dialog
-    const confirmDisconnect = confirm('Are you sure you want to disconnect from the whiteboard?\n\nYour drawing will be cleared.');
+    MiniGameUtils.ask({
+        title: 'Leave the whiteboard?',
+        body: 'Your copy of the drawing is cleared when you go.',
+        confirmLabel: 'Leave', danger: true
+    }).then((yes) => {
+        if (!yes) {
+            console.log('Disconnect cancelled by user');
+            return;
+        }
+        doDisconnect();
+    });
+}
 
-    if (!confirmDisconnect) {
-        console.log('Disconnect cancelled by user');
-        return;
-    }
-
+function doDisconnect() {
     try {
         // Disconnect channel
         if (channel) {
@@ -6478,13 +6417,17 @@ document.addEventListener('DOMContentLoaded', () => {
  * Trigger manual rsync - broadcasts canvas to all agents
  * Skips if only one agent is connected
  */
-function triggerManualRsync() {
+async function triggerManualRsync() {
     try {
         // Check if we have multiple agents (more than just ourselves)
         const otherAgents = Array.from(users.keys()).filter(name => name !== username);
 
         // Show confirmation dialog when multiple users are connected
-        const confirmSync = confirm(`Sync canvas to ${otherAgents.length} other user(s)?\n\nThis will broadcast your current canvas state to all connected users.`);
+        const confirmSync = await MiniGameUtils.ask({
+            title: 'Push your canvas to everyone?',
+            body: `What you have now replaces what the other ${otherAgents.length === 1 ? 'person has' : otherAgents.length + ' people have'}.`,
+            confirmLabel: 'Sync', danger: true
+        });
 
         if (!confirmSync) {
             console.log('[Rsync] User cancelled sync operation');
@@ -6515,7 +6458,7 @@ function triggerManualRsync() {
         console.error('Error during rsync operation:', e);
 
         // Show error notification
-        addChatMessage('❌ Sync Error', `Failed to sync: ${e.message}`, '#f44336');
+        addChatMessage('Sync Error', `Failed to sync: ${e.message}`, '#f44336');
 
         const rsyncBtn = document.getElementById('rsyncBtn');
         if (rsyncBtn) {
@@ -6752,7 +6695,7 @@ function triggerUndo() {
         }
     } catch (e) {
         console.error('[Undo] Error during undo operation:', e);
-        addChatMessage('❌ Undo Error', `Failed to undo: ${e.message}`, '#f44336');
+        addChatMessage('Undo Error', `Failed to undo: ${e.message}`, '#f44336');
     }
 }
 
@@ -6779,7 +6722,7 @@ function triggerRedo() {
         }
     } catch (e) {
         console.error('[Redo] Error during redo operation:', e);
-        addChatMessage('❌ Redo Error', `Failed to redo: ${e.message}`, '#f44336');
+        addChatMessage('Redo Error', `Failed to redo: ${e.message}`, '#f44336');
     }
 }
 
@@ -6813,43 +6756,10 @@ function syncCanvasAfterUndoRedo(action) {
 /**
  * Toggle entire header between expanded and collapsed (3 dots square) state
  */
-function toggleToolbar() {
-    try {
-        console.log('[Toolbar] toggleToolbar() called');
-
-        const header = document.getElementById('mainHeader');
-        if (!header) {
-            console.warn('[Toolbar] Header element not found');
-            return;
-        }
-
-        // Toggle toolbar-collapsed class on entire header (NOT 'collapsed')
-        header.classList.toggle('toolbar-collapsed');
-
-        // Don't save state to localStorage - always starts expanded on refresh
-        const isCollapsed = header.classList.contains('toolbar-collapsed');
-
-        console.log(`[Toolbar] ${isCollapsed ? 'Collapsed to square' : 'Expanded'} header`);
-    } catch (e) {
-        console.error('[Toolbar] Error toggling toolbar:', e);
-    }
-}
-
-/**
- * Initialize toolbar state - always start expanded (removed localStorage)
- */
-function initializeToolbarState() {
-    try {
-        const header = document.getElementById('mainHeader');
-        if (!header) return;
-
-        // Always start expanded - remove toolbar-collapsed class
-        header.classList.remove('toolbar-collapsed');
-        console.log('[Toolbar] Initialized to expanded state');
-    } catch (e) {
-        console.error('Error initializing toolbar state:', e);
-    }
-}
+/* The toolbar used to collapse to a square when its title was clicked, and
+   had to be forced open again on every load. It is a fixed bar now: there is
+   nothing to collapse and nothing to un-collapse. */
+function initializeToolbarState() { /* nothing left to initialise */ }
 
 // Initialize toolbar state when page loads
 if (document.readyState === 'loading') {
@@ -7096,15 +7006,21 @@ function updateSyncModeButton() {
     const btn = document.getElementById('syncModeBtn');
     if (!btn) return;
 
+    // The icon comes from the shared sprite, like every other icon in the app.
+    // This used to write an emoji into the button with textContent, which threw
+    // the <svg> away and left one emoji in an otherwise all-SVG toolbar — and a
+    // stylesheet then selected on a substring of the title to paint it.
     const modeConfig = {
-        'confirm': {icon: '🔄', title: 'Sync Mode: Confirm (click to change)'},
-        'auto-accept': {icon: '⚡', title: 'Sync Mode: Auto-Accept (click to change)'},
-        'offline': {icon: '🔒', title: 'Sync Mode: Offline (click to change)'}
+        'confirm':     { icon: 'shield-check', title: 'What reaches my board: ask me first (click to change)' },
+        'auto-accept': { icon: 'shield',       title: 'What reaches my board: everything (click to change)' },
+        'offline':     { icon: 'lock',         title: 'What reaches my board: nothing (click to change)' }
     };
 
     const config = modeConfig[syncMode] || modeConfig['confirm'];
-    btn.textContent = config.icon;
+    const use = btn.querySelector('use');
+    if (use) use.setAttribute('href', '#i-' + config.icon);
     btn.title = config.title;
+    btn.classList.toggle('active', syncMode !== 'auto-accept');
 }
 
 // Initialize sync mode button on load
@@ -7224,3 +7140,69 @@ console.log('[Whiteboard] Framework integration ready - all methods in Whiteboar
 // NOTE: Page unload cleanup is now handled automatically by BaseGame._setupCleanupOnUnload()
 // No need for duplicate code here
 
+
+
+// ============================================
+// The two things a first-time visitor needed and did not have: something on
+// the empty board telling them what it is, and a list of the shortcuts.
+// ============================================
+
+/** Hide the hint the moment the board stops being empty. */
+function syncEmptyHint() {
+    const hint = document.getElementById('emptyHint');
+    if (!hint) return;
+    const empty = (!boardState || boardState.length === 0) && !canvasSnapshot;
+    hint.hidden = !empty || !!localStorage.getItem('whiteboard_hint_dismissed');
+}
+
+function dismissEmptyHint() {
+    try { localStorage.setItem('whiteboard_hint_dismissed', '1'); } catch (e) { /* private mode */ }
+    syncEmptyHint();
+}
+
+function toggleShortcutSheet() {
+    const sheet = document.getElementById('shortcutSheet');
+    if (!sheet) return;
+    sheet.hidden = !sheet.hidden;
+    if (!sheet.hidden) {
+        const close = sheet.querySelector('[data-close]');
+        if (close) close.focus();
+    }
+}
+
+function closeShortcutSheet() {
+    const sheet = document.getElementById('shortcutSheet');
+    if (!sheet || sheet.hidden) return false;
+    sheet.hidden = true;
+    return true;
+}
+
+/** A colour that is not one of the five. */
+function setCustomColor(value) {
+    const swatch = document.getElementById('customColorBtn');
+    setColor(value, swatch);
+    if (swatch) swatch.style.background = value;
+}
+
+/**
+ * Brush size, as three sizes rather than a slider nobody aims at. The slider
+ * is still there for anyone who wants a number.
+ */
+function setSizePreset(px, el) {
+    updateSize(px);
+    const slider = document.getElementById('sizeSlider');
+    if (slider) slider.value = px;
+    document.querySelectorAll('.wb-size').forEach((b) => b.classList.toggle('active', b === el));
+}
+
+
+/** The room, in the bar, so you can see which board you are on. */
+function setRoomBadge(room, online) {
+    const badge = document.getElementById('roomBadge');
+    if (!badge) return;
+    badge.textContent = online && room ? room : 'not connected';
+    badge.title = online && room
+        ? 'You are in the room "' + room + '"'
+        : 'Not connected to a room — nothing you draw is going anywhere';
+    badge.style.color = online ? 'var(--success)' : 'var(--text-muted)';
+}

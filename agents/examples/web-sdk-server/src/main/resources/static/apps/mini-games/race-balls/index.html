@@ -2,11 +2,24 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
+    <meta name="robots" content="noindex, nofollow">
+    <script src="../../../js/prod-log.js"></script>
+    <link rel="icon" type="image/svg+xml" href="../../../favicon.svg">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <meta name="theme-color" content="#1a202c">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <title>🏎️ Race Balls - 3D Multiplayer Racing</title>
+    <meta name="description" content="A marble race down a 3D track, with custom maps loaded from JSON. Share the room link and take the lead.">
+    <link rel="canonical" href="https://hmdevonline.com/messaging-platform/sdk/apps/mini-games/race-balls/index.html">
+
+    <meta property="og:type" content="website">
+    <meta property="og:site_name" content="Messaging Platform SDK">
+    <meta property="og:title" content="Race Balls — 3D multiplayer racing">
+    <meta property="og:description" content="A marble race down a 3D track, with custom maps loaded from JSON. Share the room link and take the lead.">
+    <meta property="og:url" content="https://hmdevonline.com/messaging-platform/sdk/apps/mini-games/race-balls/index.html">
+    <meta property="og:image" content="https://hmdevonline.com/messaging-platform/sdk/images/og-image.png">
+    <meta name="twitter:card" content="summary_large_image">
 
     <!-- Common Styles -->
     <link rel="stylesheet" href="../../../css/toast.css">
@@ -17,10 +30,10 @@
     <link rel="stylesheet" href="race-balls.css">
 
     <!-- Three.js -->
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="../shared/libs/three.min.js"></script>
 
     <!-- Cannon.js Physics Engine -->
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/cannon.js/0.6.2/cannon.min.js"></script>
+    <script src="../shared/libs/cannon.min.js"></script>
 
     <!-- Race map system (JSON loader + validation) -->
     <script src="map-system.js"></script>
@@ -154,6 +167,7 @@
     <script src="../../../generated-web-agent-js/js/web-agent.webrtc.js"></script>
 
     <script src="../../../js/share-modal.js"></script>
+    <script src="../../../js/dialog.js"></script>
     <script src="../../../js/common-utils.js"></script>
     <script src="../../../js/connection-modal.js"></script>
     <script src="../../../js/UserConnectionBase.js"></script>

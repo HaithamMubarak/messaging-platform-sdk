@@ -3,9 +3,25 @@
 <html lang="en">
 <head>
     <meta charset="utf-8"/>
+    <script src="../js/prod-log.js"></script>
+    <link rel="icon" type="image/svg+xml" href="../favicon.svg">
     <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=5,user-scalable=yes"/>
     <title>Messaging Platform — Web Agent Chat</title>
+    <meta name="description" content="Channels, presence and QR room sharing — the smallest complete example of the Messaging Platform SDK.">
+    <meta name="theme-color" content="#0b1120">
+    <link rel="canonical" href="https://hmdevonline.com/messaging-platform/sdk/apps/chat.html">
 
+    <meta property="og:type" content="website">
+    <meta property="og:site_name" content="Messaging Platform SDK">
+    <meta property="og:title" content="Real-time chat">
+    <meta property="og:description" content="Channels, presence and QR room sharing — the smallest complete example of the Messaging Platform SDK.">
+    <meta property="og:url" content="https://hmdevonline.com/messaging-platform/sdk/apps/chat.html">
+    <meta property="og:image" content="https://hmdevonline.com/messaging-platform/sdk/images/og-image.png">
+    <meta name="twitter:card" content="summary_large_image">
+
+    <!-- The shared design system: tokens first, then the kit, then this page. -->
+    <link rel="stylesheet" href="../css/design-tokens.css"/>
+    <link rel="stylesheet" href="../css/ui.css"/>
     <link rel="stylesheet" href="../css/common.css"/>
     <link rel="stylesheet" href="../css/icons.css"/>
     <link rel="stylesheet" href="../css/share-modal.css"/>
@@ -387,7 +403,9 @@
         }
 
         .brand .title {
-            font-weight: 700
+            font-weight: 700;
+            font-size: inherit;
+            margin: 0
         }
 
         .form-row {
@@ -1082,12 +1100,15 @@
 
     <!-- Load configuration from backend (secure API key management) -->
     <script src="../js/config-loader.js"></script>
+<script src="../js/icons.js"></script>
     <script src="../lib/qrcode.min.js"></script>
     <script src="../generated-web-agent-js/js/web-agent.libs.js"></script>
     <script src="../generated-web-agent-js/js/web-agent.js"></script>
     <script src="../generated-web-agent-js/js/web-agent.webrtc.js"></script>
+    <script src="../js/dialog.js"></script>
     <script src="../js/common-utils.js"></script>
     <script src="../js/share-modal.js"></script>
+    <link rel="stylesheet" href="../css/app-chrome.css">
 </head>
 <body>
 <!-- inline SVG sprite (inlined for compatibility and single-request) -->
@@ -1116,8 +1137,8 @@
 <div class="app-shell">
     <aside class="sidebar">
         <div class="brand">
-            <img src="../images/arrow-right.png" alt="logo"/>
-            <div class="title">Messaging Platform</div>
+            <img src="../favicon.svg" alt="" width="36" height="36"/>
+            <h1 class="title">Messaging Platform</h1>
         </div>
 
         <!-- Connected state: show minimal info -->
@@ -1208,7 +1229,7 @@
                 <div class="form-row">
                     <label for="agentName">Your name (Optional)</label>
                     <input id="agentName" type="text" placeholder="Leave empty to auto-generate"/>
-                    <div class="small">💡 Leave empty to generate a unique name automatically</div>
+                    <div class="small"><svg class="icon icon--sm" aria-hidden="true"><use href="#i-info"></use></svg> Leave empty to generate a unique name automatically</div>
                 </div>
 
                 <div class="controls">
@@ -1969,7 +1990,7 @@
                     try { startBtn.classList.add('ghost'); } catch(e){}
                     // change text/icon
                     try { startBtn.dataset.orig = startBtn.dataset.orig || startBtn.innerHTML; } catch (e) {}
-                    try { startBtn.innerHTML = '✔ Connected'; } catch (e) {}
+                    try { startBtn.textContent = 'Connected'; } catch (e) {}
 
                     // On mobile: collapse sidebar to show connected info only
                     try { collapseSidebarOnMobile(); } catch(e) { console.warn('collapseSidebarOnMobile', e); }
@@ -2238,7 +2259,7 @@
                                     return;
                                 }
                                 const isMe = window.channel && window.channel.agentName && it.from === window.channel.agentName;
-                                const messageText = it.encrypted ? '🔒 Encrypted: content' : (it.content || '(None)');
+                                const messageText = it.encrypted ? 'Encrypted: content' : (it.content || '(None)');
                                 appendMessage(it.from || agentName || 'Unknown', messageText, isMe, it.date || Date.now());
                             }
                         });
@@ -2394,8 +2415,12 @@
                         const closeBtns = modal.querySelectorAll('.close-btn');
 
                         if (!overlay || !modal || !btnAllow || !btnDeny) {
-                            const allow = confirm('Agent "' + (requesterName || 'Unknown') + '" requests the channel password. Allow?');
-                            resolve(!!allow);
+                            MiniGameUtils.ask({
+                                title: 'Hand over the channel password?',
+                                body: '"' + (requesterName || 'An unknown agent') + '" is asking for it. '
+                                    + 'Anyone with it can join this channel.',
+                                confirmLabel: 'Allow', cancelLabel: 'Refuse', danger: true
+                            }).then((allow) => resolve(!!allow));
                             return;
                         }
 
@@ -2517,10 +2542,16 @@
 
         // Clear messages
         function doClear() {
-            if (!confirm('Clear all messages from the chat window?')) return;
-            const container = document.querySelector('.chat-body');
-            if(container) container.innerHTML = '';
-            showToast('Messages cleared', 'success');
+            MiniGameUtils.ask({
+                title: 'Clear the messages?',
+                body: 'Only your own view is cleared — nobody else loses anything.',
+                confirmLabel: 'Clear', danger: true
+            }).then((yes) => {
+                if (!yes) return;
+                const container = document.querySelector('.chat-body');
+                if (container) container.innerHTML = '';
+                showToast('Messages cleared', 'success');
+            });
         }
 
         // Robustly extract connected agent names from runtime channel
@@ -2557,5 +2588,8 @@
 
     })();
 </script>
+<script src="../js/room-defaults.js"></script>
+<script>RoomDefaults.apply({ prefix: 'chat_', channelPrefix: 'chat-', sharedDefaults: ['default'] });</script>
+<script src="../js/app-chrome.js"></script>
 </body>
 </html>

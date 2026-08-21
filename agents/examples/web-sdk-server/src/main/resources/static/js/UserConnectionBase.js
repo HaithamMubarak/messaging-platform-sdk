@@ -44,6 +44,12 @@ class UserConnectionBase {
                 maxRetransmits: 0
             },
             enableHostIndicator: true,           // Show host indicator in UI (subclass must implement updateHostIndicator)
+
+            // Coming back after the connection drops. See _beginReconnect.
+            autoReconnect: true,
+            reconnectMaxAttempts: 8,
+            reconnectBaseDelayMs: 1000,
+            reconnectMaxDelayMs: 15000,
             ...options
         };
 
@@ -55,6 +61,11 @@ class UserConnectionBase {
         this.channelPassword = '';
         this.connected = false;
         this.connecting = false;       // Prevent duplicate connection requests
+        this.reconnecting = false;     // A rejoin is in flight
+        this._userDisconnected = false;// They left on purpose; do not drag them back
+        this._reconnectAttempt = 0;
+        this._deadSessionId = null;    // The session the server still thinks is alive
+        this._watchingNetwork = false;
 
         // Relay mode tracking
         this.relayMode = this.options.relayMode || 'p2p-host';
@@ -198,6 +209,8 @@ class UserConnectionBase {
 
         // Set connecting flag
         this.connecting = true;
+        this._userDisconnected = false;
+        this._watchNetwork();
 
         try {
             this.username = username;
@@ -224,6 +237,12 @@ class UserConnectionBase {
             if (typeof WebRtcHelper !== 'undefined') {
                 this.webrtcHelper = new WebRtcHelper(this.channel);
                 this._setupWebRtcEvents();
+                // A reconnect builds a new helper, so anything a subclass
+                // listens for has to be attached here rather than once after
+                // the first connect — otherwise the app comes back deaf.
+                if (typeof this.onWebrtcHelperReady === 'function') {
+                    this.onWebrtcHelperReady(this.webrtcHelper);
+                }
             }
 
             // Setup event listeners
@@ -260,6 +279,15 @@ class UserConnectionBase {
                 });
             });
 
+            // The shared helpers in common-utils.js — the agents badge, the
+            // agents modal, the disconnect button — look for the live channel
+            // at window.channel, because they predate this class. Only chat.html
+            // ever set it, so in every app built on this base the agents badge
+            // sat at 0 for ever while the list beside it showed people. One
+            // line, and they all start working.
+            window.channel = this.channel;
+            this._syncAgentsBadge();
+
             console.log('[UserConnectionBase] Connected');
 
             // Setup automatic cleanup on page unload
@@ -269,6 +297,26 @@ class UserConnectionBase {
             this.connecting = false;
             throw error;
         }
+    }
+
+    /**
+     * Keep the shared agents badge in step with the roster.
+     *
+     * common-utils draws that badge and fills it from channel events it
+     * subscribes to when it first notices window.channel — which is after the
+     * connect event has been and gone, so it never heard the first one and the
+     * badge sat at 0 beside a list with people in it. This class knows the
+     * roster first-hand, so it says so directly, on joining and on every
+     * arrival and departure.
+     *
+     * @private
+     */
+    _syncAgentsBadge() {
+        try {
+            if (window.MiniGameUtils && typeof MiniGameUtils.setAgentsCount === 'function') {
+                MiniGameUtils.setAgentsCount(this.getUserCount());
+            }
+        } catch (e) { /* the badge is decoration; never let it break a join */ }
     }
 
     /**
@@ -331,12 +379,180 @@ class UserConnectionBase {
     disconnect() {
         this.stop();
 
+        // Leaving on purpose. Everything below this line exists to tell the
+        // difference between that and the floor giving way.
+        this._userDisconnected = true;
+        this.reconnecting = false;
+        this._reconnectAttempt = 0;
+        clearTimeout(this._reconnectTimer);
+
         if (this.channel) {
             this.channel.disconnect();
         }
 
         this.connected = false;
+        if (window.channel === this.channel) window.channel = null;
         console.log('[UserConnectionBase] Disconnected');
+    }
+
+    /* ====================================================================
+     * Coming back
+     *
+     * The socket underneath tries a few times on its own and then, until
+     * recently, stopped without a word — leaving the page showing "connected"
+     * for a session that no longer existed. It now says so, and this is what
+     * listens.
+     *
+     * A reconnect here is a fresh join, not a resumed session. That is the
+     * whole trick: peers see an ordinary leave and an ordinary arrival, and
+     * every app's existing sync-on-join path is the recovery mechanism. No new
+     * message crosses the wire, no offsets are replayed, nothing has to agree
+     * on anything new. What was said during the outage is gone, and the apps
+     * that care already re-sync state on join.
+     * ==================================================================== */
+
+    /**
+     * The two moments worth trying again on, neither of which is a timer:
+     * the network coming back, and the tab being looked at again. A phone that
+     * backgrounded the tab is the common case, and its timers are throttled
+     * while it is away, so the attempt counter starts afresh here.
+     */
+    _watchNetwork() {
+        if (this._watchingNetwork || typeof window === 'undefined') return;
+        this._watchingNetwork = true;
+
+        const wake = (why) => {
+            if (this.connected || this._userDisconnected || !this.options.autoReconnect) return;
+            // Deliberately not guarded on this.channel: _rejoin() tears the old
+            // one down before building a new one, so a failed attempt leaves it
+            // null — and guarding on it here meant that once the ladder of
+            // attempts ran out while the network was down, coming back online
+            // could never start another one. What matters is that we know which
+            // room to return to.
+            if (!this.username || !this.channelName) return;
+            console.log('[UserConnectionBase] ' + why + ' — trying to rejoin now');
+            this._reconnectAttempt = 0;
+            clearTimeout(this._reconnectTimer);
+            this.reconnecting = false;
+            this._beginReconnect(why);
+        };
+
+        window.addEventListener('online', () => wake('network came back'));
+        document.addEventListener('visibilitychange', () => {
+            if (document.visibilityState === 'visible') wake('tab is visible again');
+        });
+        window.addEventListener('pagehide', () => { this._userDisconnected = true; });
+    }
+
+    /**
+     * Rejoin, with a widening gap between tries.
+     *
+     * The gap is jittered because twenty-three tabs that all lost the same
+     * server would otherwise come back at the same instant and knock it over
+     * again.
+     */
+    async _beginReconnect(reason) {
+        if (!this.options.autoReconnect) return;
+        // Deliberately not guarded on `connected`: at the moment the floor
+        // gives way the flag still says true, and that is the state this
+        // exists to correct.
+        if (this.reconnecting || this._userDisconnected) return;
+        if (!this.username || !this.channelName) return;
+
+        this.reconnecting = true;
+        this._deadSessionId = this._deadSessionId
+            || (this.channel && this.channel.sessionId) || null;
+
+        // The app renders its disconnected state — honestly, rather than
+        // pretending the room is still there.
+        if (this.connected !== false) {
+            this.connected = false;
+            if (typeof this.onDisconnect === 'function') {
+                try { this.onDisconnect({ reason: reason }); } catch (e) { console.warn(e); }
+            }
+        }
+
+        while (this._reconnectAttempt < this.options.reconnectMaxAttempts) {
+            if (this._userDisconnected) { this.reconnecting = false; return; }
+            this._reconnectAttempt++;
+
+            const step = Math.min(
+                this.options.reconnectMaxDelayMs,
+                this.options.reconnectBaseDelayMs * Math.pow(2, this._reconnectAttempt - 1)
+            );
+            const wait = Math.round(step * (0.5 + Math.random() / 2));
+
+            if (typeof this.onReconnecting === 'function') {
+                try { this.onReconnecting(this._reconnectAttempt, wait, reason); } catch (e) { console.warn(e); }
+            }
+
+            await new Promise((r) => { this._reconnectTimer = setTimeout(r, wait); });
+            if (this._userDisconnected) { this.reconnecting = false; return; }
+
+            try {
+                await this._rejoin();
+                this.reconnecting = false;
+                this._reconnectAttempt = 0;
+                this._deadSessionId = null;
+                console.log('[UserConnectionBase] Back in ' + this.channelName);
+                if (typeof this.onReconnected === 'function') {
+                    try { this.onReconnected(); } catch (e) { console.warn(e); }
+                }
+                return;
+            } catch (err) {
+                const why = (err && err.message) || String(err);
+                if (this._isTerminal(why)) {
+                    console.error('[UserConnectionBase] Cannot rejoin:', why);
+                    break;
+                }
+                console.warn('[UserConnectionBase] Rejoin attempt '
+                    + this._reconnectAttempt + ' failed:', why);
+            }
+        }
+
+        this.reconnecting = false;
+        if (typeof this.onReconnectFailed === 'function') {
+            try { this.onReconnectFailed(); } catch (e) { console.warn(e); }
+        }
+    }
+
+    /**
+     * A refusal worth stopping for.
+     *
+     * "That name is in use" is not one of them: it usually means the server is
+     * still holding the session we just lost, and it will let go. A password
+     * the channel no longer accepts is — trying again for ever cannot fix it.
+     */
+    _isTerminal(message) {
+        return /password|unauthor|forbidden|not allowed|invalid channel/i.test(message || '');
+    }
+
+    /** One attempt: put down what is left of the old session, then join. */
+    async _rejoin() {
+        // Peer connections belong to the session that just died. Left alone
+        // they pile up one set per outage.
+        try {
+            if (this.webrtcHelper && this.webrtcHelper.closeAllStreams) {
+                this.webrtcHelper.closeAllStreams();
+            }
+        } catch (e) { /* it is already gone */ }
+
+        // Tell the server the old session is finished, so it does not sit
+        // there holding the name we are about to ask for again.
+        try {
+            if (this.channel && this.channel.disconnect) this.channel.disconnect();
+        } catch (e) { /* best effort */ }
+
+        this.channel = null;
+        this.webrtcHelper = null;
+        this.connected = false;
+        this.connecting = false;
+
+        await this.connect({
+            username: this.username,
+            channelName: this.channelName,
+            channelPassword: this.channelPassword
+        });
     }
 
     /**
@@ -663,6 +879,20 @@ class UserConnectionBase {
      * @private
      */
     _setupChannelEvents() {
+        // The socket has run out of its own attempts and told us so.
+        this.channel.addEventListener('connection-lost', (ev) => {
+            console.warn('[UserConnectionBase] Connection lost ('
+                + ((ev && ev.reason) || 'unknown') + ')');
+            this._beginReconnect('connection lost');
+        });
+
+        // The server no longer knows this session. The SDK schedules its own
+        // retry twenty seconds out; this gets there first and does it properly.
+        this.channel.addEventListener('session-not-found', () => {
+            console.warn('[UserConnectionBase] Session is gone from the server');
+            this._beginReconnect('session expired');
+        });
+
         // Connect event
         this.channel.addEventListener('connect', (ev) => {
             const resp = ev.response || {};
@@ -741,6 +971,7 @@ class UserConnectionBase {
 
         // Agent connect event
         this.channel.addEventListener('agent-connect', (ev) => {
+            this._syncAgentsBadge();
             const agentName = ev.agentName;
             console.log(`[AgentSessionBase] Agent connected: ${agentName}`);
             if (agentName !== this.username) {
@@ -757,15 +988,33 @@ class UserConnectionBase {
                 if (this.options.autoCreateDataChannel) {
                     console.log(`[AgentSessionBase] Initiating DataChannel with new agent ${agentName}`);
                     this._initiateDataChannel(agentName);
-                }
 
-                // NOTE: onUserJoin is fired when DataChannel opens (when ready for communication)
+                    // onUserJoin waits for that DataChannel to open, because for
+                    // these apps "joined" means "reachable", and it is not
+                    // reachable until the channel is up.
+                } else {
+                    // No DataChannel is coming. An app that talks over the
+                    // channel alone is reachable the moment the server says the
+                    // agent connected, so waiting for an event that will never
+                    // fire left it deaf to arrivals while still hearing every
+                    // departure through onUserLeave — a roster that only ever
+                    // counted down.
+                    console.log(`[AgentSessionBase] Agent ${agentName} joined (channel-only) - firing onUserJoin`);
+                    if (typeof this.onUserJoin === 'function') {
+                        this.onUserJoin({
+                            agentName,
+                            users: this.getConnectedUsers().filter(n => n !== this.username),
+                            connectionTimeMs: null
+                        });
+                    }
+                }
             }
         });
 
         // Agent disconnect event
         this.channel.addEventListener('agent-disconnect', (ev) => {
             const agentName = ev.agentName;
+            this._syncAgentsBadge();
 
             // Release the initiation guard so this peer can be re-initiated if it
             // rejoins.

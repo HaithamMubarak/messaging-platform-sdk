@@ -58,6 +58,10 @@ class GameControlPanel {
         this.isDragging = false;
         this.dragOffset = { x: 0, y: 0 };
         this.position = this.loadPosition();
+
+        window.addEventListener('resize', () => {
+            if (!this.isCollapsed) this.clampIntoViewport();
+        });
         this.isSoundOn = true;
         this.isFullscreen = false;
 
@@ -98,9 +102,12 @@ class GameControlPanel {
             if (this.config.defaultPosition) {
                 position = { ...this.config.defaultPosition };
             } else {
+                // Mid-right rather than the bottom-right corner: the corner is
+                // where these apps put chat inputs, guess boxes and player
+                // panels, and the panel was landing on top of them.
                 position = {
-                    x: window.innerWidth - 80,  // 60px icon + 20px margin
-                    y: window.innerHeight - 80   // 60px icon + 20px margin
+                    x: window.innerWidth - 80,   // 60px icon + 20px margin
+                    y: Math.round(window.innerHeight * 0.45)
                 };
             }
         }
@@ -159,6 +166,10 @@ class GameControlPanel {
         this.container.appendChild(this.collapsedIcon);
         this.container.appendChild(this.expandedPanel);
         document.body.appendChild(this.container);
+
+        // Panels created with startCollapsed:false never go through expand(),
+        // so clamp here too or they render half outside the viewport.
+        if (!this.isCollapsed) this.clampIntoViewport();
 
         // Cache button references
         this.cacheElements();
@@ -436,6 +447,40 @@ class GameControlPanel {
         this.isCollapsed = false;
         this.container.classList.remove('collapsed');
         this.container.classList.add('expanded');
+        this.clampIntoViewport();
+    }
+
+    /**
+     * Keep the whole panel on screen.
+     *
+     * The stored position anchors the 60px collapsed icon, so a panel anchored
+     * near the right or bottom edge had most of its expanded body — including
+     * its buttons — rendered outside the viewport and unreachable.
+     */
+    clampIntoViewport() {
+        if (!this.container) return;
+        // Measure after the class change has been applied.
+        requestAnimationFrame(() => {
+            const rect = this.container.getBoundingClientRect();
+            if (!rect.width || !rect.height) return;
+
+            const margin = 12;
+            const maxX = Math.max(margin, window.innerWidth - rect.width - margin);
+            const maxY = Math.max(margin, window.innerHeight - rect.height - margin);
+            const x = Math.min(Math.max(margin, this.position.x), maxX);
+            const y = Math.min(Math.max(margin, this.position.y), maxY);
+
+            if (x !== this.position.x || y !== this.position.y) {
+                // Mirror resetPosition(): keep every position field in step so
+                // the drag animation does not snap it back.
+                this.position = { x, y };
+                this.targetPosition = { x, y };
+                this.currentPosition = { x, y };
+                this.container.style.left = x + 'px';
+                this.container.style.top = y + 'px';
+                this.savePosition();
+            }
+        });
     }
 
     /**

@@ -826,6 +826,17 @@
         this._websocket = null;
         this._websocketConnected = false;
         this._websocketReconnectAttempts = 0;
+        // How many times the socket quietly tries to come back on its own
+        // before it admits defeat and tells the page. Settable so a test can
+        // reach the giving-up path without waiting a minute for it.
+        this._wsMaxReconnectAttempts = 5;
+        this._connectionLostDispatched = false;
+        // Heartbeat. See _startHeartbeat: a socket can stay open and carry
+        // nothing, and that is the failure a phone actually has.
+        this._wsHeartbeatMs = 15000;
+        this._wsHeartbeatGraceMs = 20000;
+        this._wsHeartbeatTimer = null;
+        this._lastPongAt = 0;
         this._websocketMessageCallbacks = new Map();
         this._websocketMessageId = 0;
 
@@ -908,6 +919,8 @@
                 console.log('[WebSocket] Connected');
                 _self._websocketConnected = true;
                 _self._websocketReconnectAttempts = 0;
+                _self._connectionLostDispatched = false;
+                _self._startHeartbeat();
 
                 // Subscribe to receive messages for this session
                 _self._websocketSubscribe();
@@ -933,16 +946,7 @@
 
             _self._websocket.onclose = function(event) {
                 console.log('[WebSocket] Disconnected:', event.code, event.reason);
-                _self._websocketConnected = false;
-                _self._websocket = null;
-
-                // Attempt reconnect if still connected to channel
-                if (_self.readyState && _self._websocketReconnectAttempts < 5) {
-                    _self._websocketReconnectAttempts++;
-                    const delay = Math.min(1000 * Math.pow(2, _self._websocketReconnectAttempts), 30000);
-                    console.log(`[WebSocket] Reconnecting in ${delay}ms (attempt ${_self._websocketReconnectAttempts})`);
-                    setTimeout(() => _self._connectWebSocket(), delay);
-                }
+                _self._socketGone(event && event.reason);
             };
 
             _self._websocket.onerror = function(error) {
@@ -950,6 +954,111 @@
             };
         } catch (e) {
             console.error('[WebSocket] Failed to connect:', e);
+        }
+    };
+
+    /**
+     * The socket is not there any more, however we found out.
+     *
+     * Reached from onclose and from the heartbeat, because those are two
+     * genuinely different events: a socket that closes tells us, and a socket
+     * that dies does not. Either way this runs once — a close event arriving
+     * late, after the heartbeat has already given up on the same socket, must
+     * not start a second ladder of attempts.
+     *
+     * @private
+     */
+    AgentConnection.prototype._socketGone = function(why) {
+        const _self = this;
+
+        _self._stopHeartbeat();
+        _self._websocketConnected = false;
+        if (_self._websocket) {
+            try { _self._websocket.onclose = null; _self._websocket.close(); } catch (e) { /* already gone */ }
+            _self._websocket = null;
+        }
+
+        // Not our channel any more: nothing to come back to.
+        if (!_self.readyState) return;
+
+        if (_self._websocketReconnectAttempts < _self._wsMaxReconnectAttempts) {
+            _self._websocketReconnectAttempts++;
+            const delay = Math.min(1000 * Math.pow(2, _self._websocketReconnectAttempts), 30000);
+            console.log(`[WebSocket] Reconnecting in ${delay}ms (attempt ${_self._websocketReconnectAttempts})`);
+            setTimeout(() => _self._connectWebSocket(), delay);
+            return;
+        }
+
+        // Out of attempts while the channel still believes it is up.
+        //
+        // This used to be where the story ended: the socket stopped trying and
+        // said nothing, so the page went on showing "connected" for a session
+        // that no longer existed. Every app built on this became a zombie
+        // after a tunnel, a sleeping laptop or a phone whose browser
+        // backgrounded the tab. The page is told now, and can decide to rejoin.
+        if (!_self._connectionLostDispatched) {
+            _self._connectionLostDispatched = true;
+            console.warn('[WebSocket] Giving up after '
+                + _self._websocketReconnectAttempts + ' attempts; telling the page'
+                + (why ? ' (' + why + ')' : ''));
+            _self.dispatchEvent('connection-lost', {
+                reason: 'websocket',
+                attempts: _self._websocketReconnectAttempts,
+                timestamp: Date.now()
+            });
+        }
+    };
+
+    /**
+     * Keep asking the socket whether it is still there.
+     *
+     * A closed socket announces itself; a *dead* one does not. Lose signal in a
+     * tunnel, sleep the laptop, walk out of range: the connection stops
+     * carrying anything while the browser goes on reporting it as OPEN, so
+     * onclose never fires and nothing anywhere notices. That is not the rare
+     * case — it is what losing a connection on a phone looks like.
+     *
+     * So the client pings, and the server has always answered pong; nobody was
+     * asking. If the answers stop for longer than the grace period the socket
+     * is closed deliberately, which puts it back on the ordinary reconnect
+     * path and, if that fails too, ends in the page being told.
+     *
+     * @private
+     */
+    AgentConnection.prototype._startHeartbeat = function() {
+        const _self = this;
+        _self._stopHeartbeat();
+        _self._lastPongAt = Date.now();
+
+        _self._wsHeartbeatTimer = setInterval(function() {
+            if (!_self._websocket || _self._websocket.readyState !== WebSocket.OPEN) return;
+
+            const silence = Date.now() - _self._lastPongAt;
+            if (silence > _self._wsHeartbeatGraceMs) {
+                // Closing it is not enough to be told about it: a close
+                // handshake on a network that is no longer there never
+                // completes, so onclose may never fire. This declares it.
+                console.warn('[WebSocket] No answer for ' + silence + 'ms — the socket is open but dead');
+                _self._socketGone('heartbeat timeout');
+                return;
+            }
+
+            try {
+                _self._websocket.send(JSON.stringify({
+                    action: 'ping',
+                    sessionId: _self.sessionId
+                }));
+            } catch (e) {
+                console.warn('[WebSocket] Heartbeat could not be sent:', e && e.message);
+            }
+        }, _self._wsHeartbeatMs);
+    };
+
+    /** @private */
+    AgentConnection.prototype._stopHeartbeat = function() {
+        if (this._wsHeartbeatTimer) {
+            clearInterval(this._wsHeartbeatTimer);
+            this._wsHeartbeatTimer = null;
         }
     };
 
@@ -1012,7 +1121,9 @@
                 break;
 
             case 'pong':
-                // Heartbeat response
+                // Heartbeat response — proof the socket is carrying traffic in
+                // both directions, which is the only thing that proves it.
+                _self._lastPongAt = Date.now();
                 break;
 
             case 'error':
@@ -1242,13 +1353,28 @@
                 else if (item.type === 'disconnect'){
                     delete _self._connectedAgentsMap[item.from];
                     _self._updateAgents();
-                    // Dispatch agent-disconnect event (systemEvent false for normal agent disconnects)
-                    const parsedContent = JSON.parse(item.content);
+
+                    // The context on a disconnect is optional and is not always
+                    // JSON — an empty body is normal. Parsing it unguarded threw
+                    // before the event was dispatched, so nobody was ever told
+                    // the agent had left: every roster on the channel kept a
+                    // ghost until something else happened to correct it. The
+                    // connect branch above already parses defensively; this is
+                    // the same care.
+                    let parsedContent = null;
+                    try {
+                        if (item.content) {
+                            parsedContent = JSON.parse(item.content);
+                        }
+                    } catch (e) {
+                        console.warn('Failed to parse context from DISCONNECT event:', e.message);
+                    }
+
                     _self.dispatchEvent('agent-disconnect', {
                         agentName: item.from,
                         timestamp: item.date,
                         systemEvent: item.systemEvent,
-                        agentContext: parsedContent?.agentContext || parsedContent?.metadata, // Support legacy metadata field
+                        agentContext: (parsedContent && (parsedContent.agentContext || parsedContent.metadata)) || null,
                     });
                 }
 
@@ -1319,7 +1445,7 @@
      * Send message via WebSocket
      * @private
      */
-    AgentConnection.prototype._websocketSend = function(action, payload, callback) {
+    AgentConnection.prototype._websocketSend = function(action, payload, callback, timeoutMs) {
         const _self = this;
 
         if (!_self._websocket || _self._websocket.readyState !== WebSocket.OPEN) {
@@ -1339,13 +1465,14 @@
 
         if (callback) {
             _self._websocketMessageCallbacks.set(messageId, callback);
-            // Timeout for callback
+            // Timeout for callback. Callers with a fallback path pass a shorter
+            // one: thirty seconds is not a wait, it is a lost message.
             setTimeout(() => {
                 if (_self._websocketMessageCallbacks.has(messageId)) {
                     _self._websocketMessageCallbacks.delete(messageId);
                     callback({ status: 'error', statusMessage: 'WebSocket request timeout' });
                 }
-            }, 30000);
+            }, timeoutMs || 30000);
         }
 
         _self._websocket.send(JSON.stringify(message));
@@ -1360,7 +1487,8 @@
         const _self = this;
 
         if (_self._websocket) {
-            _self._websocketReconnectAttempts = 5; // Prevent reconnect
+            _self._stopHeartbeat();
+            _self._websocketReconnectAttempts = _self._wsMaxReconnectAttempts; // Prevent reconnect
             _self._websocket.close();
             _self._websocket = null;
             _self._websocketConnected = false;
@@ -2643,44 +2771,71 @@
             return;
         }
 
+        // One logical send carries one id, and the HTTP retry below reuses this
+        // same payload — so a frame that arrives twice (socket slow to ack, but
+        // delivered anyway) is recognisable as the same send and dropped by the
+        // receiver. A deliberate re-offer is a new send with a new id, so it
+        // still gets through: this suppresses the transport's duplicate, not
+        // the application's retry.
+        _self._sigSeq = (_self._sigSeq || 0) + 1;
+        const tagged = Object.assign({}, signalingMsg, {
+            __sigId: (_self.agentName || 'a') + '-' + Date.now() + '-' + _self._sigSeq
+        });
+
         const payload = {
             type: 'webrtc-signaling',
             ephemeral: true,  // Mark as ephemeral to avoid storage
             to: remoteAgent,
             filter: filter,  // Add filter support
             encrypted: false,
-            content: JSON.stringify(signalingMsg),
+            content: JSON.stringify(tagged),
             sessionId: _self.sessionId,
+        };
+
+        const overHttp = function() {
+            request({
+                useSyncMode: _self.useSyncMode,
+                base: _self._api,
+                pubKeyEncryptor: _self._pubKeyEncryptor,
+                apiKey: _self._apiKey,
+                method: 'post',
+                action: 'push',
+                payload: payload,
+                id: _self.channelId,
+                callback: function(response) {
+                    if (response.status !== 'success') {
+                        console.error('[Channel] Failed to send WebRTC signaling:', response);
+                    }
+                },
+                retryChances: 1
+            });
         };
 
         // Prefer the WebSocket transport when connected (same as sendMessage),
         // fall back to HTTP push otherwise. Either way the server broadcasts it
         // to the recipient's socket.
+        //
+        // The fallback is not only for a socket that is down. A signaling frame
+        // that goes into an open socket and is never acknowledged used to be
+        // lost outright: the offer never arrived, the answer never came, and
+        // the connection sat in 'new' for ever while the two ends went on
+        // exchanging ICE candidates for a session one of them had never heard
+        // of. Large offers are the ones this happens to. So an unacknowledged
+        // send is repeated over HTTP, and it is given four seconds to be
+        // acknowledged rather than thirty, because an offer that arrives half a
+        // minute late has already been given up on.
         if (_self.useWebsocket && _self._websocketConnected) {
-            _self._websocketSend('push', payload, function(response) {
-                if (response && response.status !== 'success') {
-                    console.error('[Channel] Failed to send WebRTC signaling (ws):', response);
-                }
-            });
+            const sent = _self._websocketSend('push', payload, function(response) {
+                if (response && response.status === 'success') return;
+                console.warn('[Channel] WebRTC signaling was not acknowledged on the socket, '
+                    + 'sending it again over HTTP:', response && response.statusMessage);
+                overHttp();
+            }, 4000);
+            if (sent === false) overHttp();
             return;
         }
 
-        request({
-            useSyncMode: _self.useSyncMode,
-            base: _self._api,
-            pubKeyEncryptor: _self._pubKeyEncryptor,
-            apiKey: _self._apiKey,
-            method: 'post',
-            action: 'push',
-            payload: payload,
-            id: _self.channelId,
-            callback: function(response) {
-                if (response.status !== 'success') {
-                    console.error('[Channel] Failed to send WebRTC signaling:', response);
-                }
-            },
-            retryChances: 1
-        });
+        overHttp();
     }
 
     /**
@@ -2696,6 +2851,22 @@
             if (sourceAgent === this.agentName) {
                 // skip self-sent signaling
                 return;
+            }
+
+            // Drop a frame the transport delivered twice. Applying the same
+            // offer or answer a second time puts the peer connection into a
+            // state it never leaves — it sits in 'connecting' while both ends
+            // go on trading ICE candidates and no media ever flows.
+            const sigId = signalingMsg && signalingMsg.__sigId;
+            if (sigId) {
+                this._seenSigIds = this._seenSigIds || [];
+                this._seenSigSet = this._seenSigSet || {};
+                if (this._seenSigSet[sigId]) return;
+                this._seenSigSet[sigId] = true;
+                this._seenSigIds.push(sigId);
+                if (this._seenSigIds.length > 500) {
+                    delete this._seenSigSet[this._seenSigIds.shift()];
+                }
             }
 
             if (this.onWebRtcSignaling) {
@@ -2821,13 +2992,30 @@
 
                 let res = false;
 
+                // Each listener is isolated. One that throws used to abort the
+                // whole dispatch and unwind into the SDK's own caller, so a
+                // single bad handler silently cost every later listener its
+                // event and cost the SDK the work it had queued after the
+                // dispatch. This is how the DOM behaves: report and carry on.
+                const report = (err) => {
+                    console.error('Listener for event \'' + event + '\' threw:', err);
+                };
+
                 if(typeof this['on'+event] === 'function'){
-                    this['on'+event].apply(this,[e]);
+                    try {
+                        this['on'+event].apply(this,[e]);
+                    } catch (err) {
+                        report(err);
+                    }
                 }
 
                 for(let i=0;i<callbacks.length && !cancelled;i++){
                     if(typeof callbacks[i] === 'function'){
-                        callbacks[i].apply(this,[e]);
+                        try {
+                            callbacks[i].apply(this,[e]);
+                        } catch (err) {
+                            report(err);
+                        }
                         res = true;
                     }
                 }

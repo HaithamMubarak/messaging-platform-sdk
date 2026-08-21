@@ -2,10 +2,28 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
+    <script src="../js/prod-log.js"></script>
+    <link rel="icon" type="image/svg+xml" href="../favicon.svg">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5, user-scalable=yes">
-    <title>WebRTC Video Sender</title>
+    <title>WebRTC video — signalling over a channel on the Messaging Platform SDK</title>
+    <meta name="description" content="Camera, microphone and screen share negotiated over a channel, with the signalling and connection states shown as they happen.">
+    <meta name="theme-color" content="#0b1120">
+    <link rel="canonical" href="https://hmdevonline.com/messaging-platform/sdk/apps/webrtc.html">
+    <meta property="og:type" content="website">
+    <meta property="og:site_name" content="Messaging Platform SDK">
+    <meta property="og:title" content="WebRTC video">
+    <meta property="og:description" content="Camera, microphone and screen share negotiated over a channel, with the signalling and connection states shown as they happen.">
+    <meta property="og:url" content="https://hmdevonline.com/messaging-platform/sdk/apps/webrtc.html">
+    <meta property="og:image" content="https://hmdevonline.com/messaging-platform/sdk/images/og-image.png">
+    <meta name="twitter:card" content="summary_large_image">
+    <meta name="twitter:title" content="WebRTC video">
+    <meta name="twitter:description" content="Camera, microphone and screen share negotiated over a channel, with the signalling and connection states shown as they happen.">
+    <meta name="twitter:image" content="https://hmdevonline.com/messaging-platform/sdk/images/og-image.png">
 
     <!-- Include stylesheets -->
+    <!-- The shared design system: tokens first, then the kit, then this page. -->
+    <link rel="stylesheet" href="../css/design-tokens.css"/>
+    <link rel="stylesheet" href="../css/ui.css"/>
     <link rel="stylesheet" href="../css/common.css"/>
     <link rel="stylesheet" href="../css/icons.css"/>
     <link rel="stylesheet" href="../css/share-modal.css"/>
@@ -543,6 +561,7 @@
             }
         }
     </style>
+    <link rel="stylesheet" href="../css/app-chrome.css">
 </head>
 <body>
 <div class="app-container">
@@ -556,10 +575,35 @@
     <p>Send live video stream from browser to agent using WebRTC</p>
 </div>
 
+<!--
+  This page is the raw signalling example: every offer, answer and connection
+  state is on screen so you can watch a peer connection being made. That is
+  what it is for, and it is why it looks like an instrument panel rather than
+  a product. Somebody who arrived wanting a video call should be told where
+  the video call is, instead of being left to build one out of this.
+-->
+<div class="section notice-rooms" style="display: flex; align-items: center; gap: 16px; flex-wrap: wrap;">
+    <div style="flex: 1 1 320px; min-width: 0;">
+        <strong style="color: var(--text);">This is the plumbing, on purpose.</strong>
+        <span style="color: var(--muted);">
+            Every signalling step is shown so you can read how a peer connection is made. If you
+            want an actual room — several people, chat, screen share, mesh video — that is a
+            different page.
+        </span>
+    </div>
+    <a href="rooms/app.html" class="btn" style="flex: 0 0 auto; text-decoration: none;">
+        <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                  d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z"/>
+        </svg>
+        Open Rooms
+    </a>
+</div>
+
 
 <!-- Step 1: Channel Connection -->
 <div class="section">
-    <h2>🔗 Step 1: Connect to Messaging Channel</h2>
+    <h2><svg class="icon icon--sm" aria-hidden="true"><use href="#i-channel"></use></svg> Step 1: Connect to Messaging Channel</h2>
 
     <!-- Connection form (hidden after connect) -->
     <div id="connectionForm">
@@ -574,7 +618,7 @@
         <div class="form-row">
             <label for="agentName">Agent Name (Optional)</label>
             <input type="text" id="agentName" value="" placeholder="Leave empty to auto-generate">
-            <div class="small">💡 Leave empty to generate a unique name automatically</div>
+            <div class="small"><svg class="icon icon--sm" aria-hidden="true"><use href="#i-info"></use></svg> Leave empty to generate a unique name automatically</div>
         </div>
         <div class="controls">
             <button id="connectBtn" onclick="connectToChannel()" class="btn">
@@ -633,7 +677,7 @@
 
 <!-- Step 2: Camera Setup -->
 <div class="section">
-    <h2>📷 Step 2: Start Camera or Screen Share</h2>
+    <h2><svg class="icon icon--sm" aria-hidden="true"><use href="#i-video"></use></svg> Step 2: Start Camera or Screen Share</h2>
     <div class="form-row">
         <label for="videoQuality">Video Quality</label>
         <select id="videoQuality">
@@ -668,19 +712,19 @@
 
 <!-- Stream Status -->
 <div class="section">
-    <h2>📡 Stream Status</h2>
+    <h2><svg class="icon icon--sm" aria-hidden="true"><use href="#i-activity"></use></svg> Stream Status</h2>
     <div id="streamStatus"></div>
     <div class="small" style="margin-top: 12px; color: var(--muted);">
-        💡 Stream automatically starts when you enable camera or screen sharing and broadcasts to all connected agents.
+        <svg class="icon icon--sm" aria-hidden="true"><use href="#i-info"></use></svg> Stream automatically starts when you enable camera or screen sharing and broadcasts to all connected agents.
     </div>
 </div>
 
 <!-- Video Preview -->
 <div class="section">
-    <h2>📺 Video Preview</h2>
+    <h2><svg class="icon icon--sm" aria-hidden="true"><use href="#i-monitor"></use></svg> Video Preview</h2>
     <div class="video-grid">
         <div class="video-card">
-            <h3>📷 Local Camera</h3>
+            <h3><svg class="icon icon--sm" aria-hidden="true"><use href="#i-video"></use></svg> Local Camera</h3>
             <div class="video-wrapper">
                 <div id="localBadge" class="local-badge" aria-hidden="true">Camera</div>
                 <video id="localVideo" autoplay muted playsinline></video>
@@ -701,7 +745,7 @@
             </div>
         </div>
         <div class="video-card">
-            <h3>📡 Streaming Status</h3>
+            <h3><svg class="icon icon--sm" aria-hidden="true"><use href="#i-activity"></use></svg> Streaming Status</h3>
             <div class="stats-grid">
                 <div class="stat-box">
                     <div class="stat-value" id="statState">Idle</div>
@@ -726,8 +770,8 @@
 
 <!-- Remote Preview -->
 <div class="section">
-    <h2>📡 Remote Streams (<span id="remoteStreamCount">0</span>)</h2>
-    <div id="remoteStreamsContainer" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(400px, 1fr)); gap: 16px;">
+    <h2><svg class="icon icon--sm" aria-hidden="true"><use href="#i-users"></use></svg> Remote Streams (<span id="remoteStreamCount">0</span>)</h2>
+    <div id="remoteStreamsContainer" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(min(400px, 100%), 1fr)); gap: 16px;">
         <!-- Remote stream cards will be dynamically added here -->
         <div id="noRemoteStreams" class="video-card" style="grid-column: 1 / -1; text-align: center; padding: 40px; color: var(--muted);">
             <svg width="64" height="64" fill="none" stroke="currentColor" viewBox="0 0 24 24" style="margin: 0 auto 16px;">
@@ -740,7 +784,7 @@
 
 <!-- Log Output -->
 <div class="section">
-    <h2>📋 Activity Log</h2>
+    <h2><svg class="icon icon--sm" aria-hidden="true"><use href="#i-list"></use></svg> Activity Log</h2>
     <div class="controls">
         <button class="btn ghost" onclick="clearLog()">
             <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -757,9 +801,11 @@
 <!-- Include required scripts -->
 <script src="../lib/qrcode.min.js"></script>
 <script src="../js/config-loader.js"></script>
+<script src="../js/icons.js"></script>
 <script src="../generated-web-agent-js/js/web-agent.libs.js"></script>
 <script src="../generated-web-agent-js/js/web-agent.js"></script>
 <script src="../generated-web-agent-js/js/web-agent.webrtc.js"></script>
+<script src="../js/dialog.js"></script>
 <script src="../js/common-utils.js"></script>
 <script src="../js/share-modal.js"></script>
 
@@ -776,6 +822,9 @@
     let savedCameraStream = null;
     // Map to track multiple remote streams: streamId -> {stream, sourceAgent, videoElement, container}
     const remoteStreams = new Map();
+    // Dom ids for stream cards are generated locally, never taken from the
+    // peer-supplied stream id.
+    let remoteCardSeq = 0;
 
     /**
      * Replace RTCRtpSender tracks on an active peer connection for a given stream session.
@@ -860,7 +909,7 @@
                 streamData.stream = stream;
                 remoteStreams.set(streamId, streamData);
             }
-            log('🔄 Updated existing stream from ' + sourceAgent + ': ' + streamId, 'info');
+            log('Updated existing stream from ' + sourceAgent + ': ' + streamId, 'info');
             return; // Don't create a new card
         }
 
@@ -871,7 +920,7 @@
         // Update stream count
         updateRemoteStreamCount();
 
-        log('✅ Remote stream received from ' + sourceAgent + ': ' + streamId, 'success');
+        log('Remote stream received from ' + sourceAgent + ': ' + streamId, 'success');
     }
 
     // Create a card for a remote stream
@@ -882,51 +931,68 @@
         // Hide "no streams" message
         if (noStreamsMsg) noStreamsMsg.style.display = 'none';
 
+        // The agent name and the stream id both arrive from the peer, so
+        // neither may be interpolated into HTML: a name of `<img onerror=...>`
+        // would run on every viewer's page, and an id carrying a quote would
+        // break out of any attribute it was placed in. The card is built from a
+        // locally generated dom id, the peer's text is written with
+        // textContent, and the buttons are wired in JS over a closure.
+        const domId = 'rs' + (++remoteCardSeq);
+
         // Create video card
         const card = document.createElement('div');
         card.className = 'video-card';
-        card.id = 'remote-card-' + streamId;
+        card.id = 'remote-card-' + domId;
         card.style.position = 'relative';
 
         card.innerHTML = `
-            <h3><span>📺</span> ${sourceAgent}</h3>
+            <h3><svg class="icon icon--sm" aria-hidden="true"><use href="#i-monitor"></use></svg> <span class="rs-name"></span></h3>
             <div class="video-wrapper">
                 <div class="video-live">LIVE</div>
-                <div class="video-placeholder" id="placeholder-${streamId}"><div class="vp-ring"></div><span>Connecting stream…</span></div>
+                <div class="video-placeholder" id="placeholder-${domId}"><div class="vp-ring"></div><span>Connecting stream…</span></div>
                 <div class="remote-video-box" style="position: relative;">
-                    <video id="remote-video-${streamId}" autoplay playsinline muted style="width: 100%; height: 100%; object-fit: cover;" onloadeddata="var p=document.getElementById('placeholder-${streamId}'); if(p) p.style.display='none';"></video>
+                    <video id="remote-video-${domId}" autoplay playsinline muted style="width: 100%; height: 100%; object-fit: cover;"></video>
                 </div>
             </div>
             <div class="controls" style="padding: 8px; display: flex; gap: 8px; flex-wrap: wrap;">
-                <button class="btn" onclick="toggleRemoteStreamAudio('${streamId}')" title="Unmute audio">
-                    <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.536 8.464a5 5 0 010 7.072m2.828-9.9a9 9 0 010 12.728M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z"/>
-                    </svg>
-                    <span id="mute-text-${streamId}">Unmute</span>
+                <button class="btn" data-act="mute" title="Unmute audio">
+                    <svg class="icon icon--sm" aria-hidden="true"><use href="#i-mic"></use></svg>
+                    <span class="rs-mute-text">Unmute</span>
                 </button>
-                <button class="btn ghost" onclick="hideRemoteStream('${streamId}')" title="Hide stream">
-                    <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l3.59 3.59m0 0A9.953 9.953 0 0112 5c4.478 0 8.268 2.943 9.543 7a10.025 10.025 0 01-4.132 5.411m0 0L21 21"/>
-                    </svg>
-                    <span id="hide-text-${streamId}">Hide</span>
+                <button class="btn ghost" data-act="hide" title="Hide stream">
+                    <svg class="icon icon--sm" aria-hidden="true"><use href="#i-eye-off"></use></svg>
+                    <span class="rs-hide-text">Hide</span>
                 </button>
-                <button class="btn ghost" onclick="toggleRemoteStreamFullscreen('${streamId}')" title="Fullscreen">
-                    <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5l-5-5m5 5v-4m0 4h-4"/>
-                    </svg>
+                <button class="btn ghost" data-act="full" title="Fullscreen">
+                    <svg class="icon icon--sm" aria-hidden="true"><use href="#i-monitor"></use></svg>
                     Fullscreen
                 </button>
+                <button class="btn ghost" data-act="close" title="Close stream">
+                    <svg class="icon icon--sm" aria-hidden="true"><use href="#i-x"></use></svg>
+                    Close
+                </button>
             </div>
-            <div style="padding: 8px; font-size: 12px; color: var(--muted);">
-                Stream ID: ${streamId.substring(0, 20)}...
-            </div>
+            <div class="rs-id" style="padding: 8px; font-size: 12px; color: var(--muted);"></div>
         `;
+
+        card.querySelector('.rs-name').textContent = sourceAgent;
+        card.querySelector('.rs-id').textContent =
+            'Stream ID: ' + String(streamId).substring(0, 20) + '...';
+
+        card.querySelector('[data-act="mute"]').addEventListener('click', () => toggleRemoteStreamAudio(streamId));
+        card.querySelector('[data-act="hide"]').addEventListener('click', () => hideRemoteStream(streamId));
+        card.querySelector('[data-act="full"]').addEventListener('click', () => toggleRemoteStreamFullscreen(streamId));
+        card.querySelector('[data-act="close"]').addEventListener('click', () => removeRemoteStream(streamId));
 
         container.appendChild(card);
 
         // Get video element and set stream
-        const videoEl = document.getElementById('remote-video-' + streamId);
+        const videoEl = card.querySelector('video');
         if (videoEl) {
+            const placeholder = card.querySelector('.video-placeholder');
+            videoEl.addEventListener('loadeddata', () => {
+                if (placeholder) placeholder.style.display = 'none';
+            });
             videoEl.srcObject = stream;
 
             // Explicitly play the video
@@ -945,6 +1011,7 @@
             sourceAgent: sourceAgent,
             videoElement: videoEl,
             container: card,
+            domId: domId,
             hidden: false,
             muted: true
         });
@@ -960,17 +1027,17 @@
         streamData.videoElement.muted = !streamData.videoElement.muted;
         streamData.muted = streamData.videoElement.muted;
 
-        const muteText = document.getElementById('mute-text-' + streamId);
+        const muteText = streamData.container?.querySelector('.rs-mute-text');
         const muteBtn = muteText?.parentElement;
 
         if (streamData.videoElement.muted) {
             if (muteText) muteText.textContent = 'Unmute';
             if (muteBtn) muteBtn.classList.remove('danger');
-            log('🔇 Muted remote stream from ' + streamData.sourceAgent, 'info');
+            log('Muted remote stream from ' + streamData.sourceAgent, 'info');
         } else {
             if (muteText) muteText.textContent = 'Mute';
             if (muteBtn) muteBtn.classList.add('danger');
-            log('🔊 Unmuted remote stream from ' + streamData.sourceAgent, 'success');
+            log('Unmuted remote stream from ' + streamData.sourceAgent, 'success');
         }
     }
 
@@ -981,7 +1048,7 @@
 
         streamData.hidden = !streamData.hidden;
 
-        const hideText = document.getElementById('hide-text-' + streamId);
+        const hideText = streamData.container?.querySelector('.rs-hide-text');
         const hideBtn = hideText?.parentElement;
 
         if (streamData.hidden) {
@@ -989,13 +1056,13 @@
             streamData.videoElement.style.visibility = 'hidden';
             if (hideText) hideText.textContent = 'Show';
             if (hideBtn) hideBtn.classList.add('primary');
-            log('👁️ Hidden stream from ' + streamData.sourceAgent, 'info');
+            log('Hidden stream from ' + streamData.sourceAgent, 'info');
         } else {
             streamData.container.style.opacity = '1';
             streamData.videoElement.style.visibility = 'visible';
             if (hideText) hideText.textContent = 'Hide';
             if (hideBtn) hideBtn.classList.remove('primary');
-            log('👁️ Showing stream from ' + streamData.sourceAgent, 'info');
+            log('Showing stream from ' + streamData.sourceAgent, 'info');
         }
     }
 
@@ -1044,7 +1111,7 @@
         // Update count and show "no streams" message if needed
         updateRemoteStreamCount();
 
-        log('❌ Closed stream from ' + streamData.sourceAgent, 'info');
+        log('Closed stream from ' + streamData.sourceAgent, 'info');
     }
 
     // Update remote stream count display
@@ -1178,7 +1245,7 @@
 
         if (!channelName || !password || !apiKey) {
             console.log('[DEBUG] Validation failed - missing required fields');
-            showStatus('connectionStatus', '❌ Please fill in required fields', 'error');
+            showStatus('connectionStatus', 'Please fill in required fields', 'error');
             return;
         }
 
@@ -1231,11 +1298,11 @@
                 });
             });
 
-            log('✅ Connected to channel successfully', 'success');
-            showStatus('connectionStatus', '✅ Connected to channel: ' + channelName, 'success');
+            log('Connected to channel successfully', 'success');
+            showStatus('connectionStatus', 'Connected to channel: ' + channelName, 'success');
 
             // Check for webrtc-relay system agents
-            log('🔍 Checking for webrtc-relay system agents...', 'info');
+            log('Checking for webrtc-relay system agents...', 'info');
             try {
                 await new Promise((resolve, reject) => {
                     channel.getSystemAgents(function(response) {
@@ -1252,7 +1319,7 @@
                                 reject(new Error('No webrtc-relay agents found. Live streaming is not available.'));
                             } else {
                                 const relayNames = relayAgents.map(a => a.agentName || a.name);
-                                log('✅ Found ' + relayAgents.length + ' webrtc-relay agent(s): ' + relayNames.join(', '), 'success');
+                                log('Found ' + relayAgents.length + ' webrtc-relay agent(s): ' + relayNames.join(', '), 'success');
                                 // Store relay agent names globally for use in streaming
                                 window.webrtcRelayAgents = relayNames;
 
@@ -1270,7 +1337,7 @@
                     });
                 });
             } catch (relayError) {
-                log('⚠️ WebRTC Relay Service: ' + relayError.message, 'info');
+                log('WebRTC Relay Service: ' + relayError.message, 'info');
 
                 // Show warning in UI (not an error - peer-to-peer still works)
                 document.getElementById('relayStatus').style.display = 'none';
@@ -1299,8 +1366,8 @@
         } catch (error) {
             console.error('Connection error:', error);
             const errorMsg = error.message || 'Unknown error';
-            log('❌ Connection failed: ' + errorMsg, 'error');
-            showStatus('connectionStatus', '❌ Connection failed: ' + errorMsg, 'error');
+            log('Connection failed: ' + errorMsg, 'error');
+            showStatus('connectionStatus', 'Connection failed: ' + errorMsg, 'error');
         }
     }
 
@@ -1308,39 +1375,39 @@
     function setupWebRtcCallbacks(webrtcHelper) {
 
         webrtcHelper.on('offer', (streamId, sdp) => {
-            log('📤 SDP Offer created (' + sdp.length + ' bytes)', 'success');
+            log('SDP Offer created (' + sdp.length + ' bytes)', 'success');
         });
 
         webrtcHelper.on('answer', (streamId, sdp) => {
             const sdpLen = sdp ? sdp.length : 'n/a';
-            log('📥 SDP Answer received from agent (stream=' + streamId + ', len=' + sdpLen + ')', 'success');
+            log('SDP Answer received from agent (stream=' + streamId + ', len=' + sdpLen + ')', 'success');
         });
 
         webrtcHelper.on('ice-candidate', (streamId, candidate) => {
             iceCount++;
             document.getElementById('statIce').textContent = iceCount;
             const candidateText = candidate && candidate.candidate ? candidate.candidate : JSON.stringify(candidate);
-            log('🧊 ICE candidate generated (stream=' + streamId + ') ' + candidateText, 'debug');
+            log('ICE candidate generated (stream=' + streamId + ') ' + candidateText, 'debug');
         });
 
         webrtcHelper.on('stream-ready', (streamId, remoteAgent) => {
-            log('✅ WebRTC connection established with ' + remoteAgent, 'success');
+            log('WebRTC connection established with ' + remoteAgent, 'success');
             document.getElementById('statState').textContent = 'Connected';
             startStatsMonitoring(streamId);
         });
 
         webrtcHelper.on('error', (streamId, error) => {
-            log('❌ WebRTC error: ' + error, 'error');
-            showStatus('streamStatus', '❌ Error: ' + error, 'error');
+            log('WebRTC error: ' + error, 'error');
+            showStatus('streamStatus', 'Error: ' + error, 'error');
         });
 
         // Handle connection state changes - auto-remove closed streams
         webrtcHelper.on('connection-state', (streamId, state) => {
-            log('🔗 Connection state for ' + streamId + ': ' + state, 'debug');
+            log('Connection state for ' + streamId + ': ' + state, 'debug');
 
             // When connection is closed/failed/disconnected, remove the remote stream
             if (state === 'closed' || state === 'failed' || state === 'disconnected') {
-                log('⚠️ Connection ' + state + ', removing remote stream: ' + streamId, 'info');
+                log('Connection ' + state + ', removing remote stream: ' + streamId, 'info');
 
                 // Remove from our remote streams map
                 if (remoteStreams.has(streamId)) {
@@ -1348,7 +1415,7 @@
                     setTimeout(() => {
                         if (remoteStreams.has(streamId)) {
                             const streamData = remoteStreams.get(streamId);
-                            log('🗑️ Auto-removing closed stream from ' + (streamData?.sourceAgent || 'Unknown'), 'info');
+                            log('Auto-removing closed stream from ' + (streamData?.sourceAgent || 'Unknown'), 'info');
                             removeRemoteStream(streamId);
                         }
                     }, 2000); // 2 second delay before cleanup
@@ -1377,7 +1444,7 @@
                 // Check metadata first (new), then agentContext (legacy)
                 const agentData = event.metadata || event.agentContext;
                 const isRelayAgent = agentData && agentData.role === 'webrtc-relay';
-                log('👤 New agent connected: ' + newAgentName + (isRelayAgent ? ' (relay)' : ''), 'success');
+                log('New agent connected: ' + newAgentName + (isRelayAgent ? ' (relay)' : ''), 'success');
 
                 // Add to relay agents list
                 if (isRelayAgent)
@@ -1393,11 +1460,11 @@
                     'currentStreamId=', currentStreamId);
 
                 if (mode === 'p2p' && !isRelayAgent) {
-                    log('📡 P2P mode: sending stream to agent', newAgentName);
+                    log('P2P mode: sending stream to agent', newAgentName);
                     startVideoStream([newAgentName]);
 
                 } else if (mode === 'relay' && isRelayAgent) {
-                    log('📡 Relay mode: sending stream to relay agent', newAgentName);
+                    log('Relay mode: sending stream to relay agent', newAgentName);
                     startVideoStream([newAgentName]);
                 }
             });
@@ -1407,7 +1474,7 @@
                 // Check metadata first (new), then agentContext (legacy)
                 const agentData = event.metadata || event.agentContext;
                 const isRelayAgent = agentData && agentData.role === 'webrtc-relay';
-                log('👋 Agent disconnected: ' + disconnectedAgent + (isRelayAgent ? ' (relay)' : ''), 'info');
+                log('Agent disconnected: ' + disconnectedAgent + (isRelayAgent ? ' (relay)' : ''), 'info');
 
                 // If a relay agent disconnected, remove from list
                 if (isRelayAgent) {
@@ -1415,18 +1482,18 @@
                         const index = window.webrtcRelayAgents.indexOf(disconnectedAgent);
                         if (index > -1) {
                             window.webrtcRelayAgents.splice(index, 1);
-                            log('⚠️ WebRTC relay agent disconnected', 'info');
+                            log('WebRTC relay agent disconnected', 'info');
 
                             // If no more relay agents, show warning but keep streaming enabled
                             if (window.webrtcRelayAgents.length === 0) {
-                                log('⚠️ WebRTC relay disconnected - switching to peer-to-peer mode', 'info');
+                                log('WebRTC relay disconnected - switching to peer-to-peer mode', 'info');
 
                                 // Update UI to show warning
                                 document.getElementById('relayStatus').style.display = 'none';
                                 document.getElementById('relayError').style.display = 'block';
 
                                 // Keep buttons enabled - peer-to-peer still works
-                                showStatus('streamStatus', '⚠️ Relay disconnected - using peer-to-peer mode', 'info');
+                                showStatus('streamStatus', 'Relay disconnected - using peer-to-peer mode', 'info');
                             }
                         }
                     }
@@ -1464,7 +1531,7 @@
             // Display in video element
             document.getElementById('localVideo').srcObject = localStream;
 
-            log('✅ Camera started successfully', 'success');
+            log('Camera started successfully', 'success');
             log('Resolution: ' + localStream.getVideoTracks()[0].getSettings().width + 'x' +
                 localStream.getVideoTracks()[0].getSettings().height, 'info');
 
@@ -1483,8 +1550,8 @@
             await startVideoStream();
 
         } catch (error) {
-            log('❌ Camera error: ' + error.message, 'error');
-            alert('Failed to access camera: ' + error.message);
+            log('Camera error: ' + error.message, 'error');
+            MiniGameUtils.tell('The camera could not be used: ' + error.message, { title: 'No camera' });
         }
     }
 
@@ -1587,7 +1654,7 @@
             document.getElementById('muteLocalAudioBtn').disabled = false;
             try { const b = document.getElementById('localBadge'); if (b) { b.textContent = 'Screen'; b.style.display = 'inline-block'; } } catch (e) {}
 
-            log('✅ Screen share started', 'success');
+            log('Screen share started', 'success');
 
             // Automatically start streaming to all connected agents
             await startVideoStream();
@@ -1608,8 +1675,9 @@
 
         } catch (err) {
             console.error('Screen share failed', err);
-            log('❌ Screen share failed: ' + (err && err.message ? err.message : err), 'error');
-            alert('Failed to start screen share: ' + (err && err.message ? err.message : err));
+            log('Screen share failed: ' + (err && err.message ? err.message : err), 'error');
+            MiniGameUtils.tell('The screen share did not start: ' + (err && err.message ? err.message : err),
+                { title: 'Screen share failed' });
         }
     }
 
@@ -1705,9 +1773,9 @@
     // Stream to webrtc-relay if available, otherwise use peer-to-peer (based on selected mode)
     async function startVideoStream(targetAgents) {
         // Defensive checks
-        if (!localStream) { log('❌ No local stream available to start streaming', 'error'); return; }
-        if (!webrtcHelper) { log('❌ WebRTC helper not initialized', 'error'); return; }
-        if (!channel) { log('❌ Signaling channel not available', 'error'); return; }
+        if (!localStream) { log('No local stream available to start streaming', 'error'); return; }
+        if (!webrtcHelper) { log('WebRTC helper not initialized', 'error'); return; }
+        if (!channel) { log('Signaling channel not available', 'error'); return; }
 
         const mode = getStreamingMode(); // 'p2p' | 'relay'
 
@@ -1717,11 +1785,11 @@
         if (mode === 'relay') {
             // Relay mode: target only webrtc-relay agents
             messageFilter = 'role=webrtc-relay';
-            log('📡 Relay mode: Using filter to target webrtc-relay agents', 'info');
+            log('Relay mode: Using filter to target webrtc-relay agents', 'info');
         } else {
             // P2P mode: exclude webrtc-relay agents (target regular clients only)
             messageFilter = '!role=webrtc-relay';
-            log('📡 P2P mode: Using filter to exclude webrtc-relay agents', 'info');
+            log('P2P mode: Using filter to exclude webrtc-relay agents', 'info');
         }
 
         // Normalize targetAgents to array (relay mode) or '*' for p2p
@@ -1730,8 +1798,8 @@
                 const relays = window.webrtcRelayAgents || [];
                 if (relays.length === 0) {
                     const msg = 'Relay mode selected but no relay agents available';
-                    log('❌ ' + msg, 'error');
-                    showStatus('streamStatus', '❌ ' + msg, 'error');
+                    log('' + msg, 'error');
+                    showStatus('streamStatus', '' + msg, 'error');
                     return;
                 }
                 targetAgents = relays;
@@ -1743,7 +1811,7 @@
 
         try {
 
-            log('📡 Sending stream offers with filter: ' + messageFilter + ' to: ' + (Array.isArray(targetAgents) ? targetAgents.join(', ') : targetAgents), 'info');
+            log('Sending stream offers with filter: ' + messageFilter + ' to: ' + (Array.isArray(targetAgents) ? targetAgents.join(', ') : targetAgents), 'info');
 
             const createdStreamIds = [];
 
@@ -1758,7 +1826,7 @@
                         createdStreamIds.push(streamId);
                         // ...existing code...
                         if (!currentStreamId) currentStreamId = streamId;
-                        log('📡 Offer sent for ' + agent + ' with filter: ' + messageFilter + ' (streamId=' + streamId + ')', 'debug');
+                        log('Offer sent for ' + agent + ' with filter: ' + messageFilter + ' (streamId=' + streamId + ')', 'debug');
                     }
                 } catch (e) {
                     console.warn('Failed to create stream offer for agent ' + agent, e);
@@ -1771,19 +1839,19 @@
 
             // If only a single stream created, keep user-facing message concise
             if (createdStreamIds.length === 1) {
-                log('✅ Video stream initiated (streamId=' + createdStreamIds[0] + ')', 'success');
-                showStatus('streamStatus', `✅ Streaming (streamId=${createdStreamIds[0]})`, 'success');
+                log('Video stream initiated (streamId=' + createdStreamIds[0] + ')', 'success');
+                showStatus('streamStatus', `Streaming (streamId=${createdStreamIds[0]})`, 'success');
             } else {
-                log('✅ Video stream initiated to ' + createdStreamIds.length + ' targets', 'success');
-                showStatus('streamStatus', `✅ Streaming to ${createdStreamIds.length} targets`, 'success');
+                log('Video stream initiated to ' + createdStreamIds.length + ' targets', 'success');
+                showStatus('streamStatus', `Streaming to ${createdStreamIds.length} targets`, 'success');
             }
 
             document.getElementById('statState').textContent = 'Connecting';
 
         } catch (error) {
             const msg = (error && error.message) ? error.message : String(error);
-            log('❌ Failed to start stream: ' + msg, 'error');
-            showStatus('streamStatus', '❌ Failed: ' + msg, 'error');
+            log('Failed to start stream: ' + msg, 'error');
+            showStatus('streamStatus', 'Failed: ' + msg, 'error');
         }
     }
 
@@ -1853,11 +1921,11 @@
         if (videoTrack.enabled) {
             btn.textContent = 'Disable Video';
             muteBtn.classList.remove('danger');
-            log('📹 Local video enabled', 'success');
+            log('Local video enabled', 'success');
         } else {
             btn.textContent = 'Enable Video';
             muteBtn.classList.add('danger');
-            log('📹 Local video disabled', 'info');
+            log('Local video disabled', 'info');
         }
     }
 
@@ -1876,11 +1944,11 @@
         if (audioTrack.enabled) {
             btn.textContent = 'Mute Audio';
             muteBtn.classList.remove('danger');
-            log('🎤 Local audio unmuted', 'success');
+            log('Local audio unmuted', 'success');
         } else {
             btn.textContent = 'Unmute Audio';
             muteBtn.classList.add('danger');
-            log('🔇 Local audio muted', 'info');
+            log('Local audio muted', 'info');
         }
     }
 
@@ -1933,7 +2001,8 @@
                         const channelPassword = document.getElementById('channelPassword').value.trim();
 
                         if (!channelName || !channelPassword) {
-                            alert('Please fill in channel details before sharing');
+                            MiniGameUtils.tell('Fill in the channel details before sharing them.',
+                                { title: 'Nothing to share yet' });
                             return;
                         }
 
@@ -1950,14 +2019,16 @@
                             console.log('Fresh temporary API key obtained for sharing (multi-use, 60s TTL)');
                         } catch (err) {
                             console.error('Failed to get temporary API key for sharing:', err);
-                            alert('Failed to get API key from server: ' + err.message);
+                            MiniGameUtils.tell('The server would not issue a key: ' + err.message,
+                                { title: 'Share link unavailable' });
                             return;
                         }
 
                         ShareModal.show(channelName, channelPassword, apiKey);
                     } catch (e) {
                         console.error('Share error:', e);
-                        alert('Failed to open share dialog: ' + e.message);
+                        MiniGameUtils.tell('The share dialog could not be opened: ' + e.message,
+                            { title: 'Share failed' });
                     }
                 });
             }
@@ -1969,14 +2040,14 @@
                 document.getElementById('channelPassword').value = auth.p;
                 // API key is NOT stored - it will be fetched fresh when connecting
 
-                log('✅ Channel details loaded from shared link!', 'success');
+                log('Channel details loaded from shared link!', 'success');
                 console.log('[DEBUG] Shared link auth:', auth);
                 console.log('[DEBUG] Form values:', {
                     channelName: document.getElementById('channelName').value,
                     password: document.getElementById('channelPassword').value,
                     apiKey: '(will be fetched on connect)'
                 });
-                showStatus('connectionStatus', '✅ Shared link processed - ready to connect', 'success');
+                showStatus('connectionStatus', 'Shared link processed - ready to connect', 'success');
 
                 // Auto-connect after a short delay
                 setTimeout(async () => {
@@ -1992,10 +2063,10 @@
                             // Connect to channel to receive remote streams
                             await connectToChannel();
                             console.log('[DEBUG] connectToChannel() completed successfully');
-                            log('✅ Connected! Ready to receive streams from other agents', 'success');
+                            log('Connected! Ready to receive streams from other agents', 'success');
                         } catch (err) {
                             console.error('[DEBUG] connectToChannel() error:', err);
-                            log('❌ Auto-connect failed: ' + err.message, 'error');
+                            log('Auto-connect failed: ' + err.message, 'error');
                         }
                     } else {
                         console.log('[DEBUG] Connect button check failed - button not found or disabled');
@@ -2054,7 +2125,7 @@
         }
 
         log('Disconnecting from channel...', 'info');
-        log('🧹 Cleaning up all streams...', 'info');
+        log('Cleaning up all streams...', 'info');
 
         try {
             // === CLEANUP ALL LOCAL STREAMS ===
@@ -2152,7 +2223,7 @@
                 // Update counter and show "no streams" message
                 updateRemoteStreamCount();
 
-                log('✅ All remote streams removed', 'success');
+                log('All remote streams removed', 'success');
             }
 
             // Clear WebRTC helper state
@@ -2184,7 +2255,7 @@
                 }
             }
 
-            log('✅ All streams cleaned up', 'success');
+            log('All streams cleaned up', 'success');
 
             // Channel disconnect was already requested with beacon earlier; if an explicit sync disconnect is desired
             // (for example to wait for server response), call channel.disconnect() here instead of using the beacon flag.
@@ -2252,7 +2323,7 @@
             showStatus('streamStatus', '', 'info');
 
         } catch (error) {
-            log('❌ Disconnection error: ' + error.message, 'error');
+            log('Disconnection error: ' + error.message, 'error');
         }
     }
 
@@ -2263,7 +2334,8 @@
             const channelPassword = document.getElementById('channelPassword')?.value?.trim();
 
              if (!channelName || !channelPassword) {
-                 alert('Please fill in channel details before sharing');
+                 MiniGameUtils.tell('Fill in the channel details before sharing them.',
+                     { title: 'Nothing to share yet' });
                  return;
              }
 
@@ -2280,24 +2352,29 @@
                 console.log('Fresh temporary API key obtained for sharing (multi-use, 60s TTL)');
             } catch (err) {
                 console.error('Failed to get temporary API key for sharing:', err);
-                alert('Failed to get API key from server: ' + err.message);
+                MiniGameUtils.tell('The server would not issue a key: ' + err.message,
+                    { title: 'Share link unavailable' });
                 return;
             }
 
             if (typeof ShareModal === 'undefined' || !ShareModal || typeof ShareModal.show !== 'function') {
-                alert('Share modal is not available');
+                MiniGameUtils.tell('Sharing is not available on this page.', { title: 'Share unavailable' });
                 console.warn('shareChannel: ShareModal not available');
                 return;
             }
 
             // Use ShareModal to display the share UI
             ShareModal.show(channelName, channelPassword, apiKey);
-            log('🔗 Share modal opened', 'info');
+            log('Share modal opened', 'info');
         } catch (err) {
             console.error('shareChannel error', err);
-            alert('Failed to open share dialog: ' + (err && err.message ? err.message : err));
+            MiniGameUtils.tell('The share dialog could not be opened: ' + (err && err.message ? err.message : err),
+                { title: 'Share failed' });
         }
     }
 </script>
+<script src="../js/room-defaults.js"></script>
+<script>RoomDefaults.apply({ prefix: 'webrtc_', channelPrefix: 'webrtc-', sharedDefaults: ['demo-webrtc', 'demo123'] });</script>
+<script src="../js/app-chrome.js"></script>
 </body>
 </html>

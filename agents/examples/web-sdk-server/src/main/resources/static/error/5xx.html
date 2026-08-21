@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Something went wrong — Messaging Platform SDK</title>
+    <meta name="robots" content="noindex">
+    <meta name="description" content="Something went wrong on our side. Head back to the Messaging Platform SDK.">
+    <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg%20xmlns="http://www.w3.org/2000/svg"%20viewBox="0%200%2064%2064"><defs><linearGradient%20id="g"%20x1="0"%20y1="0"%20x2="1"%20y2="1"><stop%20offset="0"%20stop-color="#4f46e5"/><stop%20offset="1"%20stop-color="#06b6d4"/></linearGradient></defs><rect%20x="2"%20y="2"%20width="60"%20height="60"%20rx="14"%20fill="url%28#g%29"/><path%20d="M16%2022c0-2.2%201.8-4%204-4h24c2.2%200%204%201.8%204%204v14c0%202.2-1.8%204-4%204H28l-8%207v-7c-2.2%200-4-1.8-4-4V22z"%20fill="#fff"/><circle%20cx="26"%20cy="29"%20r="2.6"%20fill="#4f46e5"/><circle%20cx="34"%20cy="29"%20r="2.6"%20fill="#4f46e5"/><circle%20cx="42"%20cy="29"%20r="2.6"%20fill="#4f46e5"/></svg>">
+    <meta name="theme-color" content="#0b1120">
+    <!--
+      Self-contained on purpose. An error page is rendered for a request at any
+      depth and under any mount prefix (this app is served from
+      /messaging-platform/sdk/), so external stylesheets and root-absolute
+      links both break. Styles are inline and the links are resolved at runtime.
+    -->
+    <style>
+        :root { color-scheme: dark; }
+        * { box-sizing: border-box; }
+        body {
+            margin: 0; min-height: 100vh;
+            display: grid; place-items: center; padding: 24px;
+            font-family: Inter, ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+            background: #0b1120; color: #c4cede; text-align: center;
+        }
+        .card { max-width: 34rem; }
+        .mark {
+            width: 44px; height: 44px; margin: 0 auto 28px;
+            border-radius: 12px; background: linear-gradient(120deg, #6366f1, #22d3ee);
+            display: grid; place-items: center;
+        }
+        .mark svg { width: 26px; height: 26px; }
+        .eyebrow {
+            font-size: .8125rem; font-weight: 700; letter-spacing: .08em;
+            text-transform: uppercase; color: #a5b4fc; margin: 0 0 12px;
+        }
+        h1 { margin: 0 0 16px; font-size: clamp(1.75rem, 4vw, 2.25rem); color: #eef2f8; line-height: 1.15; }
+        p.lede { margin: 0 0 32px; line-height: 1.65; }
+        .actions { display: flex; gap: 12px; justify-content: center; flex-wrap: wrap; }
+        a.btn {
+            display: inline-flex; align-items: center; min-height: 48px; padding: 0 24px;
+            border-radius: 8px; font-size: 1rem; font-weight: 600; text-decoration: none;
+            border: 1px solid rgba(148,163,184,.28); color: #c4cede;
+        }
+        a.btn:hover { background: #16203a; color: #eef2f8; }
+        a.btn.primary {
+            background: linear-gradient(120deg, #6366f1, #22d3ee);
+            border-color: transparent; color: #fff;
+        }
+    </style>
+</head>
+<body>
+<div class="card">
+    <div class="mark">
+        <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
+            <path d="M6 9.5A2.5 2.5 0 0 1 8.5 7h7A2.5 2.5 0 0 1 18 9.5v3a2.5 2.5 0 0 1-2.5 2.5H11l-3.2 2.4A.5.5 0 0 1 7 17V15h-.5A.5.5 0 0 1 6 14.5z" fill="#fff"/>
+            <circle cx="9.6" cy="11" r="1" fill="#4338ca"/><circle cx="12" cy="11" r="1" fill="#4338ca"/><circle cx="14.4" cy="11" r="1" fill="#4338ca"/>
+        </svg>
+    </div>
+    <p class="eyebrow">Error</p>
+    <h1>Something went wrong on our end</h1>
+    <p class="lede">
+        The request failed before the page could be rendered. The platform is in beta, so this does
+        happen — retrying usually works, and the live demos are unaffected.
+    </p>
+    <div class="actions">
+        <button class="btn primary" type="button" onclick="location.reload()" style="cursor:pointer;font-family:inherit">Try again</button>
+        <a class="btn" data-to="index.html">Back to the overview</a>
+        <a class="btn" data-to="playground.html">Playground</a>
+    </div>
+</div>
+<script>
+    // Resolve links against the app root, wherever the app happens to be
+    // mounted. Mirrors the prefix detection in js/config-loader.js.
+    (function () {
+        var path = window.location.pathname || '/';
+        var marker = '/messaging-platform/sdk/';
+        var i = path.indexOf(marker);
+        var base = i !== -1 ? path.slice(0, i + marker.length) : '/';
+        document.querySelectorAll('[data-to]').forEach(function (a) {
+            a.setAttribute('href', base + a.getAttribute('data-to'));
+        });
+    })();
+</script>
+</body>
+</html>

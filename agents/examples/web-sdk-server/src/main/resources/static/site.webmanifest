@@ -1,0 +1,22 @@
+{
+  "name": "Messaging Platform SDK",
+  "short_name": "Messaging SDK",
+  "description": "Real-time channels, WebRTC signaling, presence and per-channel storage.",
+  "id": "./",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#0b1120",
+  "theme_color": "#0b1120",
+  "icons": [
+    { "src": "favicon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any" },
+    { "src": "images/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "images/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "images/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ],
+  "shortcuts": [
+    { "name": "Playground", "short_name": "Playground", "url": "./playground.html" },
+    { "name": "Docs", "short_name": "Docs", "url": "./docs.html" },
+    { "name": "Developer portal", "short_name": "Portal", "url": "./developer/index.html" }
+  ]
+}

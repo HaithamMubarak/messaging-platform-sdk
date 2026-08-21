@@ -880,7 +880,7 @@ async function connectQuizBattle(username, channel, password) {
         console.log('[QuizBattle] Connected and ready!');
     } catch (error) {
         console.error('[QuizBattle] Connection failed:', error);
-        alert('Failed to connect: ' + error.message);
+        if (window.ConnectionModal) ConnectionModal.fail(error);
     }
 }
 
@@ -889,8 +889,8 @@ function initializeConnectionModal() {
     window.loadConnectionModal({
         localStoragePrefix: 'quiz_',
         channelPrefix: 'quiz-',
-        title: '🧠 Join Quiz Battle',
-        collapsedTitle: '🧠 Quiz Battle',
+        title: 'Join Quiz Battle',
+        collapsedTitle: 'Quiz Battle',
         onConnect: function(username, channel, password) {
             connectQuizBattle(username, channel, password);
         }

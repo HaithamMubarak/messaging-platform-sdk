@@ -950,6 +950,100 @@ const QUESTION_BANK = [
         text: "How would you describe this to an alien?",
         icon: '👽',
         timeLimitSeconds: 25
+    },
+
+    // ===== Questions that make the liar sweat =====
+    // The best prompts force a specific, checkable detail rather than a vague
+    // adjective — a liar can survive "it's nice", not "sell it to me for $500".
+    {
+        id: 'free-11',
+        type: QuestionType.FREE_TEXT,
+        text: "Sell this to me for $500. Go.",
+        icon: '💸',
+        timeLimitSeconds: 25
+    },
+    {
+        id: 'free-12',
+        type: QuestionType.FREE_TEXT,
+        text: "Complain about this like it ruined your week.",
+        icon: '😤',
+        timeLimitSeconds: 25
+    },
+    {
+        id: 'free-13',
+        type: QuestionType.FREE_TEXT,
+        text: "What is the worst possible place to encounter this?",
+        icon: '🙈',
+        timeLimitSeconds: 20
+    },
+    {
+        id: 'free-14',
+        type: QuestionType.FREE_TEXT,
+        text: "Your grandmother has never seen one. Explain it in one sentence.",
+        icon: '👵',
+        timeLimitSeconds: 25
+    },
+    {
+        id: 'free-15',
+        type: QuestionType.FREE_TEXT,
+        text: "Give this a dramatic movie title.",
+        icon: '🎬',
+        timeLimitSeconds: 20
+    },
+    {
+        id: 'free-16',
+        type: QuestionType.FREE_TEXT,
+        text: "What sound does this make? Spell it out.",
+        icon: '🔊',
+        timeLimitSeconds: 20
+    },
+    {
+        id: 'free-17',
+        type: QuestionType.FREE_TEXT,
+        text: "Rate this out of 10 and defend your score.",
+        icon: '⭐',
+        timeLimitSeconds: 25
+    },
+    {
+        id: 'mcq-11',
+        type: QuestionType.MCQ,
+        text: "Be honest — how do you actually feel about this?",
+        icon: '🫠',
+        timeLimitSeconds: 20,
+        options: [
+            { id: 'opt-love', text: 'Genuinely love it' },
+            { id: 'opt-fine', text: "It's fine, I guess" },
+            { id: 'opt-overrated', text: 'Wildly overrated' },
+            { id: 'opt-fear', text: 'Slightly afraid of it' },
+            { id: 'opt-never', text: 'Never think about it' }
+        ]
+    },
+    {
+        id: 'mcq-12',
+        type: QuestionType.MCQ,
+        text: "Who in your life is most associated with this?",
+        icon: '👨‍👩‍👧',
+        timeLimitSeconds: 20,
+        options: [
+            { id: 'opt-parent', text: 'A parent' },
+            { id: 'opt-friend', text: 'That one friend' },
+            { id: 'opt-colleague', text: 'A colleague' },
+            { id: 'opt-child', text: 'A kid' },
+            { id: 'opt-nobody', text: 'Nobody, truly' }
+        ]
+    },
+    {
+        id: 'mcq-13',
+        type: QuestionType.MCQ,
+        text: "How much would you pay to never deal with this again?",
+        icon: '🧾',
+        timeLimitSeconds: 20,
+        options: [
+            { id: 'opt-nothing', text: 'Nothing — I like it' },
+            { id: 'opt-fiver', text: 'About five bucks' },
+            { id: 'opt-hundred', text: 'A hundred, easily' },
+            { id: 'opt-everything', text: 'Everything I own' }
+        ]
     }
 ];
 

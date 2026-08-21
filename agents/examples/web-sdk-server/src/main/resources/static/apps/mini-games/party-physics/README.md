@@ -138,8 +138,8 @@ SNAPSHOT packet (Host → Clients):
 ## 🚀 How to Run
 
 ### Prerequisites
-1. Messaging Platform Services running on `http://localhost:8080`
-2. Web SDK Server running on `http://localhost:8090`
+1. An API key for the Messaging Platform (request one from the site)
+2. The Web SDK demo server running locally
 
 ### Start the Game
 1. Open browser to: `http://localhost:8090/apps/mini-games/party-physics/`

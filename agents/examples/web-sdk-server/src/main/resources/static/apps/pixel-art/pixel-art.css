@@ -1,13 +1,16 @@
-:root {
-    --primary: #ec4899;
-    --primary-dark: #db2777;
-    --success: #10b981;
-    --danger: #ef4444;
-    --gray-50: #f9fafb;
-    --gray-100: #f3f4f6;
-    --gray-800: #1f2937;
-    --gray-900: #111827;
-}
+/* ==========================================================================
+   Pixel Art, on the shared design system.
+   Requires design-tokens.css and ui.css, loaded before this file.
+
+   Selector names are unchanged: pixel-art.js builds the palette, the tool
+   buttons and the artist list by class. What changed is the vocabulary — the
+   private pink/purple palette and its gradient are gone in favour of the
+   tokens the rest of the site uses.
+
+   The canvas itself stays white. It is the paper, not chrome, and a drawing
+   surface that changes colour with the theme is a drawing surface you cannot
+   trust.
+   ========================================================================== */
 
 * {
     margin: 0;
@@ -22,9 +25,9 @@ html, body {
 }
 
 body {
-    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-    background: linear-gradient(135deg, #ec4899 0%, #8b5cf6 100%);
-    color: white;
+    font-family: var(--font-sans);
+    background: var(--bg);
+    color: var(--text-body);
 }
 
 .hidden { display: none !important; }
@@ -34,7 +37,7 @@ body {
     position: fixed;
     top: 20px;
     right: 20px;
-    background: var(--primary);
+    background: var(--brand);
     color: white;
     border: none;
     padding: 12px 24px;
@@ -48,7 +51,7 @@ body {
 }
 
 .share-btn:hover {
-    background: var(--primary-dark);
+    background: var(--brand-strong, #4f46e5);
     transform: translateY(-2px);
 }
 
@@ -58,7 +61,7 @@ body {
     top: 20px;
     left: 20px;
     background: rgba(255, 255, 255, 0.95);
-    color: var(--gray-800);
+    color: var(--text);
     padding: 8px 16px;
     border-radius: 20px;
     display: flex;
@@ -116,7 +119,7 @@ body {
 }
 
 .room-badge {
-    background: rgba(255, 255, 255, 0.1);
+    background: var(--surface-2);
     padding: 6px 16px;
     border-radius: 20px;
     font-size: 14px;
@@ -129,7 +132,7 @@ body {
 }
 
 .grid-info, .user-count {
-    background: rgba(255, 255, 255, 0.1);
+    background: var(--surface-2);
     padding: 6px 16px;
     border-radius: 20px;
     font-size: 14px;
@@ -154,7 +157,7 @@ body {
 .tool-section {
     margin-bottom: 24px;
     padding-bottom: 20px;
-    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+    border-bottom: 1px solid var(--surface-2);
 }
 
 .tool-section:last-child {
@@ -176,7 +179,7 @@ body {
 .tool-btn {
     width: 100%;
     padding: 12px;
-    background: rgba(255, 255, 255, 0.1);
+    background: var(--surface-2);
     border: 2px solid transparent;
     border-radius: 8px;
     color: white;
@@ -186,11 +189,11 @@ body {
 }
 
 .tool-btn:hover {
-    background: rgba(255, 255, 255, 0.2);
+    background: var(--border-strong);
 }
 
 .tool-btn.active {
-    background: var(--primary);
+    background: var(--brand);
     border-color: white;
 }
 
@@ -244,7 +247,7 @@ body {
     align-items: center;
     gap: 12px;
     padding: 12px;
-    background: rgba(255, 255, 255, 0.1);
+    background: var(--surface-2);
     border-radius: 8px;
 }
 
@@ -256,7 +259,7 @@ body {
 }
 
 #currentColorHex {
-    font-family: 'Courier New', monospace;
+    font-family: var(--font-mono);
     font-size: 14px;
 }
 
@@ -264,8 +267,8 @@ body {
 .grid-select {
     width: 100%;
     padding: 10px;
-    background: rgba(255, 255, 255, 0.1);
-    border: 1px solid rgba(255, 255, 255, 0.2);
+    background: var(--surface-2);
+    border: 1px solid var(--border-strong);
     border-radius: 8px;
     color: white;
     font-size: 14px;
@@ -273,7 +276,7 @@ body {
 }
 
 .grid-select option {
-    background: var(--gray-900);
+    background: var(--surface-2);
     color: white;
 }
 
@@ -282,8 +285,8 @@ body {
     width: 100%;
     padding: 12px;
     margin-bottom: 8px;
-    background: rgba(255, 255, 255, 0.1);
-    border: 1px solid rgba(255, 255, 255, 0.2);
+    background: var(--surface-2);
+    border: 1px solid var(--border-strong);
     border-radius: 8px;
     color: white;
     font-size: 14px;
@@ -293,7 +296,7 @@ body {
 }
 
 .action-btn:hover {
-    background: rgba(255, 255, 255, 0.2);
+    background: var(--border-strong);
     transform: translateY(-2px);
 }
 
@@ -345,7 +348,7 @@ body {
 }
 
 .zoom-controls button {
-    background: rgba(255, 255, 255, 0.1);
+    background: var(--surface-2);
     border: none;
     color: white;
     padding: 8px 12px;
@@ -356,7 +359,7 @@ body {
 }
 
 .zoom-controls button:hover {
-    background: rgba(255, 255, 255, 0.2);
+    background: var(--border-strong);
 }
 
 #zoomLevel {
@@ -392,7 +395,7 @@ body {
     align-items: center;
     gap: 8px;
     padding: 10px;
-    background: rgba(255, 255, 255, 0.05);
+    background: var(--surface-1);
     border-radius: 6px;
     font-size: 14px;
 }
@@ -452,3 +455,157 @@ body {
     }
 }
 
+
+
+/* ---- surfaces, now that there is no gradient underneath --------------------
+ * The old sheet floated everything on rgba(255,255,255,0.1) over a pink
+ * gradient. On a flat dark background that reads as grey fog, so each panel
+ * gets a real surface and a border like every other app on the site.
+ */
+.app-header {
+    background: var(--surface-1);
+    border-bottom: 1px solid var(--border);
+    backdrop-filter: none;
+}
+
+.header-left h1 {
+    display: flex;
+    align-items: center;
+    gap: var(--sp-2);
+    font-size: var(--fs-xl);
+    color: var(--text);
+}
+
+.room-badge,
+.grid-info,
+.user-count {
+    padding: 3px 10px;
+    font-family: var(--font-mono);
+    font-size: var(--fs-xs);
+    color: var(--text-muted);
+    background: var(--surface-2);
+    border: 1px solid var(--border);
+    border-radius: var(--r-sm);
+}
+
+.toolbar-left,
+.sidebar-right {
+    background: var(--surface-1);
+    border-right: 1px solid var(--border);
+}
+
+.sidebar-right { border-right: none; border-left: 1px solid var(--border); }
+
+.tool-section { border-bottom: 1px solid var(--border); }
+
+.tool-section h3,
+.users-panel h3 {
+    display: flex;
+    align-items: center;
+    font-size: var(--fs-sm);
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--text-muted);
+}
+
+.tool-section h3 .icon,
+.users-panel h3 .icon { margin-right: var(--sp-2); flex: none; }
+
+.tool-btn,
+.action-btn,
+.zoom-controls button {
+    color: var(--text);
+    background: var(--surface-2);
+    border: 1px solid var(--border-strong);
+    border-radius: var(--r-md);
+    font-family: inherit;
+}
+
+.tool-btn:hover,
+.action-btn:hover,
+.zoom-controls button:hover {
+    background: var(--surface-3);
+    border-color: var(--brand);
+}
+
+.tool-btn.active {
+    background: var(--brand-subtle);
+    border-color: var(--brand);
+    color: var(--brand-ink);
+}
+
+.tool-btn:focus-visible,
+.action-btn:focus-visible,
+.zoom-controls button:focus-visible,
+.color-swatch:focus-visible {
+    outline: none;
+    box-shadow: var(--focus-ring);
+}
+
+/* A swatch is a colour: it needs a neutral edge so white and near-white are
+   still visible against the panel, and an unmistakable ring when chosen. */
+.color-swatch {
+    border: 1px solid var(--border-strong);
+    border-radius: var(--r-sm);
+}
+
+.color-swatch.active {
+    border-color: var(--accent);
+    box-shadow: 0 0 0 2px var(--accent);
+}
+
+.current-color,
+.color-picker-custom,
+.grid-select {
+    color: var(--text);
+    background: var(--surface-2);
+    border: 1px solid var(--border-strong);
+    border-radius: var(--r-md);
+}
+
+.color-display { font-family: var(--font-mono); color: var(--text); }
+
+.zoom-controls {
+    padding: var(--sp-2) var(--sp-3);
+    background: var(--surface-1);
+    border: 1px solid var(--border);
+    border-radius: var(--r-pill);
+}
+
+.user-item {
+    padding: var(--sp-2) var(--sp-3);
+    font-size: var(--fs-sm);
+    color: var(--text-body);
+    background: var(--surface-2);
+    border-radius: var(--r-sm);
+}
+
+/* The paper. Deliberately still white, with a frame that belongs to the page. */
+.canvas-wrapper {
+    border: 1px solid var(--border-strong);
+    border-radius: var(--r-md);
+    box-shadow: var(--shadow-3);
+}
+
+.status-dot { background: var(--danger); }
+.connection-status.connected .status-dot { background: var(--success); }
+
+.connection-status {
+    color: var(--text-body);
+    background: var(--surface-2);
+    border: 1px solid var(--border);
+}
+
+.share-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--sp-2);
+    color: var(--text);
+    background: var(--surface-2);
+    border: 1px solid var(--border-strong);
+    border-radius: var(--r-md);
+    font-weight: 600;
+}
+
+.share-btn:hover { background: var(--surface-3); border-color: var(--brand); }

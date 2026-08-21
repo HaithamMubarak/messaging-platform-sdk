@@ -285,3 +285,20 @@
     }
 }
 
+
+/* ---- on a phone -----------------------------------------------------------
+ * A toast anchored to the bottom right lands on whatever is at the bottom of a
+ * phone screen, which in these apps is the thing you were about to press: the
+ * message box, the send button. It sits at the top instead, where nothing is
+ * waiting to be tapped.
+ */
+@media (max-width: 640px) {
+    .toast-container,
+    #toast-container {
+        top: 72px;          /* clear of the app header, which is 60px */
+        bottom: auto;
+        left: 12px;
+        right: 12px;
+        align-items: stretch;
+    }
+}

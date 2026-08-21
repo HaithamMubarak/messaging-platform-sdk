@@ -24,14 +24,14 @@
             <div class="ch-left">
                 <div class="ch-title">{{COLLAPSED_TITLE}}</div>
             </div>
-            <button id="modalToggleBtn" class="modal-toggle-btn" aria-label="Toggle connection form">▾</button>
+            <button id="modalToggleBtn" class="modal-toggle-btn" aria-label="Toggle connection form"><svg class="chev" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg></button>
         </div>
         <div id="sharedLinkNote" class="shared-link-note" style="display: none;">
-            <p>🔗 Saved or shared channel - Enter your name to connect</p>
+            <p>Saved or shared channel — enter your name to connect</p>
         </div>
         <label for="quickUsernameInput" class="quick-username-label">Your Name</label>
         <div class="quick-username">
-            <input id="quickUsernameInput" type="text" placeholder="Your name" aria-label="Your name" />
+            <input id="quickUsernameInput" type="text" placeholder="Your name" aria-label="Your name" autocomplete="nickname" />
         </div>
         <div class="quick-connect-btn">
             <button id="quickConnectBtn" type="button" class="btn-primary" aria-label="Quick connect">Connect</button>
@@ -41,37 +41,50 @@
     <div class="modal-content">
         <div class="modal-header-row">
             <h2>{{MODAL_TITLE}}</h2>
-            <button id="modalToggleBtn2" class="modal-toggle-btn" aria-label="Toggle form">
-                <span style="font-size: 18px; display: inline-block; line-height: 1; font-weight: bold;">▼</span>
-            </button>
+            <button id="modalToggleBtn2" class="modal-toggle-btn" aria-label="Toggle form"><svg class="chev" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg></button>
         </div>
 
         <form id="connectionForm" onsubmit="return false;">
             <label for="usernameInput" class="form-label-visible">Your Name</label>
-            <input type="text" id="usernameInput" placeholder="Your name">
+            <input type="text" id="usernameInput" placeholder="Your name" autocomplete="nickname">
 
             <div class="connection-info-note" style="margin-top: 8px;">
-                <p><strong>💡 Tip:</strong> Channel name and password are freely chosen by you. Pick any values you like, then share them with others to connect together on the same channel.</p>
+                <p><strong>Tip:</strong> The channel name and password are yours to invent — pick anything.
+                Everyone who wants to be in the same room has to type <strong>both</strong> exactly the same,
+                because a different password is a different room, and you will simply find yourself alone in it.
+                Sharing the link afterwards carries both for you.</p>
             </div>
 
             <div id="sharedLinkWarning" class="connection-info-note" style="display: none; background: #fff3cd; border-left: 4px solid #ffc107; margin-top: 8px;">
-                <p><strong>⚠️ Shared Link Active:</strong> You're using a shared link. Changing the channel name or password will connect you to a different channel than the one shared with you.</p>
+                <p><strong>Shared link active:</strong> You're using a shared link. Changing the channel name or password will connect you to a different channel than the one shared with you.</p>
             </div>
 
             <label for="channelInput" class="form-label-visible">Channel Name</label>
-            <input type="text" id="channelInput" placeholder="Channel name">
+            <input type="text" id="channelInput" placeholder="Channel name" autocomplete="off">
 
             <label for="passwordInput" class="form-label-visible">Channel Password</label>
             <div class="password-input-wrapper">
-                <input type="password" id="passwordInput" placeholder="Channel password">
+                <input type="password" id="passwordInput" placeholder="Channel password" autocomplete="new-password">
                 <button type="button" id="togglePasswordBtn" class="password-toggle-btn" onclick="togglePasswordVisibility()" aria-label="Show password" title="Show password">
-                    <span id="passwordToggleIcon">👁️</span>
+                    <!-- icons.js 'eye' -->
+                    <svg id="passwordEyeShow" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                        <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/>
+                    </svg>
+                    <!-- icons.js 'eye-off' -->
+                    <svg id="passwordEyeHide" hidden width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                        <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/><path d="m1 1 22 22"/>
+                    </svg>
                 </button>
             </div>
 
             <div class="modal-buttons">
                 <button type="button" id="connectBtn" class="btn-primary">Connect</button>
                 <button type="button" id="regenerateBtn" class="ghost">Regenerate</button>
+            </div>
+
+            <div id="connectError" class="connect-error" role="alert" hidden>
+                <p id="connectErrorText"></p>
+                <button type="button" id="connectFixBtn" class="btn-primary" hidden></button>
             </div>
         </form>
     </div>
@@ -114,10 +127,26 @@
      * @param {Function} config.onConnect - Callback when user clicks connect: function(username, channel, password)
      * @param {Function} config.onHideModal - Callback to hide modal after connection (optional)
      */
+    // Set once the modal is built; ConnectionModal.fail() routes through it.
+    let _reportFailure = null;
+
+    /**
+     * Ask a question without stopping the page.
+     *
+     * window.confirm() blocks the event loop, which in an app holding a live
+     * connection means the connection stops being answered for as long as the
+     * dialog is open. Falls back to the native one only where the shared
+     * helper is not on the page.
+     */
+    function _ask(opts) {
+        if (window.MiniGameUtils && MiniGameUtils.ask) return MiniGameUtils.ask(opts);
+        return Promise.resolve(window.confirm(opts.body));
+    }
+
     window.loadConnectionModal = function(config) {
         // Use embedded template - no fetch needed!
-        const collapsedTitle = config.collapsedTitle || config.title || '🔗 Connect';
-        const modalTitle = config.title || '🔗 Connect to Channel';
+        const collapsedTitle = config.collapsedTitle || config.title || 'Connect';
+        const modalTitle = config.title || 'Connect to a channel';
 
         // Replace placeholders in template
         let html = HTML_TEMPLATE;
@@ -154,11 +183,22 @@
         const userEl = document.getElementById('usernameInput');
         const quickUserEl = document.getElementById('quickUsernameInput');
 
-        // Helper to persist values
+        /**
+         * Persist what the user typed.
+         *
+         * The channel password is the credential that gates the room, so it
+         * lives in sessionStorage — it should not outlive the browser session
+         * or sit readable on a shared machine. Name and room are not secrets
+         * and stay in localStorage so returning users keep their identity.
+         */
         function persistValues(u, c, p) {
             localStorage.setItem(localStoragePrefix + 'username', u || '');
             localStorage.setItem(localStoragePrefix + 'channel', c || '');
-            localStorage.setItem(localStoragePrefix + 'password', p || '');
+            try {
+                sessionStorage.setItem(localStoragePrefix + 'password', p || '');
+            } catch (e) { /* private mode: fall through, the field just re-generates */ }
+            // Clear any password left in localStorage by an older build.
+            localStorage.removeItem(localStoragePrefix + 'password');
         }
 
         // Helper to load persisted values
@@ -167,7 +207,7 @@
                 return {
                     u: localStorage.getItem(localStoragePrefix + 'username') || '',
                     c: localStorage.getItem(localStoragePrefix + 'channel') || '',
-                    p: localStorage.getItem(localStoragePrefix + 'password') || ''
+                    p: sessionStorage.getItem(localStoragePrefix + 'password') || ''
                 };
             } catch (e) {
                 return {u: '', c: '', p: ''};
@@ -315,19 +355,16 @@
 
                 // Only show confirmation dialog on first regenerate
                 if (!regenerateConfirmed) {
-                    const confirmed = confirm(
-                        '⚠️ Regenerate Channel?\n\n' +
-                        'This will:\n' +
-                        '• Connect you to a different channel\n' +
-                        '• Break any shared links you\'ve sent\n' +
-                        '• Disconnect you from current participants\n\n' +
-                        'Are you sure you want to continue?'
-                    );
-
-                    if (confirmed) {
+                    _ask({
+                        title: 'Regenerate the channel?',
+                        body: 'You will be put in a different channel: any link you have already '
+                            + 'sent stops working, and anyone waiting in the old one is left there.',
+                        confirmLabel: 'Regenerate', cancelLabel: 'Keep this one', danger: true
+                    }).then(function (yes) {
+                        if (!yes) return;
                         regenerateConfirmed = true; // Remember user's choice
                         doRegenerate();
-                    }
+                    });
                 } else {
                     // User already confirmed once, no need to ask again
                     doRegenerate();
@@ -353,8 +390,126 @@
             });
         }
 
-        // Wire connect button
+        /**
+         * Everything a connect attempt can do to the form lives here.
+         *
+         * It used to call onConnect and forget: whatever came back — a name
+         * already in use, a wrong password, a backend that never answered —
+         * reached the console and nowhere else, and the form sat there looking
+         * as though nothing had been pressed. Every app improvised its own
+         * handling and several had none, so this is the one place that knows
+         * how a connect fails.
+         */
+        function setBusy(on) {
+            [connectBtn, quickConnectBtn].forEach(function (b) {
+                if (!b) return;
+                if (on) {
+                    b.dataset.label = b.dataset.label || b.textContent;
+                    b.textContent = 'Connecting…';
+                } else if (b.dataset.label) {
+                    b.textContent = b.dataset.label;
+                }
+                b.disabled = !!on;
+            });
+        }
+
+        function clearError() {
+            const box = document.getElementById('connectError');
+            if (box) box.hidden = true;
+            const fix = document.getElementById('connectFixBtn');
+            if (fix) { fix.hidden = true; fix.onclick = null; }
+        }
+
+        /**
+         * Say what went wrong, and where possible offer the way out rather
+         * than only the diagnosis: a name already in use is the one failure a
+         * person cannot fix by reading it, so it comes with a free name and a
+         * button that takes it.
+         */
+        function showError(err) {
+            setBusy(false);
+            const raw = (err && err.message) || String(err || 'The connection failed.');
+            const box = document.getElementById('connectError');
+            const text = document.getElementById('connectErrorText');
+            const fix = document.getElementById('connectFixBtn');
+            if (!box || !text) return;
+
+            const modal = document.getElementById('connectionModal');
+            if (modal) modal.classList.remove('collapsed');   // a collapsed form hides its own error
+
+            let message = raw, action = null;
+
+            if (/already being used|currently unavailable|name.*taken/i.test(raw)) {
+                const free = (userEl && userEl.value.trim() ? userEl.value.trim().replace(/\d+$/, '') : '')
+                    || _generateRandomAgentNameBase().replace(/\d+$/, '');
+                const suggestion = free + randomDigits(3);
+                message = 'Somebody is already in this channel under that name. Pick another one.';
+                action = { label: 'Use “' + suggestion + '”', run: function () {
+                    if (userEl) userEl.value = suggestion;
+                    if (quickUserEl) quickUserEl.value = suggestion;
+                    clearError();
+                    attempt(suggestion);
+                } };
+            } else if (/password|unauthor|forbidden|401|403/i.test(raw)) {
+                message = 'That channel password was not accepted. Check it and try again.';
+            } else if (/timed out|timeout|did not answer/i.test(raw)) {
+                message = 'The channel did not answer. Check your connection and try again.';
+            } else if (/network|failed to fetch|ERR_/i.test(raw)) {
+                message = 'Could not reach the messaging service. Check your connection and try again.';
+            }
+
+            text.textContent = message;
+            box.hidden = false;
+            if (fix) {
+                fix.hidden = !action;
+                if (action) { fix.textContent = action.label; fix.onclick = action.run; }
+            }
+        }
+
+        /**
+         * One attempt, watched.
+         *
+         * An app that swallows its own connect error would otherwise leave the
+         * button spinning forever, so the attempt is given a deadline as well
+         * as a catch. Success is the modal being taken down, which is what
+         * every app does when it is really in.
+         */
+        function attempt(username) {
+            const channel = chEl ? chEl.value.trim() : '';
+            const password = pwEl ? pwEl.value.trim() : '';
+            clearError();
+            setBusy(true);
+
+            let settled = false;
+            const watch = setInterval(function () {
+                const modal = document.getElementById('connectionModal');
+                if (modal && !modal.classList.contains('active')) { settled = true; done(); }
+            }, 300);
+            const deadline = setTimeout(function () {
+                if (settled) return;
+                settled = true;
+                done();
+                showError(new Error('The channel did not answer.'));
+            }, 30000);
+            function done() { clearInterval(watch); clearTimeout(deadline); setBusy(false); }
+
+            try {
+                Promise.resolve(onConnect(username, channel, password)).catch(function (err) {
+                    if (settled) return;
+                    settled = true; done(); showError(err);
+                });
+            } catch (err) {
+                settled = true; done(); showError(err);
+            }
+        }
+
+        // The apps report their own caught failures here, so a connect that
+        // fails inside the page still reaches the form the person is looking at.
+        _reportFailure = showError;
+
         const connectBtn = document.getElementById('connectBtn');
+        const quickConnectBtn = document.getElementById('quickConnectBtn');
+
         if (connectBtn && onConnect) {
             connectBtn.onclick = function() {
                 const username = userEl ? userEl.value.trim() : '';
@@ -362,44 +517,29 @@
                 const password = pwEl ? pwEl.value.trim() : '';
 
                 if (!username || !channel || !password) {
-                    if (window.MiniGameUtils && window.MiniGameUtils.showToast) {
-                        window.MiniGameUtils.showToast('All fields are required', 'error');
-                    } else {
-                        alert('Please fill in all fields');
-                    }
+                    showError(new Error('Your name, the channel and its password are all needed.'));
                     return;
                 }
-
-                // Call the page-specific connect callback
-                onConnect(username, channel, password);
+                attempt(username);
             };
         }
 
-        // Wire quick connect button
-        const quickConnectBtn = document.getElementById('quickConnectBtn');
         if (quickConnectBtn && onConnect) {
             quickConnectBtn.onclick = function() {
                 const username = quickUserEl ? quickUserEl.value.trim() : '';
-                const channel = chEl ? chEl.value.trim() : '';
-                const password = pwEl ? pwEl.value.trim() : '';
-
                 if (!username) {
-                    if (window.MiniGameUtils && window.MiniGameUtils.showToast) {
-                        window.MiniGameUtils.showToast('Please enter your name', 'error');
-                    } else {
-                        alert('Please enter your name');
-                    }
+                    showError(new Error('Enter the name you want to be known by.'));
                     return;
                 }
-
-                // Sync username
                 if (userEl) userEl.value = username;
-                persistValues(username, channel, password);
-
-                // Call the page-specific connect callback
-                onConnect(username, channel, password);
+                persistValues(username, chEl ? chEl.value.trim() : '', pwEl ? pwEl.value.trim() : '');
+                attempt(username);
             };
         }
+
+        [userEl, quickUserEl, chEl, pwEl].forEach(function (el) {
+            if (el) el.addEventListener('input', clearError);
+        });
 
         // Cancel auto-connect when user clicks username field
         const cancelAutoConnect = () => {
@@ -435,6 +575,12 @@
 
         // Public API for hiding modal after connection
         window.ConnectionModal = {
+            /**
+             * Report a connect failure the app caught itself. Apps that only
+             * toast leave the form claiming to be mid-connect, and the person
+             * is looking at the form, not the corner of the screen.
+             */
+            fail: function (err) { if (_reportFailure) _reportFailure(err); },
             hide: function() {
                 const modal = document.getElementById('connectionModal');
                 if (modal) {
@@ -473,21 +619,31 @@
     // Password visibility toggle (global function)
     window.togglePasswordVisibility = function() {
         const pwInput = document.getElementById('passwordInput');
-        const icon = document.getElementById('passwordToggleIcon');
+        const show = document.getElementById('passwordEyeShow');
+        const hide = document.getElementById('passwordEyeHide');
         const btn = document.getElementById('togglePasswordBtn');
-        if (pwInput && icon && btn) {
-            if (pwInput.type === 'password') {
-                pwInput.type = 'text';
-                icon.textContent = '🙈';
-                btn.setAttribute('aria-label', 'Hide password');
-                btn.setAttribute('title', 'Hide password');
-            } else {
-                pwInput.type = 'password';
-                icon.textContent = '👁️';
-                btn.setAttribute('aria-label', 'Show password');
-                btn.setAttribute('title', 'Show password');
-            }
-        }
+        if (!pwInput || !btn) return;
+
+        const revealing = pwInput.type === 'password';
+        pwInput.type = revealing ? 'text' : 'password';
+
+        // These two are <svg>, and `hidden` is an IDL property of HTMLElement,
+        // which SVGElement does not inherit: `svg.hidden = true` sets a plain
+        // expando and never reaches the content attribute, so the glyph never
+        // changed. The attribute has to be set by name.
+        const setHidden = (el, on) => {
+            if (!el) return;
+            if (on) el.setAttribute('hidden', '');
+            else el.removeAttribute('hidden');
+        };
+        setHidden(show, revealing);
+        setHidden(hide, !revealing);
+
+        // The glyphs are aria-hidden, so the button's own label is the only
+        // thing a screen reader has to go on — and it is what a test looks the
+        // button up by.
+        btn.setAttribute('aria-label', revealing ? 'Hide password' : 'Show password');
+        btn.setAttribute('title', revealing ? 'Hide password' : 'Show password');
     };
 
 })(window);

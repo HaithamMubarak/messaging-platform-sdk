@@ -1,0 +1,1315 @@
+:root {
+    --bg: #0b1020;
+    --panel: rgba(17, 24, 44, 0.82);
+    --panel-solid: #11182c;
+    --border: rgba(255, 255, 255, 0.10);
+    --text: #e8eefc;
+    --muted: #97a3bf;
+    --accent: #6366f1;
+    --accent-2: #06b6d4;
+    --danger: #ef4444;
+    --ok: #22c55e;
+}
+
+* { margin: 0; padding: 0; box-sizing: border-box; }
+
+html, body {
+    height: 100%;
+    overflow: hidden;
+    background: var(--bg);
+    color: var(--text);
+    font-family: Inter, system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+    -webkit-user-select: none;
+    user-select: none;
+    touch-action: none;
+}
+
+.hidden { display: none !important; }
+
+#gameContainer { position: fixed; inset: 0; }
+
+#sceneRoot { position: absolute; inset: 0; z-index: 0; }
+#sceneRoot canvas { display: block; width: 100%; height: 100%; }
+
+/* ---- Top bar ---- */
+.top-bar {
+    position: absolute; top: 0; left: 0; right: 0; z-index: 10;
+    display: flex; align-items: center; justify-content: space-between;
+    gap: 12px; padding: 12px 16px;
+    background: linear-gradient(180deg, rgba(6,10,22,0.85) 0%, rgba(6,10,22,0) 100%);
+    pointer-events: none;
+}
+.top-bar > * { pointer-events: auto; }
+.brand { display: flex; align-items: center; gap: 10px; }
+.brand-mark { font-size: 22px; }
+.brand-name {
+    margin: 0;
+    font-weight: 800; font-size: 18px; letter-spacing: 0.2px;
+    background: linear-gradient(90deg, var(--accent), var(--accent-2));
+    -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent;
+}
+.room-badge {
+    font-size: 12px; color: var(--muted);
+    background: var(--panel); border: 1px solid var(--border);
+    padding: 4px 10px; border-radius: 999px; max-width: 40vw;
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.top-actions { display: flex; align-items: center; gap: 8px; }
+.pill {
+    font-size: 12px; color: var(--muted);
+    background: var(--panel); border: 1px solid var(--border);
+    padding: 6px 10px; border-radius: 999px; white-space: nowrap;
+}
+
+.indicator { font-size: 12px; }
+.indicator.connected { color: var(--ok); }
+.indicator.disconnected { color: var(--danger); }
+
+.btn {
+    border: 1px solid var(--border); background: var(--panel); color: var(--text);
+    padding: 8px 12px; border-radius: 10px; font-weight: 600; font-size: 13px;
+    cursor: pointer; transition: transform .08s ease, background .2s ease, border-color .2s ease;
+}
+.btn:hover { transform: translateY(-1px); border-color: rgba(255,255,255,0.25); }
+.btn:active { transform: translateY(0); }
+.btn-share { background: linear-gradient(90deg, rgba(99,102,241,0.35), rgba(6,182,212,0.35)); }
+.btn-ghost { background: rgba(255,255,255,0.04); }
+
+/* ---- Players panel ---- */
+.players-panel {
+    position: absolute; top: 64px; right: 16px; z-index: 10;
+    width: 190px; max-width: 44vw;
+    background: var(--panel); border: 1px solid var(--border);
+    border-radius: 14px; padding: 12px; backdrop-filter: blur(8px);
+}
+.players-title { font-size: 12px; color: var(--muted); margin-bottom: 8px; letter-spacing: .04em; text-transform: uppercase; }
+.player-list { display: flex; flex-direction: column; gap: 6px; max-height: 40vh; overflow-y: auto; }
+.player-row { display: flex; align-items: center; gap: 8px; font-size: 13px; }
+.player-dot { width: 12px; height: 12px; border-radius: 4px; flex: 0 0 auto; box-shadow: 0 0 0 1px rgba(0,0,0,0.3) inset; }
+.player-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.player-name .you { color: var(--muted); font-size: 11px; }
+.player-host { margin-left: auto; font-size: 11px; }
+
+/* ---- Tool dock ---- */
+.tool-dock {
+    position: absolute; left: 50%; bottom: 18px; transform: translateX(-50%); z-index: 10;
+    display: flex; align-items: center; gap: 14px;
+    background: var(--panel); border: 1px solid var(--border);
+    border-radius: 16px; padding: 10px 14px; backdrop-filter: blur(10px);
+    max-width: calc(100vw - 24px);
+}
+.tool-group { display: flex; gap: 8px; }
+.tool-btn {
+    display: flex; flex-direction: column; align-items: center; gap: 2px;
+    min-width: 54px; padding: 8px 10px; border-radius: 12px;
+    border: 1px solid var(--border); background: rgba(255,255,255,0.04); color: var(--text);
+    font-size: 18px; cursor: pointer; transition: background .2s, border-color .2s, transform .08s;
+}
+.tool-btn span { font-size: 11px; color: var(--muted); font-weight: 600; }
+.tool-btn.small { min-width: 46px; font-size: 16px; }
+.tool-btn:hover { border-color: rgba(255,255,255,0.25); }
+.tool-btn.active {
+    background: linear-gradient(180deg, rgba(99,102,241,0.35), rgba(99,102,241,0.15));
+    border-color: rgba(99,102,241,0.7);
+}
+.tool-btn.active span { color: var(--text); }
+
+.palette { display: grid; grid-template-columns: repeat(8, 1fr); gap: 6px; }
+.swatch {
+    width: 26px; height: 26px; border-radius: 8px; cursor: pointer;
+    border: 2px solid transparent; box-shadow: 0 1px 4px rgba(0,0,0,0.4);
+    transition: transform .08s ease, border-color .12s ease;
+}
+.swatch:hover { transform: scale(1.08); }
+.swatch.selected { border-color: #fff; transform: scale(1.12); }
+
+/* ---- Help hint ---- */
+.help-hint {
+    position: absolute; left: 50%; top: 62px; transform: translateX(-50%); z-index: 9;
+    display: flex; align-items: center; gap: 10px;
+    background: var(--panel); border: 1px solid var(--border);
+    padding: 8px 12px; border-radius: 999px; font-size: 12px; color: var(--muted);
+    max-width: calc(100vw - 24px); backdrop-filter: blur(8px);
+}
+.help-hint strong { color: var(--text); }
+.help-hint .dismiss {
+    background: none; border: none; color: var(--muted); cursor: pointer; font-size: 14px; padding: 0 2px;
+}
+
+/* ---- Reconnect overlay ---- */
+.reconnect-overlay {
+    position: absolute; inset: 0; z-index: 30;
+    display: flex; align-items: center; justify-content: center;
+    background: rgba(6, 10, 22, 0.72); backdrop-filter: blur(3px);
+}
+.reconnect-card {
+    display: flex; flex-direction: column; align-items: center; gap: 14px;
+    background: var(--panel-solid); border: 1px solid var(--border);
+    padding: 26px 34px; border-radius: 16px;
+}
+.spinner {
+    width: 34px; height: 34px; border-radius: 50%;
+    border: 3px solid rgba(255,255,255,0.15); border-top-color: var(--accent);
+    animation: spin 0.9s linear infinite;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+
+/* ---- Mobile ---- */
+@media (max-width: 640px) {
+    .brand-name { display: none; }
+    .players-panel { top: 58px; width: 150px; padding: 10px; }
+    .help-hint { display: none; }
+    .tool-dock { gap: 10px; padding: 8px 10px; bottom: 12px; }
+    .tool-btn { min-width: 46px; padding: 6px 8px; font-size: 16px; }
+    .tool-extra { display: none; }
+    .palette { grid-template-columns: repeat(4, 1fr); }
+    .swatch { width: 30px; height: 30px; }
+}
+
+/* ---- Per-player live block tally ---------------------------------------- */
+/* .player-name takes the slack so the crown + count stay pinned right and
+   long names still ellipsis. Overrides the earlier margin-left:auto on
+   .player-host, which would otherwise eat the free space first. */
+.player-row .player-name { flex: 1 1 auto; min-width: 0; }
+.player-row .player-host { margin-left: 0; }
+
+.player-blocks {
+    flex: 0 0 auto;
+    min-width: 26px;
+    padding: 1px 7px;
+    border-radius: 10px;
+    background: rgba(99, 102, 241, 0.18);
+    border: 1px solid rgba(99, 102, 241, 0.35);
+    color: #c7d2fe;
+    font-size: 11px;
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+    text-align: center;
+    transition: background 0.25s ease, color 0.25s ease;
+}
+
+.player-blocks.zero {
+    background: rgba(255, 255, 255, 0.05);
+    border-color: rgba(255, 255, 255, 0.12);
+    color: var(--muted);
+}
+
+.player-row.offline { opacity: 0.55; }
+
+/* ---- Shape picker ------------------------------------------------------- */
+/* Sits between the build/erase tools and the palette in the dock, styled to
+   read as the same family as .swatch (square, selectable) but with a glyph. */
+.shapes {
+    display: grid;
+    grid-template-columns: repeat(6, 1fr);
+    gap: 6px;
+    padding-right: 10px;
+    margin-right: 4px;
+    border-right: 1px solid var(--border);
+}
+
+.shape-btn {
+    width: 30px; height: 30px;
+    display: flex; align-items: center; justify-content: center;
+    padding: 0; border-radius: 9px; cursor: pointer;
+    border: 2px solid transparent;
+    background: rgba(255, 255, 255, 0.06);
+    color: var(--text);
+    font-size: 15px; line-height: 1;
+    transition: transform .08s ease, border-color .12s ease, background .2s ease;
+}
+
+.shape-btn:hover { transform: scale(1.08); background: rgba(255, 255, 255, 0.12); }
+
+.shape-btn.selected {
+    border-color: rgba(99, 102, 241, 0.9);
+    background: linear-gradient(180deg, rgba(99, 102, 241, 0.35), rgba(99, 102, 241, 0.15));
+}
+
+@media (max-width: 640px) {
+    .shapes { grid-template-columns: repeat(3, 1fr); }
+}
+
+/* The hint is a flex row of [text, dismiss]; without this wrapper the copy's
+   own words each became flex items and laid out in a ragged grid. */
+.help-hint .hint-text { line-height: 1.5; }
+.help-hint { max-width: min(92vw, 880px); }
+
+/* ---- Matches: HUD, mode picker, results ---------------------------------- */
+.btn-play {
+    background: linear-gradient(90deg, rgba(34,197,94,0.35), rgba(6,182,212,0.35));
+    font-weight: 700;
+}
+
+/* Match HUD — sits under the top bar, centred, and never eats pointer events
+   except on its own buttons so you can still orbit through it. */
+.match-hud {
+    position: absolute; left: 50%; top: 56px; transform: translateX(-50%); z-index: 12;
+    width: min(92vw, 520px);
+    display: flex; flex-direction: column; gap: 8px;
+    padding: 10px 14px; border-radius: 14px;
+    background: var(--panel); border: 1px solid var(--border);
+    backdrop-filter: blur(10px); pointer-events: none;
+}
+.match-hud button { pointer-events: auto; }
+.mh-top, .mh-bottom { display: flex; align-items: center; gap: 10px; }
+.mh-mode { font-weight: 700; font-size: 13px; }
+.mh-round { font-size: 11px; color: var(--muted); }
+.mh-phase { margin-left: auto; font-size: 13px; font-weight: 700; color: var(--text); }
+.mh-timer {
+    height: 6px; border-radius: 999px; overflow: hidden;
+    background: rgba(255,255,255,0.08);
+}
+.mh-timer-fill {
+    height: 100%; width: 100%;
+    background: linear-gradient(90deg, var(--accent), var(--accent-2));
+    transition: width .2s linear;
+}
+.mh-timer-fill.urgent { background: linear-gradient(90deg, #f59e0b, var(--danger)); }
+.mh-timer-fill.peek { background: linear-gradient(90deg, #22c55e, #a3e635); }
+.mh-acc { font-size: 12px; font-weight: 700; padding: 2px 8px; border-radius: 999px; background: rgba(255,255,255,0.06); }
+.mh-acc.good { color: #bbf7d0; background: rgba(34,197,94,0.18); }
+.mh-acc.mid { color: #fde68a; background: rgba(245,158,11,0.18); }
+.mh-acc.low { color: #fecaca; background: rgba(239,68,68,0.16); }
+.mh-peek { font-size: 11px; color: var(--muted); }
+.mh-lock, .mh-end {
+    margin-left: auto; cursor: pointer; font-weight: 700; font-size: 12px;
+    padding: 6px 12px; border-radius: 10px; color: var(--text);
+    border: 1px solid var(--border); background: rgba(34,197,94,0.22);
+}
+.mh-lock:hover { background: rgba(34,197,94,0.34); }
+.mh-end { background: rgba(255,255,255,0.06); font-weight: 600; }
+.mh-end:hover { background: rgba(255,255,255,0.12); }
+
+/* Mode picker */
+.bp-modal {
+    position: absolute; inset: 0; z-index: 40;
+    display: flex; align-items: center; justify-content: center;
+    background: rgba(6, 10, 22, 0.72); backdrop-filter: blur(4px); padding: 16px;
+}
+.bp-modal-card {
+    width: min(96vw, 620px); max-height: 88vh; overflow-y: auto;
+    background: var(--panel-solid); border: 1px solid var(--border);
+    border-radius: 18px; padding: 20px;
+}
+.bp-modal-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 14px; }
+.bp-modal-head h2 { font-size: 18px; }
+.bp-close { background: none; border: none; color: var(--muted); font-size: 16px; cursor: pointer; }
+.mode-list { display: flex; flex-direction: column; gap: 8px; }
+.mode-card {
+    display: flex; align-items: flex-start; gap: 12px; text-align: left; width: 100%;
+    padding: 12px; border-radius: 12px; cursor: pointer; color: var(--text);
+    background: rgba(255,255,255,0.04); border: 1px solid var(--border);
+    transition: border-color .12s ease, background .12s ease;
+}
+.mode-card:hover:not(:disabled) { background: rgba(255,255,255,0.08); border-color: rgba(255,255,255,0.25); }
+.mode-card.selected { border-color: var(--accent); background: rgba(99,102,241,0.18); }
+.mode-card.soon { opacity: 0.45; cursor: not-allowed; }
+/* Playable in principle, not with the people currently in the room. Greyed
+   rather than hidden: knowing a mode exists is half the reason to invite
+   somebody else. */
+.mode-card.short { opacity: 0.55; cursor: not-allowed; border-style: dashed; }
+
+/* Eleven modes is a wall as a flat list; these narrow it to a kind of round. */
+.mode-kinds { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 10px; }
+.mode-kind {
+    font-size: 12px; color: var(--muted); cursor: pointer;
+    background: rgba(255,255,255,0.04); border: 1px solid var(--border);
+    border-radius: 999px; padding: 6px 13px;
+    transition: background .2s ease, color .2s ease, border-color .2s ease;
+}
+.mode-kind:hover { border-color: rgba(255,255,255,0.25); color: var(--text); }
+.mode-kind.on {
+    color: var(--text); font-weight: 600;
+    background: rgba(99,102,241,0.30); border-color: rgba(255,255,255,0.14);
+}
+.mode-emoji { font-size: 22px; line-height: 1.2; }
+.mode-body { display: flex; flex-direction: column; gap: 3px; }
+.mode-name { font-weight: 700; font-size: 14px; }
+.mode-name em { font-style: normal; font-size: 10px; color: var(--muted); text-transform: uppercase; letter-spacing: .06em; }
+.mode-desc { font-size: 12px; color: var(--muted); line-height: 1.45; }
+.mode-opts { display: flex; gap: 16px; margin: 16px 2px 4px; font-size: 12px; color: var(--muted); }
+.mode-opts label { display: flex; align-items: center; gap: 6px; }
+.mode-opts select {
+    background: rgba(255,255,255,0.06); color: var(--text);
+    border: 1px solid var(--border); border-radius: 8px; padding: 5px 8px; font-size: 12px;
+}
+.bp-modal-foot { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-top: 14px; }
+.mode-hint { font-size: 11px; color: var(--muted); }
+.btn-primary {
+    background: linear-gradient(90deg, var(--accent), var(--accent-2));
+    font-weight: 700; border-color: transparent;
+}
+.btn-primary:disabled { opacity: 0.45; cursor: not-allowed; transform: none; }
+
+/* Results — a left-hand panel: the builds stay visible behind it and it does
+   not collide with the players list on the right. */
+.results-overlay {
+    position: absolute; left: 16px; top: 140px; bottom: 120px; z-index: 20;
+    display: flex; align-items: flex-start; pointer-events: none;
+}
+.results-card {
+    width: min(92vw, 400px); max-height: 100%; overflow-y: auto; pointer-events: auto;
+    background: var(--panel); border: 1px solid var(--border); backdrop-filter: blur(10px);
+    border-radius: 16px; padding: 16px;
+}
+.results-card h2 { font-size: 17px; margin-bottom: 4px; }
+.rs-sub { font-size: 12px; color: var(--muted); margin-bottom: 12px; }
+.rs-list { display: flex; flex-direction: column; gap: 6px; }
+.rs-row {
+    display: grid; grid-template-columns: 26px 12px 1fr auto; grid-template-rows: auto auto;
+    align-items: center; gap: 4px 8px; cursor: pointer;
+    padding: 8px 10px; border-radius: 10px; background: rgba(255,255,255,0.04);
+    border: 1px solid transparent;
+}
+.rs-row:hover { border-color: rgba(255,255,255,0.2); }
+.rs-row.me { background: rgba(99,102,241,0.16); }
+.rs-rank { font-size: 13px; }
+.rs-dot { width: 10px; height: 10px; border-radius: 3px; }
+.rs-name { font-size: 13px; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.rs-pct { font-size: 13px; font-weight: 700; color: var(--accent-2); }
+.rs-detail { grid-column: 3 / span 2; font-size: 11px; color: var(--muted); }
+
+/* Memory Match's post-mortem: where the blocks went, what shape they were,
+   what colour they were. The score has always been these three things — this
+   is the first time a player gets to see which one they lost. */
+.rs-bars { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }
+.rs-bar { display: inline-flex; align-items: center; gap: 5px; font-size: 10px; color: var(--muted); }
+.rs-bar-label { min-width: 34px; }
+.rs-bar-track {
+    width: 54px; height: 4px; border-radius: 999px;
+    background: rgba(255,255,255,0.10); overflow: hidden;
+}
+.rs-bar-fill { display: block; height: 100%; border-radius: 999px; background: var(--accent); }
+.rs-bar-fill.place { background: #22c55e; }
+.rs-bar-fill.shape { background: #fbbf24; }
+.rs-bar-fill.colour { background: #a78bfa; }
+.rs-bar-pct { min-width: 26px; text-align: right; color: var(--text); opacity: 0.8; }
+
+/* The one row on a Saboteur scoreboard that everybody looks at first. */
+.rs-row.saboteur { background: rgba(239, 68, 68, 0.14); border-color: rgba(239, 68, 68, 0.4); }
+
+/* Postcard's reference: the picture, and nothing but the picture. It sits with
+   the other panels rather than over the world, because it is something you
+   glance back at for two minutes, not something you dismiss. */
+.picture-card {
+    position: absolute; top: 64px; right: 16px; z-index: 11;
+    width: 232px; max-width: 46vw;
+    background: var(--panel); border: 1px solid var(--border);
+    border-radius: 14px; padding: 12px; backdrop-filter: blur(8px);
+}
+.picture-head { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; margin-bottom: 9px; }
+.picture-title {
+    font-size: 12px; color: var(--muted);
+    letter-spacing: .04em; text-transform: uppercase;
+}
+.picture-note { font-size: 10px; color: var(--muted); opacity: 0.8; }
+.picture-card canvas {
+    display: block; width: 100%; height: auto;
+    border: 1px solid var(--border); border-radius: 10px;
+    background: #0b1020; image-rendering: pixelated;
+}
+.picture-caption { margin-top: 9px; font-size: 11px; line-height: 1.5; color: var(--muted); }
+.picture-caption strong { color: var(--text); }
+
+/* Where the players panel already is, the card goes under it. */
+.picture-card.below { top: auto; }
+
+@media (max-width: 720px) {
+    .picture-card { width: 132px; padding: 9px; }
+    .picture-caption { display: none; }
+}
+.rs-points {
+    grid-column: 4; grid-row: 1; font-size: 15px; font-weight: 800; text-align: right;
+}
+.rs-bonus { display: block; font-size: 10px; font-weight: 600; color: #86efac; }
+.rs-totals-title {
+    margin: 14px 0 6px; font-size: 11px; color: var(--muted);
+    text-transform: uppercase; letter-spacing: .05em;
+}
+.rs-totals { display: flex; flex-direction: column; gap: 4px; }
+.rs-total {
+    display: flex; justify-content: space-between; font-size: 12px;
+    padding: 5px 10px; border-radius: 8px; background: rgba(255,255,255,0.03);
+}
+.rs-total.me { background: rgba(99,102,241,0.16); font-weight: 700; }
+.rs-actions { display: flex; gap: 8px; margin-top: 14px; flex-wrap: wrap; }
+
+@media (max-width: 640px) {
+    .match-hud { top: 52px; padding: 8px 10px; gap: 6px; }
+    .mh-mode { font-size: 12px; }
+    .mh-round { display: none; }
+    .results-overlay { right: 8px; left: 8px; top: 118px; bottom: 96px; }
+    .results-card { width: 100%; }
+}
+
+/* ---- Chat: only what is specific to this game ---------------------------- */
+/* The panel itself is css/chat-panel.css; BlockParty just places its toggle in
+   the top bar and keeps the badge on it. */
+.btn-chat { position: relative; background: rgba(255,255,255,0.06); font-size: 15px; padding: 6px 12px; }
+
+/* The word (builder) and the hint (guessers) share the accuracy slot. */
+.mh-acc.word { color: #fde68a; background: rgba(245,158,11,0.20); letter-spacing: .06em; }
+.mh-acc.hint { color: #e8eefc; background: rgba(255,255,255,0.08); letter-spacing: .22em; }
+
+
+/* ---- Phase 3: tools, following, worlds, leaderboard --------------------- */
+.btn-icon { padding: 7px 10px; font-size: 15px; background: rgba(255,255,255,0.06); }
+.btn-icon.active { background: linear-gradient(180deg, rgba(99,102,241,0.45), rgba(99,102,241,0.2)); border-color: rgba(99,102,241,0.7); }
+.lock-badge { color: #fde68a; border-color: rgba(245,158,11,0.45); background: rgba(245,158,11,0.16); }
+
+.tool-btn.disabled { opacity: 0.35; pointer-events: none; }
+
+/* Following a player */
+.follow-pill {
+    position: absolute; left: 50%; top: 108px; transform: translateX(-50%); z-index: 12;
+    padding: 6px 14px; border-radius: 999px; cursor: pointer; white-space: nowrap;
+    font-size: 12px; font-weight: 700; color: var(--text);
+    background: rgba(99,102,241,0.30); border: 1px solid rgba(99,102,241,0.6);
+    backdrop-filter: blur(8px);
+}
+.follow-pill:hover { background: rgba(99,102,241,0.45); }
+
+/* Pending box-fill size readout, just above the dock */
+.fill-hint {
+    position: absolute; left: 50%; bottom: 120px; transform: translateX(-50%); z-index: 11;
+    font-size: 12px; font-weight: 700; color: #7dd3fc; pointer-events: none;
+    text-shadow: 0 1px 6px rgba(0,0,0,0.8);
+}
+
+/* Worlds & room modal */
+.world-section { margin-top: 16px; }
+.world-section:first-of-type { margin-top: 4px; }
+.world-title {
+    font-size: 11px; color: var(--muted); text-transform: uppercase;
+    letter-spacing: .05em; margin-bottom: 8px;
+}
+.save-row { display: flex; gap: 8px; }
+.save-row input {
+    flex: 1 1 auto; min-width: 0; padding: 8px 11px; font-size: 13px;
+    color: var(--text); background: rgba(255,255,255,0.06);
+    border: 1px solid var(--border); border-radius: 10px; outline: none;
+}
+.save-row input:focus { border-color: var(--accent); }
+.slot-list { display: flex; flex-direction: column; gap: 6px; max-height: 34vh; overflow-y: auto; }
+.slot-row {
+    display: grid; grid-template-columns: 1fr auto auto; grid-template-rows: auto auto;
+    gap: 2px 8px; align-items: center;
+    padding: 8px 10px; border-radius: 10px;
+    background: rgba(255,255,255,0.04); border: 1px solid var(--border);
+}
+.slot-name { font-size: 13px; font-weight: 700; }
+.slot-meta { grid-column: 1; grid-row: 2; font-size: 11px; color: var(--muted); }
+.slot-load, .slot-del { grid-row: 1 / span 2; padding: 6px 12px; font-size: 12px; }
+.slot-load:disabled, .btn:disabled { opacity: 0.4; cursor: not-allowed; transform: none; }
+.slot-empty { font-size: 12px; color: var(--muted); padding: 8px 2px; }
+.host-row { display: flex; gap: 8px; flex-wrap: wrap; }
+.world-note { font-size: 11px; color: var(--muted); margin-top: 8px; }
+
+.leaderboard { display: flex; flex-direction: column; gap: 5px; max-height: 28vh; overflow-y: auto; }
+.lb-row {
+    display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+    padding: 7px 10px; border-radius: 9px; background: rgba(255,255,255,0.04); font-size: 12px;
+}
+.lb-row.me { background: rgba(99,102,241,0.16); }
+.lb-dot { width: 10px; height: 10px; border-radius: 3px; flex: 0 0 auto; }
+.lb-name { font-weight: 700; flex: 1 1 auto; min-width: 60px; }
+.lb-stat { color: var(--muted); font-variant-numeric: tabular-nums; }
+
+@media (max-width: 640px) {
+    .follow-pill { top: 100px; font-size: 11px; }
+    .fill-hint { bottom: 104px; }
+}
+
+/* ---- Brick pieces -------------------------------------------------------- */
+.bricks { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; }
+.brick-btn {
+    display: flex; flex-direction: column; align-items: center; gap: 3px;
+    padding: 6px 8px; min-width: 52px; border-radius: 10px; cursor: pointer;
+    color: var(--text); background: rgba(255,255,255,0.05); border: 1px solid var(--border);
+    transition: transform .08s ease, border-color .12s ease, background .12s ease;
+}
+.brick-btn:hover { transform: scale(1.05); background: rgba(255,255,255,0.10); }
+.brick-btn.selected { border-color: var(--accent); background: rgba(99,102,241,0.25); }
+/* A miniature of the footprint: one dot per stud. */
+.brick-studs { display: grid; gap: 2px; }
+.brick-studs i { width: 6px; height: 6px; border-radius: 50%; background: currentColor; opacity: 0.75; }
+.brick-label { font-size: 10px; font-weight: 700; color: var(--muted); }
+.brick-btn.selected .brick-label { color: var(--text); }
+
+@media (max-width: 640px) {
+    .bricks { grid-template-columns: repeat(4, 1fr); gap: 4px; }
+    .brick-btn { min-width: 40px; padding: 4px 5px; }
+    .brick-label { display: none; }
+}
+
+/* Vote buttons in the Block Rush panel */
+.vote-btn {
+    padding: 5px 12px; border-radius: 9px; cursor: pointer; font-size: 12px; font-weight: 700;
+    color: var(--text); border: 1px solid var(--border); background: rgba(99,102,241,0.28);
+}
+.vote-btn:hover:not(:disabled) { background: rgba(99,102,241,0.45); }
+.vote-btn.picked { background: rgba(34,197,94,0.32); border-color: rgba(34,197,94,0.6); }
+.vote-btn:disabled { opacity: 0.35; cursor: not-allowed; }
+
+/* Mode picker: what a mode needs from the room */
+.mode-note { font-size: 11px; color: var(--muted); opacity: 0.8; }
+.mode-warn { font-size: 11px; font-weight: 700; color: #fde68a; }
+
+/* ---- Maps and image import ---------------------------------------------- */
+.map-list { display: grid; grid-template-columns: repeat(2, 1fr); gap: 6px; max-height: 30vh; overflow-y: auto; }
+.map-card {
+    display: flex; align-items: flex-start; gap: 9px; text-align: left; cursor: pointer;
+    padding: 9px 10px; border-radius: 11px; color: var(--text);
+    background: rgba(255,255,255,0.04); border: 1px solid var(--border);
+    transition: background .12s ease, border-color .12s ease;
+}
+.map-card:hover:not(:disabled) { background: rgba(255,255,255,0.09); border-color: rgba(255,255,255,0.25); }
+.map-card:disabled { opacity: 0.45; cursor: not-allowed; }
+
+/* The map library: what ships, what is real, and what the room made. Three
+   sources that all end in the same place — a world you did not have to start
+   from an empty floor. */
+.map-tabs { display: flex; align-items: center; gap: 6px; margin-bottom: 8px; flex-wrap: wrap; }
+.map-tab {
+    font-size: 12px; color: var(--muted); cursor: pointer;
+    background: rgba(255,255,255,0.04); border: 1px solid var(--border);
+    border-radius: 999px; padding: 6px 13px;
+}
+.map-tab:hover { color: var(--text); border-color: rgba(255,255,255,0.25); }
+.map-tab.on {
+    color: var(--text); font-weight: 600;
+    background: rgba(99,102,241,0.30); border-color: rgba(255,255,255,0.14);
+}
+.map-search {
+    flex: 1 1 140px; min-width: 100px;
+    background: rgba(255,255,255,0.06); color: var(--text);
+    border: 1px solid var(--border); border-radius: 9px;
+    padding: 6px 10px; font-size: 12px; font-family: inherit;
+}
+.map-search::placeholder { color: var(--muted); }
+.map-empty { grid-column: 1 / -1; font-size: 11px; color: var(--muted); padding: 10px 4px; }
+
+.map-sources { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; }
+.map-source {
+    display: flex; align-items: flex-start; gap: 9px; text-align: left;
+    background: rgba(255,255,255,0.03); color: var(--text);
+    border: 1px dashed rgba(255,255,255,0.18); border-radius: 12px;
+    padding: 10px; cursor: pointer;
+    transition: background .2s ease, border-color .2s ease;
+}
+.map-source:hover { background: rgba(255,255,255,0.07); border-color: rgba(255,255,255,0.3); }
+.map-source .map-desc { display: block; }
+@media (max-width: 720px) {
+    .map-sources { grid-template-columns: 1fr; }
+}
+.map-emoji { font-size: 19px; line-height: 1.1; }
+.map-body { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.map-name { font-size: 13px; font-weight: 700; }
+.map-desc { font-size: 11px; color: var(--muted); line-height: 1.4; }
+
+.import-row { display: flex; gap: 8px; align-items: center; margin-bottom: 8px; flex-wrap: wrap; }
+.geo-callout {
+    position: absolute;
+    left: 50%;
+    top: 128px;
+    transform: translateX(-50%);
+    z-index: 18;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    max-width: min(94vw, 720px);
+    padding: 10px 12px;
+    border-radius: 14px;
+    color: var(--text);
+    background: var(--panel);
+    border: 1px solid var(--border);
+    box-shadow: 0 12px 30px rgba(0, 0, 0, 0.35);
+    backdrop-filter: blur(10px);
+}
+.geo-callout.hidden { display: none !important; }
+.geo-callout-text { font-size: 13px; line-height: 1.4; }
+.geo-callout .btn { white-space: nowrap; }
+
+@media (max-width: 720px) {
+    .geo-callout { flex-wrap: wrap; top: 112px; }
+    .geo-callout-text { flex: 1 1 100%; }
+}
+
+.minimap-foot {
+    display: flex; align-items: center; gap: 5px; padding: 5px 2px 2px;
+}
+.minimap-zoom {
+    width: 22px; height: 22px; line-height: 1;
+    border-radius: 7px; cursor: pointer;
+    font-size: 14px; font-weight: 700;
+    color: var(--text); background: rgba(255, 255, 255, 0.08);
+    border: 1px solid var(--border);
+}
+.minimap-zoom:hover { background: rgba(255, 255, 255, 0.16); }
+.minimap-span { font-size: 10px; color: var(--muted); }
+
+.world-toggle {
+    display: flex; align-items: center; gap: 5px;
+    font-size: 11px; color: var(--muted); cursor: pointer; user-select: none;
+}
+.import-row input[type=file] { flex: 1 1 160px; min-width: 0; font-size: 11px; color: var(--muted); }
+.import-row select {
+    background: rgba(255,255,255,0.06); color: var(--text);
+    border: 1px solid var(--border); border-radius: 9px; padding: 6px 8px; font-size: 12px;
+}
+.import-check { display: flex; align-items: center; gap: 6px; font-size: 12px; color: var(--muted); }
+
+/* What the importer actually read off the picture — the colours it will build
+   in, and the depth it will push each column back by. Cheap to draw and it
+   catches a background that did not come off before 7,000 blocks do. */
+.import-preview { align-items: flex-start; }
+.import-preview figure { margin: 0; display: flex; flex-direction: column; gap: 4px; }
+.import-preview canvas {
+    width: 84px; height: 84px; display: block;
+    border: 1px solid var(--border); border-radius: 8px;
+    background:
+        linear-gradient(45deg, rgba(255,255,255,0.05) 25%, transparent 25%, transparent 75%, rgba(255,255,255,0.05) 75%),
+        linear-gradient(45deg, rgba(255,255,255,0.05) 25%, transparent 25%, transparent 75%, rgba(255,255,255,0.05) 75%);
+    background-size: 10px 10px;
+    background-position: 0 0, 5px 5px;
+    image-rendering: pixelated;
+}
+.import-preview figcaption { font-size: 10px; color: var(--muted); text-align: center; }
+
+/* A slider that matches the panel rather than the browser's default chrome. */
+.world-range {
+    flex: 1 1 120px; min-width: 90px; height: 4px; -webkit-appearance: none; appearance: none;
+    background: rgba(255,255,255,0.12); border-radius: 999px; outline: none; cursor: pointer;
+}
+.world-range::-webkit-slider-thumb {
+    -webkit-appearance: none; appearance: none;
+    width: 14px; height: 14px; border-radius: 999px; background: var(--text);
+    box-shadow: 0 1px 4px rgba(0,0,0,0.5); cursor: pointer;
+}
+.world-range::-moz-range-thumb {
+    width: 14px; height: 14px; border: none; border-radius: 999px; background: var(--text);
+    box-shadow: 0 1px 4px rgba(0,0,0,0.5); cursor: pointer;
+}
+
+/* Attribution for the map tiles on the ground. Required by OpenStreetMap's
+   terms whenever their tiles are on screen, so it lives with the world rather
+   than inside a panel somebody may never open. */
+.osm-credit {
+    /* Clear of the SDK badge the app chrome pins bottom-left, which was
+       sitting straight on top of it. */
+    position: absolute; left: 12px; bottom: 44px; z-index: 9;
+    font-size: 10px; color: rgba(232,238,252,0.72);
+    background: rgba(6,10,22,0.6); border-radius: 6px; padding: 4px 8px;
+    pointer-events: auto;
+}
+.osm-credit a { color: rgba(232,238,252,0.9); }
+
+/* Offered when the camera runs out of room: past this point "further out" is
+   not a camera move at all, it is a different world at a different scale. */
+.zoom-out {
+    position: absolute; left: 92px; top: 50%; transform: translateY(-50%); z-index: 12;
+    width: 250px; padding: 13px 14px;
+    background: var(--panel); border: 1px solid rgba(99,102,241,0.5); border-radius: 12px;
+    backdrop-filter: blur(8px); box-shadow: 0 18px 40px -14px rgba(2,6,23,0.8);
+}
+.zoom-out-text { display: flex; flex-direction: column; gap: 6px; margin-bottom: 10px; }
+.zoom-out-text strong { font-size: 12px; }
+.zoom-out-text span { font-size: 11.5px; line-height: 1.5; color: var(--muted); }
+.zoom-out-actions { display: flex; gap: 7px; }
+.zoom-out-actions .btn { font-size: 11px; padding: 7px 12px; }
+@media (max-width: 720px) {
+    .zoom-out { left: 12px; right: 12px; width: auto; top: auto; bottom: 96px; transform: none; }
+}
+
+/* Any-colour swatch: the palette's thirteenth slot is a colour picker */
+.swatch.custom {
+    position: relative; overflow: hidden; cursor: pointer;
+    background: conic-gradient(#ef4444, #f59e0b, #facc15, #22c55e, #06b6d4, #3b82f6, #8b5cf6, #ec4899, #ef4444);
+}
+.swatch.custom input[type=color] {
+    position: absolute; inset: -8px; width: 200%; height: 200%;
+    border: none; padding: 0; background: none; cursor: pointer; opacity: 0;
+}
+
+/* ---- First person -------------------------------------------------------- */
+.fps-hud { position: absolute; inset: 0; z-index: 13; pointer-events: none; }
+.fps-cross {
+    position: absolute; left: 50%; top: 50%; width: 18px; height: 18px;
+    margin: -9px 0 0 -9px; opacity: 0.9;
+    background:
+        linear-gradient(#fff, #fff) center/2px 18px no-repeat,
+        linear-gradient(#fff, #fff) center/18px 2px no-repeat;
+    mix-blend-mode: difference;
+}
+.fps-info {
+    position: absolute; left: 50%; bottom: 18px; transform: translateX(-50%);
+    display: flex; flex-direction: column; align-items: center; gap: 4px;
+    padding: 8px 16px; border-radius: 12px; text-align: center;
+    background: var(--panel); border: 1px solid var(--border); backdrop-filter: blur(8px);
+}
+#fpsCoords { font-size: 13px; font-weight: 700; font-variant-numeric: tabular-nums; }
+.fps-keys { font-size: 11px; color: var(--muted); }
+.fps-keys strong { color: var(--text); }
+@media (max-width: 640px) { .fps-keys { display: none; } }
+
+/* ---- Ceremony ------------------------------------------------------------ */
+.ceremony {
+    position: absolute; left: 50%; top: 42%; transform: translate(-50%, -50%);
+    z-index: 25; pointer-events: none;
+    font-size: 92px; font-weight: 900; letter-spacing: -0.02em; color: #fff;
+    text-shadow: 0 6px 30px rgba(0,0,0,0.65), 0 0 60px rgba(99,102,241,0.5);
+    animation: ceremony-pop .85s cubic-bezier(.2,.9,.25,1) forwards;
+}
+@keyframes ceremony-pop {
+    0%   { opacity: 0; transform: translate(-50%, -50%) scale(1.6); }
+    18%  { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+    75%  { opacity: 1; }
+    100% { opacity: 0; transform: translate(-50%, -50%) scale(0.94); }
+}
+
+.banner {
+    position: absolute; left: 50%; top: 26%; transform: translateX(-50%);
+    z-index: 24; pointer-events: none; white-space: nowrap;
+    padding: 12px 28px; border-radius: 999px;
+    font-size: 22px; font-weight: 800; color: var(--text);
+    background: linear-gradient(90deg, rgba(99,102,241,0.5), rgba(6,182,212,0.5));
+    border: 1px solid rgba(255,255,255,0.25); backdrop-filter: blur(10px);
+    animation: banner-in .35s ease-out;
+}
+@keyframes banner-in {
+    from { opacity: 0; transform: translateX(-50%) translateY(-12px); }
+    to   { opacity: 1; transform: translateX(-50%) translateY(0); }
+}
+
+/* The clock turns urgent in the last seconds of a round. */
+.mh-timer-fill.urgent { animation: timer-pulse 1s ease-in-out infinite; }
+@keyframes timer-pulse { 50% { filter: brightness(1.6); } }
+
+@media (max-width: 640px) {
+    .ceremony { font-size: 64px; }
+    .banner { font-size: 16px; padding: 9px 18px; }
+}
+
+/* ---- The world as a real place ------------------------------------------ */
+.geo-readout { color: #a7f3d0; border-color: rgba(34,197,94,0.35); background: rgba(34,197,94,0.14); font-variant-numeric: tabular-nums; }
+.geo-list { display: flex; flex-direction: column; gap: 5px; margin-top: 8px; max-height: 22vh; overflow-y: auto; }
+.geo-row {
+    display: flex; align-items: center; gap: 9px;
+    padding: 7px 10px; border-radius: 9px; background: rgba(255,255,255,0.04); font-size: 12px;
+}
+.geo-dot { width: 10px; height: 10px; border-radius: 3px; flex: 0 0 auto; }
+.geo-name { font-weight: 700; }
+.geo-where { color: var(--muted); margin-left: auto; font-variant-numeric: tabular-nums; }
+.geo-row .btn { padding: 4px 10px; font-size: 11px; }
+#geoShareBtn.active { background: rgba(34,197,94,0.28); border-color: rgba(34,197,94,0.5); }
+
+/* ---- Map -----------------------------------------------------------------
+ * A panel that behaves like a map application rather than a decoration: a
+ * title bar that drags it, a stage that pans and zooms under the pointer, a
+ * coordinate box, layer switches, a list of who has been where, and a grip to
+ * make the whole thing bigger. Everything is sized off the canvas, which the
+ * script owns — so nothing here fixes a width the player can change.
+ */
+.minimap-panel {
+    position: absolute; right: 16px; bottom: 16px; z-index: 14;
+    padding: 8px; border-radius: 14px;
+    background: var(--panel); border: 1px solid var(--border); backdrop-filter: blur(10px);
+    box-shadow: 0 18px 44px rgba(3, 7, 18, 0.5);
+    touch-action: none;
+}
+.minimap-head {
+    display: flex; align-items: center; gap: 8px;
+    font-size: 11px; font-weight: 700; margin-bottom: 6px;
+    /* The title bar is the handle: it drags the panel, so it must not start a
+       text selection under the finger doing it. */
+    cursor: grab; user-select: none; -webkit-user-select: none;
+}
+.minimap-title { flex: 0 0 auto; }
+.minimap-centre {
+    flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+    font-weight: 500; font-size: 10px; color: var(--accent-2);
+    font-variant-numeric: tabular-nums;
+}
+.minimap-centre.dim { color: var(--muted); }
+.minimap-tools { display: flex; align-items: center; gap: 4px; flex: 0 0 auto; }
+.minimap-hint { color: var(--muted); font-weight: 500; }
+
+/* The little pill buttons the map is driven with. */
+.mm-chip {
+    border: 1px solid var(--border); background: rgba(255, 255, 255, 0.06);
+    color: var(--text); font: inherit; font-size: 10px; font-weight: 700;
+    padding: 3px 7px; border-radius: 7px; cursor: pointer; line-height: 1.4;
+    white-space: nowrap;
+}
+.mm-chip:hover { background: rgba(255, 255, 255, 0.14); }
+.mm-chip.active { background: rgba(99, 102, 241, 0.35); border-color: rgba(99, 102, 241, 0.6); }
+.mm-chip.armed { color: #fde68a; border-color: rgba(253, 230, 138, 0.5); }
+.mm-chip.count { margin-left: auto; }
+.mm-chip.go { padding: 5px 12px; }
+
+/* The map itself, and everything that floats over it. */
+.minimap-stage { position: relative; line-height: 0; }
+#minimap {
+    display: block; border-radius: 9px; cursor: crosshair;
+    background: #0a1424; border: 1px solid rgba(255, 255, 255, 0.06);
+}
+#minimap.dragging { cursor: grabbing; }
+
+.mm-cursor {
+    position: absolute; right: 6px; bottom: 6px; z-index: 2;
+    font-size: 9px; font-weight: 600; line-height: 1.6;
+    padding: 1px 5px; border-radius: 5px;
+    color: rgba(232, 238, 252, 0.8); background: rgba(6, 10, 22, 0.72);
+    font-variant-numeric: tabular-nums; pointer-events: none;
+}
+.mm-cursor:empty { display: none; }
+
+/* The card a double-click opens: what is here, and what you can do about it. */
+.mm-scope {
+    position: absolute; z-index: 3; min-width: 178px; max-width: 240px;
+    padding: 8px; border-radius: 10px; line-height: 1.35;
+    background: rgba(11, 16, 32, 0.96); border: 1px solid rgba(255, 255, 255, 0.16);
+    box-shadow: 0 12px 30px rgba(3, 7, 18, 0.6);
+}
+.mm-scope-head { display: flex; align-items: center; gap: 6px; }
+.mm-scope-coords {
+    flex: 1 1 auto; font-size: 11px; font-weight: 700; color: var(--text);
+    font-variant-numeric: tabular-nums;
+}
+.mm-scope-x {
+    border: none; background: none; color: var(--muted);
+    cursor: pointer; font-size: 12px; padding: 0 2px;
+}
+.mm-scope-x:hover { color: var(--text); }
+.mm-scope-sub { font-size: 10px; color: var(--muted); margin: 2px 0 7px; }
+.mm-scope-actions { display: flex; gap: 5px; }
+.mm-scope-btn {
+    flex: 1 1 auto; padding: 5px 8px; border-radius: 8px; cursor: pointer;
+    font: inherit; font-size: 10px; font-weight: 700; white-space: nowrap;
+    color: var(--text); background: rgba(255, 255, 255, 0.08); border: 1px solid var(--border);
+}
+.mm-scope-btn.primary { background: rgba(99, 102, 241, 0.4); border-color: rgba(99, 102, 241, 0.6); }
+.mm-scope-btn:hover:not(:disabled) { filter: brightness(1.25); }
+.mm-scope-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+.mm-scope-btn[data-scope="copy"] { flex: 0 0 auto; }
+
+/* Which layers are drawn. */
+.mm-menu {
+    position: absolute; top: 6px; right: 6px; z-index: 4;
+    display: flex; flex-direction: column; gap: 5px; padding: 8px 10px;
+    border-radius: 10px; line-height: 1.3;
+    background: rgba(11, 16, 32, 0.96); border: 1px solid rgba(255, 255, 255, 0.16);
+    box-shadow: 0 12px 30px rgba(3, 7, 18, 0.6);
+}
+.mm-menu label {
+    display: flex; align-items: center; gap: 7px;
+    font-size: 11px; color: var(--text); cursor: pointer; white-space: nowrap;
+}
+
+/* Type a place and go there. */
+.minimap-go { display: flex; gap: 5px; margin-top: 6px; }
+#minimapGo {
+    flex: 1 1 auto; min-width: 0; padding: 5px 9px; font: inherit; font-size: 11px;
+    color: var(--text); background: rgba(255, 255, 255, 0.06);
+    border: 1px solid var(--border); border-radius: 8px; outline: none;
+    font-variant-numeric: tabular-nums;
+    -webkit-user-select: text; user-select: text;
+}
+#minimapGo:focus { border-color: var(--accent); background: rgba(255, 255, 255, 0.1); }
+#minimapGo::placeholder { color: rgba(151, 163, 191, 0.65); }
+
+/* Who the room knows about, and everywhere it has been. */
+.mm-places {
+    margin-top: 6px; max-height: 190px; overflow-y: auto;
+    border-top: 1px solid var(--border); padding-top: 5px;
+}
+.mm-who {
+    display: flex; align-items: center; gap: 6px;
+    padding: 3px 2px; font-size: 11px; cursor: pointer; border-radius: 6px;
+}
+.mm-who:hover { background: rgba(255, 255, 255, 0.05); }
+.mm-arrow { width: 9px; color: var(--muted); font-size: 9px; }
+.mm-dot { width: 8px; height: 8px; border-radius: 50%; flex: 0 0 auto; }
+.mm-name {
+    font-weight: 700; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+    max-width: 40%;
+}
+.mm-who:not(.live) .mm-name { color: var(--muted); font-weight: 600; }
+.mm-when { color: var(--muted); font-size: 10px; white-space: nowrap; }
+.mm-go {
+    margin-left: auto; flex: 0 0 auto;
+    border: 1px solid var(--border); background: rgba(255, 255, 255, 0.06);
+    color: var(--text); font: inherit; font-size: 10px; font-weight: 700;
+    padding: 2px 8px; border-radius: 6px; cursor: pointer;
+}
+.mm-go:hover { background: rgba(99, 102, 241, 0.35); border-color: rgba(99, 102, 241, 0.6); }
+.mm-visit {
+    display: flex; align-items: center; gap: 6px;
+    padding: 2px 2px 2px 17px; font-size: 10px; color: var(--muted);
+}
+.mm-visit-mark { color: var(--accent-2); }
+.mm-visit-when { white-space: nowrap; }
+.mm-visit-where {
+    font-variant-numeric: tabular-nums; overflow: hidden;
+    text-overflow: ellipsis; white-space: nowrap;
+}
+.mm-empty { font-size: 10px; color: var(--muted); padding: 6px 2px; }
+.mm-heading {
+    font-size: 10px; font-weight: 700; color: var(--muted);
+    padding: 7px 2px 3px; margin-top: 4px; border-top: 1px solid var(--border);
+}
+.mm-world .mm-visit-mark { color: #fbbf24; }
+.mm-world.here .mm-visit-when { color: #fde68a; font-weight: 700; }
+
+/* The corner grip: how big the map is, is the player's call. */
+.mm-resize {
+    position: absolute; right: 2px; bottom: 2px; width: 16px; height: 16px;
+    cursor: nwse-resize; opacity: 0.5;
+    background:
+        linear-gradient(135deg, transparent 55%, var(--muted) 55%, var(--muted) 62%, transparent 62%),
+        linear-gradient(135deg, transparent 72%, var(--muted) 72%, var(--muted) 79%, transparent 79%);
+}
+.mm-resize:hover { opacity: 1; }
+
+/* A remembered location reads differently from a live one. */
+.geo-row.stale .geo-name { color: var(--muted); }
+.geo-when { color: var(--muted); font-size: 11px; }
+
+@media (max-width: 640px) {
+    .minimap-panel { right: 8px; bottom: 96px; padding: 6px; }
+}
+
+/* Travelling the Earth */
+#geoCoords {
+    flex: 1 1 150px; min-width: 0; padding: 6px 10px; font-size: 12px;
+    color: var(--text); background: rgba(255,255,255,0.06);
+    border: 1px solid var(--border); border-radius: 9px; outline: none;
+}
+#geoCoords:focus { border-color: var(--accent); }
+.minimap-travel {
+    background: none; border: none; cursor: pointer; padding: 0;
+    color: var(--accent-2); font: inherit; font-weight: 700;
+}
+.minimap-travel.armed { color: #fde68a; }
+
+/* ---- Phones and small tablets -------------------------------------------
+ * The HUD was built for a desktop window: one row of a dozen controls across
+ * the top, one long row along the bottom. On a phone both simply ran off the
+ * edge — nothing wrapped, nothing scrolled, and the buttons past the fold were
+ * unreachable rather than merely cramped.
+ *
+ * Everything below keeps the same layout and lets it fold: rows wrap, long
+ * strips of buttons scroll sideways under a finger, words give way to their
+ * icons, and the parts that are decoration rather than control go away. Tap
+ * targets stay at 40px, which is the smallest a finger reliably hits.
+ */
+@media (max-width: 820px), (max-height: 500px) {
+    /* Under a notch or a rounded corner, the HUD keeps its distance. */
+    .top-bar {
+        padding: max(8px, env(safe-area-inset-top)) max(10px, env(safe-area-inset-right))
+                 8px max(10px, env(safe-area-inset-left));
+        gap: 8px; align-items: flex-start;
+    }
+    /* The controls take a line of their own rather than competing with the
+       room name for what is left of it. */
+    .top-bar { flex-wrap: wrap; }
+    .top-actions {
+        flex: 1 1 100%; flex-wrap: wrap; justify-content: flex-start; gap: 6px;
+        max-width: none;
+    }
+    /* 40px is the smallest a finger reliably hits, and padding alone was
+       leaving these at 33. */
+    .top-actions .btn {
+        display: inline-flex; align-items: center; justify-content: center;
+        min-width: 40px; min-height: 40px; padding: 8px 10px;
+    }
+    .room-badge { max-width: 28vw; }
+
+    /* Clear of the header, whatever number of lines it folded into. */
+    .players-panel { top: 140px; right: 10px; width: 148px; max-width: 42vw; padding: 10px; }
+    .player-list { max-height: 22vh; }
+
+    /* The dock folds into rows instead of one long line, and each strip of
+       buttons can be pushed sideways with a finger when it is still too long. */
+    .tool-dock {
+        left: 8px; right: 8px; bottom: max(10px, env(safe-area-inset-bottom));
+        transform: none; max-width: none;
+        flex-wrap: wrap; justify-content: center; gap: 8px 10px; padding: 8px 10px;
+    }
+    .tool-dock > * { max-width: 100%; }
+    .tool-dock > .tool-group:not(.tool-extra), .bricks, .shapes {
+        overflow-x: auto; overflow-y: hidden;
+        touch-action: pan-x; scrollbar-width: none;
+        -webkit-overflow-scrolling: touch;
+    }
+    .tool-dock > .tool-group:not(.tool-extra)::-webkit-scrollbar,
+    .bricks::-webkit-scrollbar, .shapes::-webkit-scrollbar { display: none; }
+    /* Undo, redo and view are three buttons: they wrap, they never hide. */
+    .tool-extra { overflow: visible; flex-wrap: wrap; justify-content: center; }
+    /* One line of bricks that scrolls, and the full palette in one grid: two
+       rows of dock instead of four, and half the screen back. */
+    .bricks { display: flex; flex-wrap: nowrap; gap: 6px; }
+    .brick-btn { min-width: 46px; }
+    .palette { grid-template-columns: repeat(8, 1fr); gap: 5px; }
+    .swatch { width: 28px; height: 28px; }
+    .shapes { display: flex; flex-wrap: nowrap; }
+    .tool-btn { min-width: 48px; min-height: 44px; padding: 6px 8px; font-size: 17px; }
+    .tool-btn span { font-size: 10px; }
+    /* Undo, redo and reset-view were hidden here. Reset-view is how you get
+       back to seeing the whole world, which is not an extra. */
+    .tool-extra { display: flex; }
+    .tool-btn.small { min-width: 44px; }
+
+    /* Opposite corner from the players, clear of the dock: on a phone the
+       three of them cannot all have the right-hand side. */
+    .minimap-panel { left: 8px; right: auto; bottom: auto; top: 140px; padding: 6px; }
+    .minimap-head { font-size: 10px; margin-bottom: 4px; }
+    .minimap-foot { padding: 4px 2px 2px; }
+    .minimap-span { font-size: 9px; }
+    /* On a phone the panel is already most of the width; the list would take
+       the rest, so it stays shut until it is asked for. */
+    .mm-places { max-height: 128px; }
+    /* A corner grip and a finger do not get on, and the map is sized to the
+       screen here anyway. */
+    .mm-resize { display: none; }
+
+    .geo-callout { top: 140px; left: 8px; right: 8px; transform: none; max-width: none; }
+
+    .bp-modal { padding: 0; align-items: stretch; }
+    .bp-modal-card {
+        width: 100%; max-width: none; max-height: 100%; border-radius: 0;
+        padding: max(16px, env(safe-area-inset-top)) 16px max(16px, env(safe-area-inset-bottom));
+    }
+}
+
+/* Narrow enough that words cost more than they say. */
+@media (max-width: 560px) {
+    .btn-word { display: none; }
+    #blockCount, #geoReadout { display: none; }
+    .top-actions { max-width: 78vw; }
+    .players-panel { top: 132px; width: 132px; }
+    .minimap-panel { top: 132px; }
+    .minimap-centre { display: none; }
+    .geo-callout { top: 132px; }
+    .geo-callout-text { font-size: 12px; }
+}
+
+/* Landscape on a phone: the screen is all width and no height, so the dock
+   goes back to one line and the panels get out of the middle. */
+@media (max-height: 480px) and (orientation: landscape) {
+    .top-bar { padding-top: 6px; padding-bottom: 4px; }
+    .players-panel { top: 60px; max-height: 42vh; }
+    /* Above the dock, not on it: the dock spans the full width down there. */
+    .minimap-panel { top: auto; left: auto; right: 8px; bottom: 96px; }
+    .minimap-foot, .minimap-go, .mm-places { display: none; }
+    .minimap-centre, .minimap-tools .mm-chip:not(#minimapClose) { display: none; }
+    .tool-dock { padding: 6px 8px; gap: 6px; }
+    .tool-btn span { display: none; }
+    .tool-btn { min-width: 42px; }
+    .geo-callout { top: 52px; }
+}
+
+/* ---- Time-lapse transport ------------------------------------------------
+ * Only on screen while a replay is running, and deliberately central: while
+ * it is up, the world you are looking at is history rather than the room's.
+ */
+.cinema-bar {
+    position: absolute;
+    left: 50%;
+    bottom: 24px;
+    transform: translateX(-50%);
+    z-index: 30;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 14px;
+    border-radius: 14px;
+    background: var(--panel);
+    border: 1px solid var(--border);
+    backdrop-filter: blur(10px);
+    box-shadow: 0 18px 44px rgba(3, 7, 18, 0.5);
+}
+
+.cinema-btn {
+    min-width: 34px; height: 34px;
+    border-radius: 9px; cursor: pointer;
+    font-size: 13px; font-weight: 700;
+    color: var(--text);
+    background: rgba(255, 255, 255, 0.08);
+    border: 1px solid var(--border);
+}
+
+.cinema-btn:hover { background: rgba(255, 255, 255, 0.16); }
+.cinema-range { width: 260px; accent-color: var(--accent); cursor: grab; }
+.cinema-range:active { cursor: grabbing; }
+.cinema-at { font-family: ui-monospace, monospace; font-size: 11px; color: var(--muted); min-width: 74px; text-align: center; }
+
+.cinema-speed {
+    background: rgba(255, 255, 255, 0.06);
+    color: var(--text);
+    border: 1px solid var(--border);
+    border-radius: 9px;
+    padding: 5px 7px;
+    font-size: 12px;
+}
+
+@media (max-width: 640px) {
+    .cinema-range { width: 130px; }
+    .cinema-at { display: none; }
+}
+
+/* ==========================================================================
+   Worlds & room — form controls and modal polish
+
+   The dropdowns in this panel were the browser's own. A <select> can be
+   styled, but the OPTION LIST it opens is drawn by the platform: it does not
+   inherit the panel, and it only picked up the near-white `color` set on the
+   control — so the list rendered light text on its own light background and
+   was effectively unreadable. Both halves have to be coloured explicitly, and
+   the control's background has to be SOLID: a translucent fill over a blurred
+   backdrop is not a colour the option list can match.
+   ========================================================================== */
+
+.bp-modal select {
+    /* Solid, so the list below can be given the same colour. */
+    background-color: #1b2440;
+    color: var(--text);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 8px 30px 8px 11px;
+    font-size: 12.5px;
+    font-family: inherit;
+    line-height: 1.3;
+    cursor: pointer;
+    max-width: 100%;
+    /* Native control furniture varies by platform and never matches a dark
+       panel; draw our own chevron instead. */
+    appearance: none;
+    -webkit-appearance: none;
+    background-image: url("data:image/svg+xml;charset=UTF-8,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 8'%3E%3Cpath d='M1 1.5 6 6.5l5-5' fill='none' stroke='%2397a3bf' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 11px center;
+    background-size: 11px 7px;
+    transition: border-color .12s ease, background-color .12s ease;
+}
+.bp-modal select:hover { background-color: #212c4e; border-color: rgba(255,255,255,0.18); }
+.bp-modal select:focus-visible {
+    outline: none;
+    border-color: var(--accent);
+    box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.28);
+}
+/* The list itself. Without this it is whatever the platform decides. */
+.bp-modal select option {
+    background-color: #1b2440;
+    color: var(--text);
+    padding: 6px 10px;
+}
+.bp-modal select option:checked { background-color: #2b3766; }
+
+/* Text inputs in the panel, matched to the selects so a row reads as one set
+   of controls rather than three unrelated widgets. */
+.bp-modal input[type="text"] {
+    background-color: #1b2440;
+    color: var(--text);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 8px 11px;
+    font-size: 12.5px;
+    font-family: inherit;
+    outline: none;
+    transition: border-color .12s ease, box-shadow .12s ease;
+}
+.bp-modal input[type="text"]::placeholder { color: #6b7794; }
+.bp-modal input[type="text"]:focus-visible,
+.bp-modal input[type="text"]:focus {
+    border-color: var(--accent);
+    box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.28);
+}
+
+/* --- Structure ----------------------------------------------------------
+   The panel is long: eight sections of similar weight scrolling past with no
+   separation. Give the heading a rule and the whole thing a rhythm. */
+.bp-modal-card { padding: 0; }
+.bp-modal-card > .bp-modal-head {
+    position: sticky;
+    top: 0;
+    z-index: 2;
+    margin: 0;
+    padding: 18px 20px 14px;
+    background: linear-gradient(180deg, var(--panel-solid) 78%, rgba(17,24,44,0));
+    border-bottom: 1px solid var(--border);
+}
+.bp-modal-card > .world-section,
+.bp-modal-card > .bp-modal-foot,
+.bp-modal-card > div:not(.bp-modal-head) { padding-left: 20px; padding-right: 20px; }
+.bp-modal-card > .world-section:last-of-type { padding-bottom: 20px; }
+
+.world-section { margin-top: 22px; }
+.world-title {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 11px;
+    font-weight: 700;
+    color: #b6c2dd;
+    text-transform: uppercase;
+    letter-spacing: .07em;
+    margin-bottom: 10px;
+}
+/* A hairline that runs to the edge of the section, so the eye can find the
+   next block without reading it. */
+.world-title::after {
+    content: "";
+    flex: 1;
+    height: 1px;
+    background: var(--border);
+}
+.import-row { margin-bottom: 10px; }
+.world-note { line-height: 1.5; }
+
+/* Checkboxes were the last native control left: a white platform box on a dark
+   panel, next to controls that had all been themed. */
+.bp-modal input[type="checkbox"] {
+    appearance: none;
+    -webkit-appearance: none;
+    width: 16px;
+    height: 16px;
+    flex: 0 0 16px;
+    margin: 0;
+    border: 1px solid rgba(255, 255, 255, 0.28);
+    border-radius: 5px;
+    background-color: #1b2440;
+    cursor: pointer;
+    display: inline-grid;
+    place-content: center;
+    transition: background-color .12s ease, border-color .12s ease;
+}
+.bp-modal input[type="checkbox"]::before {
+    content: "";
+    width: 9px;
+    height: 9px;
+    transform: scale(0);
+    transition: transform .12s ease;
+    box-shadow: inset 9px 9px #fff;
+    clip-path: polygon(14% 44%, 0 65%, 50% 100%, 100% 16%, 80% 0%, 43% 62%);
+}
+.bp-modal input[type="checkbox"]:checked {
+    background-color: var(--accent);
+    border-color: var(--accent);
+}
+.bp-modal input[type="checkbox"]:checked::before { transform: scale(1); }
+.bp-modal input[type="checkbox"]:hover { border-color: rgba(255, 255, 255, 0.45); }
+.bp-modal input[type="checkbox"]:focus-visible {
+    outline: none;
+    box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.32);
+}
+/* The label a checkbox sits in should read as one clickable thing. */
+.bp-modal .import-check,
+.bp-modal .world-toggle {
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    cursor: pointer;
+    user-select: none;
+}

@@ -71,23 +71,25 @@
             modal.setAttribute('aria-hidden', 'false');
 
             // Public link handler
-            publicBtn.onclick = () => {
+            const showPublicLink = (quiet) => {
                 keyInputContainer.style.display = 'none';
 
                 const encoded = this._encodeChannelAuth(channelName, channelPassword, apiKey);
                 if (!encoded) {
-                    this._showToast('Failed to generate share link', 'error');
-                    return;
+                    if (!quiet) this._showToast('Failed to generate share link', 'error');
+                    return false;
                 }
 
                 // Add channel name as descriptive hashtag (for display only, not parsed)
                 const channelHashtag = this._sanitizeChannelNameForUrl(channelName);
                 const shareUrl = window.location.origin + window.location.pathname + '#' + encoded + '#' + channelHashtag;
                 linkOutput.value = shareUrl;
-                linkLabel.textContent = '📋 Public Share Link';
+                linkLabel.textContent = 'Public share link';
                 linkContainer.style.display = 'block';
                 encryptionInfo.style.display = 'none';
+                return shareUrl;
             };
+            publicBtn.onclick = () => showPublicLink(false);
 
             // Function to generate encrypted link
             const generateEncryptedLink = () => {
@@ -118,7 +120,7 @@
                 const channelHashtag = this._sanitizeChannelNameForUrl(channelName);
                 const shareUrl = window.location.origin + window.location.pathname + '#' + encoded + '#' + channelHashtag + '#encrypted';
                 linkOutput.value = shareUrl;
-                linkLabel.textContent = '🔐 Encrypted Share Link';
+                linkLabel.textContent = 'Encrypted Share Link';
                 linkContainer.style.display = 'block';
                 encryptionInfo.style.display = 'block';
                 keyDisplay.textContent = agentName;
@@ -191,6 +193,11 @@
                 };
             }
 
+            // The dialog opens ready to use: the public link, and the code
+            // that carries it, rather than two buttons and an empty box.
+            const opening = showPublicLink(true);
+            if (opening && qrContainer) this._generateQRCode(opening, qrContainer, true);
+
             // Close button
             closeBtn.onclick = () => this.hide();
 
@@ -205,7 +212,7 @@
                 const channelHashtag = this._sanitizeChannelNameForUrl(channelName);
                 const shareUrl = window.location.origin + window.location.pathname + '#' + encoded + '#' + channelHashtag;
                 linkOutput.value = shareUrl;
-                linkLabel.textContent = '📋 Public Share Link';
+                linkLabel.textContent = 'Public Share Link';
                 linkContainer.style.display = 'block';
                 encryptionInfo.style.display = 'none';
             }
@@ -246,7 +253,7 @@
                 const { encoded, isEncrypted } = this._parseChannelHash(hash);
 
                 if (!encoded) {
-                    console.warn('Invalid share link');
+                    // An ordinary hash, not a share payload — nothing to do.
                     return;
                 }
 
@@ -271,8 +278,22 @@
 
         _parseChannelHash: function(hash) {
             const parts = hash.substring(1).split('#');
+            const raw = parts[0] || '';
+
+            // Not every hash is a share payload. A page can be opened with a
+            // parameter-style hash (#channel=my-room) or an ordinary document
+            // anchor, and both used to be handed to atob() — which threw, failed
+            // all three decode strategies, and showed the reader a red "Invalid
+            // share link" toast on a link that was never a share link at all.
+            // A real payload is base64 of a JSON body: long, in the base64
+            // alphabet, and with '=' only as trailing padding.
+            const eq = raw.indexOf('=');
+            const isParamForm = eq > 0 && eq < raw.length - 2;
+            const isBase64ish = /^[A-Za-z0-9+/_-]+={0,2}$/.test(raw);
+            const looksLikePayload = raw.length >= 8 && isBase64ish && !isParamForm;
+
             return {
-                encoded: parts[0],
+                encoded: looksLikePayload ? raw : null,
                 isEncrypted: parts.length > 1 && parts[parts.length - 1] === 'encrypted'
             };
         },
@@ -384,7 +405,7 @@
 
             if (navigator.clipboard && navigator.clipboard.writeText) {
                 navigator.clipboard.writeText(text).then(() => {
-                    this._showToast(isEncrypted ? '🔐 Encrypted link copied!' : '📋 Link copied!', 'success');
+                    this._showToast(isEncrypted ? 'Encrypted link copied!' : 'Link copied!', 'success');
                     if (copyBtn) {
                         copyBtn.textContent = 'Copied!';
                         setTimeout(() => { copyBtn.textContent = 'Copy'; }, 2000);
@@ -407,7 +428,7 @@
             textArea.select();
             try {
                 document.execCommand('copy');
-                this._showToast(isEncrypted ? '🔐 Encrypted link copied!' : '📋 Link copied!', 'success');
+                this._showToast(isEncrypted ? 'Encrypted link copied!' : 'Link copied!', 'success');
             } catch (err) {
                 console.error('Fallback copy failed:', err);
                 this._showToast('Could not copy link', 'error');
@@ -415,11 +436,11 @@
             document.body.removeChild(textArea);
         },
 
-        _generateQRCode: function(url, container) {
+        _generateQRCode: function(url, container, quiet) {
             try {
                 if (typeof QRCode === 'undefined') {
                     console.error('QRCode library not loaded');
-                    this._showToast('QR code library not loaded', 'error');
+                    if (!quiet) this._showToast('QR code library not loaded', 'error');
                     return;
                 }
 
@@ -444,7 +465,7 @@
                 });
 
                 container.style.display = 'block';
-                this._showToast('📱 QR code generated!', 'success');
+                if (!quiet) this._showToast('QR code generated', 'success');
             } catch (e) {
                 console.error('QR generation error:', e);
                 this._showToast('Failed to generate QR code: ' + e.message, 'error');
@@ -658,10 +679,10 @@
 <div id="share-modal" class="modal" aria-hidden="true" role="dialog" aria-labelledby="share-title">
     <div class="modal-content" style="max-width:520px;">
         <div class="modal-body">
-            <h3 id="share-title" style="margin-top:0;">🔗 Share Channel</h3>
+            <h3 id="share-title" style="margin-top:0;">Share Channel</h3>
             <div style="margin-bottom:16px;">
                 <p style="margin:8px 0;color:var(--muted);font-size:13px;">
-                    📱 Share with other devices or invite friends to collaborate!
+                    Share with other devices, or invite somebody to collaborate.
                 </p>
 
                 <!-- Encryption Key Input (shown when encrypted option selected) -->
@@ -670,19 +691,19 @@
                         <label for="share-key-input">Encryption Key (Agent Name)</label>
                         <input id="share-key-input" type="text" placeholder="Agent name for encryption" style="font-weight:600;"/>
                         <div class="small" style="color:var(--muted);margin-top:4px;">
-                            💡 A unique key has been generated. You can edit it if needed. Press Enter or click "Encrypted Link" again to confirm.
+                            A unique key has been generated. You can edit it if needed. Press Enter or click "Encrypted Link" again to confirm.
                         </div>
                     </div>
                 </div>
 
                 <div style="display:flex;gap:12px;margin:16px 0;">
-                    <button id="share-public-btn" class="btn" style="flex:1;display:none;align-items:center;justify-content:center;gap:6px;padding:12px;">
+                    <button id="share-public-btn" class="btn" style="flex:1;display:flex;align-items:center;justify-content:center;gap:6px;padding:12px;">
                         <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3.055 11H5a2 2 0 012 2v1a2 2 0 002 2 2 2 0 012 2v2.945M8 3.935V5.5A2.5 2.5 0 0010.5 8h.5a2 2 0 012 2 2 2 0 104 0 2 2 0 012-2h1.064M15 20.488V18a2 2 0 012-2h3.064M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
                         </svg>
                         Public Link
                     </button>
-                    <button id="share-encrypted-btn" class="btn primary" style="flex:1;display:none;align-items:center;justify-content:center;gap:6px;padding:12px;">
+                    <button id="share-encrypted-btn" class="btn primary" style="flex:1;display:flex;align-items:center;justify-content:center;gap:6px;padding:12px;">
                         <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/>
                         </svg>
@@ -710,12 +731,12 @@
                             <div id="share-qr-display"></div>
                         </div>
                         <div style="margin-top:8px;font-size:12px;color:var(--muted);">
-                            📱 Scan with mobile device to open link
+                            Scan this with a phone to open the link
                         </div>
                     </div>
 
                     <div id="share-encryption-info" style="display:none;margin-top:8px;padding:8px;background:rgba(79,70,229,0.1);border-radius:6px;font-size:12px;color:var(--muted);">
-                        🔐 <strong style="color:#e6eef8;">Encryption Key:</strong> <span id="share-key-display"></span>
+                        <strong style="color:#e6eef8;">Encryption key:</strong> <span id="share-key-display"></span>
                         <br/>Share this agent name with the recipient to decrypt the link.
                     </div>
                 </div>

@@ -2,9 +2,21 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
+    <script src="../../js/prod-log.js"></script>
+    <link rel="icon" type="image/svg+xml" href="../../favicon.svg">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <meta name="theme-color" content="#6965db">
     <title>🎨 Pictionary - Drawing & Guessing Game</title>
+    <meta name="description" content="One player draws, everyone else races to guess. The strokes stream live while the word stays secret to the artist.">
+    <link rel="canonical" href="https://hmdevonline.com/messaging-platform/sdk/apps/pictionary/index.html">
+
+    <meta property="og:type" content="website">
+    <meta property="og:site_name" content="Messaging Platform SDK">
+    <meta property="og:title" content="Pictionary — draw and guess">
+    <meta property="og:description" content="One player draws, everyone else races to guess. The strokes stream live while the word stays secret to the artist.">
+    <meta property="og:url" content="https://hmdevonline.com/messaging-platform/sdk/apps/pictionary/index.html">
+    <meta property="og:image" content="https://hmdevonline.com/messaging-platform/sdk/images/og-image.png">
+    <meta name="twitter:card" content="summary_large_image">
 
     <!-- Common Styles -->
     <link rel="stylesheet" href="../../css/toast.css">
@@ -12,7 +24,10 @@
     <link rel="stylesheet" href="../../css/share-modal.css">
 
     <!-- Game Styles -->
+    <link rel="stylesheet" href="../../css/design-tokens.css">
+    <link rel="stylesheet" href="../../css/ui.css">
     <link rel="stylesheet" href="pictionary.css">
+    <link rel="stylesheet" href="../../css/app-chrome.css">
 </head>
 <body>
     <!-- Share Button -->
@@ -31,7 +46,7 @@
         <!-- Header -->
         <div class="game-header">
             <div class="header-left">
-                <h1>🎨 Pictionary</h1>
+                <h1><svg class="icon" aria-hidden="true"><use href="#i-pen"></use></svg> Pictionary</h1>
                 <span id="roomName" class="room-badge"></span>
             </div>
             <div class="header-right">
@@ -108,7 +123,7 @@
             <!-- Right Sidebar: Chat & Guesses -->
             <div class="sidebar-right">
                 <div class="chat-panel">
-                    <h3>💬 Guesses</h3>
+                    <h3 data-agents-header><svg class="icon icon--sm" aria-hidden="true"><use href="#i-message"></use></svg> Guesses</h3>
                     <div id="chatMessages" class="chat-messages"></div>
                     <div class="chat-input-area">
                         <input type="text" id="chatInput" placeholder="Type your guess..." maxlength="100">
@@ -156,18 +171,23 @@
 
     <!-- Include Libraries -->
     <script src="../../js/config-loader.js"></script>
+    <script src="../../js/icons.js"></script>
+    <script src="../../js/ui.js"></script>
     <script src="../../lib/qrcode.min.js"></script>
-    <script src="../../generated-web-agent-js/messaging-web-agent.js"></script>
+    <script src="../../generated-web-agent-js/js/web-agent.libs.js"></script>
+    <script src="../../generated-web-agent-js/js/web-agent.js"></script>
+    <script src="../../generated-web-agent-js/js/web-agent.webrtc.js"></script>
     <script src="../../js/UserConnectionBase.js"></script>
-    <script src="../../js/MiniGameUtils.js"></script>
 
     <!-- Game Logic -->
     <script src="pictionary.js"></script>
 
     <!-- Connection Modal & Share -->
+    <script src="../../js/dialog.js"></script>
     <script src="../../js/common-utils.js"></script>
     <script src="../../js/connection-modal.js"></script>
     <script src="../../js/share-modal.js"></script>
+<script src="../../js/app-chrome.js"></script>
 </body>
 </html>
 

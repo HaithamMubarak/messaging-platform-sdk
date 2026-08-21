@@ -1,6 +1,5 @@
 package com.hmdev.messaging.sdk.controller;
 
-import com.hmdev.messaging.sdk.config.WebDemosProperties;
 import com.hmdev.messaging.sdk.service.MessagingServiceClient;
 import com.hmdev.messaging.sdk.base.BaseApiConfigController;
 import com.hmdev.messaging.sdk.dto.JsonResponse;
@@ -9,7 +8,7 @@ import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
-import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.Map;
 
 /**
@@ -26,11 +25,8 @@ import java.util.Map;
 @Slf4j
 public class ApiController extends BaseApiConfigController {
 
-    private final WebDemosProperties properties;
-
-    public ApiController(MessagingServiceClient messagingServiceClient, WebDemosProperties properties) {
+    public ApiController(MessagingServiceClient messagingServiceClient) {
         super(messagingServiceClient);
-        this.properties = properties;
     }
 
     /**
@@ -51,50 +47,93 @@ public class ApiController extends BaseApiConfigController {
      */
     @GetMapping(value = "/games", produces = MediaType.APPLICATION_JSON_VALUE)
     public ResponseEntity<JsonResponse> listGames() {
-        Map<String, Object> games = new HashMap<>();
+        // LinkedHashMap so the JSON keeps the same order as the playground page.
+        // party-physics and race-balls are deliberately absent: they are not
+        // published on this site.
+        // URLs are RELATIVE to the site root on purpose: this site is served from
+        // /messaging-platform/sdk/, not the domain root, so a leading slash would
+        // point a caller at a path that does not exist.
+        Map<String, Object> games = new LinkedHashMap<>();
+
+        games.put("blockparty", game("BlockParty", "\uD83E\uDDF1",
+                "Build a shared 3D voxel world together in real time, anywhere on Earth.",
+                "apps/mini-games/blockparty/index.html", "2-20", "Unlimited", "Easy"));
+
+        games.put("air-hockey", game("Air Hockey", "\uD83C\uDFD2",
+                "Classic air hockey with a multiplayer twist \u2014 score goals and dominate the rink.",
+                "apps/mini-games/air-hockey/index.html", "2-4", "3-5 minutes", "Easy"));
+
+        games.put("quiz-battle", game("Quiz Battle", "\uD83E\uDDE0",
+                "Answer trivia questions faster than your opponents.",
+                "apps/mini-games/quiz-battle/index.html", "2-10", "3-5 minutes", "Easy"));
+
+        games.put("find-the-liar", game("Find the Liar", "\uD83E\uDD25",
+                "Social deduction \u2014 spot the players who only got a hint.",
+                "apps/mini-games/find-the-liar/index.html", "3-10", "5-10 minutes", "Easy"));
+
+        games.put("fall-guys", game("Fall Guys Race", "\uD83C\uDFC3",
+                "Obstacle course racing \u2014 dodge dynamic hazards and race to victory.",
+                "apps/mini-games/fall-guys/index.html", "4-20", "5-8 minutes", "Medium"));
 
 
-        games.put("quiz-battle", Map.of(
-                "name", "Quiz Battle",
-                "description", "Answer trivia questions faster than your opponents!",
-                "url", "/quiz-battle/",
-                "players", "2-10",
-                "duration", "3-5 minutes",
-                "difficulty", "Easy",
-                "icon", "🧠"
-        ));
 
-        games.put("whiteboard", Map.of(
-                "name", "Real-Time Whiteboard",
-                "description", "Draw together in real-time with friends!",
-                "url", "/whiteboard/",
-                "players", "2-20",
-                "duration", "Unlimited",
-                "difficulty", "Easy",
-                "icon", "🎨"
-        ));
+        games.put("reactor", game("4-Player Reactor", "\u26A1",
+                "Fast-paced reaction game \u2014 hit your colour zone the moment it lights up.",
+                "apps/mini-games/reactor/reactor-client.html", "2-4", "2-3 minutes", "Easy"));
+
+        games.put("pictionary", game("Pictionary", "\uD83C\uDFA8",
+                "One player draws, everyone else races to guess.",
+                "apps/pictionary/index.html", "3-10", "5-10 minutes", "Easy"));
+
+        games.put("chess", game("Chess", "\u265F",
+                "Two-player chess with full rules and a board that survives a refresh.",
+                "apps/chess/index.html", "2", "Unlimited", "Medium"));
+
+        games.put("whiteboard", game("Real-Time Whiteboard", "\uD83D\uDD8C",
+                "Draw together in real time with pan, zoom and undo.",
+                "apps/whiteboard/index.html", "2-20", "Unlimited", "Easy"));
 
         return ResponseEntity.ok(JsonResponse.success(games));
     }
 
+    private static Map<String, Object> game(String name, String icon, String description,
+                                            String url, String players, String duration,
+                                            String difficulty) {
+        Map<String, Object> game = new LinkedHashMap<>();
+        game.put("name", name);
+        game.put("icon", icon);
+        game.put("description", description);
+        game.put("url", url);
+        game.put("players", players);
+        game.put("duration", duration);
+        game.put("difficulty", difficulty);
+        return game;
+    }
+
     /**
-     * Health check endpoint
+     * Health check endpoint.
      *
-     * @return Service health status
+     * <p>This is public and unauthenticated, so it reports only whether the
+     * backend is reachable — never which backend. The configured messaging
+     * service URL is deployment detail (and is often an internal hostname), and
+     * this site is meant to be a black box over the platform.
      */
     @GetMapping("/health")
     public ResponseEntity<Map<String, Object>> health() {
-        Map<String, Object> response = new HashMap<>();
+        Map<String, Object> response = new LinkedHashMap<>();
         response.put("status", "UP");
         response.put("service", "web-demos-server");
-        response.put("version", "1.0.0");
+        response.put("version", version());
 
-        // Check messaging service availability
         boolean messagingAvailable = messagingServiceClient.isMessagingServiceAvailable();
         response.put("messagingService", messagingAvailable ? "UP" : "DOWN");
-        response.put("messagingServiceUrl", properties.getMessagingServiceUrl());
 
         return ResponseEntity.ok(response);
     }
-}
 
+    /** Version stamped into the jar manifest at build time, when there is one. */
+    private String version() {
+        String implVersion = ApiController.class.getPackage().getImplementationVersion();
+        return implVersion != null ? implVersion : "dev";
+    }
+}

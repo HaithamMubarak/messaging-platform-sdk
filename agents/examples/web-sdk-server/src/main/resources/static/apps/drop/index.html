@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+    <title>Drop — peer-to-peer file transfer on the Messaging Platform SDK</title>
+    <meta name="description" content="Send a file to whoever is in the room. It travels in chunks over the data channel, straight between browsers — nothing is uploaded and nothing is stored.">
+    <meta name="theme-color" content="#0b1120">
+    <link rel="canonical" href="https://hmdevonline.com/messaging-platform/sdk/apps/drop/index.html">
+    <meta property="og:type" content="website">
+    <meta property="og:site_name" content="Messaging Platform SDK">
+    <meta property="og:title" content="Drop">
+    <meta property="og:description" content="Send a file to whoever is in the room. It travels in chunks over the data channel, straight between browsers — nothing is uploaded and nothing is stored.">
+    <meta property="og:url" content="https://hmdevonline.com/messaging-platform/sdk/apps/drop/index.html">
+    <meta property="og:image" content="https://hmdevonline.com/messaging-platform/sdk/images/og-image.png">
+    <meta name="twitter:card" content="summary_large_image">
+    <meta name="twitter:title" content="Drop">
+    <meta name="twitter:description" content="Send a file to whoever is in the room. It travels in chunks over the data channel, straight between browsers — nothing is uploaded and nothing is stored.">
+    <meta name="twitter:image" content="https://hmdevonline.com/messaging-platform/sdk/images/og-image.png">
+
+    <link rel="icon" type="image/svg+xml" href="../../favicon.svg">
+    <link rel="stylesheet" href="../../css/design-tokens.css">
+    <link rel="stylesheet" href="../../css/ui.css">
+    <link rel="stylesheet" href="../../css/sdk-app.css">
+    <link rel="stylesheet" href="../../css/toast.css">
+    <link rel="stylesheet" href="../../css/connection-modal.css">
+    <link rel="stylesheet" href="../../css/share-modal.css">
+    <link rel="stylesheet" href="drop.css">
+
+    <script src="../../js/prod-log.js"></script>
+</head>
+<body class="sdk-app">
+
+<header class="sdk-header">
+    <span class="sdk-header__mark">
+        <svg class="icon" aria-hidden="true"><use href="#i-download"></use></svg>
+    </span>
+    <h1>Drop</h1>
+    <span class="sdk-room" id="roomName">not connected</span>
+
+    <div class="sdk-header__right">
+        <span class="pill-status is-off" id="statusPill">
+            <span class="pill-status__dot"></span>
+            <span class="pill-status__text">Not connected</span>
+        </span>
+        <a class="btn btn--ghost sdk-header__away" href="../../playground.html">
+            <svg class="icon icon--sm" aria-hidden="true"><use href="#i-arrow-right"></use></svg>
+            <span>Playground</span>
+        </a>
+    </div>
+</header>
+
+<main class="sdk-stage">
+    <div class="sdk-main">
+        <button class="dropzone" id="dropZone" type="button">
+            <span class="dropzone__mark">
+                <svg class="icon" aria-hidden="true"><use href="#i-download"></use></svg>
+            </span>
+            <span class="dropzone__title">Drop a file to send it</span>
+            <span class="dropzone__note">
+                It goes straight to the other browsers in this room, in 16&nbsp;KB chunks over the data
+                channel. Nothing is uploaded, nothing is stored, and the history is gone when everyone leaves.
+            </span>
+        </button>
+        <input type="file" id="fileInput" hidden>
+
+        <div class="sdk-side__title" style="margin-top: var(--sp-2)">
+            <span>Transfers</span>
+            <span id="transferSummary" style="font-weight:500; text-transform:none; letter-spacing:0; font-family:var(--font-mono)"></span>
+        </div>
+        <div class="sdk-scroll transfers" id="transfers"></div>
+    </div>
+
+    <aside class="sdk-side">
+        <div class="sdk-side__title"><span>Send to</span></div>
+        <div class="peers" id="peers"></div>
+        <p class="sdk-note">
+            <strong>Relayed</strong> means a direct connection could not be made and the transfer is going
+            through a relay. Slower, still encrypted end to end.
+        </p>
+    </aside>
+</main>
+
+<script src="../../js/config-loader.js"></script>
+<script src="../../generated-web-agent-js/js/web-agent.libs.js"></script>
+<script src="../../generated-web-agent-js/js/web-agent.js"></script>
+<script src="../../generated-web-agent-js/js/web-agent.webrtc.js"></script>
+<script src="../../js/icons.js"></script>
+<script src="../../js/ui.js"></script>
+<script src="../../js/share-modal.js"></script>
+<script src="../../js/dialog.js"></script>
+<script src="../../js/common-utils.js"></script>
+<script src="../../js/connection-modal.js"></script>
+<script src="../../js/UserConnectionBase.js"></script>
+<script src="drop.js"></script>
+</body>
+</html>

@@ -1,234 +1,177 @@
 /**
- * Admin Panel API Client
- * Handles communication with the messaging service admin endpoints
+ * Admin console API client.
+ *
+ * Credentials live in sessionStorage rather than localStorage so a token does
+ * not survive the browser session. Every response is checked with response.ok
+ * before parsing, so a proxy error page surfaces as a clear message instead of
+ * a JSON syntax error.
  */
-const AdminAPI = (function() {
-    // Configuration - uses shared ApiConfig
-    const CONFIG = {
-        baseUrl: ApiConfig.getAdminUrl(),
-        tokenKey: 'admin_token',
-        adminInfoKey: 'admin_info'
-    };
+const AdminAPI = (function () {
+    'use strict';
 
-    /**
-     * Store authentication token
-     */
-    function setToken(token) {
-        localStorage.setItem(CONFIG.tokenKey, token);
-    }
+    const TOKEN_KEY = 'admin_token';
+    const INFO_KEY = 'admin_info';
+    const store = window.sessionStorage;
 
-    /**
-     * Get stored authentication token
-     */
-    function getToken() {
-        return localStorage.getItem(CONFIG.tokenKey);
-    }
+    function getToken() { return store.getItem(TOKEN_KEY); }
+    function setToken(token) { store.setItem(TOKEN_KEY, token); }
 
-    /**
-     * Clear authentication data
-     */
-    function clearAuth() {
-        localStorage.removeItem(CONFIG.tokenKey);
-        localStorage.removeItem(CONFIG.adminInfoKey);
-    }
-
-    /**
-     * Store admin info
-     */
-    function setAdminInfo(info) {
-        localStorage.setItem(CONFIG.adminInfoKey, JSON.stringify(info));
-    }
-
-    /**
-     * Get stored admin info
-     */
+    function setAdminInfo(info) { store.setItem(INFO_KEY, JSON.stringify(info)); }
     function getAdminInfo() {
-        const info = localStorage.getItem(CONFIG.adminInfoKey);
-        return info ? JSON.parse(info) : null;
+        const raw = store.getItem(INFO_KEY);
+        if (!raw) return null;
+        try { return JSON.parse(raw); } catch (e) { return null; }
     }
 
-    /**
-     * Check if user is logged in
-     */
-    function isLoggedIn() {
-        return !!getToken();
+    function clearAuth() {
+        store.removeItem(TOKEN_KEY);
+        store.removeItem(INFO_KEY);
+        localStorage.removeItem(TOKEN_KEY);
+        localStorage.removeItem(INFO_KEY);
     }
 
-    /**
-     * Make API request with authentication
-     */
-    async function apiRequest(endpoint, options = {}) {
+    function isLoggedIn() { return !!getToken(); }
+
+    function sessionExpired() {
+        clearAuth();
+        window.location.replace('index.html?expired=1');
+    }
+
+    /** Raised for HTTP 403 so callers can probe for owner-only capabilities. */
+    function ForbiddenError(message) {
+        const err = new Error(message || 'This action requires owner privileges.');
+        err.forbidden = true;
+        return err;
+    }
+
+    async function request(path, options) {
+        const opts = options || {};
+        const headers = Object.assign({ 'Content-Type': 'application/json' }, opts.headers);
         const token = getToken();
+        if (token) headers['X-Admin-Token'] = token;
 
-        const headers = {
-            'Content-Type': 'application/json',
-            ...options.headers
-        };
-
-        if (token) {
-            headers['X-Admin-Token'] = token;
+        let response;
+        try {
+            response = await fetch(ApiConfig.getAdminUrl() + path, Object.assign({}, opts, { headers }));
+        } catch (e) {
+            throw new Error('Network error — could not reach the messaging service.');
         }
 
-        const response = await fetch(`${CONFIG.baseUrl}${endpoint}`, {
-            ...options,
-            headers
-        });
-
-        const data = await response.json();
-
-        if (data.status === 'unauthorized') {
-            clearAuth();
-            window.location.href = 'index.html';
-            throw new Error('Session expired. Please log in again.');
+        const text = await response.text();
+        let body = null;
+        if (text) {
+            try { body = JSON.parse(text); } catch (e) { body = { statusMessage: text.slice(0, 200) }; }
         }
 
-        if (data.status === 'error') {
-            throw new Error(data.statusMessage || 'Request failed');
+        if (response.status === 401 || (body && body.status === 'unauthorized')) {
+            sessionExpired();
+            throw new Error('Your admin session expired. Please sign in again.');
         }
-
-        return data.data;
+        if (response.status === 403 || (body && body.status === 'forbidden')) {
+            throw ForbiddenError(body && body.statusMessage);
+        }
+        if (!response.ok || (body && body.status === 'error')) {
+            const err = new Error((body && (body.statusMessage || body.message)) || 'Request failed (' + response.status + ')');
+            err.status = response.status;
+            throw err;
+        }
+        return body ? body.data : null;
     }
 
-    /**
-     * Login with email and password
-     */
+    /* ------------------------------------------------------------------ auth */
+
     async function login(email, password) {
+        let response;
         try {
-            const response = await fetch(`${CONFIG.baseUrl}/auth`, {
+            response = await fetch(ApiConfig.getAdminUrl() + '/auth', {
                 method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json'
-                },
+                headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ email, password })
             });
-
-            const data = await response.json();
-
-            if (data.status === 'success' && data.data) {
-                setToken(data.data.token);
-                setAdminInfo(data.data.admin);
-                return { success: true, admin: data.data.admin };
-            } else {
-                return { success: false, error: data.statusMessage || 'Authentication failed' };
-            }
-        } catch (error) {
-            return { success: false, error: error.message || 'Network error' };
+        } catch (e) {
+            throw new Error('Network error — could not reach the messaging service.');
         }
+
+        const text = await response.text();
+        let body = null;
+        if (text) {
+            try { body = JSON.parse(text); } catch (e) { body = null; }
+        }
+
+        if (!response.ok || !body || body.status !== 'success' || !body.data) {
+            throw new Error((body && body.statusMessage) || 'Invalid credentials or insufficient privileges.');
+        }
+        setToken(body.data.token);
+        setAdminInfo(body.data.admin);
+        return body.data.admin;
     }
 
-    /**
-     * Logout
-     */
     async function logout() {
-        try {
-            await apiRequest('/logout', { method: 'POST' });
-        } catch (e) {
-            // Ignore errors on logout
-        }
+        try { await request('/logout', { method: 'POST' }); } catch (e) { /* clear locally regardless */ }
         clearAuth();
     }
 
-    /**
-     * Get dashboard statistics
-     */
-    async function getStats() {
-        return apiRequest('/stats');
-    }
+    /* ------------------------------------------------------------------ data */
 
-    /**
-     * Get all developers (paginated)
-     */
-    async function getDevelopers(page = 0, size = 20, sort = 'createdAt', dir = 'desc') {
-        return apiRequest(`/developers?page=${page}&size=${size}&sort=${sort}&dir=${dir}`);
-    }
+    const getStats = () => request('/stats');
+    const getPlans = () => request('/plans');
 
-    /**
-     * Get developer by ID
-     */
-    async function getDeveloper(id) {
-        return apiRequest(`/developers/${id}`);
-    }
+    const getDevelopers = (page, size, sort, dir, query) =>
+        request('/developers?page=' + (page || 0) + '&size=' + (size || 20) +
+                '&sort=' + (sort || 'createdAt') + '&dir=' + (dir || 'desc') +
+                (query ? '&q=' + encodeURIComponent(query) : ''));
 
-    /**
-     * Create new developer
-     */
-    async function createDeveloper(data) {
-        return apiRequest('/developers', {
-            method: 'POST',
-            body: JSON.stringify(data)
+    /** Tail of the admin audit log — every privileged mutation is recorded. */
+    const getAuditLog = (limit) => request('/audit?limit=' + (limit || 100));
+
+    const getDeveloper = (id) => request('/developers/' + encodeURIComponent(id));
+
+    const createDeveloper = (data) =>
+        request('/developers', { method: 'POST', body: JSON.stringify(data) });
+
+    const updateDeveloperPlan = (id, planId) =>
+        request('/developers/' + encodeURIComponent(id) + '/plan', {
+            method: 'PUT', body: JSON.stringify({ planId })
         });
-    }
 
-    /**
-     * Update developer's plan
-     */
-    async function updateDeveloperPlan(developerId, planId) {
-        return apiRequest(`/developers/${developerId}/plan`, {
-            method: 'PUT',
-            body: JSON.stringify({ planId })
+    const resetDeveloperPassword = (id) =>
+        request('/developers/' + encodeURIComponent(id) + '/reset-password', { method: 'POST' });
+
+    /* --------------------------------------------------------- owner-only ---
+       These return a ForbiddenError for a non-owner admin; the console probes
+       with listAdmins() on boot and hides the controls when that happens. */
+
+    const listAdmins = () => request('/admins');
+
+    const updateDeveloperRoles = (id, roles) =>
+        request('/developers/' + encodeURIComponent(id) + '/roles', {
+            method: 'PUT', body: JSON.stringify({ roles })
         });
-    }
 
-    /**
-     * Get all plans
-     */
-    async function getPlans() {
-        return apiRequest('/plans');
-    }
+    const deleteDeveloper = (id) =>
+        request('/developers/' + encodeURIComponent(id), { method: 'DELETE' });
 
-    /**
-     * Get API key requests (paginated)
-     */
-    async function getApiRequests(page = 0, size = 20, status = null) {
-        let url = `/api-requests?page=${page}&size=${size}`;
-        if (status) {
-            url += `&status=${status}`;
-        }
-        return apiRequest(url);
-    }
+    /* --------------------------------------------------------- key requests */
 
-    /**
-     * Get pending request count
-     */
-    async function getPendingRequestCount() {
-        return apiRequest('/api-requests/pending-count');
-    }
+    const getApiRequests = (page, size, status) =>
+        request('/api-requests?page=' + (page || 0) + '&size=' + (size || 20) +
+                (status ? '&status=' + encodeURIComponent(status) : ''));
 
-    /**
-     * Approve an API key request
-     */
-    async function approveApiRequest(requestId) {
-        return apiRequest(`/api-requests/${requestId}/approve`, {
-            method: 'POST'
+    const getPendingRequestCount = () => request('/api-requests/pending-count');
+
+    const approveApiRequest = (id) =>
+        request('/api-requests/' + encodeURIComponent(id) + '/approve', { method: 'POST' });
+
+    const rejectApiRequest = (id, reason) =>
+        request('/api-requests/' + encodeURIComponent(id) + '/reject', {
+            method: 'POST', body: JSON.stringify({ reason: reason || null })
         });
-    }
 
-    /**
-     * Reject an API key request
-     */
-    async function rejectApiRequest(requestId, reason = null) {
-        return apiRequest(`/api-requests/${requestId}/reject`, {
-            method: 'POST',
-            body: JSON.stringify({ reason })
-        });
-    }
-
-    // Public API
     return {
-        login,
-        logout,
-        isLoggedIn,
-        getAdminInfo,
-        getStats,
-        getDevelopers,
-        getDeveloper,
-        createDeveloper,
-        updateDeveloperPlan,
-        getPlans,
-        getApiRequests,
-        getPendingRequestCount,
-        approveApiRequest,
-        rejectApiRequest
+        login, logout, isLoggedIn, getAdminInfo, clearAuth,
+        getStats, getPlans, getAuditLog,
+        getDevelopers, getDeveloper, createDeveloper, updateDeveloperPlan, resetDeveloperPassword,
+        listAdmins, updateDeveloperRoles, deleteDeveloper,
+        getApiRequests, getPendingRequestCount, approveApiRequest, rejectApiRequest
     };
 })();
-

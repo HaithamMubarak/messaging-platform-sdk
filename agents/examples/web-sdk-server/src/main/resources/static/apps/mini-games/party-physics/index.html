@@ -2,8 +2,22 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
+    <meta name="robots" content="noindex, nofollow">
+    <script src="../../../js/prod-log.js"></script>
+    <link rel="icon" type="image/svg+xml" href="../../../favicon.svg">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Party Physics - Multiplayer Brawl Game</title>
+    <meta name="description" content="Shove everyone else off a shrinking platform and be the last one standing. Rigid-body physics, shared across the room.">
+    <meta name="theme-color" content="#1a1a2e">
+    <link rel="canonical" href="https://hmdevonline.com/messaging-platform/sdk/apps/mini-games/party-physics/index.html">
+
+    <meta property="og:type" content="website">
+    <meta property="og:site_name" content="Messaging Platform SDK">
+    <meta property="og:title" content="Party Physics — multiplayer brawl">
+    <meta property="og:description" content="Shove everyone else off a shrinking platform and be the last one standing. Rigid-body physics, shared across the room.">
+    <meta property="og:url" content="https://hmdevonline.com/messaging-platform/sdk/apps/mini-games/party-physics/index.html">
+    <meta property="og:image" content="https://hmdevonline.com/messaging-platform/sdk/images/og-image.png">
+    <meta name="twitter:card" content="summary_large_image">
 
     <!-- Common Styles -->
     <link rel="stylesheet" href="../../../css/toast.css">
@@ -242,7 +256,7 @@
         <!-- Finish Overlay -->
         <div id="finishOverlay" class="finish-overlay hidden">
             <div class="finish-content">
-                <h1 id="finishTitle">🏆 Game Over!</h1>
+                <h2 id="finishTitle">🏆 Game Over!</h2>
                 <div id="finishResults" class="finish-results">
                     <!-- Results will be added here -->
                 </div>
@@ -273,6 +287,7 @@
     <script src="../../../generated-web-agent-js/js/web-agent.webrtc.js"></script>
 
     <script src="../../../js/share-modal.js"></script>
+    <script src="../../../js/dialog.js"></script>
     <script src="../../../js/common-utils.js"></script>
     <script src="../../../js/connection-modal.js"></script>
     <script src="../../../js/UserConnectionBase.js"></script>

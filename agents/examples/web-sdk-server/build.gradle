@@ -32,6 +32,11 @@ dependencies {
     implementation 'org.springframework.boot:spring-boot-starter-web'
     implementation 'org.springframework.boot:spring-boot-starter-actuator'
 
+    // Redis, used only to share short session codes between instances and
+    // across restarts. Optional at runtime: without session-code.redis-enabled
+    // the store stays in memory and nothing here is contacted.
+    implementation 'org.springframework.boot:spring-boot-starter-data-redis'
+
     // Configuration
     implementation 'org.springframework.boot:spring-boot-configuration-processor'
     annotationProcessor 'org.springframework.boot:spring-boot-configuration-processor'
@@ -125,6 +130,21 @@ if (webAgentJsExists) {
     }
 }
 
+// docs.html renders the guide by fetching ./USER-GUIDE.md at runtime, so the repo-root
+// copy has to land in the static folder. Copying (rather than duplicating the file) keeps
+// the repository root as the single source of truth.
+tasks.register('copyUserGuide', Copy) {
+    description = 'Copy USER-GUIDE.md from the repository root into the static folder for docs.html'
+    group = 'build'
+
+    from(rootProject.file('USER-GUIDE.md'))
+    into file('src/main/resources/static')
+
+    outputs.upToDateWhen { false }
+}
+
+processResources.dependsOn(tasks.named('copyUserGuide'))
+
 // NOTE: Mini-games are now stored directly in src/main/resources/static/mini-games/
 // No need to copy them - they are part of this module
 
@@ -138,12 +158,22 @@ if (webAgentJsExists) {
 // Clean task should remove generated files
 clean {
     delete file('src/main/resources/static/generated-web-agent-js')
+    delete file('src/main/resources/static/USER-GUIDE.md')
 }
 
 // Create executable jar with all web demos included
 bootJar {
     archiveFileName = 'web-sdk-server.jar'
     mainClass = 'com.hmdev.messaging.sdk.SdkWebApplication'
+
+    // ApiController reports this on /app/api/health; without it the endpoint
+    // has to fall back to "dev".
+    manifest {
+        attributes(
+            'Implementation-Title': 'web-sdk-server',
+            'Implementation-Version': project.version
+        )
+    }
 }
 
 // Create plain jar (for use as library/dependency)

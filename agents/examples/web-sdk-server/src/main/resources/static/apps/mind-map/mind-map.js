@@ -156,6 +156,11 @@ class MindMapApp extends UserConnectionBase {
     }
 
     onConnect(detail) {
+        // Dismiss the connection dialog — without this it stays over the app
+        // even though the session is live.
+        if (window.ConnectionModal && typeof window.ConnectionModal.hide === 'function') {
+            window.ConnectionModal.hide();
+        }
         console.log('[MindMap] Connected:', detail);
 
         // Show app container
@@ -710,7 +715,14 @@ class MindMapApp extends UserConnectionBase {
     }
 
     clearAll(isRemote = false) {
-        if (!isRemote && !confirm('Clear entire mind map?')) return;
+        if (!isRemote) {
+            MiniGameUtils.ask({
+                title: 'Clear the map?',
+                body: 'Every node and connection goes, for everyone in the room.',
+                confirmLabel: 'Clear it', danger: true
+            }).then((yes) => { if (yes) this.clearAll(true); });
+            return;
+        }
 
         this.nodes.clear();
         this.connections = [];
@@ -947,7 +959,7 @@ class MindMapApp extends UserConnectionBase {
             cursor.style.color = color;
             cursor.innerHTML = `
                 <div class="remote-cursor-icon"></div>
-                <div class="remote-cursor-label">${data.username}</div>
+                <div class="remote-cursor-label">${MiniGameUtils.escapeHtml(data.username)}</div>
             `;
 
             document.getElementById('cursorsContainer').appendChild(cursor);
@@ -1029,8 +1041,8 @@ class MindMapApp extends UserConnectionBase {
         this.users.forEach((user, username) => {
             html += `
                 <div class="user-item">
-                    <div class="user-color-indicator" style="background: ${user.color}"></div>
-                    <span>${username}</span>
+                    <div class="user-color-indicator" style="background: ${MiniGameUtils.safeColor(user.color)}"></div>
+                    <span>${MiniGameUtils.escapeHtml(username)}</span>
                 </div>
             `;
         });
@@ -1046,7 +1058,7 @@ class MindMapApp extends UserConnectionBase {
         const overlay = document.createElement('div');
         overlay.className = 'instructions-overlay';
         overlay.innerHTML = `
-            <h3>🗺️ Mind Map Controls</h3>
+            <h3>Mind Map Controls</h3>
             <ul>
                 <li>🖱️ <strong>Click & Drag</strong> - Move nodes</li>
                 <li>🖱️ <strong>Double Click</strong> - Edit node text</li>
@@ -1130,7 +1142,7 @@ async function connectMindMap(username, channel, password) {
         console.log('[MindMap] Connected and ready!');
     } catch (error) {
         console.error('[MindMap] Connection failed:', error);
-        alert('Failed to connect: ' + error.message);
+        if (window.ConnectionModal) ConnectionModal.fail(error);
         mindMapApp = null;
     } finally {
         isConnecting = false;
@@ -1141,8 +1153,8 @@ function initializeConnectionModal() {
     window.loadConnectionModal({
         localStoragePrefix: 'mindmap_',
         channelPrefix: 'mindmap-',
-        title: '🗺️ Join Mind Map',
-        collapsedTitle: '🗺️ Mind Map',
+        title: 'Join Mind Map',
+        collapsedTitle: 'Mind Map',
         onConnect: function(username, channel, password) {
             connectMindMap(username, channel, password);
         }

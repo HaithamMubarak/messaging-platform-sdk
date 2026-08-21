@@ -39,7 +39,10 @@
 // TEST MODE: Set to true to disable SLS service (for testing viewer-only mode)
 // When enabled, terminal will only connect to cloud and view shared sessions
 // without creating local terminal sessions (no backend required)
-const TEST_MODE_NO_SLS = localStorage.getItem('test_mode_no_sls') === 'true';
+// Enabled ONLY via the URL: append ?test to the address. (It used to live in
+// localStorage behind Ctrl+Shift+T, which both hijacked a browser shortcut and
+// let the app get stuck in a mode nothing on screen explained.)
+const TEST_MODE_NO_SLS = new URLSearchParams(window.location.search).has('test');
 
 // SDK Local Service Configuration
 const DEFAULT_SLS_PORT = 8088;
@@ -335,6 +338,10 @@ const tabSessionManager = new TabSessionManager();
  * @param {boolean} online - True if SLS is online, false if offline
  */
 function updateSlsDependentButtons(online) {
+    // "Local" was a noun with no verb. Say whether there is a shell to open.
+    const localLabel = document.getElementById('mlsStatusText');
+    if (localLabel) localLabel.textContent = online ? 'Local shell: ready' : 'Local shell: off';
+
     // Update toolbar buttons
     const buttons = document.querySelectorAll('.toolbar-btn.sls-dependent');
     buttons.forEach(btn => {
@@ -751,56 +758,35 @@ class CloudTerminalDataSender {
  *   toggleTestMode()  // Toggle current state
  */
 function toggleTestMode() {
-    const newMode = !TEST_MODE_NO_SLS;
-    localStorage.setItem('test_mode_no_sls', newMode.toString());
-    console.log(`🧪 Test mode ${newMode ? 'ENABLED' : 'DISABLED'} - Reload page to apply`);
-    showToast('info', 'Test Mode', `${newMode ? 'Enabled' : 'Disabled'} - Reload page to apply`);
-
-    // Show helpful instructions
-    if (newMode) {
-        console.log('📌 TEST MODE ENABLED:');
-        console.log('  ✓ SLS service disabled (viewer-only mode)');
-        console.log('  ✓ Local/SSH terminals disabled');
-        console.log('  ✓ Cloud connection enabled (to view shared sessions)');
-        console.log('  ✓ Perfect for testing tab sharing!');
-        console.log('');
-        console.log('💡 TESTING TIP:');
-        console.log('  1. Open this page in another browser/tab WITH SLS running');
-        console.log('  2. In that window, create terminals and share them');
-        console.log('  3. In THIS window (test mode), connect to cloud and view shared sessions');
-    } else {
-        console.log('✅ TEST MODE DISABLED - Normal operation restored');
-        console.log('  ✓ SLS service enabled');
-        console.log('  ✓ Local/SSH terminals enabled');
-    }
-
-    return newMode;
+    if (TEST_MODE_NO_SLS) disableTestMode();
+    else enableTestMode();
+    return !TEST_MODE_NO_SLS;
 }
 
 /**
- * Enable test mode (for console usage)
+ * Enable test mode (for console usage) — navigates to ?test
  */
 function enableTestMode() {
     if (TEST_MODE_NO_SLS) {
-        console.log('🧪 Test mode is already enabled');
+        console.log('Test mode is already enabled');
         return;
     }
-    localStorage.setItem('test_mode_no_sls', 'true');
-    console.log('🧪 Test mode ENABLED - Reload page to apply');
-    showToast('info', 'Test Mode', 'Test mode enabled - Reload page to apply');
+    const url = new URL(window.location.href);
+    url.searchParams.set('test', '');
+    window.location.href = url.toString();
 }
 
 /**
- * Disable test mode (for console usage)
+ * Disable test mode (for console usage) — removes ?test and reloads
  */
 function disableTestMode() {
     if (!TEST_MODE_NO_SLS) {
-        console.log('✅ Test mode is already disabled');
+        console.log('Test mode is already disabled');
         return;
     }
-    localStorage.setItem('test_mode_no_sls', 'false');
-    console.log('✅ Test mode DISABLED - Reload page to apply');
-    showToast('info', 'Test Mode', 'Test mode disabled - Reload page to apply');
+    const url = new URL(window.location.href);
+    url.searchParams.delete('test');
+    window.location.href = url.toString();
 }
 
 /**
@@ -1040,9 +1026,7 @@ function getOpenTabs() {
  */
 function getTabIcon(sessionId) {
     const tab = document.getElementById(`tab-${sessionId}`);
-    if (!tab) return '💻';
-    const iconEl = tab.querySelector('.tab-icon');
-    return iconEl ? iconEl.textContent.trim() : '💻';
+    return tab?.dataset.icon || 'monitor';
 }
 
 /**
@@ -1088,6 +1072,18 @@ async function restoreSavedTabs() {
         // Check if this is a page refresh or first load after SLS restart
         const isPageRefresh = openTabs.length > 0;
 
+        // Only sessions whose backend process is actually alive come back as
+        // tabs. After an SLS restart the DB still lists every old session with
+        // isAlive:false — restoring those used to fill the tab bar with a
+        // stack of identical dead "Disconnected" tabs.
+        const deadSessions = savedSessions.filter(s => s.status === 'active' && s.isAlive !== true);
+        if (deadSessions.length > 0) {
+            console.info('[TabPersistence] Skipping', deadSessions.length, 'dead session(s):',
+                deadSessions.map(s => `${s.tabName || s.sessionId} (${s.type || '?'})`).join(', '));
+            // Stop tracking them as open so they cannot come back on the next refresh
+            deadSessions.forEach(s => untrackOpenTab(s.sessionId));
+        }
+
         // Filter sessions to restore:
         let toRestore;
         if (isPageRefresh) {
@@ -1095,17 +1091,18 @@ async function restoreSavedTabs() {
             toRestore = savedSessions.filter(s => {
                 const shouldRestore = openTabs.includes(s.sessionId) &&
                                      s.status === 'active' &&
+                                     s.isAlive === true &&
                                      s.autoRestore !== false;
                 if (!shouldRestore && s.status === 'active') {
-                    console.log(`[TabPersistence] Skipping session ${s.sessionId} - not in openTabs`);
+                    console.log(`[TabPersistence] Skipping session ${s.sessionId} - not in openTabs or not alive`);
                 }
                 return shouldRestore;
             });
             console.log('[TabPersistence] Page refresh detected - restoring', toRestore.length, 'previously open tabs');
         } else {
-            // First load or SLS restart: Restore ALL active sessions
-            toRestore = savedSessions.filter(s => s.status === 'active' && s.autoRestore !== false);
-            console.log('[TabPersistence] First load - restoring', toRestore.length, 'active sessions from DB');
+            // First load or SLS restart: restore the live sessions only
+            toRestore = savedSessions.filter(s => s.status === 'active' && s.isAlive === true && s.autoRestore !== false);
+            console.log('[TabPersistence] First load - restoring', toRestore.length, 'live sessions from DB');
         }
 
         // Sort by tab order
@@ -1178,12 +1175,12 @@ async function restoreTab(dbSession) {
             name = 'Terminal';
         }
     }
-    const icon = dbSession.tabIcon || (type === 'local' ? '💻' : '🌐');
+    const icon = normalizeTabIcon(dbSession.tabIcon, type);
 
     try {
         // Create UI first with the saved name
         createTab(sessionId, name, icon, type);
-        createTerminalPanel(sessionId);
+        createTerminalPanel(sessionId, type);
 
         // Prepare session config based on type
         let config = { type };
@@ -1385,24 +1382,10 @@ function showToast(type, title, message, duration = 4000) {
     toast.className = `toast toast-${type}`;
     toast.dataset.toastKey = toastKey;
 
-    // Check if message contains HTML tags
-    const isHtml = /<\/?[a-z][\s\S]*>/i.test(message);
-
+    // Always plain text. Titles and messages routinely carry names supplied by
+    // other agents in the room — never hand them to innerHTML.
     const icons = { success: '✓', error: '✕', info: 'ℹ', warning: '⚠' };
-
-    if (isHtml) {
-        // Use innerHTML for HTML content
-        toast.innerHTML = `<div style="display: flex; align-items: flex-start; gap: 8px;">
-            <span style="flex-shrink: 0; font-size: 16px;">${icons[type] || 'ℹ'}</span>
-            <div style="flex: 1;">
-                ${title ? `<div style="font-weight: 600; margin-bottom: 4px;">${title}</div>` : ''}
-                <div>${message}</div>
-            </div>
-        </div>`;
-    } else {
-        // Use textContent for plain text (safer)
-        toast.textContent = `${icons[type] || 'ℹ'} ${title}: ${message}`;
-    }
+    toast.textContent = `${icons[type] || 'ℹ'} ${title}: ${message}`;
 
     container.appendChild(toast);
     activeToasts.push(toast);
@@ -1556,7 +1539,10 @@ let detectedOS = null;
  * Fetch available shells from backend (OS-aware)
  */
 async function fetchAvailableShells() {
-    if (availableShells !== null) {
+    // Only a non-empty list is worth caching. A transient failure (token race
+    // at startup, SLS mid-restart) used to cache [] forever, which turned the
+    // "+" button and Ctrl+Shift+T into silent no-ops until a full reload.
+    if (Array.isArray(availableShells) && availableShells.length > 0) {
         return availableShells; // Return cached
     }
 
@@ -1567,20 +1553,21 @@ async function fetchAvailableShells() {
         }
 
         const data = await response.json();
-        availableShells = data.shells || [];
+        const shells = data.shells || [];
         detectedOS = data.os || 'Unknown';
+        availableShells = shells.length > 0 ? shells : null; // cache only real lists
 
-        console.log(`[Shell Detection] OS: ${detectedOS}, Available shells:`, availableShells);
-        return availableShells;
+        console.log(`[Shell Detection] OS: ${detectedOS}, Available shells:`, shells);
+        return shells;
 
     } catch (error) {
         console.error('[Shell Detection] Failed to fetch shells:', error);
 
-        // When SLS is offline, return empty array (don't show fallback shells)
-        availableShells = [];
+        // When SLS is offline, return empty for now but retry on the next call
+        availableShells = null;
         detectedOS = null;
 
-        return availableShells;
+        return [];
     }
 }
 
@@ -1695,7 +1682,7 @@ async function _renderSessionList(container) {
 
             html += `
                 <div class="session-item" onclick="createLocalTerminal('${shell.name}')">
-                    <div class="session-icon local" style="background: ${color};">${shell.icon || '💻'}</div>
+                    <div class="session-icon local" style="background: ${color};">${svgIcon(shellIconName(shell.name, 'local'))}</div>
                     <div class="session-details">
                         <div class="session-name">${shell.label}</div>
                         <div class="session-info">${shell.name}</div>
@@ -1722,7 +1709,7 @@ async function _renderSessionList(container) {
                          data-host="${escapeHtml(conn.host)}"
                          data-port="${conn.port}"
                          data-username="${escapeHtml(conn.username)}">
-                        <div class="session-icon ssh">🌐</div>
+                        <div class="session-icon ssh">${svgIcon('globe')}</div>
                         <div class="session-details">
                             <div class="session-name">${escapeHtml(conn.name)}</div>
                             <div class="session-info">${escapeHtml(conn.username)}@${escapeHtml(conn.host)}:${conn.port}</div>
@@ -1762,6 +1749,45 @@ function escapeHtml(str) {
     return str.replace(/[&<>"']/g, m => ({
         '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
     })[m]);
+}
+
+// ========================================
+// Shared icon sprite helpers (../../js/icons.js)
+// ========================================
+
+/** Sprite icon as an HTML string — for trusted, static templates only. */
+function svgIcon(name, cls = 'icon icon--sm') {
+    return `<svg class="${cls}" aria-hidden="true"><use href="#i-${name}"></use></svg>`;
+}
+
+/** Sprite icon as a DOM element — for DOM-built UI. */
+function svgIconEl(name, cls = 'icon icon--sm') {
+    const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+    svg.setAttribute('class', cls);
+    svg.setAttribute('aria-hidden', 'true');
+    const use = document.createElementNS('http://www.w3.org/2000/svg', 'use');
+    use.setAttribute('href', `#i-${name}`);
+    svg.appendChild(use);
+    return svg;
+}
+
+/** Which sprite icon represents a session, by shell and type. */
+function shellIconName(shell, type) {
+    if (type === 'ssh') return 'globe';
+    if (type === 'remote') return 'activity';
+    if (shell === 'bash') return 'terminal';
+    if (shell === 'powershell') return 'zap';
+    return 'monitor';
+}
+
+/**
+ * Legacy tab icons were stored as emoji in the session DB; map anything we
+ * meet back onto the sprite. New saves store sprite names directly.
+ */
+function normalizeTabIcon(icon, type) {
+    if (icon && /^[a-z0-9-]+$/.test(icon)) return icon; // already a sprite name
+    const legacy = { '💻': 'monitor', '🐧': 'terminal', '⚡': 'zap', '🌐': 'globe', '📡': 'activity', '📝': 'pen' };
+    return legacy[icon] || shellIconName(null, type);
 }
 
 /**
@@ -1850,14 +1876,28 @@ function createTab(sessionId, title, icon, type) {
     tab.className = 'tab active';
     tab.id = `tab-${sessionId}`;
     tab.dataset.sessionId = sessionId;
+    const iconName = normalizeTabIcon(icon, type);
+    tab.dataset.icon = iconName;
     tab.innerHTML = `
-        <span class="tab-icon">${icon}</span>
+        <span class="tab-icon">${svgIcon(iconName)}</span>
         <span class="tab-title">${escapeHtml(title)}</span>
-        <span class="tab-shared-badge" style="display: none;">📡</span>
-        <span class="tab-close" onclick="event.stopPropagation(); closeTab('${sessionId}')">×</span>
+        <span class="tab-shared-badge" style="display: none;" title="Sharing live">${svgIcon('activity')}</span>
+        <span class="tab-close" title="Close tab">${svgIcon('x')}</span>
     `;
+    // .onclick (not addEventListener) so the SSH temp-id swap can rebind it
+    tab.querySelector('.tab-close').onclick = (e) => {
+        e.stopPropagation();
+        closeTab(sessionId);
+    };
     tab.onclick = () => switchToSession(sessionId);
     tab.oncontextmenu = (e) => showTabContextMenu(e, sessionId);
+    // Middle-click closes the tab (uses dataset so the SSH id swap keeps working)
+    tab.addEventListener('auxclick', (e) => {
+        if (e.button === 1) {
+            e.preventDefault();
+            closeTab(tab.dataset.sessionId);
+        }
+    });
 
     tabBar.insertBefore(tab, addBtn);
 
@@ -1922,6 +1962,71 @@ function updateTabSharedIndicator(sessionId, isShared) {
     }
 }
 
+/**
+ * Persistent owner-side banner across the top of a shared terminal panel:
+ * "Sharing live · Read-only for everyone · N watching" with a Stop button.
+ * A tab badge is easy to miss; a stranger being able to see (or type into)
+ * your shell is not something to be subtle about.
+ */
+function updateSharingBanner(sessionId) {
+    const banner = document.getElementById(`sharing-banner-${sessionId}`);
+    if (!banner) return;
+
+    const session = sessions.get(sessionId);
+    const isOwnedShare = !!(session && session.isShared && !session.owner);
+
+    const wasVisible = banner.style.display !== 'none';
+
+    if (!isOwnedShare) {
+        banner.style.display = 'none';
+        banner.textContent = '';
+    } else {
+        const perm = session.permission || 'readonly';
+        const permLabel = (perm === 'readwrite' || perm === 'write')
+            ? 'Read-write for everyone'
+            : 'Read-only for everyone';
+        const viewers = (terminalSharing && cloudConnected)
+            ? terminalSharing.getSessionViewers(sessionId).length
+            : 0;
+        const hasCustom = session.agentPermissions && Object.keys(session.agentPermissions).length > 0;
+
+        banner.textContent = '';
+        banner.appendChild(svgIconEl('activity'));
+        const label = document.createElement('span');
+        label.className = 'sharing-banner__label';
+        label.textContent = `Sharing live · ${permLabel}${hasCustom ? ' (custom overrides)' : ''} · `
+            + `${viewers} watching`;
+        banner.appendChild(label);
+
+        const stopBtn = document.createElement('button');
+        stopBtn.type = 'button';
+        stopBtn.className = 'sharing-banner__stop';
+        stopBtn.textContent = 'Stop sharing';
+        stopBtn.addEventListener('click', () => unshareTerminal(sessionId));
+        banner.appendChild(stopBtn);
+
+        banner.style.display = 'flex';
+    }
+
+    // The banner takes layout height — refit the terminal when it toggles
+    const nowVisible = banner.style.display !== 'none';
+    if (wasVisible !== nowVisible && session?.fitAddon) {
+        setTimeout(() => {
+            try {
+                session.fitAddon.fit();
+                if (session.connected && !session.owner && session.type !== 'remote') {
+                    sendTerminalResize(sessionId);
+                }
+            } catch (_) {}
+        }, 50);
+    }
+}
+
+/** Refresh the sharing banner on every panel. */
+function updateSharingBanners() {
+    sessions.forEach((_, sessionId) => updateSharingBanner(sessionId));
+}
+
 function removeTab(sessionId) {
     const tab = document.getElementById(`tab-${sessionId}`);
     if (tab) {
@@ -1960,10 +2065,73 @@ function closeActiveTab() {
     }
 }
 
+/**
+ * What the terminal pane shows when there is no session in it.
+ *
+ * Four states, not two, and the difference between the last two is the whole
+ * point of the app:
+ *
+ *   - a session is open                → the terminal
+ *   - no session, helper running       → "start one"
+ *   - no helper, not shared with anyone→ "here is what the helper is"
+ *   - no helper, but joined a room     → "waiting for a session to be shared"
+ *
+ * That last one is the person who followed somebody's invite link. They are
+ * connected, they are in the right room, and they are exactly where they are
+ * supposed to be — telling them to go and install a local service is telling
+ * the one visitor who has done everything right that they have done it wrong.
+ */
 function updateEmptyState() {
     const emptyState = document.getElementById('emptyState');
-    emptyState.style.display = sessions.size === 0 ? 'flex' : 'none';
+    const gate = document.getElementById('slsGate');
+    const idle = sessions.size === 0;
+    const noHelper = idle && slsCurrentState === 'offline' && !TEST_MODE_NO_SLS;
+
+    if (emptyState) emptyState.style.display = idle && !noHelper ? 'flex' : 'none';
+    if (gate) {
+        gate.style.display = noHelper ? 'flex' : 'none';
+        if (noHelper) renderSlsGate();
+    }
     updateStatusBar();
+}
+
+/** Say the true thing about where this browser has got to. */
+function renderSlsGate() {
+    const joined = !!cloudConnected;
+    const set = (id, text) => {
+        const el = document.getElementById(id);
+        if (el && text !== null) el.textContent = text;
+    };
+    const show = (id, on) => {
+        const el = document.getElementById(id);
+        if (el) el.style.display = on ? '' : 'none';
+    };
+
+    const pendingShares = (terminalSharing && cloudConnected)
+        ? terminalSharing.getRemoteSharedSessions().length
+        : 0;
+
+    set('slsGateTitle', joined
+        ? (pendingShares > 0 ? 'A terminal is waiting for you' : 'Waiting for a session')
+        : 'Nothing to drive yet');
+    set('slsGateLead', joined
+        ? (pendingShares > 0
+            ? (pendingShares === 1
+                ? 'Somebody has shared a terminal with you. Open it from the Shared tab, or press the button below.'
+                : pendingShares + ' terminals have been shared with you. Open them from the Shared tab, or press the button below.')
+            : 'You are in the room' + (cloudAgentName ? ' as ' + cloudAgentName : '')
+              + '. Nothing has been shared with you yet — when somebody shares a terminal it '
+              + 'appears under Shared, and you can open it from there. Nothing needs to be '
+              + 'installed to watch or type in somebody else\'s shell.')
+        : null);
+
+    // The bullets are about setting up a shell of your own, which is not what
+    // somebody who has just joined a room came here to do.
+    show('slsGateSteps', !joined);
+    show('slsGateSetupBtn', !joined);
+    show('slsGateJoinBtn', !joined);
+    show('slsGateSharedBtn', joined);
+    show('slsGateRetryBtn', !joined);
 }
 
 /**
@@ -1988,8 +2156,7 @@ function updateStatusBar() {
             // ✅ Add permission indicator for remote (shared) sessions
             if (session.type === 'remote' && session.permission) {
                 const hasWriteAccess = session.permission === 'readwrite' || session.permission === 'write';
-                const permIcon = hasWriteAccess ? '✏️' : '👁️';
-                activeInfo = `${permIcon} ${activeInfo}`;
+                activeInfo = `${hasWriteAccess ? 'Read-write' : 'Read-only'} · ${activeInfo}`;
             }
 
             // Note: For remote (shared) sessions, session.name already includes owner in format:
@@ -2016,7 +2183,26 @@ function updateSessionCount() {
 /**
  * Switch between sidebar tabs (sessions, sftp, shared, myshares)
  */
+let _switchingToFiles = false;
+
 function switchSidebarTab(tabName) {
+    // The Files panel has real mount logic behind it. Driving this function
+    // directly (menu code, console, tests) used to land on a bare panel header
+    // with nothing in it — the explorer only mounts via
+    // openFileExplorerForActiveTab(). Route Files requests through the opener;
+    // it calls back here (guarded) once the explorer is actually mounted.
+    if (tabName === 'files' && !_switchingToFiles) {
+        if (typeof openFileExplorerForActiveTab === 'function') {
+            _switchingToFiles = true;
+            try {
+                openFileExplorerForActiveTab();
+            } finally {
+                _switchingToFiles = false;
+            }
+            return;
+        }
+    }
+
     // Update tab buttons
     document.querySelectorAll('.sidebar-tab').forEach(tab => {
         if (tab.dataset.tab === tabName) {
@@ -2043,8 +2229,10 @@ window.switchSidebarTab = switchSidebarTab;
  * Update sidebar badges (shared count, my shares count)
  */
 function updateSidebarBadges() {
-    // Count shared sessions (received from others)
-    const sharedCount = Array.from(sessions.values()).filter(s => s.owner && s.owner !== cloudAgentName).length;
+    // Count sessions shared with us — including invitations not yet opened as tabs
+    const sharedCount = (terminalSharing && cloudConnected)
+        ? terminalSharing.getRemoteSharedSessions().length
+        : Array.from(sessions.values()).filter(s => s.owner && s.owner !== cloudAgentName).length;
     const sharedBadge = document.getElementById('sharedBadge');
     if (sharedBadge) {
         if (sharedCount > 0) {
@@ -2116,69 +2304,103 @@ function updateMySharesList() {
         return;
     }
 
-    let html = '';
+    // Built with DOM APIs — session names and agent names are supplied by the
+    // room and must never be interpolated into markup or attributes.
+    container.textContent = '';
     mySharesEntries.forEach(([sessionId, session]) => {
         const globalPerm = session.permission || 'readonly';
-        const globalPermIcon = globalPerm === 'readwrite' ? '✏️' : '👁️';
-        const globalPermLabel = globalPerm === 'readwrite' ? 'Read-Write' : 'Read-Only';
+        const globalWrite = globalPerm === 'readwrite' || globalPerm === 'write';
+        const globalPermLabel = globalWrite ? 'Read-Write' : 'Read-Only';
 
-        html += `
-            <div class="session-item" style="flex-direction: column; align-items: stretch;">
-                <div class="session-item-header" 
-                     style="display: flex; align-items: center; gap: 8px; cursor: pointer; padding: 8px; border-radius: 4px; transition: background 0.15s;"
-                     onclick="switchToSession('${sessionId}')"
-                     onmouseover="this.style.background='rgba(255,255,255,0.05)'"
-                     onmouseout="this.style.background='transparent'"
-                     title="Click to switch to this session">
-                    <div class="session-icon">📤</div>
-                    <div class="session-details" style="flex: 1;">
-                        <div class="session-name">${escapeHtml(session.name)}</div>
-                        <div class="session-info">${globalPermIcon} Global: ${globalPermLabel}</div>
-                    </div>
-                </div>`;
+        const item = document.createElement('div');
+        item.className = 'session-item';
+        item.style.cssText = 'flex-direction: column; align-items: stretch;';
 
-        // ✅ Get viewers for THIS specific session (not all connected agents)
+        const header = document.createElement('div');
+        header.className = 'session-item-header';
+        header.style.cssText = 'display: flex; align-items: center; gap: 8px; cursor: pointer; padding: 8px; border-radius: 4px; transition: background 0.15s;';
+        header.title = 'Click to switch to this session';
+        header.addEventListener('click', () => switchToSession(sessionId));
+        header.addEventListener('mouseover', () => { header.style.background = 'rgba(255,255,255,0.05)'; });
+        header.addEventListener('mouseout', () => { header.style.background = 'transparent'; });
+
+        const iconDiv = document.createElement('div');
+        iconDiv.className = 'session-icon';
+        iconDiv.appendChild(svgIconEl('upload'));
+
+        const details = document.createElement('div');
+        details.className = 'session-details';
+        details.style.flex = '1';
+        const nameDiv = document.createElement('div');
+        nameDiv.className = 'session-name';
+        nameDiv.textContent = session.name || 'Terminal';
+        const infoDiv = document.createElement('div');
+        infoDiv.className = 'session-info';
+        infoDiv.appendChild(svgIconEl(globalWrite ? 'pen' : 'eye'));
+        infoDiv.appendChild(document.createTextNode(` Everyone: ${globalPermLabel}`));
+        details.appendChild(nameDiv);
+        details.appendChild(infoDiv);
+
+        header.appendChild(iconDiv);
+        header.appendChild(details);
+        item.appendChild(header);
+
+        // Viewers for THIS specific session (not all connected agents)
         const sessionViewers = (terminalSharing && cloudConnected)
             ? terminalSharing.getSessionViewers(sessionId)
             : [];
 
-        // Show connected viewers with per-agent permissions
         if (sessionViewers.length > 0) {
-            html += `<div class="viewer-list">`;
+            const list = document.createElement('div');
+            list.className = 'viewer-list';
             sessionViewers.forEach(agent => {
-                // Per-agent permission (defaults to global)
                 const agentPerm = session.agentPermissions?.[agent] || globalPerm;
                 const hasCustomPerm = !!session.agentPermissions?.[agent];
                 const hasWriteAccess = agentPerm === 'readwrite' || agentPerm === 'write';
-                const agentPermIcon = hasWriteAccess ? '✏️' : '👁️';
                 const permLabel = hasWriteAccess ? 'Read-Write' : 'Read-Only';
                 const customBadge = hasCustomPerm ? ' (custom)' : '';
 
-                html += `
-                    <div class="viewer-item" 
-                         oncontextmenu="showViewerContextMenu(event, '${sessionId}', '${agent}'); return false;"
-                         title="Right-click to change permissions">
-                        <div class="viewer-dot"></div>
-                        <span class="viewer-name">${escapeHtml(agent)}</span>
-                        <span class="viewer-perm-indicator" title="${permLabel}${customBadge}">
-                            ${agentPermIcon}
-                        </span>
-                    </div>`;
+                const row = document.createElement('div');
+                row.className = 'viewer-item';
+                row.title = 'Right-click to change permissions';
+                row.addEventListener('contextmenu', (e) => {
+                    e.preventDefault();
+                    showViewerContextMenu(e, sessionId, agent);
+                });
+
+                const dot = document.createElement('div');
+                dot.className = 'viewer-dot';
+                const nameSpan = document.createElement('span');
+                nameSpan.className = 'viewer-name';
+                nameSpan.textContent = agent;
+                const permSpan = document.createElement('span');
+                permSpan.className = 'viewer-perm-indicator';
+                permSpan.title = `${permLabel}${customBadge}`;
+                permSpan.appendChild(svgIconEl(hasWriteAccess ? 'pen' : 'eye'));
+
+                row.appendChild(dot);
+                row.appendChild(nameSpan);
+                row.appendChild(permSpan);
+                list.appendChild(row);
             });
-            html += `</div>`;
+            item.appendChild(list);
         } else {
-            html += `<div style="padding: 2px 8px 4px 20px; font-size: 10px; color: var(--text-muted); font-style: italic;">No viewers connected</div>`;
+            const none = document.createElement('div');
+            none.style.cssText = 'padding: 2px 8px 4px 20px; font-size: 10px; color: var(--text-muted); font-style: italic;';
+            none.textContent = 'No viewers connected';
+            item.appendChild(none);
         }
 
-        html += `</div>`;
+        container.appendChild(item);
     });
-
-    container.innerHTML = html;
 
     // ✅ Update host indicator whenever the shares list changes
     if (typeof updateCloudHostIndicator === 'function') {
         updateCloudHostIndicator();
     }
+
+    // Keep the on-panel sharing banners in step with the same state
+    updateSharingBanners();
 }
 
 // ========================================
@@ -2244,18 +2466,25 @@ function initSidebarResize() {
 // ========================================
 // Terminal Panel Creation
 // ========================================
-function createTerminalPanel(sessionId) {
+function createTerminalPanel(sessionId, type = 'local') {
     const wrapper = document.getElementById('terminalWrapper');
+
+    const connectingSubtext = type === 'ssh'
+        ? 'Establishing connection to the remote server'
+        : type === 'remote'
+            ? 'Connecting to the shared session'
+            : 'Starting a shell on this machine';
 
     const panel = document.createElement('div');
     panel.className = 'terminal-panel active';
     panel.id = `panel-${sessionId}`;
     panel.innerHTML = `
+        <div class="sharing-banner" id="sharing-banner-${sessionId}" style="display: none;"></div>
         <div class="terminal-content" id="terminal-${sessionId}"></div>
         <div class="connecting-overlay" id="connecting-${sessionId}">
             <div class="connecting-spinner"></div>
             <div class="connecting-text">Connecting...</div>
-            <div class="connecting-subtext">Establishing connection to remote server</div>
+            <div class="connecting-subtext">${connectingSubtext}</div>
         </div>
     `;
 
@@ -2274,22 +2503,34 @@ function createTerminalPanel(sessionId) {
 // ========================================
 const MAX_SESSIONS = 20; // Maximum concurrent terminal sessions
 
-async function createLocalTerminal(shell = 'cmd') {
-    // Check if the button for this shell is disabled
+async function createLocalTerminal(shell = null) {
+    if (TEST_MODE_NO_SLS) {
+        showToast('warning', 'Test Mode', 'Local terminals disabled in test mode. Connect to cloud to view shared sessions.');
+        console.warn('TEST MODE: Local terminal creation disabled');
+        return;
+    }
+
+    // No shell named (the "+" tab button, keyboard shortcut): use the first
+    // shell this OS actually has, instead of assuming CMD and silently giving up.
+    if (!shell) {
+        const shells = await fetchAvailableShells();
+        if (!shells || shells.length === 0) {
+            showToast('warning', 'No Shell Available',
+                'Start the SDK Local Service to open a shell, then press Refresh.');
+            return;
+        }
+        shell = shells[0].name;
+    }
+
+    // A specific shell was asked for but is not available on this OS
     const shellBtnMap = { 'cmd': 'cmdToolbarBtn', 'bash': 'bashToolbarBtn', 'powershell': 'powershellToolbarBtn' };
     const btnId = shellBtnMap[shell];
     if (btnId) {
         const btn = document.getElementById(btnId);
         if (btn && btn.disabled) {
-            console.warn(`[Terminal] ${shell} is not available on this OS`);
-            return; // Silently ignore - user already sees disabled state and tooltip
+            showToast('warning', 'Shell Not Available', `${shell} is not available on this machine.`);
+            return;
         }
-    }
-
-    if (TEST_MODE_NO_SLS) {
-        showToast('warning', '🧪 Test Mode', 'Local terminals disabled in test mode. Connect to cloud to view shared sessions.');
-        console.warn('🧪 TEST MODE: Local terminal creation disabled');
-        return;
     }
 
     // Guard against too many sessions
@@ -2323,23 +2564,17 @@ async function createLocalTerminal(shell = 'cmd') {
         const sessionId = result.sessionId;
 
         // Determine icon and name based on shell
-        let icon = '💻';
+        const icon = shellIconName(shell, 'local');
         let shellName = shell.toUpperCase();
-        if (shell === 'bash') {
-            icon = '🐧';
-            shellName = 'Bash';
-        } else if (shell === 'powershell') {
-            icon = '⚡';
-            shellName = 'PowerShell';
-        } else {
-            shellName = 'CMD';
-        }
+        if (shell === 'bash') shellName = 'Bash';
+        else if (shell === 'powershell') shellName = 'PowerShell';
+        else if (shell === 'cmd') shellName = 'CMD';
 
         const name = `Local (${shellName})`;
 
         // Create UI
         createTab(sessionId, name, icon, 'local');
-        createTerminalPanel(sessionId);
+        createTerminalPanel(sessionId, 'local');
 
         // Initialize terminal
         const terminal = initTerminal(sessionId);
@@ -2385,7 +2620,7 @@ async function createLocalTerminal(shell = 'cmd') {
 // ========================================
 async function connectToSsh(connectionId, name, host, port, username) {
     if (TEST_MODE_NO_SLS) {
-        showToast('warning', '🧪 Test Mode', 'SSH terminals disabled in test mode. Connect to cloud to view shared sessions.');
+        showToast('warning', 'Test Mode', 'SSH terminals disabled in test mode. Connect to cloud to view shared sessions.');
         console.warn('🧪 TEST MODE: SSH connection disabled');
         return;
     }
@@ -2407,8 +2642,8 @@ async function connectToSsh(connectionId, name, host, port, username) {
     const displayName = `${name} (${host})`;
 
     // Create UI immediately with connecting loader
-    createTab(tempSessionId, displayName, '🌐', 'ssh');
-    createTerminalPanel(tempSessionId);
+    createTab(tempSessionId, displayName, 'globe', 'ssh');
+    createTerminalPanel(tempSessionId, 'ssh');
 
     // Initialize terminal
     const terminal = initTerminal(tempSessionId);
@@ -2507,6 +2742,8 @@ async function connectToSsh(connectionId, name, host, port, username) {
             if (connectingOverlay) connectingOverlay.id = `connecting-${sessionId}`;
             const reconnectOverlay = panel.querySelector(`#reconnect-${tempSessionId}`);
             if (reconnectOverlay) reconnectOverlay.id = `reconnect-${sessionId}`;
+            const sharingBanner = panel.querySelector(`#sharing-banner-${tempSessionId}`);
+            if (sharingBanner) sharingBanner.id = `sharing-banner-${sessionId}`;
         }
 
         // Re-initialize terminal with real session ID (fixes input handler closure)
@@ -2525,7 +2762,7 @@ async function connectToSsh(connectionId, name, host, port, username) {
 
         // Save tab metadata for persistence
         const tabOrder = sessions.size;
-        await saveTabMetadata(sessionId, sessionData.name, '🌐', tabOrder);
+        await saveTabMetadata(sessionId, sessionData.name, 'globe', tabOrder);
 
         // Connect WebSocket
         await new Promise(resolve => setTimeout(resolve, 200));
@@ -2638,6 +2875,14 @@ function initTerminal(sessionId, options = {}) {
         }
     });
 
+    // App chords (new tab, close tab, cycle, font size) must not be eaten by
+    // the shell: returning false makes xterm skip them, and the event then
+    // bubbles to the document-level shortcut handler.
+    terminal.attachCustomKeyEventHandler((e) => {
+        if (e.type === 'keydown' && isAppShortcut(e)) return false;
+        return true;
+    });
+
     const fitAddon = new FitAddon.FitAddon();
     terminal.loadAddon(fitAddon);
     terminal.open(document.getElementById(`terminal-${sessionId}`));
@@ -2700,6 +2945,12 @@ function initTerminal(sessionId, options = {}) {
             if (termDiv) {
                 termDiv.style.opacity = '0.5';
                 setTimeout(() => { termDiv.style.opacity = '1'; }, 100);
+            }
+            // Say it once, in the terminal, where the person is looking
+            if (!foundSession._roNoticeShown) {
+                foundSession._roNoticeShown = true;
+                foundSession.terminal.writeln('');
+                foundSession.terminal.writeln('\x1b[33mRead-only — right-click this tab and choose "Request Write Access" to type here.\x1b[0m');
             }
             return;
         }
@@ -3407,6 +3658,62 @@ async function closeSession(sessionId) {
 }
 
 // ========================================
+// Application Keyboard Shortcuts
+// ========================================
+
+/** Font size for every terminal at once; persisted. */
+function adjustTerminalFont(action) {
+    const DEFAULT_FONT = 14;
+    sessions.forEach(s => {
+        if (!s.terminal) return;
+        const cur = s.terminal.options.fontSize || DEFAULT_FONT;
+        const next = action === 'fontIncrease' ? Math.min(cur + 1, 28)
+                   : action === 'fontDecrease' ? Math.max(cur - 1, 8)
+                   : DEFAULT_FONT;
+        s.terminal.options.fontSize = next;
+        s.fitAddon?.fit();
+    });
+    try { localStorage.setItem('terminal_fontSize', sessions.values().next().value?.terminal?.options?.fontSize ?? DEFAULT_FONT); } catch (_) {}
+}
+
+/**
+ * The application's own chords. Each xterm instance is told to let these
+ * through (attachCustomKeyEventHandler in initTerminal), so they work whether
+ * or not a shell has focus; everything else still reaches the shell.
+ */
+function isAppShortcut(e) {
+    if (!e.ctrlKey || e.altKey || e.metaKey) return false;
+    const k = e.key;
+    if (e.shiftKey && (k === 'T' || k === 't')) return true;  // new terminal tab
+    if (e.shiftKey && (k === 'W' || k === 'w')) return true;  // close tab
+    if (k === 'PageUp' || k === 'PageDown') return true;      // cycle tabs
+    if (!e.shiftKey && (k === '=' || k === '-')) return true; // font size
+    if (e.shiftKey && k === '+') return true;                 // font size (layouts where + needs shift)
+    return false;
+}
+
+/** Move to the previous/next tab in visual order (terminals and notes alike). */
+function cycleTab(delta) {
+    const tabs = Array.from(document.querySelectorAll('#tabBar .tab'));
+    if (tabs.length < 2) return;
+    const activeIdx = tabs.findIndex(t => t.classList.contains('active'));
+    const next = tabs[((activeIdx < 0 ? 0 : activeIdx) + delta + tabs.length) % tabs.length];
+    if (next) next.click();
+}
+
+document.addEventListener('keydown', (e) => {
+    if (!isAppShortcut(e)) return;
+    e.preventDefault();
+    const k = e.key;
+    if (e.shiftKey && (k === 'T' || k === 't')) createLocalTerminal();
+    else if (e.shiftKey && (k === 'W' || k === 'w')) closeActiveTab();
+    else if (k === 'PageUp') cycleTab(-1);
+    else if (k === 'PageDown') cycleTab(1);
+    else if (k === '=' || k === '+') adjustTerminalFont('fontIncrease');
+    else if (k === '-') adjustTerminalFont('fontDecrease');
+});
+
+// ========================================
 // Keyboard Handler for Reconnection
 // ========================================
 document.addEventListener('keydown', (e) => {
@@ -3510,7 +3817,7 @@ async function testSshConnection() {
         const result = await response.json();
 
         if (result.success) {
-            showToast('success', '✅ Connection Successful',
+            showToast('success', 'Connection Successful',
                      `Connected to ${data.username}@${data.host}:${data.port}`, 5000);
             testBtn.innerHTML = '✅ Success';
             testBtn.classList.add('success');
@@ -3527,7 +3834,7 @@ async function testSshConnection() {
 
     } catch (error) {
         console.error('[SSH Test] Connection test failed:', error);
-        showToast('error', '❌ Connection Failed',
+        showToast('error', 'Connection Failed',
                  error.message || 'Could not connect to SSH server', 8000);
 
         testBtn.innerHTML = '❌ Failed';
@@ -4042,22 +4349,9 @@ async function terminalContextMenuAction(action) {
             break;
         case 'fontIncrease':
         case 'fontDecrease':
-        case 'fontReset': {
-            const DEFAULT_FONT = 14;
-            // Apply to all sessions so it feels global
-            sessions.forEach(s => {
-                if (!s.terminal) return;
-                const cur = s.terminal.options.fontSize || DEFAULT_FONT;
-                let next = action === 'fontIncrease' ? Math.min(cur + 1, 28)
-                         : action === 'fontDecrease' ? Math.max(cur - 1, 8)
-                         : DEFAULT_FONT;
-                s.terminal.options.fontSize = next;
-                s.fitAddon?.fit();
-            });
-            // Persist
-            try { localStorage.setItem('terminal_fontSize', sessions.values().next().value?.terminal?.options?.fontSize ?? DEFAULT_FONT); } catch (_) {}
+        case 'fontReset':
+            adjustTerminalFont(action);
             break;
-        }
     }
 }
 window.terminalContextMenuAction = terminalContextMenuAction;
@@ -4236,22 +4530,23 @@ function tabContextMenuAction(action) {
                 // Rename note
                 const note = notes.get(noteId);
                 const current = note ? note.title : 'Untitled Note';
-                const newName = prompt('Rename note:', current);
-                if (newName && newName.trim()) {
-                    updateNoteTitle(noteId, newName.trim());
-                }
+                AppDialog.askFor('New name for this note', current, { title: 'Rename note' })
+                    .then((newName) => {
+                        if (newName && newName.trim()) updateNoteTitle(noteId, newName.trim());
+                    });
             } else {
                 // Rename terminal session
                 const session = sessions.get(sessionId);
                 const current = session ? session.name : sessionId;
-                const newName = prompt('Rename tab:', current);
-                if (newName && newName.trim()) {
-                    const tab = document.getElementById(`tab-${sessionId}`);
-                    if (tab) {
-                        tab.querySelector('.tab-title').textContent = newName.trim();
-                    }
-                    if (session) session.name = newName.trim();
-                }
+                AppDialog.askFor('New name for this tab', current, { title: 'Rename tab' })
+                    .then((newName) => {
+                        if (!newName || !newName.trim()) return;
+                        const tab = document.getElementById(`tab-${sessionId}`);
+                        if (tab) {
+                            tab.querySelector('.tab-title').textContent = newName.trim();
+                        }
+                        if (session) session.name = newName.trim();
+                    });
             }
             break;
         }
@@ -4263,7 +4558,7 @@ function tabContextMenuAction(action) {
                 // Duplicate terminal
                 const session = sessions.get(sessionId);
                 if (session && session.type === 'local') {
-                    createLocalTerminal(session.config?.shell || 'bash');
+                    createLocalTerminal(session.config?.shell || null);
                 } else if (session && session.type === 'ssh') {
                     const cfg = session.config || {};
                     connectToSsh(cfg.connectionId, cfg.name, cfg.host, cfg.port, cfg.username);
@@ -4377,7 +4672,7 @@ function tabContextMenuAction(action) {
             if (terminalSharing && terminalSharing.updateSessionPermission(sessionId, newPerm)) {
                 session.permission = newPerm;
                 const permLabel = newPerm === 'readwrite' ? 'Read-Write' : 'Read-Only';
-                showToast('success', '🔒 Permission Changed', `Session is now ${permLabel}`);
+                showToast('success', 'Permission Changed', `Session is now ${permLabel}`);
 
                 // Use common helper to update all UI elements
                 updatePermissionUI(sessionId, newPerm);
@@ -4422,7 +4717,7 @@ async function editSshConnection(connectionId) {
         document.getElementById('sshForm').dataset.editId = connectionId;
 
         // Update modal title
-        document.querySelector('#sshModalOverlay .modal-title').textContent = '✏️ Edit SSH Connection';
+        document.querySelector('#sshModalOverlay .modal-title').textContent = 'Edit SSH Connection';
 
         showSshModal();
     } catch (error) {
@@ -4458,9 +4753,12 @@ async function duplicateSshConnection(connectionId) {
 }
 
 async function deleteSshConnection(connectionId, name) {
-    if (!confirm(`Delete SSH connection "${name}"?\n\nThis action cannot be undone.`)) {
-        return;
-    }
+    const sure = await AppDialog.ask({
+        title: 'Delete this connection?',
+        body: `"${name}" goes for good. Nothing on the remote machine is touched.`,
+        confirmLabel: 'Delete', danger: true
+    });
+    if (!sure) return;
 
     try {
         const response = await slsFetch(`${MLS_URL}/terminal/ssh-connections/${connectionId}`, {
@@ -4615,7 +4913,7 @@ function promptForAgentName(channelName) {
             `;
 
             loaderContent.innerHTML = `
-                <div style="font-size: 48px; margin-bottom: 20px; animation: pulse 1.5s ease-in-out infinite;">🔗</div>
+                <div style="margin-bottom: 20px; animation: pulse 1.5s ease-in-out infinite;">${svgIcon('channel', 'icon icon--lg')}</div>
                 <h3 style="margin: 0 0 12px 0; font-size: 20px; color: var(--text-primary); font-weight: 600;">
                     Connecting to Shared Terminal
                 </h3>
@@ -4703,7 +5001,7 @@ function promptForAgentName(channelName) {
                     50% { transform: translateY(-10px); }
                 }
             </style>
-            <div style="${iconStyle}">🖥️</div>
+            <div style="${iconStyle}">${svgIcon('monitor', 'icon icon--lg')}</div>
             <h2 style="margin: 0 0 12px 0; font-size: 24px; color: var(--text-primary); text-align: center; font-weight: 700;">
                 Join Shared Terminal
             </h2>
@@ -4732,7 +5030,7 @@ function promptForAgentName(channelName) {
                                                         box-shadow: 0 4px 12px rgba(74, 158, 255, 0.3); transition: all 0.2s;"
                         onmouseover="this.style.transform='translateY(-2px)'; this.style.boxShadow='0 6px 20px rgba(74, 158, 255, 0.4)';"
                         onmouseout="this.style.transform='translateY(0)'; this.style.boxShadow='0 4px 12px rgba(74, 158, 255, 0.3)';">
-                    🔗 Connect
+                    Connect
                 </button>
             </div>
         `;
@@ -4817,79 +5115,6 @@ function promptForAgentName(channelName) {
         `;
         document.head.appendChild(style);
     });
-}
-
-/**
- * Toggle share/unshare for the currently active session
- */
-function toggleShareActiveSession() {
-    if (!cloudConnected || !terminalSharing) {
-        showToast('warning', 'Not Connected', 'Connect to cloud first to share sessions');
-        return;
-    }
-
-    // Get active session
-    const activeTab = document.querySelector('.tab.active');
-    if (!activeTab) {
-        showToast('warning', 'No Active Session', 'Please select a terminal session first');
-        return;
-    }
-
-    const sessionId = activeTab.dataset.sessionId;
-    const session = sessions.get(sessionId);
-
-    if (!session) {
-        showToast('error', 'Session Not Found', 'Active session not found');
-        return;
-    }
-
-    // Toggle share state
-    if (session.isShared) {
-        unshareTerminal(sessionId);
-    } else {
-        shareTerminal(sessionId);
-    }
-
-    // Update button text
-    updateShareButton();
-}
-
-/**
- * Update the share button text based on active session state
- */
-function updateShareButton() {
-    const shareBtn = document.getElementById('cloudShareSessionBtn');
-    if (!shareBtn) return;
-
-    // Get active session
-    const activeTab = document.querySelector('.tab.active');
-    if (!activeTab) {
-        shareBtn.textContent = '📤 Share Session';
-        shareBtn.disabled = true;
-        shareBtn.title = 'No active session';
-        return;
-    }
-
-    const sessionId = activeTab.dataset.sessionId;
-    const session = sessions.get(sessionId);
-
-    if (!session) {
-        shareBtn.textContent = '📤 Share Session';
-        shareBtn.disabled = true;
-        shareBtn.title = 'Session not found';
-        return;
-    }
-
-    // Update button based on share state (only show Unshare when actively sharing = connected + isShared)
-    if (session.isShared && cloudConnected) {
-        shareBtn.textContent = '🛑 Unshare Session';
-        shareBtn.disabled = false;
-        shareBtn.title = 'Stop sharing this session';
-    } else {
-        shareBtn.textContent = '📤 Share Session';
-        shareBtn.disabled = false;
-        shareBtn.title = 'Share this session with connected agents';
-    }
 }
 
 /**
@@ -5050,6 +5275,174 @@ function generateShareUrl() {
 }
 
 /**
+ * Put the top-right chrome in step with the connection.
+ *
+ * These three things used to be set by hand in three different places —
+ * connect, disconnect, and the error path — which was survivable while the
+ * only way out of a room was to press Disconnect. It is not survivable now
+ * that the connection comes back on its own: an automatic rejoin left the
+ * pill naming a room the app no longer believed it was in, with Invite still
+ * offering to share it.
+ */
+function syncCloudChrome() {
+    const label = document.getElementById('cloudStatusLabel');
+    const invite = document.getElementById('inviteBtn');
+    const group = document.getElementById('cloudIndicatorGroup');
+    const joined = !!cloudConnected;
+
+    const channel = document.getElementById('cloudChannelName')?.value?.trim() || '';
+    if (label) {
+        label.textContent = joined && channel
+            ? channel + (cloudAgentName ? ' · ' + cloudAgentName : '')
+            : 'Not in a room';
+    }
+    if (invite) invite.style.display = joined ? '' : 'none';
+    if (group) {
+        group.title = joined
+            ? 'Remote Share: connected as ' + (cloudAgentName || 'you')
+            : 'Remote Share – Disconnected';
+    }
+    updateEmptyState();
+}
+window.syncCloudChrome = syncCloudChrome;
+
+/* =========================================================================
+ * Short codes
+ *
+ * A link is ninety characters of base64: perfect for pasting into a chat
+ * window, useless down a telephone — and a telephone is how this app actually
+ * gets used, one person stuck and another helping. A code of two words and two
+ * digits can be said out loud, written on paper, and typed by somebody who is
+ * already having a bad day.
+ *
+ * The room and its password go to the service for as long as the code lives,
+ * which the link never does. That is a real cost, so a code is opt-in, short
+ * lived and spent after a few uses — see SessionCodeController.
+ * ========================================================================= */
+
+/** The API root, worked out the same way the config loader works it out. */
+function sessionCodeUrl(suffix) {
+    const base = (typeof window.getConfigUrl === 'function')
+        ? window.getConfigUrl().replace(/\/config$/, '/session-code')
+        : '/app/api/session-code';
+    return suffix ? base + '/' + encodeURIComponent(suffix) : base;
+}
+
+async function mintSessionCode() {
+    const channel = document.getElementById('cloudChannelName')?.value?.trim();
+    const password = document.getElementById('cloudChannelPassword')?.value?.trim();
+    const btn = document.getElementById('sessionCodeBtn');
+
+    if (!cloudConnected || !channel || !password) {
+        showToast('warning', 'Not in a room', 'Join a room first, then make a code for it.');
+        return;
+    }
+
+    if (btn) { btn.disabled = true; btn.textContent = 'Making a code…'; }
+    try {
+        const res = await fetch(sessionCodeUrl(), {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ channel, password })
+        });
+        const body = await res.json().catch(() => null);
+        if (!res.ok || !body || body.status !== 'success') {
+            throw new Error((body && body.message) || 'The service would not issue a code.');
+        }
+
+        const minutes = Math.round((body.data.expiresInSeconds || 0) / 60);
+        document.getElementById('sessionCodeValue').textContent = body.data.code;
+        document.getElementById('sessionCodeNote').textContent =
+            'Good for ' + minutes + ' minutes, and for ' + body.data.redemptions
+            + ' people. Read it out; they type it into "Been given a code?".';
+        document.getElementById('sessionCodeIdle').style.display = 'none';
+        document.getElementById('sessionCodeResult').style.display = '';
+    } catch (err) {
+        showToast('error', 'No code', err.message);
+    } finally {
+        if (btn) { btn.disabled = false; btn.textContent = 'Make a code I can read out'; }
+    }
+}
+window.mintSessionCode = mintSessionCode;
+
+function copySessionCode() {
+    const code = document.getElementById('sessionCodeValue')?.textContent || '';
+    if (!code) return;
+    navigator.clipboard.writeText(code)
+        .then(() => showToast('success', 'Copied', code))
+        .catch(() => showToast('error', 'Could not copy', 'Select the code and copy it by hand.'));
+}
+window.copySessionCode = copySessionCode;
+
+/** Turn a code somebody read out into a room, and join it. */
+async function joinByCode() {
+    const input = document.getElementById('joinCodeInput');
+    const note = document.getElementById('joinCodeNote');
+    const btn = document.getElementById('joinCodeBtn');
+    const code = (input?.value || '').trim().toLowerCase();
+
+    const say = (text, bad) => {
+        if (!note) return;
+        note.textContent = text;
+        note.style.color = bad ? 'var(--accent-red, #f87171)' : 'var(--text-secondary, #8888aa)';
+        note.style.display = text ? '' : 'none';
+    };
+
+    if (!code) { say('Type the code you were given.', true); input?.focus(); return; }
+
+    if (btn) { btn.disabled = true; btn.textContent = 'Looking…'; }
+    say('');
+    try {
+        const res = await fetch(sessionCodeUrl(code));
+        const body = await res.json().catch(() => null);
+        if (!res.ok || !body || body.status !== 'success') {
+            // The service will not say whether a code never existed, expired or
+            // was spent, and neither will this.
+            throw new Error((body && body.message) || 'That code is not valid any more.');
+        }
+
+        document.getElementById('cloudChannelName').value = body.data.channel;
+        document.getElementById('cloudChannelPassword').value = body.data.password;
+        say('Found it. Joining ' + body.data.channel + '…');
+        connectToCloud();
+    } catch (err) {
+        say(err.message, true);
+    } finally {
+        if (btn) { btn.disabled = false; btn.textContent = 'Join'; }
+    }
+}
+window.joinByCode = joinByCode;
+
+/**
+ * Hand this room to somebody.
+ *
+ * The link and its code already existed, three clicks deep behind a modal and
+ * a tab most people never opened — which for an app whose entire purpose is
+ * sharing a terminal is the wrong place for it. This is the same dialog,
+ * opened where you want it, with the link made and the code drawn.
+ */
+function openInvite() {
+    if (!cloudConnected) {
+        openMessagingModal();
+        return;
+    }
+    openMessagingModal();
+    try { switchCloudTab('sharing'); } catch (e) { /* older markup */ }
+    try { generateShareUrl(); } catch (e) { /* nothing to share yet */ }
+
+    // Show the code without being asked: somebody who pressed Invite has said
+    // what they want, and the person they are inviting is usually holding a
+    // phone.
+    const qr = document.getElementById('shareQrCode');
+    if (qr && qr.style.display === 'none') {
+        try { toggleQrCode(); } catch (e) { /* ignore */ }
+    }
+    const input = document.getElementById('shareUrlInput');
+    if (input) { input.focus(); input.select(); }
+}
+window.openInvite = openInvite;
+
+/**
  * Toggle QR code visibility
  */
 function toggleQrCode() {
@@ -5064,12 +5457,12 @@ function toggleQrCode() {
         if (isVisible) {
             // Hide QR code
             qrContainer.style.display = 'none';
-            toggleIcon.textContent = '📱';
+            toggleIcon.innerHTML = svgIcon('qr-code');
             toggleText.textContent = 'Show QR Code';
         } else {
             // Show QR code
             qrContainer.style.display = 'block';
-            toggleIcon.textContent = '✖️';
+            toggleIcon.innerHTML = svgIcon('x');
             toggleText.textContent = 'Hide QR Code';
         }
     }
@@ -5121,11 +5514,16 @@ function regenerateAgentName() {
         showToast('success', 'Name Generated', `New agent name: ${newName}`);
     } else {
         // Ask user if they want to replace existing name
-        if (confirm('Current name will be replaced. Continue?')) {
+        AppDialog.ask({
+            title: 'Replace the agent name?',
+            body: 'The name you have now is discarded and a fresh one generated.',
+            confirmLabel: 'Replace it'
+        }).then((yes) => {
+            if (!yes) return;
             agentNameInput.value = '';
             const newName = generateAgentName();
             showToast('success', 'Name Regenerated', `New agent name: ${newName}`);
-        }
+        });
     }
 }
 
@@ -5138,11 +5536,11 @@ function toggleCloudPasswordVisibility() {
 
     if (passwordInput.type === 'password') {
         passwordInput.type = 'text';
-        toggleButton.textContent = '🙈'; // closed eye
+        toggleButton.innerHTML = svgIcon('eye-off');
         toggleButton.title = 'Hide password';
     } else {
         passwordInput.type = 'password';
-        toggleButton.textContent = '👁️'; // open eye
+        toggleButton.innerHTML = svgIcon('eye');
         toggleButton.title = 'Show password';
     }
 }
@@ -5189,7 +5587,7 @@ function regenerateConnection() {
         }
     }
 
-    showToast('success', '🔄 Regenerated', 'New channel name and password generated');
+    showToast('success', 'Regenerated', 'New channel name and password generated');
 
     // Save to localStorage
     saveCloudConfig();
@@ -5393,16 +5791,16 @@ async function connectToCloud() {
         terminalSharing.onSharedSessionAdd = (sessionId, sessionInfo, sourceAgent) => {
             console.log('[Terminal] Remote session shared:', sessionId, sessionInfo, 'from:', sourceAgent);
 
-            const permIcon = sessionInfo.permission === 'readwrite' ? '✏️' : '👁️';
             const permLabel = sessionInfo.permission === 'readwrite' ? 'Read-Write' : 'Read-Only';
-            showToast('success', '📤 New Session Shared',
-                `${sourceAgent} shared "${sessionInfo.name}" (${permLabel})`, 6000);
+            showToast('info', 'Shared With You',
+                `${sourceAgent} shared "${sessionInfo.name}" (${permLabel}). Open it from the Shared tab.`, 8000);
 
-            // Create a view-only terminal session for this shared session
-            createSharedTerminalSession(sessionId, sessionInfo, sourceAgent);
-
+            // An invitation, not an intrusion: the session is listed under the
+            // sidebar Shared tab and opens only when the person presses Watch.
             updateAgentsList();
             updateSharedTerminalsList();
+            updateSidebarBadges();
+            if (typeof updateEmptyState === 'function') updateEmptyState();
         };
 
         // Called when a remote agent unshares a session
@@ -5411,7 +5809,7 @@ async function connectToCloud() {
 
             const session = sessions.get(sessionId);
             const sessionName = session?.name || 'Terminal';
-            showToast('warning', '🛑 Session Unshared',
+            showToast('warning', 'Session Unshared',
                 `${sourceAgent} stopped sharing "${sessionName}"`, 5000);
 
             // Close the view-only session if it exists
@@ -5518,7 +5916,7 @@ terminalSharing.onFileSystemRequest = async (sessionId, operation, params, sourc
         }, sourceAgent);
 
         // ✅ Notify owner about blocked attempt
-        showToast('warning', '🚫 Blocked Request',
+        showToast('warning', 'Blocked Request',
             `${sourceAgent} tried to perform write operation "${operation}" with readonly permission`, 5000);
         return;
     }
@@ -5554,7 +5952,7 @@ terminalSharing.onFileSystemRequest = async (sessionId, operation, params, sourc
                         // ✅ Notify owner that viewer opened a file
                         if (result.ok) {
                             const fileName = params.path.split('/').pop() || params.path;
-                            showToast('info', `📂 ${sourceAgent}`, `Opened file: ${fileName}`);
+                            showToast('info', `${sourceAgent}`, `Opened file: ${fileName}`);
                         }
                         break;
                     case 'info':
@@ -5569,7 +5967,7 @@ terminalSharing.onFileSystemRequest = async (sessionId, operation, params, sourc
                         // ✅ Notify owner that viewer saved a file
                         if (result.ok) {
                             const fileName = params.path.split('/').pop() || params.path;
-                            showToast('success', `💾 ${sourceAgent}`, `Saved file: ${fileName}`);
+                            showToast('success', `${sourceAgent}`, `Saved file: ${fileName}`);
                         }
                         break;
                     case 'delete':
@@ -5579,7 +5977,7 @@ terminalSharing.onFileSystemRequest = async (sessionId, operation, params, sourc
                         // ✅ Notify owner that viewer deleted a file
                         if (result.ok) {
                             const fileName = params.path.split('/').pop() || params.path;
-                            showToast('warning', `🗑️ ${sourceAgent}`, `Deleted: ${fileName}`);
+                            showToast('warning', `${sourceAgent}`, `Deleted: ${fileName}`);
                         }
                         break;
                     case 'mkdir':
@@ -5589,7 +5987,7 @@ terminalSharing.onFileSystemRequest = async (sessionId, operation, params, sourc
                         // ✅ Notify owner that viewer created a folder
                         if (result.ok) {
                             const folderName = params.path.split('/').pop() || params.path;
-                            showToast('info', `📁 ${sourceAgent}`, `Created folder: ${folderName}`);
+                            showToast('info', `${sourceAgent}`, `Created folder: ${folderName}`);
                         }
                         break;
                     case 'rename':
@@ -5600,7 +5998,7 @@ terminalSharing.onFileSystemRequest = async (sessionId, operation, params, sourc
                         if (result.ok) {
                             const oldName = params.oldPath.split('/').pop() || params.oldPath;
                             const newName = params.newPath.split('/').pop() || params.newPath;
-                            showToast('info', `✏️ ${sourceAgent}`, `Renamed: ${oldName} → ${newName}`);
+                            showToast('info', `${sourceAgent}`, `Renamed: ${oldName} → ${newName}`);
                         }
                         break;
                     case 'upload':
@@ -5633,7 +6031,7 @@ terminalSharing.onFileSystemRequest = async (sessionId, operation, params, sourc
                         if (result.ok) {
                             const fileName = params.fileName;
                             const fileSize = params.fileSize ? `(${(params.fileSize / 1024).toFixed(1)} KB)` : '';
-                            showToast('success', `📤 ${sourceAgent}`, `Uploaded: ${fileName} ${fileSize}`);
+                            showToast('success', `${sourceAgent}`, `Uploaded: ${fileName} ${fileSize}`);
                         }
                         break;
                     case 'download':
@@ -5670,7 +6068,7 @@ terminalSharing.onFileSystemRequest = async (sessionId, operation, params, sourc
 
                         // ✅ Notify owner that viewer downloaded a file
                         const downloadFileName = params.path.split('/').pop() || params.path;
-                        showToast('info', `📥 ${sourceAgent}`, `Downloaded: ${downloadFileName}`);
+                        showToast('info', `${sourceAgent}`, `Downloaded: ${downloadFileName}`);
 
                         // Return early since we already sent the response
                         return;
@@ -5700,7 +6098,7 @@ terminalSharing.onFileSystemRequest = async (sessionId, operation, params, sourc
                             message: 'Upload initialized'
                         }, sourceAgent);
 
-                        showToast('info', `📤 ${sourceAgent}`, `Starting upload: ${params.fileName}`);
+                        showToast('info', `${sourceAgent}`, `Starting upload: ${params.fileName}`);
                         return;
 
                     case 'upload-chunk':
@@ -5798,7 +6196,7 @@ terminalSharing.onFileSystemRequest = async (sessionId, operation, params, sourc
                             fileSize: finalUpload.fileSize
                         }, sourceAgent);
 
-                        showToast('success', `📤 ${sourceAgent}`, `Uploaded: ${finalUpload.fileName} (${fileSize} MB in ${duration}s)`);
+                        showToast('success', `${sourceAgent}`, `Uploaded: ${finalUpload.fileName} (${fileSize} MB in ${duration}s)`);
                         return;
 
                     case 'upload-cancel':
@@ -5933,7 +6331,7 @@ terminalSharing.onFileSystemNavigate = (sessionId, path, sourceAgent) => {
         fileExplorer.navigateTo(path, false); // false = don't trigger sync event
 
         // Show subtle notification
-        showToast('info', '📁 Viewer Navigating', `${sourceAgent} → ${path}`, 3000);
+        showToast('info', 'Viewer Navigating', `${sourceAgent} → ${path}`, 3000);
     }
 };
 
@@ -5999,7 +6397,7 @@ terminalSharing.onFileSystemNotification = (sessionId, operation, details, sourc
         // Listen for agent connection events to update agents list
         terminalSharing.onUserJoining = (event) => {
             console.log('[Terminal] Agent joining:', event.agentName);
-            showToast('info', '👋 Agent Joining', `${event.agentName} is connecting...`);
+            showToast('info', 'Agent Joining', `${event.agentName} is connecting...`);
             updateAgentsList();
             updateSharedTerminalsList();
             updateMySharesList();
@@ -6014,7 +6412,7 @@ terminalSharing.onFileSystemNotification = (sessionId, operation, details, sourc
                 ? `${event.agentName} connected (can view your ${mySharesCount} shared session${mySharesCount > 1 ? 's' : ''})`
                 : `${event.agentName} connected`;
 
-            showToast('success', '✅ Agent Joined', toastMsg, 4000);
+            showToast('success', 'Agent Joined', toastMsg, 4000);
 
             // ✅ CRITICAL: Call parent class method to send our shared sessions to new agent
             if (terminalSharing.sendSharedSessionsToAgent) {
@@ -6050,7 +6448,7 @@ terminalSharing.onFileSystemNotification = (sessionId, operation, details, sourc
                 ? `${event.agentName} disconnected (was viewing your shares)`
                 : `${event.agentName} disconnected`;
 
-            showToast('info', '👋 Agent Left', toastMsg, 4000);
+            showToast('info', 'Agent Left', toastMsg, 4000);
 
             updateAgentsList();
             updateSharedTerminalsList();
@@ -6087,7 +6485,7 @@ terminalSharing.onFileSystemNotification = (sessionId, operation, details, sourc
         terminalSharing.onPermissionResponse = (sessionId, granted, owner) => {
             console.log('[Terminal] Permission response:', granted ? 'GRANTED' : 'DENIED', 'from:', owner);
             if (granted) {
-                showToast('success', '✅ Permission Granted', `${owner} granted you write access`);
+                showToast('success', 'Permission Granted', `${owner} granted you write access`);
                 updateSessionPermissionUI(sessionId, 'readwrite');
 
                 // ✅ Update file explorer button immediately if this session is active
@@ -6099,7 +6497,7 @@ terminalSharing.onFileSystemNotification = (sessionId, operation, details, sourc
                     }
                 }
             } else {
-                showToast('warning', '❌ Permission Denied', `${owner} denied your write request`);
+                showToast('warning', 'Permission Denied', `${owner} denied your write request`);
             }
         };
 
@@ -6109,11 +6507,10 @@ terminalSharing.onFileSystemNotification = (sessionId, operation, details, sourc
 
             const session = sessions.get(sessionId);
             const sessionName = session?.name || 'Terminal';
-            const permIcon = newPermission === 'readwrite' ? '✏️' : '👁️';
             const permLabel = newPermission === 'readwrite' ? 'Read-Write' : 'Read-Only';
             const toastType = newPermission === 'readwrite' ? 'success' : 'info';
 
-            showToast(toastType, '🔒 Permission Changed',
+            showToast(toastType, 'Permission Changed',
                 `"${sessionName}" is now ${permLabel}`, 5000);
 
             updateSessionPermissionUI(sessionId, newPermission);
@@ -6131,7 +6528,7 @@ terminalSharing.onFileSystemNotification = (sessionId, operation, details, sourc
                     fileExplorer.terminalSessionId === sessionId) {
                     console.log('[Terminal] Closing file explorer - permission changed to readonly');
                     fileExplorer.close();
-                    showToast('info', '📁 File Explorer Closed',
+                    showToast('info', 'File Explorer Closed',
                         'File system access requires write permission', 3000);
                 }
             }
@@ -6143,7 +6540,7 @@ terminalSharing.onFileSystemNotification = (sessionId, operation, details, sourc
 
             const session = sessions.get(sessionId);
             const sessionName = session?.name || 'Terminal';
-            showToast('warning', '⚠️ Session Ended',
+            showToast('warning', 'Session Ended',
                 `${owner} closed "${sessionName}"`, 5000);
 
             // Close the view-only session
@@ -6153,11 +6550,28 @@ terminalSharing.onFileSystemNotification = (sessionId, operation, details, sourc
             updateSharedTerminalsList();
         };
 
+        // The connection came back on its own. Everything the page believed
+        // about the room was set when it first joined, and none of it survived
+        // the rejoin, so it is all restored here rather than left stale.
+        terminalSharing.onRejoining = (attempt) => {
+            const label = document.getElementById('cloudStatusLabel');
+            if (label) label.textContent = 'Reconnecting…' + (attempt > 1 ? ' (' + attempt + ')' : '');
+        };
+
+        terminalSharing.onRejoined = () => {
+            cloudConnected = true;
+            cloudAgentName = terminalSharing.username || cloudAgentName;
+            syncCloudChrome();
+            showToast('success', 'Back in the room', 'Reconnected as ' + cloudAgentName);
+            try { updateSharedTerminalsList(); } catch (e) { /* list may not be built yet */ }
+        };
+
         // Called when cloud connection is lost unexpectedly
         terminalSharing.onDisconnect = (reason) => {
             console.warn('[Terminal] Cloud connection lost:', reason);
 
             cloudConnected = false;
+            syncCloudChrome();
 
             // Update UI to show disconnected state
             const statusDot = document.getElementById('cloudStatus');
@@ -6204,14 +6618,14 @@ terminalSharing.onFileSystemNotification = (sessionId, operation, details, sourc
             updateSharedTerminalsList();
             updateMySharesList();
 
-            showToast('error', '⚠️ Cloud Disconnected',
+            showToast('error', 'Cloud Disconnected',
                 'Connection to Messaging Platform lost. Click Reconnect to try again.', 8000);
 
             // Auto-reconnect attempt after 5 seconds
             setTimeout(async () => {
                 if (!cloudConnected && terminalSharing && channelName && channelPassword) {
                     console.log('[Terminal] Attempting cloud auto-reconnect...');
-                    showToast('info', '🔄 Reconnecting...', 'Attempting to reconnect to cloud...');
+                    showToast('info', 'Reconnecting...', 'Attempting to reconnect to cloud...');
                     try {
                         await connectToCloud();
                     } catch (e) {
@@ -6229,6 +6643,7 @@ terminalSharing.onFileSystemNotification = (sessionId, operation, details, sourc
 
         cloudConnected = true;
         cloudAgentName = agentName;
+        syncCloudChrome();
 
         // Remove shared terminal loader if it exists
         const loader = document.getElementById('shared-terminal-loader');
@@ -6254,7 +6669,11 @@ terminalSharing.onFileSystemNotification = (sessionId, operation, details, sourc
         const cloudStatusDot = document.getElementById('cloudStatusDot');
         if (cloudStatusDot) cloudStatusDot.className = 'top-status-dot online';
         const cloudStatusLabel = document.getElementById('cloudStatusLabel');
-        if (cloudStatusLabel) cloudStatusLabel.textContent = 'Remote';
+        // "Remote" told nobody anything. The room and the name you are known by
+        // in it are the two facts you need before you hand the link to someone.
+        if (cloudStatusLabel) cloudStatusLabel.textContent = channelName + ' · ' + agentName;
+        const inviteBtn = document.getElementById('inviteBtn');
+        if (inviteBtn) inviteBtn.style.display = '';
         const cloudIndicatorGroup = document.getElementById('cloudIndicatorGroup');
         if (cloudIndicatorGroup) cloudIndicatorGroup.title = `Remote Share: Connected as ${agentName}`;
         // Also support old ID for compatibility
@@ -6373,6 +6792,7 @@ terminalSharing.onFileSystemNotification = (sessionId, operation, details, sourc
         showToast('error', 'Connection Failed', error.message);
         terminalSharing = null;
         cloudConnected = false;
+        syncCloudChrome();
         pendingSessionToShare = null; // Clear pending session on error
         connectBtn.textContent = 'Connect to Cloud';
         connectBtn.disabled = false;
@@ -6380,6 +6800,10 @@ terminalSharing.onFileSystemNotification = (sessionId, operation, details, sourc
 }
 
 function disconnectFromCloud() {
+    // The pane goes back to describing the helper, since the room is no longer
+    // the reason there is nothing on screen.
+    setTimeout(updateEmptyState, 0);
+
     // Clear pending session to share
     pendingSessionToShare = null;
 
@@ -6420,7 +6844,9 @@ function disconnectFromCloud() {
     const cloudStatusDotManual = document.getElementById('cloudStatusDot');
     if (cloudStatusDotManual) cloudStatusDotManual.className = 'top-status-dot'; // grey = not connected
     const cloudStatusLabelDisc = document.getElementById('cloudStatusLabel');
-    if (cloudStatusLabelDisc) cloudStatusLabelDisc.textContent = 'Remote';
+    if (cloudStatusLabelDisc) cloudStatusLabelDisc.textContent = 'Not in a room';
+    const inviteBtnDisc = document.getElementById('inviteBtn');
+    if (inviteBtnDisc) inviteBtnDisc.style.display = 'none';
     const cloudIndicatorGrpDisc = document.getElementById('cloudIndicatorGroup');
     if (cloudIndicatorGrpDisc) cloudIndicatorGrpDisc.title = 'Remote Share – Disconnected';
 
@@ -6526,53 +6952,66 @@ function updateSharedTerminalsList() {
     const sharedList = document.getElementById('sharedSessionList');
     if (!sharedList) return;
 
+    // DOM-built: names and owners come from other agents — never innerHTML them.
+    sharedList.textContent = '';
+    const emptyNote = (text) => {
+        const div = document.createElement('div');
+        div.style.cssText = 'padding: 20px; text-align: center; color: var(--text-muted); font-size: 11px;';
+        div.textContent = text;
+        sharedList.appendChild(div);
+    };
+
     if (!terminalSharing || !cloudConnected) {
-        sharedList.innerHTML = `<div style="padding: 20px; text-align: center; color: var(--text-muted); font-size: 11px;">
-            No shared terminals yet.<br>
-            Connect to cloud to see shared sessions.
-        </div>`;
+        emptyNote('Join a room to see terminals shared with you.');
         return;
     }
 
     const sharedSessions = terminalSharing.getRemoteSharedSessions();
-
-    console.log('[SharedTerminals] Remote shared sessions:', sharedSessions);
-
     if (sharedSessions.length === 0) {
-        sharedList.innerHTML = `<div style="padding: 20px; text-align: center; color: var(--text-muted); font-size: 11px;">
-            No shared terminals yet.<br>
-            Right-click a tab and select "Share Session" to share.
-        </div>`;
+        emptyNote('Nothing shared with you yet. When somebody shares a terminal it appears here.');
         return;
     }
 
-    let html = '';
-
-    // Show shared sessions (clickable to view)
-    // Show remote shared sessions (clickable to view)
     sharedSessions.forEach(sharedSession => {
-        const icon = sharedSession.shell === 'bash' ? '🐧' : sharedSession.shell === 'powershell' ? '⚡' : '💻';
-
-        // ✅ Get actual permission from local session if it exists (reflects per-agent overrides)
-        // Otherwise fall back to the shared session's global permission
         const localSession = sessions.get(sharedSession.sessionId);
         const effectivePerm = localSession?.permission || sharedSession.permission || 'readonly';
+        const canWrite = effectivePerm === 'readwrite' || effectivePerm === 'write';
+        const permTitle = canWrite ? 'Read-Write' : 'Read-Only';
+        const isOpen = sessions.has(sharedSession.sessionId);
 
-        const permIcon = effectivePerm === 'readwrite' ? '✏️' : '👁️';
-        const permTitle = effectivePerm === 'readwrite' ? 'Read-Write' : 'Read-Only';
+        const item = document.createElement('div');
+        item.className = 'shared-invite';
+        item.title = `Shared by ${sharedSession.owner} (${permTitle})`;
 
-        html += `<div class="cloud-agent-item"
-            style="cursor: pointer; transition: opacity 0.2s;"
-            title="Click to view (${permTitle}) — shared by ${sharedSession.owner}"
-            onclick="viewSharedTerminal('${sharedSession.sessionId}', '${sharedSession.owner}')"
-            onmouseover="this.style.opacity='0.7'" onmouseout="this.style.opacity='1'">
-            <div class="cloud-agent-dot" style="background: var(--accent-cyan);"></div>
-            <span>${icon} ${sharedSession.name} (${sharedSession.owner})</span>
-            <span style="margin-left: auto; font-size: 10px; opacity: 0.7;">${permIcon}</span>
-        </div>`;
+        const icon = svgIconEl(shellIconName(sharedSession.shell, null));
+
+        const body = document.createElement('div');
+        body.className = 'shared-invite__body';
+        const nameDiv = document.createElement('div');
+        nameDiv.className = 'shared-invite__name';
+        nameDiv.textContent = sharedSession.name || 'Terminal';
+        const metaDiv = document.createElement('div');
+        metaDiv.className = 'shared-invite__meta';
+        metaDiv.textContent = `${sharedSession.owner} · ${permTitle}`;
+        body.appendChild(nameDiv);
+        body.appendChild(metaDiv);
+
+        const btn = document.createElement('button');
+        btn.type = 'button';
+        btn.className = 'shared-invite__btn';
+        btn.textContent = isOpen ? 'Open' : 'Watch';
+        btn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            viewSharedTerminal(sharedSession.sessionId, sharedSession.owner);
+        });
+
+        item.addEventListener('click', () => viewSharedTerminal(sharedSession.sessionId, sharedSession.owner));
+
+        item.appendChild(icon);
+        item.appendChild(body);
+        item.appendChild(btn);
+        sharedList.appendChild(item);
     });
-
-    sharedList.innerHTML = html;
 }
 
 /**
@@ -6581,13 +7020,23 @@ function updateSharedTerminalsList() {
 function viewSharedTerminal(sessionId, ownerAgent) {
     console.log('[Terminal] Viewing shared terminal:', sessionId, 'from:', ownerAgent);
 
-    // Switch to this session if it already exists
+    // Already watching: just switch to it
     if (sessions.has(sessionId)) {
         switchToSession(sessionId);
-        showToast('info', '👀 Viewing Shared Terminal', `Now viewing terminal from ${ownerAgent}`);
-    } else {
-        showToast('warning', 'Session Not Found', 'Shared terminal session not available');
+        return;
     }
+
+    // Not open yet: shares are invitations — the tab is created only now,
+    // when the person chooses to watch.
+    const info = terminalSharing?.getSharedSessionById(sessionId);
+    if (!info) {
+        showToast('warning', 'Session Not Available', 'That shared terminal is no longer available.');
+        updateSharedTerminalsList();
+        return;
+    }
+    createSharedTerminalSession(sessionId, info, ownerAgent || info.owner);
+    switchToSession(sessionId);
+    updateSharedTerminalsList();
 }
 
 /**
@@ -6600,13 +7049,13 @@ function createSharedTerminalSession(sessionId, sessionInfo, ownerAgent) {
         return;
     }
 
-    const icon = sessionInfo.shell === 'bash' ? '🐧' : sessionInfo.shell === 'powershell' ? '⚡' : '💻';
+    const icon = shellIconName(sessionInfo.shell, null);
     const name = `${sessionInfo.name} (${ownerAgent})`;
     const permission = sessionInfo.permission || 'readonly';
 
     // Create UI
     createTab(sessionId, name, icon, sessionInfo.type || 'remote');
-    createTerminalPanel(sessionId);
+    createTerminalPanel(sessionId, 'remote');
 
     // Initialize terminal (view-only)
     const terminal = initTerminal(sessionId, { shared: true });
@@ -6704,7 +7153,7 @@ function updateTypingIndicator(sessionId, agentName, isTyping) {
         const statusTyping = document.getElementById('statusTyping');
         if (statusTyping) {
             if (isTyping) {
-                statusTyping.textContent = `✏️ ${agentName} is typing...`;
+                statusTyping.textContent = `${agentName} is typing…`;
                 statusTyping.style.display = 'inline';
             } else {
                 statusTyping.style.display = 'none';
@@ -6747,7 +7196,7 @@ function showPermissionRequestNotification(sessionId, requester) {
             }
         </style>
         <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 12px;">
-            <span style="font-size: 24px;">✋</span>
+            <span>${svgIcon('hand', 'icon')}</span>
             <div>
                 <div style="font-weight: 600; color: var(--text-primary);">Permission Request</div>
                 <div style="font-size: 12px; color: var(--text-secondary);">${requester} wants write access</div>
@@ -6850,7 +7299,7 @@ function requestWritePermission(sessionId) {
     }
 
     if (terminalSharing.requestWritePermission(sessionId)) {
-        showToast('info', '📨 Request Sent', `Requesting write access from ${session.owner}`);
+        showToast('info', 'Request Sent', `Requesting write access from ${session.owner}`);
     } else {
         showToast('error', 'Error', 'Failed to send permission request');
     }
@@ -6873,7 +7322,7 @@ function toggleGlobalPermission(sessionId) {
     }
 
     const permLabel = newPerm === 'readwrite' ? 'Read-Write' : 'Read-Only';
-    showToast('success', '🔒 Permission Changed', `Global permission set to ${permLabel}`);
+    showToast('success', 'Permission Changed', `Global permission set to ${permLabel}`);
 
     // Use common helper to update all UI elements
     updatePermissionUI(sessionId, newPerm);
@@ -6910,7 +7359,7 @@ function toggleAgentPermission(sessionId, agentName) {
     }
 
     const permLabel = newPerm === 'readwrite' ? 'Read-Write' : 'Read-Only';
-    showToast('success', '🔒 Permission Changed', `${agentName} is now ${permLabel}`);
+    showToast('success', 'Permission Changed', `${agentName} is now ${permLabel}`);
     updateMySharesList();
 }
 window.toggleAgentPermission = toggleAgentPermission;
@@ -6986,7 +7435,7 @@ function setAgentPermission(sessionId, agentName, permission) {
     }
 
     const permLabel = permission === 'readwrite' ? 'Read-Write' : 'Read-Only';
-    showToast('success', '🔒 Permission Set', `${agentName} → ${permLabel}`);
+    showToast('success', 'Permission Set', `${agentName} → ${permLabel}`);
     updateMySharesList();
 }
 
@@ -7007,7 +7456,7 @@ function resetAgentPermission(sessionId, agentName) {
         }, agentName);
     }
 
-    showToast('info', '🔄 Permission Reset', `${agentName} → Using global permission`);
+    showToast('info', 'Permission Reset', `${agentName} → Using global permission`);
     updateMySharesList();
 }
 
@@ -7035,7 +7484,7 @@ function resetAllPermissions(sessionId) {
         terminalSharing.updateSessionPermission(sessionId, 'readonly');
     }
 
-    showToast('success', '🔄 All Permissions Reset', 'All permissions set to Read-Only');
+    showToast('success', 'All Permissions Reset', 'All permissions set to Read-Only');
 
     // Use common helper to update all UI elements
     updatePermissionUI(sessionId, 'readonly');
@@ -7096,7 +7545,8 @@ function shareTerminal(sessionId, permission = 'readonly') {
         updateSharedTerminalsList(); // Refresh shared terminals list
         updateSidebarBadges(); // Update sidebar badges
         updateCloudHostIndicator(); // ✅ Update host indicator (now we're a host)
-        updateMySharesList(); // Update my shares list
+        updateMySharesList(); // Update my shares list (also refreshes banners)
+        updateSharingBanner(sessionId);
 
         if (success) {
             console.log('[Terminal] Shared session:', sessionId, session.name);
@@ -7141,7 +7591,8 @@ function unshareTerminal(sessionId) {
     }
 
     updateTabSharedIndicator(sessionId, false);  // Hide shared badge
-    showToast('success', '🛑 Sharing Stopped', `"${sessionName}" is no longer shared`, 4000);
+    updateSharingBanner(sessionId);
+    showToast('success', 'Sharing Stopped', `"${sessionName}" is no longer shared`, 4000);
     console.log('[Terminal] Unshared session:', sessionId, '— permissions cleared');
 }
 
@@ -7240,7 +7691,7 @@ async function createNewNote() {
         updateNotesList();
         updateNotesBadge();
         openNote(noteId);
-        showToast('success', '📝 Note Created', noteId);
+        showToast('success', 'Note Created', noteId);
     } catch (error) {
         console.error('[Notes] Failed to create note:', error);
         showToast('error', 'Create Failed', 'Failed to create note');
@@ -7317,10 +7768,12 @@ function renameNotePrompt(noteId) {
     const note = notes.get(noteId);
     if (!note) return;
 
-    const newTitle = prompt('Rename note:', note.title || 'Untitled Note');
-    if (newTitle && newTitle.trim() && newTitle.trim() !== note.title) {
-        updateNoteTitle(noteId, newTitle.trim());
-    }
+    AppDialog.askFor('New name for this note', note.title || 'Untitled Note', { title: 'Rename note' })
+        .then((newTitle) => {
+            if (newTitle && newTitle.trim() && newTitle.trim() !== note.title) {
+                updateNoteTitle(noteId, newTitle.trim());
+            }
+        });
 }
 
 // Toggle note sharing (REMOVED - notes are local files, no sharing)
@@ -7341,7 +7794,11 @@ async function saveNote(noteId) {
 
 // Delete note
 async function deleteNote(noteId) {
-    if (!confirm('Are you sure you want to delete this note?')) return;
+    const sure = await AppDialog.ask({
+        title: 'Delete this note?', body: 'The note goes for good.',
+        confirmLabel: 'Delete', danger: true
+    });
+    if (!sure) return;
 
     try {
         const response = await slsFetch(`${MLS_URL}/filesystem/notes/delete?path=note://${noteId}`, { method: 'DELETE' });
@@ -7363,7 +7820,7 @@ async function deleteNote(noteId) {
 
         updateNotesList();
         updateNotesBadge();
-        showToast('success', '🗑️ Deleted', 'Note deleted successfully');
+        showToast('success', 'Deleted', 'Note deleted successfully');
 
         console.log('[Notes] Note deleted:', noteId);
     } catch (error) {
@@ -7428,9 +7885,9 @@ function updateNotesList() {
     if (notes.size === 0) {
         notesList.innerHTML = `
             <div style="padding: 20px; text-align: center; color: var(--text-muted); font-size: 12px;">
-                <div style="font-size: 32px; margin-bottom: 8px;">📝</div>
+                <div style="margin-bottom: 8px;">${svgIcon('pen', 'icon')}</div>
                 <div>No notes yet</div>
-                <div style="margin-top: 8px; font-size: 11px;">Click ➕ to create a new note</div>
+                <div style="margin-top: 8px; font-size: 11px;">Use the + button above to create a new note</div>
             </div>
         `;
         return;
@@ -7451,7 +7908,7 @@ function updateNotesList() {
             <div class="note-item" 
                  data-note-id="${note.id}" 
                  onclick="openNote('${note.id.replace(/'/g, "\\'")}')">
-                <div class="note-icon">📝</div>
+                <div class="note-icon">${svgIcon('pen')}</div>
                 <div class="note-details">
                     <div class="note-title">${note.title || 'Untitled Note'}</div>
                     <div class="note-preview">${preview}${preview.length >= 50 ? '...' : ''}</div>
@@ -7504,17 +7961,17 @@ function showNoteContextMenu(event, noteId) {
 
     menu.innerHTML = `
         <div class="context-menu-item" onclick="openNote('${noteId}'); this.parentElement.remove();">
-            📝 Open Note
+            ${svgIcon('arrow-right')} Open Note
         </div>
         <div class="context-menu-item" onclick="renameNotePrompt('${noteId}'); this.parentElement.remove();">
-            ✏️ Rename
+            ${svgIcon('pen')} Rename
         </div>
         <div class="context-menu-item" onclick="duplicateNote('${noteId}'); this.parentElement.remove();">
-            📋 Duplicate
+            ${svgIcon('copy')} Duplicate
         </div>
         <div class="context-menu-separator"></div>
         <div class="context-menu-item danger" onclick="deleteNote('${noteId}'); this.parentElement.remove();">
-            🗑️ Delete Note
+            ${svgIcon('trash')} Delete Note
         </div>
     `;
 
@@ -7602,7 +8059,7 @@ async function duplicateNote(noteId) {
         updateNotesList();
         updateNotesBadge();
 
-        showToast('success', '📋 Duplicated', 'Note duplicated successfully');
+        showToast('success', 'Duplicated', 'Note duplicated successfully');
         console.log('[Notes] Note duplicated:', noteId, '→', newNoteId);
     } catch (error) {
         console.error('[Notes] Failed to duplicate note:', error);
@@ -7688,9 +8145,12 @@ let lastFileExplorerClickTime = 0;
  * Opens on demand and keeps consistent with active session
  */
 function openFileExplorerForActiveTab() {
-    // Debounce: Prevent multiple rapid clicks (300ms cooldown)
+    // Debounce rapid double-clicks — but never debounce the very first open,
+    // or a programmatic open that follows a click can be silently swallowed.
     const now = Date.now();
-    if (now - lastFileExplorerClickTime < 300) {
+    const container = document.getElementById('fileExplorerPanelContainer');
+    const neverMounted = !container || !container.hasChildNodes();
+    if (!neverMounted && now - lastFileExplorerClickTime < 300) {
         console.log('[FileExplorer] Click ignored - too fast (debounced)');
         return;
     }
@@ -7720,8 +8180,13 @@ function openFileExplorerForActiveTab() {
         initFileExplorer();
     }
 
-    // Switch to file browser tab in sidebar
-    switchSidebarTab('files');
+    // Switch to file browser tab in sidebar (guard flag: plain panel switch)
+    _switchingToFiles = true;
+    try {
+        switchSidebarTab('files');
+    } finally {
+        _switchingToFiles = false;
+    }
 
     // ✅ Smart refresh logic:
     // - If already open for SAME session AND connected → Just refresh (light operation)
@@ -7798,7 +8263,7 @@ async function refreshFileSystemSession(terminalSessionId) {
             fileExplorer.refresh();
         }
 
-        showToast('success', '🔄 File Browser Refreshed', 'File system connection recreated successfully');
+        showToast('success', 'File Browser Refreshed', 'File system connection recreated successfully');
     } catch (error) {
         console.error('[FileSystem] Error refreshing file system session:', error);
         showToast('error', 'Refresh Failed', 'Failed to refresh file system connection');
@@ -7978,7 +8443,7 @@ window.isRemoteFileSystem = isRemoteFileSystem;
 window.addEventListener('load', async () => {
     // 🧪 Show test mode banner if enabled
     if (TEST_MODE_NO_SLS) {
-        showToast('info', '🧪 Test Mode Active', 'SLS service disabled - Viewer-only mode (shared sessions only)', 10000);
+        showToast('info', 'Test Mode Active', 'SLS service disabled - Viewer-only mode (shared sessions only)', 10000);
 
         // Add visual indicator to UI
         const testBanner = document.createElement('div');
@@ -8001,7 +8466,7 @@ window.addEventListener('load', async () => {
             pointer-events: auto;
         `;
         testBanner.innerHTML = `
-            🧪 TEST MODE: SLS Disabled - Viewer Only
+            TEST MODE: SLS Disabled - Viewer Only
             <button onclick="toggleTestMode()" style="margin-left: 10px; padding: 2px 10px; border: 1px solid white; 
                     border-radius: 10px; background: rgba(255,255,255,0.2); color: white; cursor: pointer; font-size: 10px;">
                 Disable Test Mode
@@ -8121,6 +8586,7 @@ window.addEventListener('load', async () => {
             console.log('[SLS] 🔴 Initial state: OFFLINE - Event dispatched');
 
             updateSlsDependentButtons(false);
+            updateEmptyState();
 
             // Show notification only on state change (null→offline means first time)
             if (previousState !== 'offline') {
@@ -8131,6 +8597,12 @@ window.addEventListener('load', async () => {
         }
     }
 
+    // The pane follows the helper: it is what the person is looking at while
+    // they go and start it.
+    window.addEventListener('sls-online', updateEmptyState);
+    window.addEventListener('sls-offline', updateEmptyState);
+    updateEmptyState();
+
     // ✅ CRITICAL: Check for auth URL FIRST (before loadCloudConfig)
     // This ensures auth URL values take precedence over saved config
     const hasAuthUrl = await checkForAuthUrl();
@@ -8138,7 +8610,10 @@ window.addEventListener('load', async () => {
     // Now proceed with normal initialization (skip SLS checks in test mode)
     if (!TEST_MODE_NO_SLS) {
         await checkMlsHealth(false, true);
-        await refreshConnections();
+        // Every one of these calls goes to a helper that has already failed to
+        // answer, and each failure is another red line in the console for
+        // somebody who has simply not installed it.
+        if (slsCurrentState !== 'offline') await refreshConnections();
     } else {
         console.log('🧪 TEST MODE: Skipping SLS health check and connection refresh');
     }
@@ -8337,13 +8812,8 @@ window.toggleTestMode = toggleTestMode;
 window.enableTestMode = enableTestMode;
 window.disableTestMode = disableTestMode;
 
-// Keyboard shortcut for test mode (Ctrl+Shift+T)
-document.addEventListener('keydown', (e) => {
-    if (e.ctrlKey && e.shiftKey && e.key === 'T') {
-        e.preventDefault();
-        toggleTestMode();
-    }
-});
+// Test mode is toggled by adding/removing ?test in the URL (see enableTestMode).
+// Ctrl+Shift+T now opens a new terminal tab — see the application shortcuts below.
 
 // Log test mode instructions on console
 if (TEST_MODE_NO_SLS) {
@@ -8361,13 +8831,11 @@ if (TEST_MODE_NO_SLS) {
     console.log('  4️⃣  View and interact with shared sessions from the other window');
     console.log('');
     console.log('%c🎮 QUICK COMMANDS:', 'color: #4ade80; font-weight: bold;');
-    console.log('  disableTestMode()  - Exit test mode and enable SLS');
-    console.log('  Ctrl+Shift+T       - Toggle test mode (requires reload)');
+    console.log('  disableTestMode()  - Exit test mode (removes ?test from the URL)');
     console.log('');
 } else {
     console.log('%c💡 TIP: Enable Test Mode for Tab Sharing Testing', 'color: #22d3ee; font-weight: bold;');
-    console.log('  enableTestMode()   - Enable viewer-only mode (no SLS required)');
-    console.log('  Ctrl+Shift+T       - Quick toggle test mode');
+    console.log('  enableTestMode()   - Viewer-only mode, no SLS required (adds ?test to the URL)');
     console.log('');
 }
 
@@ -8713,15 +9181,17 @@ async function importConfiguration() {
         const config = parseXMLConfig(xmlDoc);
 
         // Confirm import
-        const confirmMsg = `Import configuration?\n\n` +
-            `- SSH Connections: ${config.data.sshConnections ? config.data.sshConnections.length : 0}\n` +
-            `- Notes: ${config.data.notes ? config.data.notes.length : 0}\n` +
-            `- Settings: ${config.data.settings ? 'Yes' : 'No'}\n\n` +
-            `This will merge with existing data.`;
+        const confirmMsg = `It brings `
+            + `${config.data.sshConnections ? config.data.sshConnections.length : 0} SSH connections, `
+            + `${config.data.notes ? config.data.notes.length : 0} notes and `
+            + `${config.data.settings ? 'your settings' : 'no settings'}, merged with what is here already.`;
 
-        if (!confirm(confirmMsg)) {
-            return;
-        }
+        const sure = await AppDialog.ask({
+            title: 'Import this configuration?',
+            body: confirmMsg,
+            confirmLabel: 'Import'
+        });
+        if (!sure) return;
 
         // Import SSH connections
         if (config.data.sshConnections) {

@@ -147,6 +147,11 @@ class PictionaryGame extends UserConnectionBase {
     }
 
     onConnect(detail) {
+        // Dismiss the connection dialog — without this it stays over the app
+        // even though the session is live.
+        if (window.ConnectionModal && typeof window.ConnectionModal.hide === 'function') {
+            window.ConnectionModal.hide();
+        }
         console.log('[Pictionary] Connected:', detail);
         
         // Show game container
@@ -287,7 +292,7 @@ class PictionaryGame extends UserConnectionBase {
             html += `
                 <div class="${classes}">
                     <div class="player-info">
-                        <span class="player-name">${username}${username === this.username ? ' (You)' : ''}</span>
+                        <span class="player-name">${MiniGameUtils.escapeHtml(username)}${username === this.username ? ' (You)' : ''}</span>
                         ${isArtist ? '🎨' : ''}
                         ${hasGuessed ? '✓' : ''}
                     </div>
@@ -861,7 +866,7 @@ class PictionaryGame extends UserConnectionBase {
         if (type === 'system') {
             msgEl.textContent = message;
         } else {
-            msgEl.innerHTML = `<strong>${username}:</strong> ${message}`;
+            msgEl.innerHTML = `<strong>${MiniGameUtils.escapeHtml(username)}:</strong> ${MiniGameUtils.escapeHtml(message)}`;
         }
         
         chatMessages.appendChild(msgEl);
@@ -979,7 +984,7 @@ async function connectPictionary(username, channel, password) {
         console.log('[Pictionary] Connected and ready!');
     } catch (error) {
         console.error('[Pictionary] Connection failed:', error);
-        alert('Failed to connect: ' + error.message);
+        if (window.ConnectionModal) ConnectionModal.fail(error);
         pictionaryGame = null;
     } finally {
         isConnecting = false;
@@ -990,8 +995,8 @@ function initializeConnectionModal() {
     window.loadConnectionModal({
         localStoragePrefix: 'pictionary_',
         channelPrefix: 'pictionary-',
-        title: '🎨 Join Pictionary',
-        collapsedTitle: '🎨 Pictionary',
+        title: 'Join Pictionary',
+        collapsedTitle: 'Pictionary',
         onConnect: function(username, channel, password) {
             connectPictionary(username, channel, password);
         }

@@ -3,13 +3,13 @@
  * Enables offline functionality by caching all terminal assets
  */
 
-const CACHE_NAME = 'messaging-platform-shared-terminal-v1.9.8';
-const CACHE_TIMESTAMP = '2026-03-07-jar-path-offline-fix';
+const CACHE_NAME = 'messaging-platform-shared-terminal-v2.0.0';
+const CACHE_TIMESTAMP = '2026-08-20-complete-asset-list';
 
 // Files to cache for offline use
 const STATIC_ASSETS = [
     // Main app files
-    './index.html',
+    './app.html',
     './terminal.js',
     './terminal.css',
     './terminal-sharing.js',
@@ -19,7 +19,19 @@ const STATIC_ASSETS = [
     './file-editor.css',
     './note-editor.js',
     './note-editor.css',
+    './storage-manager.js',
+    './FileTransferProxy.js',
     './manifest.json',
+
+    // App icons (manifest + favicon)
+    './icons/icon-72x72.png',
+    './icons/icon-96x96.png',
+    './icons/icon-128x128.png',
+    './icons/icon-144x144.png',
+    './icons/icon-152x152.png',
+    './icons/icon-192x192.png',
+    './icons/icon-384x384.png',
+    './icons/icon-512x512.png',
 
     // CodeMirror Core
     './libs/codemirror/css/codemirror.min.css',
@@ -61,12 +73,23 @@ const STATIC_ASSETS = [
     // QR Code library
     '../../lib/qrcode.min.js',
 
-    // Web SDK dependencies (must match index.html script tags)
+    // Web SDK dependencies (must match app.html script tags)
+    '../../js/prod-log.js',
     '../../js/config-loader.js',
+    '../../js/icons.js',
+    '../../js/dialog.js',
+    '../../js/room-defaults.js',
+    '../../js/app-chrome.js',
     '../../generated-web-agent-js/js/web-agent.libs.js',
     '../../generated-web-agent-js/js/web-agent.js',
     '../../generated-web-agent-js/js/web-agent.webrtc.js',
     '../../js/UserConnectionBase.js',
+
+    // Shared stylesheets loaded by app.html
+    '../../css/design-tokens.css',
+    '../../css/toast.css',
+    '../../css/cloud-connection.css',
+    '../../css/app-chrome.css',
 ];
 
 // Install event - cache all static assets
@@ -169,7 +192,7 @@ self.addEventListener('fetch', (event) => {
                 .catch(() => {
                     // Network failed - fall back to cache
                     return caches.match(request).then((cached) => {
-                        return cached || caches.match('./index.html');
+                        return cached || caches.match('./app.html');
                     });
                 })
         );
@@ -205,9 +228,9 @@ self.addEventListener('fetch', (event) => {
                 }).catch((error) => {
                     console.error('[ServiceWorker] Fetch failed:', error);
 
-                    // If offline, return cached index.html as fallback
+                    // If offline, return cached app.html as fallback
                     if (request.mode === 'navigate') {
-                        return caches.match('./index.html');
+                        return caches.match('./app.html');
                     }
 
                     throw error;

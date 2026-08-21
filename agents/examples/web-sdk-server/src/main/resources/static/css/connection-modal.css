@@ -594,7 +594,91 @@ button[id*="disconnect"]:hover,
     }
 
     .connection-modal .modal-content {
-        max-height: 60vh;
+        max-height: 80vh;
+        max-height: 80dvh;
         overflow-y: auto;
     }
 }
+
+/* A screen shorter than the card — a phone held sideways — put the Connect
+ * button below the fold with no way to reach it: the overlay does not scroll,
+ * and games that set `touch-action: none` on the body stop the card scrolling
+ * under a finger too. Both are answered here rather than per game.
+ */
+@media (max-height: 560px) {
+    .connection-modal .modal-content {
+        max-height: calc(100vh - 16px);
+        overflow-y: auto;
+        touch-action: pan-y;
+        -webkit-overflow-scrolling: touch;
+        padding: 16px;
+    }
+}
+
+/* ---- when a connect fails -------------------------------------------------
+ * The form is where the person is looking, so this is where the reason goes.
+ * A toast in the corner of a screen they are not watching is not a report.
+ */
+.connection-modal .connect-error {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    margin-top: 12px;
+    padding: 12px 14px;
+    background: #fef2f2;
+    border: 1px solid #fecaca;
+    border-left-width: 4px;
+    border-radius: 8px;
+}
+
+.connection-modal .connect-error[hidden] { display: none; }
+
+.connection-modal .connect-error p {
+    margin: 0;
+    font-size: 14px;
+    line-height: 1.45;
+    color: #b91c1c;
+}
+
+.connection-modal .connect-error button { align-self: flex-start; }
+.connection-modal .connect-error button[hidden] { display: none; }
+
+/* A button that is busy says so and cannot be pressed twice. */
+.connection-modal button:disabled { opacity: 0.6; cursor: progress; }
+
+/* The collapse control is one chevron that turns, rather than two different
+   arrow glyphs that render differently on every platform. */
+.connection-modal .modal-toggle-btn .chev {
+    transition: transform 0.15s ease;
+}
+
+.connection-modal.collapsed .modal-toggle-btn .chev {
+    transform: rotate(-90deg);
+}
+
+/* The reveal control holds an icon and nothing else.
+ *
+ * It was 34x26, which is under the size a fingertip can reliably hit — and
+ * this form is the first thing anyone who scans the QR code sees, on the
+ * device least able to hit a 26px target. 36 square, centred, everywhere. */
+.connection-modal .password-toggle-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 36px;
+    min-height: 36px;
+}
+
+/* :not([hidden]) matters. The button holds both glyphs — eye and eye-off — and
+ * the script swaps them with the `hidden` attribute, which works only because
+ * the UA stylesheet maps it to display:none. A bare `display: block` here is an
+ * author rule and beats that, so both icons painted at once, stacked inside the
+ * button, whatever the field's state. */
+.connection-modal .password-toggle-btn svg:not([hidden]) {
+    width: 18px;
+    height: 18px;
+    min-width: 18px;
+    display: block;
+}
+
+.connection-modal .password-toggle-btn svg[hidden] { display: none; }

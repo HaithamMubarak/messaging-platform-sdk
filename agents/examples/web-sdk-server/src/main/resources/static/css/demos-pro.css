@@ -12,6 +12,13 @@
        <span class="pro-badge pro-badge--ok">Connected</span>
    ========================================================================== */
 
+/* These are NOT aliased onto the shared design tokens, and deliberately so.
+   design-tokens.css is a dark palette — its --text is a near-white meant to sit
+   on a dark surface — while this layer is a light one, built on white glass over
+   a pale aurora. Mapping the two name-for-name reads as tidy and inverts every
+   text colour: aliasing --pro-ink to --text put #eef2f8 on #ffffff glass, a
+   contrast ratio of 1.12, which is to say invisible. The hues below already
+   match the shared palette by value. */
 :root {
     --pro-accent:        #6366f1;
     --pro-accent-2:      #8b5cf6;
@@ -23,7 +30,7 @@
 
     --pro-ink:           #0f172a;
     --pro-ink-soft:      #475569;
-    --pro-ink-faint:     #94a3b8;
+    --pro-ink-faint:     #5f6d81;   /* #94a3b8 was 2.9:1 on the white glass */
     --pro-line:          rgba(15, 23, 42, 0.10);
     --pro-surface:       rgba(255, 255, 255, 0.82);
     --pro-surface-solid: #ffffff;

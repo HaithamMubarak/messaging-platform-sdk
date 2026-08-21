@@ -1,0 +1,102 @@
+/* Drop — the drop zone, the transfer list, and the peer picker. */
+
+.dropzone {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: var(--sp-3);
+    flex: none;
+    width: 100%;
+    padding: var(--sp-10) var(--sp-6);
+    font: inherit;
+    text-align: center;
+    color: var(--text-body);
+    background: var(--brand-subtle);
+    border: 2px dashed rgba(99, 102, 241, 0.45);
+    border-radius: var(--r-xl);
+    cursor: pointer;
+    transition: background var(--dur) var(--ease), border-color var(--dur) var(--ease);
+}
+
+.dropzone:hover, .dropzone.is-over { background: rgba(99,102,241,0.18); border-color: var(--brand); }
+.dropzone:focus-visible { outline: none; box-shadow: var(--focus-ring); }
+
+.dropzone__mark {
+    display: grid; place-items: center;
+    width: 56px; height: 56px;
+    border-radius: var(--r-pill);
+    background: var(--surface-1);
+    color: var(--brand-ink);
+}
+
+.dropzone__title { font-size: var(--fs-xl); font-weight: 700; color: var(--text); }
+.dropzone__note { font-size: var(--fs-md); color: var(--text-muted); max-width: 44rem; line-height: var(--lh-body); text-wrap: pretty; }
+
+/* ---- transfers ----------------------------------------------------------- */
+.transfers { display: flex; flex-direction: column; gap: var(--sp-3); }
+
+.tr {
+    display: flex;
+    flex-direction: column;
+    gap: var(--sp-2);
+    padding: var(--sp-4) var(--sp-5);
+    background: var(--surface-1);
+    border: 1px solid var(--border);
+    border-radius: var(--r-lg);
+}
+
+.tr--offered { border-color: rgba(251,191,36,.35); }
+.tr--ready { border-color: rgba(52,211,153,.35); }
+.tr--damaged { border-color: rgba(248,113,113,.35); }
+.tr--declined { opacity: 0.6; }
+
+.tr__head { display: flex; align-items: center; gap: var(--sp-3); }
+
+.tr__icon {
+    display: grid; place-items: center;
+    width: 36px; height: 36px; flex: none;
+    border-radius: var(--r-md);
+    background: var(--surface-2);
+    color: var(--brand-ink);
+}
+
+.tr__icon--offered { background: var(--warning-bg); color: var(--warning); }
+.tr__icon--ready { background: var(--success-bg); color: var(--success); }
+.tr__icon--damaged { background: var(--danger-bg); color: var(--danger); }
+
+.tr__id { display: flex; flex-direction: column; min-width: 0; }
+.tr__name { font-size: var(--fs-md); font-weight: 600; color: var(--text); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.tr__meta { font-size: var(--fs-xs); color: var(--text-muted); }
+.tr__state { margin-left: auto; font-family: var(--font-mono); font-size: var(--fs-xs); color: var(--text-muted); }
+
+.tr__track { height: 6px; border-radius: var(--r-pill); background: var(--surface-3); overflow: hidden; }
+.tr__fill { height: 100%; border-radius: var(--r-pill); background: var(--accent); transition: width var(--dur-fast) linear; }
+.tr__chunks { font-family: var(--font-mono); font-size: var(--fs-xs); color: var(--text-faint); }
+.tr__actions { display: flex; align-items: center; justify-content: flex-end; gap: var(--sp-2); }
+
+/* ---- peers --------------------------------------------------------------- */
+.peers { display: flex; flex-direction: column; gap: var(--sp-2); }
+
+.peer {
+    display: flex;
+    align-items: center;
+    gap: var(--sp-3);
+    width: 100%;
+    padding: var(--sp-3);
+    font: inherit;
+    text-align: left;
+    color: var(--text-body);
+    background: var(--surface-1);
+    border: 1px solid var(--border);
+    border-radius: var(--r-md);
+    cursor: pointer;
+}
+
+.peer:hover { background: var(--surface-2); }
+.peer:focus-visible { outline: none; box-shadow: var(--focus-ring); }
+.peer.is-on { border-color: var(--brand); background: var(--brand-subtle); }
+
+.peer__id { display: flex; flex-direction: column; min-width: 0; }
+.peer__name { font-size: var(--fs-md); font-weight: 600; color: var(--text); }
+.peer__link { font-family: var(--font-mono); font-size: var(--fs-xs); color: var(--warning); }
+.peer__link.is-direct { color: var(--success); }

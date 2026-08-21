@@ -2,8 +2,8 @@
 
 ## Prerequisites
 
-1. **Messaging Platform Services** running at `http://localhost:8080`
-2. **Web SDK Server** running at `http://localhost:8090`
+1. An API key for the Messaging Platform (request one from the site)
+2. The Web SDK demo server running locally
 
 ## Starting the Game
 

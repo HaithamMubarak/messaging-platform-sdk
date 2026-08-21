@@ -49,6 +49,11 @@ class ChessGame extends UserConnectionBase {
     }
 
     onConnect(detail) {
+        // Dismiss the connection dialog — without this it stays over the app
+        // even though the session is live.
+        if (window.ConnectionModal && typeof window.ConnectionModal.hide === 'function') {
+            window.ConnectionModal.hide();
+        }
         console.log('[Chess] Connected:', detail);
 
         // Show game container
@@ -234,7 +239,7 @@ class ChessGame extends UserConnectionBase {
         spectatorCount.textContent = this.spectators.length;
 
         spectatorsList.innerHTML = this.spectators
-            .map(name => `<div class="spectator-item">👁️ ${name}</div>`)
+            .map(name => `<div class="spectator-item">👁️ ${MiniGameUtils.escapeHtml(name)}</div>`)
             .join('');
     }
 
@@ -295,6 +300,11 @@ class ChessGame extends UserConnectionBase {
                 if (square) {
                     const pieceSymbol = PIECE_UNICODE[square.type === square.type.toUpperCase() ? square.type.toUpperCase() : square.type];
                     squareEl.textContent = square.color === 'w' ? pieceSymbol : PIECE_UNICODE[square.type];
+                    // Which side a piece belongs to, so the stylesheet can colour
+                    // it. Both sets inherited one colour before, and the only
+                    // thing telling them apart was outline glyph versus filled —
+                    // legible on paper, much less so at board size on a screen.
+                    squareEl.classList.add(square.color === 'w' ? 'piece-white' : 'piece-black');
                 }
 
                 // Highlight last move
@@ -320,9 +330,27 @@ class ChessGame extends UserConnectionBase {
         }
     }
 
+    /**
+     * The name of a square, from its index in the array chess.js gives us.
+     *
+     * board() comes back rank 8 first, so index 0 is rank 8 and index 7 is
+     * rank 1 — the inverse of what this used to assume. The mistake was
+     * invisible in the starting position, because a board is symmetric: the
+     * square showing a white pawn resolved to a7, chess.js reported a black
+     * pawn there, the colour did not match whose turn it was, and the click was
+     * dropped. Nothing was ever selectable, so no move could ever be made.
+     */
     getSquareNotation(row, col) {
         const files = 'abcdefgh';
-        return files[col] + (row + 1);
+        return files[col] + (8 - row);
+    }
+
+    /** The same mapping the other way: a square's name to its place on screen. */
+    squareToIndex(square) {
+        return {
+            col: 'abcdefgh'.indexOf(square[0]),
+            row: 8 - parseInt(square[1], 10)
+        };
     }
 
     handleSquareClick(row, col) {
@@ -361,11 +389,7 @@ class ChessGame extends UserConnectionBase {
 
     highlightValidMoves() {
         this.validMoves.forEach(move => {
-            const toSquare = move.to;
-            const [file, rank] = [toSquare[0], toSquare[1]];
-            const col = 'abcdefgh'.indexOf(file);
-            const row = parseInt(rank) - 1;
-
+            const { row, col } = this.squareToIndex(move.to);
             const squareEl = document.querySelector(`[data-row="${row}"][data-col="${col}"]`);
             if (squareEl) {
                 squareEl.classList.add('valid-move');
@@ -374,10 +398,7 @@ class ChessGame extends UserConnectionBase {
 
         // Highlight selected square
         if (this.selectedSquare) {
-            const [file, rank] = [this.selectedSquare[0], this.selectedSquare[1]];
-            const col = 'abcdefgh'.indexOf(file);
-            const row = parseInt(rank) - 1;
-
+            const { row, col } = this.squareToIndex(this.selectedSquare);
             const squareEl = document.querySelector(`[data-row="${row}"][data-col="${col}"]`);
             if (squareEl) {
                 squareEl.classList.add('selected');
@@ -499,7 +520,7 @@ class ChessGame extends UserConnectionBase {
         entryEl.className = 'move-entry';
         entryEl.innerHTML = `
             <span class="move-number">${moveNum}.</span>
-            <span class="move-text">${move.san}</span>
+            <span class="move-text">${MiniGameUtils.escapeHtml(move.san)}</span>
         `;
 
         history.appendChild(entryEl);
@@ -539,13 +560,15 @@ class ChessGame extends UserConnectionBase {
     // ============================================
 
     requestNewGame() {
-        if (confirm('Start a new game? Current game will be lost.')) {
-            const data = {
-                type: 'new-game'
-            };
+        MiniGameUtils.ask({
+            title: 'Start a new game?', body: 'The game on the board now is lost.',
+            confirmLabel: 'New game', danger: true
+        }).then((yes) => {
+            if (!yes) return;
+            const data = { type: 'new-game' };
             this.sendData(data);
             this.handleNewGame(data);
-        }
+        });
     }
 
     handleNewGame(data) {
@@ -571,15 +594,15 @@ class ChessGame extends UserConnectionBase {
     resign() {
         if (this.myColor === 'spectator') return;
 
-        if (confirm('Are you sure you want to resign?')) {
-            const data = {
-                type: 'resign',
-                username: this.username,
-                color: this.myColor
-            };
+        MiniGameUtils.ask({
+            title: 'Resign?', body: 'Your opponent wins this game.',
+            confirmLabel: 'Resign', danger: true
+        }).then((yes) => {
+            if (!yes) return;
+            const data = { type: 'resign', username: this.username, color: this.myColor };
             this.sendData(data);
             this.handleResign(data);
-        }
+        });
     }
 
     handleResign(data) {
@@ -604,15 +627,18 @@ class ChessGame extends UserConnectionBase {
     }
 
     handleDrawOffer(data) {
-        if (confirm(`${data.from} offers a draw. Accept?`)) {
-            const acceptData = {
-                type: 'draw-accepted'
-            };
+        MiniGameUtils.ask({
+            title: 'A draw is offered', body: `${data.from} offers a draw.`,
+            confirmLabel: 'Accept', cancelLabel: 'Play on'
+        }).then((yes) => {
+            if (!yes) {
+                this.showToast('Draw offer declined', 'info');
+                return;
+            }
+            const acceptData = { type: 'draw-accepted' };
             this.sendData(acceptData);
             this.handleDrawAccepted(acceptData);
-        } else {
-            this.showToast('Draw offer declined', 'info');
-        }
+        });
     }
 
     handleDrawAccepted(data) {
@@ -685,17 +711,34 @@ class ChessGame extends UserConnectionBase {
         this.spectators = data.spectators || [];
         this.lastMove = data.lastMove;
 
-        // Determine my role if not set
+        // Determine my role if not set.
+        //
+        // The last branch used to be an unconditional "you are a spectator",
+        // and it ran on the state the host sends every newcomer — so the
+        // second person to arrive was made a spectator before they had chosen
+        // anything, and the lobby was hidden, and chooseColor() then refused
+        // because a colour was already set. Two people could not play chess:
+        // one player and a room of spectators was the only reachable state.
+        //
+        // A seat that is still empty is an invitation, so the lobby stays up
+        // and nothing is decided for them.
         if (!this.myColor) {
+            const seatsFull = !!(this.whitePlayer && this.blackPlayer);
+
             if (this.username === this.whitePlayer) {
                 this.myColor = 'white';
             } else if (this.username === this.blackPlayer) {
                 this.myColor = 'black';
                 this.boardFlipped = true;
-            } else {
+            } else if (seatsFull) {
                 this.myColor = 'spectator';
             }
-            document.getElementById('lobbyPanel').classList.add('hidden');
+
+            if (this.myColor) {
+                document.getElementById('lobbyPanel').classList.add('hidden');
+            } else {
+                document.getElementById('lobbyPanel').classList.remove('hidden');
+            }
         }
 
         this.renderBoard();
@@ -770,7 +813,7 @@ async function connectChess(username, channel, password) {
         console.log('[Chess] Connected and ready!');
     } catch (error) {
         console.error('[Chess] Connection failed:', error);
-        alert('Failed to connect: ' + error.message);
+        if (window.ConnectionModal) ConnectionModal.fail(error);
         chessGame = null;
     } finally {
         isConnecting = false;
@@ -781,8 +824,8 @@ function initializeConnectionModal() {
     window.loadConnectionModal({
         localStoragePrefix: 'chess_',
         channelPrefix: 'chess-',
-        title: '♟️ Join Chess Game',
-        collapsedTitle: '♟️ Chess',
+        title: 'Join Chess Game',
+        collapsedTitle: 'Chess',
         onConnect: function(username, channel, password) {
             connectChess(username, channel, password);
         }

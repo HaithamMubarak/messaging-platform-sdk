@@ -2,27 +2,45 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
+    <script src="../js/prod-log.js"></script>
+    <link rel="icon" type="image/svg+xml" href="../favicon.svg">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Cloud Connection Component - Example</title>
+    <title>Cloud connection component — the connect panel, on the Messaging Platform SDK</title>
+    <meta name="description" content="The connection panel on its own: how an app asks for a channel, a name and a password, and what it does with the answer.">
+    <meta name="theme-color" content="#0b1120">
+    <link rel="canonical" href="https://hmdevonline.com/messaging-platform/sdk/apps/cloud-connection-demo.html">
+    <meta property="og:type" content="website">
+    <meta property="og:site_name" content="Messaging Platform SDK">
+    <meta property="og:title" content="Cloud connection component">
+    <meta property="og:description" content="The connection panel on its own: how an app asks for a channel, a name and a password, and what it does with the answer.">
+    <meta property="og:url" content="https://hmdevonline.com/messaging-platform/sdk/apps/cloud-connection-demo.html">
+    <meta property="og:image" content="https://hmdevonline.com/messaging-platform/sdk/images/og-image.png">
+    <meta name="twitter:card" content="summary_large_image">
+    <meta name="twitter:title" content="Cloud connection component">
+    <meta name="twitter:description" content="The connection panel on its own: how an app asks for a channel, a name and a password, and what it does with the answer.">
+    <meta name="twitter:image" content="https://hmdevonline.com/messaging-platform/sdk/images/og-image.png">
 
     <!-- Required CSS -->
+    <!-- The shared design system: tokens first, then the kit, then this page. -->
+    <link rel="stylesheet" href="../css/design-tokens.css">
+    <link rel="stylesheet" href="../css/ui.css">
     <link rel="stylesheet" href="../css/cloud-connection.css">
 
     <style>
-        /* Define CSS variables for the component */
+        /* cloud-connection.css reads these component names; map them onto the
+           shared tokens rather than restating a second palette here. */
         :root {
-            --bg-sidebar: #12121f;
-            --bg-panel: #0f0f1a;
-            --bg-tab: #1e1e3a;
-            --border-color: #2a2a4a;
-            --text-primary: #e0e0e0;
-            --text-secondary: #8888aa;
-            --text-muted: #555577;
-            --accent-blue: #4a9eff;
-            --accent-purple: #a78bfa;
-            --accent-green: #4ade80;
-            --accent-red: #f87171;
-            --accent-orange: #fb923c;
+            --bg-sidebar: var(--surface-2);
+            --bg-panel: var(--surface-1);
+            --bg-tab: var(--surface-3);
+            --border-color: var(--border);
+            --text-primary: var(--text);
+            --text-secondary: var(--text-body);
+            --accent-blue: var(--brand);
+            --accent-purple: var(--accent);
+            --accent-green: var(--success);
+            --accent-red: var(--danger);
+            --accent-orange: var(--warning);
         }
 
         * {
@@ -32,11 +50,11 @@
         }
 
         body {
-            font-family: 'Segoe UI', -apple-system, BlinkMacSystemFont, sans-serif;
-            background: linear-gradient(180deg, #071225 0%, #071b2b 100%);
-            color: var(--text-primary);
+            font-family: var(--font-sans);
+            background: var(--bg);
+            color: var(--text);
             min-height: 100vh;
-            padding: 20px;
+            padding: var(--sp-5);
         }
 
         .container {
@@ -45,55 +63,75 @@
         }
 
         h1 {
-            color: white;
-            margin-bottom: 20px;
-            text-align: center;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: var(--sp-1);
+            color: var(--text);
+            font-size: var(--fs-2xl);
+            line-height: var(--lh-tight);
+            margin-bottom: var(--sp-5);
         }
 
         .demo-section {
-            background: rgba(255, 255, 255, 0.03);
-            border-radius: 12px;
-            padding: 20px;
-            margin-bottom: 20px;
+            background: var(--surface-2);
+            border: 1px solid var(--border);
+            border-radius: var(--r-lg);
+            padding: var(--sp-5);
+            margin-bottom: var(--sp-5);
+        }
+
+        .demo-controls {
+            display: flex;
+            flex-wrap: wrap;
+            gap: var(--sp-1);
         }
 
         .demo-btn {
             padding: 10px 20px;
-            background: var(--accent-blue);
-            color: white;
+            background: var(--brand);
+            /* --brand-ink is the indigo used AS TEXT on a dark background, not
+               the ink for a brand-filled button; on the fill it is indigo on
+               indigo. The kit's own .btn--primary uses white here. */
+            color: #fff;
             border: none;
-            border-radius: 6px;
+            border-radius: var(--r-md);
             cursor: pointer;
-            font-size: 14px;
-            margin-right: 10px;
+            font-family: inherit;
+            font-size: var(--fs-sm);
+            /* A flex child defaults to min-width:auto, which lets a long label
+               push its neighbour off the row instead of wrapping. */
+            min-width: 0;
         }
 
         .demo-btn:hover {
-            filter: brightness(1.1);
+            background: var(--brand-hover);
         }
 
         #messageLog {
-            background: #000;
-            color: #0f0;
-            padding: 10px;
-            border-radius: 6px;
-            font-family: monospace;
-            font-size: 12px;
+            background: var(--code-bg);
+            color: var(--text-body);
+            border: 1px solid var(--border);
+            padding: var(--sp-1);
+            border-radius: var(--r-md);
+            font-family: var(--font-mono);
+            font-size: var(--fs-xs);
             height: 200px;
             overflow-y: auto;
-            margin-top: 10px;
+            margin-top: var(--sp-1);
         }
     </style>
+    <link rel="stylesheet" href="../css/app-chrome.css">
 </head>
 <body>
     <div class="container">
-        <h1>☁️ Cloud Connection Component Demo</h1>
+        <h1><svg class="icon" aria-hidden="true"><use href="#i-globe"></use></svg> Cloud Connection Component Demo</h1>
 
         <!-- Cloud Connection Panel -->
         <div class="cloud-panel expanded" id="cloudPanel">
             <div class="cloud-panel-header" onclick="toggleCloudPanel()">
                 <div class="cloud-panel-title">
-                    <span>☁️</span>
+                    <svg class="icon icon--sm" aria-hidden="true"><use href="#i-globe"></use></svg>
                     <span>Messaging Platform Cloud</span>
                 </div>
                 <div class="cloud-panel-status">
@@ -114,12 +152,12 @@
                     <label>Your Agent Name</label>
                     <div class="cloud-input-group">
                         <input type="text" id="cloudAgentName" placeholder="Auto-generated if empty">
-                        <button type="button" class="cloud-regen-btn" onclick="regenerateAgentName()" title="Generate random agent name">
-                            🔄
+                        <button type="button" class="cloud-regen-btn" onclick="regenerateAgentName()" title="Generate random agent name" aria-label="Generate random agent name">
+                            <svg class="icon icon--sm" aria-hidden="true"><use href="#i-refresh"></use></svg>
                         </button>
                     </div>
                 </div>
-                <button type="button" class="cloud-btn" id="cloudConnectBtn" onclick="connectToCloud()">
+                <button type="button" class="cloud-btn" id="cloudConnectBtn">
                     Connect to Cloud
                 </button>
 
@@ -135,8 +173,10 @@
         <!-- Demo Controls -->
         <div class="demo-section">
             <h3 style="margin-bottom: 10px;">Demo Controls</h3>
-            <button class="demo-btn" onclick="sendTestMessage()">Send Test Message</button>
-            <button class="demo-btn" onclick="clearLog()">Clear Log</button>
+            <div class="demo-controls">
+                <button class="demo-btn" onclick="sendTestMessage()">Send Test Message</button>
+                <button class="demo-btn" onclick="clearLog()">Clear Log</button>
+            </div>
 
             <div id="messageLog"></div>
         </div>
@@ -144,8 +184,10 @@
 
     <!-- Required Scripts -->
     <script src="../js/config-loader.js"></script>
+    <script src="../js/icons.js"></script>
     <script src="../generated-web-agent-js/js/web-agent.libs.js"></script>
     <script src="../generated-web-agent-js/js/web-agent.js"></script>
+    <script src="../generated-web-agent-js/js/web-agent.webrtc.js"></script>  <!-- WebRtcHelper: required for sendData -->
     <script src="../js/UserConnectionBase.js"></script>
     <script src="terminal/terminal-sharing.js"></script>  <!-- TerminalSharing (single class) -->
     <script src="../js/cloud-connection.js"></script>     <!-- CloudConnectionUI -->
@@ -155,6 +197,8 @@
         let cloudInteraction = null;
         let cloudConnected = false;
         let cloudAgentName = null;
+        let cloudConnecting = false;
+        let agentPollTimer = null;
 
         function log(message, type = 'info') {
             const logDiv = document.getElementById('messageLog');
@@ -183,6 +227,8 @@
         }
 
         async function connectToCloud() {
+            if (cloudConnecting || cloudConnected) return;
+
             const config = CloudConnectionUI.getConnectionConfig();
 
             if (!config.channelName || !config.channelPassword) {
@@ -196,25 +242,27 @@
                 CloudConnectionUI.setAgentName(config.agentName);
             }
 
+            cloudConnecting = true;
             CloudConnectionUI.showConnecting();
 
             try {
                 // Create TerminalSharing instance (data layer - single class)
-                cloudInteraction = new TerminalSharing();
+                const interaction = new TerminalSharing();
 
-                // Set up message handler
-                cloudInteraction.onMessageReceived = (message, sourceAgent) => {
+                // Set up message handler (TerminalSharing dispatches by message type)
+                interaction.registerHandler('test', (message, sourceAgent) => {
                     log(`Message from ${sourceAgent}: ${JSON.stringify(message)}`, 'info');
-                };
+                });
 
                 // Connect
-                await cloudInteraction.connect({
+                await interaction.connect({
                     username: config.agentName,
                     channelName: config.channelName,
                     channelPassword: config.channelPassword
                 });
 
                 // Connection successful
+                cloudInteraction = interaction;
                 cloudConnected = true;
                 cloudAgentName = config.agentName;
 
@@ -229,17 +277,24 @@
                 CloudConnectionUI.showDisconnected();
                 cloudInteraction = null;
                 cloudConnected = false;
+                cloudAgentName = null;
+            } finally {
+                cloudConnecting = false;
             }
         }
 
         function pollAgents() {
             if (!cloudConnected || !cloudInteraction) return;
-            const agents = cloudInteraction.getAgents();
+            const agents = cloudInteraction.getConnectedUsers();
             CloudConnectionUI.updateAgentsList(agents, cloudAgentName);
-            setTimeout(pollAgents, 2000);
+            agentPollTimer = setTimeout(pollAgents, 2000);
         }
 
         function disconnectFromCloud() {
+            if (agentPollTimer) {
+                clearTimeout(agentPollTimer);
+                agentPollTimer = null;
+            }
             if (cloudInteraction) {
                 cloudInteraction.disconnect();
             }
@@ -290,6 +345,9 @@
         // The cloud connection will be disconnected automatically when page closes
         // No need for manual beforeunload handler here!
     </script>
+<script src="../js/room-defaults.js"></script>
+<script>RoomDefaults.apply({ prefix: 'clouddemo_', channelPrefix: 'demo-', channelId: 'cloudChannelName', passwordId: 'cloudChannelPassword', sharedDefaults: ['test-channel', 'test123'] });</script>
+<script src="../js/app-chrome.js"></script>
 </body>
 </html>
 

@@ -53,6 +53,17 @@ const PHASE_DURATIONS = {
     ROUND_END: 5000           // 5 seconds before next round
 };
 
+// What players actually see in the header. The raw enum leaked through before.
+const PHASE_LABELS = {
+    WAITING: 'Gathering suspects',
+    ROLE_ASSIGNMENT: 'Reading the case file',
+    QUESTIONING: 'Interrogation',
+    DISCUSSION: 'Comparing statements',
+    VOTING: 'The accusation',
+    REVEAL: 'Verdict',
+    ROUND_END: 'Case closed'
+};
+
 // Game limits
 const MIN_PLAYERS = 3;
 const MAX_PLAYERS = 10;
@@ -81,6 +92,17 @@ const LIAR_EFFECT_COOLDOWN_MS = 15000; // 15 seconds cooldown between liar effec
 // FIND THE LIAR GAME CLASS
 // ============================================
 
+/**
+ * Message types that only the host may originate. Every one of these is emitted
+ * behind an `isHost()` guard, so anything else claiming to be one is forged.
+ */
+const HOST_AUTHORITATIVE_TYPES = new Set([
+    'phase-change', 'role-assignment', 'question-start', 'answers-reveal',
+    'vote-results', 'liar-secret-revealed', 'liar-celebration',
+    'liar-disturbance-broadcast', 'game-state-sync', 'settings-update',
+    'game-over', 'game-reset', 'game-paused', 'game-ended-disconnect'
+]);
+
 class FindTheLiarGame extends UserConnectionBase {
     constructor() {
         super({
@@ -93,6 +115,12 @@ class FindTheLiarGame extends UserConnectionBase {
                 maxRetransmits: 5
             }
         });
+
+        // Local pause flag, explicitly initialised. It must never be read
+        // before assignment: the base class exposes an isPaused() method, and
+        // an unset property here used to fall through to that function, which
+        // is truthy and silently froze the phase timer.
+        this.gamePaused = false;
 
         // Item manager
         this.itemManager = new ItemManager();
@@ -200,12 +228,12 @@ class FindTheLiarGame extends UserConnectionBase {
             gameIcon: '🤥',  // Liar game icon
             agentName: this.username,  // Current player name
             isHost: this.isHost(),
-            isPaused: this.isPaused || false,
+            isPaused: this.gamePaused || false,
             isPauseEnabled: this.gameState.phase !== GamePhase.WAITING,  // Enable pause only when game is running
             roomCode: this.channelName,
             roomPassword: this.channelPassword,  // For share modal
             shareUrl: window.location.href,
-            startCollapsed: false,  // Start expanded
+            startCollapsed: true,   // Stay out of the board until asked for
             savePosition: false,  // Don't save position to localStorage
             defaultPosition: { x: 20, y: 20 },  // Top-left position
 
@@ -262,7 +290,7 @@ class FindTheLiarGame extends UserConnectionBase {
         if (this.controlPanel) {
             this.controlPanel.updateState({
                 isHost: this.isHost(),
-                isPaused: this.isPaused || false,
+                isPaused: this.gamePaused || false,
                 isPauseEnabled: this.gameState.phase !== GamePhase.WAITING,  // Enable pause only when game is running
                 roomCode: this.channelName,
                 roomPassword: this.channelPassword,
@@ -280,7 +308,7 @@ class FindTheLiarGame extends UserConnectionBase {
             return;
         }
 
-        this.isPaused = true;
+        this.gamePaused = true;
 
         // Save remaining time when pausing
         if (this.gameState.phaseEndTime) {
@@ -309,7 +337,7 @@ class FindTheLiarGame extends UserConnectionBase {
             return;
         }
 
-        this.isPaused = false;
+        this.gamePaused = false;
 
         // Restore remaining time when resuming
         if (this.pausedTimeRemaining) {
@@ -352,12 +380,12 @@ class FindTheLiarGame extends UserConnectionBase {
             return;
         }
 
-        this.isPaused = !this.isPaused;
+        this.gamePaused = !this.gamePaused;
 
         // Update control panel state
         this.updateControlPanel();
 
-        if (this.isPaused) {
+        if (this.gamePaused) {
             // Stop the timer
             if (this.phaseTimer) {
                 clearInterval(this.phaseTimer);
@@ -459,9 +487,10 @@ class FindTheLiarGame extends UserConnectionBase {
     }
 
     confirmDisconnect() {
-        if (confirm('Are you sure you want to disconnect from the game?')) {
-            this.disconnect();
-        }
+        MiniGameUtils.ask({
+            title: 'Leave the game?', body: 'You will drop out of the round in progress.',
+            confirmLabel: 'Leave', danger: true
+        }).then((yes) => { if (yes) this.disconnect(); });
     }
 
     // =========================================================================
@@ -580,9 +609,43 @@ class FindTheLiarGame extends UserConnectionBase {
         this.updateUsersList();
     }
 
+    /**
+     * True when this message really came from the host's own game code.
+     *
+     * UserConnectionBase auto-relays anything a client sends with a plain
+     * sendData() to every other client, so a cheating player could simply emit
+     * {type:'vote-results'} or {type:'liar-secret-revealed'} and every other
+     * client would accept it as authoritative — revealing the liar, forcing a
+     * phase, or ending the game from a non-host seat.
+     *
+     * Three cases have to be told apart:
+     *   _fromHost      the host broadcast it        -> trust
+     *   _fromClient    the host merely relayed it   -> do NOT trust
+     *   neither        a direct data-channel message; trust only if the peer
+     *                  that sent it is the host (this is how the host's
+     *                  TARGETED sends arrive — role-assignment and
+     *                  game-state-sync go via sendData(data, playerName),
+     *                  which bypasses the broadcast wrapper and so never
+     *                  carries _fromHost).
+     */
+    _isFromHost(peerId, data) {
+        if (!data) return false;
+        if (data._fromHost) return true;
+        if (data._fromClient) return false;
+        const host = typeof this._getHostName === 'function' ? this._getHostName() : null;
+        return !!host && peerId === host;
+    }
+
     onDataChannelMessage(peerId, data) {
         console.log('[FindTheLiar] Message from', peerId, ':', data.type);
-        
+
+        // Everything in the "Host broadcasts" group below changes authoritative
+        // game state, so it is only honoured when the host actually sent it.
+        if (HOST_AUTHORITATIVE_TYPES.has(data.type) && !this._isFromHost(peerId, data)) {
+            console.warn('[FindTheLiar] Ignoring forged host message', data.type, 'from', peerId);
+            return;
+        }
+
         switch (data.type) {
             // Host broadcasts
             case 'phase-change':
@@ -782,9 +845,12 @@ class FindTheLiarGame extends UserConnectionBase {
     confirmReset() {
         if (!this.isHost()) return;
 
-        if (confirm('⚠️ Are you sure you want to reset the game?\n\nThis will:\n• Return to waiting room\n• Clear all progress\n• Reset round counter\n• Allow settings changes\n\nAll players will return to the lobby.')) {
-            this.resetGame();
-        }
+        MiniGameUtils.ask({
+            title: 'Reset the game?',
+            body: 'Everyone goes back to the lobby: the round, the scores and the round counter '
+                + 'all go with it, and the settings become editable again.',
+            confirmLabel: 'Reset', danger: true
+        }).then((yes) => { if (yes) this.resetGame(); });
     }
 
     resetGame() {
@@ -1584,7 +1650,7 @@ class FindTheLiarGame extends UserConnectionBase {
 
         if (data.paused) {
             // Pause the game
-            this.isPaused = true;
+            this.gamePaused = true;
 
             // Save remaining time
             if (data.pausedTimeRemaining !== undefined) {
@@ -1597,7 +1663,7 @@ class FindTheLiarGame extends UserConnectionBase {
             this.showToast('⏸️ Game Paused by Host', 'info');
         } else {
             // Resume the game
-            this.isPaused = false;
+            this.gamePaused = false;
 
             // Restore phase end time
             if (data.phaseEndTime) {
@@ -1981,7 +2047,7 @@ class FindTheLiarGame extends UserConnectionBase {
 
         this.timerInterval = setInterval(() => {
             // Check if game is paused - don't progress timer
-            if (this.isPaused) {
+            if (this.gamePaused) {
                 return;
             }
 
@@ -2061,7 +2127,7 @@ class FindTheLiarGame extends UserConnectionBase {
     }
 
     updatePhaseDisplay() {
-        this.updateElementText('currentPhase', this.gameState.phase);
+        this.updateElementText('currentPhase', PHASE_LABELS[this.gameState.phase] || this.gameState.phase);
         this.updateRoundDisplay();
     }
 
@@ -2104,6 +2170,17 @@ class FindTheLiarGame extends UserConnectionBase {
         }).join('');
 
         listEl.innerHTML = html || '<p style="color:#999;text-align:center;">No users</p>';
+
+        // Keep the sidebar count honest — it read 0 while the list showed three.
+        const count = String(users.length);
+        const badge = document.getElementById('playerCountBadge');
+        if (badge) badge.textContent = count;
+
+        // UserConnectionBase injects its own badge here and this game never fed
+        // it, so it sat at 0 beside a correct count. Keep it in step and hide
+        // the duplicate.
+        const injected = document.getElementById('agentsCountBadge');
+        if (injected) { injected.textContent = count; injected.style.display = 'none'; }
     }
 
     updateStartButton() {
@@ -2301,14 +2378,16 @@ class FindTheLiarGame extends UserConnectionBase {
             const hints = info.hints || [];
             infoHtml = `
                 <div class="item-info liar-info">
-                    <h4>📂 Category: ${info.category || 'Unknown'}</h4>
+                    <h4>Subject</h4>
+                    <span class="redacted-name" role="img" aria-label="The item name is redacted on your copy"></span>
+                    <h4>Category: ${info.category || 'Unknown'}</h4>
                     <div class="hints-list">
-                        <p><strong>Your hints:</strong></p>
+                        <p><strong>Everything your copy still shows:</strong></p>
                         <ul>
                             ${hints.length > 0 ? hints.map(h => `<li>💡 ${h}</li>`).join('') : '<li>No hints available</li>'}
                         </ul>
                     </div>
-                    <p class="hint-warning">⚠️ You must figure out the item from these clues!</p>
+                    <p class="hint-warning">Your file came back redacted. Nod along and hope nobody asks a follow-up.</p>
                 </div>
             `;
         } else if (isRevealedLiar) {
@@ -2344,17 +2423,17 @@ class FindTheLiarGame extends UserConnectionBase {
 
         const roleTitle = isRevealedLiar ? 'REVEALED LIAR' : (isLiar ? 'THE LIAR!' : 'INNOCENT');
         const roleDescription = isRevealedLiar
-            ? 'You were caught! The secret is now revealed to you, but others don\'t know.'
+            ? 'They caught you. You can finally see the item — and nobody knows you can.'
             : (isLiar
-                ? 'You don\'t know the secret item! Use the hints to blend in.'
-                : 'You know the secret item. Find who doesn\'t!');
+                ? 'You never got the item. Read the room, borrow their words, survive the vote.'
+                : 'You have the file. Someone at this table is improvising — find them.');
 
         const roleEmoji = isRevealedLiar ? '🔍' : (isLiar ? '🤥' : '😇');
         const roleClass = (isLiar || isRevealedLiar) ? 'liar' : 'innocent';
 
         container.innerHTML = `
             <div class="role-screen">
-                <span class="phase-indicator phase-roles">Role Assignment - Round ${data.round}</span>
+                <span class="phase-indicator phase-roles">Case file · Round ${data.round}</span>
                 <div class="role-card ${roleClass}">
                     <span class="role-emoji">${roleEmoji}</span>
                     <h3>You are ${roleTitle}</h3>
@@ -3564,8 +3643,8 @@ function initializeConnectionModal() {
     window.loadConnectionModal({
         localStoragePrefix: 'liar_',
         channelPrefix: 'liar-',
-        title: '🤥 Join Find the Liar',
-        collapsedTitle: '🤥 Find the Liar',
+        title: 'Join Find the Liar',
+        collapsedTitle: 'Find the Liar',
         onConnect: async function(username, channel, password) {
             console.log('[FindTheLiar] Connecting...', { username, channel });
 
@@ -3588,6 +3667,7 @@ function initializeConnectionModal() {
                 console.log('[FindTheLiar] Connected successfully!');
             } catch (error) {
                 console.error('[FindTheLiar] Connection failed:', error);
+                if (window.ConnectionModal) ConnectionModal.fail(error);
                 liarGame.showToast('Connection failed: ' + error.message, 'error');
             } finally {
                 // Hide loader using parent class method
