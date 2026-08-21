@@ -84,6 +84,7 @@
 
             document.getElementById('fpsHud').classList.remove('hidden');
             document.getElementById('fpsBtn').classList.add('active');
+            document.getElementById('gameContainer').classList.add('fps-mode');
             g.showToast('Click to look around · WASD to walk · Space jumps · Esc leaves', 'info', 4500);
             // Pointer lock is only granted off a real click, so the first click
             // in the world takes the mouse — asking for it here would be
@@ -102,6 +103,7 @@
             this._broadcast(true);
             document.getElementById('fpsHud').classList.add('hidden');
             document.getElementById('fpsBtn').classList.remove('active');
+            document.getElementById('gameContainer').classList.remove('fps-mode');
             this.game.voxels.renderer.domElement.style.cursor = '';
         }
 
@@ -163,6 +165,29 @@
             el.addEventListener('touchend', () => {
                 if (this.active && lastTouch && lastTouch.moved < 12 && Date.now() - lastTouch.t < 400) this.act(false);
                 lastTouch = null;
+            });
+
+            // Coarse-pointer devices can look around on the canvas and walk
+            // with the separate pad. The original touch gesture only looked
+            // and built, so Walk mode on a phone could never actually walk.
+            document.querySelectorAll('[data-fps-key]').forEach((button) => {
+                const key = button.dataset.fpsKey;
+                const down = (e) => {
+                    if (!this.active) return;
+                    e.preventDefault();
+                    e.stopPropagation();
+                    this.keys.add(key);
+                    if (key === 'Space') this.jump();
+                    if (button.setPointerCapture && e.pointerId !== undefined) button.setPointerCapture(e.pointerId);
+                };
+                const up = (e) => {
+                    this.keys.delete(key);
+                    if (e) { e.preventDefault(); e.stopPropagation(); }
+                };
+                button.addEventListener('pointerdown', down);
+                button.addEventListener('pointerup', up);
+                button.addEventListener('pointercancel', up);
+                button.addEventListener('lostpointercapture', up);
             });
         }
 
@@ -396,7 +421,29 @@
 
             const hud = document.getElementById('fpsCoords');
             if (hud) {
-                hud.textContent = `x ${Math.round(this.pos.x)}  y ${Math.round(this.pos.y)}  z ${Math.round(this.pos.z)}`;
+                const speed = Math.hypot(this.vel.x, this.vel.z);
+                const motion = speed > SPRINT * 0.8 ? 'running' : speed > 0.2 ? 'walking' : 'standing';
+                hud.textContent = `x ${Math.round(this.pos.x)} · y ${Math.round(this.pos.y)} · z ${Math.round(this.pos.z)} · ${motion}`;
+            }
+
+            // Yaw zero faces -Z, which is north in the geo projection. A
+            // clockwise compass bearing is therefore the negative yaw.
+            const bearing = ((-this.yaw * 180 / Math.PI) % 360 + 360) % 360;
+            const directions = ['N', 'NE', 'E', 'SE', 'S', 'SW', 'W', 'NW'];
+            const cardinal = directions[Math.round(bearing / 45) % directions.length];
+            const compass = document.getElementById('fpsCompass');
+            if (compass) compass.textContent = `${cardinal} · ${String(Math.round(bearing)).padStart(3, '0')}°`;
+
+            const place = document.getElementById('fpsPlace');
+            if (place) {
+                const geo = this.game.geo;
+                const latLon = geo && geo.toLatLon(this.pos.x, this.pos.z);
+                if (latLon && window.BlockPartyGeo) {
+                    const scale = geo.anchor && geo.anchor.mpc ? ` · ${geo.anchor.mpc} m/block` : '';
+                    place.textContent = `${BlockPartyGeo.format(latLon.lat, latLon.lon)}${scale}`;
+                } else {
+                    place.textContent = 'Off the map · local world coordinates';
+                }
             }
         }
     }

@@ -53,13 +53,34 @@
         return best;
     }
 
-    /** Load one tile as an image the canvas may be read back from. */
+    const TILE_TIMEOUT_MS = 12000;
+
+    /**
+     * Load one tile as an image the canvas may be read back from.
+     *
+     * Image requests do not have a browser-level timeout. A stalled tile used
+     * to leave the whole ground promise pending forever, which made Streets
+     * look broken even though the coastline fallback was ready. Settle every
+     * request so the caller can finish with the tiles that did arrive.
+     */
     function loadTile(url) {
         return new Promise((resolve, reject) => {
             const img = new Image();
+            let settled = false;
+            const finish = (fn, value) => {
+                if (settled) return;
+                settled = true;
+                clearTimeout(timer);
+                img.onload = null;
+                img.onerror = null;
+                fn(value);
+            };
+            const timer = setTimeout(() => finish(reject, new Error('tile timed out')), TILE_TIMEOUT_MS);
             img.crossOrigin = 'anonymous';
-            img.onload = () => resolve(img);
-            img.onerror = () => reject(new Error('tile unavailable'));
+            img.decoding = 'async';
+            img.referrerPolicy = 'origin';
+            img.onload = () => finish(resolve, img);
+            img.onerror = () => finish(reject, new Error('tile unavailable'));
             img.src = url;
         });
     }

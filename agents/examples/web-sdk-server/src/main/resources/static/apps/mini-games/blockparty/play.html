@@ -5,14 +5,14 @@
     <script src="../../../js/prod-log.js"></script>
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>BlockParty — Co-op Voxel Builder</title>
-    <meta name="description" content="Build a 3D voxel world together in real time, anywhere on Earth. Six party modes, persistent regions, and a friend joins from a link.">
+    <meta name="description" content="Build and walk through a shared 3D voxel world on real map streets. Twelve game modes, persistent regions, and multiplayer from a link.">
     <meta name="theme-color" content="#0b1120">
     <link rel="canonical" href="https://hmdevonline.com/messaging-platform/sdk/apps/mini-games/blockparty/play.html">
 
     <meta property="og:type" content="website">
     <meta property="og:site_name" content="Messaging Platform SDK">
     <meta property="og:title" content="BlockParty — a shared voxel world">
-    <meta property="og:description" content="Build a 3D voxel world together in real time, anywhere on Earth. Six party modes, persistent regions, and a friend joins from a link.">
+    <meta property="og:description" content="Build and walk through a shared 3D voxel world on real map streets. Twelve game modes, persistent regions, and multiplayer from a link.">
     <meta property="og:url" content="https://hmdevonline.com/messaging-platform/sdk/apps/mini-games/blockparty/play.html">
     <meta property="og:image" content="https://hmdevonline.com/messaging-platform/sdk/images/og-image.png">
     <meta name="twitter:card" content="summary_large_image">
@@ -98,10 +98,23 @@
     <!-- First-person overlay -->
     <div id="fpsHud" class="fps-hud hidden">
         <div class="fps-cross"></div>
+        <div class="fps-compass" aria-live="polite">
+            <span id="fpsCompass">N · 000°</span>
+            <span id="fpsPlace">Off the map</span>
+        </div>
         <div class="fps-info">
-            <span id="fpsCoords">x 0  y 0  z 0</span>
+            <span id="fpsCoords">x 0 · y 0 · z 0 · standing</span>
             <span class="fps-keys"><strong>WASD</strong> walk · <strong>Shift</strong> run · <strong>Space</strong> jump ·
                 <strong>click</strong> build · <strong>right-click</strong> break · <strong>Esc</strong> leave</span>
+        </div>
+        <div class="fps-touch" aria-label="First-person movement controls">
+            <div class="fps-touch-pad">
+                <button data-fps-key="KeyW" aria-label="Walk forward">▲</button>
+                <button data-fps-key="KeyA" aria-label="Walk left">◀</button>
+                <button data-fps-key="KeyS" aria-label="Walk backward">▼</button>
+                <button data-fps-key="KeyD" aria-label="Walk right">▶</button>
+            </div>
+            <button class="fps-touch-jump" data-fps-key="Space" aria-label="Jump">Jump</button>
         </div>
     </div>
 
@@ -476,6 +489,7 @@
             </div>
             <div class="bp-modal-foot">
                 <span id="modeHint" class="mode-hint"></span>
+                <button id="modeInvite" class="btn btn-ghost">🔗 Invite players</button>
                 <button id="modeStart" class="btn btn-primary">Start match</button>
             </div>
         </div>

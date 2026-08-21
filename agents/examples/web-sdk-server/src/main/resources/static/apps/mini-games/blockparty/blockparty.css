@@ -734,6 +734,7 @@ html, body {
 
 /* ---- First person -------------------------------------------------------- */
 .fps-hud { position: absolute; inset: 0; z-index: 13; pointer-events: none; }
+.fps-mode .help-hint { display: none; }
 .fps-cross {
     position: absolute; left: 50%; top: 50%; width: 18px; height: 18px;
     margin: -9px 0 0 -9px; opacity: 0.9;
@@ -751,7 +752,34 @@ html, body {
 #fpsCoords { font-size: 13px; font-weight: 700; font-variant-numeric: tabular-nums; }
 .fps-keys { font-size: 11px; color: var(--muted); }
 .fps-keys strong { color: var(--text); }
+.fps-compass {
+    position: absolute; left: 50%; top: 76px; transform: translateX(-50%);
+    display: flex; flex-direction: column; align-items: center; gap: 2px;
+    min-width: 190px; padding: 7px 14px; border-radius: 999px;
+    background: rgba(7, 12, 27, 0.72); border: 1px solid rgba(255,255,255,0.16);
+    box-shadow: 0 8px 30px rgba(0,0,0,0.28); backdrop-filter: blur(8px);
+}
+#fpsCompass { font-size: 13px; font-weight: 850; letter-spacing: .12em; font-variant-numeric: tabular-nums; }
+#fpsPlace { max-width: min(70vw, 520px); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 10px; color: #bae6fd; }
+.fps-touch { display: none; }
 @media (max-width: 640px) { .fps-keys { display: none; } }
+@media (hover: none), (pointer: coarse) {
+    .fps-touch { display: block; position: absolute; inset: 0; }
+    .fps-touch button {
+        pointer-events: auto; touch-action: none; user-select: none; -webkit-user-select: none;
+        color: #fff; border: 1px solid rgba(255,255,255,.24); background: rgba(7,12,27,.66);
+        box-shadow: 0 6px 18px rgba(0,0,0,.28); backdrop-filter: blur(7px);
+    }
+    .fps-touch-pad { position: absolute; left: 18px; bottom: 96px; width: 132px; height: 132px; }
+    .fps-touch-pad button { position: absolute; width: 44px; height: 44px; border-radius: 13px; font-size: 17px; }
+    .fps-touch-pad [data-fps-key="KeyW"] { left: 44px; top: 0; }
+    .fps-touch-pad [data-fps-key="KeyA"] { left: 0; top: 44px; }
+    .fps-touch-pad [data-fps-key="KeyS"] { left: 44px; top: 88px; }
+    .fps-touch-pad [data-fps-key="KeyD"] { left: 88px; top: 44px; }
+    .fps-touch-jump { position: absolute; right: 24px; bottom: 118px; width: 66px; height: 66px; border-radius: 50%; font-size: 12px; font-weight: 800; }
+    .fps-compass { top: 66px; }
+    .fps-info { bottom: 16px; }
+}
 
 /* ---- Ceremony ------------------------------------------------------------ */
 .ceremony {

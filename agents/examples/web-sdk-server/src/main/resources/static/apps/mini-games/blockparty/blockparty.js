@@ -2560,7 +2560,23 @@
             // What the floor shows. Kept per device like the sky, because it is
             // about what this machine can comfortably draw and fetch, not about
             // the world everyone shares.
-            this._groundStyle = localStorage.getItem('bp_ground') || 'coast';
+            // The product promise is a world standing on real streets. Early
+            // builds defaulted to the offline coastline, which made the map in
+            // the landing-page screenshot look absent until somebody found a
+            // buried select control. Move that old default forward once while
+            // preserving any choice made after this migration.
+            const savedGround = localStorage.getItem('bp_ground');
+            const groundDefaultVersion = localStorage.getItem('bp_ground_default_version');
+            this._groundStyle = savedGround || 'streets';
+            if (!groundDefaultVersion && (!savedGround || savedGround === 'coast')) {
+                this._groundStyle = 'streets';
+                try {
+                    localStorage.setItem('bp_ground', 'streets');
+                } catch (e) { /* private mode */ }
+            }
+            if (!groundDefaultVersion) {
+                try { localStorage.setItem('bp_ground_default_version', '2'); } catch (e) { /* private mode */ }
+            }
             const gs = Number(localStorage.getItem('bp_ground_strength'));
             // Tuned by eye against a real street: at 0.85 the map reads as the
             // subject and the blocks standing on it read as clutter. The floor
@@ -4806,7 +4822,9 @@
          * map. Nothing here touches a single block.
          */
         async paintGround() {
-            if (!window.BlockPartyEarth) return;
+            const request = (this._groundPaintRequest || 0) + 1;
+            this._groundPaintRequest = request;
+            const wantedStyle = this._groundStyle;
             if (!this.geo || !this.geo.region) {
                 this.voxels.setGroundMap(null);
                 this.voxels.setPlainMap(null);
@@ -4828,17 +4846,27 @@
             // it is worse than a world with a plainer one.
             if (this._groundStyle === 'streets' && window.BlockPartyTerrain) {
                 try {
-                    if (await this._paintGroundTiles(region)) return;
+                    if (await this._paintGroundTiles(region, request, wantedStyle)) return;
                 } catch (e) {
+                    if (request !== this._groundPaintRequest || this._groundStyle !== wantedStyle) return;
                     console.warn('[BlockParty] street ground:', e.message);
                     this.showToast('No map tiles for this place — showing the coastline instead', 'warn', 3500);
                 }
             }
 
+            if (!window.BlockPartyEarth) {
+                if (request === this._groundPaintRequest) {
+                    this.voxels.setGroundMap(null);
+                    this.voxels.setPlainMap(null);
+                    this._syncGroundCredit();
+                }
+                return;
+            }
             try {
                 const earth = await BlockPartyEarth.load();
                 // The room may have moved on while the coastlines were loading.
-                if (!this.geo.region || this.geo.region.key !== region.key) return;
+                if (request !== this._groundPaintRequest || this._groundStyle !== wantedStyle
+                    || !this.geo.region || this.geo.region.key !== region.key) return;
                 const cells = this.voxels.half * 2 + 1;
                 this.voxels.setGroundMap(BlockPartyEarth.groundCanvas(earth, region, cells));
                 this.voxels.setPlainMap(null);
@@ -4861,7 +4889,7 @@
          * canvases are what the texture is made from, so keeping them is
          * keeping the whole cost.
          */
-        async _paintGroundTiles(region) {
+        async _paintGroundTiles(region, request, wantedStyle) {
             const cells = this.voxels.half * 2 + 1;
             const strength = this._groundStrength == null ? 0.85 : this._groundStrength;
             const sig = `${region.key}|${strength}`;
@@ -4871,22 +4899,26 @@
             if (!ground) {
                 const res = await BlockPartyTerrain.groundTiles(region, cells, { strength });
                 // The room may have travelled on while the tiles were coming.
-                if (!this.geo.region || this.geo.region.key !== region.key) return true;
+                if (request !== this._groundPaintRequest || this._groundStyle !== wantedStyle
+                    || !this.geo.region || this.geo.region.key !== region.key) return true;
                 ground = res.canvas;
             }
+            if (request !== this._groundPaintRequest || this._groundStyle !== wantedStyle) return true;
             this.voxels.setGroundMap(ground);
 
             let plain = cache && cache.plain;
             if (this._groundPlain !== false && !plain) {
                 try {
                     const res = await BlockPartyTerrain.surroundTiles(region, PLAIN_SCALE, { strength });
-                    if (!this.geo.region || this.geo.region.key !== region.key) return true;
+                    if (request !== this._groundPaintRequest || this._groundStyle !== wantedStyle
+                        || !this.geo.region || this.geo.region.key !== region.key) return true;
                     plain = res.canvas;
                 } catch (e) {
                     // The floor is the point; the horizon is a bonus.
                     console.warn('[BlockParty] surrounding ground:', e.message);
                 }
             }
+            if (request !== this._groundPaintRequest || this._groundStyle !== wantedStyle) return true;
             this.voxels.setPlainMap(this._groundPlain === false ? null : (plain || null));
 
             this._groundCache = { sig, ground, plain };
@@ -5085,11 +5117,12 @@
                 }
             } catch (e) { /* no permissions API: just ask */ }
 
-            // The offer goes up first and comes down if the answer arrives:
-            // asking can take twelve seconds to time out, and twelve seconds of
-            // an empty world with no explanation is how this looked broken.
+            // The offer goes up first and stays there until the player chooses
+            // it. Opening a game must not trigger a browser location prompt or
+            // leave a mysterious timeout in the world panel. If permission is
+            // already granted, however, an anchored map is a better arrival.
             this._syncGeoCallout();
-            if (state === 'denied') return;
+            if (state !== 'granted') return;
             await this.pinToMyLocation({ quiet: true });
             this._syncGeoCallout();
         }
@@ -6345,8 +6378,19 @@
             const hint = document.getElementById('modeHint');
             if (hint) {
                 hint.textContent = isHost
-                    ? `${players} player${players === 1 ? '' : 's'} in the room — everyone gets a plot`
+                    ? (players === 1
+                        ? '1 player — 6 modes are ready solo. Invite 2 more to unlock all 12.'
+                        : players === 2
+                            ? '2 players — invite 1 more to unlock all 12 modes.'
+                            : `${players} players in the room — all 12 modes are ready.`)
                     : 'Only the room host can start a match';
+            }
+            const invite = document.getElementById('modeInvite');
+            if (invite) {
+                invite.classList.toggle('hidden', !isHost || players >= 3);
+                invite.onclick = () => {
+                    if (window.ShareModal) ShareModal.show(this.channelName, this.channelPassword);
+                };
             }
             const startBtn = document.getElementById('modeStart');
             if (startBtn) startBtn.disabled = !isHost;
