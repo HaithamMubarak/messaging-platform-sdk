@@ -4013,7 +4013,7 @@
             const badge = document.getElementById('lockBadge');
             if (badge) badge.classList.toggle('hidden', !locked);
             const btn = document.getElementById('lockBtn');
-            if (btn) btn.textContent = locked ? '🔓 Unlock world' : '🔒 Lock world';
+            if (btn) btn.innerHTML = window.icon('lock', 'icon--sm') + (locked ? ' Unlock world' : ' Lock world');
             if (changed && by && by !== this.username) {
                 this.showToast(locked ? `${by} locked the world` : `${by} unlocked the world`, 'info', 2200);
             }
@@ -4311,7 +4311,7 @@
 
             const share = document.getElementById('geoShareBtn');
             if (share) {
-                share.textContent = geo.sharing ? '📍 Stop sharing' : '📍 Share my location';
+                share.innerHTML = window.icon('flag', 'icon--sm') + (geo.sharing ? ' Stop sharing' : ' Share my location');
                 share.classList.toggle('active', geo.sharing);
             }
             const anchorBtn = document.getElementById('geoAnchorBtn');
@@ -4411,7 +4411,7 @@
             if (!el) return;
             if (!this.geo || !this.geo.anchor || !cell) { el.classList.add('hidden'); return; }
             const ll = this.geo.toLatLon(cell.x, cell.z);
-            el.textContent = '🌍 ' + BlockPartyGeo.format(ll.lat, ll.lon);
+            el.innerHTML = window.icon('globe', 'icon--sm') + ' ' + BlockPartyGeo.format(ll.lat, ll.lon);
             el.classList.remove('hidden');
         }
 
@@ -5134,7 +5134,7 @@
             if ((fraction === 1 || fraction === 0) && this._mixSaid !== region.key) {
                 this._mixSaid = region.key;
                 this.showToast(`Real ground here is ${what} — no coastline this close in. `
-                    + 'Try a bigger scale in 🗂, or pull the map out with −.', 'info', 5200);
+                    + 'Try a bigger scale in Worlds & room, or pull the map out with −.', 'info', 5200);
             }
             this.groundMix = fraction;
         }
@@ -5236,7 +5236,10 @@
             const earth = this.worldMode() === 'earth';
             const btn = document.getElementById('modeBtn');
             if (btn) {
-                btn.textContent = earth ? '🌍' : '🔒';
+                // Swap what the <use> points at — assigning textContent
+                // would throw away the <svg> and leave the button blank.
+                const use = btn.querySelector('use');
+                if (use) use.setAttribute('href', earth ? '#i-globe' : '#i-lock');
                 btn.classList.toggle('active', earth);
                 btn.title = earth
                     ? 'This world is a window onto the Earth — click for a private world'
@@ -6008,12 +6011,18 @@
 
             const btn = document.getElementById('soundBtn');
             if (btn) {
+                // Swap what the <use> points at — assigning textContent
+                // would throw away the <svg> and leave the button blank.
+                const syncIcon = () => {
+                    const use = btn.querySelector('use');
+                    if (use) use.setAttribute('href', sfx.enabled ? '#i-activity' : '#i-ban');
+                };
                 btn.classList.toggle('active', sfx.enabled);
-                btn.textContent = sfx.enabled ? '🔊' : '🔇';
+                syncIcon();
                 btn.addEventListener('click', () => {
                     sfx.setEnabled(!sfx.enabled);
                     btn.classList.toggle('active', sfx.enabled);
-                    btn.textContent = sfx.enabled ? '🔊' : '🔇';
+                    syncIcon();
                     if (sfx.enabled) sfx.tick();
                 });
             }
@@ -6183,7 +6192,7 @@
             if (note) {
                 note.textContent = !this.physics || !this.physics.available
                     ? 'This browser cannot run the physics engine.'
-                    : on ? 'Blocks fall when nothing holds them up. Knock things over with 🥊, drop a piece with 🪂.'
+                    : on ? 'Blocks fall when nothing holds them up. Knock things over with Knock, drop a piece with Drop.'
                         : 'Off: the world holds itself up, however you build it.';
             }
             ['toolKnock', 'toolDrop'].forEach(id => {
@@ -6362,7 +6371,7 @@
             const pill = document.getElementById('followPill');
             if (!pill) return;
             pill.classList.toggle('hidden', !this.following);
-            if (this.following) pill.textContent = `👁 Following ${this.following} ✕`;
+            if (this.following) pill.innerHTML = window.icon('eye', 'icon--sm') + ' Following ' + this._esc(this.following) + ' ✕';
         }
 
         // ---------- match UI ----------
@@ -6734,7 +6743,7 @@
                     return `
                     <button class="map-card" data-slot="${this._esc(sl.key)}" data-label="${this._esc(sl.label)}"
                             ${host ? '' : 'disabled'} title="Load this saved world">
-                        <span class="map-emoji">🗂</span>
+                        <span class="map-emoji">${window.icon('database')}</span>
                         <span class="map-body">
                             <span class="map-name">${this._esc(sl.label)}</span>
                             <span class="map-desc">${this._esc([when, size].filter(Boolean).join(' · ') || 'saved by this room')}</span>
@@ -6752,7 +6761,7 @@
                 cards = places.map(pl => `
                     <button class="map-card" data-place="${this._esc(pl.id)}" ${host ? '' : 'disabled'}
                             title="Travel there and draw the ground from the map">
-                        <span class="map-emoji">📍</span>
+                        <span class="map-emoji">${window.icon('flag')}</span>
                         <span class="map-body">
                             <span class="map-name">${this._esc(pl.name)}</span>
                             <span class="map-desc">${this._esc(pl.country)} · ${pl.mpc}m per block</span>
@@ -6816,7 +6825,7 @@
             const host = this.isHost();
             const lock = document.getElementById('lockBtn');
             const clear = document.getElementById('clearWorldBtn');
-            if (lock) { lock.disabled = !host; lock.textContent = this.worldLocked ? '🔓 Unlock world' : '🔒 Lock world'; }
+            if (lock) { lock.disabled = !host; lock.innerHTML = window.icon('lock', 'icon--sm') + (this.worldLocked ? ' Unlock world' : ' Lock world'); }
             if (clear) clear.disabled = !host;
             const note = document.getElementById('worldHostNote');
             if (note) note.classList.toggle('hidden', host);
@@ -6872,7 +6881,7 @@
                     <span class="slot-name">${this._esc(label)}</span>
                     <span class="slot-meta">${this._esc([when, size].filter(Boolean).join(' · '))}</span>
                     <button class="slot-load btn btn-ghost" data-key="${this._esc(key)}" data-label="${this._esc(label)}" ${host ? '' : 'disabled'}>Load</button>
-                    <button class="slot-del btn btn-ghost" data-key="${this._esc(key)}" data-label="${this._esc(label)}" title="Delete">🗑</button>
+                    <button class="slot-del btn btn-ghost" data-key="${this._esc(key)}" data-label="${this._esc(label)}" title="Delete">${window.icon('trash', 'icon--sm')}</button>
                 </div>`;
             }).join('');
         }
@@ -7039,7 +7048,7 @@
             name = String(name || '').trim().slice(0, 40);
             if (!name) { this.showToast('Give the blueprint a name', 'warning'); return; }
             const clip = this.clipboard;
-            if (!clip) { this.showToast('Copy a build first — ✂️ Copy, two corners', 'warning', 3200); return; }
+            if (!clip) { this.showToast('Copy a build first — Copy, two corners', 'warning', 3200); return; }
 
             // Bricks are flattened to their cells here, deliberately: a
             // blueprint is a shape to be rebuilt, and scoring compares cells.
@@ -7137,7 +7146,7 @@
             const keys = this.blueprintKeys || [];
 
             if (!saved.length && !keys.length) {
-                list.innerHTML = '<div class="slot-empty">No room blueprints yet. Copy a build with ✂️, then name it above.</div>';
+                list.innerHTML = '<div class="slot-empty">No room blueprints yet. Copy a build with the Copy tool, then name it above.</div>';
                 return;
             }
 
@@ -7151,7 +7160,7 @@
                 return `<div class="slot-row">
                     <span class="slot-name">${this._esc(label)}</span>
                     <span class="slot-meta">${this._esc(meta)}</span>
-                    <button class="btn btn-ghost blueprint-del" data-key="${this._esc(key)}" data-label="${this._esc(label)}" title="Delete">🗑</button>
+                    <button class="btn btn-ghost blueprint-del" data-key="${this._esc(key)}" data-label="${this._esc(label)}" title="Delete">${window.icon('trash', 'icon--sm')}</button>
                 </div>`;
             });
             list.innerHTML = rows.join('');
@@ -7281,11 +7290,11 @@
                 <div class="lb-row${r.name === this.username ? ' me' : ''}">
                     <span class="lb-dot" style="background:${this.generateUserColor(r.name)}"></span>
                     <span class="lb-name">${this._esc(r.name)}</span>
-                    <span class="lb-stat" title="Matches won">🏆 ${r.wins || 0}</span>
-                    <span class="lb-stat" title="Matches played">🎮 ${r.matches || 0}</span>
+                    <span class="lb-stat" title="Matches won">${window.icon('trophy', 'icon--sm')} ${r.wins || 0}</span>
+                    <span class="lb-stat" title="Matches played">${window.icon('gamepad', 'icon--sm')} ${r.matches || 0}</span>
                     <span class="lb-stat" title="Total match points">${r.points || 0} pts</span>
-                    ${r.bestPct ? `<span class="lb-stat" title="Best blueprint accuracy">📐 ${r.bestPct}%</span>` : ''}
-                    ${r.guesses ? `<span class="lb-stat" title="Charades guessed">🤫 ${r.guesses}</span>` : ''}
+                    ${r.bestPct ? `<span class="lb-stat" title="Best blueprint accuracy">${window.icon('target', 'icon--sm')} ${r.bestPct}%</span>` : ''}
+                    ${r.guesses ? `<span class="lb-stat" title="Charades guessed">${window.icon('message', 'icon--sm')} ${r.guesses}</span>` : ''}
                 </div>`).join('');
         }
 
@@ -7521,7 +7530,7 @@
                 return `<div class="player-row${isOnline ? '' : ' offline'}" data-player="${this._esc(name)}">
                     <span class="player-dot" style="background:${color}"></span>
                     <span class="player-name">${this._esc(name)}${isYou ? ' <span class="you">(you)</span>' : ''}${isOnline ? '' : ' <span class="you">(left)</span>'}</span>
-                    ${isHost ? '<span class="player-host" title="Room host">👑</span>' : ''}
+                    ${isHost ? '<span class="player-host" title="Room host">' + window.icon('crown') + '</span>' : ''}
                     <span class="player-blocks${n === 0 ? ' zero' : ''}" title="${n}${n === 1 ? ' block' : ' blocks'} placed by ${this._esc(name)}">${n}</span>
                 </div>`;
             }).join('');

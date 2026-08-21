@@ -34,7 +34,7 @@ const STAGES = [
     {
         id: 1,
         name: 'Classic Mode',
-        icon: '⚡',
+        icon: 'zap',
         description: 'Basic reaction speed test. Click when your zone lights up!',
         config: {
             roundDuration: 30,
@@ -51,7 +51,7 @@ const STAGES = [
     {
         id: 2,
         name: 'Speed Frenzy',
-        icon: '🏃',
+        icon: 'activity',
         description: 'Faster lights, shorter duration. Can you keep up?',
         config: {
             roundDuration: 25,
@@ -68,7 +68,7 @@ const STAGES = [
     {
         id: 3,
         name: 'Memory Sequence',
-        icon: '🧠',
+        icon: 'layers',
         description: 'Remember the sequence! Lights flash in order - repeat it!',
         config: {
             roundDuration: 45,
@@ -84,7 +84,7 @@ const STAGES = [
     {
         id: 4,
         name: 'Color Match',
-        icon: '🎨',
+        icon: 'dropper',
         description: 'Only click when YOUR zone matches the target color!',
         config: {
             roundDuration: 30,
@@ -102,7 +102,7 @@ const STAGES = [
     {
         id: 5,
         name: 'Hot Potato',
-        icon: '🔥',
+        icon: 'alert-triangle',
         description: 'Light bounces between zones. Click fast when it stops on you!',
         config: {
             roundDuration: 35,
@@ -117,7 +117,7 @@ const STAGES = [
     {
         id: 6,
         name: 'Reverse Mode',
-        icon: '🔄',
+        icon: 'undo',
         description: 'DON\'T click your zone! Click when OTHER zones light up!',
         config: {
             roundDuration: 30,
@@ -134,7 +134,7 @@ const STAGES = [
     {
         id: 7,
         name: 'Combo Chain',
-        icon: '🔗',
+        icon: 'list',
         description: 'Multiple zones light up! Click them in order 1→2→3→4!',
         config: {
             roundDuration: 40,
@@ -151,7 +151,7 @@ const STAGES = [
     {
         id: 8,
         name: 'Endurance',
-        icon: '⏱️',
+        icon: 'timer',
         description: 'Long round! Lights get faster over time. Survive!',
         config: {
             roundDuration: 60,
@@ -169,7 +169,7 @@ const STAGES = [
     {
         id: 9,
         name: 'Sniper Mode',
-        icon: '🎯',
+        icon: 'target',
         description: 'Very short flash! High reward, high risk!',
         config: {
             roundDuration: 30,
@@ -186,7 +186,7 @@ const STAGES = [
     {
         id: 10,
         name: 'Boss Battle',
-        icon: '👾',
+        icon: 'gamepad',
         description: 'Ultimate challenge! Random patterns, moving lights, chaos!',
         config: {
             roundDuration: 45,
@@ -374,7 +374,7 @@ class ReactorGame extends UserConnectionBase {
     onDataChannelOpen(peerId) {
         console.log('[Reactor] DataChannel OPEN with', peerId);
         this.connectedPeers.add(peerId);
-        this.showToast(`🔗 P2P connected with ${peerId}`, 'success');
+        this.showToast(`P2P connected with ${peerId}`, 'success');
         this.updateZoneDisplays();
 
         // If host, send current state
@@ -569,17 +569,20 @@ class ReactorGame extends UserConnectionBase {
         const container = document.getElementById('stageList');
         if (!container) return;
 
+        // Buttons, not divs, so every stage is keyboard-reachable and carries
+        // its own accessible name. stage.icon is a sprite symbol name.
         container.innerHTML = STAGES.map(stage => `
-            <div class="stage-card ${stage.id === this.currentStage.id ? 'selected' : ''}" 
-                 data-stage-id="${stage.id}" 
+            <button type="button" class="stage-card ${stage.id === this.currentStage.id ? 'selected' : ''}"
+                 data-stage-id="${stage.id}"
+                 aria-pressed="${stage.id === this.currentStage.id}"
                  onclick="selectStage(${stage.id})">
-                <div class="stage-icon">${stage.icon}</div>
-                <div class="stage-info">
-                    <div class="stage-name">${stage.name}</div>
-                    <div class="stage-desc">${stage.description}</div>
-                </div>
-                <div class="stage-number">#${stage.id}</div>
-            </div>
+                <span class="stage-icon"><svg class="icon" aria-hidden="true"><use href="#i-${stage.icon}"></use></svg></span>
+                <span class="stage-card__info">
+                    <span class="stage-name">${escapeHtml(stage.name)}</span>
+                    <span class="stage-desc">${escapeHtml(stage.description)}</span>
+                </span>
+                <span class="stage-number">#${stage.id}</span>
+            </button>
         `).join('');
     }
 
@@ -603,7 +606,7 @@ class ReactorGame extends UserConnectionBase {
             });
         }
 
-        this.showToast(`Stage: ${stage.icon} ${stage.name}`, 'info');
+        this.showToast(`Stage: ${stage.name}`, 'info');
         this.closeStageModal();
     }
 
@@ -616,13 +619,15 @@ class ReactorGame extends UserConnectionBase {
 
         this.populateStageSelector();
         this.updateCurrentStageDisplay();
-        this.showToast(`Host selected: ${stage.icon} ${stage.name}`, 'info');
+        this.showToast(`Host selected: ${stage.name}`, 'info');
     }
 
     updateCurrentStageDisplay() {
         const display = document.getElementById('currentStageDisplay');
         if (display) {
-            display.innerHTML = `${this.currentStage.icon} ${this.currentStage.name}`;
+            // stage.icon is a sprite symbol name; this is an innerHTML site,
+            // so the <svg><use> swap is safe here.
+            display.innerHTML = `<svg class="icon" aria-hidden="true"><use href="#i-${this.currentStage.icon}"></use></svg> ${escapeHtml(this.currentStage.name)}`;
         }
 
         const stageInfo = document.getElementById('stageInfo');
@@ -655,9 +660,10 @@ class ReactorGame extends UserConnectionBase {
         this.updateGameMessage();
         this.updateCurrentStageDisplay();
 
-        // Show share button
+        // Show share button. inline-flex, not inline-block: the button is a
+        // .btn (icon + label in a flex row) since the design-system conversion.
         const shareBtn = document.getElementById('shareBtn');
-        if (shareBtn) shareBtn.style.display = 'inline-block';
+        if (shareBtn) shareBtn.style.display = 'inline-flex';
 
         // Setup stage button listener (in case it wasn't set up earlier)
         this.setupStageButton();
@@ -672,12 +678,14 @@ class ReactorGame extends UserConnectionBase {
             }
         }
 
-        // Show start button for host
+        // Show start button for host. It must be enabled: the game is
+        // playable alone, and nothing ever cleared the old `disabled = true`
+        // that was set here — a host who connected before host election
+        // finished got a start button that could never be clicked.
         const startBtn = document.getElementById('startButton');
         if (startBtn) {
             if (this.isHost()) {
                 startBtn.classList.remove('hidden');
-                startBtn.disabled = true;
             } else {
                 startBtn.classList.add('hidden');
             }
@@ -730,7 +738,7 @@ class ReactorGame extends UserConnectionBase {
         const controlPanel = document.getElementById('controlPanel') || document.querySelector('.control-panel');
         if (controlPanel) controlPanel.classList.add('hidden');
 
-        this.showToast(`${this.currentStage.icon} ${this.currentStage.name} starting!`, 'success');
+        this.showToast(`${this.currentStage.name} starting!`, 'success');
 
         // Start first round after delay
         setTimeout(() => this.startRound(), 1500);
@@ -750,7 +758,9 @@ class ReactorGame extends UserConnectionBase {
         this.playerScores.forEach((_, key) => this.playerScores.set(key, 0));
         this.gameStats.reactions = [];
 
-        document.getElementById('readyButton').classList.add('hidden');
+        // (No ready button exists in this game's markup; the old
+        // readyButton lookup here threw and aborted the rest of this handler
+        // for every non-host player.)
         const stageBtn = document.getElementById('stageSelectBtn');
         if (stageBtn) stageBtn.classList.add('hidden');
 
@@ -761,7 +771,7 @@ class ReactorGame extends UserConnectionBase {
         this.updateZoneDisplays();
         this.updateLeaderboard();
 
-        this.showToast('🎮 Game started!', 'success');
+        this.showToast('Game started!', 'success');
     }
 
     startRound() {
@@ -911,7 +921,7 @@ class ReactorGame extends UserConnectionBase {
             });
         }
 
-        const message = data.winner ? `🏆 ${data.winner} wins!` : 'Game Over!';
+        const message = data.winner ? `${data.winner} wins!` : 'Game Over!';
         this.updateGameMessage(message);
         this.updateLeaderboard();
         this.showToast(message, 'success');
@@ -1764,7 +1774,10 @@ class ReactorGame extends UserConnectionBase {
                 const hasP2P = playerId === this.username || this.connectedPeers.has(playerId);
 
                 if (playerEl) {
-                    const p2pIcon = hasP2P ? '🔗' : '⏳';
+                    // Same peer-link vocabulary as air-hockey's lobby list.
+                    const p2pIcon = hasP2P
+                        ? '<svg class="icon icon--sm p2p-state p2p-state--on" role="img" aria-label="Connected peer to peer"><title>Connected peer to peer</title><use href="#i-check-circle"></use></svg>'
+                        : '<svg class="icon icon--sm p2p-state p2p-state--wait" role="img" aria-label="Connecting"><title>Connecting</title><use href="#i-clock"></use></svg>';
                     playerEl.innerHTML = `${escapeHtml(playerId)}${playerId !== this.username ? ` ${p2pIcon}` : ' (You)'}`;
                 }
                 if (scoreEl) scoreEl.textContent = score;
@@ -1790,11 +1803,16 @@ class ReactorGame extends UserConnectionBase {
         container.innerHTML = sorted.map(([playerId, score], index) => {
             const zone = this.playerZones.get(playerId);
             const color = zone !== undefined ? ZONE_COLORS[zone] : '#667eea';
-            const medal = index === 0 ? '🥇' : index === 1 ? '🥈' : index === 2 ? '🥉' : '';
+            // Sprite medals, same as air-hockey's leaderboard.
+            const rankNames = ['first', 'second', 'third'];
+            const rankIcons = ['trophy', 'medal', 'medal'];
+            const medal = index < 3
+                ? `<svg class="icon" role="img" aria-label="${rankNames[index]} place"><title>${rankNames[index]} place</title><use href="#i-${rankIcons[index]}"></use></svg>`
+                : '';
 
             return `
                 <div class="leaderboard-item">
-                    <span class="rank">${medal || (index + 1)}</span>
+                    <span class="rank${index < 3 ? ` rank--${index + 1}` : ''}">${medal || (index + 1)}</span>
                     <div class="player-color" style="background: ${color}"></div>
                     <span class="player-name">${escapeHtml(playerId)}${playerId === this.username ? ' (You)' : ''}</span>
                     <span class="player-score">${escapeHtml(score)}</span>
@@ -2010,8 +2028,8 @@ function initializeConnectionModal() {
     window.loadConnectionModal({
         localStoragePrefix: 'reactor_',
         channelPrefix: 'reactor-',
-        title: '⚡ Join 4-Player Reactor',
-        collapsedTitle: '⚡ Reactor',
+        title: 'Join 4-Player Reactor',
+        collapsedTitle: 'Reactor',
         onConnect: function(username, channel, password) {
             connectReactor(username, channel, password);
         }

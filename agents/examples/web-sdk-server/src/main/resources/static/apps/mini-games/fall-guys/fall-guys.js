@@ -1846,9 +1846,10 @@ class FallGuysGame extends UserConnectionBase {
         const modal = document.getElementById('connectionModal');
         if (modal) modal.classList.remove('active');
 
-        // Show share button
+        // Show share button. inline-flex, not block: the button is a .btn
+        // (icon + label in a flex row) since the design-system conversion.
         const shareBtn = document.getElementById('shareBtn');
-        if (shareBtn) shareBtn.style.display = 'block';
+        if (shareBtn) shareBtn.style.display = 'inline-flex';
 
         // Assign color to self
         const colorIndex = this.getNextColorIndex();
@@ -2180,7 +2181,7 @@ class FallGuysGame extends UserConnectionBase {
                 this.countdownValue--;
             } else {
                 clearInterval(countdownInterval);
-                this.showToast('GO! 🏃', 'success');
+                this.showToast('GO!', 'success');
 
                 const startTime = Date.now();
                 this.sendData({
@@ -2457,13 +2458,8 @@ class FallGuysGame extends UserConnectionBase {
             player.body.velocity.set(0, 0, 0);
         }
 
-        // Update UI
-        const readyBtn = document.getElementById('readyBtn');
-        if (readyBtn) {
-            readyBtn.textContent = 'Ready Up!';
-            readyBtn.classList.remove('ready');
-        }
-
+        // Update UI. (There is no ready button in this lobby — see
+        // checkAllReady(); the old readyBtn reset that lived here was dead.)
         document.getElementById('finishOverlay')?.classList.add('hidden');
         document.getElementById('waitingRoom')?.classList.remove('hidden');
         document.getElementById('timerDisplay')?.classList.add('hidden');
@@ -2799,7 +2795,8 @@ class FallGuysGame extends UserConnectionBase {
         item.innerHTML = `
             <div class="player-color" style="background: #${color.body.toString(16).padStart(6, '0')}"></div>
             <span>${escapeHtml(name)}${isLocal ? ' (You)' : ''}</span>
-            ${ready ? ' ✓' : ''}
+            ${isHostPlayer ? '<svg class="icon icon--sm player-item__host" role="img" aria-label="Host"><title>Host</title><use href="#i-crown"></use></svg>' : ''}
+            ${ready ? '<svg class="icon icon--sm player-item__ready" role="img" aria-label="Ready"><title>Ready</title><use href="#i-check-circle"></use></svg>' : ''}
         `;
 
         container.appendChild(item);
@@ -2824,10 +2821,11 @@ class FallGuysGame extends UserConnectionBase {
         const isHost = this.isHost();
         console.log('[FallGuys] updateHostControls - isHost:', isHost);
 
-        // Show/hide host-only elements by setting display directly
+        // Show/hide host-only elements by setting display directly.
+        // inline-flex, not inline-block: they are .btn elements now.
         document.querySelectorAll('.host-only').forEach(el => {
             if (isHost) {
-                el.style.display = 'inline-block';
+                el.style.display = 'inline-flex';
                 el.classList.remove('hidden');
             } else {
                 el.style.display = 'none';
@@ -2838,7 +2836,7 @@ class FallGuysGame extends UserConnectionBase {
         const startBtn = document.getElementById('startBtn');
         if (startBtn && isHost) {
             startBtn.disabled = !this.checkAllReady();
-            startBtn.style.display = 'inline-block';
+            startBtn.style.display = 'inline-flex';
             console.log('[FallGuys] Start button visible, disabled:', startBtn.disabled);
         }
     }
@@ -2945,14 +2943,14 @@ document.addEventListener('DOMContentLoaded', async () => {
     window.loadConnectionModal({
         localStoragePrefix: 'fallguys_',
         channelPrefix: 'fallguys-',
-        title: '🏃 Mini Fall Guys',
-        collapsedTitle: '🏃 Mini Fall Guys',
+        title: 'Mini Fall Guys',
+        collapsedTitle: 'Mini Fall Guys',
         onConnect: async function(username, channel, password) {
             await connectFallGuys(username, channel, password);
         }
     });
 
-31    // Process shared link and setup auto-connect using centralized utility
+    // Process shared link and setup auto-connect using centralized utility
     if (window.MiniGameUtils && typeof MiniGameUtils.processSharedLinkAndAutoConnect === 'function') {
         MiniGameUtils.processSharedLinkAndAutoConnect({
             gameName: 'FallGuys',

@@ -149,7 +149,7 @@
                     // touch, where a double-tap is easy to miss.
                     this.armed = !this.armed;
                     travel.classList.toggle('armed', this.armed);
-                    travel.textContent = this.armed ? '🌍 pick a spot' : '🌍 travel';
+                    travel.innerHTML = window.icon('globe', 'icon--sm') + (this.armed ? ' pick a spot' : ' travel');
                 });
             }
             const pin = document.getElementById('minimapPin');
@@ -551,7 +551,7 @@
             const g = this.game;
             const place = g.geo && g.geo.placeOf(g.username);
             if (!place) {
-                g.showToast('Share your location, or use 📍 to pin this world where you are', 'warning', 3600);
+                g.showToast('Share your location, or use the map\u2019s pin button to pin this world where you are', 'warning', 3600);
                 return;
             }
             const w = g.geo.toWorld(place.rec.lat, place.rec.lon);
@@ -831,7 +831,7 @@
             if (armed) {
                 this.armed = false;
                 const travel = document.getElementById('minimapTravel');
-                if (travel) { travel.classList.remove('armed'); travel.textContent = '🌍 travel'; }
+                if (travel) { travel.classList.remove('armed'); travel.innerHTML = window.icon('globe', 'icon--sm') + ' travel'; }
                 if (!g.geo || !g.geo.anchor) { g.showToast('Pin the world to a place first', 'warning'); return; }
                 const ll = this._canvasToLatLon(at.cx, at.cy);
                 if (ll) g.travelTo(ll.lat, ll.lon, g.geo.anchor.mpc);
@@ -905,10 +905,10 @@
                 <div class="mm-scope-sub">${this._esc(sub)}</div>
                 <div class="mm-scope-actions">
                     <button class="mm-scope-btn primary" data-scope="travel"
-                        ${why ? `disabled title="${this._esc(why)}"` : ''}>✈️ Travel here</button>
+                        ${why ? `disabled title="${this._esc(why)}"` : ''}>${window.icon('send', 'icon--sm')} Travel here</button>
                     <button class="mm-scope-btn" data-scope="camera"
-                        ${reachable ? `title="${this._esc(flyHint)}"` : 'disabled title="Past the edge of the ground — travel there instead"'}>🎥 Fly camera</button>
-                    <button class="mm-scope-btn" data-scope="copy" title="Copy the coordinates">📋</button>
+                        ${reachable ? `title="${this._esc(flyHint)}"` : 'disabled title="Past the edge of the ground — travel there instead"'}>${window.icon('video', 'icon--sm')} Fly camera</button>
+                    <button class="mm-scope-btn" data-scope="copy" title="Copy the coordinates">${window.icon('copy', 'icon--sm')}</button>
                 </div>`;
 
             card.classList.remove('hidden');
@@ -1123,7 +1123,7 @@
             const roster = new Map(geo.roster().map(r => [r.name, r]));
 
             if (count) {
-                count.textContent = `👥 ${names.size || 0}`;
+                count.innerHTML = `${window.icon('users', 'icon--sm')} ${names.size || 0}`;
                 count.title = names.size ? `${names.size} known ${names.size === 1 ? 'place' : 'places'} and people`
                     : 'Nobody has shared a location yet';
             }
@@ -1872,7 +1872,7 @@
 
             // A map of nowhere is just a grid — say what would fix that.
             if (!anchor) {
-                const msg = g.isHost() ? 'not pinned — 📍 pin for the real map'
+                const msg = g.isHost() ? 'not pinned — pin it for the real map'
                     : 'the host has not pinned this world yet';
                 ctx.font = '600 9px system-ui, sans-serif';
                 const w = ctx.measureText(msg).width;

@@ -17,6 +17,8 @@
     <meta property="og:url" content="https://hmdevonline.com/messaging-platform/sdk/apps/mini-games/reactor/reactor-client.html">
     <meta property="og:image" content="https://hmdevonline.com/messaging-platform/sdk/images/og-image.png">
     <meta name="twitter:card" content="summary_large_image">
+    <link rel="stylesheet" href="../../../css/design-tokens.css">
+    <link rel="stylesheet" href="../../../css/ui.css">
     <link rel="stylesheet" href="../../../css/toast.css">
     <link rel="stylesheet" href="reactor-styles.css">
     <link rel="stylesheet" href="../../../css/app-chrome.css">
@@ -31,27 +33,35 @@
     <!-- Top Bar -->
     <div class="top-bar">
         <div class="game-info">
-            <h1>⚡ 4-Player Reactor</h1>
+            <span class="game-mark">
+                <svg class="icon" aria-hidden="true"><use href="#i-zap"></use></svg>
+            </span>
+            <h1>4-Player Reactor</h1>
             <span id="roomName" class="room-badge"></span>
         </div>
 
         <div class="game-status">
-            <span id="roundInfo">Round: 0/0</span>
-            <span id="timeRemaining">Time: --</span>
+            <span id="roundInfo" class="status-chip">Round: 0/0</span>
+            <span id="timeRemaining" class="status-chip">Time: --</span>
         </div>
 
-        <div class="connection-status">
+        <div class="connection-status" role="status">
             <span id="playerCount">Players: 0</span>
-            <span id="connectionIndicator" class="indicator disconnected">●</span>
+            <span id="connectionIndicator" class="indicator disconnected" aria-hidden="true">●</span>
         </div>
 
-        <button id="shareBtn" class="share-btn" style="display:none;">🔗 Share</button>
+        <button id="shareBtn" class="share-btn btn btn--primary" type="button" style="display:none;">
+            <svg class="icon icon--sm" aria-hidden="true"><use href="#i-qr-code"></use></svg>
+            <span>Share</span>
+        </button>
     </div>
 
     <!-- Game Arena -->
     <div class="game-arena">
         <!-- Zone 1: Blue (Top-Left) - hidden until player joins -->
-        <div class="reaction-zone zone-blue hidden" data-zone="0" id="zone-0" onclick="handleZoneClick(0)">
+        <div class="reaction-zone zone-blue hidden" data-zone="0" id="zone-0" role="button" tabindex="0"
+             aria-label="Blue zone" onclick="handleZoneClick(0)"
+             onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();handleZoneClick(0);}">
             <div class="zone-content">
                 <div class="zone-light" id="light-0"></div>
                 <div class="zone-player" id="player-0"></div>
@@ -60,7 +70,9 @@
         </div>
 
         <!-- Zone 2: Red (Top-Right) - hidden until player joins -->
-        <div class="reaction-zone zone-red hidden" data-zone="1" id="zone-1" onclick="handleZoneClick(1)">
+        <div class="reaction-zone zone-red hidden" data-zone="1" id="zone-1" role="button" tabindex="0"
+             aria-label="Red zone" onclick="handleZoneClick(1)"
+             onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();handleZoneClick(1);}">
             <div class="zone-content">
                 <div class="zone-light" id="light-1"></div>
                 <div class="zone-player" id="player-1"></div>
@@ -69,7 +81,9 @@
         </div>
 
         <!-- Zone 3: Green (Bottom-Left) - hidden until player joins -->
-        <div class="reaction-zone zone-green hidden" data-zone="2" id="zone-2" onclick="handleZoneClick(2)">
+        <div class="reaction-zone zone-green hidden" data-zone="2" id="zone-2" role="button" tabindex="0"
+             aria-label="Green zone" onclick="handleZoneClick(2)"
+             onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();handleZoneClick(2);}">
             <div class="zone-content">
                 <div class="zone-light" id="light-2"></div>
                 <div class="zone-player" id="player-2"></div>
@@ -78,7 +92,9 @@
         </div>
 
         <!-- Zone 4: Yellow (Bottom-Right) - hidden until player joins -->
-        <div class="reaction-zone zone-yellow hidden" data-zone="3" id="zone-3" onclick="handleZoneClick(3)">
+        <div class="reaction-zone zone-yellow hidden" data-zone="3" id="zone-3" role="button" tabindex="0"
+             aria-label="Yellow zone" onclick="handleZoneClick(3)"
+             onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();handleZoneClick(3);}">
             <div class="zone-content">
                 <div class="zone-light" id="light-3"></div>
                 <div class="zone-player" id="player-3"></div>
@@ -89,12 +105,15 @@
         <!-- Center Control Panel -->
         <div class="control-panel">
             <div class="stage-display">
-                <span id="currentStageDisplay">⚡ Classic Mode</span>
-                <button id="stageSelectBtn" class="btn-stage-select hidden">Change Stage</button>
+                <span id="currentStageDisplay"><svg class="icon" aria-hidden="true"><use href="#i-zap"></use></svg> Classic Mode</span>
+                <button id="stageSelectBtn" class="btn btn--ghost btn--sm hidden" type="button">
+                    <svg class="icon icon--sm" aria-hidden="true"><use href="#i-settings"></use></svg>
+                    <span>Change Stage</span>
+                </button>
             </div>
             <div id="stageInfo" class="stage-info">Basic reaction speed test. Click when your zone lights up!</div>
             <div id="gameMessage" class="game-message">Waiting for players...</div>
-            <button id="startButton" onclick="startGame()" class="btn-start hidden">Start Game</button>
+            <button id="startButton" onclick="startGame()" class="btn btn--primary btn--lg hidden" type="button">Start Game</button>
         </div>
 
         <!-- Target Color Display (for Color Match mode) -->
@@ -103,7 +122,7 @@
 
     <!-- Scoreboard -->
     <div class="scoreboard-panel">
-        <h3>🏆 Leaderboard</h3>
+        <h3><svg class="icon" aria-hidden="true"><use href="#i-trophy"></use></svg> Leaderboard</h3>
         <div id="leaderboard"></div>
 
         <div class="stats-panel">
@@ -124,19 +143,33 @@
             </div>
         </div>
 
-        <button onclick="disconnect()" class="btn-danger btn-small">Leave Game</button>
+        <button onclick="disconnect()" class="btn btn--danger btn--sm" type="button">
+            <svg class="icon icon--sm" aria-hidden="true"><use href="#i-log-out"></use></svg>
+            <span>Leave Game</span>
+        </button>
     </div>
 </div>
 
-<!-- Stage Selection Modal -->
-<div id="stageModal" class="modal hidden">
-    <div class="modal-content stage-modal-content">
-        <h2>🎮 Select Stage</h2>
-        <p>Choose a game mode to play</p>
-        <div id="stageList" class="stage-list">
-            <!-- Stages will be populated by JS -->
+<!-- Stage Selection Modal (house .modal structure from ui.css; visibility is
+     still driven by the game's .hidden class rather than the [hidden] attribute) -->
+<div id="stageModal" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="stageModalTitle">
+    <div class="modal__scrim" onclick="closeStageModal()"></div>
+    <div class="modal__card modal__card--wide">
+        <div class="modal__header">
+            <h2 class="modal__title" id="stageModalTitle">Select a stage</h2>
+            <button class="modal__close" type="button" onclick="closeStageModal()" aria-label="Close">
+                <svg class="icon icon--sm" aria-hidden="true"><use href="#i-x"></use></svg>
+            </button>
         </div>
-        <button onclick="closeStageModal()" class="btn-secondary">Cancel</button>
+        <div class="modal__body">
+            <p class="stage-modal-lede">Choose a game mode to play.</p>
+            <div id="stageList" class="stage-list">
+                <!-- Stages will be populated by JS -->
+            </div>
+        </div>
+        <div class="modal__actions">
+            <button onclick="closeStageModal()" class="btn btn--ghost" type="button">Cancel</button>
+        </div>
     </div>
 </div>
 
@@ -146,6 +179,7 @@
 <!-- Scripts -->
 <!-- Load SDK Scripts from generated folder (copied at build time) -->
 <script src="../../../js/config-loader.js"></script>
+<script src="../../../js/icons.js"></script>
 <script src="../../../lib/qrcode.min.js"></script>
 <script src="../../../generated-web-agent-js/js/web-agent.libs.js"></script>
 <script src="../../../generated-web-agent-js/js/web-agent.js"></script>

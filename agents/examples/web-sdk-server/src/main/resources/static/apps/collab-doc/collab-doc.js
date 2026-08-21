@@ -413,17 +413,18 @@ class CollabDoc extends UserConnectionBase {
     toggleTheme() {
         this.theme = this.theme === 'light' ? 'dark' : 'light';
 
-        if (this.theme === 'dark') {
-            document.body.classList.add('dark-theme');
-            this.editor.setOption('theme', 'monokai');
-            document.getElementById('themeBtn').textContent = '☀️';
-            document.getElementById('previewContent').classList.add('dark');
-        } else {
-            document.body.classList.remove('dark-theme');
-            this.editor.setOption('theme', 'eclipse');
-            document.getElementById('themeBtn').textContent = '🌙';
-            document.getElementById('previewContent').classList.remove('dark');
-        }
+        const dark = this.theme === 'dark';
+        document.body.classList.toggle('dark-theme', dark);
+        this.editor.setOption('theme', dark ? 'monokai' : 'eclipse');
+        document.getElementById('previewContent').classList.toggle('dark', dark);
+
+        // The button carries an <svg>, so assigning textContent here — which is
+        // what this used to do, to swap a sun for a moon — threw the icon away
+        // and left an empty button that still toggled the theme.
+        const btn = document.getElementById('themeBtn');
+        const use = btn && btn.querySelector('use');
+        if (use) use.setAttribute('href', dark ? '#i-eye' : '#i-eye-off');
+        if (btn) btn.title = dark ? 'Switch to the light theme' : 'Switch to the dark theme';
     }
 
     // ============================================

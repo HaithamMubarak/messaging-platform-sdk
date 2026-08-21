@@ -3819,7 +3819,7 @@
                     || (lockable && s.phase === 'play' && this.myPlot && !this.locked);
                 lock.classList.toggle('hidden', !show);
                 if (show) {
-                    lock.textContent = architect ? '✅ Done — start the clock' : '✅ Lock in';
+                    lock.innerHTML = window.icon('check', 'icon--sm') + (architect ? ' Done — start the clock' : ' Lock in');
                     lock.title = architect
                         ? 'Stop building and give the room its look at it (L)'
                         : 'Submit your build now and claim the speed bonus (L)';

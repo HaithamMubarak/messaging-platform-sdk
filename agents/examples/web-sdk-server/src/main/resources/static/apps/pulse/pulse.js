@@ -116,16 +116,42 @@
          */
         _ask(payload) {
             if (this.isHost()) { this.onGameMessage({ data: payload }); return; }
-            var host = this._getHostName();
-            this._say(payload, host || '*');
+            var host = this._getHostName(), self = this;
+            this._say(payload, host || '*', function () {
+                // Put the UI back where the truth is.
+                if (payload.type === 'vote') {
+                    self.myVote = null;
+                    self.render();
+                    UI.toast('That vote did not reach the room — try again', 'error', 5000);
+                } else if (payload.type === 'ask') {
+                    UI.toast('That question did not reach the room — try again', 'error', 5000);
+                }
+            });
         }
 
-        /** One place that knows how a Pulse message travels. */
-        _say(payload, to) {
+        /**
+         * One place that knows how a Pulse message travels.
+         *
+         * sendCustomEventMessage REJECTS rather than throwing, so the
+         * try/catch that used to be the whole of this function caught nothing:
+         * a refused vote was highlighted optimistically in the UI and simply
+         * never counted. The rejection arrives on the promise, and the caller
+         * gets told.
+         */
+        _say(payload, to, onFail) {
+            var sent;
             try {
-                this.sendCustomEventMessage(payload, to || '*');
+                sent = this.sendCustomEventMessage(payload, to || '*');
             } catch (err) {
                 console.warn('[Pulse] send failed:', err.message);
+                if (onFail) onFail(err);
+                return;
+            }
+            if (sent && sent.catch) {
+                sent.catch(function (err) {
+                    console.warn('[Pulse] send failed:', err && err.message);
+                    if (onFail) onFail(err);
+                });
             }
         }
 
@@ -171,6 +197,51 @@
                     if (self.isHost()) self._hostCommit('closed');
                 }
             }, 1000);
+        }
+
+        /**
+         * Host only: ask something else.
+         *
+         * The question was hardcoded, so the only poll this demo could ever
+         * run was the one it shipped with — which makes it a screenshot rather
+         * than a demo. The host writes their own now; everyone else sees it
+         * the moment it is committed.
+         */
+        async compose() {
+            if (!this.isHost()) { UI.toast('Only the host sets the question', 'info'); return; }
+            var q = await this._prompt('What should the room vote on?',
+                this.poll ? this.poll.question : '');
+            if (!q) return;
+
+            var raw = await this._prompt('The options, one per line',
+                this.poll ? this.poll.options.map(function (o) { return o.label; }).join('\n') : '');
+            if (raw === null) return;
+            var labels = String(raw).split('\n')
+                .map(function (t) { return t.trim(); })
+                .filter(Boolean)
+                .slice(0, 8);
+            if (labels.length < 2) { UI.toast('A poll needs at least two options', 'warning'); return; }
+
+            this.poll = {
+                question: String(q).slice(0, 160),
+                options: labels.map(function (label, i) {
+                    return { id: 'o' + i, label: label.slice(0, 80) };
+                }),
+                votes: {},
+                closesAt: Date.now() + POLL_SECS * 1000
+            };
+            this.myVote = null;
+            this._wasOpen = true;
+            this._hostCommit('asked');
+        }
+
+        /** A one-line question, using whichever dialog this page has. */
+        _prompt(title, value) {
+            if (window.MiniGameUtils && MiniGameUtils.askFor) {
+                return MiniGameUtils.askFor(title, value);
+            }
+            if (window.AppDialog && AppDialog.askFor) return AppDialog.askFor(title, value);
+            return Promise.resolve(window.prompt(title, value));
         }
 
         /** Host only: run the same question again from zero. */
@@ -400,6 +471,14 @@
                 }, 'Run it again'));
             }
 
+            // The host can always write a new question — a demo whose only
+            // poll is the one it shipped with is a screenshot.
+            if (!past && this.isHost()) {
+                head.appendChild(UI.el('button', {
+                    type: 'button', class: 'btn btn--ghost btn--sm', 'data-compose': '1'
+                }, open ? 'Ask something else' : 'New question'));
+            }
+
             var bars = this.poll.options.map(function (opt) {
                 var n = counts[opt.id] || 0;
                 var pct = total ? Math.round((n / total) * 100) : 0;
@@ -555,6 +634,7 @@
             if (!app) return;
             if (e.target.closest('[data-live]')) { app.scrubTo(null); return; }
             if (e.target.closest('[data-reopen]')) { app.reopen(); return; }
+            if (e.target.closest('[data-compose]')) { app.compose(); return; }
             var btn = e.target.closest('[data-option]');
             if (btn && !btn.disabled) app.vote(btn.getAttribute('data-option'));
         });

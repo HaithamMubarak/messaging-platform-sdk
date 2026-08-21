@@ -7,7 +7,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Mini Fall Guys - Multiplayer Obstacle Race</title>
     <meta name="description" content="A full-lobby obstacle sprint across three courses. Physics runs on the host and streams to every player. Share the link and race.">
-    <meta name="theme-color" content="#1a1a2e">
+    <meta name="theme-color" content="#0b1120">
     <link rel="canonical" href="https://hmdevonline.com/messaging-platform/sdk/apps/mini-games/fall-guys/index.html">
 
     <meta property="og:type" content="website">
@@ -19,6 +19,8 @@
     <meta name="twitter:card" content="summary_large_image">
 
     <!-- Common Styles -->
+    <link rel="stylesheet" href="../../../css/design-tokens.css">
+    <link rel="stylesheet" href="../../../css/ui.css">
     <link rel="stylesheet" href="../../../css/toast.css">
     <link rel="stylesheet" href="../../../css/connection-modal.css">
     <link rel="stylesheet" href="../../../css/share-modal.css">
@@ -34,9 +36,11 @@
     <link rel="stylesheet" href="../../../css/app-chrome.css">
 </head>
 <body>
-    <!-- Share Button (hidden until connected) -->
-    <button id="shareBtn" class="share-btn" onclick="fallGuysGame?.openShareModal()" style="display: none;">
-        📤 Share
+    <!-- Share Button (hidden until connected; app-chrome.css docks it bottom-left) -->
+    <button id="shareBtn" class="share-btn btn btn--primary" type="button"
+            onclick="fallGuysGame?.openShareModal()" style="display: none;">
+        <svg class="icon icon--sm" aria-hidden="true"><use href="#i-qr-code"></use></svg>
+        <span>Share</span>
     </button>
 
     <!-- Connection Status -->
@@ -71,32 +75,36 @@
         <!-- Waiting Room Overlay (hidden until connected) -->
         <div id="waitingRoom" class="waiting-room hidden">
             <div class="waiting-content">
-                <h1>🏃 Mini Fall Guys</h1>
-                <p class="subtitle">Multiplayer Obstacle Race</p>
+                <span class="waiting-mark">
+                    <svg class="icon icon--lg" aria-hidden="true"><use href="#i-flag"></use></svg>
+                </span>
+                <h1>Mini Fall Guys</h1>
+                <p class="subtitle">Multiplayer obstacle race</p>
 
                 <div class="player-list-container">
-                    <h3>Players in Lobby</h3>
+                    <h3>Players in the lobby</h3>
                     <div id="playerList" class="player-list">
                         <!-- Players will be added here -->
                     </div>
+                    <p class="waiting-note">Racing alone is fine — practise the course, or share the room link to fill the lobby.</p>
                 </div>
 
                 <div class="map-picker-container">
                     <h3>Course</h3>
                     <div id="mapPicker" class="map-picker" role="group" aria-label="Course selection">
-                        <button type="button" class="map-option selected" data-map="obstacleRush"
+                        <button type="button" class="map-option card card--interactive selected" data-map="obstacleRush"
                                 aria-pressed="true" onclick="fallGuysGame?.hostSelectMap('obstacleRush')">
                             <span class="map-option__name">Obstacle Rush</span>
                             <span class="map-option__desc">Spinning hammers, gaps and pushers. The classic run.</span>
                             <span class="map-option__tags"><span class="map-tag">Standard</span><span class="map-tag">Long</span></span>
                         </button>
-                        <button type="button" class="map-option" data-map="slimeClimb"
+                        <button type="button" class="map-option card card--interactive" data-map="slimeClimb"
                                 aria-pressed="false" onclick="fallGuysGame?.hostSelectMap('slimeClimb')">
                             <span class="map-option__name">Slime Climb</span>
                             <span class="map-option__desc">Climb the terraces. Split beams near the top — pick a lane.</span>
                             <span class="map-option__tags"><span class="map-tag">Tricky</span><span class="map-tag">Long</span></span>
                         </button>
-                        <button type="button" class="map-option" data-map="hammerAlley"
+                        <button type="button" class="map-option card card--interactive" data-map="hammerAlley"
                                 aria-pressed="false" onclick="fallGuysGame?.hostSelectMap('hammerAlley')">
                             <span class="map-option__name">Hammer Alley</span>
                             <span class="map-option__desc">One narrow corridor, eight moving parts. Short and mean.</span>
@@ -107,13 +115,14 @@
                 </div>
 
                 <div class="waiting-actions">
-                    <button id="startBtn" class="btn-start host-only" onclick="fallGuysGame?.hostStartGame()">
-                        Start Race!
+                    <button id="startBtn" class="btn btn--primary btn--lg host-only" type="button"
+                            onclick="fallGuysGame?.hostStartGame()">
+                        Start Race
                     </button>
                 </div>
 
                 <div class="controls-info">
-                    <h3>🎮 Controls</h3>
+                    <h3><svg class="icon" aria-hidden="true"><use href="#i-gamepad"></use></svg> Controls</h3>
                     <div class="controls-grid">
                         <div class="control-item"><span class="key">W</span> or <span class="key">↑</span> Forward</div>
                         <div class="control-item"><span class="key">S</span> or <span class="key">↓</span> Backward</div>
@@ -129,11 +138,15 @@
         <!-- Finish Overlay -->
         <div id="finishOverlay" class="finish-overlay hidden">
             <div class="finish-content">
-                <h2 id="finishTitle">🏆 Race Complete!</h2>
+                <h2 id="finishTitle">
+                    <svg class="icon finish-trophy" aria-hidden="true"><use href="#i-trophy"></use></svg>
+                    Race Complete!
+                </h2>
                 <div id="finishResults" class="finish-results">
                     <!-- Results will be added here -->
                 </div>
-                <button id="playAgainBtn" class="btn-play-again host-only" onclick="fallGuysGame?.hostRestartGame()">
+                <button id="playAgainBtn" class="btn btn--primary btn--lg host-only" type="button"
+                        onclick="fallGuysGame?.hostRestartGame()">
                     Play Again
                 </button>
             </div>
@@ -158,6 +171,7 @@
 
     <!-- Scripts -->
     <script src="../../../js/config-loader.js"></script>
+    <script src="../../../js/icons.js"></script>
     <script src="../../../lib/qrcode.min.js"></script>
     <script src="../../../generated-web-agent-js/js/web-agent.libs.js"></script>
     <script src="../../../generated-web-agent-js/js/web-agent.js"></script>

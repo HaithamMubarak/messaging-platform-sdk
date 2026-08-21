@@ -292,18 +292,32 @@ body {
     font-family: 'Segoe UI', sans-serif;
 }
 
+/* --------------------------------------------------------------------------
+   The paper, and the theme that was inside out.
+
+   A mechanical token migration replaced this file's hardcoded colours by
+   position rather than by meaning, and `--text` — which is near-white on this
+   site — landed everywhere a white *background* had been. The result was the
+   preview pane rendering near-white text on white (the app's second headline
+   feature, illegible) and a "dark theme" that painted everything pale.
+
+   The preview is paper and says so explicitly, the way the whiteboard's board
+   does: it is not derived from the dark palette because it is not part of the
+   dark chrome.
+   -------------------------------------------------------------------------- */
+
 /* Preview Pane */
 .preview-content {
     height: 100%;
     overflow-y: auto;
     padding: 40px;
-    background: white;
-    color: var(--text);
+    background: #ffffff;
+    color: #1f2937;          /* ink on paper, not the dark theme's text token */
 }
 
 .preview-content.dark {
-    background: var(--text);
-    color: var(--surface-2);
+    background: var(--surface-1);
+    color: var(--text);
 }
 
 /* Markdown Styling */
@@ -338,8 +352,8 @@ body {
 }
 
 .preview-content pre {
-    background: var(--text);
-    color: var(--surface-2);
+    background: #f3f4f6;
+    color: #111827;
     padding: 16px;
     border-radius: 8px;
     overflow-x: auto;
@@ -418,28 +432,28 @@ body {
 
 /* Dark Theme */
 body.dark-theme .app-container {
-    background: var(--text);
+    background: var(--bg);
 }
 
 body.dark-theme .app-header,
 body.dark-theme .editor-toolbar,
 body.dark-theme .status-bar {
-    background: var(--text);
-    border-color: rgba(255, 255, 255, 0.1);
-    color: var(--surface-2);
+    background: var(--surface-1);
+    border-color: var(--border);
+    color: var(--text);
 }
 
 body.dark-theme .doc-title {
-    background: var(--text);
-    border-color: rgba(255, 255, 255, 0.1);
-    color: var(--surface-2);
+    background: var(--surface-2);
+    border-color: var(--border);
+    color: var(--text);
 }
 
 body.dark-theme .toolbar-btn,
 body.dark-theme .mode-btn {
-    background: var(--text);
-    border-color: rgba(255, 255, 255, 0.1);
-    color: var(--surface-2);
+    background: var(--surface-2);
+    border-color: var(--border);
+    color: var(--text);
 }
 
 body.dark-theme .mode-btn.active {
