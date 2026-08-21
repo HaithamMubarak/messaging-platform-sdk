@@ -29,7 +29,10 @@
     // Far enough to see the whole world at once, on a tall phone as well as a
     // wide monitor — a world that is a map of somewhere is worth looking at
     // whole, and 1.9 spans only managed that in landscape.
-    const CAM_MAX_RADIUS = Math.round(WORLD_SPAN * 3.4);
+    // A high orbit is still a normal camera move, not a different Earth scale.
+    // Keep enough headroom to read an entire map world and its horizon before
+    // offering the separate scale ladder.
+    const CAM_MAX_RADIUS = Math.round(WORLD_SPAN * 6);
     const CAM_START_RADIUS = 40;
     const STORAGE_KEY = 'blockparty_world';
     const SAVE_DEBOUNCE_MS = 2500;
@@ -1042,10 +1045,10 @@
         }
 
         zoom(delta) {
-            // Proportional zoom: a step that feels right next to a brick would
-            // take forever to cross the world from high up.
-            const scaled = delta * Math.max(1, this.cam.radius / 30);
-            this.cam.radius = Math.max(CAM_MIN_RADIUS, Math.min(CAM_MAX_RADIUS, this.cam.radius + scaled));
+            // Exponential zoom keeps a trackpad smooth close to the blocks and
+            // lets a mouse wheel cross the map in a handful of turns.
+            const factor = Math.exp(Math.max(-8, Math.min(8, delta)) * 0.075);
+            this.cam.radius = Math.max(CAM_MIN_RADIUS, Math.min(CAM_MAX_RADIUS, this.cam.radius * factor));
             this._applyCamera();
         }
 
@@ -4243,6 +4246,17 @@
 
             const groundSel = document.getElementById('geoGround');
             if (groundSel && groundSel.value !== this._groundStyle) groundSel.value = this._groundStyle || 'coast';
+            const groundBtn = document.getElementById('groundBtn');
+            if (groundBtn) {
+                const ground = {
+                    streets: { icon: '🛣️', label: 'Streets' },
+                    coast: { icon: '🌊', label: 'Coastline' },
+                    plain: { icon: '⬜', label: 'Plain' }
+                }[this._groundStyle] || { icon: '🛣️', label: 'Streets' };
+                groundBtn.innerHTML = `${ground.icon}<span class="btn-word"> ${ground.label}</span>`;
+                groundBtn.title = `Ground: ${ground.label} — click to change`;
+                groundBtn.classList.toggle('active', this._groundStyle === 'streets');
+            }
             const strengthRow = document.getElementById('geoGroundStrengthRow');
             if (strengthRow) strengthRow.classList.toggle('hidden', this._groundStyle !== 'streets');
             const strength = document.getElementById('geoGroundStrength');
@@ -4297,6 +4311,22 @@
             // The map keeps the same list, and has to hear about the same
             // changes — a position arriving is a redraw of both or neither.
             if (this.minimap) this.minimap.renderPlaces();
+        }
+
+        /** Cycle the floor control in the top bar: real streets, coast, or bare grid. */
+        cycleGround() {
+            const styles = ['streets', 'coast', 'plain'];
+            const current = styles.indexOf(this._groundStyle);
+            this._groundStyle = styles[(current + 1) % styles.length];
+            try { localStorage.setItem('bp_ground', this._groundStyle); } catch (e) { /* private mode */ }
+            this._syncGeoUI();
+            if (this._groundStyle === 'streets' && (!this.geo || !this.geo.region)) {
+                this.showToast('Ground: Streets — pin or travel to a place to load its map', 'warn', 3500);
+                return;
+            }
+            if (this._groundStyle === 'streets') this.showToast('Ground: Streets — fetching the map for this place…', 'info', 2200);
+            else this.showToast(`Ground: ${this._groundStyle === 'coast' ? 'Coastline' : 'Plain'}`, 'info', 1800);
+            this.paintGround();
         }
 
         /**
@@ -5823,6 +5853,7 @@
             on('toolFill', 'click', () => this.toggleFill());
             on('toolBricks', 'click', () => this.toggleBrickMode());
             on('fpsBtn', 'click', () => this.toggleFirstPerson());
+            on('groundBtn', 'click', () => this.cycleGround());
             on('rotateBtn', 'click', () => this.rotateBrick());
             on('toolMirror', 'click', () => this.toggleMirror());
             on('xrayBtn', 'click', () => this.toggleXray());
