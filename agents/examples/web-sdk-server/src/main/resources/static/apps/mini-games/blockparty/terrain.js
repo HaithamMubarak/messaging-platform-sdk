@@ -327,7 +327,11 @@
                     continue;
                 }
 
-                if (kind.colour === null) continue;               // bare ground stays bare
+                // Flat map pixels belong to the painted Streets ground. Making
+                // every park, road and water pixel a y=0 block laid an opaque
+                // green (or grey/blue) slab over the imported place. Only
+                // raised features should become editable voxel scenery.
+                if (kind.colour === null || kind.height <= 0) continue;
                 put(ix, iz, kind.colour, kind.height, kind.shape);
             }
         }
