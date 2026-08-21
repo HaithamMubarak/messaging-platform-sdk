@@ -61,6 +61,18 @@
     // everybody who finished. The stragglers get this long and no longer.
     const LAST_CALL_SECS = 15;
     const LAST_CALL_SHARE = 0.66;
+    // Checkpoint Race is deliberately a short foot course.  Its coordinates
+    // stay well inside every generated region, so it works on an empty local
+    // world as well as a traced street map.
+    const CHECKPOINTS = [
+        { x: -42, z: -42, label: 'Start' },
+        { x: 38, z: -34, label: 'Harbour turn' },
+        { x: 31, z: 36, label: 'Market corner' },
+        { x: -35, z: 30, label: 'North gate' },
+        { x: -42, z: -42, label: 'Finish' }
+    ];
+    const CHECKPOINT_RADIUS = 4;
+    const CHECKPOINT_MAX_SPEED = 13; // generous for jitter, not teleporting
     const HINT_AT = [0.45, 0.7, 0.85];   // fraction elapsed -> one more letter
     // Never more than this share of a word, however long the round runs. Ten of
     // the ninety-eight words are three letters, and three reveals spelled every
@@ -203,6 +215,13 @@
             flow: ['countdown', 'play', 'reveal'],
             relay: true, hide: false, scoreAt: 'play', shared: true,
             height: DEMO_HEIGHT
+        },
+        checkpoint: {
+            // A movement-only mode: there is no arena to build and no client
+            // submission to believe.  The host advances a runner only after
+            // seeing their relayed FPS position inside the next checkpoint.
+            flow: ['countdown', 'play', 'reveal'],
+            relay: false, hide: false, scoreAt: 'play', noBuild: true
         }
     };
 
@@ -239,6 +258,7 @@
         { id: 'guess', name: 'Guess' },
         { id: 'remember', name: 'Remember' },
         { id: 'wreck', name: 'Wreck' }
+        , { id: 'race', name: 'Race' }
     ];
 
     const MODES = [
@@ -294,6 +314,10 @@
         {
             id: 'demolition', kind: 'wreck', name: 'Demolition Party', emoji: '🧨', ready: true, defaultTime: 90, minPlayers: 1, note: 'Solo works: beat the clock, not the room.',
             desc: 'A block town, and everyone with a wrecking ball. Hit a tower low and take the whole thing down — you score every block your own blow brings with it.'
+        },
+        {
+            id: 'checkpoint', kind: 'race', name: 'Checkpoint Race', emoji: '🏁', ready: true, defaultTime: 120, minPlayers: 1, note: 'Solo works: set a clean time; races use the host-validated route.',
+            desc: 'Run the waypoint course in first person. The host validates each checkpoint from your movement feed, then ranks the fastest finishers.'
         }
     ];
 
@@ -709,6 +733,36 @@
             if (this.host && this.state && this.state.phase === 'final') this._hostBroadcastState();
         }
 
+        /**
+         * Called from the host's avatar relay.  Checkpoints are deliberately
+         * never accepted from a client message: this is the host observing a
+         * runner's movement, with a speed envelope between observations.
+         */
+        onAvatar(name, avatar) {
+            const h = this.host;
+            if (!h || h.mode !== 'checkpoint' || h.phase !== 'play' || !name || !avatar || avatar.hide) return;
+            const runner = h.runners && h.runners.get(name);
+            if (!runner || runner.done || !Number.isFinite(+avatar.x) || !Number.isFinite(+avatar.z)) return;
+            const now = Date.now(), x = +avatar.x, z = +avatar.z;
+            const dt = Math.max(0.05, (now - runner.lastAt) / 1000);
+            const moved = Math.hypot(x - runner.lastX, z - runner.lastZ);
+            // A new runner begins at the start line.  Thereafter a report that
+            // jumps farther than a very forgiving sprint envelope is ignored.
+            if (moved > CHECKPOINT_MAX_SPEED * dt + 3) return;
+            runner.lastX = x; runner.lastZ = z; runner.lastAt = now;
+            const target = CHECKPOINTS[runner.next];
+            if (!target || Math.hypot(x - target.x, z - target.z) > CHECKPOINT_RADIUS) return;
+            runner.splits.push(now - runner.startedAt);
+            runner.next++;
+            if (runner.next >= CHECKPOINTS.length) {
+                runner.done = true;
+                runner.finishedAt = now;
+                this.game.showToast(`${name} finished the course!`, 'success', 2200);
+            }
+            this._hostPublish();
+            if (h.runners.size && Array.from(h.runners.values()).every(r => r.done)) h.remain = 1;
+        }
+
         /** A new host inherits nothing, so an in-flight match cannot continue. */
         onBecomeHost() {
             if (this.isMatchActive() && !this.host) {
@@ -1097,6 +1151,17 @@
                     // and anything raised before that is wiped.
                     break;
 
+                case 'checkpoint': {
+                    h.plots = [];
+                    h.runners = new Map();
+                    const now = Date.now();
+                    players.forEach(name => h.runners.set(name, {
+                        next: 1, done: false, startedAt: now, finishedAt: 0,
+                        lastX: CHECKPOINTS[0].x, lastZ: CHECKPOINTS[0].z, lastAt: now, splits: []
+                    }));
+                    break;
+                }
+
                 default:
                     h.plots = computePlots(players);
                     takeModel();
@@ -1173,6 +1238,13 @@
             const h = this.host;
             h.phase = phase;
             h.remain = secs;
+            if (h.mode === 'checkpoint' && phase === 'play' && h.runners) {
+                const now = Date.now();
+                h.runners.forEach(r => {
+                    r.startedAt = now; r.lastAt = now;
+                    r.lastX = CHECKPOINTS[0].x; r.lastZ = CHECKPOINTS[0].z;
+                });
+            }
             this._hostPublish();
         }
 
@@ -1340,6 +1412,7 @@
             if (rules.buildsAt === phase) this._hostPublishBuilds();
             if (rules.scoreAt === phase) {
                 if (h.mode === 'whereonearth') this._hostScoreEarth();
+                else if (h.mode === 'checkpoint') this._hostScoreCheckpoint();
                 else this._hostScoreRound();
             }
         }
@@ -1622,8 +1695,32 @@
                 case 'demolition': this._hostScoreDemolition(); return;
                 case 'relay': this._hostScoreRelay(); return;
                 case 'earthquake': this._hostScoreQuake(); return;
+                case 'checkpoint': this._hostScoreCheckpoint(); return;
                 default: this._hostScoreBlueprint();
             }
+        }
+
+        _hostScoreCheckpoint() {
+            const h = this.host;
+            const limit = h.roundTime * 1000;
+            const rows = this._eligiblePlayers().map(name => {
+                const r = h.runners && h.runners.get(name);
+                const complete = !!(r && r.done);
+                const elapsed = complete ? r.finishedAt - r.startedAt : limit;
+                // A completed route always beats an incomplete one; among
+                // unfinished runners, more validated gates is the tie-break.
+                const gates = r ? Math.max(0, r.next - 1) : 0;
+                const points = complete ? Math.max(10, 140 - Math.round(elapsed / 1000)) : gates * 12;
+                h.totals.set(name, (h.totals.get(name) || 0) + points);
+                return {
+                    name, complete, gates, elapsed, points,
+                    note: complete ? `${fmt(elapsed / 1000)} · all ${CHECKPOINTS.length - 1} gates` : `${gates}/${CHECKPOINTS.length - 1} checkpoints`
+                };
+            }).sort((a, b) => (b.complete - a.complete) || (b.gates - a.gates) || (a.elapsed - b.elapsed));
+            this._hostFinish({
+                mode: 'checkpoint', round: h.round, rounds: h.rounds, rows,
+                totals: this._hostTotalsList(), isFinal: h.round >= h.rounds
+            });
         }
 
         _hostFinish(results) {
@@ -2107,8 +2204,14 @@
             // each player their own running tally while the round is on.
             const demo = {};
             if (h.demo) h.demo.forEach((n, name) => { demo[name] = n; });
+            const runners = {};
+            if (h.runners) h.runners.forEach((r, name) => {
+                runners[name] = { next: r.next, done: r.done, gates: Math.max(0, r.next - 1), elapsed: r.done ? r.finishedAt - r.startedAt : 0 };
+            });
             return {
                 demo,
+                runners,
+                checkpoints: h.mode === 'checkpoint' ? CHECKPOINTS.map(p => ({ x: p.x, z: p.z, label: p.label })) : null,
                 sculptors: h.sculptors || null,
                 budget: rules.budget || 0,
                 mode: h.mode,
@@ -2351,6 +2454,11 @@
             g.hideResults();
             const s = this.state;
 
+            if (s.mode === 'checkpoint') {
+                const start = (s.checkpoints || [])[0];
+                if (start && g.fps) g.fps.enterAt(start.x, start.z);
+            }
+
             // The world has just been cleared for the round; now the host puts
             // up the thing this mode exists to knock down. It reaches everyone
             // as an ordinary relayed edit, so only the host builds it.
@@ -2392,6 +2500,11 @@
                         this.game.showToast('Time is up — drop a pin on the map where you think this is', 'info', 3600);
                     }
                 }
+                return;
+            }
+
+            if (s.mode === 'checkpoint') {
+                this._syncCheckpointMarkers();
                 return;
             }
 
@@ -2554,6 +2667,27 @@
                 this.game.showToast(s.mode === 'memory' ? '👀 Flashback — the shape only' : '👀 Blueprint!',
                     'info', 1200);
             }
+        }
+
+        _syncCheckpointMarkers() {
+            const s = this.state;
+            if (!s || s.mode !== 'checkpoint') return;
+            const mine = s.runners && s.runners[this.game.username];
+            const keep = new Set();
+            (s.checkpoints || []).forEach((point, i) => {
+                const name = '__race_' + i;
+                keep.add(name);
+                const active = mine && mine.next === i && !mine.done;
+                this.game.voxels.setGeoMarker(name, point.x, point.z,
+                    active ? '#fbbf24' : (i === 0 ? '#34d399' : '#64748b'), false, active);
+            });
+            this._checkpointMarkers = keep;
+        }
+
+        _clearCheckpointMarkers() {
+            if (!this._checkpointMarkers) return;
+            this._checkpointMarkers.forEach(name => this.game.voxels.removeGeoMarker(name));
+            this._checkpointMarkers = null;
         }
 
         // `strong` is the blueprint you are studying; the faint set is the
@@ -2930,6 +3064,17 @@
                     body: `<div class="rs-list">${simpleRows(r.rows, row => row.km === null ? '—' : row.km + ' km')}</div>
                            <div class="rs-totals-title">Match points</div>
                            <div class="rs-totals">${totalsOf()}</div>`,
+                    isFinal: r.isFinal, canControl: this.game.isHost()
+                });
+                return;
+            }
+
+            if (r.mode === 'checkpoint') {
+                this.game.showResults({
+                    title: r.isFinal ? '🏆 Final standings' : `🏁 Round ${r.round} of ${r.rounds}`,
+                    subtitle: 'Every gate was host-validated from first-person movement.',
+                    body: `<div class="rs-list">${simpleRows(r.rows, row => row.complete ? fmt(row.elapsed / 1000) : row.gates + ' gates')}</div>
+                           <div class="rs-totals-title">Match points</div><div class="rs-totals">${totalsOf()}</div>`,
                     isFinal: r.isFinal, canControl: this.game.isHost()
                 });
                 return;
@@ -3326,6 +3471,10 @@
                     : `👀 Memorise it — ${fmt(remain)}`; break;
                 case 'play':
                     if (charades) phaseText = `${iBuild ? 'Build it!' : 'Guess!'} ${fmt(remain)}`;
+                    else if (s.mode === 'checkpoint') {
+                        const mine = s.runners && s.runners[this.game.username];
+                        phaseText = mine && mine.done ? `🏁 Finished — ${fmt((mine.elapsed || 0) / 1000)}` : `🏁 Run! ${fmt(remain)}`;
+                    }
                     else if (s.mode === 'memory' && s.builder === this.game.username) phaseText = `Watching — ${fmt(remain)}`;
                     else if (s.mode === 'memory') phaseText = `From memory — ${fmt(remain)}`;
                     else if (s.mode === 'demolition') phaseText = `🧨 Wreck it! ${fmt(remain)}`;
@@ -3407,6 +3556,12 @@
                     const mine = (s.demo && s.demo[this.game.username]) || 0;
                     peek.textContent = `Brought down: ${mine}`;
                 }
+                else if (s.mode === 'checkpoint') {
+                    const mine = s.runners && s.runners[this.game.username];
+                    const next = mine && s.checkpoints && s.checkpoints[mine.next];
+                    peek.textContent = mine && mine.done ? '🏁 Course complete'
+                        : (next ? `🧭 ${next.label} · gate ${(mine.gates || 0) + 1}/${(s.checkpoints || []).length - 1}` : '🧭 Find the next gate');
+                }
                 else if (s.mode === 'memory') {
                     peek.textContent = s.phase === 'architect' ? 'Remember it!'
                         : (s.peek ? '👀 The shape — no colours'
@@ -3487,6 +3642,7 @@
             this._xrayWasOn = undefined;
             g.voxels.clearArena();
             g.voxels.clearGhosts();
+            this._clearCheckpointMarkers();
             this._ghostVisible = false;
             g.voxels.clearAll();
             g.undoStack.length = 0;

@@ -366,6 +366,9 @@
                 yaw: +this.yaw.toFixed(3), moving,
                 color: typeof g.generateUserColor === 'function' ? g.generateUserColor(g.username) : '#6366f1'
             };
+            // The host never receives its own relay. Feed its runner position
+            // through the identical validation path before broadcasting it.
+            if (g.isHost && g.isHost() && g.modes) g.modes.onAvatar(g.username, payload);
             if (!g.sendToHost(payload)) g.sendData(payload);
         }
 

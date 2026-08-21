@@ -2821,7 +2821,13 @@
                 case 'avatar':
                     // Same shape as a cursor: the host relays, everyone else
                     // trusts only what the host passed on.
-                    if (this.isHost() && !data._fromHost) this.sendData(data);
+                    if (this.isHost() && !data._fromHost) {
+                        // Movement modes use the host's observed relay, not a
+                        // client-declared checkpoint message.  Preserve the
+                        // transport identity while validating it.
+                        if (this.modes) this.modes.onAvatar(data._fromClient || peerId, data);
+                        this.sendData(data);
+                    }
                     else if (!this.isHost() && !this._fromHost(peerId, data)) break;
                     if (data.name === this.username) break;
                     if (data.hide) this.voxels.removeAvatar(data.name);
