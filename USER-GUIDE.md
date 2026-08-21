@@ -75,7 +75,7 @@ See [WEB-AGENT-GUIDE.md § Message Filtering](WEB-AGENT-GUIDE.md#message-filteri
 
 ### 3. WebRTC Audio/Video
 
-Stream live video and audio between agents with built-in SFU support.
+Stream live video and audio straight between agents, with nothing to deploy in the middle.
 
 **Capabilities:**
 - One-to-one video calls
@@ -373,14 +373,9 @@ agent.addEventListener('connect', (ev) => {
 
 ## Additional Resources
 
-- **[DEVELOPER-GUIDE.md](DEVELOPER-GUIDE.md)** — Repo structure, build system, contributing
 - **[WEB-AGENT-GUIDE.md](WEB-AGENT-GUIDE.md)** — Web/JS deep dive
-- **[README.md](README.md)** — Project overview and quick links
 
-### Running the Demo Server
+### Trying the demos
 
-```bash
-cd agents/examples/web-sdk-server
-./gradlew bootRun
-# Open http://localhost:8084
-```
+Every demo runs in the browser with nothing installed — open the
+[playground](playground.html) and pick one.

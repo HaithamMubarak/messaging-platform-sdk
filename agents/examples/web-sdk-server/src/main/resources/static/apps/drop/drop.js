@@ -364,7 +364,27 @@
 
     var app = null;
 
+
+    /**
+     * Hand the room to somebody: a link, and a code they can point a phone at.
+     *
+     * Both pages already loaded share-modal.js and then never called it — one
+     * had a Share button permanently display:none, the other told you to
+     * "share the room link" from a header with no way to do it.
+     */
+    function invite() {
+        if (!app || !app.connected) { UI.toast('Join a room first', 'info'); return; }
+        if (typeof ShareModal === 'undefined' || !ShareModal.show) {
+            UI.toast('Sharing is not available on this page', 'error');
+            return;
+        }
+        ShareModal.show(app.channelName, app.channelPassword);
+    }
+
     function wire() {
+        var share = document.getElementById('shareBtn');
+        if (share) share.addEventListener('click', invite);
+
         var zone = document.getElementById('dropZone');
         var input = document.getElementById('fileInput');
 

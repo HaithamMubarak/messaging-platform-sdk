@@ -9,6 +9,10 @@
  * - 10 Different Game Stages
  */
 
+// Escapes remote-supplied values (player names, synced scores) before they are
+// interpolated into innerHTML strings, to prevent script injection (XSS).
+function escapeHtml(s) { return String(s == null ? '' : s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+
 // ============================================
 // GAME CONFIGURATION
 // ============================================
@@ -1761,7 +1765,7 @@ class ReactorGame extends UserConnectionBase {
 
                 if (playerEl) {
                     const p2pIcon = hasP2P ? '🔗' : '⏳';
-                    playerEl.innerHTML = `${playerId}${playerId !== this.username ? ` ${p2pIcon}` : ' (You)'}`;
+                    playerEl.innerHTML = `${escapeHtml(playerId)}${playerId !== this.username ? ` ${p2pIcon}` : ' (You)'}`;
                 }
                 if (scoreEl) scoreEl.textContent = score;
             } else {
@@ -1792,8 +1796,8 @@ class ReactorGame extends UserConnectionBase {
                 <div class="leaderboard-item">
                     <span class="rank">${medal || (index + 1)}</span>
                     <div class="player-color" style="background: ${color}"></div>
-                    <span class="player-name">${playerId}${playerId === this.username ? ' (You)' : ''}</span>
-                    <span class="player-score">${score}</span>
+                    <span class="player-name">${escapeHtml(playerId)}${playerId === this.username ? ' (You)' : ''}</span>
+                    <span class="player-score">${escapeHtml(score)}</span>
                 </div>
             `;
         }).join('');

@@ -668,7 +668,7 @@ class ChessGame extends UserConnectionBase {
         dialog.className = 'game-over-dialog';
         dialog.innerHTML = `
             <h2>Game Over</h2>
-            <div class="result">${message}</div>
+            <div class="result">${MiniGameUtils.escapeHtml(message)}</div>
             <button class="btn-secondary" onclick="chessGame?.requestNewGame()">
                 🔄 New Game
             </button>

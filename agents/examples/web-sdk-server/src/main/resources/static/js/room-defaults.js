@@ -80,6 +80,7 @@
         }
         // A password from an older build must not linger in localStorage.
         try { localStorage.removeItem(prefix + 'password'); } catch (e) { /* ignore */ }
+        try { localStorage.removeItem('lastChannelPassword'); } catch (e) { /* ignore */ }
     }
 
     window.RoomDefaults = { apply, randomPassword };

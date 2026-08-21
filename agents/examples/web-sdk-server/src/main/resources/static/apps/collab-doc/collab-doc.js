@@ -513,14 +513,14 @@ class CollabDoc extends UserConnectionBase {
 
     exportHTML() {
         const content = this.editor.getValue();
-        const html = marked.parse(content);
+        const html = renderMarkdownSafely(content);
 
         const fullHTML = `<!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>${this.docTitle}</title>
+    <title>${escapeMarkdownHtml(this.docTitle)}</title>
     <style>
         body {
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;

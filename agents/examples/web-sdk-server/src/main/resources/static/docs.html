@@ -394,11 +394,11 @@
                 <!-- Static fallback content - shown if JavaScript fails to load documentation -->
                 <noscript>
                     <div style="padding: 40px;">
-                        <h1>📚 Messaging Platform SDK - User Guide</h1>
+                        <h1>Messaging Platform SDK — user guide</h1>
                         <p style="margin-top: 16px; color: var(--muted);">JavaScript is required to render the full documentation.</p>
                         <p style="margin-top: 16px; color: var(--muted);">Alternatively, view the documentation directly:</p>
                         <ul style="margin-top: 16px; color: var(--muted);">
-                            <li><a href="USER-GUIDE.md" style="color: var(--accent);">📄 USER-GUIDE.md (Raw Markdown)</a></li>
+                            <li><a href="USER-GUIDE.md" style="color: var(--accent);">Read the guide as plain Markdown</a></li>
                             <li><a href="index.html" style="color: var(--accent);">Return to the overview</a></li>
                         </ul>
                     </div>
@@ -407,8 +407,7 @@
                 <!-- Loading state - replaced by actual content via JS -->
                 <div id="loading-state" class="loading">
                     <div style="text-align: center;">
-                        <div style="font-size: 32px; margin-bottom: 16px;">📖</div>
-                        <div>Loading documentation...</div>
+                        <div>Loading the guide…</div>
                         <div style="margin-top: 12px; font-size: 13px; color: var(--muted);">If this persists, <a href="USER-GUIDE.md" style="color: var(--accent);">view raw markdown</a></div>
                     </div>
                 </div>
@@ -419,18 +418,34 @@
     <script>
         // Every document the docs shell can render. Cross-links between them
         // used to 404 because only USER-GUIDE.md was ever served.
+        // Product documentation only. The repo, build and contributing guides
+        // used to be served here too, which put `./gradlew bootRun`, a git
+        // clone and an internal port on the public site — the one thing this
+        // site is not allowed to show. They are repository documents; they
+        // belong with the repository.
         const DOCS = [
-            { file: 'USER-GUIDE.md',     title: 'User guide' },
-            { file: 'WEB-AGENT-GUIDE.md', title: 'Web / JavaScript' },
-            { file: 'DEVELOPER-GUIDE.md', title: 'Repo & build' },
-            { file: 'README.md',          title: 'Project overview' },
-            { file: 'CONTRIBUTING.md',    title: 'Contributing' }
+            { file: 'USER-GUIDE.md',      title: 'User guide' },
+            { file: 'WEB-AGENT-GUIDE.md', title: 'Web / JavaScript' }
         ];
 
         function currentDocFile() {
             const requested = new URLSearchParams(location.search).get('doc');
             const match = DOCS.find(d => d.file.toLowerCase() === String(requested || '').toLowerCase());
             return match ? match.file : DOCS[0].file;
+        }
+
+        /**
+         * Each guide is its own document, so each gets its own canonical.
+         *
+         * The sitemap lists the ?doc= URLs while the markup declared a static
+         * canonical to bare docs.html, which told a crawler that the guide it
+         * had just been pointed at was not the canonical version of itself.
+         */
+        function setCanonical(file) {
+            const link = document.querySelector('link[rel="canonical"]');
+            if (!link) return;
+            const base = link.href.split('?')[0];
+            link.href = file === DOCS[0].file ? base : base + '?doc=' + encodeURIComponent(file);
         }
 
         function renderDocSwitcher(activeFile) {
@@ -478,6 +493,7 @@
         async function loadDocumentation() {
             const file = currentDocFile();
             renderDocSwitcher(file);
+            setCanonical(file);
             try {
                 const response = await fetch('./' + file);
                 if (!response.ok) {
@@ -503,26 +519,37 @@
 
             } catch (error) {
                 console.error('Error loading documentation:', error);
-                document.getElementById('content').innerHTML = `
-                    <div style="padding: 40px; text-align: center;">
-                        <h2>📚 Documentation</h2>
-                        <p style="color: var(--muted); margin-top: 16px;">
-                            The documentation is loading from USER-GUIDE.md
-                        </p>
-                        <p style="color: var(--muted); margin-top: 16px;">
-                            <a href="USER-GUIDE.md" style="color: var(--accent);">📄 View Raw Markdown</a>
-                            &nbsp;|&nbsp;
-                            <a href="index.html" style="color: var(--accent);">Return to the overview</a>
-                        </p>
-                        <div style="margin-top: 32px; padding: 20px; background: rgba(255,255,255,0.02); border-radius: 8px; text-align: left; max-width: 600px; margin-left: auto; margin-right: auto;">
-                            <h3 style="font-size: 16px; margin-bottom: 12px;">Quick Start</h3>
-                            <p style="color: var(--muted); font-size: 14px; line-height: 1.6;">
-                                The Messaging Platform SDK enables real-time communication between web applications.
-                                Try the <a href="apps/whiteboard/app.html" style="color: var(--accent);">Whiteboard demo</a> to see it in action.
-                            </p>
-                        </div>
-                    </div>
-                `;
+                const file = currentDocFile();
+                const box = document.getElementById('content');
+                box.replaceChildren();
+
+                const wrap = document.createElement('div');
+                wrap.style.cssText = 'padding: 40px; max-width: 640px; margin: 0 auto';
+
+                const h = document.createElement('h2');
+                h.textContent = 'This guide would not load';
+                wrap.appendChild(h);
+
+                const why = document.createElement('p');
+                why.style.cssText = 'color: var(--muted); margin-top: 16px';
+                why.textContent = 'The page asked for ' + file + ' and did not get it. '
+                    + 'That is usually a connection that dropped mid-request.';
+                wrap.appendChild(why);
+
+                const actions = document.createElement('p');
+                actions.style.cssText = 'color: var(--muted); margin-top: 24px';
+                const again = document.createElement('a');
+                again.href = location.href;
+                again.style.color = 'var(--accent)';
+                again.textContent = 'Try again';
+                const back = document.createElement('a');
+                back.href = 'index.html';
+                back.style.color = 'var(--accent)';
+                back.textContent = 'Back to the overview';
+                actions.append(again, document.createTextNode('\u00a0\u00a0·\u00a0\u00a0'), back);
+                wrap.appendChild(actions);
+
+                box.appendChild(wrap);
             }
         }
 

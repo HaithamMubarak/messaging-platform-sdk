@@ -3,6 +3,10 @@
  * Built with Three.js + Cannon.js (cannon-es) Physics
  */
 
+// Escapes remote-supplied values (player names) before they are interpolated
+// into innerHTML strings, to prevent script injection (XSS).
+function escapeHtml(s) { return String(s == null ? '' : s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+
 // ============================================
 // PHYSICS CONSTANTS
 // ============================================
@@ -2405,7 +2409,7 @@ class FallGuysGame extends UserConnectionBase {
 
                 item.innerHTML = `
                     <span class="position">${this.getOrdinal(position)}</span>
-                    <span class="player-name">${result.name}</span>
+                    <span class="player-name">${escapeHtml(result.name)}</span>
                     <span class="time">${minutes}:${seconds.toString().padStart(2, '0')}.${ms.toString().padStart(3, '0')}</span>
                 `;
 
@@ -2794,7 +2798,7 @@ class FallGuysGame extends UserConnectionBase {
 
         item.innerHTML = `
             <div class="player-color" style="background: #${color.body.toString(16).padStart(6, '0')}"></div>
-            <span>${name}${isLocal ? ' (You)' : ''}</span>
+            <span>${escapeHtml(name)}${isLocal ? ' (You)' : ''}</span>
             ${ready ? ' ✓' : ''}
         `;
 

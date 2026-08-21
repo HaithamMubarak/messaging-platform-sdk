@@ -17,7 +17,6 @@ Disallow: /messaging-platform/sdk/admin/
 Disallow: /messaging-platform/sdk/developer/
 Disallow: /messaging-platform/sdk/error/
 Disallow: /messaging-platform/sdk/apps/test-api-key/
-Disallow: /messaging-platform/sdk/stress-test.html
 Disallow: /messaging-platform/sdk/apps/turn-stun-test.html
 Disallow: /messaging-platform/sdk/apps/mini-games/race-balls/map-system.selftest.html
 
@@ -25,7 +24,6 @@ Disallow: /admin/
 Disallow: /developer/
 Disallow: /error/
 Disallow: /apps/test-api-key/
-Disallow: /stress-test.html
 Disallow: /apps/turn-stun-test.html
 Disallow: /apps/mini-games/race-balls/map-system.selftest.html
 

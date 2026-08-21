@@ -620,12 +620,9 @@ webrtc.on('ice-candidate', (streamId, c) => console.log('ICE:', c));
 
 ---
 
-## Running the Demos
+## Trying the demos
 
-```bash
-cd agents/examples/web-sdk-server
-./gradlew bootRun
-# Open http://localhost:8084
-```
+Everything below is running on the site already — open the
+[playground](playground.html); nothing needs installing.
 
 **Available demos:** chat, WebRTC video, whiteboard, leaderboard, storage, mini-games, developer console.

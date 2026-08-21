@@ -1089,12 +1089,12 @@ function updateTransfersList() {
         const rate = done ? null : transferRate(t);
         const rateStr = rate ? ` • ${formatSize(rate.bps)}/s • ${fmtEta(rate.eta)}` : '';
         const peers = t.direction === 'outgoing'
-            ? `To: ${t.recipients?.join(', ') || 'All'}` : `From: ${t.from}`;
+            ? `To: ${MiniGameUtils.escapeHtml(t.recipients?.join(', ') || 'All')}` : `From: ${MiniGameUtils.escapeHtml(t.from)}`;
         return `
-        <div class="transfer-item" data-transfer-id="${t.transferId}">
+        <div class="transfer-item" data-transfer-id="${MiniGameUtils.escapeHtml(t.transferId)}">
             <div class="transfer-icon">${fileIcon(t.fileName)}</div>
             <div class="transfer-info">
-                <div class="transfer-name">${t.fileName}</div>
+                <div class="transfer-name">${MiniGameUtils.escapeHtml(t.fileName)}</div>
                 <div class="transfer-details">
                     ${formatSize(t.fileSize)} • ${peers}${rateStr}
                 </div>
@@ -1141,10 +1141,10 @@ function updateReceivedList() {
         <div class="received-item">
             <div class="transfer-icon">${fileIcon(f.fileName)}</div>
             <div class="transfer-info">
-                <div class="transfer-name">${f.fileName}</div>
-                <div class="transfer-details">${formatSize(f.fileSize)} • From: ${f.from}</div>
+                <div class="transfer-name">${MiniGameUtils.escapeHtml(f.fileName)}</div>
+                <div class="transfer-details">${formatSize(f.fileSize)} • From: ${MiniGameUtils.escapeHtml(f.from)}</div>
             </div>
-            <button class="download-btn" onclick="downloadFile('${f.transferId}')">⬇ Download</button>
+            <button class="download-btn" onclick="downloadFile(${MiniGameUtils.escapeHtml(JSON.stringify(String(f.transferId)))})">⬇ Download</button>
         </div>
     `).join('');
 }

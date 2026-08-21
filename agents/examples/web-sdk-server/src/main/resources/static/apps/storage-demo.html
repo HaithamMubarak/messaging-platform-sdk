@@ -589,7 +589,10 @@
                     log(`Found ${values.length} value(s)`, 'success');
 
                     const output = document.getElementById('listOutput');
-                    output.innerHTML = '<pre>' + JSON.stringify(values, null, 2) + '</pre>';
+                    output.innerHTML = '';
+                    const pre = document.createElement('pre');
+                    pre.textContent = JSON.stringify(values, null, 2);
+                    output.appendChild(pre);
                 } else {
                     log(`List values failed: ${response.statusMessage || 'Unknown error'}`, 'error');
                 }

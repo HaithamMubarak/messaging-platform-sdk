@@ -43,6 +43,10 @@
             <span class="pill-status__dot"></span>
             <span class="pill-status__text">Not connected</span>
         </span>
+        <button class="btn btn--ghost" id="shareBtn" type="button" title="Invite someone (QR or link)">
+            <svg class="icon icon--sm" aria-hidden="true"><use href="#i-qr-code"></use></svg>
+            <span>Invite</span>
+        </button>
         <a class="btn btn--ghost sdk-header__away" href="../../playground.html">
             <svg class="icon icon--sm" aria-hidden="true"><use href="#i-arrow-right"></use></svg>
             <span>Playground</span>
@@ -87,6 +91,7 @@
 <script src="../../generated-web-agent-js/js/web-agent.webrtc.js"></script>
 <script src="../../js/icons.js"></script>
 <script src="../../js/ui.js"></script>
+<script src="../../lib/qrcode.min.js"></script>
 <script src="../../js/share-modal.js"></script>
 <script src="../../js/dialog.js"></script>
 <script src="../../js/common-utils.js"></script>

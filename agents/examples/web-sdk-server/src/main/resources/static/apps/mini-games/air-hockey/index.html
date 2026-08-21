@@ -29,16 +29,6 @@
 <body>
 <!-- Connection Modal will be loaded dynamically -->
 
-<!-- Debug Console for iPhone Testing -->
-<div id="debugConsole" style="position: fixed; top: 0; right: 0; width: 300px; max-height: 50vh; background: rgba(0,0,0,0.9); color: #0f0; font-family: monospace; font-size: 10px; overflow-y: auto; z-index: 10000; padding: 8px; border: 1px solid #0f0; display: none;">
-    <div style="display: flex; justify-content: space-between; margin-bottom: 4px;">
-        <strong>🐛 Debug Log</strong>
-        <button onclick="document.getElementById('debugConsole').style.display='none'" style="background: #f00; color: #fff; border: none; padding: 2px 6px; cursor: pointer;">✕</button>
-    </div>
-    <div id="debugLog" style="font-size: 9px; line-height: 1.2;"></div>
-</div>
-<button onclick="const dc = document.getElementById('debugConsole'); dc.style.display = dc.style.display === 'none' ? 'block' : 'none';" style="position: fixed; top: 10px; right: 10px; z-index: 10001; background: rgba(0,255,0,0.3); color: #fff; border: 1px solid #0f0; padding: 4px 8px; font-size: 10px; cursor: pointer;display: none">🐛</button>
-
 <!-- Game Container -->
 <div id="gameContainer" class="hidden">
     <!-- Top Bar -->

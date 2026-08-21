@@ -4,6 +4,10 @@
  * Integrates all modules: GameAuthority, GameClient, NetAdapter, InputHandler, MobileControls
  */
 
+// Escapes remote-supplied values (player names) before they are interpolated
+// into innerHTML strings, to prevent script injection (XSS).
+function escapeHtml(s) { return String(s == null ? '' : s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+
 class PartyPhysicsGame extends UserConnectionBase {
     constructor() {
         super({
@@ -416,7 +420,7 @@ class PartyPhysicsGame extends UserConnectionBase {
             item.innerHTML = `
                 <div class="player-name-char">
                     <span class="player-char-icon">${archetype.icon || '🐰'}</span>
-                    <span>${data.name}</span>
+                    <span>${escapeHtml(data.name)}</span>
                 </div>
                 ${isHost ? '<span class="host-badge">HOST</span>' : ''}
             `;
@@ -744,7 +748,7 @@ class PartyPhysicsGame extends UserConnectionBase {
             const entry = document.createElement('div');
             entry.className = 'score-entry' + (isLocal ? ' local' : '') + (!player.isAlive ? ' eliminated' : '');
             entry.innerHTML = `
-                <span class="player-name">${player.name}</span>
+                <span class="player-name">${escapeHtml(player.name)}</span>
                 <span class="player-hp">${Math.ceil(player.hp)} HP</span>
             `;
             scoreList.appendChild(entry);
@@ -810,7 +814,7 @@ class PartyPhysicsGame extends UserConnectionBase {
                 entry.className = 'result-entry' + (isWinner ? ' winner' : '');
                 entry.innerHTML = `
                     <span class="result-position">${index + 1}.</span>
-                    <span class="result-name">${player.name}</span>
+                    <span class="result-name">${escapeHtml(player.name)}</span>
                     <span>${Math.ceil(player.hp)} HP</span>
                 `;
                 results.appendChild(entry);
@@ -867,6 +871,24 @@ class PartyPhysicsGame extends UserConnectionBase {
 
         // Call parent disconnect
         super.disconnect();
+    }
+
+    /**
+     * Open the shared room-invite modal (same one fall-guys and race-balls use).
+     * The header Share button calls this; it previously did not exist and threw.
+     */
+    openShareModal() {
+        if (!this.connected) {
+            if (window.MiniGameUtils && MiniGameUtils.showToast) {
+                MiniGameUtils.showToast('Connect first to share', 'warning');
+            }
+            return;
+        }
+        if (typeof ShareModal !== 'undefined' && ShareModal.show) {
+            ShareModal.show(this.channelName, this.channelPassword, '');
+        } else {
+            console.warn('[PartyPhysics] ShareModal not available');
+        }
     }
 }
 

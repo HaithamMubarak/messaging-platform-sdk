@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!--
   Public pages only. The developer portal, the admin console and the
-  stress-test harness are deliberately absent — robots.txt disallows them.
+  operator surfaces are deliberately absent — robots.txt disallows them.
 -->
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
   <url><loc>https://hmdevonline.com/messaging-platform/sdk/</loc><changefreq>weekly</changefreq><priority>1.0</priority></url>
@@ -11,8 +11,6 @@
   <!-- Guides rendered by the docs shell -->
   <url><loc>https://hmdevonline.com/messaging-platform/sdk/docs.html?doc=USER-GUIDE.md</loc><priority>0.7</priority></url>
   <url><loc>https://hmdevonline.com/messaging-platform/sdk/docs.html?doc=WEB-AGENT-GUIDE.md</loc><priority>0.7</priority></url>
-  <url><loc>https://hmdevonline.com/messaging-platform/sdk/docs.html?doc=DEVELOPER-GUIDE.md</loc><priority>0.6</priority></url>
-  <url><loc>https://hmdevonline.com/messaging-platform/sdk/docs.html?doc=README.md</loc><priority>0.5</priority></url>
 
   <!-- Games -->
   <url><loc>https://hmdevonline.com/messaging-platform/sdk/apps/mini-games/blockparty/index.html</loc><priority>0.8</priority></url>

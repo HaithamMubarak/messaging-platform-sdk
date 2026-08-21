@@ -1522,8 +1522,8 @@ class FindTheLiarGame extends UserConnectionBase {
             roleInfo.innerHTML = `
                 <h3>🔍 Caught Liar (Secret Revealed)</h3>
                 <div class="item-reveal">
-                    <span class="item-emoji">${data.secretItem.imageUrl}</span>
-                    <strong>${data.secretItem.name}</strong>
+                    <span class="item-emoji">${this.escapeHtml(data.secretItem.imageUrl)}</span>
+                    <strong>${this.escapeHtml(data.secretItem.name)}</strong>
                 </div>
                 <p style="color: #f59e0b; margin-top: 10px; font-size: 14px;">
                     The secret has been revealed to you, but others don't know you were caught!
@@ -1694,7 +1694,7 @@ class FindTheLiarGame extends UserConnectionBase {
                     <span class="phase-indicator phase-waiting">Game Ended</span>
                     <h2>⚠️ Not Enough Users</h2>
                     <p style="color:#666;margin:20px 0;">
-                        ${data.message || 'The game has ended because too many users disconnected.'}
+                        ${this.escapeHtml(data.message || 'The game has ended because too many users disconnected.')}
                     </p>
                     <p style="color:#666;margin:10px 0;">
                         Waiting for host to restart...
@@ -2163,8 +2163,8 @@ class FindTheLiarGame extends UserConnectionBase {
             const joiningIcon = isJoining ? ' ⏳' : '';
 
             return `
-                <div class="${cls}" data-name="${user.name}">
-                    ${user.isHost ? '👑' : '👤'} ${user.name}${user.isSelf ? ' (You)' : ''}${joiningIcon}
+                <div class="${cls}" data-name="${this.escapeHtml(user.name)}">
+                    ${user.isHost ? '👑' : '👤'} ${this.escapeHtml(user.name)}${user.isSelf ? ' (You)' : ''}${joiningIcon}
                 </div>
             `;
         }).join('');
@@ -2380,11 +2380,11 @@ class FindTheLiarGame extends UserConnectionBase {
                 <div class="item-info liar-info">
                     <h4>Subject</h4>
                     <span class="redacted-name" role="img" aria-label="The item name is redacted on your copy"></span>
-                    <h4>Category: ${info.category || 'Unknown'}</h4>
+                    <h4>Category: ${this.escapeHtml(info.category || 'Unknown')}</h4>
                     <div class="hints-list">
                         <p><strong>Everything your copy still shows:</strong></p>
                         <ul>
-                            ${hints.length > 0 ? hints.map(h => `<li>💡 ${h}</li>`).join('') : '<li>No hints available</li>'}
+                            ${hints.length > 0 ? hints.map(h => `<li>💡 ${this.escapeHtml(h)}</li>`).join('') : '<li>No hints available</li>'}
                         </ul>
                     </div>
                     <p class="hint-warning">Your file came back redacted. Nod along and hope nobody asks a follow-up.</p>
@@ -2395,9 +2395,9 @@ class FindTheLiarGame extends UserConnectionBase {
             infoHtml = `
                 <div class="item-info innocent-info">
                     <div class="secret-item">
-                        <span class="item-emoji">${info.imageUrl}</span>
-                        <h3>${info.name}</h3>
-                        <p class="item-category">${info.category}</p>
+                        <span class="item-emoji">${this.escapeHtml(info.imageUrl)}</span>
+                        <h3>${this.escapeHtml(info.name)}</h3>
+                        <p class="item-category">${this.escapeHtml(info.category)}</p>
                     </div>
                     <p class="item-instruction" style="color: #f59e0b;">
                         🔍 You were caught! The secret is now revealed to you.
@@ -2412,9 +2412,9 @@ class FindTheLiarGame extends UserConnectionBase {
             infoHtml = `
                 <div class="item-info innocent-info">
                     <div class="secret-item">
-                        <span class="item-emoji">${info.imageUrl}</span>
-                        <h3>${info.name}</h3>
-                        <p class="item-category">${info.category}</p>
+                        <span class="item-emoji">${this.escapeHtml(info.imageUrl)}</span>
+                        <h3>${this.escapeHtml(info.name)}</h3>
+                        <p class="item-category">${this.escapeHtml(info.category)}</p>
                     </div>
                     <p class="item-instruction">✓ Answer questions about this item truthfully!</p>
                 </div>
@@ -2433,7 +2433,7 @@ class FindTheLiarGame extends UserConnectionBase {
 
         container.innerHTML = `
             <div class="role-screen">
-                <span class="phase-indicator phase-roles">Case file · Round ${data.round}</span>
+                <span class="phase-indicator phase-roles">Case file · Round ${this.escapeHtml(data.round)}</span>
                 <div class="role-card ${roleClass}">
                     <span class="role-emoji">${roleEmoji}</span>
                     <h3>You are ${roleTitle}</h3>
@@ -2461,8 +2461,8 @@ class FindTheLiarGame extends UserConnectionBase {
                             </label>
                             <label style="display: flex; align-items: center; gap: 5px; flex: 1; min-width: 200px;">
                                 <strong>Text:</strong>
-                                <input type="text" id="myCelebrationText" maxlength="20" 
-                                       value="${this.myCelebrationText || 'HAHAHA!'}"
+                                <input type="text" id="myCelebrationText" maxlength="20"
+                                       value="${this.escapeHtml(this.myCelebrationText || 'HAHAHA!')}"
                                        placeholder="HAHAHA!"
                                        style="padding: 8px; border-radius: 5px; border: 2px solid #9c27b0; flex: 1;">
                             </label>
@@ -2526,8 +2526,8 @@ class FindTheLiarGame extends UserConnectionBase {
                 <div class="mcq-options">
                     ${displayOptions.map((opt, optIdx) => `
                         <label class="mcq-option" for="mcq-${index}-${optIdx}">
-                            <input type="radio" id="mcq-${index}-${optIdx}" name="mcqAnswer" value="${opt.id}" />
-                            <span class="mcq-option-text">${opt.text}</span>
+                            <input type="radio" id="mcq-${index}-${optIdx}" name="mcqAnswer" value="${this.escapeHtml(opt.id)}" />
+                            <span class="mcq-option-text">${this.escapeHtml(opt.text)}</span>
                         </label>
                     `).join('')}
                 </div>
@@ -2566,8 +2566,8 @@ class FindTheLiarGame extends UserConnectionBase {
                     </span>
                 </div>
                 <div class="question-card">
-                    <span class="question-icon">${question.icon}</span>
-                    <p class="question-text">${question.text}</p>
+                    <span class="question-icon">${this.escapeHtml(question.icon)}</span>
+                    <p class="question-text">${this.escapeHtml(question.text)}</p>
                 </div>
                 <div class="timer-bar">
                     <div class="timer-fill" style="width: 100%;"></div>
@@ -2758,8 +2758,8 @@ class FindTheLiarGame extends UserConnectionBase {
                 return `
                     <div class="question-block">
                         <div class="question-header-mini">
-                            <span class="q-icon">${qa.question?.icon || '❓'}</span>
-                            <span class="q-text">Q${qIndex + 1}: ${qa.question?.text || 'Question'}</span>
+                            <span class="q-icon">${this.escapeHtml(qa.question?.icon || '❓')}</span>
+                            <span class="q-text">Q${qIndex + 1}: ${this.escapeHtml(qa.question?.text || 'Question')}</span>
                         </div>
                         <div class="answers-mini-grid">${answersHtml}</div>
                     </div>
@@ -2792,15 +2792,14 @@ class FindTheLiarGame extends UserConnectionBase {
             const initial = player.name.charAt(0).toUpperCase();
             
             return `
-                <button 
-                    class="vote-btn${isSelf ? ' is-self' : ''}" 
-                    data-name="${player.name}"
-                    onclick="liarGame.submitVote('${player.name}')"
+                <button
+                    class="vote-btn${isSelf ? ' is-self' : ''}"
+                    data-name="${this.escapeHtml(player.name)}"
                     ${isSelf ? 'disabled' : ''}
                 >
-                    <div class="answer-avatar">${initial}</div>
+                    <div class="answer-avatar">${this.escapeHtml(initial)}</div>
                     <div class="answer-content">
-                        <div class="answer-name">${player.name}${isSelf ? ' (You)' : ''}</div>
+                        <div class="answer-name">${this.escapeHtml(player.name)}${isSelf ? ' (You)' : ''}</div>
                     </div>
                 </button>
             `;
@@ -2817,12 +2816,21 @@ class FindTheLiarGame extends UserConnectionBase {
                 <div class="voting-grid">${votingHtml}</div>
             </div>
         `;
+
+        // Names are carried in data-name and read back via dataset (never via an
+        // inline onclick string) so hostile names cannot become executable code.
+        container.querySelectorAll('.vote-btn').forEach(btn => {
+            btn.addEventListener('click', () => this.submitVote(btn.dataset.name));
+        });
     }
 
     highlightVotedPlayer(name) {
-        const btn = document.querySelector(`.vote-btn[data-name="${name}"]`);
-        if (btn) btn.classList.add('selected');
-        document.querySelectorAll('.vote-btn').forEach(b => b.disabled = true);
+        // Iterate and compare dataset instead of interpolating the name into a
+        // CSS selector (names can contain quotes/brackets that break selectors).
+        document.querySelectorAll('.vote-btn').forEach(b => {
+            if (b.dataset.name === name) b.classList.add('selected');
+            b.disabled = true;
+        });
     }
 
     showRevealScreen(data) {
@@ -2867,14 +2875,14 @@ class FindTheLiarGame extends UserConnectionBase {
                     const percentage = totalVotes > 0 ? Math.round((count / totalVotes) * 100) : 0;
                     return `
                         <div class="vote-result ${eliminated ? 'eliminated' : ''}">
-                            👤 ${name} ${eliminated ? '❌ ELIMINATED' : ''}
+                            👤 ${this.escapeHtml(name)} ${eliminated ? '❌ ELIMINATED' : ''}
                             <span class="vote-count">${count} vote${count !== 1 ? 's' : ''} (${percentage}%)</span>
                         </div>
                     `;
                 }).join('');
 
             voteResultMessage = eliminatedPlayers && eliminatedPlayers.length > 0
-                ? `<strong>Players eliminated this round:</strong> ${eliminatedPlayers.join(', ')}`
+                ? `<strong>Players eliminated this round:</strong> ${this.escapeHtml(eliminatedPlayers.join(', '))}`
                 : '<strong>No one was eliminated this round</strong>';
         } else {
             // INVESTIGATION: Show only Pass/Fail WITHOUT revealing names
@@ -2928,9 +2936,12 @@ class FindTheLiarGame extends UserConnectionBase {
 
         // Mark eliminated players in sidebar (SURVIVAL mode only)
         if (gameMode === GameMode.SURVIVAL && eliminatedPlayers) {
-            eliminatedPlayers.forEach(playerName => {
-                const item = document.querySelector(`.player-item[data-name="${playerName}"]`);
-                if (item) item.classList.add('eliminated');
+            // Compare dataset values instead of interpolating remote names into a
+            // CSS selector (names can contain quotes/brackets that break selectors).
+            document.querySelectorAll('.player-item').forEach(item => {
+                if (eliminatedPlayers.includes(item.dataset.name)) {
+                    item.classList.add('eliminated');
+                }
             });
         }
 
@@ -3326,10 +3337,10 @@ class FindTheLiarGame extends UserConnectionBase {
             const isRevealed = revealedLiars && revealedLiars.includes(player.name);
 
             return `
-                <div class="player-result${isLiar ? ' liar' : ''}${isRevealed ? ' revealed' : ''}" data-name="${player.name}">
-                    <span class="player-icon">${player.name.charAt(0).toUpperCase()}</span>
+                <div class="player-result${isLiar ? ' liar' : ''}${isRevealed ? ' revealed' : ''}" data-name="${this.escapeHtml(player.name)}">
+                    <span class="player-icon">${this.escapeHtml(player.name.charAt(0).toUpperCase())}</span>
                     <div class="player-info">
-                        <span class="player-name">${player.name}</span>
+                        <span class="player-name">${this.escapeHtml(player.name)}</span>
                     </div>
                     ${isLiar ? '<span class="player-role">🤥 Liar</span>' : ''}
                     ${isRevealed ? '<span class="player-status">✅ Revealed</span>' : ''}
@@ -3348,7 +3359,7 @@ class FindTheLiarGame extends UserConnectionBase {
             <div class="game-over-screen">
                 <span class="phase-indicator phase-game-over">Game Over</span>
                 <h2>${winner === 'LIARS' ? '🎉 Liars Win!' : '🎊 Truthful Players Win!'}</h2>
-                <p style="font-size: 18px; margin: 10px 0;">${message}</p>
+                <p style="font-size: 18px; margin: 10px 0;">${this.escapeHtml(message)}</p>
                 
                 <div class="player-results">
                     ${playerResultsHtml}
@@ -3534,10 +3545,11 @@ class FindTheLiarGame extends UserConnectionBase {
         oscillator.stop(audioContext.currentTime + 0.2);
     }
 
+    // Escapes remote-supplied values (names, answers, host payloads) before they
+    // reach innerHTML. Also escapes quotes so it is safe in attribute contexts
+    // like data-name="..." (the old div.textContent trick left quotes intact).
     escapeHtml(text) {
-        const div = document.createElement('div');
-        div.textContent = text;
-        return div.innerHTML;
+        return String(text == null ? '' : text).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
     }
 
     // =========================================================================
@@ -3607,10 +3619,10 @@ class FindTheLiarGame extends UserConnectionBase {
         const selfClass = isSelf ? ' self' : '';
 
         return `
-            <div class="answer-card${compactClass}${selfClass}" data-name="${name}">
-                <div class="answer-avatar${compact ? ' small' : ''}">${initial}</div>
+            <div class="answer-card${compactClass}${selfClass}" data-name="${this.escapeHtml(name)}">
+                <div class="answer-avatar${compact ? ' small' : ''}">${this.escapeHtml(initial)}</div>
                 <div class="answer-content">
-                    <div class="answer-name">${name}${isSelf && !compact ? ' (You)' : ''}</div>
+                    <div class="answer-name">${this.escapeHtml(name)}${isSelf && !compact ? ' (You)' : ''}</div>
                     <div class="answer-text">${this.escapeHtml(displayAnswer)}</div>
                 </div>
             </div>

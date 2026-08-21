@@ -10,6 +10,10 @@
  * - Randomized answer positions per player
  */
 
+// Escapes remote-supplied values (player names, scores, question/answer payloads)
+// before they are interpolated into innerHTML strings, to prevent script injection (XSS).
+function escapeHtml(s) { return String(s == null ? '' : s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+
 // ============================================
 // QUIZ QUESTION MANAGER
 // ============================================
@@ -399,7 +403,7 @@ class QuizBattleGame extends UserConnectionBase {
             if (player.isHost) {
                 html += `
                     <div class="player-item host">
-                        👑 ${player.name}${player.isSelf ? ' (You)' : ''}
+                        👑 ${escapeHtml(player.name)}${player.isSelf ? ' (You)' : ''}
                         ${!player.isSelf ? p2pIndicator : ''}
                         <span style="margin-left:auto;font-size:12px;">HOST</span>
                     </div>
@@ -407,7 +411,7 @@ class QuizBattleGame extends UserConnectionBase {
             } else {
                 html += `
                     <div class="player-item">
-                        👤 ${player.name}${player.isSelf ? ' (You)' : ''}
+                        👤 ${escapeHtml(player.name)}${player.isSelf ? ' (You)' : ''}
                         ${!player.isSelf ? p2pIndicator : ''}
                     </div>
                 `;
@@ -572,7 +576,7 @@ class QuizBattleGame extends UserConnectionBase {
         container.innerHTML = `
             <div class="question-header">
                 <div class="question-number">Question ${index + 1} of ${this.totalQuestions}</div>
-                <div class="question-text">${questionData.question}</div>
+                <div class="question-text">${escapeHtml(questionData.question)}</div>
             </div>
             <div class="timer-bar">
                 <div class="timer-fill" id="timerProgress" style="width: 100%;"></div>
@@ -581,7 +585,7 @@ class QuizBattleGame extends UserConnectionBase {
                 ${questionData.answers.map((answer, i) => `
                     <button class="answer-btn" onclick="window.quizGame.selectAnswer(${i})" data-index="${i}">
                         <div class="answer-letter">${letters[i]}</div>
-                        <div>${answer}</div>
+                        <div>${escapeHtml(answer)}</div>
                     </button>
                 `).join('')}
             </div>
@@ -810,8 +814,8 @@ class QuizBattleGame extends UserConnectionBase {
                         const medal = index === 0 ? '🥇' : index === 1 ? '🥈' : index === 2 ? '🥉' : '👤';
                         return `
                             <div class="leaderboard-item ${rankClass}">
-                                <span>${medal} ${name}</span>
-                                <span>${score} pts</span>
+                                <span>${medal} ${escapeHtml(name)}</span>
+                                <span>${escapeHtml(score)} pts</span>
                             </div>
                         `;
                     }).join('')}

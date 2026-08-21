@@ -296,7 +296,7 @@ class PictionaryGame extends UserConnectionBase {
                         ${isArtist ? '🎨' : ''}
                         ${hasGuessed ? '✓' : ''}
                     </div>
-                    <span class="player-score">${player.score}</span>
+                    <span class="player-score">${MiniGameUtils.escapeHtml(player.score)}</span>
                 </div>
             `;
         });
@@ -534,8 +534,8 @@ class PictionaryGame extends UserConnectionBase {
                         .sort((a, b) => b[1].score - a[1].score)
                         .map(([username, player], index) => `
                             <div class="score-item ${index === 0 ? 'winner' : ''}">
-                                <span>${index === 0 ? '🏆' : `${index + 1}.`} ${username}</span>
-                                <span>${player.score} pts</span>
+                                <span>${index === 0 ? '🏆' : `${index + 1}.`} ${MiniGameUtils.escapeHtml(username)}</span>
+                                <span>${MiniGameUtils.escapeHtml(player.score)} pts</span>
                             </div>
                         `).join('')}
                 </div>

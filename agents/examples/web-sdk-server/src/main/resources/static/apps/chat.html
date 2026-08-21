@@ -1448,7 +1448,7 @@
         // load last channel params (channelName, channelPassword, channelId, agentName, sessionId)
         try {
             const lastChannelName = localStorage.getItem('lastChannelName');
-            const lastChannelPassword = localStorage.getItem('lastChannelPassword');
+            const lastChannelPassword = sessionStorage.getItem('lastChannelPassword');
             const lastChannelId = localStorage.getItem('lastChannelId');
             const lastAgentName = localStorage.getItem('lastAgentName');
             // populate inputs if present and inputs are empty
@@ -2303,7 +2303,9 @@
                     const chId = document.getElementById('channelId')?.value?.trim() || '';
                     const agent = document.getElementById('agentName')?.value?.trim() || '';
                     localStorage.setItem('lastChannelName', chName);
-                    localStorage.setItem('lastChannelPassword', chPass);
+                    // The room password is a credential: keep it in sessionStorage only.
+                    try { sessionStorage.setItem('lastChannelPassword', chPass); } catch(e) { /* private mode */ }
+                    localStorage.removeItem('lastChannelPassword');
                     localStorage.setItem('lastChannelId', chId);
                     localStorage.setItem('lastAgentName', agent);
 

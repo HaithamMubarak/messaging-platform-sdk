@@ -24,6 +24,10 @@
 (function () {
     'use strict';
 
+    // Escapes remote-supplied values (player names, race-result payloads) before
+    // they are interpolated into innerHTML strings, to prevent script injection (XSS).
+    function escapeHtml(s) { return String(s == null ? '' : s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+
     // ----------------------------
     // Config
     // ----------------------------
@@ -1838,8 +1842,8 @@
                     if (isMe) div.classList.add('local');
 
                     div.innerHTML = `
-                        <span class="player-color" style="background:${p.colorHex}"></span>
-                        <span class="player-name">${id}${isMe ? ' (You)' : ''}</span>
+                        <span class="player-color" style="background:${escapeHtml(p.colorHex)}"></span>
+                        <span class="player-name">${escapeHtml(id)}${isMe ? ' (You)' : ''}</span>
                         <span class="player-status">${!isMe ? (isConnected ? '🔗' : '⏳') : ''}</span>
                     `;
                     this._ui.playersList.appendChild(div);
@@ -3185,12 +3189,12 @@
                 const timeStr = (r.timeMs && r.timeMs < 90000000) ? this._formatTime(r.timeMs) : 'DNF';
 
                 // Color indicator
-                const colorStyle = r.colorHex ? `background-color: ${r.colorHex}` : '';
+                const colorStyle = r.colorHex ? `background-color: ${escapeHtml(r.colorHex)}` : '';
 
                 row.innerHTML = `
                     <span class="rank-medal">${medal}</span>
                     <span class="player-color-dot" style="${colorStyle}"></span>
-                    <span class="player-name">${r.playerId || 'Player'}</span>
+                    <span class="player-name">${escapeHtml(r.playerId || 'Player')}</span>
                     <span class="player-time">${timeStr}</span>
                 `;
 

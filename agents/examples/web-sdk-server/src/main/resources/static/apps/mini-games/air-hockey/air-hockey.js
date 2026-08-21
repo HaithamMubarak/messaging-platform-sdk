@@ -8,40 +8,9 @@
  * - Score tracking and win conditions
  */
 
-// ============================================
-// DEBUG UTILITIES (for iPhone Safari testing)
-// ============================================
-
-let debugLogCount = 0;
-const MAX_DEBUG_LOGS = 100;
-
-function debugLog(message, data = null) {
-    const debugLogEl = document.getElementById('debugLog');
-    if (!debugLogEl) return;
-
-    const timestamp = new Date().toLocaleTimeString();
-    const logEntry = document.createElement('div');
-    logEntry.style.borderBottom = '1px solid #333';
-    logEntry.style.padding = '2px 0';
-    logEntry.innerHTML = `[${timestamp}] ${message}${data ? '<br><pre style="margin:2px 0;color:#ff0;">' + JSON.stringify(data, null, 1) + '</pre>' : ''}`;
-
-    debugLogEl.insertBefore(logEntry, debugLogEl.firstChild);
-
-    debugLogCount++;
-    if (debugLogCount > MAX_DEBUG_LOGS) {
-        debugLogEl.removeChild(debugLogEl.lastChild);
-    }
-
-    // Also log to console
-    console.log(`[AirHockey Debug] ${message}`, data || '');
-}
-
-// Override console.error to also show in debug console
-const originalConsoleError = console.error;
-console.error = function(...args) {
-    debugLog(`❌ ERROR: ${args.join(' ')}`);
-    originalConsoleError.apply(console, args);
-};
+// Escapes remote-supplied values (player names, synced player info) before they
+// are interpolated into innerHTML strings, to prevent script injection (XSS).
+function escapeHtml(s) { return String(s == null ? '' : s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
 
 // ============================================
 // GAME CONFIGURATION
@@ -218,7 +187,6 @@ class AirHockeyGame extends UserConnectionBase {
             touchSupport: 'ontouchstart' in window || navigator.maxTouchPoints > 0
         };
 
-        debugLog('🔍 Device Info', deviceInfo);
         console.log('[AirHockey] Device Info:', deviceInfo);
 
         // Setup canvas
@@ -235,7 +203,6 @@ class AirHockeyGame extends UserConnectionBase {
         // Listen for orientation/resize changes
         window.addEventListener('resize', () => this.handleResize());
         window.addEventListener('orientationchange', () => {
-            debugLog('📱 Orientation changed');
             setTimeout(() => this.handleResize(), 150);
         });
 
@@ -245,8 +212,6 @@ class AirHockeyGame extends UserConnectionBase {
         this.canvas.addEventListener('touchstart', (e) => this.handleTouchStart(e), { passive: false });
         this.canvas.addEventListener('touchend', (e) => this.handleTouchEnd(e), { passive: false });
         this.canvas.addEventListener('touchcancel', (e) => this.handleTouchEnd(e), { passive: false });
-
-        debugLog('✅ Touch handlers registered');
 
         // Setup UI
         this.setupUI();
@@ -2535,25 +2500,9 @@ class AirHockeyGame extends UserConnectionBase {
         this.input.touchCurrentY = canvasY;
         this.input.lastTouchTime = now;
 
-        // Debug logging (throttled - only every 10th event)
-        if (!this._touchMoveCount) this._touchMoveCount = 0;
-        this._touchMoveCount++;
-        if (this._touchMoveCount % 10 === 0) {
-            debugLog('Touch move', {
-                x: Math.round(canvasX),
-                y: Math.round(canvasY),
-                vx: Math.round(this.input.touchVelocityX * 10) / 10,
-                vy: Math.round(this.input.touchVelocityY * 10) / 10
-            });
-        }
     }
 
     handleTouchStart(e) {
-        debugLog('🤚 Touch Start', {
-            touches: e.touches ? e.touches.length : 0,
-            portrait: this.isPortraitMode
-        });
-
         e.preventDefault();
         if (!e.touches || e.touches.length === 0) return;
 
@@ -2583,13 +2532,9 @@ class AirHockeyGame extends UserConnectionBase {
         this.input.touchCurrentX = canvasX;
         this.input.touchCurrentY = canvasY;
         this.input.lastTouchTime = Date.now();
-
-        debugLog('Touch position', { x: Math.round(canvasX), y: Math.round(canvasY) });
     }
 
     handleTouchEnd(e) {
-        debugLog('🤚 Touch End');
-
         e.preventDefault();
 
         // Completely stop the paddle - no drift, stays at current position
@@ -2623,8 +2568,8 @@ class AirHockeyGame extends UserConnectionBase {
 
             html += `
                 <div class="player-item">
-                    <div class="player-color" style="background: ${player.color}"></div>
-                    <div class="player-name">${playerId}${isMe ? ' (You)' : ''} ${!isMe ? (hasP2P ? '🔗' : '⏳') : ''}</div>
+                    <div class="player-color" style="background: ${escapeHtml(player.color)}"></div>
+                    <div class="player-name">${escapeHtml(playerId)}${isMe ? ' (You)' : ''} ${!isMe ? (hasP2P ? '🔗' : '⏳') : ''}</div>
                 </div>
             `;
         });
@@ -2644,9 +2589,9 @@ class AirHockeyGame extends UserConnectionBase {
         this.players.forEach((player, playerId) => {
             html += `
                 <div class="score-item">
-                    <div class="score-color" style="background: ${player.color}"></div>
-                    <span class="score-name">${player.colorName}</span>
-                    <span class="score-value">${player.score}</span>
+                    <div class="score-color" style="background: ${escapeHtml(player.color)}"></div>
+                    <span class="score-name">${escapeHtml(player.colorName)}</span>
+                    <span class="score-value">${escapeHtml(player.score)}</span>
                 </div>
             `;
         });
@@ -2667,9 +2612,9 @@ class AirHockeyGame extends UserConnectionBase {
             return `
                 <div class="leaderboard-item">
                     <span class="leaderboard-rank">${medal || (i + 1)}</span>
-                    <div class="leaderboard-color" style="background: ${player.color}"></div>
-                    <span class="leaderboard-name">${playerId}</span>
-                    <span class="leaderboard-score">${player.score}</span>
+                    <div class="leaderboard-color" style="background: ${escapeHtml(player.color)}"></div>
+                    <span class="leaderboard-name">${escapeHtml(playerId)}</span>
+                    <span class="leaderboard-score">${escapeHtml(player.score)}</span>
                 </div>
             `;
         }).join('');
