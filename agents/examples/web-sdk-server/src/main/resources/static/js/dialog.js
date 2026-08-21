@@ -18,8 +18,17 @@
 (function (window) {
     'use strict';
 
+    // The stacking order across the site, since it is spread over three files:
+    //   100000-100003  connection modal and share modal (connection-modal.css,
+    //                  share-modal.css)
+    //   100010         this dialog — it is raised BY those modals ("Regenerate
+    //                  the channel?" comes off the connect card) and has to
+    //                  cover whatever opened it. At 99999 it opened behind the
+    //                  connection modal, which is a dialog nobody can answer.
+    //   100020         toasts (toast.css), so a notice is never buried by a
+    //                  dialog that is waiting on an answer.
     const DIALOG_CSS = `
-.mgu-scrim{position:fixed;inset:0;z-index:99999;display:flex;align-items:center;justify-content:center;
+.mgu-scrim{position:fixed;inset:0;z-index:100010;display:flex;align-items:center;justify-content:center;
  padding:16px;background:rgba(2,6,23,.72);backdrop-filter:blur(2px)}
 .mgu-card{width:100%;max-width:420px;padding:20px;border-radius:12px;background:#101827;
  border:1px solid rgba(148,163,184,.22);box-shadow:0 24px 56px -16px rgba(2,6,23,.65);
