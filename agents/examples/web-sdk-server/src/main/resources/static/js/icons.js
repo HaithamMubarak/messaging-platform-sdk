@@ -88,7 +88,20 @@
         'user-plus':   '<path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="8.5" cy="7" r="4"/><path d="M20 8v6M23 11h-6"/>',
         'list':        '<path d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01"/>',
         'trash':       '<path d="M3 6h18M8 6V4a1 1 0 0 1 1-1h6a1 1 0 0 1 1 1v2"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6M14 11v6"/>',
-        'ban':         '<circle cx="12" cy="12" r="10"/><path d="m4.93 4.93 14.14 14.14"/>'
+        'ban':         '<circle cx="12" cy="12" r="10"/><path d="m4.93 4.93 14.14 14.14"/>',
+
+        // Games. Every one of the seven mini-games needed a trophy, a medal, a
+        // crown, a flag or a timer, and reached for an emoji because the sprite
+        // had none — which is how a site with one icon language ended up with
+        // two. Same grammar as the rest: 24x24, currentColor stroke, no fill.
+        'trophy':      '<path d="M7 4h10v5a5 5 0 0 1-10 0z"/><path d="M17 6h2.2a2.3 2.3 0 0 1 0 4.6H16.6M7 6H4.8a2.3 2.3 0 0 0 0 4.6H7.4"/><path d="M12 14v3.5M8.5 21h7"/>',
+        'medal':       '<circle cx="12" cy="14.5" r="6.5"/><path d="M8.4 9 5.2 2.6h5.2l2 4M15.6 9l3.2-6.4h-5.2"/>',
+        'crown':       '<path d="M3.2 7.6 7 11l5-6 5 6 3.8-3.4L19 18H5z"/><path d="M5.5 21h13"/>',
+        'flag':        '<path d="M5 21.5V2.5"/><path d="M5 3.6h11.4l-2.4 3.9 2.4 3.9H5z"/>',
+        'timer':       '<circle cx="12" cy="14" r="7.6"/><path d="M12 14V9.6M9.6 2.4h4.8M19.2 6.6 20.6 5.2"/>',
+        // BlockParty builds a world from a photograph, and nothing in the set
+        // said "a picture" — so that one button kept its emoji.
+        'image':       '<rect x="3" y="4.5" width="18" height="15" rx="2"/><circle cx="8.7" cy="10" r="1.6"/><path d="m3.6 17.4 4.9-4.6 3.4 3.2 3.1-3 5 4.6"/>'
     };
 
     // GitHub is the one filled mark in the set; it keeps its own attributes.
