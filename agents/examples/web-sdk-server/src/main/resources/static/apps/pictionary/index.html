@@ -4,9 +4,9 @@
     <meta charset="UTF-8">
     <script src="../../js/prod-log.js"></script>
     <link rel="icon" type="image/svg+xml" href="../../favicon.svg">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="theme-color" content="#6965db">
-    <title>🎨 Pictionary - Drawing & Guessing Game</title>
+    <title>Pictionary - Drawing & Guessing Game</title>
     <meta name="description" content="One player draws, everyone else races to guess. The strokes stream live while the word stays secret to the artist.">
     <link rel="canonical" href="https://hmdevonline.com/messaging-platform/sdk/apps/pictionary/index.html">
 
@@ -32,7 +32,7 @@
 <body>
     <!-- Share Button -->
     <button id="shareBtn" class="share-btn" onclick="pictionaryGame?.openShareModal()" style="display: none;">
-        📤 Share
+        <svg class="icon icon--sm" aria-hidden="true"><use href="#i-upload"></use></svg> Share
     </button>
 
     <!-- Connection Status -->
@@ -63,12 +63,12 @@
             <!-- Left Sidebar: Players & Scores -->
             <div class="sidebar-left">
                 <div class="players-panel">
-                    <h3>👥 Players (<span id="playerCount">0</span>)</h3>
+                    <h3><svg class="icon icon--sm" aria-hidden="true"><use href="#i-users"></use></svg> Players (<span id="playerCount">0</span>)</h3>
                     <div id="playersList" class="players-list"></div>
                 </div>
 
                 <div class="current-word-panel">
-                    <h3 id="wordPanelTitle">🎯 Current Word</h3>
+                    <h3><svg class="icon icon--sm" aria-hidden="true"><use href="#i-target"></use></svg> <span id="wordPanelTitle">Current Word</span></h3>
                     <div id="currentWordDisplay" class="word-display">
                         Waiting...
                     </div>
@@ -79,7 +79,7 @@
             <!-- Center: Canvas -->
             <div class="canvas-area">
                 <div id="artistBanner" class="artist-banner hidden">
-                    🎨 <span id="artistName"></span> is drawing!
+                    <svg class="icon icon--sm" aria-hidden="true"><use href="#i-pen"></use></svg> <span id="artistName"></span> is drawing!
                 </div>
 
                 <canvas id="drawingCanvas"></canvas>
@@ -87,10 +87,10 @@
                 <div id="drawingTools" class="drawing-tools hidden">
                     <div class="tool-group">
                         <button class="tool-btn active" data-tool="pen" title="Pen">
-                            ✏️
+                            <svg class="icon" aria-hidden="true"><use href="#i-pen"></use></svg>
                         </button>
                         <button class="tool-btn" data-tool="eraser" title="Eraser">
-                            🧹
+                            <svg class="icon" aria-hidden="true"><use href="#i-eraser"></use></svg>
                         </button>
                     </div>
 
@@ -114,7 +114,7 @@
 
                     <div class="tool-group">
                         <button class="tool-btn" onclick="pictionaryGame?.clearCanvas()" title="Clear Canvas">
-                            🗑️ Clear
+                            <svg class="icon icon--sm" aria-hidden="true"><use href="#i-trash"></use></svg> Clear
                         </button>
                     </div>
                 </div>
@@ -135,7 +135,7 @@
 
         <!-- Control Panel (Lobby/Results) -->
         <div id="controlPanel" class="control-panel">
-            <h2>🎨 Pictionary Lobby</h2>
+            <h2><svg class="icon" aria-hidden="true"><use href="#i-pen"></use></svg> Pictionary Lobby</h2>
             <div class="lobby-content">
                 <p>Waiting for players to join...</p>
                 <p class="lobby-info">Need at least 2 players to start</p>
