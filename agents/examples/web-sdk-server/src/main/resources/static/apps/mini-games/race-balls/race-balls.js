@@ -1598,7 +1598,7 @@
             console.log('[RaceBalls] Player joined:', info.agentName);
 
             // Show toast notification
-            MiniGameUtils?.showToast?.(`✅ ${info.agentName} joined!`, 'success');
+            MiniGameUtils?.showToast?.(`${info.agentName} joined`, 'success');
 
             // Create player model for new peer
             this._ensurePlayer(info.agentName);
@@ -1844,7 +1844,7 @@
                     div.innerHTML = `
                         <span class="player-color" style="background:${escapeHtml(p.colorHex)}"></span>
                         <span class="player-name">${escapeHtml(id)}${isMe ? ' (You)' : ''}</span>
-                        <span class="player-status">${!isMe ? (isConnected ? '🔗' : '⏳') : ''}</span>
+                        <span class="player-status">${!isMe ? (isConnected ? '<svg class="icon icon--sm" aria-hidden="true"><use href="#i-check-circle"></use></svg>' : '<svg class="icon icon--sm" aria-hidden="true"><use href="#i-clock"></use></svg>') : ''}</span>
                     `;
                     this._ui.playersList.appendChild(div);
                 }
@@ -2803,8 +2803,8 @@
             window.loadConnectionModal({
                 localStoragePrefix: 'raceballs_',
                 channelPrefix: 'raceballs-',
-                title: '🏎️ Join Race Balls',
-                collapsedTitle: '🏎️ Race Balls',
+                title: 'Join Race Balls',
+                collapsedTitle: 'Race Balls',
                 onConnect: async (username, channel, password) => {
                     try {
                         if (this.connected || this.connecting) return;
@@ -3171,7 +3171,7 @@
             // Create leaderboard
             const leaderboard = document.createElement('div');
             leaderboard.className = 'race-leaderboard';
-            leaderboard.innerHTML = '<h3>🏆 Race Results</h3>';
+            leaderboard.innerHTML = '<h3><svg class="icon icon--sm" aria-hidden="true"><use href="#i-trophy"></use></svg> Race Results</h3>';
 
             sorted.forEach((r, idx) => {
                 const row = document.createElement('div');
@@ -3183,7 +3183,9 @@
                 else if (idx === 2) row.classList.add('rank-3');
 
                 // Medal emoji
-                const medal = idx === 0 ? '🥇' : idx === 1 ? '🥈' : idx === 2 ? '🥉' : `${idx + 1}.`;
+                const medal = idx < 3
+                    ? '<svg class="icon icon--sm" aria-hidden="true"><use href="#i-medal"></use></svg>'
+                    : `${idx + 1}.`;
 
                 // Time display (winner shows actual time, others show DNF or time)
                 const timeStr = (r.timeMs && r.timeMs < 90000000) ? this._formatTime(r.timeMs) : 'DNF';
@@ -3213,7 +3215,7 @@
                 const winner = sorted[0];
                 const winnerName = winner?.playerId || 'Winner';
                 const isMe = winner?.playerId === this.localPlayerId;
-                this._ui.finishTitle.textContent = isMe ? '🏆 You Won!' : `🏆 ${winnerName} Wins!`;
+                this._ui.finishTitle.textContent = isMe ? 'You Won!' : `${winnerName} Wins!`;
             }
 
             // Show/hide play again button (host only)
