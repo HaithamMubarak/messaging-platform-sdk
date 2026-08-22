@@ -330,6 +330,10 @@ class ReactorGame extends UserConnectionBase {
         if (this.isHost()) {
             this.broadcastZoneAssignments();
         }
+
+        // Departure refreshed the header; arrival never did, so the count and
+        // the "N player(s) - Click Start Game" line went stale on every join.
+        this.updateGameMessage();
     }
 
     onUserLeave(detail) {
@@ -1877,6 +1881,16 @@ class ReactorGame extends UserConnectionBase {
     }
 
     updateGameMessage(customMessage = null) {
+        // The header counter was written into the markup as "Players: 0" and
+        // never updated, so a full room still read zero in a game called
+        // 4-Player Reactor. It sits above the early returns below because it
+        // has to be right whatever message is being shown.
+        const countEl = document.getElementById('playerCount');
+        if (countEl) {
+            const inRoom = Math.max(this.playerZones.size, this.getConnectedUsers().length);
+            countEl.textContent = `Players: ${inRoom}`;
+        }
+
         const el = document.getElementById('gameMessage');
         if (!el) return;
 
