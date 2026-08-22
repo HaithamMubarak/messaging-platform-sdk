@@ -225,7 +225,7 @@ class FindTheLiarGame extends UserConnectionBase {
 
         this.controlPanel = new GameControlPanel({
             gameName: 'Find the Liar',
-            gameIcon: '🤥',  // Liar game icon
+            gameIcon: '<svg class="icon" aria-hidden="true"><use href="#i-search"></use></svg>',
             agentName: this.username,  // Current player name
             isHost: this.isHost(),
             isPaused: this.gamePaused || false,
@@ -241,7 +241,7 @@ class FindTheLiarGame extends UserConnectionBase {
             customButtons: [
                 {
                     id: 'reset-game',
-                    icon: '🔄',
+                    icon: '<svg class="icon icon--sm" aria-hidden="true"><use href="#i-refresh"></use></svg>',
                     label: 'Reset Game',
                     onClick: () => {
                         if (this.isHost()) {
@@ -479,7 +479,7 @@ class FindTheLiarGame extends UserConnectionBase {
             }))}`;
 
             navigator.clipboard.writeText(gameUrl).then(() => {
-                this.showToast('🔗 Game link copied to clipboard!', 'success');
+                this.showToast('Game link copied to clipboard', 'success');
             }).catch(() => {
                 this.showToast('Game: ' + this.channelName, 'info', 5000);
             });
@@ -548,7 +548,7 @@ class FindTheLiarGame extends UserConnectionBase {
 
     onUserJoin(detail) {
         console.log('[FindTheLiar] User joined (DataChannel ready):', detail.agentName);
-        this.showToast(`👋 ${detail.agentName} joined!`, 'success');
+        this.showToast(`${detail.agentName} joined`, 'success');
 
         this.joiningUsers.delete(detail.agentName); // Remove from joining state
         this.updateUsersList();
@@ -562,7 +562,7 @@ class FindTheLiarGame extends UserConnectionBase {
 
     onUserLeave(detail) {
         console.log('[FindTheLiar] User left:', detail.agentName);
-        this.showToast(`👋 ${detail.agentName} left`, 'warning');
+        this.showToast(`${detail.agentName} left`, 'warning');
         
         const leftUserName = detail.agentName;
 
@@ -582,7 +582,7 @@ class FindTheLiarGame extends UserConnectionBase {
         setTimeout(() => {
             if (this.isHost() && !this.wasHost) {
                 this.wasHost = true;
-                this.showToast('👑 You are now the host!', 'info');
+                this.showToast('You are now the host', 'info');
 
                 // Refresh waiting room to show start button and settings for new host
                 if (this.gameState.phase === GamePhase.WAITING) {
@@ -750,7 +750,7 @@ class FindTheLiarGame extends UserConnectionBase {
         // Check minimum user requirement
         if (remainingUsers < MIN_PLAYERS) {
             console.log(`[FindTheLiar] Not enough users (${remainingUsers}/${MIN_PLAYERS}), ending game`);
-            this.showToast('⚠️ Not enough users - game ended', 'error');
+            this.showToast('Not enough users - game ended', 'error');
             this.endGameDueToDisconnect();
             return;
         }
@@ -782,7 +782,7 @@ class FindTheLiarGame extends UserConnectionBase {
             const activeNonEliminated = activeUsers.filter(p => !this.gameState.eliminatedPlayers.has(p.name));
             if (activeNonEliminated.length <= 2) {
                 console.log('[FindTheLiar] Too few active users in Survival mode, ending game');
-                this.showToast('⚠️ Too few users remain - game ended', 'warning');
+                this.showToast('Too few users remain - game ended', 'warning');
                 // Request role reveal to determine winner
                 this.requestRoleReveal('SURVIVAL');
             }
@@ -812,7 +812,7 @@ class FindTheLiarGame extends UserConnectionBase {
             container.innerHTML = `
                 <div class="waiting-screen">
                     <span class="phase-indicator phase-waiting">Game Ended</span>
-                    <h2>⚠️ Not Enough Users</h2>
+                    <h2><svg class="icon icon--sm" aria-hidden="true"><use href="#i-alert-triangle"></use></svg> Not Enough Users</h2>
                     <p style="color:var(--text-muted);margin:20px 0;">
                         The game has ended because too many users disconnected.
                     </p>
@@ -821,7 +821,7 @@ class FindTheLiarGame extends UserConnectionBase {
                     </p>
                     ${this.isHost() ? `
                         <button class="btn btn-primary" onclick="liarGame.resetGame()">
-                            🔄 Return to Lobby
+                            <svg class="icon icon--sm" aria-hidden="true"><use href="#i-refresh"></use></svg> Return to Lobby
                         </button>
                     ` : `
                         <div class="waiting-indicator">Waiting for host...</div>
@@ -1349,15 +1349,15 @@ class FindTheLiarGame extends UserConnectionBase {
             const survivingLiars = liarNames.filter(l => !this.gameState.eliminatedPlayers.has(l));
             winner = survivingLiars.length > 0 ? 'LIARS' : 'TRUTHFUL';
             message = survivingLiars.length > 0
-                ? '🤥 Liars Win! They survived elimination!'
-                : '🎉 Truthful Players Win! All liars eliminated!';
+                ? 'Liars Win! They survived elimination!'
+                : 'Truthful Players Win! All liars eliminated!';
         } else {
             // Investigation: Were all liars caught?
             const caughtLiars = liarNames.filter(l => this.gameState.revealedLiars.has(l));
             winner = caughtLiars.length === liarNames.length ? 'TRUTHFUL' : 'LIARS';
             message = caughtLiars.length === liarNames.length
-                ? '🎉 Truthful Players Win! All liars caught!'
-                : '🤥 Liars Win! They escaped detection!';
+                ? 'Truthful Players Win! All liars caught!'
+                : 'Liars Win! They escaped detection!';
         }
 
         const gameOverData = {
@@ -1514,13 +1514,13 @@ class FindTheLiarGame extends UserConnectionBase {
         };
 
         // Show toast notification
-        this.showToast(`🔍 ${data.message}`, 'info', 5000);
+        this.showToast(data.message, 'info', 5000);
 
         // Update role display if visible
         const roleInfo = document.querySelector('.role-info');
         if (roleInfo) {
             roleInfo.innerHTML = `
-                <h3>🔍 Caught Liar (Secret Revealed)</h3>
+                <h3><svg class="icon icon--sm" aria-hidden="true"><use href="#i-search"></use></svg> Caught Liar (Secret Revealed)</h3>
                 <div class="item-reveal">
                     <span class="item-emoji">${this.escapeHtml(data.secretItem.imageUrl)}</span>
                     <strong>${this.escapeHtml(data.secretItem.name)}</strong>
@@ -1692,7 +1692,7 @@ class FindTheLiarGame extends UserConnectionBase {
             container.innerHTML = `
                 <div class="waiting-screen">
                     <span class="phase-indicator phase-waiting">Game Ended</span>
-                    <h2>⚠️ Not Enough Users</h2>
+                    <h2><svg class="icon icon--sm" aria-hidden="true"><use href="#i-alert-triangle"></use></svg> Not Enough Users</h2>
                     <p style="color:var(--text-muted);margin:20px 0;">
                         ${this.escapeHtml(data.message || 'The game has ended because too many users disconnected.')}
                     </p>
@@ -1842,7 +1842,7 @@ class FindTheLiarGame extends UserConnectionBase {
             });
         }
 
-        this.showToast('✓ Answer submitted!', 'success');
+        this.showToast('Answer submitted', 'success');
         this.showAnswerSubmitted();
     }
 
@@ -1869,7 +1869,7 @@ class FindTheLiarGame extends UserConnectionBase {
             });
         }
 
-        this.showToast(`✓ Voted for ${votedForName}`, 'success');
+        this.showToast(`Voted for ${votedForName}`, 'success');
         this.highlightVotedPlayer(votedForName);
     }
 
@@ -2160,11 +2160,11 @@ class FindTheLiarGame extends UserConnectionBase {
 
             // Show ⏳ icon if user is joining (connecting)
             const isJoining = this.joiningUsers.has(user.name);
-            const joiningIcon = isJoining ? ' ⏳' : '';
+            const joiningIcon = isJoining ? ' <svg class="icon icon--sm" aria-hidden="true"><use href="#i-clock"></use></svg>' : '';
 
             return `
                 <div class="${cls}" data-name="${this.escapeHtml(user.name)}">
-                    ${user.isHost ? '👑' : '👤'} ${this.escapeHtml(user.name)}${user.isSelf ? ' (You)' : ''}${joiningIcon}
+                    ${user.isHost ? '<svg class="icon icon--sm" aria-hidden="true"><use href="#i-crown"></use></svg>' : ''} ${this.escapeHtml(user.name)}${user.isSelf ? ' (You)' : ''}${joiningIcon}
                 </div>
             `;
         }).join('');
@@ -2195,10 +2195,10 @@ class FindTheLiarGame extends UserConnectionBase {
 
         if (isHost) {
             if (count < MIN_PLAYERS) {
-                btn.textContent = `🚀 Need ${MIN_PLAYERS - count} more`;
+                btn.textContent = `Need ${MIN_PLAYERS - count} more`;
                 btn.disabled = true;
             } else {
-                btn.textContent = '🚀 Start Round';
+                btn.textContent = 'Start Round';
                 btn.disabled = false;
             }
         }
@@ -2213,7 +2213,7 @@ class FindTheLiarGame extends UserConnectionBase {
         container.innerHTML = `
             <div class="waiting-screen">
                 <span class="phase-indicator phase-waiting">Waiting for Players</span>
-                <h2>${isHost ? '👑 You are the Host!' : '⏳ Waiting for Host'}</h2>
+                <h2>${isHost ? '<svg class="icon icon--sm" aria-hidden="true"><use href="#i-crown"></use></svg> You are the Host!' : '<svg class="icon icon--sm" aria-hidden="true"><use href="#i-clock"></use></svg> Waiting for Host'}</h2>
                 <p style="margin:10px 0;">
                     Round ${this.gameState.round}/${this.gameState.maxRounds || MAX_ROUNDS} | 
                     ${this.itemManager.getItemCount()} items | 
@@ -2222,20 +2222,20 @@ class FindTheLiarGame extends UserConnectionBase {
                 
                 ${isHost ? `
                     <div class="game-settings" style="margin: 20px 0; padding: 20px; background: var(--surface-2); border-radius: 10px; ${gameStarted ? 'opacity: 0.8;' : ''}">
-                        <h3 style="margin: 0 0 15px 0; font-size: 16px; color: var(--brand-ink);">⚙️ Game Settings ${gameStarted ? '(Read-only)' : ''}</h3>
+                        <h3 style="margin: 0 0 15px 0; font-size: 16px; color: var(--brand-ink);"><svg class="icon icon--sm" aria-hidden="true"><use href="#i-settings"></use></svg> Game Settings ${gameStarted ? '(Read-only)' : ''}</h3>
                         
                         <label style="display: block; margin-bottom: 15px;">
                             <strong>Game Mode:</strong>
                             <select id="gameMode" ${gameStarted ? 'disabled' : ''}
                                     style="padding: 8px 12px; border-radius: 5px; margin-left: 10px; border: 1px solid var(--border-strong); font-size: 14px; width: 200px;">
-                                <option value="${GameMode.SURVIVAL}" ${this.gameState.gameMode === GameMode.SURVIVAL ? 'selected' : ''}>🏆 Survival Mode</option>
-                                <option value="${GameMode.INVESTIGATION}" ${this.gameState.gameMode === GameMode.INVESTIGATION ? 'selected' : ''}>🔍 Investigation Mode</option>
+                                <option value="${GameMode.SURVIVAL}" ${this.gameState.gameMode === GameMode.SURVIVAL ? 'selected' : ''}>Survival Mode</option>
+                                <option value="${GameMode.INVESTIGATION}" ${this.gameState.gameMode === GameMode.INVESTIGATION ? 'selected' : ''}>Investigation Mode</option>
                             </select>
                         </label>
                         <p style="font-size: 11px; color: var(--text-muted); margin: -10px 0 15px 0; padding-left: 10px;">
                             ${this.gameState.gameMode === GameMode.SURVIVAL 
-                                ? '📋 Elimination mode: Players can be eliminated. Game ends at 3 players.' 
-                                : '📋 Time attack: Catch liars before max rounds or they win!'}
+                                ? 'Elimination mode: Players can be eliminated. Game ends at 3 players.' 
+                                : 'Time attack: Catch liars before max rounds or they win!'}
                         </p>
                         
                         <label style="display: block; margin-bottom: 15px;">
@@ -2271,18 +2271,18 @@ class FindTheLiarGame extends UserConnectionBase {
                             <input type="checkbox" id="reviewAnswersBeforeVoting" ${gameStarted ? 'disabled' : ''}
                                    ${this.gameState.reviewAnswersBeforeVoting ? 'checked' : ''}
                                    style="width: 18px; height: 18px; margin-right: 10px; cursor: ${gameStarted ? 'not-allowed' : 'pointer'};">
-                            <strong>📝 Review All Answers Before Voting</strong>
+                            <strong><svg class="icon icon--sm" aria-hidden="true"><use href="#i-list"></use></svg> Review All Answers Before Voting</strong>
                         </label>
                     </div>
                 ` : `
                     <div class="game-settings" style="margin: 20px 0; padding: 15px; background: var(--surface-2); border-radius: 10px;">
                         <p style="margin: 0; color: var(--text-muted);">
                             <strong>Game Settings:</strong><br>
-                            Mode: ${this.gameState.gameMode === GameMode.SURVIVAL ? '🏆 Survival' : '🔍 Investigation'}<br>
+                            Mode: ${this.gameState.gameMode === GameMode.SURVIVAL ? 'Survival' : 'Investigation'}<br>
                             ${this.gameState.numLiars} Liar(s)<br>
                             ${this.gameState.questionsPerRound || QUESTIONS_PER_ROUND} questions per round<br>
                             ${this.gameState.maxRounds || MAX_ROUNDS} rounds maximum<br>
-                            ${this.gameState.reviewAnswersBeforeVoting ? '📝 Review answers enabled' : ''}
+                            ${this.gameState.reviewAnswersBeforeVoting ? 'Review answers enabled' : ''}
                         </p>
                     </div>
                 `}
@@ -2290,11 +2290,11 @@ class FindTheLiarGame extends UserConnectionBase {
                 ${isHost ? `
                     <div style="display: flex; gap: 10px; justify-content: center; align-items: center; flex-wrap: wrap;">
                         <button id="startRoundBtn" class="btn btn-primary" onclick="liarGame.startRound()">
-                            🚀 Start Round
+                            Start Round
                         </button>
                         ${gameStarted ? `
                             <button class="btn" style="background: transparent; border: 1px solid rgba(251, 191, 36, 0.45); color: var(--warning);" onclick="liarGame.confirmReset()">
-                                🔄 Reset Game
+                                <svg class="icon icon--sm" aria-hidden="true"><use href="#i-refresh"></use></svg> Reset Game
                             </button>
                         ` : ''}
                     </div>
@@ -2322,8 +2322,8 @@ class FindTheLiarGame extends UserConnectionBase {
                     const desc = document.querySelector('.game-settings p');
                     if (desc) {
                         desc.textContent = this.gameState.gameMode === GameMode.SURVIVAL
-                            ? '📋 Elimination mode: Players can be eliminated. Game ends at 3 players.'
-                            : '📋 Time attack: Catch liars before max rounds or they win!';
+                            ? 'Elimination mode: Players can be eliminated. Game ends at 3 players.'
+                            : 'Time attack: Catch liars before max rounds or they win!';
                     }
                 });
             }
@@ -2384,7 +2384,7 @@ class FindTheLiarGame extends UserConnectionBase {
                     <div class="hints-list">
                         <p><strong>Everything your copy still shows:</strong></p>
                         <ul>
-                            ${hints.length > 0 ? hints.map(h => `<li>💡 ${this.escapeHtml(h)}</li>`).join('') : '<li>No hints available</li>'}
+                            ${hints.length > 0 ? hints.map(h => `<li><svg class="icon icon--sm" aria-hidden="true"><use href="#i-info"></use></svg> ${this.escapeHtml(h)}</li>`).join('') : '<li>No hints available</li>'}
                         </ul>
                     </div>
                     <p class="hint-warning">Your file came back redacted. Nod along and hope nobody asks a follow-up.</p>
@@ -2400,7 +2400,7 @@ class FindTheLiarGame extends UserConnectionBase {
                         <p class="item-category">${this.escapeHtml(info.category)}</p>
                     </div>
                     <p class="item-instruction" style="color: #b45309;">
-                        🔍 You were caught! The secret is now revealed to you.
+                        <svg class="icon icon--sm" aria-hidden="true"><use href="#i-search"></use></svg> You were caught! The secret is now revealed to you.
                     </p>
                     <p style="color: #64748b; font-size: 13px; margin-top: 10px;">
                         Others don't know you were caught. Play along!
@@ -2416,7 +2416,7 @@ class FindTheLiarGame extends UserConnectionBase {
                         <h3>${this.escapeHtml(info.name)}</h3>
                         <p class="item-category">${this.escapeHtml(info.category)}</p>
                     </div>
-                    <p class="item-instruction">✓ Answer questions about this item truthfully!</p>
+                    <p class="item-instruction"><svg class="icon icon--sm" aria-hidden="true"><use href="#i-check-circle"></use></svg> Answer questions about this item truthfully!</p>
                 </div>
             `;
         }
@@ -2532,10 +2532,10 @@ class FindTheLiarGame extends UserConnectionBase {
                     `).join('')}
                 </div>
                 <p style="font-size: 12px; color: var(--text-muted); margin: 8px 0 12px 0; text-align: center;">
-                    💡 Tip: Click again to deselect • Submit without selecting = "None of these"
+                    <svg class="icon icon--sm" aria-hidden="true"><use href="#i-info"></use></svg> Tip: Click again to deselect • Submit without selecting = "None of these"
                 </p>
                 <button id="submitAnswerBtn" class="btn btn-success" onclick="liarGame.submitMyAnswer()">
-                    ✓ Submit Answer
+                    <svg class="icon icon--sm" aria-hidden="true"><use href="#i-check"></use></svg> Submit Answer
                 </button>
             `;
         } else {
@@ -2552,7 +2552,7 @@ class FindTheLiarGame extends UserConnectionBase {
                     <span id="charCount">0</span>/${MAX_ANSWER_LENGTH}
                 </div>
                 <button id="submitAnswerBtn" class="btn btn-success" onclick="liarGame.submitMyAnswer()">
-                    ✓ Submit
+                    <svg class="icon icon--sm" aria-hidden="true"><use href="#i-check"></use></svg> Submit
                 </button>
             `;
         }
@@ -2593,7 +2593,7 @@ class FindTheLiarGame extends UserConnectionBase {
                             <button class="btn" style="background: linear-gradient(135deg, #673ab7, #3f51b5); color: white; font-size: 14px; padding: 10px 20px; margin: 5px;" 
                                     onclick="liarGame.sendDisturbance('shake')"
                                     title="Shake everyone's screen!">
-                                📳 Shake!
+                                <svg class="icon icon--sm" aria-hidden="true"><use href="#i-activity"></use></svg> Shake!
                             </button>
                             <button class="btn" style="background: linear-gradient(135deg, #009688, #4caf50); color: white; font-size: 14px; padding: 10px 20px; margin: 5px;" 
                                     onclick="liarGame.sendDisturbance('emoji-rain')"
@@ -2712,7 +2712,7 @@ class FindTheLiarGame extends UserConnectionBase {
         if (form) {
             form.innerHTML = `
                 <div style="padding:20px;text-align:center;">
-                    <span style="font-size:36px;">✅</span>
+                    <span style="font-size:36px;"><svg class="icon" style="width:36px;height:36px" aria-hidden="true"><use href="#i-check-circle"></use></svg></span>
                     <h4 style="color:var(--success);margin-top:10px;">Submitted!</h4>
                     <p style="color:var(--text-muted);">Waiting for others...</p>
                 </div>
@@ -2735,7 +2735,7 @@ class FindTheLiarGame extends UserConnectionBase {
         container.innerHTML = this.createScreenContainer(
             phaseIndicator,
             `
-                <h3>📝 Everyone's Answers</h3>
+                <h3><svg class="icon icon--sm" aria-hidden="true"><use href="#i-list"></use></svg> Everyone's Answers</h3>
                 <div class="answers-grid">${answersHtml}</div>
                 <p style="color:var(--text-muted);font-size:14px;margin-top:15px;">${nextMessage}</p>
             `
@@ -2766,7 +2766,7 @@ class FindTheLiarGame extends UserConnectionBase {
                 `;
             }).join('');
 
-        const phaseIndicator = this.createPhaseIndicator('discussion', '📋 Discussion Time');
+        const phaseIndicator = this.createPhaseIndicator('discussion', 'Discussion Time');
         const timerBar = this.createTimerBar();
         const roundInfo = `Round ${this.gameState.round}/${this.gameState.maxRounds || MAX_ROUNDS}`;
 
@@ -2808,7 +2808,7 @@ class FindTheLiarGame extends UserConnectionBase {
         container.innerHTML = `
             <div class="question-screen">
                 <span class="phase-indicator phase-voting">Voting Time</span>
-                <h3>🗳️ Who is the Liar?</h3>
+                <h3><svg class="icon icon--sm" aria-hidden="true"><use href="#i-search"></use></svg> Who is the Liar?</h3>
                 <p style="color:var(--text-muted);margin-bottom:15px;">Vote for who you think doesn't know the item!</p>
                 <div class="timer-bar">
                     <div class="timer-fill" style="width: 100%;"></div>
@@ -2875,7 +2875,7 @@ class FindTheLiarGame extends UserConnectionBase {
                     const percentage = totalVotes > 0 ? Math.round((count / totalVotes) * 100) : 0;
                     return `
                         <div class="vote-result ${eliminated ? 'eliminated' : ''}">
-                            👤 ${this.escapeHtml(name)} ${eliminated ? '❌ ELIMINATED' : ''}
+                            ${this.escapeHtml(name)} ${eliminated ? '<svg class="icon icon--sm" aria-hidden="true"><use href="#i-ban"></use></svg> ELIMINATED' : ''}
                             <span class="vote-count">${count} vote${count !== 1 ? 's' : ''} (${percentage}%)</span>
                         </div>
                     `;
@@ -2893,12 +2893,12 @@ class FindTheLiarGame extends UserConnectionBase {
             voteHtml = `
                 <div class="vote-result-investigation ${votePassed ? 'pass' : 'fail'}">
                     <div style="font-size: 48px; margin-bottom: 10px;">
-                        ${votePassed ? '✅' : '❌'}
+                        ${votePassed ? '<svg class="icon icon--sm" aria-hidden="true"><use href="#i-check-circle"></use></svg>' : '<svg class="icon icon--sm" aria-hidden="true"><use href="#i-ban"></use></svg>'}
                     </div>
                     <h3>${votePassed ? 'PASS' : 'FAIL'}</h3>
                     <p style="color: var(--text-muted); margin-top: 10px; font-size: 16px;">
                         ${votePassed 
-                            ? `<strong style="color: var(--text);">🤥 Someone was caught!</strong>` 
+                            ? `<strong style="color: var(--text);">Someone was caught!</strong>` 
                             : 'No one caught this round!'}
                     </p>
                     ${votePassed 
@@ -2917,7 +2917,7 @@ class FindTheLiarGame extends UserConnectionBase {
                 <span class="phase-indicator phase-results">Results - Round ${this.gameState.round}/${this.gameState.maxRounds}</span>
                 
                 <div class="vote-tally" style="max-width: 500px; margin: 20px auto;">
-                    <h4>🗳️ Vote Results</h4>
+                    <h4><svg class="icon icon--sm" aria-hidden="true"><use href="#i-list"></use></svg> Vote Results</h4>
                     ${voteHtml || '<p>No votes</p>'}
                     <p style="margin-top: 15px; font-size: 14px; color: var(--text-muted);">
                         ${voteResultMessage}
