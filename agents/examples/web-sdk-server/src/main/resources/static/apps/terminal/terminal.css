@@ -2700,7 +2700,7 @@ body {
 }
 
 .sidebar-tab-label {
-    font-size: 9.5px;
+    font-size: 11px;
     font-weight: 600;
     letter-spacing: 0.02em;
     line-height: 1;
@@ -2955,4 +2955,24 @@ button.cloud-tab) {
 }
 .shared-invite__btn:hover {
     background: var(--brand-subtle, rgba(74, 158, 255, 0.15));
+}
+
+
+@media (pointer: coarse) {
+    /* Hit areas only — the glyphs keep their size, the reachable box grows.
+       At 28x28 and 26px wide these were the two controls a finger missed. */
+    .tab-close {
+        min-width: 32px;
+        min-height: 32px;
+    }
+    .sidebar-header-btn {
+        min-width: 44px;
+        min-height: 44px;
+    }
+    /* These two open Settings. Their label is hidden on a narrow screen, which
+       left a 16px-wide button behind. */
+    .top-status-indicator {
+        min-width: 44px;
+        justify-content: center;
+    }
 }

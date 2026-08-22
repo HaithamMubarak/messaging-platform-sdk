@@ -793,4 +793,7 @@ body.modal-open { overflow: hidden; }
     }
 
     .btn { min-height: 44px; }
+
+    /* The wordmark is also the way home from every page. */
+    .brand { min-height: 44px; display: inline-flex; align-items: center; }
 }

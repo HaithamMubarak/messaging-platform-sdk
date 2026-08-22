@@ -223,7 +223,7 @@ body.wb .canvas-container {
 .wb-rail__sep { height: 1px; margin: var(--sp-2) var(--sp-1); background: var(--border); }
 
 .wb-rail__label {
-    font-size: 0.625rem;
+    font-size: 0.6875rem;
     font-weight: 700;
     letter-spacing: 0.08em;
     text-transform: uppercase;

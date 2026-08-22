@@ -201,7 +201,9 @@
     background: var(--surface-2);
     color: var(--text-body);
     font-family: var(--font-mono);
-    font-size: 0.85em;
+    /* Relative to the sentence it sits in, but never below 11px — inside the
+       smaller caption text it was rendering at 10.2px. */
+    font-size: max(11px, 0.85em);
     white-space: nowrap;
 }
 

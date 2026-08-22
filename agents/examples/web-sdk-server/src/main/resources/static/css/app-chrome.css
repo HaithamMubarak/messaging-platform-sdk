@@ -188,3 +188,9 @@ body > .connection-status {
     .sdk-home-chip__more { display: none; }
     .sdk-home-chip { bottom: 8px; left: 8px; }
 }
+
+@media (pointer: coarse) {
+    /* This chip is the way out of a full-screen app. At 26px tall it was the
+       smallest target on the page, and the one a lost player needs most. */
+    .sdk-home-chip a { min-height: 44px; padding: 7px 14px; }
+}
