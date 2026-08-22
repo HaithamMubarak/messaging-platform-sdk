@@ -121,11 +121,28 @@
             margin-top: var(--sp-1);
         }
     </style>
+    <style>
+        .demo-intro {
+            max-width: 62ch;
+            margin: 0 0 var(--sp-4);
+            color: var(--text-muted);
+            line-height: 1.65;
+        }
+        .demo-intro strong { color: var(--text-body); }
+    </style>
     <link rel="stylesheet" href="../css/app-chrome.css">
 </head>
 <body>
     <div class="container">
         <h1><svg class="icon" aria-hidden="true"><use href="#i-globe"></use></svg> Cloud Connection Component Demo</h1>
+
+        <p class="demo-intro">
+            The connection panel on its own — the same one every app on this site uses to join a
+            channel. Type a channel name and password, connect, and the panel tracks who else is
+            in the room. <strong>Open this page in a second tab</strong> and join with the same
+            channel and password: each tab appears in the other's agent list, and
+            <em>Send Test Message</em> travels between them and lands in the log below.
+        </p>
 
         <!-- Cloud Connection Panel -->
         <div class="cloud-panel expanded" id="cloudPanel">
@@ -189,7 +206,7 @@
     <script src="../generated-web-agent-js/js/web-agent.js"></script>
     <script src="../generated-web-agent-js/js/web-agent.webrtc.js"></script>  <!-- WebRtcHelper: required for sendData -->
     <script src="../js/UserConnectionBase.js"></script>
-    <script src="terminal/terminal-sharing.js"></script>  <!-- TerminalSharing (single class) -->
+    <script src="cloud-demo-connection.js"></script>      <!-- this demo's own data layer -->
     <script src="../js/cloud-connection.js"></script>     <!-- CloudConnectionUI -->
 
     <script>
@@ -246,10 +263,12 @@
             CloudConnectionUI.showConnecting();
 
             try {
-                // Create TerminalSharing instance (data layer - single class)
-                const interaction = new TerminalSharing();
+                // This demo's own data layer. It used to reach into the
+                // terminal app's TerminalSharing, which coupled a component
+                // demo to an unrelated application.
+                const interaction = new CloudDemoConnection();
 
-                // Set up message handler (TerminalSharing dispatches by message type)
+                // Handlers are dispatched by message type.
                 interaction.registerHandler('test', (message, sourceAgent) => {
                     log(`Message from ${sourceAgent}: ${JSON.stringify(message)}`, 'info');
                 });
