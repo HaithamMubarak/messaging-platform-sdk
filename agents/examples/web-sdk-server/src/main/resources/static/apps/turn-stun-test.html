@@ -7,6 +7,8 @@
     <link rel="icon" type="image/svg+xml" href="../favicon.svg">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>TURN/STUN Server Test - HMDev Messaging Platform</title>
+    <!-- Tokens first: the shared CSS that follows is written against them. -->
+    <link rel="stylesheet" href="../css/design-tokens.css">
     <link rel="stylesheet" href="../css/toast.css">
     <style>
         body {
@@ -15,6 +17,11 @@
             margin: 50px auto;
             padding: 20px;
             background: #f5f5f5;
+            /* The background was painted light and the text left to the browser,
+               so a visitor whose system is in dark mode got the user-agent's
+               white default on near-white. Both halves are stated now. */
+            color: #333;
+            color-scheme: light;
         }
         h1 {
             color: #333;
