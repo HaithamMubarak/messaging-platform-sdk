@@ -415,3 +415,16 @@ body {
     .joystick-stick { width: 40px; height: 40px; }
     .action-btn { width: 65px; height: 65px; font-size: 0.7rem; }
 }
+
+/* Sprite icon sizing. This page does not load css/ui.css, where .icon lives,
+   and an <svg> with no width or height falls back to the CSS default for a
+   replaced element — 300x150. That is how the Share pill became a slab across
+   the bottom of a phone screen, covering the joystick and every action button. */
+.icon {
+    width: 1.25em;
+    height: 1.25em;
+    flex: none;
+    vertical-align: -0.2em;
+}
+.icon--sm { width: 1em; height: 1em; }
+.icon--lg { width: 1.5em; height: 1.5em; }
