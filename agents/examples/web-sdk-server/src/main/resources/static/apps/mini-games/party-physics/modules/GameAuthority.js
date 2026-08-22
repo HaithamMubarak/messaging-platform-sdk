@@ -40,6 +40,10 @@ class GameAuthority {
         // Input buffer
         this.inputBuffer = new Map(); // peerId -> [inputs]
 
+        // Effect events queued for the next snapshot (ability visuals, hits).
+        // The authority decides what happened; clients only render these.
+        this.pendingEvents = [];
+
         console.log('[GameAuthority] Created with gameId:', this.gameState.gameId);
     }
 
@@ -174,6 +178,7 @@ class GameAuthority {
             abilityCooldown: 0,
             jumpPadCooldown: 0, // Prevent jump pad spam
             stunned: 0,
+            charging: 0, // seconds left of Bull's Charge (deals stun on contact)
             buffs: [],
             score: 0
         };
@@ -493,6 +498,9 @@ class GameAuthority {
         // Check map feature interactions (jump pads, boost pads, etc.)
         this.checkMapFeatures();
 
+        // Resolve active ability states (Bull's Charge contact checks)
+        this.updateAbilityStates(dt);
+
         // Update cooldowns and buffs
         this.updateTimers(dt);
 
@@ -618,6 +626,10 @@ class GameAuthority {
 
                 const body = playerPhysics.body;
 
+                // Stunned players (hit by Bull's Charge) can't act — inputs
+                // are consumed but ignored until the stun wears off.
+                if (player.stunned > 0) return;
+
                 // Update character facing direction (visual only, not physics)
                 if (input.moveX !== 0 || input.moveY !== 0) {
                     player.facingAngle = Math.atan2(input.moveX, input.moveY);
@@ -625,10 +637,11 @@ class GameAuthority {
 
                 // Movement - walk speed (very slow and controlled)
                 if (input.moveX !== 0 || input.moveY !== 0) {
+                    const speedMult = this.getBuffMultiplier(player, 'speed');
                     const force = {
-                        x: input.moveX * archetype.speed * 0.5,  // Reduced to 0.5 for walk speed
+                        x: input.moveX * archetype.speed * 0.5 * speedMult,  // Reduced to 0.5 for walk speed
                         y: 0,
-                        z: input.moveY * archetype.speed * 0.5
+                        z: input.moveY * archetype.speed * 0.5 * speedMult
                     };
                     body.applyImpulse(force, true);
                 }
@@ -655,8 +668,10 @@ class GameAuthority {
                     this.performPunch(peerId, archetype);
                 }
 
-                // Ability
-                if (input.ability && player.abilityCooldown <= 0) {
+                // Ability — the client only requests it; the authority checks
+                // cooldown AND stamina before anything happens.
+                if (input.ability && player.abilityCooldown <= 0 &&
+                    player.stamina >= archetype.abilityStaminaCost) {
                     this.performAbility(peerId, archetype);
                 }
             });
@@ -684,7 +699,8 @@ class GameAuthority {
         if (!player || !playerPhysics) return;
 
         const pos = playerPhysics.body.translation();
-        const damage = DAMAGE.PUNCH_BASE * archetype.strength;
+        const damage = DAMAGE.PUNCH_BASE * archetype.strength *
+            this.getBuffMultiplier(player, 'power');
 
         // Check for nearby players
         this.gameState.players.forEach((targetPlayer, targetId) => {
@@ -703,8 +719,8 @@ class GameAuthority {
                 // fingertip graze at max range does ~40% — rewards commitment.
                 const falloff = 1 - (dist / 2) * 0.6;
 
-                // Apply damage
-                targetPlayer.hp -= damage * falloff;
+                // Apply damage (target's shield buff, if any, absorbs part)
+                this.applyDamage(targetPlayer, damage * falloff);
 
                 // Apply knockback: harder launch + upward pop scaling with
                 // strength, so heavy archetypes send victims properly flying.
@@ -729,11 +745,14 @@ class GameAuthority {
     }
 
     /**
-     * Perform character ability
+     * Perform character ability. Host-authoritative: this only runs on the
+     * authority, after the cooldown and stamina gates in processInputs.
+     * Each ability queues an effect event so every client can render it.
      */
     performAbility(peerId, archetype) {
         const player = this.gameState.players.get(peerId);
-        if (!player) return;
+        const playerPhysics = this.playerBodies.get(peerId);
+        if (!player || !playerPhysics) return;
 
         // Consume stamina and set cooldown
         player.stamina -= archetype.abilityStaminaCost;
@@ -741,8 +760,243 @@ class GameAuthority {
 
         console.log('[GameAuthority] Ability used:', archetype.abilityName, 'by', player.name);
 
-        // TODO: Implement specific abilities
-        // For now, just log
+        switch (archetype.abilityFn) {
+            case 'groundSlam': this.abilityGroundSlam(peerId, player, playerPhysics); break;
+            case 'blinkDash': this.abilityBlinkDash(peerId, player, playerPhysics); break;
+            case 'charge': this.abilityCharge(peerId, player, playerPhysics, archetype); break;
+            case 'doubleJump': this.abilityDoubleJump(peerId, player, playerPhysics); break;
+            case 'randomBuff': this.abilityRandomBuff(peerId, player, playerPhysics); break;
+            default:
+                console.warn('[GameAuthority] Unknown ability:', archetype.abilityFn);
+        }
+    }
+
+    /**
+     * Queue an effect event for the next snapshot broadcast.
+     */
+    emitEvent(event) {
+        this.pendingEvents.push(event);
+    }
+
+    /**
+     * Forward direction from the player's facing angle.
+     * facingAngle = atan2(moveX, moveY) and movement maps moveX->x, moveY->z,
+     * so forward in world space is (sin(a), 0, cos(a)).
+     */
+    getFacingDir(player) {
+        return {
+            x: Math.sin(player.facingAngle),
+            z: Math.cos(player.facingAngle)
+        };
+    }
+
+    /**
+     * Multiplier from an active buff of the given type (1 if none).
+     */
+    getBuffMultiplier(player, type) {
+        if (!player.buffs) return 1;
+        const buff = player.buffs.find(b => b.type === type && b.mult);
+        return buff ? buff.mult : 1;
+    }
+
+    /**
+     * Apply damage to a player, letting an active shield buff absorb part.
+     */
+    applyDamage(targetPlayer, amount) {
+        const shieldMult = this.getBuffMultiplier(targetPlayer, 'shield');
+        targetPlayer.hp -= amount * shieldMult;
+    }
+
+    /**
+     * Bear - Ground Slam: shockwave around the bear. Everyone nearby takes
+     * damage and is launched away, scaled by proximity. The bear itself is
+     * driven into the ground for readability.
+     */
+    abilityGroundSlam(peerId, player, playerPhysics) {
+        const RADIUS = 5;
+        const pos = playerPhysics.body.translation();
+
+        // Slam the bear down (visible even when nobody is in range)
+        playerPhysics.body.applyImpulse({ x: 0, y: -6, z: 0 }, true);
+
+        this.gameState.players.forEach((targetPlayer, targetId) => {
+            if (targetId === peerId || !targetPlayer.isAlive) return;
+            const targetPhysics = this.playerBodies.get(targetId);
+            if (!targetPhysics) return;
+
+            const targetPos = targetPhysics.body.translation();
+            const dx = targetPos.x - pos.x;
+            const dz = targetPos.z - pos.z;
+            const dist = Math.sqrt(dx * dx + dz * dz);
+            if (dist > RADIUS) return;
+
+            const falloff = 1 - (dist / RADIUS) * 0.7;
+            const ang = Math.random() * Math.PI * 2; // overlap fallback
+            const dirX = dist > 0.01 ? dx / dist : Math.cos(ang);
+            const dirZ = dist > 0.01 ? dz / dist : Math.sin(ang);
+
+            this.applyDamage(targetPlayer, 18 * falloff);
+            targetPhysics.body.applyImpulse({
+                x: dirX * 32 * falloff,
+                y: 7 * falloff,
+                z: dirZ * 32 * falloff
+            }, true);
+            targetPhysics.body.applyTorqueImpulse({
+                x: (Math.random() - 0.5) * 5 * falloff,
+                y: (Math.random() - 0.5) * 5 * falloff,
+                z: (Math.random() - 0.5) * 5 * falloff
+            }, true);
+        });
+
+        this.emitEvent({
+            type: 'groundSlam', peerId,
+            x: pos.x, y: pos.y, z: pos.z, radius: RADIUS
+        });
+    }
+
+    /**
+     * Bunny - Blink Dash: a long, near-instant dash in the facing direction.
+     * Velocity is set directly (not an impulse) so the burst length does not
+     * depend on current momentum.
+     */
+    abilityBlinkDash(peerId, player, playerPhysics) {
+        const dir = this.getFacingDir(player);
+        const vel = playerPhysics.body.linvel();
+        const SPEED = 24;
+
+        playerPhysics.body.setLinvel({
+            x: dir.x * SPEED,
+            y: Math.max(vel.y, 1),
+            z: dir.z * SPEED
+        }, true);
+
+        const pos = playerPhysics.body.translation();
+        this.emitEvent({
+            type: 'blinkDash', peerId,
+            x: pos.x, y: pos.y, z: pos.z,
+            dirX: dir.x, dirZ: dir.z
+        });
+    }
+
+    /**
+     * Bull - Charge: forward burst; while charging, the first player the bull
+     * runs into takes damage, is knocked flying, and is stunned (inputs
+     * ignored) for 1.5s. Contact is resolved in updateAbilityStates.
+     */
+    abilityCharge(peerId, player, playerPhysics, archetype) {
+        const dir = this.getFacingDir(player);
+
+        playerPhysics.body.applyImpulse({
+            x: dir.x * archetype.speed * 22,
+            y: 0.5,
+            z: dir.z * archetype.speed * 22
+        }, true);
+
+        player.charging = 0.9; // seconds of active charge
+
+        const pos = playerPhysics.body.translation();
+        this.emitEvent({
+            type: 'charge', peerId,
+            x: pos.x, y: pos.y, z: pos.z,
+            dirX: dir.x, dirZ: dir.z, duration: 0.9
+        });
+    }
+
+    /**
+     * Monkey - Double Jump: an extra jump that works in mid-air. Downward
+     * velocity is cancelled first so the second jump is always a crisp hop.
+     */
+    abilityDoubleJump(peerId, player, playerPhysics) {
+        const vel = playerPhysics.body.linvel();
+        playerPhysics.body.setLinvel({ x: vel.x, y: Math.max(vel.y, 0), z: vel.z }, true);
+        playerPhysics.body.applyImpulse({ x: 0, y: 3, z: 0 }, true);
+
+        const pos = playerPhysics.body.translation();
+        this.emitEvent({
+            type: 'doubleJump', peerId,
+            x: pos.x, y: pos.y, z: pos.z
+        });
+    }
+
+    /**
+     * Frog - Random Buff: one of four boosts, chosen by the authority.
+     * speed/power/shield last 6 seconds and hook into movement, punch damage,
+     * and damage taken respectively; heal is instant.
+     */
+    abilityRandomBuff(peerId, player, playerPhysics) {
+        const options = [
+            { type: 'speed', mult: 1.6, duration: 6 },
+            { type: 'power', mult: 1.7, duration: 6 },
+            { type: 'shield', mult: 0.4, duration: 6 },
+            { type: 'heal' }
+        ];
+        const pick = options[Math.floor(Math.random() * options.length)];
+
+        if (pick.type === 'heal') {
+            player.hp = Math.min(player.hpMax, player.hp + 30);
+        } else {
+            if (!player.buffs) player.buffs = [];
+            // Refresh rather than stack an existing buff of the same type
+            const existing = player.buffs.find(b => b.type === pick.type);
+            if (existing) {
+                existing.duration = pick.duration;
+            } else {
+                player.buffs.push({ ...pick });
+            }
+        }
+
+        const pos = playerPhysics.body.translation();
+        this.emitEvent({
+            type: 'buff', peerId, buff: pick.type,
+            duration: pick.duration || 0,
+            x: pos.x, y: pos.y, z: pos.z
+        });
+    }
+
+    /**
+     * Resolve active ability states each physics step.
+     * Currently: Bull's Charge contact detection.
+     */
+    updateAbilityStates(dt) {
+        this.gameState.players.forEach((player, peerId) => {
+            if (player.charging <= 0) return;
+            player.charging = Math.max(0, player.charging - dt);
+            if (!player.isAlive) { player.charging = 0; return; }
+
+            const chargerPhysics = this.playerBodies.get(peerId);
+            if (!chargerPhysics) { player.charging = 0; return; }
+            const pos = chargerPhysics.body.translation();
+
+            this.gameState.players.forEach((targetPlayer, targetId) => {
+                if (player.charging <= 0) return; // already hit someone
+                if (targetId === peerId || !targetPlayer.isAlive) return;
+                const targetPhysics = this.playerBodies.get(targetId);
+                if (!targetPhysics) return;
+
+                const targetPos = targetPhysics.body.translation();
+                const dx = targetPos.x - pos.x;
+                const dz = targetPos.z - pos.z;
+                const dist = Math.sqrt(dx * dx + dz * dz);
+                if (dist > 1.6) return;
+
+                // Contact: damage, launch along the impact direction, stun
+                const dirX = dist > 0.01 ? dx / dist : 0;
+                const dirZ = dist > 0.01 ? dz / dist : 1;
+                this.applyDamage(targetPlayer,
+                    14 * this.getBuffMultiplier(player, 'power'));
+                targetPhysics.body.applyImpulse({
+                    x: dirX * 28, y: 5, z: dirZ * 28
+                }, true);
+                targetPlayer.stunned = 1.5;
+                player.charging = 0; // charge ends on first hit
+
+                this.emitEvent({
+                    type: 'chargeHit', peerId, targetId,
+                    x: targetPos.x, y: targetPos.y, z: targetPos.z
+                });
+                console.log('[GameAuthority] Charge hit:', targetPlayer.name, 'stunned');
+            });
+        });
     }
 
     /**
@@ -793,6 +1047,17 @@ class GameAuthority {
             // Update jump pad cooldown
             if (player.jumpPadCooldown > 0) {
                 player.jumpPadCooldown = Math.max(0, player.jumpPadCooldown - dt);
+            }
+
+            // Update stun (Bull's Charge)
+            if (player.stunned > 0) {
+                player.stunned = Math.max(0, player.stunned - dt);
+            }
+
+            // Tick down and expire buffs (Frog's Random Buff, power zones)
+            if (player.buffs && player.buffs.length > 0) {
+                player.buffs.forEach(b => { b.duration -= dt; });
+                player.buffs = player.buffs.filter(b => b.duration > 0);
             }
         });
     }
@@ -867,14 +1132,20 @@ class GameAuthority {
                 v: player.velocity,
                 hp: player.hp,
                 stamina: player.stamina,
+                cd: player.abilityCooldown,
+                stun: player.stunned,
                 alive: player.isAlive
             });
         });
 
+        // Flush queued effect events (abilities, hits) into this snapshot
+        const events = this.pendingEvents;
+        this.pendingEvents = [];
+
         return {
             t: Date.now(),
             entities,
-            events: [] // TODO: Add events like hits, eliminations
+            events
         };
     }
 

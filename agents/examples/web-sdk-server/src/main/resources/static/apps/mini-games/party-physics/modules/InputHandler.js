@@ -15,6 +15,12 @@ class InputHandler {
             ability: false
         };
 
+        // Action keys latch on the way down and are cleared once a packet has
+        // carried them. Edge detection alone compared the key state at two
+        // consecutive samples, so a tap that began and ended between them was
+        // dropped — the player pressed jump and nothing happened.
+        this.pressed = {};
+
         this.inputSequence = 0;
         this.enabled = false;
 
@@ -48,6 +54,7 @@ class InputHandler {
         window.removeEventListener('keyup', this.onKeyUp);
 
         this.keys = {};
+        this.pressed = {};
         this.enabled = false;
         console.log('[InputHandler] Disabled');
     }
@@ -61,7 +68,11 @@ class InputHandler {
             e.preventDefault();
         }
 
-        this.keys[e.key.toLowerCase()] = true;
+        // Latch only a genuine press. Holding a key repeats keydown, and
+        // re-latching there would fire the action once per repeat.
+        const k = e.key.toLowerCase();
+        if (!this.keys[k]) this.pressed[k] = true;
+        this.keys[k] = true;
     }
 
     /**
@@ -92,11 +103,15 @@ class InputHandler {
             moveY /= len;
         }
 
-        // Actions (detect press, not hold)
-        const jump = this.keys[' '] && !this.inputState.jump;
-        const dash = this.keys['shift'] && !this.inputState.dash;
-        const punch = this.keys['control'] && !this.inputState.punch;
-        const ability = this.keys['q'] && !this.inputState.ability;
+        // Actions fire once per press: either the key went down since the last
+        // packet (the latch, which survives a tap shorter than one tick) or it
+        // is newly held at this sample.
+        const took = (k, was) => !!this.pressed[k] || (this.keys[k] && !was);
+        const jump = took(' ', this.inputState.jump);
+        const dash = took('shift', this.inputState.dash);
+        const punch = took('control', this.inputState.punch);
+        const ability = took('q', this.inputState.ability);
+        this.pressed = {};
 
         // Update state
         this.inputState = {

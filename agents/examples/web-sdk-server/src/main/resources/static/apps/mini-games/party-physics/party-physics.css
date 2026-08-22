@@ -184,6 +184,20 @@ body {
     color: white;
     font-size: 12px;
     text-align: center;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+}
+
+.cooldown-indicator .ability-ready {
+    color: #6f6;
+    font-weight: bold;
+}
+
+.cooldown-indicator .ability-cooling {
+    color: #fa5;
+    font-weight: bold;
 }
 
 /* Scoreboard */
@@ -526,6 +540,13 @@ body {
     color: #ddd;
 }
 
+.char-ability {
+    font-size: 11px;
+    line-height: 1.35;
+    color: #cdd6ff;
+    max-width: 150px;
+}
+
 /* Player List */
 .player-list-container {
     margin-bottom: 30px;
@@ -727,7 +748,7 @@ body {
 }
 
 .btn-label {
-    font-size: 10px;
+    font-size: 11px;
     margin-top: 2px;
 }
 
@@ -1029,3 +1050,14 @@ body {
     color: rgba(255, 255, 255, 0.7);
 }
 
+
+
+/* Sprite icons in the slots that used to hold an emoji glyph. .icon is 1.25em,
+   which overshoots where the slot's font-size was tuned for a glyph. */
+.map-preview .icon,
+.mode-icon .icon {
+    width: 1em;
+    height: 1em;
+    vertical-align: middle;
+}
+.action-btn .icon { width: 22px; height: 22px; }

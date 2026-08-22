@@ -99,7 +99,8 @@ class NetAdapter {
             if (!message || !message.type) return;
 
             if (message.type === 'SNAPSHOT') {
-                // Snapshot from host
+                // Snapshot from host — accept only from the actual host
+                if (this.hostId && peerId !== this.hostId) return;
                 if (this.onSnapshotCallback) {
                     this.onSnapshotCallback(message.payload);
                 }
@@ -107,6 +108,30 @@ class NetAdapter {
                 // Input from client (only host receives this)
                 if (this.isHost && this.game.authority) {
                     this.game.authority.processInput(peerId, message.payload);
+                }
+            } else if (message.type === 'CHAR_SELECT') {
+                // A peer picked a character. Request, not instruction: only
+                // the host acts on it, only for the sending peer (the id
+                // comes from the transport, never from the payload), and
+                // only for a real archetype.
+                if (!this.isHost) return;
+                const character = message.payload && message.payload.character;
+                if (typeof character !== 'string' ||
+                    typeof ARCHETYPES === 'undefined' || !ARCHETYPES[character]) return;
+                if (typeof this.game.setPeerCharacter === 'function') {
+                    this.game.setPeerCharacter(peerId, character);
+                }
+            } else if (message.type === 'START_GAME') {
+                // Only the host may start the game
+                if (this.isHost || peerId !== this.hostId) return;
+                if (this.onGameStartCallback) {
+                    this.onGameStartCallback(message.payload);
+                }
+            } else if (message.type === 'END_GAME') {
+                // Only the host may end the game
+                if (this.isHost || peerId !== this.hostId) return;
+                if (this.onGameEndCallback) {
+                    this.onGameEndCallback(message.payload || {});
                 }
             }
         } catch (error) {
@@ -140,6 +165,45 @@ class NetAdapter {
 
         // Fallback to channel
         this.channel.send('INPUT', message.payload);
+    }
+
+    /**
+     * Tell the host which character this client picked (lobby only).
+     * The host validates it and applies it to this peer alone.
+     */
+    sendCharSelect(character) {
+        if (!this.hostId || this.isHost) return;
+
+        const dc = this.rtcConnections.get(this.hostId);
+        if (dc && dc.readyState === 'open') {
+            try {
+                dc.send(JSON.stringify({
+                    type: 'CHAR_SELECT',
+                    payload: { character }
+                }));
+            } catch (error) {
+                console.error('[NetAdapter] CHAR_SELECT send failed:', error);
+            }
+        }
+    }
+
+    /**
+     * Host-only: send a control message to every connected peer over the
+     * DataChannels (the same transport snapshots use).
+     */
+    broadcastControl(type, payload) {
+        if (!this.isHost) return;
+
+        const text = JSON.stringify({ type, payload });
+        this.rtcConnections.forEach((dc, peerId) => {
+            if (dc.readyState === 'open') {
+                try {
+                    dc.send(text);
+                } catch (error) {
+                    console.error('[NetAdapter]', type, 'send failed to', peerId, error);
+                }
+            }
+        });
     }
 
     /**
@@ -199,12 +263,12 @@ class NetAdapter {
     }
 
     /**
-     * Broadcast game start (host only)
+     * Broadcast game start (host only). Carries the authoritative roster
+     * (names, characters), the mode and the chosen map, over DataChannels.
      */
-    broadcastGameStart() {
-        if (!this.isHost) return;
-
-        this.channel.send('START_GAME', {
+    broadcastGameStart(startData) {
+        this.broadcastControl('START_GAME', {
+            ...(startData || {}),
             timestamp: Date.now()
         });
     }
@@ -213,9 +277,7 @@ class NetAdapter {
      * Broadcast game end (host only)
      */
     broadcastGameEnd(winnerId) {
-        if (!this.isHost) return;
-
-        this.channel.send('END_GAME', {
+        this.broadcastControl('END_GAME', {
             winnerId,
             timestamp: Date.now()
         });

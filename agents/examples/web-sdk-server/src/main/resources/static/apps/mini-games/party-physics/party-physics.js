@@ -50,6 +50,12 @@ class PartyPhysicsGame extends UserConnectionBase {
 
             console.log('[PartyPhysics] UI updated');
 
+            // The SDK identifies peers by agent name: DataChannel peerIds and
+            // therefore snapshot entity ids and input attribution all use it.
+            // Adopt it as this game's player id — it was previously left
+            // undefined, which only lined up in solo play.
+            this.agentId = (this.channel && this.channel.agentName) || this.username;
+
             // Initialize NetAdapter
             console.log('[PartyPhysics] Creating NetAdapter...');
             this.netAdapter = new NetAdapter(this);
@@ -129,6 +135,11 @@ class PartyPhysicsGame extends UserConnectionBase {
             if (this.client) {
                 this.client.processSnapshot(snapshot);
             }
+            // Non-host clients have no authority object; their HUD
+            // (HP, stamina, ability cooldown) is driven by snapshots.
+            if (!this.netAdapter.isHost) {
+                this.updateHUDFromSnapshot(snapshot);
+            }
         });
 
         this.netAdapter.onModeChange((mode) => {
@@ -137,6 +148,7 @@ class PartyPhysicsGame extends UserConnectionBase {
         });
 
         this.netAdapter.onGameStart((data) => {
+            this.applyHostStartData(data);
             this.onGameStart();
         });
 
@@ -154,31 +166,35 @@ class PartyPhysicsGame extends UserConnectionBase {
     }
 
     /**
-     * Handle user join (UserConnectionBase callback)
+     * Handle user join (UserConnectionBase callback).
+     * The SDK passes a detail object { agentName, users, ... } — the agent
+     * name doubles as the peer id used by DataChannels and snapshots.
      */
-    onUserJoin(userId, username) {
-        console.log('[PartyPhysics] User joined:', username);
+    onUserJoin(detail) {
+        const userId = (detail && detail.agentName) ? detail.agentName : detail;
+        console.log('[PartyPhysics] User joined:', userId);
 
         // Forward to NetAdapter
         if (this.netAdapter) {
-            this.netAdapter.handleUserJoin(userId, username);
+            this.netAdapter.handleUserJoin(userId, userId);
         }
 
-        showToast(`${username} joined the game!`, 'info');
+        showToast(`${userId} joined the game!`, 'info');
     }
 
     /**
      * Handle user leave (UserConnectionBase callback)
      */
-    onUserLeave(userId, username) {
-        console.log('[PartyPhysics] User left:', username);
+    onUserLeave(detail) {
+        const userId = (detail && detail.agentName) ? detail.agentName : detail;
+        console.log('[PartyPhysics] User left:', userId);
 
         // Forward to NetAdapter
         if (this.netAdapter) {
-            this.netAdapter.handleUserLeave(userId, username);
+            this.netAdapter.handleUserLeave(userId, userId);
         }
 
-        showToast(`${username} left the game`, 'warning');
+        showToast(`${userId} left the game`, 'warning');
 
         // Remove from lobby
         this.removeLobbyPlayer(userId);
@@ -197,6 +213,18 @@ class PartyPhysicsGame extends UserConnectionBase {
                 ? this.webrtcHelper.dataChannels.get(peerId)
                 : null;
             this.netAdapter.setupWebRTC(peerId, dc);
+        }
+
+        // Guests: if the peer this channel opened with is the room host
+        // (per the SDK's join-order rule), remember it — inputs and ability
+        // requests are addressed to the host — and tell the host which
+        // character we picked so the authority uses the right archetype.
+        if (this.netAdapter && !this.isHost()) {
+            const hostUser = this.getUserList().find(u => u.isHost);
+            if (hostUser && hostUser.name === peerId) {
+                this.netAdapter.hostId = peerId;
+                this.netAdapter.sendCharSelect(this.selectedCharacter);
+            }
         }
     }
 
@@ -230,7 +258,31 @@ class PartyPhysicsGame extends UserConnectionBase {
             this.updateLobbyUI();
         }
 
+        // Guests tell the host, so the authority spawns the right archetype
+        // (with its real stats and special ability)
+        if (this.netAdapter && !this.netAdapter.isHost) {
+            this.netAdapter.sendCharSelect(archetype);
+        }
+
         console.log('[PartyPhysics] Selected character:', archetype);
+    }
+
+    /**
+     * A peer told us (the host) which character they picked. The value has
+     * already been validated against ARCHETYPES by the net layer, and it is
+     * applied only to the sending peer — never on a peer's say-so about
+     * someone else. Ignored mid-game.
+     */
+    setPeerCharacter(peerId, character) {
+        if (this.authority && this.authority.isRunning) return;
+
+        const existing = this.lobbyPlayers.get(peerId);
+        this.lobbyPlayers.set(peerId, {
+            name: existing ? existing.name : peerId,
+            character
+        });
+        this.updateLobbyUI();
+        console.log('[PartyPhysics] Peer', peerId, 'selected character:', character);
     }
 
     /**
@@ -313,10 +365,12 @@ class PartyPhysicsGame extends UserConnectionBase {
         card.onclick = () => this.selectMap(map.id);
 
         // Determine icon based on map type
-        let icon = '🗺️';
-        if (map.type === 'circular') icon = '⭕';
-        if (map.type === 'rectangular') icon = '▭';
-        if (map.type === 'linear') icon = '➡️';
+        // Map shape, drawn from the sprite like every other icon on the site.
+        let iconName = 'grid';
+        if (map.type === 'circular') iconName = 'target';
+        if (map.type === 'rectangular') iconName = 'layers';
+        if (map.type === 'linear') iconName = 'arrow-right';
+        const icon = `<svg class="icon" aria-hidden="true"><use href="#i-${iconName}"></use></svg>`;
 
         // Determine difficulty
         let difficulty = 'easy';
@@ -500,16 +554,25 @@ class PartyPhysicsGame extends UserConnectionBase {
 
             // Add all lobby players to authority
             this.lobbyPlayers.forEach((data, peerId) => {
-                this.authority.addPlayer(peerId, data.name, data.character);
+                this.authority.addPlayer(peerId, data.name, data.character || 'bunny');
                 console.log('[PartyPhysics] Added player to authority:', data.name);
             });
 
             // Start game simulation
             this.authority.startGame();
 
-            // Broadcast to clients
+            // Broadcast to clients, with the authoritative roster (names and
+            // characters) plus the chosen map, so guests build the same scene
             if (this.netAdapter) {
-                this.netAdapter.broadcastGameStart();
+                this.netAdapter.broadcastGameStart({
+                    players: Array.from(this.lobbyPlayers.entries()).map(([id, p]) => ({
+                        peerId: id,
+                        name: p.name,
+                        character: p.character || 'bunny'
+                    })),
+                    mode: this.selectedMode,
+                    mapId: this.selectedMapId || null
+                });
             }
 
             // Start local rendering and game
@@ -528,6 +591,35 @@ class PartyPhysicsGame extends UserConnectionBase {
     }
 
     /**
+     * Merge the host's START_GAME payload (roster, mode, map) into local
+     * state before entering the game. Characters are validated against
+     * ARCHETYPES; names go through escapeHtml wherever they are rendered.
+     */
+    applyHostStartData(data) {
+        if (!data) return;
+
+        if (Array.isArray(data.players)) {
+            data.players.forEach(p => {
+                if (!p || typeof p.peerId !== 'string') return;
+                const character = (typeof ARCHETYPES !== 'undefined' && ARCHETYPES[p.character]) ?
+                    p.character : 'bunny';
+                const name = typeof p.name === 'string' ? p.name : p.peerId;
+                // Keep my own local choice of name; trust the host for others
+                if (p.peerId === this.agentId) return;
+                this.lobbyPlayers.set(p.peerId, { name, character });
+            });
+        }
+
+        if (data.mode === 'fight') {
+            this.selectedMode = data.mode;
+        }
+        if (typeof data.mapId === 'string' && typeof MAPS !== 'undefined' &&
+            MAPS.getMapById(data.mapId)) {
+            this.selectedMapId = data.mapId;
+        }
+    }
+
+    /**
      * Game start handler
      */
     async onGameStart() {
@@ -541,6 +633,33 @@ class PartyPhysicsGame extends UserConnectionBase {
             document.getElementById('gameUI').classList.remove('hidden');
             document.getElementById('playerStats').classList.remove('hidden');
             document.getElementById('scoreboard').classList.remove('hidden');
+
+            // Label the ability slot with this character's special and its
+            // trigger, so the ability is discoverable in game.
+            const myArchetype = (typeof ARCHETYPES !== 'undefined') ?
+                ARCHETYPES[this.selectedCharacter] : null;
+            const abilityLabel = document.getElementById('abilityLabel');
+            if (abilityLabel && myArchetype) {
+                abilityLabel.textContent = myArchetype.abilityName;
+            }
+            const abilityKey = document.getElementById('abilityKey');
+            if (abilityKey) {
+                abilityKey.textContent = this.mobileControls ? 'Ability' : 'Q';
+            }
+            this.updateAbilityHUD(0);
+
+            // Tell the local player which random buff they rolled (Frog)
+            if (this.client) {
+                this.client.onLocalBuff = (buffType) => {
+                    const names = {
+                        speed: 'Random Buff: speed boost!',
+                        power: 'Random Buff: power boost!',
+                        shield: 'Random Buff: shield!',
+                        heal: 'Random Buff: healed 30 HP!'
+                    };
+                    showToast(names[buffType] || 'Random Buff!', 'success', 2500);
+                };
+            }
 
             // Show camera panel
             const cameraPanel = document.getElementById('cameraPanel');
@@ -559,7 +678,7 @@ class PartyPhysicsGame extends UserConnectionBase {
             console.log('[PartyPhysics] Creating player meshes...');
             this.lobbyPlayers.forEach((data, peerId) => {
                 const isLocal = peerId === this.agentId;
-                this.client.createPlayer(peerId, data.name, data.character, isLocal);
+                this.client.createPlayer(peerId, data.name, data.character || 'bunny', isLocal);
                 console.log('[PartyPhysics] Created player mesh:', data.name, isLocal ? '(local)' : '(remote)');
             });
 
@@ -693,13 +812,80 @@ class PartyPhysicsGame extends UserConnectionBase {
             document.getElementById('staminaValue').textContent = Math.ceil(localPlayer.stamina);
 
             // Update ability cooldown
-            const cooldownText = localPlayer.abilityCooldown > 0 ?
-                `${localPlayer.abilityCooldown.toFixed(1)}s` : 'Ready!';
-            document.getElementById('cooldownValue').textContent = cooldownText;
+            this.updateAbilityHUD(localPlayer.abilityCooldown);
         }
 
         // Update scoreboard
         this.updateScoreboard();
+    }
+
+    /**
+     * Update the ability slot in the HUD: "Ready" in green when usable,
+     * remaining seconds in orange while cooling down.
+     */
+    updateAbilityHUD(cooldown) {
+        const el = document.getElementById('cooldownValue');
+        if (!el) return;
+
+        if (cooldown > 0) {
+            el.textContent = cooldown.toFixed(1) + 's';
+            el.className = 'ability-cooling';
+        } else {
+            el.textContent = 'Ready';
+            el.className = 'ability-ready';
+        }
+    }
+
+    /**
+     * Drive the HUD from a host snapshot (non-host clients only; the host
+     * reads its own authority state in updateGameUI instead).
+     */
+    updateHUDFromSnapshot(snapshot) {
+        if (!snapshot || !snapshot.entities) return;
+
+        const me = snapshot.entities.find(e => e.id === this.agentId);
+        if (!me) return;
+
+        // Hit feedback, same rule as the host path
+        if (this._prevHp !== undefined && me.hp < this._prevHp - 0.5) {
+            this.flashHit();
+        }
+        this._prevHp = me.hp;
+
+        const archetype = (typeof ARCHETYPES !== 'undefined') ?
+            ARCHETYPES[this.selectedCharacter] : null;
+        const hpMax = archetype ? archetype.hpMax : 100;
+        const staminaMax = archetype ? archetype.staminaMax : 100;
+
+        const hpFill = document.getElementById('hpFill');
+        if (hpFill) hpFill.style.width = Math.max(0, (me.hp / hpMax) * 100) + '%';
+        const hpValue = document.getElementById('hpValue');
+        if (hpValue) hpValue.textContent = Math.ceil(Math.max(0, me.hp));
+
+        const staminaFill = document.getElementById('staminaFill');
+        if (staminaFill) staminaFill.style.width = Math.max(0, (me.stamina / staminaMax) * 100) + '%';
+        const staminaValue = document.getElementById('staminaValue');
+        if (staminaValue) staminaValue.textContent = Math.ceil(Math.max(0, me.stamina));
+
+        this.updateAbilityHUD(me.cd || 0);
+
+        // Scoreboard for guests, from the same snapshot. Names are
+        // remote-supplied, so they go through escapeHtml.
+        const scoreList = document.getElementById('scoreList');
+        if (scoreList) {
+            const rows = snapshot.entities.slice().sort((a, b) => b.hp - a.hp);
+            scoreList.innerHTML = rows.map(e => {
+                const info = this.lobbyPlayers.get(e.id);
+                const name = info ? info.name : e.id;
+                const cls = 'score-entry' +
+                    (e.id === this.agentId ? ' local' : '') +
+                    (!e.alive ? ' eliminated' : '');
+                return `<div class="${cls}">` +
+                    `<span class="player-name">${escapeHtml(name)}</span>` +
+                    `<span class="player-hp">${Math.ceil(Math.max(0, e.hp))} HP</span>` +
+                    `</div>`;
+            }).join('');
+        }
     }
 
     /**
@@ -790,11 +976,11 @@ class PartyPhysicsGame extends UserConnectionBase {
         const isLocalWinner = winnerId === this.agentId;
 
         if (isLocalWinner) {
-            title.textContent = '🏆 You Win!';
+            title.textContent = 'You Win!';
         } else if (winner) {
-            title.textContent = `🏆 ${winner.name} Wins!`;
+            title.textContent = `${winner.name} Wins!`;
         } else {
-            title.textContent = '🏆 Game Over!';
+            title.textContent = 'Game Over!';
         }
 
         // Show results
@@ -917,8 +1103,8 @@ function initializeConnectionModal() {
     window.loadConnectionModal({
         localStoragePrefix: 'partyPhysics_',
         channelPrefix: 'party-',
-        title: '🎉 Join Party Physics',
-        collapsedTitle: '🎉 Party Physics',
+        title: 'Join Party Physics',
+        collapsedTitle: 'Party Physics',
         onConnect: async function(username, channel, password) {
             await connectPartyPhysics(username, channel, password);
         }

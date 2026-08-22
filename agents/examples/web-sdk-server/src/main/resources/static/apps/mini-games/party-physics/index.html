@@ -61,7 +61,7 @@
 <body>
     <!-- Share Button (hidden until connected) -->
     <button id="shareBtn" class="share-btn" onclick="partyPhysicsGame?.openShareModal()" style="display: none;">
-        📤 Share
+        <svg class="icon icon--sm" aria-hidden="true"><use href="#i-upload"></use></svg> Share
     </button>
 
     <!-- Connection Status -->
@@ -79,27 +79,29 @@
             <!-- Player Stats -->
             <div id="playerStats" class="player-stats hidden">
                 <div class="stat-bar hp-bar">
-                    <span class="stat-label">❤️ HP</span>
+                    <span class="stat-label"><svg class="icon icon--sm" aria-hidden="true"><use href="#i-activity"></use></svg> HP</span>
                     <div class="stat-fill">
                         <div id="hpFill" class="fill hp-fill" style="width: 100%"></div>
                     </div>
                     <span id="hpValue" class="stat-value">100</span>
                 </div>
                 <div class="stat-bar stamina-bar">
-                    <span class="stat-label">⚡ Stamina</span>
+                    <span class="stat-label"><svg class="icon icon--sm" aria-hidden="true"><use href="#i-zap"></use></svg> Stamina</span>
                     <div class="stat-fill">
                         <div id="staminaFill" class="fill stamina-fill" style="width: 100%"></div>
                     </div>
                     <span id="staminaValue" class="stat-value">100</span>
                 </div>
-                <div class="cooldown-indicator hidden" id="abilityCooldown">
-                    <span>🎯 Ability: <span id="cooldownValue">Ready!</span></span>
+                <div class="cooldown-indicator" id="abilityCooldown">
+                    <span id="abilityLabel">Special</span>
+                    <span class="key" id="abilityKey">Q</span>
+                    <span id="cooldownValue" class="ability-ready">Ready</span>
                 </div>
             </div>
 
             <!-- Scoreboard -->
             <div id="scoreboard" class="scoreboard hidden">
-                <h3>🏆 Players</h3>
+                <h3><svg class="icon icon--sm" aria-hidden="true"><use href="#i-trophy"></use></svg> Players</h3>
                 <div id="scoreList" class="score-list">
                     <!-- Score entries will be added here -->
                 </div>
@@ -113,7 +115,7 @@
             <!-- Camera Controls Panel -->
             <div id="cameraPanel" class="camera-panel hidden">
                 <div class="panel-header">
-                    📷 Camera Controls
+                    <svg class="icon icon--sm" aria-hidden="true"><use href="#i-monitor"></use></svg> Camera Controls
                     <button class="panel-toggle" onclick="toggleCameraPanel()">−</button>
                 </div>
                 <div class="panel-content">
@@ -135,9 +137,9 @@
                         <label>Pitch: <span id="pitchValue">0.5</span></label>
                         <input type="range" id="pitchSlider" min="0.1" max="1.5" value="0.5" step="0.1">
                     </div>
-                    <button class="reset-btn" onclick="resetCamera()">🔄 Reset Camera</button>
+                    <button class="reset-btn" onclick="resetCamera()"><svg class="icon icon--sm" aria-hidden="true"><use href="#i-refresh"></use></svg> Reset Camera</button>
                     <div class="camera-tips">
-                        <small>💡 Drag mouse to rotate • Scroll to zoom</small>
+                        <small><svg class="icon icon--sm" aria-hidden="true"><use href="#i-info"></use></svg> Drag mouse to rotate • Scroll to zoom</small>
                     </div>
                 </div>
             </div>
@@ -146,15 +148,15 @@
         <!-- Waiting Room Overlay -->
         <div id="waitingRoom" class="waiting-room hidden">
             <div class="waiting-content">
-                <h1>🎉 Party Physics Brawl</h1>
+                <h1><svg class="icon" aria-hidden="true"><use href="#i-gamepad"></use></svg> Party Physics Brawl</h1>
                 <p class="subtitle">Multiplayer Physics Battle Arena</p>
 
                 <!-- Mode Selection -->
                 <div class="mode-selection">
-                    <h3>🎮 Select Game Mode</h3>
+                    <h3><svg class="icon icon--sm" aria-hidden="true"><use href="#i-gamepad"></use></svg> Select Game Mode</h3>
                     <div class="mode-buttons">
                         <button class="mode-btn active host-only" data-mode="fight" onclick="partyPhysicsGame?.selectMode('fight')">
-                            <span class="mode-icon">⚔️</span>
+                            <span class="mode-icon"><svg class="icon" aria-hidden="true"><use href="#i-zap"></use></svg></span>
                             <span class="mode-name">Fight</span>
                             <span class="mode-desc">Last one standing wins!</span>
                         </button>
@@ -169,7 +171,7 @@
 
                 <!-- Map Selection (shown after mode selected) -->
                 <div id="mapSelection" class="map-selection hidden">
-                    <h3>🗺️ Choose Map</h3>
+                    <h3><svg class="icon icon--sm" aria-hidden="true"><use href="#i-grid"></use></svg> Choose Map</h3>
                     <div id="mapGrid" class="map-grid">
                         <!-- Maps will be dynamically loaded here -->
                     </div>
@@ -177,32 +179,37 @@
 
                 <!-- Character Selection -->
                 <div class="character-selection">
-                    <h3>🐾 Choose Your Character</h3>
+                    <h3><svg class="icon icon--sm" aria-hidden="true"><use href="#i-users"></use></svg> Choose Your Character</h3>
                     <div class="character-grid">
                         <button class="character-btn" data-archetype="bear" onclick="partyPhysicsGame?.selectCharacter('bear')">
                             <span class="char-icon">🐻</span>
                             <span class="char-name">Bear</span>
                             <span class="char-role">Tank</span>
+                            <span class="char-ability">Ground Slam (Q): shockwave that damages and launches everyone nearby</span>
                         </button>
                         <button class="character-btn active" data-archetype="bunny" onclick="partyPhysicsGame?.selectCharacter('bunny')">
                             <span class="char-icon">🐰</span>
                             <span class="char-name">Bunny</span>
                             <span class="char-role">Speedster</span>
+                            <span class="char-ability">Blink Dash (Q): instant long burst in the direction you face</span>
                         </button>
                         <button class="character-btn" data-archetype="bull" onclick="partyPhysicsGame?.selectCharacter('bull')">
                             <span class="char-icon">🐂</span>
                             <span class="char-name">Bull</span>
                             <span class="char-role">Brawler</span>
+                            <span class="char-ability">Charge (Q): rush forward; the first player hit is launched and stunned</span>
                         </button>
                         <button class="character-btn" data-archetype="monkey" onclick="partyPhysicsGame?.selectCharacter('monkey')">
                             <span class="char-icon">🐵</span>
                             <span class="char-name">Monkey</span>
                             <span class="char-role">Trickster</span>
+                            <span class="char-ability">Double Jump (Q): extra jump that works in mid-air</span>
                         </button>
                         <button class="character-btn" data-archetype="frog" onclick="partyPhysicsGame?.selectCharacter('frog')">
                             <span class="char-icon">🐸</span>
                             <span class="char-name">Frog</span>
                             <span class="char-role">Chaos</span>
+                            <span class="char-ability">Random Buff (Q): surprise boost - speed, power, shield or heal</span>
                         </button>
                     </div>
                 </div>
@@ -224,7 +231,7 @@
 
                 <!-- Controls Info -->
                 <div class="controls-info">
-                    <h3>🎮 Controls</h3>
+                    <h3><svg class="icon icon--sm" aria-hidden="true"><use href="#i-gamepad"></use></svg> Controls</h3>
                     <div class="controls-grid">
                         <div class="control-item"><span class="key">W A S D</span> or <span class="key">Arrow Keys</span> Move</div>
                         <div class="control-item"><span class="key">SPACE</span> Jump</div>
@@ -232,7 +239,7 @@
                         <div class="control-item"><span class="key">CTRL</span> Punch</div>
                         <div class="control-item"><span class="key">Q</span> Special Ability</div>
                     </div>
-                    <p class="mobile-note">📱 Mobile: Virtual joystick + buttons</p>
+                    <p class="mobile-note"><svg class="icon icon--sm" aria-hidden="true"><use href="#i-info"></use></svg> Mobile: Virtual joystick + buttons</p>
                 </div>
             </div>
         </div>
@@ -248,19 +255,19 @@
             <!-- Action Buttons -->
             <div class="action-buttons">
                 <button id="jumpBtn" class="action-btn jump-btn">
-                    <span>🦘</span>
+                    <span><svg class="icon" aria-hidden="true"><use href="#i-chevron-up"></use></svg></span>
                     <span class="btn-label">Jump</span>
                 </button>
                 <button id="dashBtn" class="action-btn dash-btn">
-                    <span>💨</span>
+                    <span><svg class="icon" aria-hidden="true"><use href="#i-zap"></use></svg></span>
                     <span class="btn-label">Dash</span>
                 </button>
                 <button id="punchBtn" class="action-btn punch-btn">
-                    <span>👊</span>
+                    <span><svg class="icon" aria-hidden="true"><use href="#i-hand"></use></svg></span>
                     <span class="btn-label">Punch</span>
                 </button>
                 <button id="abilityBtn" class="action-btn ability-btn">
-                    <span>⭐</span>
+                    <span><svg class="icon" aria-hidden="true"><use href="#i-target"></use></svg></span>
                     <span class="btn-label">Ability</span>
                 </button>
             </div>
@@ -269,7 +276,7 @@
         <!-- Finish Overlay -->
         <div id="finishOverlay" class="finish-overlay hidden">
             <div class="finish-content">
-                <h2 id="finishTitle">🏆 Game Over!</h2>
+                <h2><svg class="icon" aria-hidden="true"><use href="#i-trophy"></use></svg> <span id="finishTitle">Game Over!</span></h2>
                 <div id="finishResults" class="finish-results">
                     <!-- Results will be added here -->
                 </div>
@@ -293,6 +300,7 @@
     <div id="toast-container" class="toast-container"></div>
 
     <!-- Scripts -->
+    <script src="../../../js/icons.js"></script>
     <script src="../../../js/config-loader.js"></script>
     <script src="../../../lib/qrcode.min.js"></script>
     <script src="../../../generated-web-agent-js/js/web-agent.libs.js"></script>

@@ -20,6 +20,7 @@ class GameClient {
         this.players = new Map(); // peerId -> { mesh, nameTag, interpolation }
         this.arena = null;
         this.projectiles = [];
+        this.effects = []; // short-lived ability visuals { mesh, parent, ttl, life, update }
 
         // Snapshot buffer for interpolation
         this.snapshotBuffer = [];
@@ -844,6 +845,178 @@ class GameClient {
         if (this.snapshotBuffer.length > 10) {
             this.snapshotBuffer.shift();
         }
+
+        // Ability/effect events decided by the authority — render them now
+        if (snapshot.events && snapshot.events.length > 0) {
+            snapshot.events.forEach(ev => this.playEvent(ev));
+        }
+    }
+
+    /**
+     * Render one authority-decided effect event.
+     * Clients never decide outcomes; they only draw what the host broadcast.
+     */
+    playEvent(ev) {
+        const sfx = (window.GameKit && window.GameKit.Sfx) ? window.GameKit.Sfx : null;
+
+        switch (ev.type) {
+            case 'groundSlam':
+                this.spawnShockwaveRing(ev.x, ev.y, ev.z, ev.radius || 5, 0xffaa33);
+                if (sfx) sfx.thud();
+                break;
+
+            case 'blinkDash':
+                this.spawnDashStreak(ev.x, ev.y, ev.z, ev.dirX, ev.dirZ, 0xff8fd0);
+                if (sfx) sfx.tone(600, 0.12, 'sine', 0.12, 1200);
+                break;
+
+            case 'charge':
+                this.spawnAura(ev.peerId, 0xff3322, ev.duration || 0.9);
+                if (sfx) sfx.tone(160, 0.3, 'sawtooth', 0.12, 320);
+                break;
+
+            case 'chargeHit':
+                this.spawnBurst(ev.x, ev.y, ev.z, 0xffdd44);
+                if (sfx) sfx.hit(2);
+                break;
+
+            case 'doubleJump':
+                this.spawnShockwaveRing(ev.x, ev.y - 0.6, ev.z, 1.5, 0xffffff);
+                if (sfx) sfx.tone(500, 0.1, 'triangle', 0.1, 900);
+                break;
+
+            case 'buff': {
+                const colors = {
+                    speed: 0x33ddff, power: 0xff8833,
+                    shield: 0x4466ff, heal: 0x33dd66
+                };
+                this.spawnAura(ev.peerId, colors[ev.buff] || 0x33dd66,
+                    Math.max(ev.duration, 1));
+                if (sfx) sfx.ding();
+                // Let the game layer toast the local player about their roll
+                if (ev.peerId === this.localPeerId && this.onLocalBuff) {
+                    this.onLocalBuff(ev.buff);
+                }
+                break;
+            }
+        }
+    }
+
+    /**
+     * Expanding, fading ring lying flat on the ground.
+     */
+    spawnShockwaveRing(x, y, z, radius, color) {
+        const geo = new THREE.RingGeometry(0.6, 1.0, 32);
+        const mat = new THREE.MeshBasicMaterial({
+            color, transparent: true, opacity: 0.85,
+            side: THREE.DoubleSide, depthWrite: false
+        });
+        const mesh = new THREE.Mesh(geo, mat);
+        mesh.rotation.x = -Math.PI / 2;
+        mesh.position.set(x, Math.max(y - 0.4, 0.05), z);
+        this.scene.add(mesh);
+
+        this.effects.push({
+            mesh, parent: this.scene, ttl: 0.5, life: 0.5,
+            update: (e, t) => { // t: 1 -> 0 remaining life fraction
+                const s = 1 + (1 - t) * radius;
+                e.mesh.scale.set(s, s, 1);
+                e.mesh.material.opacity = 0.85 * t;
+            }
+        });
+    }
+
+    /**
+     * Fading streak along the dash direction.
+     */
+    spawnDashStreak(x, y, z, dirX, dirZ, color) {
+        const LENGTH = 5;
+        const geo = new THREE.CylinderGeometry(0.18, 0.18, LENGTH, 8);
+        const mat = new THREE.MeshBasicMaterial({
+            color, transparent: true, opacity: 0.7, depthWrite: false
+        });
+        const mesh = new THREE.Mesh(geo, mat);
+        // Cylinder axis is Y; rotate it to lie along the dash direction
+        mesh.position.set(x + dirX * LENGTH / 2, y, z + dirZ * LENGTH / 2);
+        mesh.quaternion.setFromUnitVectors(
+            new THREE.Vector3(0, 1, 0),
+            new THREE.Vector3(dirX, 0, dirZ).normalize()
+        );
+        this.scene.add(mesh);
+
+        this.effects.push({
+            mesh, parent: this.scene, ttl: 0.35, life: 0.35,
+            update: (e, t) => { e.mesh.material.opacity = 0.7 * t; }
+        });
+    }
+
+    /**
+     * Expanding, fading impact sphere.
+     */
+    spawnBurst(x, y, z, color) {
+        const geo = new THREE.SphereGeometry(0.4, 12, 12);
+        const mat = new THREE.MeshBasicMaterial({
+            color, transparent: true, opacity: 0.9, depthWrite: false
+        });
+        const mesh = new THREE.Mesh(geo, mat);
+        mesh.position.set(x, y, z);
+        this.scene.add(mesh);
+
+        this.effects.push({
+            mesh, parent: this.scene, ttl: 0.4, life: 0.4,
+            update: (e, t) => {
+                const s = 1 + (1 - t) * 3;
+                e.mesh.scale.set(s, s, s);
+                e.mesh.material.opacity = 0.9 * t;
+            }
+        });
+    }
+
+    /**
+     * Translucent glow attached to a player for a duration
+     * (Bull's charge, Frog's buffs).
+     */
+    spawnAura(peerId, color, duration) {
+        const player = this.players.get(peerId);
+        if (!player) return;
+
+        const geo = new THREE.SphereGeometry(0.9, 16, 16);
+        const mat = new THREE.MeshBasicMaterial({
+            color, transparent: true, opacity: 0.3, depthWrite: false
+        });
+        const mesh = new THREE.Mesh(geo, mat);
+        mesh.position.y = 0.4;
+        player.mesh.add(mesh);
+
+        this.effects.push({
+            mesh, parent: player.mesh, ttl: duration, life: duration,
+            update: (e, t) => {
+                // Gentle pulse; fade out over the last quarter
+                const pulse = 1 + 0.08 * Math.sin((e.life - e.ttl) * 12);
+                e.mesh.scale.set(pulse, pulse, pulse);
+                e.mesh.material.opacity = 0.3 * Math.min(1, t * 4);
+            }
+        });
+    }
+
+    /**
+     * Advance and expire active effects (called from the render loop).
+     */
+    updateEffects(dt) {
+        if (this.effects.length === 0) return;
+
+        for (let i = this.effects.length - 1; i >= 0; i--) {
+            const e = this.effects[i];
+            e.ttl -= dt;
+            if (e.ttl <= 0) {
+                e.parent.remove(e.mesh);
+                if (e.mesh.geometry) e.mesh.geometry.dispose();
+                if (e.mesh.material) e.mesh.material.dispose();
+                this.effects.splice(i, 1);
+            } else {
+                e.update(e, e.ttl / e.life);
+            }
+        }
     }
 
     /**
@@ -977,6 +1150,9 @@ class GameClient {
         // Animate character limbs (walking animation)
         this.animateCharacters(dt);
 
+        // Advance ability effect visuals
+        this.updateEffects(dt);
+
         // Update camera
         this.updateCamera();
 
@@ -1099,6 +1275,10 @@ class GameClient {
      */
     cleanup() {
         this.stopRendering();
+
+        // Remove lingering ability effects
+        this.effects.forEach(e => e.parent.remove(e.mesh));
+        this.effects = [];
 
         // Remove players
         this.players.forEach((player, peerId) => {
