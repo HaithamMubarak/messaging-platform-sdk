@@ -176,7 +176,12 @@ class MobileControls {
 
         button.addEventListener('touchend', (e) => {
             e.preventDefault();
-            this.buttons[action] = false;
+            // Deliberately not clearing this.buttons[action] here. A tap lasts
+            // about fifty milliseconds, and getInputPacket() samples on the
+            // game's own loop — so lifting the finger used to erase the press
+            // before anything had read it, and the button did nothing at all.
+            // The press is consumed by getInputPacket(), which resets it there;
+            // clearing it here was redundant as well as lossy.
             button.classList.remove('active');
         });
     }
