@@ -1099,6 +1099,7 @@
     </style>
 
     <!-- Load configuration from backend (secure API key management) -->
+    <script src="../js/api-config.js"></script>
     <script src="../js/config-loader.js"></script>
 <script src="../js/icons.js"></script>
     <script src="../lib/qrcode.min.js"></script>
@@ -1601,9 +1602,23 @@
         }
 
         function appendMessage(name, message, isMe, timestamp, opts) {
-            const container = document.querySelector('.chat-body');
+            // Rows belong in #app-container, the .messages column. They used to
+            // be appended to .chat-body itself — the scroller around it — so
+            // they landed as siblings of the column rather than inside it, and
+            // every piece of code that reasoned about "the messages" (clearing
+            // them, counting them, the system-notice path below) was looking at
+            // an element that was always empty. Both are identical flex columns
+            // with the same gap, which is why it was never visible.
+            const container = document.getElementById('app-container')
+                || document.querySelector('.chat-body');
             if (!container) return;
-            opts = opts || {forceScroll: true};
+            // Not {forceScroll: true}. The only call site that delivers a
+            // received message passes no opts at all, so defaulting to a forced
+            // scroll meant an incoming message always yanked the reader back to
+            // the bottom and the new-messages bubble could never appear. Own
+            // messages and a reader already at the bottom still scroll, via the
+            // isMe / isScrolledToBottom test below.
+            opts = opts || {};
             const time = new Date(timestamp);
 
             // Date divider when the day changes between messages.
@@ -1651,11 +1666,13 @@
             if (isMe) row.append(col, avatar); else row.append(avatar, col);
             container.appendChild(row);
 
-            // scroll behavior: auto-scroll when the sender is "me" OR if the user is currently scrolled to the bottom.
+            // Auto-scroll when the sender is "me", or when the reader is already
+            // at the bottom. The scroller is .chat-body, not the column the row
+            // was just appended to — using the column here meant this never ran.
+            const scroller = _containerEl || container;
             const shouldForce = !!opts.forceScroll;
-            if (shouldForce || isMe || isScrolledToBottom(container)) {
-                console.log('forceScroll....');
-                container.scrollTop = container.scrollHeight;
+            if (shouldForce || isMe || isScrolledToBottom(scroller)) {
+                scroller.scrollTop = scroller.scrollHeight;
                 hideNewMessagesBubble();
             } else {
                 // user has scrolled up — show the new messages bubble and increment count
@@ -1700,10 +1717,11 @@
                 }catch(e){}
                 container.appendChild(el);
 
-                // Only auto-scroll to bottom if the user is already at the bottom; otherwise show new messages indicator
+                // Same as above: scroll the scroller, not the column.
                 try {
-                    if (isScrolledToBottom(container)) {
-                        container.scrollTop = container.scrollHeight;
+                    const scroller = _containerEl || container;
+                    if (isScrolledToBottom(scroller)) {
+                        scroller.scrollTop = scroller.scrollHeight;
                         hideNewMessagesBubble();
                     } else {
                         incrementNewMessagesCount();
@@ -1922,9 +1940,16 @@
             });
         }
 
-        // NEW: helpers for new messages bubble and scroll detection
+        // Helpers for the new-messages bubble and scroll detection.
+        //
+        // This used to read and write #app-container, which is the plain
+        // flex column holding the rows. The element that actually scrolls is
+        // .chat-body around it (overflow:auto), so every measurement came back
+        // "already at the bottom", the bubble never meaningfully appeared, and
+        // clicking it scrolled nothing.
         let __newMessagesCount = 0;
-        const _containerEl = $('app-container');
+        const _messagesEl = $('app-container');
+        const _containerEl = (_messagesEl && _messagesEl.closest('.chat-body')) || _messagesEl;
         const _bubbleEl = $('newMessagesBubble');
         const _bubbleCountEl = $('newMessagesCount');
 
@@ -2473,7 +2498,14 @@
                 };
 
                 const cfg = {
-                    api: 'https://hmdevonline.com/messaging-platform/api/v1/messaging-service',
+                    // Resolved from where the page is served rather than
+                    // hardcoded — the absolute host meant a local or
+                    // differently-mounted deployment talked to production.
+                    // ApiConfig is a top-level const, not a window property,
+                    // so it is reached by name the way the portal does it.
+                    api: (typeof ApiConfig !== 'undefined')
+                        ? ApiConfig.getMessagingServiceUrl()
+                        : 'https://hmdevonline.com/messaging-platform/api/v1/messaging-service',
                     apiKey: apiKey,
                     apiKeyScope: 'public',
                     user: agentName,
@@ -2550,8 +2582,13 @@
                 confirmLabel: 'Clear', danger: true
             }).then((yes) => {
                 if (!yes) return;
-                const container = document.querySelector('.chat-body');
-                if (container) container.innerHTML = '';
+                // Only the column of rows. This used to empty .chat-body, which
+                // also contained #app-container itself and the new-messages
+                // bubble — so clearing once left the page with nowhere to put a
+                // message, and every message after it was silently dropped.
+                const rows = document.getElementById('app-container');
+                if (rows) { rows.replaceChildren(); rows._lastDayKey = null; }
+                hideNewMessagesBubble();
                 showToast('Messages cleared', 'success');
             });
         }
