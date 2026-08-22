@@ -21,6 +21,16 @@ body > .connection-status {
     right: auto;
     top: auto;
     z-index: 400;
+    /* Thirteen apps reveal these with an inline `style.display = 'block'`,
+       which beats the `inline-flex` below. A fixed *block* with `left` set and
+       no width fills the rest of the line: on a 390px phone the Share pill
+       became a 374x189 slab at z-index 400 over the bottom of the screen,
+       swallowing Party Physics' joystick and all four action buttons. Sizing
+       to the content pins the box whatever display the app sets, without
+       fighting the show/hide those apps are doing. */
+    width: fit-content;
+    height: fit-content;
+    max-width: calc(100vw - 32px);
 }
 
 body > .share-btn {
@@ -193,4 +203,16 @@ body > .connection-status {
     /* This chip is the way out of a full-screen app. At 26px tall it was the
        smallest target on the page, and the one a lost player needs most. */
     .sdk-home-chip a { min-height: 44px; padding: 7px 14px; }
+}
+
+/* On a phone the games put a joystick bottom-left and action buttons
+   bottom-right, which is exactly where this floating chrome sits — and it
+   wins, because it is fixed at z-index 400. A thumb aiming at the joystick
+   pressed Share instead. While the on-screen controls are up, the controls are
+   what the player needs; sharing is still in the game's own control panel.
+   Scoped with :has so the pill is still there in the lobby, before the
+   controls appear. */
+body:has(#mobileControls:not(.hidden)) > .share-btn,
+body:has(#mobileControls:not(.hidden)) > .connection-status {
+    display: none !important;
 }
