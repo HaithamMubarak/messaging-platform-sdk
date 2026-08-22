@@ -87,6 +87,21 @@ class QuizQuestionManager {
      * Returns a question object with answers array and correctAnswerText
      * @param {number} index - Question index
      */
+    /**
+     * The question as it travels between players: its text and its answer set.
+     * Every client shuffles its own pool, so an index means nothing to anyone
+     * but the client that produced it — the host has to send the question.
+     */
+    getQuestionPayload(index) {
+        if (index >= this.currentQuestionPool.length) return null;
+        const q = this.currentQuestionPool[index];
+        return {
+            question: q.question,
+            answers: [q.correctAnswer, ...q.wrongAnswers],
+            correctAnswerText: q.correctAnswer
+        };
+    }
+
     getQuestionWithRandomizedAnswers(index) {
         if (index >= this.currentQuestionPool.length) {
             return null;
@@ -510,19 +525,20 @@ class QuizBattleGame extends UserConnectionBase {
         this.currentQuestion = 0;
         this.score = 0;
 
-        // Host sends first question to all players via DataChannel
-        // NOTE: Each player will get their own randomized answer order
-        const questionData = this.questionManager.getQuestionWithRandomizedAnswers(0);
+        // The host sends the question, not a pointer to it. Each client shuffles
+        // its own pool, so index 0 was a different question on every screen and
+        // players were scored against questions they had never been asked.
+        const payload = this.questionManager.getQuestionPayload(0);
 
         this.sendData({
             type: 'game-start',
             questionIndex: 0,
-            questionText: questionData.question,
+            question: payload,
             timestamp: Date.now()
         });
 
-        // Show question for host (with randomized answers)
-        this.showQuestion(0);
+        // Answer order is still per player — that part was always intended.
+        this.showQuestionFromPayload(0, payload);
     }
 
 
@@ -535,12 +551,15 @@ class QuizBattleGame extends UserConnectionBase {
         // Show toast using BaseGame method
         this.showToast('🎮 Game started by host!', 'success');
 
-        // Prepare question pool (same mix as host: 70% JSON, 30% generated)
+        if (data.question) {
+            this.showQuestionFromPayload(this.currentQuestion, data.question);
+            return;
+        }
+
+        // Older host without the question on the wire: fall back to a local pool.
         if (!this.questionManager.getTotalQuestions()) {
             this.questionManager.prepareQuestionPool(this.totalQuestions, 30);
         }
-
-        // Show first question (each player gets their own randomized answer order)
         this.showQuestion(this.currentQuestion);
     }
 
@@ -548,7 +567,10 @@ class QuizBattleGame extends UserConnectionBase {
         console.log('[QuizBattle] Next question from host:', data.questionIndex);
         this.currentQuestion = data.questionIndex;
 
-        // Show question with randomized answers (each player has different order)
+        if (data.question) {
+            this.showQuestionFromPayload(data.questionIndex, data.question);
+            return;
+        }
         this.showQuestion(data.questionIndex);
     }
 
@@ -562,6 +584,11 @@ class QuizBattleGame extends UserConnectionBase {
         // Update player score
         if (data.score !== undefined) {
             this.playerScores.set(playerName, data.score);
+        }
+
+        if (this.isHost() && this._answeredThisQuestion) {
+            this._answeredThisQuestion.add(playerName);
+            this._maybeAdvanceEarly();
         }
     }
 
@@ -617,6 +644,23 @@ class QuizBattleGame extends UserConnectionBase {
         this.displayQuestion(index, this.currentQuestionData);
     }
 
+    /**
+     * Render a question the host put on the wire. The answer order is shuffled
+     * here, per client, which is the randomisation the game actually wanted.
+     */
+    showQuestionFromPayload(index, payload) {
+        if (!payload || !payload.answers) {
+            console.error('[QuizBattle] question payload missing at index', index);
+            return;
+        }
+        this.currentQuestionData = {
+            question: payload.question,
+            answers: this.questionManager.shuffleArray([...payload.answers]),
+            correctAnswerText: payload.correctAnswerText
+        };
+        this.displayQuestion(index, this.currentQuestionData);
+    }
+
     displayQuestion(index, questionData) {
         const container = document.getElementById('quizContainer');
 
@@ -646,6 +690,28 @@ class QuizBattleGame extends UserConnectionBase {
 
         // Start timer
         this.startTimer();
+
+        // The host advances the room, so it needs a deadline that does not
+        // depend on when it personally answers — otherwise a fast host cuts
+        // everyone else off mid-question.
+        if (this.isHost()) {
+            this._answeredThisQuestion = new Set();
+            clearTimeout(this._advanceTimer);
+            this._advanceTimer = setTimeout(() => this.nextQuestion(), (10 + 2) * 1000);
+        }
+    }
+
+    /**
+     * Host only: everyone has answered, so there is nothing left to wait for.
+     */
+    _maybeAdvanceEarly() {
+        if (!this.isHost() || !this.gameStarted) return;
+        const expected = new Set([this.username, ...this.getConnectedUsers()]);
+        for (const name of expected) {
+            if (!this._answeredThisQuestion.has(name)) return;
+        }
+        clearTimeout(this._advanceTimer);
+        this._advanceTimer = setTimeout(() => this.nextQuestion(), 2000);
     }
 
     startTimer() {
@@ -721,10 +787,12 @@ class QuizBattleGame extends UserConnectionBase {
             timestamp: Date.now()
         });
 
-        // Move to next question after delay
-        setTimeout(() => {
-            this.nextQuestion();
-        }, 2000);
+        // Only the host moves the room on. Every client used to advance its own
+        // index on its own timer, so players drifted onto different questions.
+        if (this.isHost()) {
+            this._answeredThisQuestion.add(this.username);
+            this._maybeAdvanceEarly();
+        }
     }
 
     showAnswerFeedback(selectedIndex, correct) {
@@ -796,6 +864,8 @@ class QuizBattleGame extends UserConnectionBase {
     }
 
     nextQuestion() {
+        clearTimeout(this._advanceTimer);
+        this._advanceTimer = null;
         this.currentQuestion++;
 
         if (this.currentQuestion >= this.totalQuestions) {
@@ -803,23 +873,25 @@ class QuizBattleGame extends UserConnectionBase {
             return;
         }
 
-        // Host broadcasts next question (only sends questionText, each player gets their own randomized answers)
+        // Host broadcasts the question itself; answer order stays per player.
+        const payload = this.questionManager.getQuestionPayload(this.currentQuestion);
         if (this.isHost()) {
-            const questionData = this.questionManager.getQuestionWithRandomizedAnswers(this.currentQuestion);
             this.sendData({
                 type: 'next-question',
                 questionIndex: this.currentQuestion,
-                questionText: questionData.question,
+                question: payload,
                 timestamp: Date.now()
             });
         }
 
-        this.showQuestion(this.currentQuestion);
+        this.showQuestionFromPayload(this.currentQuestion, payload);
     }
 
     endGame() {
         console.log('[QuizBattle] Game ended');
         this.gameStarted = false;
+        clearTimeout(this._advanceTimer);
+        this._advanceTimer = null;
 
         // Add own score to playerScores
         this.playerScores.set(this.username, this.score);
