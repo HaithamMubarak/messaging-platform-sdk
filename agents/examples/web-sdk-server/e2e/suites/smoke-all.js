@@ -57,16 +57,40 @@ async function join(b, url, name, room) {
       a = await join(b, ROOT + path, 'Alpha', room);
       c = await join(b, ROOT + path, 'Beta', room);
       await a.bringToFront(); await a.waitForTimeout(5000);
+      // Ask the app's own roster where there is one, and fall back to the page
+      // text. Two apps do not print peer names and used to look broken here:
+      // chess seats nobody until a colour is chosen, and pulse is deliberately
+      // anonymous — it shows "2 in the room" and no names at all.
+      const roster = (p) => p.evaluate(() => {
+        for (const k of Object.keys(window)) {
+          const g = window[k];
+          if (g && typeof g === 'object' && typeof g.getConnectedUsers === 'function') {
+            try { return g.getConnectedUsers(); } catch (e) {}
+          }
+        }
+        return null;
+      });
+      const ra = await roster(a), rc = await roster(c);
+      const bothSee = (r, other) => Array.isArray(r)
+        ? r.length >= 2
+        : new RegExp(other).test('');
       const sees = await a.evaluate(() => {
         const t = document.body.innerText;
-        return { peer: /Beta/.test(t), self: /Alpha/.test(t),
+        return { peer: /Beta/.test(t) || /\b2\b[^\n]{0,20}(in the room|Players|Agents)/i.test(t),
+                 self: /Alpha/.test(t),
                  connected: /connect(ed)?/i.test(t) && !/disconnected/i.test(t.slice(0, 400)) };
       });
-      const seesBack = await c.evaluate(() => /Alpha/.test(document.body.innerText));
+      const seesBack = await c.evaluate(() => {
+        const t = document.body.innerText;
+        return /Alpha/.test(t) || /\b2\b[^\n]{0,20}(in the room|Players|Agents)/i.test(t);
+      });
+      if (Array.isArray(ra)) sees.peer = ra.length >= 2;
+      const backOk = Array.isArray(rc) ? rc.length >= 2 : seesBack;
+      void bothSee;
       const errs = [...new Set([...a.errs, ...c.errs])];
       const threw = errs.filter(e => e.startsWith('THREW'));
-      verdict = (sees.peer && seesBack) ? (threw.length ? 'ROSTER ok, THREW' : 'ok')
-              : (sees.peer || seesBack) ? 'ONE-WAY roster' : 'NO PEER VISIBLE';
+      verdict = (sees.peer && backOk) ? (threw.length ? 'ROSTER ok, THREW' : 'ok')
+              : (sees.peer || backOk) ? 'ONE-WAY roster' : 'NO PEER VISIBLE';
       detail = errs.slice(0, 2).join(' | ');
       await a.screenshot({ path: `${SHOTS}/smoke-${name}.png` });
     } catch (e) {
@@ -78,6 +102,10 @@ async function join(b, url, name, room) {
   }
   console.log('\n=== summary ===');
   rows.forEach(r => { if (r[1] !== 'ok') console.log('  ! ' + r[0] + ': ' + r[1] + '  ' + r[2]); });
-  console.log('ok: ' + rows.filter(r => r[1] === 'ok').length + '/' + rows.length);
+  const good = rows.filter(r => r[1] === 'ok').length;
+  console.log(good === rows.length
+    ? 'all ' + rows.length + ' apps connect and see each other'
+    : good + ' of ' + rows.length + ' apps connect and see each other');
+  process.exitCode = good === rows.length ? 0 : 1;
   await b.close();
 })();
