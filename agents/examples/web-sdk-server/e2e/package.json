@@ -1,0 +1,13 @@
+{
+  "name": "web-sdk-server-e2e",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Browser suites for the web SDK site: every app driven with real clients.",
+  "scripts": {
+    "test": "node run-all.js",
+    "install-browser": "playwright install chromium"
+  },
+  "devDependencies": {
+    "playwright": "^1.44.0"
+  }
+}

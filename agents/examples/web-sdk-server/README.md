@@ -406,32 +406,55 @@ WantedBy=multi-user.target
 
 ## 🧪 Testing
 
-### Test locally
+### The JVM tests
 
 ```bash
-# Ensure messaging service is running at http://localhost:8080
+# from the SDK root, not this directory: inside here Gradle treats this module
+# as its own root project and :messaging-common cannot resolve
+./gradlew :agents:examples:web-sdk-server:test --rerun-tasks
+```
 
-# Start mini-games-server
-cd mini-games-server
-MESSAGING_API_KEY=test-key ./gradlew bootRun
+`StaticSiteTest` guards the things that rot quietly as pages come and go:
+social meta on shareable pages, one description per page, `noindex` on operator
+surfaces, manifest and sitemap entries pointing at files that exist, and
+internal links resolving. Note that `bootJar` does **not** run these — build
+the jar and you learn nothing about them.
 
-# Open browser
-open http://localhost:8090
+### The browser suites
+
+`e2e/` drives the site with real Chromium and two or three clients in the same
+room, which is where almost every real defect here has been found. See
+[e2e/README.md](e2e/README.md).
+
+```bash
+cd e2e && npm install && npm run install-browser
+npm test                          # everything, one summary table
+xvfb-run -a node suites/chat-test.js   # just one, while fixing it
+```
+
+They need the site running and a virtual display — headless Chromium cannot
+create a WebGL context, and several apps here are 3D.
+
+### Run it locally
+
+```bash
+# from the SDK root
+./gradlew :agents:examples:web-sdk-server:bootRun
+
+# or the container the suites default to, from messaging-platform-services/docker
+docker compose build web-sdk-service && docker compose up -d web-sdk-service
 ```
 
 ### Test endpoints
 
 ```bash
 # Health check
-curl http://localhost:8090/api/health
+curl http://localhost:8084/app/api/health
 
 # Get API config
-curl -X POST http://localhost:8090/api/config \
+curl -X POST http://localhost:8084/app/api/config \
   -H "Content-Type: application/json" \
   -d '{"ttlSeconds": 3600}'
-
-# List games
-curl http://localhost:8090/api/games
 ```
 
 ---
