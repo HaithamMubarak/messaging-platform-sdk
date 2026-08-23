@@ -40,8 +40,10 @@ class StaticSiteTest {
             "apps/pictionary/index.html",
             "apps/chess/index.html",
             "apps/whiteboard/index.html",
-            "apps/chat.html",
-            "apps/quickshare/quickshare.html");
+            "apps/chat.html");
+    // apps/quickshare/quickshare.html is deliberately absent: QuickShare was
+    // retired to a noindex redirect at Drop, and a redirect has nothing to
+    // unfurl.
 
     /** Pages that must never be indexed, whether or not robots.txt is fetched. */
     private static final List<String> PRIVATE_PAGES = List.of(
@@ -50,11 +52,11 @@ class StaticSiteTest {
             "developer/index.html",
             "developer/dashboard.html",
             "developer/change-password.html",
-            "stress-test.html",
-            "apps/test-api-key/index.html",
-            // Built, but deliberately not published on this site.
-            "apps/mini-games/party-physics/index.html",
-            "apps/mini-games/race-balls/index.html");
+            "apps/test-api-key/index.html");
+    // stress-test.html was retired, so there is no page left to keep private.
+    // Party Physics and Race Balls used to sit here as "built but not
+    // published" — both are finished now, carry cards in the playground and
+    // are listed in the sitemap, so they are public pages like any other game.
 
     private String read(String relative) throws IOException {
         Path path = STATIC.resolve(relative);
@@ -191,6 +193,11 @@ class StaticSiteTest {
                     Path target = path.startsWith("/")
                             ? STATIC.resolve(path.substring(1))
                             : page.getParent().resolve(path);
+                    // A link that climbs out of this tree points at something
+                    // hosted beside us, not at a file we ship — the playground's
+                    // CoShell card is one, resolving within /messaging-platform/.
+                    // Whether that exists is not this build's business.
+                    if (!target.normalize().startsWith(STATIC)) continue;
                     if (!Files.exists(target.normalize())) {
                         broken.add(STATIC.relativize(page) + " -> " + href);
                     }
