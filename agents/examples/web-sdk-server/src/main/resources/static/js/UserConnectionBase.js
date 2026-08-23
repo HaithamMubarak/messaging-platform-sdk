@@ -45,6 +45,15 @@ class UserConnectionBase {
             },
             enableHostIndicator: true,           // Show host indicator in UI (subclass must implement updateHostIndicator)
 
+            // Noticing a peer that vanished without a disconnect. See
+            // _startRosterReconcile: a crashed tab sends no beacon, and a
+            // server-side session expiry publishes no event.
+            rosterReconcile: true,
+            // Detection cannot beat the server's own idle TTL
+            // (messaging.cache.session-ttl-seconds, 180s), so polling faster
+            // than this buys nothing and costs one request per client per tick.
+            rosterReconcileIntervalMs: 45000,
+
             // Coming back after the connection drops. See _beginReconnect.
             autoReconnect: true,
             reconnectMaxAttempts: 8,
@@ -292,6 +301,7 @@ class UserConnectionBase {
 
             // Setup automatic cleanup on page unload
             this._setupCleanupOnUnload();
+            this._startRosterReconcile();
         } catch (error) {
             // Reset connecting flag on error
             this.connecting = false;
@@ -378,6 +388,7 @@ class UserConnectionBase {
      */
     disconnect() {
         this.stop();
+        this._stopRosterReconcile();
 
         // Leaving on purpose. Everything below this line exists to tell the
         // difference between that and the floor giving way.
@@ -1152,6 +1163,107 @@ class UserConnectionBase {
             const candidateText = candidate && candidate.candidate ? candidate.candidate : JSON.stringify(candidate);
             console.log('[GameBase] 🧊 ICE candidate generated (stream=' + streamId + ') ' + candidateText);
         });
+    }
+
+    /* ====================================================================
+     * Noticing somebody who left without saying so
+     * ==================================================================== */
+
+    /**
+     * The roster is fetched once on connect and then kept up to date purely
+     * from connect/disconnect events. A leaving tab announces itself with a
+     * pagehide beacon — but a crash, a killed process or a dead battery sends
+     * nothing, and a session that simply expires server-side publishes no
+     * event either. Every remaining client then keeps that agent for ever.
+     *
+     * It matters most for the host: host election only re-runs when somebody
+     * is seen to leave, and every host-only action is gated on isHost(), so a
+     * host that vanishes leaves a room nobody can host.
+     *
+     * So ask the server who is actually here, now and then, and treat anyone
+     * who has gone as having left — through the same path a clean departure
+     * takes, which is what makes election re-run.
+     *
+     * @private
+     */
+    _startRosterReconcile() {
+        if (!this.options.rosterReconcile) return;
+        this._stopRosterReconcile();
+        this._rosterMisses = new Map();
+        this._rosterTimer = setInterval(() => this._reconcileRoster(),
+            this.options.rosterReconcileIntervalMs);
+    }
+
+    /** @private */
+    _stopRosterReconcile() {
+        clearInterval(this._rosterTimer);
+        this._rosterTimer = null;
+        if (this._rosterMisses) this._rosterMisses.clear();
+    }
+
+    /**
+     * One pass. Deliberately cautious: a peer has to be missing from two
+     * consecutive answers before it is dropped, because a single truncated or
+     * failed response must never be able to empty a room that is fine.
+     *
+     * @private
+     */
+    _reconcileRoster() {
+        if (!this.connected || this.reconnecting || this._userDisconnected) return;
+        if (!this.channel || typeof this.channel.getActiveAgents !== 'function') return;
+
+        let live;
+        try {
+            live = this.channel.getActiveAgents((res) => {
+                if (!res || res.status !== 'success' || !Array.isArray(res.data)) return;
+
+                const here = new Set(res.data.map(a =>
+                    (a && typeof a === 'object') ? (a.name || a.agentName) : a).filter(Boolean));
+                // An answer that does not contain us is not an answer about us.
+                if (!here.has(this.username)) return;
+
+                const known = this.getConnectedUsers() || [];
+                for (const name of known) {
+                    if (name === this.username) continue;
+                    if (here.has(name)) { this._rosterMisses.delete(name); continue; }
+
+                    const misses = (this._rosterMisses.get(name) || 0) + 1;
+                    this._rosterMisses.set(name, misses);
+                    if (misses < 2) continue;
+
+                    console.log('[UserConnectionBase] ' + name +
+                        ' is gone without a disconnect — dropping after ' + misses + ' checks');
+                    this._rosterMisses.delete(name);
+                    this._dropVanishedAgent(name);
+                }
+            });
+        } catch (e) {
+            // Not ready, or the channel went away underneath us. Try again later.
+        }
+        void live;
+    }
+
+    /**
+     * Take an agent out of the roster and run the same departure path a clean
+     * disconnect would, so host election re-runs and apps hear onUserLeave.
+     *
+     * @private
+     */
+    _dropVanishedAgent(agentName) {
+        try {
+            const map = this.channel && this.channel._connectedAgentsMap;
+            if (map && map[agentName]) {
+                delete map[agentName];
+                if (typeof this.channel._updateAgents === 'function') this.channel._updateAgents();
+            }
+            this._syncAgentsBadge();
+            if (typeof this.onUserLeave === 'function') {
+                this.onUserLeave({ agentName: agentName, reason: 'vanished' });
+            }
+            this._checkHostChange();
+        } catch (e) {
+            console.warn('[UserConnectionBase] could not drop ' + agentName, e);
+        }
     }
 
     /**

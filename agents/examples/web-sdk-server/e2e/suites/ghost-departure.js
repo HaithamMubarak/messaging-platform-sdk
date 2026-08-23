@@ -56,8 +56,11 @@ async function join(b, name, room) {
     const promoted = await alive.evaluate(() => window.reactorGame.isHost());
 
     if (dropped !== null) {
-        console.log('the room dropped the vanished client after ' + dropped + ' min — '
-            + 'a presence timeout exists now; update this probe and migration-test.js');
+        console.log('the room dropped the vanished client after ' + dropped
+            + ' min, survivor isHost = ' + promoted);
+        console.log(promoted
+            ? 'host election re-ran, so the room is usable again'
+            : 'WARNING: dropped but nobody was promoted — the room still has no host');
     } else {
         console.log('KNOWN GAP: still in the roster after ' + MINUTES + ' min, survivor isHost = '
             + promoted + '.\nA client that dies without sending its beacon is never dropped, so a '
