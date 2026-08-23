@@ -571,7 +571,7 @@
             <!-- Agent 1 -->
             <div class="agent-card">
                 <div class="agent-header">
-                    <h3>🔵 Agent 1 (Alice)</h3>
+                    <h3><svg class="icon icon--sm" aria-hidden="true"><use href="#i-users"></use></svg> Agent 1 (Alice)</h3>
                     <span class="status-badge status-disconnected" id="agent1Status">
                         <span class="dot">●</span> Disconnected
                     </span>
@@ -602,7 +602,7 @@
             <!-- Agent 2 -->
             <div class="agent-card">
                 <div class="agent-header">
-                    <h3>🟢 Agent 2 (Bob)</h3>
+                    <h3><svg class="icon icon--sm" aria-hidden="true"><use href="#i-users"></use></svg> Agent 2 (Bob)</h3>
                     <span class="status-badge status-disconnected" id="agent2Status">
                         <span class="dot">●</span> Disconnected
                     </span>
@@ -633,7 +633,7 @@
 
         <!-- Results Banner -->
         <div class="results-banner" id="resultsBanner">
-            <span class="icon" id="resultsIcon">✅</span>
+            <span class="icon-slot" id="resultsIcon"><svg class="icon" aria-hidden="true"><use href="#i-check-circle"></use></svg></span>
             <div class="message">
                 <h4 id="resultsTitle">API Key Working!</h4>
                 <p id="resultsText">Both agents connected and can exchange messages successfully.</p>
@@ -648,21 +648,21 @@
                 <li>Click <strong>"Connect Both Agents"</strong> to establish connections</li>
                 <li>Once connected, click <strong>"Send Message"</strong> from either agent</li>
                 <li>Watch the message appear in the other agent's log</li>
-                <li>If messages are exchanged successfully, your API key is working! ✅</li>
+                <li>If messages are exchanged successfully, your API key is working.</li>
             </ol>
             <p style="margin-top: 16px; color: var(--text-faint); font-size: 13px;">
                 <strong>Tip:</strong> Both agents join a fresh test channel named <code>api-key-test-&lt;random&gt;</code>
                 (a new one on every page load) with password <code>test123</code>. This is for testing purposes only.
             </p>
             <p style="margin-top: 12px; color: var(--text-faint); font-size: 13px;">
-                ⚡ <strong>Ephemeral Messages:</strong> By default, messages are sent as ephemeral (not stored in DB).
+                <svg class="icon icon--sm" aria-hidden="true"><use href="#i-zap"></use></svg> <strong>Ephemeral Messages:</strong> By default, messages are sent as ephemeral (not stored in DB).
                 Uncheck the checkbox to send regular messages that are stored.
             </p>
         </section>
 
         <!-- Code Reference Section -->
         <section class="code-section">
-            <h2>💻 Code Reference - How This Works</h2>
+            <h2><svg class="icon icon--sm" aria-hidden="true"><use href="#i-code"></use></svg> Code Reference - How This Works</h2>
             <p style="text-align: center; color: var(--text-muted); margin-bottom: 24px; font-size: 14px;">
                 Below is the actual source code used in this page. Copy and adapt for your own projects.
             </p>
@@ -919,7 +919,10 @@ testMessaging().catch(console.error);</code></pre>
             const textEl = document.getElementById('resultsText');
 
             banner.className = `results-banner ${success ? 'success' : 'error'}`;
-            icon.textContent = success ? '✅' : '❌';
+            // Swap the symbol rather than overwrite the node: assigning
+            // textContent here would delete the icon and leave nothing.
+            const iconUse = icon.querySelector('use');
+            if (iconUse) iconUse.setAttribute('href', success ? '#i-check-circle' : '#i-alert-circle');
             titleEl.textContent = title;
             textEl.textContent = text;
         }
