@@ -360,6 +360,12 @@
                     if (d.hand && !was.hand) this.note(d.by + ' raised their hand', 'hand');
                     if (!d.hand && was.hand) this.note(d.by + ' lowered their hand', 'hand');
                     (d.pubs || []).forEach(this._label, this);
+                    // The announce is the whole truth about what they are
+                    // sending, so anything of theirs still waiting for a label
+                    // is not coming — an offer that was superseded, or media
+                    // whose label was lost while the stream itself was not.
+                    // Without this it waits for the rest of the call.
+                    if (Array.isArray(d.pubs)) this._reapParked(d.by, d.pubs);
                     this._sync();
                     break;
                 }
@@ -574,6 +580,26 @@
             if (this.kindOf.get(pub.stream) === pub.kind) return;
             this.kindOf.set(pub.stream, pub.kind);
             this._claimParked(pub.stream);
+        }
+
+        /**
+         * Drop media parked in the hope of a label that will never come.
+         *
+         * @param {string} from  the peer who just described everything they send
+         * @param {Array}  pubs  every stream they still claim
+         */
+        _reapParked(from, pubs) {
+            var claimed = {};
+            pubs.forEach(function (p) { if (p && p.stream) claimed[p.stream] = true; });
+            var self = this, stale = [];
+            this.parked.forEach(function (rec, streamId) {
+                if (rec && rec.from === from && !claimed[streamId]) stale.push(streamId);
+            });
+            stale.forEach(function (streamId) {
+                self.parked.delete(streamId);
+                self._close(streamId);
+                console.log('[Rooms] dropped unclaimed media ' + streamId + ' from ' + from);
+            });
         }
 
         _claimParked(streamId) {
