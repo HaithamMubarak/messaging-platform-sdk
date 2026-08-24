@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
     <title>Whiteboard — one sheet of paper, everybody drawing at once</title>
 
-    <meta name="description" content="A shared 1920×1080 board with a pen, five shapes, text and sticky notes. Every stroke reaches the room as your hand moves it — 36 bytes a segment — and the host quietly saves the board so it is still there tomorrow.">
+    <meta name="description" content="A shared 1920×1080 board with a pen, five shapes, text and sticky notes. Every stroke reaches the room as your hand moves it, and the board is saved as what it is made of — so tomorrow the notes are still notes and your own undo still works.">
     <meta name="theme-color" content="#0b1120">
     <link rel="canonical" href="https://hmdevonline.com/messaging-platform/sdk/apps/whiteboard/index.html">
 
@@ -159,10 +159,12 @@
                     <div class="ap-try__row">
                         <span class="ap-try__what">Shapes <span class="ap-key">L</span> <span class="ap-key">A</span> <span class="ap-key">R</span> <span class="ap-key">O</span> <span class="ap-key">G</span></span>
                         <p class="ap-try__how">Line, arrow, rectangle, ellipse and diamond. Drag one out and it previews on
-                            its own layer until you let go; hold <span class="ap-key">Shift</span> for a straight line, a
-                            square or a circle.</p>
+                            its own layer until you let go — and the room watches it happen, dashed and faint, rather than
+                            waiting for a rectangle to appear from nowhere. Hold <span class="ap-key">Shift</span> for a
+                            straight line, a square or a circle.</p>
                         <p class="ap-try__note">Shapes are made of ordinary segments, which is why they sync, save, export
-                            and undo on exactly the same machinery as the pen.</p>
+                            and undo on exactly the same machinery as the pen — but they arrive as the corners you drew,
+                            not smoothed into curves the way freehand is.</p>
                     </div>
                     <div class="ap-try__row">
                         <span class="ap-try__what">Text <span class="ap-key">T</span></span>
@@ -243,7 +245,8 @@
                 <p><span class="ap-key">Ctrl</span>+<span class="ap-key">Z</span> takes back the last thing you
                    did, whether that was a stroke, a shape, a note, an import or a clear, and everyone else's
                    board follows. <span class="ap-key">Ctrl</span>+<span class="ap-key">Shift</span>+<span class="ap-key">Z</span>
-                   puts it back. Fifty steps of history.</p>
+                   puts it back. Fifty steps of history — and only ever your own: every stroke carries the action
+                   and the person that made it, so undo takes back what you drew even if somebody has drawn since.</p>
             </div>
 
             <div class="ap-note">
@@ -278,7 +281,9 @@
                     <span class="ap-steps__k">On the way in</span>
                     <h3 style="margin:0; font-size: var(--fs-base)">Anyone arriving gets it back</h3>
                     <figcaption>Join the same room name with the same password — tomorrow, or from a phone — and the
-                        saved board loads before you can draw on it.</figcaption>
+                        saved board loads before you can draw on it. It comes back as what it is made of rather than a
+                        picture of it: notes are still notes you can read, ink still knows who drew it, and your own
+                        history comes back with it, so you can take back something you drew yesterday.</figcaption>
                 </figure>
                 <figure>
                     <span class="ap-steps__k">On the way out</span>
