@@ -1030,18 +1030,62 @@
         _self._stopHeartbeat();
         _self._lastPongAt = Date.now();
 
+        _self._heartbeatRanAt = Date.now();
+
         _self._wsHeartbeatTimer = setInterval(function() {
             if (!_self._websocket || _self._websocket.readyState !== WebSocket.OPEN) return;
 
-            const silence = Date.now() - _self._lastPongAt;
+            // A timer that did not run is not evidence that the network died.
+            //
+            // This interval is the only thing measuring the silence, so when
+            // the main thread is blocked — a game building its world, a tab
+            // frozen in the background, a laptop lid closed and reopened — it
+            // stops firing, the pong it was waiting for is never processed, and
+            // on the next tick the whole stall is counted as silence. The
+            // socket is then declared dead and torn down, taking any WebRTC
+            // negotiation in flight with it, while the network was fine
+            // throughout.
+            //
+            // So ask first whether *we* were the ones missing. If this tick is
+            // late by more than a period, the gap was ours: forgive the
+            // silence, let the ping below prove the socket either way, and
+            // decide on the next tick with an honest measurement.
+            const now = Date.now();
+            const lateBy = now - (_self._heartbeatRanAt || now) - _self._wsHeartbeatMs;
+            _self._heartbeatRanAt = now;
+
+            const silence = now - _self._lastPongAt;
             if (silence > _self._wsHeartbeatGraceMs) {
+                // Give it one more period before pronouncing. A long stall does
+                // not arrive as one late tick — a game building its world blocks
+                // in bursts, so each tick looks only a second or two late while
+                // the silence between them adds up to the whole grace period.
+                // Measuring lateness per tick cannot see that; asking again can.
+                //
+                // So on the first suspicion, send a ping and wait one more
+                // round. If the socket is really gone the next tick finds the
+                // same silence and says so; if we were merely blocked, the
+                // answer lands in between and clears it. The cost of being
+                // wrong here is tearing down a live connection and any WebRTC
+                // negotiation riding on it, so it is worth one more period.
+                if (!_self._deathSuspectedAt) {
+                    _self._deathSuspectedAt = now;
+                    console.warn('[WebSocket] No answer for ' + silence + 'ms (late by ' +
+                        Math.max(0, lateBy) + 'ms) — asking once more before giving up');
+                    try {
+                        _self._websocket.send(JSON.stringify({ action: 'ping', sessionId: _self.sessionId }));
+                    } catch (e) { /* the next tick will judge it */ }
+                    return;
+                }
                 // Closing it is not enough to be told about it: a close
                 // handshake on a network that is no longer there never
                 // completes, so onclose may never fire. This declares it.
                 console.warn('[WebSocket] No answer for ' + silence + 'ms — the socket is open but dead');
+                _self._deathSuspectedAt = null;
                 _self._socketGone('heartbeat timeout');
                 return;
             }
+            _self._deathSuspectedAt = null;
 
             try {
                 _self._websocket.send(JSON.stringify({
