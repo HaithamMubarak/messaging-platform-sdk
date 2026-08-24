@@ -31,7 +31,7 @@ async function join(b, url, name, room) {
   p.on('console', m => { if (m.type() === 'error') errs.push(m.text().slice(0, 90)); });
   p.errs = errs; p.ctx = ctx;
   await p.goto(url, { waitUntil: 'domcontentloaded', timeout: 30000 });
-  await p.waitForSelector('#usernameInput, #agentName, #playerName', { timeout: 25000 });
+  await p.waitForSelector('#usernameInput, #agentName, #playerName', { timeout: 90000 });
   const fill = async (sels, val) => {
     for (const s of sels) { const el = await p.$(s); if (el) { await el.fill(val); return s; } }
     return null;
@@ -41,7 +41,16 @@ async function join(b, url, name, room) {
   await fill(['#passwordInput', '#channelPassword', '#roomPassword'], 'pw12345');
   const btn = await p.$('#connectBtn, #start, #joinBtn');
   if (!btn) throw new Error('no connect button');
-  await btn.click();
+  // Some games block the main thread hard while they build a world — Fall Guys
+  // for about seventeen seconds — so a click can sit unanswered far longer than
+  // the default. That is worth knowing about (see the note in the README) but
+  // it is not what this sweep is measuring.
+  try {
+    await btn.click({ timeout: 90000 });
+  } catch (e) {
+    await p.waitForTimeout(2000);
+    await btn.click({ timeout: 60000 });
+  }
   await p.waitForTimeout(12000);
   return p;
 }
