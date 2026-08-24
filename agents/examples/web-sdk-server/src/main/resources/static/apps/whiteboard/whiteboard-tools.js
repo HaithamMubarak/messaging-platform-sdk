@@ -28,6 +28,8 @@
     var NOTE_W = 260, NOTE_H = 190;      // a sticky note, in board units
 
     var preview = null;                  // the overlay canvas
+    var remote = null;                   // peer name -> the shape they are dragging
+    var lastShared = 0;
     var pctx = null;
     var drag = null;                     // { x0, y0, x1, y1 }
     var editor = null;                   // the live text box
@@ -50,7 +52,25 @@
         preview.style.height = canvas.style.height || (canvas.height + 'px');
         canvas.parentNode.appendChild(preview);
         pctx = preview.getContext('2d');
+        align();
         return preview;
+    }
+
+    /**
+     * Sit the preview exactly on top of the board.
+     *
+     * The board is zoomed and panned with a CSS transform. This layer was
+     * left untransformed, so while a shape was being dragged it was drawn at
+     * a different scale and offset from the board underneath — the shape
+     * appeared away from the pointer and then jumped into place on release.
+     * The magic-pen canvas is kept in step the same way.
+     */
+    function align() {
+        if (!preview || typeof canvas === 'undefined' || !canvas) return;
+        preview.style.transform = canvas.style.transform || '';
+        preview.style.transformOrigin = canvas.style.transformOrigin || 'center center';
+        preview.style.left = canvas.offsetLeft + 'px';
+        preview.style.top = canvas.offsetTop + 'px';
     }
 
     function clearPreview() {
@@ -123,6 +143,7 @@
     /* -------------------------------------------------------------- the drag */
 
     function begin(pos, e) {
+        if (typeof beginAction === 'function') beginAction();
         if (isShape(currentTool)) {
             layer();
             drag = { x0: pos.x, y0: pos.y, x1: pos.x, y1: pos.y };
@@ -138,29 +159,96 @@
         var s = snap(drag.x0, drag.y0, pos.x, pos.y, currentTool, e && e.shiftKey);
         drag.x1 = s.x1;
         drag.y1 = s.y1;
-        clearPreview();
-        if (!pctx) return true;
-        pctx.save();
-        pctx.strokeStyle = currentColor;
-        pctx.lineWidth = currentSize;
-        pctx.lineCap = 'round';
-        pctx.lineJoin = 'round';
-        segments(currentTool, drag.x0, drag.y0, drag.x1, drag.y1, currentColor, currentSize)
-            .forEach(function (g) {
-                pctx.beginPath();
-                pctx.moveTo(g.x1, g.y1);
-                pctx.lineTo(g.x2, g.y2);
-                pctx.stroke();
-            });
-        pctx.restore();
+        // One painter for both, so a peer's in-progress shape is not wiped by
+        // the next frame of your own drag.
+        paintRemote();
+        share(drag.x0, drag.y0, drag.x1, drag.y1);
         return true;
+    }
+
+    /**
+     * Let the room watch a shape being drawn.
+     *
+     * A shape commits whole, so until the mouse comes up nobody else saw
+     * anything at all — the board looked idle and then a rectangle appeared.
+     * This sends the two corners as they move, which is cheap enough to send
+     * on every frame and is all a peer needs to draw the same outline.
+     *
+     * It rides the data channel and is never recorded: a preview is a thing
+     * that is happening, not a thing that happened, so it touches neither the
+     * board state nor anybody's history.
+     */
+    function share(x0, y0, x1, y1) {
+        if (typeof connected === 'undefined' || !connected) return;
+        if (typeof webrtcHelper === 'undefined' || !webrtcHelper) return;
+        var now = Date.now();
+        if (x1 !== null && now - lastShared < 40) return;      // ~25 a second
+        lastShared = now;
+        try {
+            webrtcHelper.broadcastDataChannel({
+                type: 'shape-preview',
+                tool: currentTool,
+                x0: x0, y0: y0, x1: x1, y1: y1,
+                color: currentColor, size: currentSize,
+                by: typeof username !== 'undefined' ? username : 'someone'
+            });
+        } catch (err) { /* a preview is not worth an error */ }
+    }
+
+    /** Draw somebody else's in-progress shape, or clear it when they finish. */
+    function showRemote(msg) {
+        if (!msg) return;
+        if (!remote) remote = new Map();
+        if (msg.x1 === null || msg.x1 === undefined) remote.delete(msg.by);
+        else remote.set(msg.by, msg);
+        paintRemote();
+    }
+
+    function paintRemote() {
+        if (!layer() || !pctx) return;
+        clearPreview();
+        // The local drag, if any, is drawn on top of everybody else's.
+        if (remote) {
+            remote.forEach(function (m) {
+                pctx.save();
+                pctx.strokeStyle = m.color || '#888';
+                pctx.lineWidth = m.size || 3;
+                pctx.globalAlpha = 0.55;          // it has not happened yet
+                pctx.setLineDash([8, 6]);
+                pctx.lineCap = 'round';
+                pctx.lineJoin = 'round';
+                segments(m.tool, m.x0, m.y0, m.x1, m.y1, m.color, m.size).forEach(function (g) {
+                    pctx.beginPath();
+                    pctx.moveTo(g.x1, g.y1);
+                    pctx.lineTo(g.x2, g.y2);
+                    pctx.stroke();
+                });
+                pctx.restore();
+            });
+        }
+        if (drag) {
+            pctx.save();
+            pctx.strokeStyle = currentColor;
+            pctx.lineWidth = currentSize;
+            pctx.lineCap = 'round';
+            pctx.lineJoin = 'round';
+            segments(currentTool, drag.x0, drag.y0, drag.x1, drag.y1, currentColor, currentSize)
+                .forEach(function (g) {
+                    pctx.beginPath();
+                    pctx.moveTo(g.x1, g.y1);
+                    pctx.lineTo(g.x2, g.y2);
+                    pctx.stroke();
+                });
+            pctx.restore();
+        }
     }
 
     function end() {
         if (!drag) return false;
         var d = drag;
         drag = null;
-        clearPreview();
+        share(d.x0, d.y0, null, null);   // tell the room the drag is over
+        paintRemote();                   // others may still be mid-shape
         // A click that never moved is a slip of the hand, not a shape.
         if (Math.hypot(d.x1 - d.x0, d.y1 - d.y0) < 4) return true;
         commit(segments(currentTool, d.x0, d.y0, d.x1, d.y1, currentColor, currentSize));
@@ -281,6 +369,7 @@
         // One shape is one undo step.
         if (typeof captureHistorySnapshot === 'function') captureHistorySnapshot();
         if (typeof recordDrawActivity === 'function') recordDrawActivity();
+        if (typeof endAction === 'function') endAction();
     }
 
     /* ------------------------------------------------------- drawing the text */
@@ -367,6 +456,8 @@
         closeEditor: closeEditor,
         paint: paint,
         resize: resize,
+        align: align,
+        showRemote: showRemote,
         SHAPES: SHAPES,
         TEXTS: TEXTS
     };

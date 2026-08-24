@@ -392,12 +392,37 @@ class Command {
 }
 
 /**
+ * Take an action's strokes off the board, wherever they have ended up.
+ *
+ * @param {string} op - the id of the action that drew them
+ * @returns {number} how many were removed
+ */
+function removeStrokesOfAction(op) {
+    if (!op || !Array.isArray(boardState)) return 0;
+    let removed = 0;
+    for (let i = boardState.length - 1; i >= 0; i--) {
+        if (boardState[i] && boardState[i].op === op) { boardState.splice(i, 1); removed++; }
+    }
+    return removed;
+}
+
+/**
  * DrawStrokesCommand - Handles adding strokes to the canvas
  */
 class DrawStrokesCommand extends Command {
     constructor(strokes, executedBy) {
         super('draw-strokes', { strokes: strokes });
         this.executedBy = executedBy;
+        // Mark the strokes with the action that made them. Undo used to take
+        // the last N strokes off the board, which is only the same thing while
+        // nobody else is drawing — if a peer added anything after you, undo
+        // deleted their work instead of yours.
+        // The strokes were marked when they were made, and that mark is what
+        // travelled to everybody else — so the command takes their id rather
+        // than inventing one only this screen would know.
+        const stamped = (strokes || []).find(stk => stk && stk.op);
+        if (stamped) this.id = stamped.op;
+        else (strokes || []).forEach(stk => { if (stk) { stk.op = this.id; stk.by = executedBy; } });
     }
 
     execute() {
@@ -411,11 +436,9 @@ class DrawStrokesCommand extends Command {
     }
 
     undo() {
-        // Remove the strokes that were added
-        const strokesToRemove = this.data.strokes.length;
-        boardState.splice(-strokesToRemove, strokesToRemove);
+        const removed = removeStrokesOfAction(this.id);
         redrawCanvas();
-        console.log(`[Command] Undone DrawStrokesCommand: -${strokesToRemove} strokes`);
+        console.log(`[Command] Undone DrawStrokesCommand: -${removed} strokes`);
     }
 }
 
@@ -615,12 +638,30 @@ class UndoRedoManager {
         // Show toast notification for the remote action
         showUndoRedoToast(fromAgent, action);
 
-        // NOTE: We DON'T actually apply undo/redo here!
-        // The remote user has already applied their change and broadcast strokes/clear via DataChannel
-        // Their drawing changes come through the normal stroke-batch/clear handlers
-        // This message is just for notification purposes
-
-        console.log(`[UndoRedo] Remote ${action} notification received - canvas will sync via normal DataChannel events`);
+        // This used to be a notification and nothing else: it logged that the
+        // canvas would catch up through normal events, and no event ever came.
+        // An undo stayed on the screen of whoever pressed it — and for anybody
+        // who was not the host, syncCanvasAfterUndoRedo said as much out loud.
+        //
+        // Now it is applied. Strokes carry the id of the action that drew them,
+        // so a peer can take exactly that action off its own board, and put it
+        // back when it is redone. Nothing touches this client's own history:
+        // you can still only undo what you did.
+        try {
+            if (action === 'undo' && messageData.commandId) {
+                const removed = removeStrokesOfAction(messageData.commandId);
+                if (removed) {
+                    redrawCanvas();
+                    console.log(`[UndoRedo] Applied ${fromAgent}'s undo: -${removed} strokes`);
+                }
+            } else if (action === 'redo' && Array.isArray(messageData.strokes) && messageData.strokes.length) {
+                messageData.strokes.forEach(stk => { if (stk) boardState.push(stk); });
+                redrawCanvas();
+                console.log(`[UndoRedo] Applied ${fromAgent}'s redo: +${messageData.strokes.length} strokes`);
+            }
+        } catch (e) {
+            console.warn('[UndoRedo] could not apply remote ' + action, e);
+        }
     }
 
     /**
@@ -672,6 +713,9 @@ class UndoRedoManager {
             commandType: command.type, // Just the type, not full data
             commandId: command.id,
             strokeCount: command.data.strokes ? command.data.strokes.length : 0,
+            // Undo only needs the id — the strokes are marked with it on every
+            // board. Redo needs them back, so they ride along.
+            strokes: action === 'redo' ? (command.data.strokes || []) : undefined,
             sender: this.localUsername || 'unknown',
             timestamp: Date.now()
         };
@@ -1605,6 +1649,11 @@ class WhiteboardGame extends UserConnectionBase {
             incomingStrokeQueue.push(data.stroke);  // ✅ Use local variable
             this.whiteboardCanvas.addStroke(data.stroke);
         }
+        // Somebody else is dragging a shape. It is not on the board yet, so it
+        // is drawn on the preview layer and never recorded.
+        else if (type === 'shape-preview') {
+            if (window.WhiteboardTools) WhiteboardTools.showRemote(data);
+        }
         // Handle clear
         else if (type === 'clear') {
             this.whiteboardCanvas.clear();
@@ -2296,6 +2345,13 @@ function applyViewportTransform() {
         magicCanvas.style.transformOrigin = 'center center';
     }
 
+    // ...and to the shape preview, which is drawn in board coordinates and so
+    // has to be zoomed and panned with the board. Without this a shape being
+    // dragged sat at a different scale and offset from the board under it.
+    if (window.WhiteboardTools && typeof WhiteboardTools.align === 'function') {
+        WhiteboardTools.align();
+    }
+
     // Update zoom indicator UI
     updateZoomIndicator();
 
@@ -2836,7 +2892,28 @@ function loadAndDrawCanvasImage(dataUrl, originalDimensions, onSuccess, onError)
 
 // ===== Board State Management =====
 
+/**
+ * The action a stroke belongs to.
+ *
+ * Set when a gesture begins and cleared when it ends, so every stroke of one
+ * pen stroke or one shape carries the same mark. It has to be stamped here,
+ * before the stroke is sent, because the far side needs it to apply an undo —
+ * stamping it later, when the history command is built, marked only the copy
+ * that stayed at home.
+ */
+let currentActionId = null;
+
+function beginAction() {
+    currentActionId = 'op_' + Date.now().toString(36) + '_' + Math.random().toString(36).slice(2, 8);
+    return currentActionId;
+}
+function endAction() { currentActionId = null; }
+
 function addStrokeToBoardState(stroke) {
+    if (stroke && !stroke.op) {
+        stroke.op = currentActionId || beginAction();
+        stroke.by = (typeof username !== 'undefined' && username) ? username : 'local';
+    }
     // Add stroke to persistent board state
     boardState.push(stroke);
     if (boardState.length === 1) syncEmptyHint();
@@ -4988,6 +5065,7 @@ function startDrawing(e) {
         // Capturing canvas.toDataURL() here causes 50-500ms delay on mobile!
 
         drawing = true;
+        beginAction();          // one pen stroke is one thing to undo
 
         // Use already calculated position
         lastX = pos.x;
@@ -5217,6 +5295,8 @@ function stopDrawing() {
         WhiteboardTools.end();
         return;
     }
+    // The gesture is over, so the next stroke starts a new thing to undo.
+    endAction();
 
     // PANNING MODE: Stop panning
     if (isPanning) {
@@ -6639,8 +6719,10 @@ function syncCanvasAfterUndoRedo(action) {
             saveBoardStateToStorage();
             console.log(`[UndoRedo] Canvas synced via storage after ${action}`);
         } else {
-            // Non-host can request a re-sync from host
-            console.log(`[UndoRedo] Non-host ${action} - canvas changes are local only`);
+            // No longer local-only: the action itself is broadcast and applied
+            // by every peer. Storage is the host's job, so a guest has nothing
+            // more to do here.
+            console.log(`[UndoRedo] ${action} broadcast to the room; storage is the host's`);
         }
     } catch (e) {
         console.error(`[UndoRedo] Error syncing canvas after ${action}:`, e);
