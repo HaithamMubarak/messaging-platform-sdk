@@ -3177,48 +3177,6 @@ function loadBoardStateFromStorage() {
     }
 }
 
-function applyBoardState(strokes) {
-    if (!Array.isArray(strokes) || strokes.length === 0) return;
-
-    console.log(`[Board State] Applying ${strokes.length} strokes to canvas`);
-
-    // Apply all strokes immediately without animation
-    strokes.forEach(stroke => {
-        if (stroke.type === 'text' || stroke.type === 'note') {
-            if (window.WhiteboardTools) WhiteboardTools.paint(ctx, stroke);
-            addStrokeToBoardState(stroke);
-            return;
-        }
-        // Draw directly to canvas
-        const cssW = canvas.clientWidth || Math.max(1, Math.floor(canvas.width / (canvas._dpr || 1)));
-        const cssH = canvas.clientHeight || Math.max(1, Math.floor(canvas.height / (canvas._dpr || 1)));
-
-        const x1 = (stroke.x1 * cssW) / 100;
-        const y1 = (stroke.y1 * cssH) / 100;
-        const x2 = (stroke.x2 * cssW) / 100;
-        const y2 = (stroke.y2 * cssH) / 100;
-
-        ctx.save();
-        ctx.beginPath();
-        ctx.moveTo(x1, y1);
-        ctx.lineTo(x2, y2);
-
-        if (stroke.erase) {
-            ctx.globalCompositeOperation = 'destination-out';
-            ctx.strokeStyle = 'rgba(0,0,0,1)';
-        } else {
-            ctx.strokeStyle = stroke.color || '#000';
-        }
-
-        ctx.lineWidth = stroke.size || 3;
-        ctx.lineCap = 'round';
-        ctx.stroke();
-        ctx.restore();
-
-        // Add to board state
-        addStrokeToBoardState(stroke);
-    });
-}
 
 // Board state image cache (for multi-part image messages)
 let boardStateImageCache = {
