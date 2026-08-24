@@ -29,11 +29,16 @@ async function join(b, path, name, room) {
   await p.fill('#usernameInput', name);
   await p.fill('#channelInput', room);
   await p.fill('#passwordInput', 'pw12345');
+  // Fall Guys blocks the main thread for about seventeen seconds building its
+  // world, and a click during that window simply is not answered. Thirty
+  // seconds was not enough once the machine was also busy; this matches the
+  // patience smoke-all already uses. See the README note — the freeze is
+  // probably the software renderer here, not the game.
   try {
-    await p.click('#connectBtn', { timeout: 30000 });
+    await p.click('#connectBtn', { timeout: 90000 });
   } catch (e) {
     await p.waitForTimeout(2000);
-    await p.click('#connectBtn', { timeout: 30000 });
+    await p.click('#connectBtn', { timeout: 60000 });
   }
   await p.waitForTimeout(13000);
   return p;
