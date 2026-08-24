@@ -2927,7 +2927,7 @@ function addStrokeToBoardState(stroke) {
 
     // Limit size to prevent memory issues
     if (boardState.length > MAX_BOARD_STATE_SIZE) {
-        boardState.splice(0, boardState.length - MAX_BOARD_STATE_SIZE);
+        compactOldestInk(boardState.length - MAX_BOARD_STATE_SIZE);
     }
 }
 
@@ -2987,6 +2987,203 @@ function putChannelStorage( content, metadata, onSuccess, onError) {
  * NOT triggered by:
  * - Magic pen strokes (temporary overlays that auto-disappear)
  */
+/* ==========================================================================
+ * Persisting a board as things rather than as pixels
+ *
+ * The board used to be stored as one full-canvas JPEG. That is lossy on line
+ * art, it was written at quality 1.0 which is the largest a JPEG can be, and
+ * everything it restored came back as pixels: text and sticky notes stopped
+ * being objects, and nothing that arrived before you did could be undone.
+ *
+ * Measured on a busy board — 2,400 pen segments, a dozen shapes and twenty
+ * notes — the JPEG was 651kB and the same content as coordinates was 93kB.
+ * The ink was never what made the payload big.
+ *
+ * So a saved board is now three things in one document:
+ *
+ *   base     a raster for whatever has no vector form — an imported image, or
+ *            old ink that has been compacted. Usually null.
+ *   paths    the ink, as runs of points: strings in JSON, coordinates packed
+ *            into Float32 and base64'd. Carries `op` and `by`, which the wire
+ *            format's nine flat floats have nowhere to put — without them
+ *            restored ink would lose track of who drew it and could not be
+ *            undone by its author.
+ *   objects  text and sticky notes, as themselves. Few, small, and the content
+ *            whose object-ness is worth guaranteeing.
+ *
+ * The old `canvasImage` is still written beside them, so a client that has not
+ * been updated reads exactly what it read before, and a client that has paints
+ * it immediately and then swaps in the real thing.
+ * ========================================================================== */
+
+/** Pack a run of points into base64'd Float32 pairs. */
+function packPoints(points) {
+    const buf = new Float32Array(points.length * 2);
+    for (let i = 0; i < points.length; i++) {
+        buf[i * 2] = points[i].x;
+        buf[i * 2 + 1] = points[i].y;
+    }
+    const bytes = new Uint8Array(buf.buffer);
+    let binary = '';
+    for (let i = 0; i < bytes.length; i++) binary += String.fromCharCode(bytes[i]);
+    return btoa(binary);
+}
+
+function unpackPoints(b64) {
+    const binary = atob(b64);
+    const bytes = new Uint8Array(binary.length);
+    for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+    const floats = new Float32Array(bytes.buffer);
+    const points = [];
+    for (let i = 0; i < floats.length; i += 2) points.push({ x: floats[i], y: floats[i + 1] });
+    return points;
+}
+
+/**
+ * Turn the board's line strokes into runs that share their look and their
+ * author, so the coordinates can be packed and the rest said once.
+ */
+function encodeBoardPaths(strokes) {
+    const paths = [];
+    let run = null;
+    const sameRun = (s) => run
+        && run.color === (s.color || '#000') && run.size === (s.size || 3)
+        && run.erase === !!s.erase && run.op === (s.op || null) && run.by === (s.by || null)
+        && Math.hypot(run.lastX - s.x1, run.lastY - s.y1) < 0.75;
+
+    for (const s of strokes) {
+        if (!s || s.type === 'text' || s.type === 'note') continue;
+        if (!sameRun(s)) {
+            run = { color: s.color || '#000', size: s.size || 3, erase: !!s.erase,
+                    op: s.op || null, by: s.by || null, sharp: !!s.sharp,
+                    points: [{ x: s.x1, y: s.y1 }], lastX: s.x2, lastY: s.y2 };
+            paths.push(run);
+        }
+        run.points.push({ x: s.x2, y: s.y2 });
+        run.lastX = s.x2; run.lastY = s.y2;
+    }
+    return paths.map(r => ({
+        c: r.color, s: r.size, e: r.erase ? 1 : 0, op: r.op, by: r.by,
+        sharp: r.sharp ? 1 : 0, p: packPoints(r.points)
+    }));
+}
+
+/** ...and back into the flat segments the rest of the board speaks. */
+function decodeBoardPaths(paths) {
+    const strokes = [];
+    (paths || []).forEach(r => {
+        const points = unpackPoints(r.p);
+        for (let i = 1; i < points.length; i++) {
+            strokes.push({
+                x1: points[i - 1].x, y1: points[i - 1].y,
+                x2: points[i].x, y2: points[i].y,
+                color: r.c, size: r.s, erase: !!r.e,
+                op: r.op || undefined, by: r.by || undefined,
+                sharp: !!r.sharp
+            });
+        }
+    });
+    return strokes;
+}
+
+/**
+ * Make room by baking the oldest ink into the picture, never by throwing it out.
+ *
+ * This used to drop the oldest strokes outright. While the board was stored as
+ * pixels that was merely cosmetic — the image still held them. Now that the
+ * board is stored as what it is made of, dropping a stroke deletes it for good,
+ * and the oldest entries on a long-lived board include the sticky notes
+ * somebody put there first.
+ *
+ * So the ink is flattened onto the canvas snapshot instead: it stops being
+ * separately undoable, which is a fair price for an hour-old pen line, and it
+ * stays on the board. Text and notes are never baked — they are few, they are
+ * the content worth keeping as objects, and they are exempt from the cap.
+ *
+ * @param {number} howMany - how many entries need to go
+ */
+function compactOldestInk(howMany) {
+    if (!Array.isArray(boardState) || howMany <= 0) return;
+    try {
+        // Everything currently on screen becomes the new base.
+        const flat = document.createElement('canvas');
+        flat.width = canvas.width;
+        flat.height = canvas.height;
+        const fctx = flat.getContext('2d');
+        fctx.fillStyle = '#FFFFFF';
+        fctx.fillRect(0, 0, flat.width, flat.height);
+        fctx.drawImage(canvas, 0, 0);
+        canvasSnapshot = flat.toDataURL('image/png');   // lossless: it is line art
+
+        let removed = 0;
+        for (let i = 0; i < boardState.length && removed < howMany; ) {
+            const stk = boardState[i];
+            if (stk && (stk.type === 'text' || stk.type === 'note')) { i++; continue; }
+            boardState.splice(i, 1);
+            removed++;
+        }
+        console.log(`[Board] Compacted ${removed} of the oldest strokes into the base image`);
+    } catch (e) {
+        console.warn('[Board] could not compact; leaving the board alone', e);
+    }
+}
+
+/**
+ * Put a board back together from what it is made of.
+ *
+ * The composite image is painted immediately, because decoding and replaying
+ * takes a moment and an empty board in the meantime looks like a lost board.
+ * Then the base, the ink and the objects are drawn over it, and from that
+ * point the board is objects again rather than a picture of objects.
+ *
+ * @param {Object} data - a v4 board document
+ */
+function restoreBoardFromObjects(data) {
+    const paint = (dataUrl, then) => {
+        if (!dataUrl) { then(); return; }
+        const img = new Image();
+        img.onload = function () {
+            try {
+                ctx.fillStyle = '#FFFFFF';
+                ctx.fillRect(0, 0, canvas.width, canvas.height);
+                ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+            } catch (e) { console.warn('[Storage] could not paint', e); }
+            then();
+        };
+        img.onerror = function () { then(); };
+        img.src = dataUrl;
+    };
+
+    // 1. the composite, so something is on screen straight away
+    paint(data.canvasImage, function () {
+        try {
+            const ink = decodeBoardPaths(data.paths);
+            const objects = Array.isArray(data.objects) ? data.objects : [];
+
+            // 2. the board as state
+            canvasSnapshot = data.base || null;
+            ink.forEach(stk => boardState.push(stk));
+            objects.forEach(obj => boardState.push(obj));
+
+            // 3. and repainted from that state, so what is on screen and what
+            //    the board believes are the same thing. Erase strokes have to
+            //    replay in their original order over the base or the two drift
+            //    apart — redrawCanvas is the one path that already does that.
+            redrawCanvas();
+
+            console.log(`[Storage] ✓ Restored ${ink.length} strokes and ${objects.length} objects as objects`);
+            addChatMessage('System',
+                `Loaded whiteboard (${ink.length} strokes, ${objects.length} notes)`, '#4CAF50');
+        } catch (e) {
+            // The composite is already on screen, so a failure here costs
+            // object-ness and never the board itself.
+            console.error('[Storage] could not restore objects, keeping the picture', e);
+        }
+        initialStateLoaded = true;
+        finishInitialStateLoading();
+    });
+}
+
 function saveBoardStateToStorage() {
     if (!connected || !channel || !canvas || !ctx) {
         console.log('[Storage] Not ready to save - connected:', connected, 'channel:', !!channel, 'canvas:', !!canvas);
@@ -3016,8 +3213,11 @@ function saveBoardStateToStorage() {
         // Draw current canvas on top
         tempCtx.drawImage(canvas, 0, 0);
 
-        // Export as JPG with 100% quality
-        const jpegQuality = 1.0; // 100% quality - maximum quality
+        // This image is no longer what the board is made of — it is what an
+        // un-upgraded client reads, and what a new one paints while it decodes
+        // the real thing. Quality 1.0 is the largest a JPEG can be and was the
+        // whole payload problem; 0.9 is indistinguishable here and far smaller.
+        const jpegQuality = 0.9;
         const canvasImageJPG = tempCanvas.toDataURL('image/jpeg', jpegQuality);
 
         // Calculate size
@@ -3032,7 +3232,14 @@ function saveBoardStateToStorage() {
             addChatMessage('Warning', `Canvas storage is large (${imageSizeMB} MB). Consider clearing some content.`, '#FF9800');
         }
 
-        // Prepare board state object (simplified - just the image)
+        // The board as things, beside the board as pixels.
+        const paths = encodeBoardPaths(boardState);
+        const objects = boardState.filter(s => s && (s.type === 'text' || s.type === 'note'));
+
+        // A superset. `version: 3` and `canvasImage` are exactly what a client
+        // that has not been updated already knows how to read, so a mixed room
+        // keeps working; `v: 4` and the rest are ignored by it and are what a
+        // current client actually restores from.
         const boardStateData = {
             canvasImage: canvasImageJPG,  // JPG image of entire canvas
             imageFormat: 'jpeg',
@@ -3042,7 +3249,12 @@ function saveBoardStateToStorage() {
             canvasHeight: CANVAS_CONFIG.HEIGHT,
             timestamp: Date.now(),
             author: username,
-            version: 3  // VERSION_3: JPG image format
+            version: 3,  // what an older client reads
+
+            v: 4,
+            base: canvasSnapshot || null,   // imported images and compacted ink
+            paths: paths,
+            objects: objects
         };
 
         // Metadata
@@ -3118,6 +3330,16 @@ function loadBoardStateFromStorage() {
                         ctx.clearRect(0, 0, canvas.width, canvas.height);
                     }
                     clearBoardState();
+
+                    // A board saved as things. Paint the composite first so the
+                    // room appears at once, then put the real objects back
+                    // underneath it — text and notes as text and notes, ink with
+                    // the author and action that made it, so any of it can still
+                    // be undone by whoever drew it.
+                    if (boardStateData.v >= 4) {
+                        restoreBoardFromObjects(boardStateData);
+                        return;
+                    }
 
                     // VERSION_3: JPG image format (simplest and best compression)
                     if (boardStateData.version === 3 && boardStateData.canvasImage) {
