@@ -3224,6 +3224,16 @@ function _processStrokeQueueFrame() {
                 continue;
             }
 
+            // Deliberate geometry is drawn exactly as it was sent. Smoothing a
+            // shape's segments rounds its corners off, which is why a square
+            // arrived as an arc on every screen except the one that drew it.
+            if (s.sharp) {
+                drawStroke(s);
+                currentGroup = null;
+                if (s.peerId) lastPositionPerPeer.set(s.peerId, { x: s.x2, y: s.y2, color: s.color || '#000' });
+                continue;
+            }
+
             const color = s.color || '#000';
             const size = s.size || 1;
             const erase = !!s.erase;
@@ -3328,11 +3338,12 @@ function drawSmoothPath(points, color, size, erase, isMagic = false) {
         return;
     }
 
-    // Use midpoint quadratic smoothing
+    // Midpoint quadratic smoothing, started at the first point rather than at
+    // the midpoint after it. Beginning halfway along threw away the first half
+    // segment, so a stroke did not start where the pointer went down — barely
+    // visible in a scribble, obvious on anything drawn deliberately.
     drawCtx.beginPath();
-    const firstMidX = (points[0].x + points[1].x) / 2;
-    const firstMidY = (points[0].y + points[1].y) / 2;
-    drawCtx.moveTo(firstMidX, firstMidY);
+    drawCtx.moveTo(points[0].x, points[0].y);
 
     for (let i = 1; i < points.length - 1; i++) {
         const cur = points[i];

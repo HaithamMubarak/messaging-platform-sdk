@@ -63,7 +63,13 @@
     function segments(tool, x0, y0, x1, y1, color, size) {
         var out = [];
         var push = function (ax, ay, bx, by) {
-            out.push({ x1: ax, y1: ay, x2: bx, y2: by, color: color, size: size, erase: false });
+            // `sharp` says this segment is deliberate geometry, not the wobble
+            // of a hand. The receiving side smooths contiguous strokes into a
+            // curve, which is right for a pen and ruinous for a shape: it
+            // rounded the corners off a rectangle and turned a diamond into a
+            // blob on every screen but the one that drew it.
+            out.push({ x1: ax, y1: ay, x2: bx, y2: by, color: color, size: size,
+                erase: false, sharp: true });
         };
 
         if (tool === 'line') {
