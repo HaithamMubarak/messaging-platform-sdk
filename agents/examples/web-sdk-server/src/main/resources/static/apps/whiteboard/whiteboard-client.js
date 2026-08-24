@@ -3087,6 +3087,51 @@ function decodeBoardPaths(paths) {
 }
 
 /**
+ * Give somebody their own history back when they reopen a board.
+ *
+ * Restoring the board as objects is only half of what `op` and `by` are for.
+ * Without this the undo stack starts empty, so a person who reloads cannot
+ * take back the thing they drew a minute earlier — the strokes are theirs, the
+ * board knows it, and the button is greyed out anyway.
+ *
+ * Only their own actions are rebuilt. Somebody else's work is on the board and
+ * stays there: you can undo what you did, not what the room did.
+ *
+ * @param {Array} restored - every stroke and object that came back
+ */
+function restoreOwnHistory(restored) {
+    try {
+        const me = (typeof username !== 'undefined' && username) ? username : null;
+        if (!me || !Array.isArray(restored) || !restored.length) return;
+
+        // Group by the action that made them, keeping the order they were made.
+        const actions = new Map();
+        restored.forEach(stk => {
+            if (!stk || stk.by !== me || !stk.op) return;
+            if (!actions.has(stk.op)) actions.set(stk.op, []);
+            actions.get(stk.op).push(stk);
+        });
+        if (!actions.size) return;
+
+        // The stack is bounded, so keep the most recent — those are the ones
+        // anybody actually reaches for.
+        const ops = [...actions.keys()];
+        const keep = ops.slice(-undoRedoManager.maxHistorySize);
+
+        keep.forEach(op => {
+            const strokes = actions.get(op);
+            const cmd = new DrawStrokesCommand(strokes, me);
+            cmd.id = op;                       // the id the strokes already carry
+            undoRedoManager.undoStack.push(cmd);
+        });
+        undoRedoManager.updateButtons();
+        console.log(`[UndoRedo] Restored ${keep.length} of your own actions to the undo stack`);
+    } catch (e) {
+        console.warn('[UndoRedo] could not rebuild history', e);
+    }
+}
+
+/**
  * Make room by baking the oldest ink into the picture, never by throwing it out.
  *
  * This used to drop the oldest strokes outright. While the board was stored as
@@ -3170,6 +3215,8 @@ function restoreBoardFromObjects(data) {
             //    replay in their original order over the base or the two drift
             //    apart — redrawCanvas is the one path that already does that.
             redrawCanvas();
+
+            restoreOwnHistory(ink.concat(objects));
 
             console.log(`[Storage] ✓ Restored ${ink.length} strokes and ${objects.length} objects as objects`);
             addChatMessage('System',

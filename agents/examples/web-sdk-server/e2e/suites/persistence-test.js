@@ -132,6 +132,44 @@ const INKMAP = () => {
         `the restored board matches the original (${(drift * 100).toFixed(1)}% of the ink differs)`);
     await c.screenshot({ path: SHOTS + '/persistence-returner.png' });
 
+    // --- and the person who drew it gets their history back ---------------
+    // Restoring the board as objects is only half of what `op` and `by` buy.
+    // Without rebuilding the stack, somebody who reloads cannot take back the
+    // thing they drew a minute earlier: the strokes are theirs, the board knows
+    // it, and the button is greyed out anyway.
+    await a.bringToFront();
+    const drewActions = await a.evaluate(() => undoRedoManager.undoStack.length);
+    await a.reload({ waitUntil: 'domcontentloaded' });
+    await a.waitForTimeout(4000);
+    // the modal returns collapsed, so its fields have no width
+    await a.evaluate(() => {
+        const t = document.getElementById('modalToggleBtn2') || document.querySelector('.modal-toggle-btn');
+        if (t) t.click();
+    });
+    await a.waitForTimeout(1200);
+    await a.evaluate((r) => {
+        document.getElementById('usernameInput').value = 'Author';
+        document.getElementById('channelInput').value = r;
+        document.getElementById('passwordInput').value = 'pw12345';
+    }, ROOM);
+    await a.evaluate(() => document.getElementById('connectBtn').click());
+    await a.waitForTimeout(17000);
+
+    const reloaded = await a.evaluate(() => ({
+        strokes: boardState.length,
+        stack: undoRedoManager.undoStack.length,
+        canUndo: !document.getElementById('undoBtn').disabled
+    }));
+    check(reloaded.strokes > 0, `her board is still there after a reload (${reloaded.strokes} entries)`);
+    check(reloaded.stack > 0 && reloaded.canUndo,
+        `and so is her own history (${reloaded.stack} of ${drewActions} actions, undo enabled)`);
+    const beforeUndo = reloaded.strokes;
+    await a.evaluate(() => triggerUndo());
+    await a.waitForTimeout(2000);
+    const afterUndo = await a.evaluate(() => boardState.length);
+    check(afterUndo < beforeUndo,
+        `so she can take back what she drew before reloading (${beforeUndo} → ${afterUndo})`);
+
     check([...new Set([...a.errs, ...c.errs])].length === 0,
         `nothing throws (${[...new Set([...a.errs, ...c.errs])].slice(0, 2).join(' | ') || 'clean'})`);
 
