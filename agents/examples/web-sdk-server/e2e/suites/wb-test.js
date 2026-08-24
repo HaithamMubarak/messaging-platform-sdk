@@ -119,6 +119,26 @@ const strokes = (p) => p.evaluate(() => (typeof boardState !== 'undefined' ? boa
     await a.waitForTimeout(600);
     check((await strokes(a)) > afterUndo, 'Ctrl+Shift+Z puts it back');
 
+    // Undo redraws the whole board, so what matters is the canvas and not the
+    // count beside it: a redraw that clears the wrong region takes strokes out
+    // of the state while leaving their ink on screen.
+    const ink = () => {
+        const cv = document.getElementById('whiteboard');
+        const d = cv.getContext('2d').getImageData(0, 0, cv.width, cv.height).data;
+        let n = 0;
+        for (let i = 0; i < d.length; i += 4) if (d[i] < 200 && d[i + 3] > 20) n++;
+        return n;
+    };
+    const inkBefore = await a.evaluate(ink);
+    await a.keyboard.press('Control+z');
+    await a.waitForTimeout(900);
+    const inkAfter = await a.evaluate(ink);
+    check(inkAfter < inkBefore,
+        `undo takes the ink off the canvas too, not just the count (${inkBefore} → ${inkAfter})`);
+    await a.keyboard.press('Control+Shift+z');
+    await a.waitForTimeout(900);
+    check((await a.evaluate(ink)) > inkAfter, 'and redo paints it back on');
+
     // --- the shortcut sheet --------------------------------------------------
     await a.keyboard.press('?');
     await a.waitForTimeout(400);

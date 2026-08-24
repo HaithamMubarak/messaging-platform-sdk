@@ -1874,17 +1874,21 @@ function redrawCanvas() {
     try {
         console.log(`[Redraw] Redrawing canvas - strokes: ${boardState.length}, snapshot: ${!!canvasSnapshot}`);
 
-        // Clear canvas
-        const cssW = canvas.clientWidth || Math.max(1, Math.floor(canvas.width / (canvas._dpr || 1)));
-        const cssH = canvas.clientHeight || Math.max(1, Math.floor(canvas.height / (canvas._dpr || 1)));
-        ctx.clearRect(0, 0, cssW, cssH);
+        // The board is a fixed 1920x1080 coordinate space and strokes are
+        // stored in it, so the clear and the snapshot below belong in those
+        // units. Using the element's CSS size instead left whatever fell
+        // outside it uncleared and drew the snapshot shrunk to fit — invisible
+        // while the two happen to match, wrong the moment they do not.
+        const boardW = canvas.width;
+        const boardH = canvas.height;
+        ctx.clearRect(0, 0, boardW, boardH);
 
         // First, restore canvas snapshot if exists (imported images)
         if (canvasSnapshot) {
             const img = new Image();
             img.onload = function () {
-                // Draw the snapshot scaled to current canvas size
-                ctx.drawImage(img, 0, 0, cssW, cssH);
+                // Draw the snapshot over the whole board
+                ctx.drawImage(img, 0, 0, boardW, boardH);
 
                 // Then redraw all strokes on top
                 if (boardState && boardState.length > 0) {
