@@ -49,10 +49,13 @@ class UserConnectionBase {
             // _startRosterReconcile: a crashed tab sends no beacon, and a
             // server-side session expiry publishes no event.
             rosterReconcile: true,
-            // Detection cannot beat the server's own idle TTL
-            // (messaging.cache.session-ttl-seconds, 180s), so polling faster
-            // than this buys nothing and costs one request per client per tick.
-            rosterReconcileIntervalMs: 45000,
+            // A fallback, not the mechanism. The server now announces an agent
+            // whose session expired (PresenceSweepService), so a room normally
+            // hears about a vanished peer through the ordinary disconnect
+            // event. This still runs, because it costs one request every two
+            // minutes and it repairs a roster that has drifted for any reason
+            // — an older server without the sweep, or an event that was missed.
+            rosterReconcileIntervalMs: 120000,
 
             // Coming back after the connection drops. See _beginReconnect.
             autoReconnect: true,
