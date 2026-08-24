@@ -91,6 +91,19 @@ Keep the report shape — print `PASS (n)` then `FAIL (n)` — and the runner wi
 pick it up. `lib/harness.js` has the base URL, the screenshot directory, the
 launch options and a small tally helper.
 
+**Fall Guys is slow to settle here, and it is probably the renderer.** It
+stalls the main thread for about seventeen seconds after connecting, and Party
+Physics for about the same — long enough that a click goes unanswered and the
+roster has not converged when a sweep looks. Worth knowing before chasing it:
+no method on the game takes more than 381ms, so it is not the game's own code;
+the stalls only start once the 3D world is built; and this container has no GPU,
+so WebGL runs on SwiftShader where shader compilation costs seconds. Blockparty
+stalls 7s and Race Balls 1.6s on the same libraries, which is the spread you
+would expect from material count rather than from a bug. **Unproven either way
+without a GPU** — do not "optimise" it on this evidence. What it did cause was
+real and is fixed: the socket watchdog used to read those stalls as a dead
+network (see `web-agent.js`, `_startHeartbeat`).
+
 **Do not run a suite while `npm test` is going.** Each one drives two or three
 browsers, and several at once starves the rest: a page that normally reaches its
 connect button in under a second blows past a 25-second wait, and the failure
