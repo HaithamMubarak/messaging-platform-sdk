@@ -292,11 +292,12 @@
             desc: 'Everyone gets the same secret blueprint. Study it, then rebuild it from memory — it flashes back for 3s every 30s. Accuracy plus speed wins.'
         },
         {
-            // NOT offered yet: a guest does not follow the room to the mystery
-            // place — the world snapshot that carries it never lands on them,
-            // so on a second screen the world is empty and unpinned. Solo play
-            // and every other part of the round works. Fix that before turning
-            // this on.
+            // A guest used to be left behind here: the world snapshot carrying
+            // the mystery place never reached them, so a second screen showed
+            // an empty, unpinned world and the mode was kept off. That is
+            // fixed — both screens land on the same place, verified with two
+            // clients — and the note is kept because the failure was silent
+            // and worth recognising if it ever comes back.
             id: 'whereonearth', kind: 'guess', name: 'Where on Earth', emoji: '🌍', ready: true, defaultTime: 120, minPlayers: 1, note: 'Works alone — guess against your own geography.',
             desc: 'The room is moved to a real place, built from the map. Walk it, fly it, look at the coast — then drop a pin where you think you are. Closest wins.'
         },
