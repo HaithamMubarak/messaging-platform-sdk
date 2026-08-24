@@ -91,7 +91,13 @@ Keep the report shape — print `PASS (n)` then `FAIL (n)` — and the runner wi
 pick it up. `lib/harness.js` has the base URL, the screenshot directory, the
 launch options and a small tally helper.
 
-Two habits worth keeping, both learned the hard way here:
+**Do not run a suite while `npm test` is going.** Each one drives two or three
+browsers, and several at once starves the rest: a page that normally reaches its
+connect button in under a second blows past a 25-second wait, and the failure
+looks exactly like a broken app. Every flake chased in this suite so far has had
+that shape. Run the full pass, or run one suite — not both.
+
+Three habits worth keeping, all learned the hard way here:
 
 - **Assert a non-zero precondition before asserting a change.** A test that
   reads an element that is always empty passes for nothing.

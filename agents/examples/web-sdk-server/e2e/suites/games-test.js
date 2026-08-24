@@ -21,11 +21,20 @@ async function join(b, path, name, room) {
   p.on('console', m => { if (m.type() === 'error') errs.push(m.text().slice(0, 90)); });
   p.errs = errs; p.ctx = ctx;
   await p.goto(BASE + '/apps/mini-games/' + path, { waitUntil: 'domcontentloaded', timeout: 30000 });
-  await p.waitForSelector('#usernameInput', { timeout: 25000 });
+  // A loaded machine — several browsers up at once — can push a page that
+  // normally shows its connect button in under a second past a 25s wait. That
+  // is the harness being starved, not the game being broken, so the join is
+  // given room and one retry. A page that is genuinely broken still fails both.
+  await p.waitForSelector('#usernameInput', { timeout: 60000 });
   await p.fill('#usernameInput', name);
   await p.fill('#channelInput', room);
   await p.fill('#passwordInput', 'pw12345');
-  await p.click('#connectBtn');
+  try {
+    await p.click('#connectBtn', { timeout: 30000 });
+  } catch (e) {
+    await p.waitForTimeout(2000);
+    await p.click('#connectBtn', { timeout: 30000 });
+  }
   await p.waitForTimeout(13000);
   return p;
 }
