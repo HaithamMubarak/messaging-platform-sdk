@@ -833,6 +833,17 @@
                 return false;
             }
         } catch (e) { /* localStorage unavailable (non-browser) */ }
+
+        // Only default to the socket transport where there IS one. Returning
+        // true regardless meant that off-browser — Node before it had a global
+        // WebSocket, a test harness, a worker without one — the SDK chose a
+        // transport it could not open and then never fell back to polling: the
+        // connection succeeded, autoReceive was on, and no message ever
+        // arrived. HTTP polling works everywhere, so it is the safe default
+        // when the socket is not available.
+        if (typeof WebSocket === 'undefined') {
+            return false;
+        }
         return true;
     }
 

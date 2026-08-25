@@ -1,0 +1,133 @@
+<!DOCTYPE html>
+<html lang="en" dir="ltr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Run your event · SponsorPulse</title>
+    <meta name="description" content="Set up branding, run polls, quizzes and Q&amp;A, moderate the room, and export the event report.">
+    <meta name="robots" content="noindex, nofollow">
+    <meta name="theme-color" content="#0b1120">
+    <link rel="stylesheet" href="../../css/design-tokens.css">
+    <link rel="stylesheet" href="../../css/ui.css">
+    <link rel="stylesheet" href="../../css/connection-modal.css">
+    <link rel="stylesheet" href="sponsorpulse.css">
+    <script src="../../js/prod-log.js"></script>
+</head>
+<body class="sp">
+
+<header class="sp-brand">
+    <img id="brandLogo" class="sp-brand__logo" alt="" hidden>
+    <div class="sp-brand__text">
+        <span id="brandName" class="sp-brand__name">SponsorPulse</span>
+        <span id="brandEvent" class="sp-brand__event">Host console</span>
+    </div>
+    <span class="sp-brand__spacer"></span>
+    <span id="attendeeCount" class="sp-brand__event">0 here</span>
+</header>
+
+<div class="sp-host">
+    <div style="display:flex;flex-direction:column;gap:1rem;min-width:0">
+
+        <section class="sp-panel">
+            <h2 class="sp-panel__title">Run a segment</h2>
+            <div class="sp-row">
+                <button id="modePoll" class="btn btn--sm">Poll</button>
+                <button id="modeQuiz" class="btn btn--sm">Quiz question</button>
+                <button id="modeQa" class="btn btn--sm">Q&amp;A</button>
+            </div>
+            <div class="sp-field">
+                <label for="promptInput">Question</label>
+                <input id="promptInput" type="text" maxlength="200" placeholder="What do you want to ask the room?">
+            </div>
+            <div id="optionsEditor" class="sp-field">
+                <label>Options — tick the correct one for a quiz</label>
+                <div id="optionRows" style="display:flex;flex-direction:column;gap:.5rem"></div>
+                <button id="addOption" class="btn btn--sm btn--ghost" style="align-self:flex-start">Add option</button>
+            </div>
+            <div class="sp-row">
+                <div class="sp-field">
+                    <label for="timerSecs">Timer (seconds, 0 for none)</label>
+                    <input id="timerSecs" type="text" inputmode="numeric" value="30">
+                </div>
+            </div>
+            <div class="sp-row">
+                <button id="launchBtn" class="btn btn--primary">Launch</button>
+                <button id="revealBtn" class="btn btn--sm">Reveal answer</button>
+                <button id="endBtn" class="btn btn--sm btn--ghost">End segment</button>
+            </div>
+        </section>
+
+        <section class="sp-panel">
+            <h2 class="sp-panel__title">Live</h2>
+            <div class="sp-stats">
+                <div class="sp-stat"><span id="statAttendees" class="sp-stat__value">0</span><span class="sp-stat__label">attendees</span></div>
+                <div class="sp-stat"><span id="statVotes" class="sp-stat__value">0</span><span class="sp-stat__label">answers in</span></div>
+                <div class="sp-stat"><span id="statQuestions" class="sp-stat__value">0</span><span class="sp-stat__label">questions</span></div>
+            </div>
+            <div id="liveResults" class="sp-options"></div>
+        </section>
+
+        <section class="sp-panel">
+            <h2 class="sp-panel__title">Moderation</h2>
+            <p class="sp-privacy">Nothing an attendee submits is shown to the room until you approve it.</p>
+            <div id="modQueue" class="sp-questions"></div>
+        </section>
+    </div>
+
+    <div style="display:flex;flex-direction:column;gap:1rem;min-width:0">
+        <section class="sp-panel">
+            <h2 class="sp-panel__title">Invite</h2>
+            <div class="sp-qr">
+                <div id="qr" role="img" aria-label="QR code to join this event"></div>
+                <div style="flex:1;min-width:0">
+                    <div id="joinLink" class="sp-qr__link"></div>
+                    <button id="copyLink" class="btn btn--sm" style="margin-top:.5rem">Copy link</button>
+                </div>
+            </div>
+        </section>
+
+        <section class="sp-panel">
+            <h2 class="sp-panel__title">Branding</h2>
+            <div class="sp-field"><label for="brandInput">Brand name</label><input id="brandInput" type="text" maxlength="60"></div>
+            <div class="sp-field"><label for="eventInput">Event name</label><input id="eventInput" type="text" maxlength="80"></div>
+            <div class="sp-field"><label for="dateInput">Date</label><input id="dateInput" type="date"></div>
+            <div class="sp-field"><label for="accentInput">Accent colour</label><input id="accentInput" type="color" value="#5d60ef" style="min-height:44px"></div>
+            <div class="sp-field"><label for="langInput">Attendee language</label><select id="langInput"></select></div>
+            <div class="sp-field"><label for="logoInput">Logo</label><input id="logoInput" type="file" accept="image/*"></div>
+        </section>
+
+        <section class="sp-panel">
+            <h2 class="sp-panel__title">Sponsor</h2>
+            <div class="sp-field"><label for="sponsorInput">Sponsor name</label><input id="sponsorInput" type="text" maxlength="60"></div>
+            <div class="sp-field"><label for="offerInput">Offer or coupon</label><textarea id="offerInput" maxlength="200"></textarea></div>
+            <div class="sp-field"><label for="sponsorLogoInput">Sponsor logo</label><input id="sponsorLogoInput" type="file" accept="image/*"></div>
+            <label class="sp-consent" style="cursor:pointer">
+                <input type="checkbox" id="sponsorVisible">
+                <span class="sp-consent__text">Show the sponsor panel to attendees now</span>
+            </label>
+        </section>
+
+        <section class="sp-panel">
+            <h2 class="sp-panel__title">After the event</h2>
+            <p class="sp-privacy">The CSV contains only attendees who ticked the consent box.</p>
+            <button id="exportCsv" class="btn btn--sm">Export leads (CSV)</button>
+            <button id="exportSummary" class="btn btn--sm btn--ghost">Event summary</button>
+            <pre id="summaryOut" class="sp-privacy" style="white-space:pre-wrap"></pre>
+        </section>
+    </div>
+</div>
+
+<div id="toast" class="sp-toast" hidden role="status" aria-live="polite"></div>
+
+<script src="../../lib/qrcode.min.js"></script>
+<script src="../../js/api-config.js"></script>
+<script src="../../generated-web-agent-js/js/web-agent.libs.js"></script>
+<script src="../../generated-web-agent-js/js/web-agent.js"></script>
+<script src="../../js/UserConnectionBase.js"></script>
+<script src="../../js/connection-modal.js"></script>
+<script src="../../js/room-defaults.js"></script>
+<script src="sponsorpulse-i18n.js"></script>
+<script src="sponsorpulse-core.js"></script>
+<script src="host.js"></script>
+</body>
+</html>

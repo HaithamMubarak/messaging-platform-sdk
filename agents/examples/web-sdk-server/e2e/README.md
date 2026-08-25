@@ -64,6 +64,26 @@ chunks byte-for-byte, both quiz players seeing the same question.
 room survives *and still works*; `reconnect-test.js` takes a client offline and
 back; `smoke-all.js` is the cheap does-it-connect pass.
 
+**Load** — `load/sponsorpulse-load.js` answers the question the browser suites
+cannot: can a room the size SponsorPulse is sold for actually connect and
+answer at once. It drives the SDK directly rather than opening a hundred
+browsers, which is only possible because the npm package can now be required
+from Node.
+
+It takes the endpoint as an argument and refuses to run against anything that
+looks like a shared deployment — a load test is the last thing that should
+reach production by accident:
+
+```
+node load/sponsorpulse-load.js http://127.0.0.1:8082/messaging-platform/api/v1/messaging-service 100
+```
+
+It fetches a short-lived developer key the same way the web app does, and it
+fails unless 95% connect, 95% of those send, and 95% of what was sent reaches
+the host. Two of those thresholds exist because earlier versions reported
+success while every agent had been turned away, and again while nothing was
+sent at all.
+
 **Presence** — `ghost-departure.js` is not part of `npm test`; run it with
 `npm test -- ghost`. It is opt in because it has to wait out a presence TTL,
 not because it is allowed to fail.

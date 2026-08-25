@@ -5,7 +5,7 @@ const PAGES = ['index.html','playground.html','docs.html',
   'apps/whiteboard/index.html','apps/whiteboard/app.html','apps/rooms/index.html','apps/rooms/app.html',
   'apps/terminal/index.html','apps/terminal/app.html','apps/mini-games/blockparty/index.html',
   'apps/mini-games/blockparty/play.html','apps/chess/index.html','apps/pictionary/index.html',
-  'apps/pixel-art/index.html','apps/mind-map/index.html','apps/collab-doc/index.html','apps/pulse/index.html',
+  'apps/pixel-art/index.html','apps/mind-map/index.html','apps/collab-doc/index.html','apps/pulse/index.html','apps/sponsorpulse/index.html','apps/sponsorpulse/join.html',
   'apps/mini-games/air-hockey/index.html','apps/mini-games/find-the-liar/index.html',
   'apps/mini-games/quiz-battle/index.html'];
 (async () => {

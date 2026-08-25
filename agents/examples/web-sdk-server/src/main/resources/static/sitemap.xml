@@ -38,4 +38,9 @@
   <url><loc>https://hmdevonline.com/messaging-platform/sdk/apps/storage-demo.html</loc><priority>0.5</priority></url>
   <url><loc>https://hmdevonline.com/messaging-platform/sdk/apps/cloud-connection-demo.html</loc><priority>0.4</priority></url>
   <url><loc>https://hmdevonline.com/messaging-platform/sdk/apps/webrtc.html</loc><priority>0.5</priority></url>
+    <url>
+        <loc>https://hmdevonline.com/messaging-platform/sdk/apps/sponsorpulse/index.html</loc>
+        <changefreq>monthly</changefreq>
+        <priority>0.7</priority>
+    </url>
 </urlset>

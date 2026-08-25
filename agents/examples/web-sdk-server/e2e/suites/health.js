@@ -15,7 +15,7 @@ const PAGES = [
     'apps/terminal/index.html', 'apps/terminal/app.html',
     'apps/mini-games/blockparty/index.html', 'apps/mini-games/blockparty/play.html',
     'apps/chess/index.html', 'apps/collab-doc/index.html', 'apps/mind-map/index.html',
-    'apps/pictionary/index.html', 'apps/pixel-art/index.html', 'apps/pulse/index.html',
+    'apps/pictionary/index.html', 'apps/pixel-art/index.html', 'apps/pulse/index.html', 'apps/sponsorpulse/index.html', 'apps/sponsorpulse/host.html', 'apps/sponsorpulse/join.html',
     'apps/drop/index.html', 'apps/quickshare/quickshare.html',
     'apps/chat.html', 'apps/storage-demo.html', 'apps/webrtc.html',
     'apps/turn-stun-test.html', 'apps/cloud-connection-demo.html', 'apps/test-api-key/index.html',

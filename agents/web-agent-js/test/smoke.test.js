@@ -34,6 +34,24 @@ check('the bundled crypto dependency resolved', () => {
     assert.notStrictEqual(typeof CryptoJS, 'undefined', 'CryptoJS is not defined');
 });
 
+// Checking that CryptoJS merely EXISTS is not enough, and this is not
+// hypothetical: the bundle is several UMD modules concatenated, and loading it
+// through require() left only the last one's exports, so CryptoJS was an object
+// but CryptoJS.HmacSHA256 was undefined and the SDK threw on its first hash.
+// Every API the SDK actually calls is named here.
+check('every crypto API the SDK calls is present and callable', () => {
+    assert.strictEqual(typeof CryptoJS.HmacSHA256, 'function', 'CryptoJS.HmacSHA256');
+    assert.strictEqual(typeof CryptoJS.SHA256, 'function', 'CryptoJS.SHA256');
+    assert.ok(CryptoJS.enc && CryptoJS.enc.Hex, 'CryptoJS.enc.Hex');
+    assert.strictEqual(typeof JSEncrypt, 'function', 'JSEncrypt');
+
+    const digest = CryptoJS.HmacSHA256('message', 'key').toString(CryptoJS.enc.Hex);
+    assert.match(digest, /^[0-9a-f]{64}$/, 'HMAC produces a hex digest');
+    assert.strictEqual(
+        CryptoJS.HmacSHA256('message', 'key').toString(CryptoJS.enc.Hex),
+        digest, 'and is deterministic');
+});
+
 check('encryption round-trips, so the dependency really works', () => {
     const secret = 'a message worth protecting';
     const key = 'correct horse battery staple';

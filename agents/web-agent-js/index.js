@@ -53,6 +53,11 @@ if (typeof globalScope.window === 'undefined') {
     // A bundled transport reads location.protocol/hostname to decide whether to
     // use a secure socket scheme. Off-browser there is no page origin, so it is
     // told it is not on a secure origin and callers pass absolute URLs instead.
+    // The SDK talks to the service through XMLHttpRequest, which Node has no
+    // notion of — so the package could be imported but not actually used.
+    if (typeof globalScope.XMLHttpRequest === 'undefined') {
+        globalScope.XMLHttpRequest = require('./node-xhr.js');
+    }
     if (typeof globalScope.location === 'undefined') {
         globalScope.location = { protocol: 'http:', hostname: 'localhost', host: 'localhost', href: 'http://localhost/' };
     }
@@ -62,8 +67,23 @@ if (typeof globalScope.window === 'undefined') {
 }
 
 if (typeof globalScope.CryptoJS === 'undefined') {
-    // The UMD header returns the library when `exports` is present.
-    globalScope.CryptoJS = require('./js/web-agent.libs.js');
+    // Evaluate the bundle the way a browser does, not the way require() does.
+    //
+    // web-agent.libs.js is several UMD modules concatenated — CryptoJS core,
+    // its HMAC and SHA extensions, and JSEncrypt. Each one begins with the
+    // usual "if exports exists, module.exports = ..." dance, so under require()
+    // every module overwrites the previous one's exports and only the last
+    // survives: CryptoJS.HmacSHA256 was simply missing, and the SDK threw on
+    // its first hash. Running the source with module/exports/define out of
+    // scope takes the browser branch instead, where every module attaches to
+    // one shared global, which is what the extensions expect.
+    var fs = require('fs');
+    var libsSource = fs.readFileSync(require.resolve('./js/web-agent.libs.js'), 'utf8');
+    // `require` stays available: one of the bundled libraries (js-md5) detects
+    // Node deliberately and uses the built-in crypto module for its digest,
+    // which is faster and no less correct than its own implementation.
+    var asBrowserScript = new Function('module', 'exports', 'define', 'require', libsSource);
+    asBrowserScript.call(globalScope, undefined, undefined, undefined, require);
 }
 
 module.exports = require('./js/web-agent.js');
