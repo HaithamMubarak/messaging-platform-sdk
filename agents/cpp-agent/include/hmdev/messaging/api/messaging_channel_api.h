@@ -121,6 +121,9 @@ public:
               const std::string& message,
               const std::string& destination,
               const std::string& sessionId,
+              // NOTE: encrypted delivery is NOT implemented in the C++ agent.
+              // Passing true makes this call fail rather than send the message
+              // unencrypted while claiming otherwise. See the implementation.
               bool encrypted) override;
 
     bool disconnect(const std::string& sessionId) override;

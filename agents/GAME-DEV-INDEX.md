@@ -13,10 +13,10 @@
 → **[Comparison Chart](INTEGRATION-COMPARISON.txt)** - Visual decision guide with performance data
 
 ### Want Quick Answers?
-→ **[Quick Reference](GAME-INTEGRATION-QUICK-REF.md)** - Code snippets and decision matrix
+→ **Quick Reference** - Code snippets and decision matrix
 
 ### Need Deep Dive?
-→ **[Complete Integration Guide](GAME-INTEGRATION-GUIDE.md)** - Full architecture, examples, benchmarks
+→ **Complete Integration Guide** - Full architecture, examples, benchmarks
 
 ---
 
@@ -27,8 +27,8 @@
 | Document | Purpose | Best For |
 |----------|---------|----------|
 | [Getting Started](GETTING-STARTED-GAMES.md) | Quick start, copy-paste code | Beginners, rapid prototyping |
-| [Quick Reference](GAME-INTEGRATION-QUICK-REF.md) | Fast lookup, code snippets | Experienced devs, quick reference |
-| [Integration Guide](GAME-INTEGRATION-GUIDE.md) | Complete architecture guide | Production apps, deep understanding |
+| Quick Reference | Fast lookup, code snippets | Experienced devs, quick reference |
+| Integration Guide | Complete architecture guide | Production apps, deep understanding |
 | [Comparison Chart](INTEGRATION-COMPARISON.txt) | Visual performance comparison | Decision making, architecture review |
 
 ### By Game Language
@@ -40,9 +40,9 @@
 | **JavaScript** | Direct Integration | [Getting Started - JavaScript](GETTING-STARTED-GAMES.md#for-javascriptweb-games) |
 | **C++** | TCP Bridge | [Getting Started - C++](GETTING-STARTED-GAMES.md#for-c-c-unity-unreal-godot-games) |
 | **C# / Unity** | TCP Bridge | [Getting Started - C#](GETTING-STARTED-GAMES.md#for-c-c-unity-unreal-godot-games) |
-| **Rust** | TCP Bridge | [Integration Guide - TCP](GAME-INTEGRATION-GUIDE.md#integration-pattern-2-tcp-server-bridge) |
-| **Unreal** | TCP Bridge | [Integration Guide - C++](GAME-INTEGRATION-GUIDE.md#c-game-example-tcp-bridge) |
-| **Godot** | TCP Bridge | [Integration Guide - TCP](GAME-INTEGRATION-GUIDE.md#tcp-protocol-newline-delimited-json) |
+| **Rust** | TCP Bridge | Integration Guide - TCP |
+| **Unreal** | TCP Bridge | Integration Guide - C++ |
+| **Godot** | TCP Bridge | Integration Guide - TCP |
 
 ### By Game Type
 
@@ -249,9 +249,9 @@ messaging.disconnect(sessionId);
 | Problem | Solution | Documentation |
 |---------|----------|---------------|
 | "Connection refused" | Check service is running | [Getting Started - Testing](GETTING-STARTED-GAMES.md#testing-locally) |
-| "Session expired" | Reconnect to channel | [Integration Guide - Errors](GAME-INTEGRATION-GUIDE.md#error-handling) |
+| "Session expired" | Reconnect to channel | Integration Guide - Errors |
 | "TCP failed" (bridge) | Check agent server running | [Getting Started - TCP](GETTING-STARTED-GAMES.md#tcp-bridge) |
-| Slow performance | Use UDP instead of HTTP | [Quick Ref - Performance](GAME-INTEGRATION-QUICK-REF.md#performance-impact) |
+| Slow performance | Use UDP instead of HTTP | Quick Ref - Performance |
 | High latency | Switch to direct integration | [Comparison Chart](INTEGRATION-COMPARISON.txt) |
 
 ---
@@ -265,13 +265,13 @@ messaging.disconnect(sessionId);
 4. Build simple chat feature
 
 ### Intermediate
-1. Read [Quick Reference](GAME-INTEGRATION-QUICK-REF.md)
+1. Read Quick Reference
 2. Understand UDP vs HTTP trade-offs
 3. Implement real-time position updates
 4. Add matchmaking lobby
 
 ### Advanced
-1. Read [Complete Integration Guide](GAME-INTEGRATION-GUIDE.md)
+1. Read Complete Integration Guide
 2. Optimize polling frequency
 3. Implement encryption for competitive games
 4. Build production-ready error handling
@@ -346,8 +346,8 @@ A: Yes, pass `encrypted=true` to push methods. See examples.
 
 Pick your path:
 - **Quick Start** → [Getting Started Guide](GETTING-STARTED-GAMES.md)
-- **Need Details** → [Integration Guide](GAME-INTEGRATION-GUIDE.md)
-- **Just Code** → [Quick Reference](GAME-INTEGRATION-QUICK-REF.md)
+- **Need Details** → Integration Guide
+- **Just Code** → Quick Reference
 
 **Good luck with your game!** 🎮🚀
 

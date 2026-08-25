@@ -99,8 +99,8 @@ gradlew.bat :sdk:agents:java-agent:build
 ## Documentation
 
 - **Full Guide:** [agents/java-agent/ICE_TURN_CONFIG.md](ICE_TURN_CONFIG.md)
-- **Coturn Setup:** [docker/coturn/README.md](../../docker/coturn/README.md)
-- **WebRTC Docs:** [docs/webrtc.md](../../docs/webrtc.md)
+- **Coturn Setup:** docker/coturn/README.md
+- **WebRTC Docs:** docs/webrtc.md
 
 ---
 

@@ -3,6 +3,7 @@ package com.hmdev.sdk.local.terminal;
 import com.hmdev.messaging.common.CommonUtils;
 import com.hmdev.sdk.local.dto.SshTestResponse;
 import com.hmdev.sdk.local.filesystem.FileSystemService;
+import com.hmdev.sdk.local.dto.SshConnectionView;
 import com.hmdev.sdk.local.model.SshConnection;
 import com.hmdev.sdk.local.model.TerminalSession;
 import com.hmdev.sdk.local.repository.SshConnectionRepository;
@@ -458,58 +459,30 @@ public class TerminalService {
     // ========== SSH Connection Management ==========
 
     /**
-     * Get all SSH connections (without sensitive data)
+     * Get all SSH connections, as views that cannot carry a secret.
+     *
+     * These used to be entities with setPassword(null) called on them. That was
+     * wrong twice over: findAll() returns MANAGED entities, so blanking a field
+     * marks the row dirty and Hibernate can flush the null back and destroy the
+     * stored credential; and any secret field added later would have been
+     * exposed by default. The view has no field to leak.
      */
-    public List<SshConnection> getAllSshConnections() {
-        List<SshConnection> connections = sshConnectionRepository.findAll();
-        // Remove sensitive data
-        connections.forEach(conn -> {
-            conn.setPassword(null);
-            conn.setPrivateKey(null);
-        });
-        return connections;
+    public List<SshConnectionView> getAllSshConnections() {
+        return SshConnectionView.of(sshConnectionRepository.findAll());
     }
 
     /**
-     * Get all SSH connections WITH credentials (for export/backup only)
-     * WARNING: Contains sensitive data - use with caution!
+     * Get SSH connection by ID, without secrets.
      */
-    public List<SshConnection> getAllSshConnectionsWithCredentials() {
-        List<SshConnection> connections = sshConnectionRepository.findAll();
-        log.info("[TerminalService] Retrieved {} SSH connections WITH credentials for export", connections.size());
-        return connections;  // Includes passwords and private keys
+    public Optional<SshConnectionView> getSshConnectionById(Long id) {
+        return sshConnectionRepository.findById(id).map(SshConnectionView::of);
     }
 
     /**
-     * Get SSH connection by ID (without sensitive data)
+     * Get SSH connection by name, without secrets.
      */
-    public Optional<SshConnection> getSshConnectionById(Long id) {
-        return sshConnectionRepository.findById(id)
-            .map(conn -> {
-                conn.setPassword(null);
-                conn.setPrivateKey(null);
-                return conn;
-            });
-    }
-
-    /**
-     * Get SSH connection by ID with credentials (for internal use only)
-     * WARNING: Contains sensitive data - do not expose via API
-     */
-    public Optional<SshConnection> getSshConnectionByIdWithCredentials(Long id) {
-        return sshConnectionRepository.findById(id);
-    }
-
-    /**
-     * Get SSH connection by name (without sensitive data)
-     */
-    public Optional<SshConnection> getSshConnectionByName(String name) {
-        return sshConnectionRepository.findByName(name)
-            .map(conn -> {
-                conn.setPassword(null);
-                conn.setPrivateKey(null);
-                return conn;
-            });
+    public Optional<SshConnectionView> getSshConnectionByName(String name) {
+        return sshConnectionRepository.findByName(name).map(SshConnectionView::of);
     }
 
     /**

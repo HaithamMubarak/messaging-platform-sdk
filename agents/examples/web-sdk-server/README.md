@@ -2,7 +2,7 @@
 
 **Spring Boot backend serving interactive multiplayer games, collaboration tools, and demos with secure temporary API key management.**
 
-> **📁 Resource Organization:** This module uses a clean separation between SDK files (copied at build time to `static/generated/`) and demo-specific files (in `static/js/` and `static/css/`). See [ORGANIZATION-SUMMARY.md](ORGANIZATION-SUMMARY.md) for details.
+> **📁 Resource Organization:** This module uses a clean separation between SDK files (copied at build time to `static/generated/`) and demo-specific files (in `static/js/` and `static/css/`). See ORGANIZATION-SUMMARY.md for details.
 
 ---
 
@@ -553,9 +553,9 @@ This project follows the **same pattern** as `web-agent`:
 ## 📖 Related Documentation
 
 - [Messaging Platform SDK](../../README.md)
-- [Web Agent Example](../../agents/web-agent/README.md)
+- Web Agent Example
 - [Game Examples](../GAMES-README.md)
-- [Temporary Keys Guide](../../agents/web-agent/TEMPORARY-KEY-INTEGRATION.md)
+- Temporary Keys Guide
 
 ---
 

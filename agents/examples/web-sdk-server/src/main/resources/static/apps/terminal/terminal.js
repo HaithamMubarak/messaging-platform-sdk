@@ -1492,11 +1492,16 @@ async function checkMlsHealth(showNotification = false) {
         //if (statusText) statusText.textContent = 'Lo';
         setSlsTitle(`Local Service: Offline – cannot connect on localhost:${SLS_PORT}`);
 
-        console.warn('[Health] SLS health check failed:', error.message);
-
         // Check if state changed: null→offline or online→offline
         const previousState = slsCurrentState;
         slsCurrentState = 'offline';
+
+        // Logged once per transition, not on every poll: when the helper is
+        // simply not installed this check fails for ever, and a warning every
+        // thirty seconds buries whatever else the console is trying to say.
+        if (previousState !== 'offline') {
+            console.warn('[Health] SLS health check failed:', error.message);
+        }
 
         // Dispatch SLS offline event (only on state change)
         if (previousState !== 'offline') {
@@ -3220,12 +3225,29 @@ async function handleWebSocketClose(event, sessionId, session) {
 // ========================================
 // WebSocket Connection
 // ========================================
-function connectWebSocket(sessionId) {
+async function connectWebSocket(sessionId) {
     const session = sessions.get(sessionId);
     if (!session) return;
 
-    const wsUrl = `${MLS_WS_URL}/terminal/stream/${sessionId}`;
-    console.log('[WS] Connecting:', wsUrl);
+    // The stream needs a ticket, not just a session id. The id travels in URLs
+    // and logs, so it is an identifier rather than a secret; the ticket is
+    // issued to this authenticated client, is good only for this session, and
+    // is spent the moment the socket opens.
+    let ticket;
+    try {
+        const res = await slsFetch(`${MLS_URL}/terminal/${sessionId}/ticket`, { method: 'POST' });
+        if (!res.ok) throw new Error(`ticket request returned ${res.status}`);
+        ticket = (await res.json()).ticket;
+    } catch (err) {
+        console.warn('[WS] Could not obtain a stream ticket:', err.message || err);
+        session.terminal.writeln('\x1b[1;31m✖ Could not authorise the terminal stream\x1b[0m');
+        session.terminal.writeln('\x1b[33mReconnect to try again.\x1b[0m');
+        return;
+    }
+
+    const wsUrl = `${MLS_WS_URL}/terminal/stream/${sessionId}?ticket=${encodeURIComponent(ticket)}`;
+    // The ticket is a credential for the next few seconds — log the target, not the URL.
+    console.log('[WS] Connecting to session:', sessionId);
 
     const ws = new WebSocket(wsUrl);
     
@@ -8809,7 +8831,30 @@ window.addEventListener('load', async () => {
     }
 
     // Start health check interval — silent=true so it never flashes "Checking..."
-    setInterval(() => checkMlsHealth(false, true), 30000);
+    // Poll for the local helper, backing off while it stays away.
+    //
+    // A fixed 30s poll against a helper that is not installed is a failed
+    // request in the network panel twice a minute for as long as the tab is
+    // open. Backing off to five minutes keeps recovery quick when the helper
+    // is starting up, and quiet when it was never there.
+    const HEALTH_POLL_MIN = 30000;
+    const HEALTH_POLL_MAX = 300000;
+    let healthPollDelay = HEALTH_POLL_MIN;
+
+    (function pollHealth() {
+        setTimeout(async () => {
+            let online = false;
+            try {
+                online = await checkMlsHealth(false, true);
+            } catch (e) {
+                online = false;
+            }
+            healthPollDelay = online
+                ? HEALTH_POLL_MIN
+                : Math.min(healthPollDelay * 2, HEALTH_POLL_MAX);
+            pollHealth();
+        }, healthPollDelay);
+    })();
 
     // Refresh token every 23 hours (before 24h expiry)
     setInterval(() => {

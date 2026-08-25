@@ -329,6 +329,6 @@ sudo apt-get update
 
 ## See Also
 
-- [Web Agent](../web-agent-deprecated/README.md)
-- [Python Agent](../python-agent/README.md)
-- [Java Agent](../java-agent/README.md)
+- Web Agent
+- Python Agent
+- Java Agent

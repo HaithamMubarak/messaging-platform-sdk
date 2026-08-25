@@ -202,19 +202,19 @@ Sharing functionality:
 
 Ready to see it in action? Check out working examples:
 
-### 📁 [examples/](examples/)
+### 📁 examples/
 
-- **[basic-connection.html](examples/basic-connection.html)** - Simple connection and messaging
+- **basic-connection.html** - Simple connection and messaging
   - Create connection
   - Send/receive messages
   - Handle player joins/leaves
 
-- **[webrtc-example.html](examples/webrtc-example.html)** - WebRTC P2P demonstration
+- **webrtc-example.html** - WebRTC P2P demonstration
   - Ultra-low latency P2P
   - Performance comparison
   - Peer connection management
 
-Open them in your browser to see the SDK in action! See [examples/README.md](examples/README.md) for more details.
+Open them in your browser to see the SDK in action! See examples/README.md for more details.
 
 ---
 

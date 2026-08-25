@@ -448,7 +448,7 @@ They'll see each other's messages! 🎮
 
 ## Next Steps
 
-1. ✅ **Read full documentation:** [GAME-INTEGRATION-GUIDE.md](GAME-INTEGRATION-GUIDE.md)
+1. ✅ **Read full documentation:** GAME-INTEGRATION-GUIDE.md
 2. ✅ **See examples:** `/agents/examples/` directory
 3. ✅ **Join community:** (add your community link)
 4. ✅ **Report issues:** (add your issue tracker)
@@ -457,8 +457,8 @@ They'll see each other's messages! 🎮
 
 ## Need Help?
 
-- 📘 **Full Guide:** [GAME-INTEGRATION-GUIDE.md](GAME-INTEGRATION-GUIDE.md)
-- ⚡ **Quick Reference:** [GAME-INTEGRATION-QUICK-REF.md](GAME-INTEGRATION-QUICK-REF.md)
+- 📘 **Full Guide:** GAME-INTEGRATION-GUIDE.md
+- ⚡ **Quick Reference:** GAME-INTEGRATION-QUICK-REF.md
 - 🎨 **Comparison Chart:** [INTEGRATION-COMPARISON.txt](INTEGRATION-COMPARISON.txt)
 - 📚 **Main README:** [README.md](README.md)
 

@@ -1,0 +1,82 @@
+# What has to be true before a change lands.
+#
+# The repo had no CI at all, so a broken build could sit on a branch
+# indefinitely — the Java agent's tests did not compile for long enough that
+# the API had moved out from under them, and the npm package could not be
+# imported at all. Each job below is one of the ways that went unnoticed.
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [ main, develop ]
+
+jobs:
+  java:
+    name: Java build and tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          java-version: '17'
+          distribution: 'temurin'
+      - name: Cache Gradle
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.gradle/caches
+            ~/.gradle/wrapper
+          key: gradle-${{ hashFiles('**/*.gradle', 'gradle/wrapper/gradle-wrapper.properties') }}
+      # --continue so one failing module still reports the others.
+      - run: ./gradlew test --continue --no-daemon
+      - name: Publish test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: java-test-results
+          path: '**/build/test-results/test/*.xml'
+          if-no-files-found: ignore
+
+  web-sdk-package:
+    name: npm package imports and works
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      # Proves a consumer can require() the package — the check that would have
+      # caught "CryptoJS is not defined".
+      - run: node test/smoke.test.js
+        working-directory: agents/web-agent-js
+      # And that it survives being packed and installed, not just run in place.
+      - name: Pack and import from the tarball
+        working-directory: agents/web-agent-js
+        run: |
+          npm pack --silent
+          mkdir -p /tmp/consumer && cd /tmp/consumer
+          npm init -y >/dev/null
+          npm install --silent "$OLDPWD"/*.tgz
+          node -e "const a=require('@messaging-platform/web-agent-js'); if(!a.AgentConnection) throw new Error('package does not export its API'); console.log('installed package imports fine');"
+
+  javascript-syntax:
+    name: JavaScript parses
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      # A syntax error in a demo is invisible until someone opens the page.
+      - run: node tools/check-js-syntax.js
+
+  docs-links:
+    name: Documentation links resolve
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - run: node tools/check-doc-links.js

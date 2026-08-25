@@ -124,3 +124,11 @@ sls-data*
 
 # Generated MCP knowledge cache (build via mcp/build_knowledge.py)
 AI/knowledge/cache.json
+
+# Build output that was tracked by accident. gradle-wrapper.jar stays tracked
+# on purpose (the negation above) — a checkout needs it to build at all.
+**/build/libs/
+*.bak
+
+# Copied into the served folder at build time from the repository root.
+agents/examples/web-sdk-server/src/main/resources/static/DEVELOPER-GUIDE.md

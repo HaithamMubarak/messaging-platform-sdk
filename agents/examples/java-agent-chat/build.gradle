@@ -30,7 +30,7 @@ dependencies {
 }
 
 application {
-    mainClass = 'com.hmdev.messaging.agent.example.ExampleMain'
+    mainClass = 'com.hmdev.messaging.agent.example.ExampleTextChatMain'
 }
 
 // Live two-agent messaging smoke test — verifies nothing is broken end-to-end.

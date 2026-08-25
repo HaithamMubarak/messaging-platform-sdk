@@ -21,10 +21,17 @@ import java.util.List;
 public class SecurityProperties {
 
     /**
-     * Public endpoints that don't require token authentication.
+     * Public endpoints that don't require token authentication, matched EXACTLY.
      *
      * These are application constants - NOT configurable via properties.
      * They define the core public API surface and rarely change.
+     *
+     * Exact matching is load-bearing, not a style choice. This list used to be
+     * compared with startsWith(), and it contained "/" — and since every HTTP
+     * path begins with "/", that made every endpoint in the service public,
+     * including the SSH credential APIs. Anything added here opens exactly one
+     * path and nothing beneath it; a genuinely public subtree goes in
+     * PUBLIC_SUBTREES below, where the wildcard is deliberate and visible.
      */
     public static final List<String> PUBLIC_ENDPOINTS = Arrays.asList(
         "/health",            // Health check
@@ -32,13 +39,21 @@ public class SecurityProperties {
         "/auth/status",       // Security status
         "/auth/validate",     // Token validation
         "/favicon.ico",       // Favicon
-        "/",                  // Root
+        "/",                  // Root — the index page only; NOT a prefix
         "/index.html",        // Index page
-        "/terminal/stream",   // WebSocket streaming (sessionId auth)
+        "/terminal/stream",   // WebSocket streaming (ticket-authenticated)
         "/cloud/connection",  // Cloud configuration
-        "/terminal/shells",  // List available shells (no auth, used by UI to populate shell options)
-        "/h2-console",        // H2 Database Console (localhost only)
-        "/h2-console/**"      // H2 Console resources
+        "/terminal/shells"    // List available shells (used by the UI to populate shell options)
+    );
+
+    /**
+     * Public subtrees: every path beneath these prefixes is public.
+     *
+     * Keep this list as short as possible and never add a bare "/" — that is
+     * the bypass this split exists to prevent.
+     */
+    public static final List<String> PUBLIC_SUBTREES = Arrays.asList(
+        "/h2-console"         // H2 Database Console and its resources (localhost only)
     );
 
     /**
@@ -86,6 +101,16 @@ public class SecurityProperties {
      * Default: 24
      */
     private Integer defaultTokenExpiryHours = 24;
+
+    /**
+     * Record that terminal commands ran (programme name and length only, never
+     * the command text or its arguments).
+     *
+     * Default: false. Terminal input routinely carries secrets — an inline API
+     * token, a password typed at a prompt — so nothing about command content is
+     * recorded unless an operator turns this on deliberately.
+     */
+    private boolean auditCommands = false;
 
     /**
      * Enable security logging

@@ -134,10 +134,10 @@ Always use `turns:` (TURN over TLS) in production for encrypted signaling.
 
 ## Related Documentation
 
-- [COTURN.md](../../COTURN.md) - Setting up Coturn server
-- [docker/coturn/README.md](../../docker/coturn/README.md) - Docker Coturn setup
-- [docs/webrtc.md](../../docs/webrtc.md) - WebRTC integration overview
-- [test-turn-stun.html](../../agents/web-agent/examples/test-turn-stun.html) - Test your configuration
+- COTURN.md - Setting up Coturn server
+- docker/coturn/README.md - Docker Coturn setup
+- docs/webrtc.md - WebRTC integration overview
+- test-turn-stun.html - Test your configuration
 
 ## Implementation Details
 

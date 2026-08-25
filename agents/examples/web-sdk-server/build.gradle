@@ -1,13 +1,13 @@
 plugins {
     id 'java'
-    id 'org.springframework.boot' version '2.7.18'
-    id 'io.spring.dependency-management' version '1.1.6'
+    id 'org.springframework.boot' version "${springBootVersion}"
+    id 'io.spring.dependency-management' version "${springDependencyManagementVersion}"
     id 'java-library'  // Enable library publishing
     id 'maven-publish'  // Enable maven publishing
 }
 
 group = 'com.hmdev.messaging'
-version = '1.0.0'
+version = sdkVersion
 
 // Set the base name for the JAR
 bootJar {
@@ -137,7 +137,10 @@ tasks.register('copyUserGuide', Copy) {
     description = 'Copy USER-GUIDE.md from the repository root into the static folder for docs.html'
     group = 'build'
 
+    // USER-GUIDE links to the developer guide, so that has to land beside it
+    // or every one of those links 404s for a reader of the served docs.
     from(rootProject.file('USER-GUIDE.md'))
+    from(rootProject.file('DEVELOPER-GUIDE.md'))
     into file('src/main/resources/static')
 
     outputs.upToDateWhen { false }
@@ -159,6 +162,7 @@ processResources.dependsOn(tasks.named('copyUserGuide'))
 clean {
     delete file('src/main/resources/static/generated-web-agent-js')
     delete file('src/main/resources/static/USER-GUIDE.md')
+    delete file('src/main/resources/static/DEVELOPER-GUIDE.md')
 }
 
 // Create executable jar with all web demos included

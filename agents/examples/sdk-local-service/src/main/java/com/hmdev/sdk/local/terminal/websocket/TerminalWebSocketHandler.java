@@ -1,6 +1,8 @@
 package com.hmdev.sdk.local.terminal.websocket;
 
+import com.hmdev.sdk.local.config.SecurityProperties;
 import com.hmdev.sdk.local.terminal.TerminalService;
+import com.hmdev.sdk.local.terminal.TerminalTicketService;
 import com.hmdev.sdk.local.terminal.util.TerminalStringUtils;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -28,6 +30,8 @@ public class TerminalWebSocketHandler extends TextWebSocketHandler {
     public static final String BANNER_STREAM_CLOSED = "<<STREAM_CLOSED>>";
 
     private final TerminalService terminalService;
+    private final TerminalTicketService terminalTicketService;
+    private final SecurityProperties securityProperties;
     private final Map<String, Set<WebSocketSession>> sessionClients = new ConcurrentHashMap<>();
     private final Map<String, Boolean> streamingThreads = new ConcurrentHashMap<>();
 
@@ -44,6 +48,15 @@ public class TerminalWebSocketHandler extends TextWebSocketHandler {
     @Override
     public void afterConnectionEstablished(WebSocketSession session) throws Exception {
         String sessionId = extractSessionId(session);
+
+        // The session id in the path is an identifier, not a credential. The
+        // ticket is the credential: issued to an authenticated caller, bound to
+        // this session, valid for seconds, and spendable once.
+        if (sessionId != null && !terminalTicketService.redeem(extractTicket(session), sessionId)) {
+            log.warn("[WebSocket] Refused a stream connection with no valid ticket for session {}", sessionId);
+            session.close(CloseStatus.POLICY_VIOLATION.withReason("A valid stream ticket is required"));
+            return;
+        }
 
         if (sessionId == null) {
             log.warn("WebSocket connection without sessionId");
@@ -65,7 +78,7 @@ public class TerminalWebSocketHandler extends TextWebSocketHandler {
             // Reconnect replay: send any partial input that was being typed before disconnect.
             String partial = lastSessionInput.get(sessionId);
             if (partial != null && !partial.isEmpty()) {
-                log.info("[Reconnect-{}] Replaying partial input ({} chars): {}", sessionId, partial.length(), partial);
+                log.info("[Reconnect-{}] Replaying partial input ({} chars)", sessionId, partial.length());
                 try {
                     session.sendMessage(new TextMessage(partial));
                 } catch (Exception e) {
@@ -85,9 +98,10 @@ public class TerminalWebSocketHandler extends TextWebSocketHandler {
         }
 
         String data = message.getPayload();
-        log.debug("[WebSocket-Input] Session: {}, Data: {}",
-                 sessionId,
-                 TerminalStringUtils.formatForLogging(data));
+        // Deliberately not logged. This is every keystroke of the session,
+        // which includes anything typed at a password prompt. Only the fact of
+        // input is recorded, never its content.
+        log.trace("[WebSocket-Input] Session: {}, {} chars", sessionId, data.length());
 
         try {
             boolean needsEcho = terminalService.needsManualEcho(sessionId);
@@ -114,7 +128,10 @@ public class TerminalWebSocketHandler extends TextWebSocketHandler {
                     return;
                 } else if (TerminalStringUtils.isNewline(data)) {
                     String command = inputBuffer.toString().trim();
-                    log.info("[COMMAND] Session: {}, Command: '{}'", sessionId, command);
+                    // The command text is not logged: it routinely carries
+                    // secrets (an inline token, a `mysql -p...`). Audit keeps
+                    // the shape of the event, not its content.
+                    auditCommand(sessionId, command);
                     inputBuffer.setLength(0);
                     lastSessionInput.remove(sessionId);   // ← clear cached input on Enter
 
@@ -320,6 +337,42 @@ public class TerminalWebSocketHandler extends TextWebSocketHandler {
             });
         }
         log.info("[Cleanup-{}] Session state cleared", sessionId);
+    }
+
+    /**
+     * Record that a command ran, without recording what it was.
+     *
+     * Off unless sls.security.audit-commands=true is set deliberately, and even
+     * then it keeps only the shape of the event: which session, how long the
+     * line was, and the first token, which is the program name rather than its
+     * arguments. That is enough to answer "was anything run in this session"
+     * without turning the log into a transcript of everything typed.
+     */
+    private void auditCommand(String sessionId, String command) {
+        if (!securityProperties.isAuditCommands()) {
+            return;
+        }
+        String program = command.isEmpty() ? "" : command.split("\\s+")[0];
+        // A program name can itself be a path into someone's home directory.
+        if (program.length() > 32) {
+            program = program.substring(0, 32) + "...";
+        }
+        log.info("[AUDIT] session={} programme={} length={}", sessionId, program, command.length());
+    }
+
+    /** The ticket travels as ?ticket=... on the socket URL. */
+    private String extractTicket(WebSocketSession session) {
+        String query = session.getUri() == null ? null : session.getUri().getQuery();
+        if (query == null) {
+            return null;
+        }
+        for (String pair : query.split("&")) {
+            int eq = pair.indexOf('=');
+            if (eq > 0 && "ticket".equals(pair.substring(0, eq))) {
+                return java.net.URLDecoder.decode(pair.substring(eq + 1), StandardCharsets.UTF_8);
+            }
+        }
+        return null;
     }
 
     private String extractSessionId(WebSocketSession session) {

@@ -1,6 +1,8 @@
 package com.hmdev.sdk.local.model;
 
 import lombok.Data;
+import com.hmdev.sdk.local.security.crypto.EncryptedStringConverter;
+
 import javax.persistence.*;
 import java.time.LocalDateTime;
 
@@ -25,10 +27,14 @@ public class SshConnection {
     @Column(nullable = false)
     private String username;
 
-    @Column
+    // Encrypted at rest: these are the credentials for a real host, and the
+    // database is a file on disk that backups and sync folders pick up.
+    @Column(length = 2048)
+    @Convert(converter = EncryptedStringConverter.class)
     private String password;
 
-    @Column(length = 4096)
+    @Column(length = 8192)
+    @Convert(converter = EncryptedStringConverter.class)
     private String privateKey;
 
     @Column

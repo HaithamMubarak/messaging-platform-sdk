@@ -20,7 +20,7 @@
 - 📊 Health monitoring
 - 🔧 Easy configuration
 
-**[🚀 Quick Start](mini-games-server/) | [📖 Documentation](mini-games-server/README.md)**
+**🚀 Quick Start | 📖 Documentation**
 
 ```bash
 cd mini-games-server
@@ -45,7 +45,7 @@ The mini-games-server includes **three complete games**:
 - Export artwork as PNG
 - Mobile-friendly with touch support
 
-**[📖 Documentation](mini-games-server/WHITEBOARD-README.md)**
+**[📖 Documentation](web-sdk-server/WHITEBOARD-README.md)**
 
 #### 2. 🎯 Quiz Battle
 - Real-time multiplayer quiz competition
@@ -109,7 +109,7 @@ HTTP relay server for game engines.
 - CORS support
 - Multiple game support
 
-**[📖 View Code](gaming-server-java/)**
+**📖 View Code**
 
 **Tech:** Java, Spring Boot  
 **Use Case:** Unity, Unreal, Custom engines
@@ -251,9 +251,9 @@ Fork the code and build your own features!
 
 ### Documentation
 - [SDK Overview](../README.md)
-- [API Reference](../AI/API_DOCUMENTATION.md)
-- [Game Integration Guide](../GAME-INTEGRATION-GUIDE.md)
-- [Quick Start](../AI/QUICK-START.md)
+- [API Reference](../cpp-agent/docs/API_DOCUMENTATION.md)
+- Game Integration Guide
+- Quick Start
 
 ### Tutorials
 - Build a Whiteboard (this example!)
@@ -412,7 +412,7 @@ Popular requests get priority!
 
 ---
 
-**Questions?** Check the [FAQ](../FAQ.md) or [open an issue](https://github.com/your-repo/issues).
+**Questions?** Check the FAQ or [open an issue](https://github.com/your-repo/issues).
 
 **Want to showcase your project?** We'd love to feature it! [Submit here](https://github.com/your-repo/showcase).
 

@@ -127,7 +127,7 @@ SLS implements **production-ready security** measures:
 | Request logging | ✅ Enabled | All security events logged |
 | H2 Console | ❌ Disabled | Disabled by default for security |
 
-**See:** [SECURITY-IMPLEMENTATION.md](./SECURITY-IMPLEMENTATION.md) for complete security documentation.
+**See:** SECURITY-IMPLEMENTATION.md for complete security documentation.
 
 ---
 

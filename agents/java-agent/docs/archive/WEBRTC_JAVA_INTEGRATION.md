@@ -244,7 +244,7 @@ If peer connections timeout:
 
 - [webrtc-java GitHub](https://github.com/devopvoid/webrtc-java)
 - [WebRTC API Documentation](https://webrtc.org/)
-- [Example Usage](examples/java-agent-chat/ReceiveWebRtcVideoExample.java)
+- [Example Usage](../../../examples/java-agent-chat/src/main/java/com/hmdev/messaging/agent/example/ReceiveWebRtcVideoExample.java)
 
 ---
 

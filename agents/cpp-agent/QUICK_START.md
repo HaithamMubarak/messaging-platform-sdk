@@ -83,7 +83,7 @@ make
 
 - Read the [full README](README.md) for detailed API documentation
 - Check out [examples](examples/) for more use cases
-- See [Game Integration Guide](../../GAME-INTEGRATION-GUIDE.md) for game-specific patterns
+- See Game Integration Guide for game-specific patterns
 
 ## Common Issues
 

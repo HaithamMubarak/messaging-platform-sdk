@@ -125,6 +125,6 @@ To customize, edit `icon.svg` with any SVG editor, then regenerate.
 
 ---
 
-**Need help?** Check the main [Terminal Documentation](../README.md) or [PWA Guide](../docs/PWA.md)
+**Need help?** Check the main [Terminal Documentation](../README.md) or PWA Guide
 
 

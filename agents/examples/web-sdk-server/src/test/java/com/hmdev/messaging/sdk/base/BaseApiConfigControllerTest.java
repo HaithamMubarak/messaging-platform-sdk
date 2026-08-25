@@ -64,6 +64,24 @@ class BaseApiConfigControllerTest {
         mvc = MockMvcBuilders.standaloneSetup(new TestController(client)).build();
     }
 
+    /**
+     * Wait for the start of a fresh rate-limit window.
+     *
+     * The limiter counts per wall-clock minute, so a burst that straddles a
+     * minute boundary has its counter reset half way through and the request
+     * that should be refused succeeds. That made these tests fail roughly in
+     * proportion to how near the minute mark they happened to run — a flake
+     * that would erode trust in CI. Starting each burst just after a boundary
+     * leaves most of a minute to complete it.
+     */
+    private void awaitFreshRateWindow() throws Exception {
+        long msIntoWindow = System.currentTimeMillis() % 60_000L;
+        // Only wait when the window is nearly over; a burst takes milliseconds.
+        if (msIntoWindow > 55_000L) {
+            Thread.sleep(60_000L - msIntoWindow + 50L);
+        }
+    }
+
     private void requestKey(Integer ttlSeconds, String clientAddress) throws Exception {
         mvc.perform(post("/app/api/config")
                         .contentType(MediaType.APPLICATION_JSON)
@@ -142,6 +160,7 @@ class BaseApiConfigControllerTest {
     @Test
     @DisplayName("one noisy client does not exhaust the budget of every other client")
     void limitsPerClientAddressRatherThanGlobally() throws Exception {
+        awaitFreshRateWindow();
         for (int i = 0; i < BaseApiConfigController.RATE_LIMIT_PER_MINUTE; i++) {
             requestKey(60, "198.51.100.10");
         }
@@ -157,6 +176,7 @@ class BaseApiConfigControllerTest {
         // whatever the caller sent. So the leftmost token is attacker-controlled:
         // reading it let a script rotate identities and mint keys without limit.
         // Only the rightmost hop — the address our own proxy observed — counts.
+        awaitFreshRateWindow();
         for (int i = 0; i < BaseApiConfigController.RATE_LIMIT_PER_MINUTE; i++) {
             requestKey(60, "forged-" + i + ", 198.51.100.4");
         }
@@ -173,6 +193,7 @@ class BaseApiConfigControllerTest {
     @Test
     @DisplayName("X-Real-IP from our own proxy identifies the client")
     void prefersRealIpFromATrustedProxy() throws Exception {
+        awaitFreshRateWindow();
         for (int i = 0; i < BaseApiConfigController.RATE_LIMIT_PER_MINUTE; i++) {
             mvc.perform(post("/app/api/config")
                             .contentType(MediaType.APPLICATION_JSON)
@@ -192,6 +213,7 @@ class BaseApiConfigControllerTest {
     void ignoresForwardingHeadersFromAnUntrustedPeer() throws Exception {
         // Reached directly rather than through our proxy: the caller could set any
         // header it likes, so the socket address is the only thing worth trusting.
+        awaitFreshRateWindow();
         for (int i = 0; i < BaseApiConfigController.RATE_LIMIT_PER_MINUTE; i++) {
             directRequest("203.0.113.50", "spoofed-" + i);
         }

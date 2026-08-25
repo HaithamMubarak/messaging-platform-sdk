@@ -7,11 +7,44 @@
     const requests_limit = 50;
     const requests_time_period = 1500;
     const DEFAULT_RECEIVE_LIMIT = 50;
+    // Ceiling for a request with no explicit timeout. Long enough for a
+    // long-poll receive, short enough that a dead socket is eventually noticed.
+    const DEFAULT_REQUEST_TIMEOUT = 10 * 60 * 1000;
 
     let xhr_enabled = true;
     const channelPasswordRegex = /[*,\/\\\s]+/;
 
     "use strict";
+
+    /**
+     * Log a request payload without logging its secrets.
+     *
+     * These payloads carry channelPassword, session ids and message content,
+     * and they were being written to the console in full on every send and
+     * every connect. A browser console is not a private place: extensions read
+     * it, screen shares show it, and bug reports paste it.
+     */
+    function logPayload(label, payload) {
+        const SENSITIVE = ['channelPassword', 'password', 'secret', 'channelSecret',
+                           'token', 'apiKey', 'privateKey', 'content', 'msg', 'data'];
+        let safe;
+        try {
+            safe = {};
+            Object.keys(payload || {}).forEach(function (k) {
+                if (SENSITIVE.indexOf(k) !== -1) {
+                    const v = payload[k];
+                    safe[k] = (v === null || v === undefined || v === '')
+                        ? v
+                        : '[redacted ' + String(v).length + ' chars]';
+                } else {
+                    safe[k] = payload[k];
+                }
+            });
+        } catch (e) {
+            safe = '[unloggable payload]';
+        }
+        console.debug(label, safe);
+    }
 
     const MySecurity =  {
 
@@ -416,10 +449,15 @@
 
         const xhr = new XMLHttpRequest();
 
+        // Every call site had its timeout commented out, so a request that was
+        // never answered stayed pending for ever and the caller's callback
+        // never ran. A ceiling is applied when the caller does not set one; it
+        // is deliberately generous so a long-poll receive is not cut short.
         const timeout = parseInt(obj.timeout);
+        const effectiveTimeout = (!isNaN(timeout) && timeout > 0) ? timeout : DEFAULT_REQUEST_TIMEOUT;
 
-        if(!obj.useSyncMode && !isNaN(timeout) && timeout > 0){
-            xhr.timeout = timeout;//10 * 60 * 1000
+        if(!obj.useSyncMode && effectiveTimeout > 0){
+            xhr.timeout = effectiveTimeout;
         }
 
         let handled = false;
@@ -517,8 +555,7 @@
             sessionId : session
         };
 
-        console.log('Sending payload : ');
-        console.log(payload);
+        logPayload('Sending payload:', payload);
 
         request({
             useSyncMode : _self.useSyncMode,
@@ -638,8 +675,7 @@
             sessionId : session
         };
 
-        console.log('Sending payload : ');
-        console.log(payload);
+        logPayload('Sending payload:', payload);
 
         request({
             useSyncMode : _self.useSyncMode,
@@ -853,6 +889,18 @@
         this.defaultPollSource = 'AUTO';
 
     }
+
+    /**
+     * Tell the SDK whether leaving this page would lose work.
+     *
+     * The unload prompt is driven by this, so it appears for an app with a
+     * half-written document and stays out of the way for one that is merely
+     * connected. Call it with false again once the work is saved.
+     */
+    AgentConnection.prototype.setUnsavedChanges = function(hasUnsaved){
+        this.hasUnsavedChanges = !!hasUnsaved;
+        return this;
+    };
 
     AgentConnection.prototype.getActiveAgents = function(callback){
 
@@ -1699,7 +1747,7 @@
             };
         }
 
-        console.log('payload', payload)
+        logPayload('Connect payload:', payload);
 
         request({
             useSyncMode : _self.useSyncMode,
@@ -2149,9 +2197,17 @@
                         dataArray.push(item);
                     }
 
-                    // Updates offsets for next receive
-                    range.globalOffset = data.nextGlobalOffset || range.globalOffset;
-                    range.localOffset = data.nextLocalOffset || range.localOffset;
+                    // Updates offsets for next receive.
+                    // `||` was wrong here: 0 is a legitimate offset — it is
+                    // where a freshly reset channel starts — and `||` treated
+                    // it as absent, so the client kept a stale position and
+                    // re-read or stalled. Only null/undefined mean "unchanged".
+                    if (data.nextGlobalOffset !== null && data.nextGlobalOffset !== undefined) {
+                        range.globalOffset = data.nextGlobalOffset;
+                    }
+                    if (data.nextLocalOffset !== null && data.nextLocalOffset !== undefined) {
+                        range.localOffset = data.nextLocalOffset;
+                    }
                     response.data = dataArray;
 
                     _self.dispatchEvent('message', {response: response});
@@ -2271,8 +2327,7 @@
             payload.customType = customType;
         }
 
-        console.log('Sending payload : ');
-        console.log(payload);
+        logPayload('Sending payload:', payload);
 
         // Use WebSocket if enabled and connected
         if (useWebsocket && _self._websocketConnected) {
@@ -3167,20 +3222,27 @@
         window.addEventListener('beforeunload', (e) => {
             const activeConnections = _activeConnections.slice(); // Copy array to avoid modification during iteration
 
-            // If there are active connections, warn the user
-            if (activeConnections.length > 0) {
-                console.log(`[web-agent.js] Beforeunload: ${activeConnections.length} active connection(s) detected`);
+            // Warn only when leaving would actually lose something.
+            //
+            // This used to fire whenever any connection was open, which meant
+            // every page built on the SDK nagged on every close — including
+            // read-only ones with nothing to save. A prompt that always appears
+            // is one people learn to dismiss without reading, so it stops
+            // protecting the case that matters.
+            //
+            // An app marks real unsaved work with
+            // connection.setUnsavedChanges(true).
+            const unsaved = activeConnections.filter(c => c && c.hasUnsavedChanges);
 
-                // Show browser confirmation dialog
-                // Required for modern browsers
+            if (unsaved.length > 0) {
+                console.debug(`[web-agent.js] Beforeunload: ${unsaved.length} connection(s) report unsaved work`);
+
+                // Required for modern browsers; the custom text is ignored.
                 e.preventDefault();
-
-                // Chrome, Edge, Firefox ignore custom text
-                // Setting returnValue triggers the confirmation dialog
                 e.returnValue = '';
 
-                // Note: The actual disconnect happens in 'unload' event (see below)
-                // because beforeunload can be cancelled by user
+                // The disconnect itself happens on pagehide, because
+                // beforeunload can be cancelled by the user.
                 return '';
             }
         });

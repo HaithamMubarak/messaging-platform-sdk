@@ -35,8 +35,8 @@ Real-time messaging SDK for building multiplayer games, collaborative apps, and 
 | Platform | Guide | Description |
 |----------|-------|-------------|
 | **🌐 Web (JavaScript)** | [WEB-AGENT-GUIDE.md](WEB-AGENT-GUIDE.md) | Complete guide for web browsers |
-| **☕ Java** | [Java Agent](agents/java-agent/README.md) | JVM and Android applications |
-| **🐍 Python** | [Python Agent](agents/python-agent/README.md) | Bots, scripts, and automation |
+| **☕ Java** | Java Agent | JVM and Android applications |
+| **🐍 Python** | Python Agent | Bots, scripts, and automation |
 | **⚡ C++** | [C++ Agent](agents/cpp-agent/) | Native applications (experimental) |
 
 ### For Game Developers

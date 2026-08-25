@@ -4,7 +4,7 @@ plugins {
 }
 
 group = 'com.hmdev.messaging.agents'
-version = '1.0.0-SNAPSHOT'
+version = sdkVersion
 description = 'Project used to connect with http channel api'
 
 java {

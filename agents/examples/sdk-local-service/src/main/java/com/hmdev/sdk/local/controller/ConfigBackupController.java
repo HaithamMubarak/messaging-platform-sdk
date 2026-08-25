@@ -19,6 +19,7 @@ import org.springframework.web.multipart.MultipartFile;
 import javax.crypto.Cipher;
 import javax.crypto.SecretKey;
 import javax.crypto.SecretKeyFactory;
+import javax.crypto.spec.GCMParameterSpec;
 import javax.crypto.spec.IvParameterSpec;
 import javax.crypto.spec.PBEKeySpec;
 import javax.crypto.spec.SecretKeySpec;
@@ -47,11 +48,29 @@ public class ConfigBackupController {
     private final AppConfigRepository appConfigRepository;
     private final TerminalSessionRepository terminalSessionRepository;
 
-    private static final String AES_ALGORITHM = "AES/CBC/PKCS5Padding";
+    /**
+     * Backup encryption.
+     *
+     * A backup carries SSH passwords and private keys, so it needs
+     * authenticated encryption: the previous AES/CBC/PKCS5Padding had no
+     * integrity tag at all, which means anyone who could reach the file could
+     * flip bits in the ciphertext and change the decrypted XML without knowing
+     * the password. GCM makes that a decryption failure instead.
+     *
+     * The envelope is versioned so old backups still import: a "version.txt"
+     * entry holding "2" means GCM; a backup without one is a v1 CBC file and is
+     * read through the legacy path below, with a warning. Nothing writes v1 any
+     * more.
+     */
+    private static final String AES_ALGORITHM = "AES/GCM/NoPadding";
+    private static final String LEGACY_AES_ALGORITHM = "AES/CBC/PKCS5Padding";
     private static final int KEY_LENGTH = 256;
     private static final int ITERATION_COUNT = 65536;
     private static final int SALT_LENGTH = 16;
-    private static final int IV_LENGTH = 16;
+    private static final int IV_LENGTH = 12;          // GCM's standard nonce size
+    private static final int LEGACY_IV_LENGTH = 16;   // CBC block size, for v1 files
+    private static final int GCM_TAG_BITS = 128;
+    private static final String ENVELOPE_VERSION = "2";
 
     /**
      * Export configuration as XML, ZIP, or password-protected ZIP
@@ -302,7 +321,10 @@ public class ConfigBackupController {
         SecretKey key = deriveKey(password, salt);
 
         Cipher cipher = Cipher.getInstance(AES_ALGORITHM);
-        cipher.init(Cipher.ENCRYPT_MODE, key, new IvParameterSpec(iv));
+        cipher.init(Cipher.ENCRYPT_MODE, key, new GCMParameterSpec(GCM_TAG_BITS, iv));
+        // Bind the version marker to the ciphertext, so stripping it to force
+        // the legacy path is itself a tamper the tag catches.
+        cipher.updateAAD(ENVELOPE_VERSION.getBytes(StandardCharsets.UTF_8));
         byte[] encryptedData = cipher.doFinal(xmlContent.getBytes(StandardCharsets.UTF_8));
 
         ByteArrayOutputStream baos = new ByteArrayOutputStream();
@@ -317,6 +339,12 @@ public class ConfigBackupController {
             ZipEntry ivEntry = new ZipEntry("iv.bin");
             zos.putNextEntry(ivEntry);
             zos.write(iv);
+            zos.closeEntry();
+
+            // Mark the envelope version so a reader knows which scheme to use
+            ZipEntry versionEntry = new ZipEntry("version.txt");
+            zos.putNextEntry(versionEntry);
+            zos.write(ENVELOPE_VERSION.getBytes(StandardCharsets.UTF_8));
             zos.closeEntry();
 
             // Store encrypted config
@@ -350,6 +378,8 @@ public class ConfigBackupController {
         byte[] salt = null;
         byte[] iv = null;
         byte[] encryptedData = null;
+        // Absent means a version 1 file, written before the envelope was versioned.
+        String envelopeVersion = "1";
 
         try (ZipInputStream zis = new ZipInputStream(new ByteArrayInputStream(zipData))) {
             ZipEntry entry;
@@ -365,6 +395,9 @@ public class ConfigBackupController {
                     case "config.enc":
                         encryptedData = data;
                         break;
+                    case "version.txt":
+                        envelopeVersion = new String(data, StandardCharsets.UTF_8).trim();
+                        break;
                 }
             }
         }
@@ -374,13 +407,30 @@ public class ConfigBackupController {
         }
 
         SecretKey key = deriveKey(password, salt);
-        Cipher cipher = Cipher.getInstance(AES_ALGORITHM);
-        cipher.init(Cipher.DECRYPT_MODE, key, new IvParameterSpec(iv));
+        boolean legacy = !ENVELOPE_VERSION.equals(envelopeVersion);
 
         try {
+            Cipher cipher;
+            if (legacy) {
+                // A v1 file: AES-CBC with no integrity tag. Read it so existing
+                // backups still import, but say so — a wrong password here can
+                // surface as garbled XML rather than a clean failure, and the
+                // file's contents were never tamper-evident.
+                log.warn("[Backup] Importing a version 1 backup (unauthenticated AES-CBC). "
+                        + "Re-export it to upgrade the file to authenticated encryption.");
+                cipher = Cipher.getInstance(LEGACY_AES_ALGORITHM);
+                cipher.init(Cipher.DECRYPT_MODE, key, new IvParameterSpec(iv));
+            } else {
+                cipher = Cipher.getInstance(AES_ALGORITHM);
+                cipher.init(Cipher.DECRYPT_MODE, key, new GCMParameterSpec(GCM_TAG_BITS, iv));
+                cipher.updateAAD(ENVELOPE_VERSION.getBytes(StandardCharsets.UTF_8));
+            }
             byte[] decryptedData = cipher.doFinal(encryptedData);
             return new String(decryptedData, StandardCharsets.UTF_8);
         } catch (Exception e) {
+            // GCM reports a bad password and a tampered file the same way, and
+            // that is deliberate: the caller learns the backup is unusable, not
+            // which of the two it was.
             throw new Exception("Decryption failed - incorrect password or corrupted file");
         }
     }

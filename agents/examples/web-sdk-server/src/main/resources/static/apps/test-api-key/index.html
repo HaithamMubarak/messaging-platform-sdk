@@ -652,7 +652,7 @@
             </ol>
             <p style="margin-top: 16px; color: var(--text-faint); font-size: 13px;">
                 <strong>Tip:</strong> Both agents join a fresh test channel named <code>api-key-test-&lt;random&gt;</code>
-                (a new one on every page load) with password <code>test123</code>. This is for testing purposes only.
+                (a new one on every page load) with a random password. This is for testing purposes only.
             </p>
             <p style="margin-top: 12px; color: var(--text-faint); font-size: 13px;">
                 <svg class="icon icon--sm" aria-hidden="true"><use href="#i-zap"></use></svg> <strong>Ephemeral Messages:</strong> By default, messages are sent as ephemeral (not stored in DB).
@@ -778,7 +778,7 @@ async function testMessaging() {
             api: 'https://hmdevonline.com/messaging-platform/api/v1/messaging-service',
             apiKey: 'YOUR_API_KEY',
             channelName: 'test-' + Date.now(),
-            channelPassword: 'test123',
+            channelPassword: 'YOUR_CHANNEL_PASSWORD',
             agentName: 'TestAgent',
             autoReceive: true
         });
@@ -805,6 +805,7 @@ testMessaging().catch(console.error);</code></pre>
 
     <!-- SDK Scripts -->
     <script src="../../js/api-config.js"></script>
+    <script src="../../js/room-defaults.js"></script>
     <script src="../../generated-web-agent-js/js/web-agent.libs.js"></script>
     <script src="../../generated-web-agent-js/js/web-agent.js"></script>
 
@@ -813,7 +814,10 @@ testMessaging().catch(console.error);</code></pre>
         // CONFIGURATION
         // ============================================
         const TEST_CHANNEL = 'api-key-test-' + Math.random().toString(36).substring(7);
-        const TEST_PASSWORD = 'test123';
+        // Random per page load, like the channel name. A fixed password plus a
+        // guessable channel prefix is a room a stranger can walk into, and this
+        // page runs a real two-agent connection against a real service.
+        const TEST_PASSWORD = RoomDefaults.randomPassword();
         const AGENT1_NAME = 'Alice-' + Math.random().toString(36).substring(7);
         const AGENT2_NAME = 'Bob-' + Math.random().toString(36).substring(7);
 

@@ -6,8 +6,8 @@ Agents are client-side programs that connect to the Messaging Service. This fold
 
 **New to the platform? Building a game?**
 
-- 📘 **[Game Integration Guide](GAME-INTEGRATION-GUIDE.md)** - Complete guide with architecture, code examples, and recommendations
-- ⚡ **[Quick Reference](GAME-INTEGRATION-QUICK-REF.md)** - Fast decision matrix and code snippets
+- 📘 **Game Integration Guide** - Complete guide with architecture, code examples, and recommendations
+- ⚡ **Quick Reference** - Fast decision matrix and code snippets
 
 **TL;DR:**
 - **Java/Python/JavaScript games** → Use direct library integration (best performance)

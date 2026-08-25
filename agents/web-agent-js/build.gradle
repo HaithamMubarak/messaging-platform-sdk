@@ -2,7 +2,7 @@
 // This is a non-Java project containing only JavaScript/CSS files
 
 group = 'com.hmdev.messaging'
-version = '1.0.0'
+version = sdkVersion
 
 // No compilation needed - this is just a collection of static JS/CSS files
 // Other projects can reference these files using Gradle copy tasks

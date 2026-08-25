@@ -290,12 +290,32 @@ bool MessagingChannelApi::send(EventType eventType,
                                const std::string& sessionId,
                                bool encrypted) {
     try {
+        // Refuse rather than leak.
+        //
+        // This path used to set request.encrypted = true and then send the
+        // message body verbatim: the caller asked for encryption, no encryption
+        // happened, and the flag told every receiver it had. The C++ Security
+        // class has no cipher at all — only hashing, HMAC and base64 — so there
+        // was never anything behind the flag.
+        //
+        // Sending the plaintext anyway is the worst of the options, so the send
+        // fails loudly instead. Implementing this properly means matching the
+        // JavaScript agent's MySecurity format exactly (it is what decrypts the
+        // result), which is a deliberate piece of work rather than a patch.
+        if (encrypted) {
+            std::cerr << "send(): encrypted delivery was requested, but this agent "
+                         "cannot encrypt — refusing to transmit the message in the "
+                         "clear. Send it unencrypted only if that is acceptable."
+                      << std::endl;
+            return false;
+        }
+
         EventMessageRequest request;
         request.sessionId = sessionId;
         request.type = eventType;
         request.to = destination;
         request.content = message;
-        request.encrypted = encrypted;
+        request.encrypted = false;
 
         HttpClientResult result = httpClient_->post(getActionUrl("push"),
                                                      request.toJson());

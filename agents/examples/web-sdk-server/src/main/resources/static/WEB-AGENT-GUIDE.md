@@ -4,7 +4,7 @@
 **Version:** 1.0.0
 
 > For a multi-language overview and quick-start, see [USER-GUIDE.md](USER-GUIDE.md).  
-> For repo structure and build system, see [DEVELOPER-GUIDE.md](DEVELOPER-GUIDE.md).
+> For repo structure and build system, see DEVELOPER-GUIDE.md.
 
 ---
 

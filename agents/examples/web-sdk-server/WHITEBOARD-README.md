@@ -2,7 +2,7 @@
 
 A beautiful, interactive whiteboard application demonstrating the power of the Messaging Platform SDK.
 
-![Whiteboard Demo](screenshot.png)
+!Whiteboard Demo
 
 ## Features
 
@@ -290,7 +290,7 @@ Canvas automatically resizes to container. Modify container size in CSS:
 ## Learn More
 
 - [Messaging Platform SDK Documentation](../../../README.md)
-- [API Reference](../../../AI/API_DOCUMENTATION.md)
+- [API Reference](../../cpp-agent/docs/API_DOCUMENTATION.md)
 - [More Examples](../)
 
 ## License

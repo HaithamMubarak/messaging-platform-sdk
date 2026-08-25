@@ -2,9 +2,11 @@ package com.hmdev.sdk.local.controller;
 
 import com.hmdev.sdk.local.dto.SshTestRequest;
 import com.hmdev.sdk.local.dto.SshTestResponse;
+import com.hmdev.sdk.local.dto.SshConnectionView;
 import com.hmdev.sdk.local.model.SshConnection;
 import com.hmdev.sdk.local.model.TerminalSession;
 import com.hmdev.sdk.local.terminal.TerminalService;
+import com.hmdev.sdk.local.terminal.TerminalTicketService;
 import com.hmdev.sdk.local.terminal.config.ShellConfig;
 import com.hmdev.sdk.local.terminal.util.TerminalStringUtils;
 import com.hmdev.sdk.local.terminal.websocket.TerminalWebSocketHandler;
@@ -25,6 +27,7 @@ import java.util.stream.Collectors;
 public class TerminalController {
 
     private final TerminalService terminalService;
+    private final TerminalTicketService terminalTicketService;
     private final TerminalWebSocketHandler terminalWebSocketHandler;
 
     /**
@@ -350,21 +353,36 @@ public class TerminalController {
     /**
      * Get all SSH connections
      *
-     * GET /terminal/ssh-connections
-     * GET /terminal/ssh-connections?includeCredentials=true  (for export/backup)
+    /**
+     * Mint a short-lived ticket for opening this session's output stream.
      *
-     * @param includeCredentials If true, includes passwords and private keys (for export only)
+     * POST /terminal/{sessionId}/ticket
+     *
+     * This endpoint is NOT public, so reaching it already required a valid
+     * token. The ticket it returns is what the WebSocket accepts, so the socket
+     * no longer trusts a session id that anyone could have read out of a URL.
+     */
+    @PostMapping("/{sessionId}/ticket")
+    public ResponseEntity<?> issueStreamTicket(@PathVariable String sessionId) {
+        if (terminalService.getSession(sessionId) == null) {
+            return ResponseEntity.notFound().build();
+        }
+        return ResponseEntity.ok(Map.of(
+                "ticket", terminalTicketService.issue(sessionId),
+                "expiresInSeconds", 30));
+    }
+
+    /**
+     * GET /terminal/ssh-connections
+     *
+     * Never returns passwords or private keys. The ?includeCredentials=true
+     * switch that used to hand them back over plain HTTP has been removed: it
+     * had no caller, and credentials now leave only through the config backup
+     * export, which is separately authorised and encrypted.
      */
     @GetMapping("/ssh-connections")
-    public ResponseEntity<?> getAllSshConnections(
-            @RequestParam(value = "includeCredentials", required = false, defaultValue = "false") boolean includeCredentials) {
-
-        if (includeCredentials) {
-            log.warn("[SSH] Retrieving SSH connections WITH credentials (export mode)");
-            return ResponseEntity.ok(terminalService.getAllSshConnectionsWithCredentials());
-        } else {
-            return ResponseEntity.ok(terminalService.getAllSshConnections());
-        }
+    public ResponseEntity<?> getAllSshConnections() {
+        return ResponseEntity.ok(terminalService.getAllSshConnections());
     }
 
     /**
@@ -400,7 +418,9 @@ public class TerminalController {
     public ResponseEntity<?> createSshConnection(@RequestBody SshConnection connection) {
         try {
             SshConnection saved = terminalService.createSshConnection(connection);
-            return ResponseEntity.ok(saved);
+            // Echoing the entity would hand the caller back the very secret it
+            // just sent, and put it in any proxy log along the way.
+            return ResponseEntity.ok(SshConnectionView.of(saved));
         } catch (IllegalArgumentException e) {
             return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
         } catch (Exception e) {
@@ -419,7 +439,7 @@ public class TerminalController {
                                                   @RequestBody SshConnection connection) {
         try {
             SshConnection updated = terminalService.updateSshConnection(id, connection);
-            return ResponseEntity.ok(updated);
+            return ResponseEntity.ok(SshConnectionView.of(updated));
         } catch (IllegalArgumentException e) {
             return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
         } catch (Exception e) {

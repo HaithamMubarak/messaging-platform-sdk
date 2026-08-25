@@ -11,6 +11,7 @@ import javax.servlet.ServletException;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 import java.io.IOException;
+import java.net.URI;
 
 /**
  * Security filter that validates tokens on all protected endpoints.
@@ -103,8 +104,32 @@ public class SecurityFilter extends OncePerRequestFilter {
      * Check if endpoint is public (doesn't require token)
      */
     private boolean isPublicEndpoint(String path) {
-        return SecurityProperties.PUBLIC_ENDPOINTS.stream()
-                .anyMatch(path::startsWith);
+        String normalised = normalise(path);
+        if (SecurityProperties.PUBLIC_ENDPOINTS.contains(normalised)) {
+            return true;
+        }
+        return SecurityProperties.PUBLIC_SUBTREES.stream()
+                .anyMatch(prefix -> normalised.equals(prefix) || normalised.startsWith(prefix + "/"));
+    }
+
+    /**
+     * Collapse the tricks that make two spellings of one path look different:
+     * a trailing slash, and a traversal segment that resolves back up. Without
+     * this, "/ssh-connections/" or "/health/../ssh-connections" could be used
+     * to pick whichever side of the allowlist the caller preferred.
+     */
+    private String normalise(String path) {
+        if (path == null || path.isEmpty()) {
+            return "/";
+        }
+        String p = URI.create(path).normalize().getPath();
+        if (p == null || p.isEmpty()) {
+            return "/";
+        }
+        while (p.length() > 1 && p.endsWith("/")) {
+            p = p.substring(0, p.length() - 1);
+        }
+        return p;
     }
 
     /**

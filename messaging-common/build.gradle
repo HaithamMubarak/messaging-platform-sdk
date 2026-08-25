@@ -3,7 +3,7 @@ plugins {
 }
 
 group = 'com.hmdev.messaging.common'
-version = '1.0.0'
+version = sdkVersion
 
 repositories {
     mavenCentral()
