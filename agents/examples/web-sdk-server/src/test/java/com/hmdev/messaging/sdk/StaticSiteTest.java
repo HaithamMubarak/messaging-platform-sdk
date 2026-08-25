@@ -205,4 +205,39 @@ class StaticSiteTest {
         }
         assertThat(broken).isEmpty();
     }
+
+    /**
+     * The site advertises how many games it has, in prose, in two places. That
+     * number is written by hand and nothing recomputed it, so it drifted: it
+     * still claimed thirteen when the catalogue held eleven, and stayed at
+     * thirteen when three games were removed and it held eight. Prose is the
+     * one part of the site no other test reads.
+     *
+     * The catalogue in ApiController.listGames() is the site's own definition
+     * of what counts as a game — its comment says the list is what the
+     * playground shows — so the copy has to agree with it.
+     */
+    @Test
+    @DisplayName("the advertised game count matches the catalogue")
+    void gameCountCopyMatchesCatalogue() throws IOException {
+        String controller = Files.readString(
+                Paths.get("src/main/java/com/hmdev/messaging/sdk/controller/ApiController.java"),
+                StandardCharsets.UTF_8);
+        Matcher entries = Pattern.compile("games\\.put\\(").matcher(controller);
+        int catalogue = 0;
+        while (entries.find()) catalogue++;
+        assertThat(catalogue).as("games in the catalogue").isGreaterThan(0);
+
+        Pattern claim = Pattern.compile("(\\d+) multiplayer games");
+        for (String page : List.of("index.html", "playground.html")) {
+            String html = Files.readString(STATIC.resolve(page), StandardCharsets.UTF_8);
+            Matcher m = claim.matcher(html);
+            assertThat(m.find()).as(page + " states a game count").isTrue();
+            do {
+                assertThat(Integer.parseInt(m.group(1)))
+                        .as(page + " advertises the number of games the catalogue actually has")
+                        .isEqualTo(catalogue);
+            } while (m.find());
+        }
+    }
 }
