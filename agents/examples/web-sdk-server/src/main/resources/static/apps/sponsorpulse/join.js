@@ -74,15 +74,37 @@
         onConnect() {
             el('joinStep').hidden = true;
             el('liveStep').hidden = false;
-            // Tell the host who is here, and whether they agreed to be contacted.
-            this._send(({
-                type: Core.MSG.PROFILE,
-                name: this.myName,
-                email: el('attendeeEmail').value.trim(),
-                consent: el('consent').checked,
-                consentedAt: el('consent').checked ? Date.now() : 0
-            }), this._hostName());
+            this.sendProfile();
             this.render();
+        }
+
+        onUserJoin() {
+            // The host may have arrived after us, or been replaced by host
+            // migration. Either way the new one does not know who is in the
+            // room, so say so again — recordProfile is keyed by name and
+            // replaces rather than duplicates.
+            this.sendProfile();
+        }
+
+        /**
+         * Tell the host who is here, and whether they agreed to be contacted.
+         *
+         * Deferred by a tick on purpose: onConnect is dispatched from a channel
+         * listener registered BEFORE the one that sets `connected`, so at this
+         * point sendCustomEventMessage still throws "Not connected" — and the
+         * throw was swallowed, so the consent record silently never arrived.
+         */
+        sendProfile() {
+            var self = this;
+            setTimeout(function () {
+                self._send(({
+                    type: Core.MSG.PROFILE,
+                    name: self.myName,
+                    email: el('attendeeEmail').value.trim(),
+                    consent: el('consent').checked,
+                    consentedAt: el('consent').checked ? Date.now() : 0
+                }), self._hostName());
+            }, 0);
         }
 
         onDisconnect() {
@@ -451,7 +473,12 @@
             el('joinBtn').textContent = I18n.t('joining');
             try {
                 await app.initialize();
-                await app.connect({ username: name, channel: invite.room, password: invite.key });
+                await app.connect({
+                    username: name,
+                    channelName: invite.room,
+                    channelPassword: invite.key
+                });
+                app.start();
             } catch (err) {
                 el('joinError').textContent = (err && err.message) || 'Could not join';
                 el('joinBtn').disabled = false;

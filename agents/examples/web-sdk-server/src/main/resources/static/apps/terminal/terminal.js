@@ -3236,12 +3236,24 @@ async function connectWebSocket(sessionId) {
     let ticket;
     try {
         const res = await slsFetch(`${MLS_URL}/terminal/${sessionId}/ticket`, { method: 'POST' });
-        if (!res.ok) throw new Error(`ticket request returned ${res.status}`);
+        if (!res.ok) {
+            const err = new Error(`ticket request returned ${res.status}`);
+            err.status = res.status;
+            throw err;
+        }
         ticket = (await res.json()).ticket;
     } catch (err) {
         console.warn('[WS] Could not obtain a stream ticket:', err.message || err);
         session.terminal.writeln('\x1b[1;31m✖ Could not authorise the terminal stream\x1b[0m');
-        session.terminal.writeln('\x1b[33mReconnect to try again.\x1b[0m');
+        if (err && err.status === 404) {
+            // The endpoint is new. A helper that predates it answers 404, and
+            // "unauthorised" would send someone hunting for a permissions
+            // problem they do not have.
+            session.terminal.writeln('\x1b[33mThis SDK Local Service is older than this page.\x1b[0m');
+            session.terminal.writeln('\x1b[33mUpdate and restart it to open a terminal.\x1b[0m');
+        } else {
+            session.terminal.writeln('\x1b[33mReconnect to try again.\x1b[0m');
+        }
         return;
     }
 

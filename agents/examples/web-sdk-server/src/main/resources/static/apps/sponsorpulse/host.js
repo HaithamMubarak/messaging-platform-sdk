@@ -543,7 +543,18 @@
             collapsedTitle: 'SponsorPulse',
             onConnect: async function (username, channel, password) {
                 await app.initialize();
-                await app.connect({ username: username, channel: channel, password: password });
+                // The base class expects channelName/channelPassword; `channel`
+                // and `password` are silently ignored and it throws
+                // "Username and channel name required".
+                await app.connect({
+                    username: username,
+                    channelName: channel,
+                    channelPassword: password
+                });
+                app.start();
+                if (window.ConnectionModal && window.ConnectionModal.hide) {
+                    window.ConnectionModal.hide();
+                }
             }
         });
     });

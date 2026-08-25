@@ -15,6 +15,23 @@
  * last thing that should find its way to a production deployment by accident.
  *
  *   node load/sponsorpulse-load.js http://127.0.0.1:8082/messaging-platform/api/v1/messaging-service [attendees]
+ *
+ * KNOWN FINDING, not yet fixed (measured here, reproducible):
+ *
+ *   Up to about ten attendees, everything is delivered. From roughly twenty-five
+ *   upwards the host's auto-receive loop reports NOTHING while a single forced
+ *   pull from offset zero immediately finds ~85% of the answers. The host is
+ *   healthy at that moment — session valid, readyState true, poll timer
+ *   scheduled — so the messages were never lost: its read cursor has advanced
+ *   past where the answers landed, while a burst of join traffic was being
+ *   written.
+ *
+ *   This is NOT caused by the offset handling changed in this branch: reverting
+ *   that to the previous `||` form reproduces it exactly. It predates it.
+ *
+ *   It matters for this product specifically — a host tallying a busy room is
+ *   the whole premise — so it belongs at the top of the SDK reliability list,
+ *   not in the app.
  */
 const path = require('path');
 
@@ -41,7 +58,7 @@ const KEY = 'load' + Math.random().toString(36).slice(2, 10);
 
 const results = {
     connected: 0, failed: 0, answersSent: 0, answersSeenByHost: 0,
-    connectMs: [], answerMs: []
+    connectMs: [], answerMs: [], failReasons: {}, hostErrors: {}
 };
 
 function percentile(values, p) {
@@ -77,7 +94,7 @@ function fetchApiKey() {
     });
 }
 
-function connect(agent, name) {
+function connect(agent, name, apiKey) {
     return new Promise((resolve, reject) => {
         const started = Date.now();
         const timer = setTimeout(() => reject(new Error('timed out')), 45000);
@@ -101,7 +118,7 @@ function connect(agent, name) {
             reject(new Error((e && e.message) || 'connect error'));
         });
         agent.connect({
-            api: API, apiKey: API_KEY, channelName: ROOM, channelPassword: KEY,
+            api: API, apiKey: apiKey || API_KEY, channelName: ROOM, channelPassword: KEY,
             agentName: name, autoReceive: true
         });
     });
@@ -131,31 +148,54 @@ let API_KEY = '';
 
     await connect(host, 'Organiser');
     console.log('host connected');
+    // If the host stops receiving, every answer looks lost — so say why.
+    host.addEventListener('error', (e) => {
+        const why = ((e && e.message) || JSON.stringify(e || {})).slice(0, 100);
+        results.hostErrors[why] = (results.hostErrors[why] || 0) + 1;
+    });
+    let rawEvents = 0;
+    host.addEventListener('message', () => { rawEvents++; });
+    results._rawEvents = () => rawEvents;
 
     // Attendees arrive in waves — a room does not scan the code in lockstep,
     // and one big burst measures the harness rather than the service.
     const WAVE = 10;
     const agents = [];
     for (let start = 0; start < ATTENDEES; start += WAVE) {
+        // A fresh key per wave. The endpoint caps a temporary key at five
+        // minutes, and a hundred agents took longer than that to bring up — so
+        // the later waves were refused with "Invalid API key", which looked
+        // like a capacity limit and was really an expiry. Every attendee's
+        // browser fetches its own key anyway, so this is also the truer shape.
+        const waveKey = await fetchApiKey().catch(() => API_KEY);
         const wave = [];
         for (let i = start; i < Math.min(start + WAVE, ATTENDEES); i++) {
             const agent = new AgentConnection({});
             agents.push(agent);
             wave.push(
-                connect(agent, 'Attendee' + i)
-                    .then(() => { results.connected++; })
-                    .catch((e) => { results.failed++; if (results.failed <= 3) console.log('  join failed:', e.message); })
+                connect(agent, 'Attendee' + i, waveKey)
+                    .then(() => { results.connected++; agent._joined = true; })
+                    .catch((e) => {
+                        results.failed++;
+                        const why = e.message.slice(0, 90);
+                        results.failReasons[why] = (results.failReasons[why] || 0) + 1;
+                    })
             );
         }
         await Promise.all(wave);
         process.stdout.write(`  connected ${results.connected}/${ATTENDEES}\r`);
     }
     console.log(`\nconnected ${results.connected}, failed ${results.failed}`);
+    Object.keys(results.failReasons).forEach((why) => {
+        console.log(`  ${results.failReasons[why]} x ${why}`);
+    });
 
     // Everyone answers at once — this is the moment a live quiz actually creates.
     const answerStart = Date.now();
-    agents.forEach((agent, i) => {
-        if (!agent) return;
+    // Only agents that actually joined can answer. Sending from the rest
+    // inflates "answers sent" with messages that were never going to arrive,
+    // and makes a capacity problem look like a delivery problem.
+    agents.filter((a) => a && a._joined).forEach((agent, i) => {
         try {
             agent.sendMessage({
                 content: JSON.stringify({ type: 'sp_answer', segmentId: 'seg-load', optionId: 'a' }),
@@ -171,7 +211,19 @@ let API_KEY = '';
     console.log(`sent ${results.answersSent} answers in ${Date.now() - answerStart}ms`);
 
     // Give the relay time to deliver before judging it.
-    await new Promise((r) => setTimeout(r, 20000));
+    await new Promise((r) => setTimeout(r, 15000));
+
+    // Then ask explicitly. If a forced pull finds what the polling loop did
+    // not, the messages were never lost — the host simply stopped asking, and
+    // that is a different bug from a dropped relay.
+    console.log(`host state before forcing: readyState=${host.readyState} session=${host.sessionId ? 'yes' : 'NONE'} ` +
+                `receiveTimer=${host._receiveTimer ? 'scheduled' : 'NONE'} autoReceive=${host.autoReceive}`);
+    const beforeForced = seen.size;
+    try {
+        host.receive({ globalOffset: 0, localOffset: 0, limit: 500 }, false);
+    } catch (e) { /* reported below */ }
+    await new Promise((r) => setTimeout(r, 8000));
+    console.log(`seen by polling ${beforeForced}, after a forced pull ${seen.size}`);
 
     const delivered = seen.size;
     console.log('\n--- results ---');
@@ -180,6 +232,10 @@ let API_KEY = '';
     console.log(`answers sent              ${results.answersSent}`);
     console.log(`distinct answerers seen   ${delivered}`);
     console.log(`delivery                  ${results.answersSent ? Math.round((delivered / results.answersSent) * 100) : 0}%`);
+    console.log(`host message events       ${results._rawEvents ? results._rawEvents() : 'n/a'}`);
+    Object.keys(results.hostErrors).forEach((why) => {
+        console.log(`host error: ${results.hostErrors[why]} x ${why}`);
+    });
 
     agents.forEach((a) => { try { a.disconnect(); } catch (e) {} });
     try { host.disconnect(); } catch (e) {}
