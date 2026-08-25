@@ -1,11 +1,11 @@
 /**
  * Does the game actually start for both players?
  *
- * Pictionary and Party Physics both looked finished and could not be played
- * by two people — in Party Physics the guest could never enter a game at all,
- * because START_GAME used a signature that never matched. That failure is
- * invisible to every static check, so each remaining game is asked the same
- * question: host presses start, does the guest end up in a running game.
+ * Two games once looked finished and could not be played by two people — in
+ * one of them the guest could never enter a game at all, because START_GAME
+ * used a signature that never matched. That failure is invisible to every
+ * static check, so each game is asked the same question: host presses start,
+ * does the guest end up in a running game.
  */
 const { BASE, SHOTS } = require('../lib/harness');
 const { chromium } = require('playwright');
@@ -29,16 +29,19 @@ async function join(b, path, name, room) {
   await p.fill('#usernameInput', name);
   await p.fill('#channelInput', room);
   await p.fill('#passwordInput', 'pw12345');
-  // Fall Guys blocks the main thread for about seventeen seconds building its
-  // world, and a click during that window simply is not answered. Thirty
-  // seconds was not enough once the machine was also busy; this matches the
-  // patience smoke-all already uses. See the README note — the freeze is
-  // probably the software renderer here, not the game.
+  // Measured on an idle machine, the slowest surviving game answers this click
+  // in about 1.6s. The budget is not sized for the game, it is sized for a
+  // starved harness: running suites in parallel can stretch a sub-second page
+  // past 25s (see the README). 45s plus one retry is roughly 25x headroom over
+  // the real figure — generous enough not to flake, tight enough that it is no
+  // longer the 90s that a since-removed game with a 17s world-build needed.
+  // Deliberately a timeout and not a perf assertion: under contention a latency
+  // threshold measures the machine, not the page.
   try {
-    await p.click('#connectBtn', { timeout: 90000 });
+    await p.click('#connectBtn', { timeout: 45000 });
   } catch (e) {
     await p.waitForTimeout(2000);
-    await p.click('#connectBtn', { timeout: 60000 });
+    await p.click('#connectBtn', { timeout: 30000 });
   }
   await p.waitForTimeout(13000);
   return p;
@@ -108,8 +111,6 @@ async function game(b, label, path, start, playing, minPlayers) {
   await game(b, 'air-hockey',    'air-hockey/index.html',    () => window.startGame(), /Blue \d+ Red \d+/);
   await game(b, 'quiz-battle',   'quiz-battle/index.html',   () => window.quizGame.startGame(), /QUESTION \d+\/\d+/);
   await game(b, 'reactor',       'reactor/index.html',       () => window.startGame(), /Round: \d+\/\d+/);
-  await game(b, 'fall-guys',     'fall-guys/index.html',     () => window.fallGuysGame.hostStartGame(), /Place/);
-  await game(b, 'race-balls',    'race-balls/index.html',    () => window.raceBallsGame.hostStartRace(), /PLACE/);
   await game(b, 'find-the-liar', 'find-the-liar/index.html', () => window.liarGame.requestNewRound(), /Round \d+\/\d+/, 3);
 
   console.log('\nPASS (' + pass.length + ')'); pass.forEach(x => console.log('  ✓ ' + x));

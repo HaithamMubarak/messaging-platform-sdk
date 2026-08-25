@@ -84,25 +84,13 @@ async function look(b, url, label, after) {
     'mind-map/index.html', 'collab-doc/index.html', 'pulse/index.html', 'drop/index.html',
     'turn-stun-test.html', 'test-api-key/index.html',
     'mini-games/air-hockey/index.html', 'mini-games/find-the-liar/index.html',
-    'mini-games/quiz-battle/index.html', 'mini-games/race-balls/index.html',
-    'mini-games/fall-guys/index.html', 'mini-games/reactor/index.html'];
+    'mini-games/quiz-battle/index.html', 'mini-games/reactor/index.html'];
   for (const page of ALL) {
     try { await look(b, H + page, page.replace('../', '')); }
     catch (e) { check(false, `${page}: page loaded (${e.message.slice(0, 50)})`); }
   }
 
   await look(b, H + 'pictionary/index.html', 'pictionary lobby');
-  await look(b, H + 'mini-games/party-physics/index.html', 'party-physics lobby');
-  // and with the panels that start hidden forced open
-  await look(b, H + 'mini-games/party-physics/index.html', 'party-physics panels', async (p) => {
-    await p.evaluate(() => document.querySelectorAll('.hidden').forEach(e => e.classList.remove('hidden')));
-    await p.waitForTimeout(800);
-  });
-  await look(b, H + 'mini-games/race-balls/index.html', 'race-balls panels', async (p) => {
-    await p.evaluate(() => document.querySelectorAll('.hidden, [style*="display: none"], [style*="display:none"]')
-      .forEach(e => { e.classList.remove('hidden'); e.style.display = ''; }));
-    await p.waitForTimeout(900);
-  });
   await look(b, H + 'mini-games/find-the-liar/index.html', 'find-the-liar panels', async (p) => {
     await p.evaluate(() => document.querySelectorAll('.hidden, [style*="display: none"], [style*="display:none"]')
       .forEach(e => { e.classList.remove('hidden'); e.style.display = ''; }));

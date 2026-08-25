@@ -7,7 +7,7 @@ const PAGES = ['index.html','playground.html','docs.html',
   'apps/mini-games/blockparty/play.html','apps/chess/index.html','apps/pictionary/index.html',
   'apps/pixel-art/index.html','apps/mind-map/index.html','apps/collab-doc/index.html','apps/pulse/index.html',
   'apps/mini-games/air-hockey/index.html','apps/mini-games/find-the-liar/index.html',
-  'apps/mini-games/party-physics/index.html','apps/mini-games/quiz-battle/index.html'];
+  'apps/mini-games/quiz-battle/index.html'];
 (async () => {
   const b = await chromium.launch({headless:false,args:['--no-sandbox','--enable-unsafe-swiftshader','--use-gl=angle','--use-angle=swiftshader']});
   const problems = [];

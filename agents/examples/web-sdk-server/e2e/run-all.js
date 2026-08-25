@@ -21,18 +21,18 @@ const GROUPS = {
     'self-checks': ['a11y-selfcheck.js', 'focus-selfcheck.js'],
     'apps': ['chat-test.js', 'wb-test.js', 'shape-fidelity-test.js', 'collab-actions-test.js', 'persistence-test.js', 'handover-test.js', 'rooms-test.js', 'term-test.js', 'cloud-test.js',
              'drop-test.js', 'undriven-test.js', 'devpages-test.js', 'coreloop-test.js'],
-    'games': ['bp-chrome-test.js', 'pict-test.js', 'pp-test.js', 'games-test.js',
+    'games': ['bp-chrome-test.js', 'pict-test.js', 'games-test.js',
               'games-sync-test.js', 'tier2-test.js'],
     'platform': ['migration-test.js', 'reconnect-test.js', 'smoke-all.js'],
-    // Measures a known platform gap rather than gating on it. Slow by nature —
-    // it waits for a timeout that does not come. Run with: npm test -- ghost
-    'known gaps (opt in)': [],
-    'mobile + security': ['mobile-play-test.js', 'injection-test.js']
+    // Slow by nature — it waits out a presence TTL, so it is opt in rather than
+    // ungated. Run with: npm test -- ghost
+    'presence (opt in)': [],
+    'mobile + security': ['touch-play-test.js', 'injection-test.js']
 };
 
 const only = process.argv.slice(2).filter(a => !a.startsWith('-'));
 if (only.some(o => 'ghost'.includes(o) || o.includes('ghost'))) {
-    GROUPS['known gaps (opt in)'] = ['ghost-departure.js'];
+    GROUPS['presence (opt in)'] = ['ghost-departure.js'];
 }
 const rows = [];
 let totalPass = 0, totalFail = 0, broken = 0;

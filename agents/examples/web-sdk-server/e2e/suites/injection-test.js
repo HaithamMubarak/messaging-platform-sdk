@@ -79,11 +79,8 @@ const check = (ok, what) => (ok ? pass : fail).push(what);
     const p = await b.newPage();
     const FILES = [
         'apps/mini-games/air-hockey/air-hockey.js',
-        'apps/mini-games/fall-guys/fall-guys.js',
         'apps/mini-games/find-the-liar/find-the-liar.js',
-        'apps/mini-games/party-physics/party-physics.js',
         'apps/mini-games/quiz-battle/quiz-battle.js',
-        'apps/mini-games/race-balls/race-balls.js',
         'apps/mini-games/reactor/reactor-client.js',
         // apps/quickshare/QuickShare.js is gone — QuickShare was retired to a
         // redirect, since Drop is the same demonstration with a consent step.

@@ -1,19 +1,23 @@
 /**
- * A client that vanishes without saying goodbye — and is never forgotten.
+ * A client that vanishes without saying goodbye.
  *
- * Departure is announced by a pagehide beacon from the leaving tab. A crash, a
- * killed process, a laptop lid or a dead battery sends nothing. There is no
- * server-side presence timeout behind it, so the room keeps the vanished agent
- * in its roster indefinitely.
+ * Departure is normally announced by a pagehide beacon from the leaving tab. A
+ * crash, a killed process, a laptop lid or a dead battery sends nothing, and
+ * this used to mean the room kept the vanished agent in its roster forever —
+ * measured at over five minutes with no drop. It mattered most for the host:
+ * every host-only action is gated on isHost() and host election only re-runs
+ * when somebody is seen to leave, so a crashed host left a room nobody could
+ * ever host again.
  *
- * It matters most for the host. Every host-only action is gated on isHost(),
- * host election only re-runs when someone is seen to leave, and so a host that
- * crashes leaves a room where nobody can ever start anything again.
+ * PresenceSweepService closed that. The session TTL expires the vanished agent
+ * and a sweep announces the DISCONNECT, so the room drops it and re-elects.
+ * Measured at 2.8-3.0 min over three runs, against a 180s TTL and a 30s sweep.
  *
- * This probe measures the behaviour rather than failing on it: the fix belongs
- * in messaging-service (a heartbeat and a short TTL on agent presence), not
- * here. It prints what it observes so that a later fix shows up as a change,
- * and it is deliberately excluded from the pass/fail tally.
+ * So this is now a regression test rather than a probe, and it asserts: the
+ * ghost has to leave the roster, and somebody has to be host afterwards.
+ * Dropping without promoting would be its own bug — a room with no host is the
+ * failure this was written about. Still opt-in, because waiting out a TTL takes
+ * minutes: run it with `npm test -- ghost`.
  */
 const { BASE } = require('../lib/harness');
 const { chromium } = require('playwright');
@@ -55,17 +59,20 @@ async function join(b, name, room) {
     }
     const promoted = await alive.evaluate(() => window.reactorGame.isHost());
 
-    if (dropped !== null) {
-        console.log('the room dropped the vanished client after ' + dropped
-            + ' min, survivor isHost = ' + promoted);
-        console.log(promoted
-            ? 'host election re-ran, so the room is usable again'
-            : 'WARNING: dropped but nobody was promoted — the room still has no host');
-    } else {
-        console.log('KNOWN GAP: still in the roster after ' + MINUTES + ' min, survivor isHost = '
-            + promoted + '.\nA client that dies without sending its beacon is never dropped, so a '
-            + 'crashed host leaves a room nobody can host. Needs a heartbeat and a short presence '
-            + 'TTL in messaging-service.');
-    }
+    const pass = [], fail = [];
+    const check = (ok, w) => (ok ? pass : fail).push(w);
+
+    check(dropped !== null, dropped !== null
+        ? `the room drops a client that vanished without a beacon (after ${dropped} min)`
+        : `the room drops a client that vanished without a beacon (still listed after ${MINUTES} min)`);
+    // Dropping without promoting would leave a room nobody can host, which is
+    // the whole failure this suite exists for.
+    check(promoted, promoted
+        ? 'host election re-ran, so the room is usable again'
+        : 'host election re-ran (dropped, but nobody was promoted — the room has no host)');
+
     await b.close();
+    console.log('\nPASS (' + pass.length + ')'); pass.forEach(x => console.log('  ✓ ' + x));
+    console.log('\nFAIL (' + fail.length + ')'); fail.forEach(x => console.log('  ✗ ' + x));
+    process.exit(fail.length ? 1 : 0);
 })();

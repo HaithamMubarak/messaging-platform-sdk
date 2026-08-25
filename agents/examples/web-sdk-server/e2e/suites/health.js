@@ -19,10 +19,7 @@ const PAGES = [
     'apps/drop/index.html', 'apps/quickshare/quickshare.html',
     'apps/chat.html', 'apps/storage-demo.html', 'apps/webrtc.html',
     'apps/turn-stun-test.html', 'apps/cloud-connection-demo.html', 'apps/test-api-key/index.html',
-    'apps/mini-games/air-hockey/index.html', 'apps/mini-games/fall-guys/index.html',
-    'apps/mini-games/find-the-liar/index.html', 'apps/mini-games/party-physics/index.html',
-    'apps/mini-games/quiz-battle/index.html', 'apps/mini-games/race-balls/index.html',
-    'apps/mini-games/reactor/index.html'
+    'apps/mini-games/air-hockey/index.html', 'apps/mini-games/find-the-liar/index.html', 'apps/mini-games/quiz-battle/index.html', 'apps/mini-games/reactor/index.html'
 ];
 
 (async () => {

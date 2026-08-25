@@ -35,7 +35,6 @@ class StaticSiteTest {
             "apps/mini-games/air-hockey/index.html",
             "apps/mini-games/quiz-battle/index.html",
             "apps/mini-games/find-the-liar/index.html",
-            "apps/mini-games/fall-guys/index.html",
             "apps/mini-games/reactor/reactor-client.html",
             "apps/pictionary/index.html",
             "apps/chess/index.html",

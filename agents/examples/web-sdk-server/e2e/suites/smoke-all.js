@@ -15,10 +15,8 @@ const APPS = [
   ['pixel-art',    'pixel-art/index.html'],
   ['pulse',        'pulse/index.html'],
   ['air-hockey',   'mini-games/air-hockey/index.html'],
-  ['fall-guys',    'mini-games/fall-guys/index.html'],
   ['find-the-liar','mini-games/find-the-liar/index.html'],
   ['quiz-battle',  'mini-games/quiz-battle/index.html'],
-  ['race-balls',   'mini-games/race-balls/index.html'],
   ['reactor',      'mini-games/reactor/index.html']
 ];
 const ROOT = BASE + '/apps/';
@@ -41,15 +39,15 @@ async function join(b, url, name, room) {
   await fill(['#passwordInput', '#channelPassword', '#roomPassword'], 'pw12345');
   const btn = await p.$('#connectBtn, #start, #joinBtn');
   if (!btn) throw new Error('no connect button');
-  // Some games block the main thread hard while they build a world — Fall Guys
-  // for about seventeen seconds — so a click can sit unanswered far longer than
-  // the default. That is worth knowing about (see the note in the README) but
-  // it is not what this sweep is measuring.
+  // A click here is answered in under two seconds by every app on an idle
+  // machine. The patience is for a starved harness, not for a slow page: this
+  // sweep opens many browsers at once and a contended one can sit far past the
+  // default. Not what this sweep is measuring, so it waits rather than fails.
   try {
-    await btn.click({ timeout: 90000 });
+    await btn.click({ timeout: 45000 });
   } catch (e) {
     await p.waitForTimeout(2000);
-    await btn.click({ timeout: 60000 });
+    await btn.click({ timeout: 30000 });
   }
   await p.waitForTimeout(12000);
   return p;

@@ -15,10 +15,7 @@ const PAGES = ['index.html','playground.html','docs.html','apps/chat.html','apps
  'apps/terminal/index.html','apps/terminal/app.html','apps/chess/index.html','apps/pictionary/index.html',
  'apps/pixel-art/index.html','apps/mind-map/index.html','apps/collab-doc/index.html','apps/pulse/index.html',
  'apps/drop/index.html','apps/mini-games/blockparty/index.html','apps/mini-games/blockparty/play.html',
- 'apps/mini-games/air-hockey/index.html','apps/mini-games/fall-guys/index.html',
- 'apps/mini-games/find-the-liar/index.html','apps/mini-games/party-physics/index.html',
- 'apps/mini-games/quiz-battle/index.html','apps/mini-games/race-balls/index.html',
- 'apps/mini-games/reactor/reactor-client.html'];
+ 'apps/mini-games/air-hockey/index.html','apps/mini-games/find-the-liar/index.html','apps/mini-games/quiz-battle/index.html','apps/mini-games/reactor/reactor-client.html'];
 
 const AUDIT = () => {
   // The accessible name a browser would compute, near enough for this purpose.

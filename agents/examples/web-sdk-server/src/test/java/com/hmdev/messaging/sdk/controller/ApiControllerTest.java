@@ -128,6 +128,7 @@ class ApiControllerTest {
         JsonNode games = games();
         assertThat(games.has("party-physics")).isFalse();
         assertThat(games.has("race-balls")).isFalse();
+        assertThat(games.has("fall-guys")).isFalse();
     }
 
     private JsonNode games() throws Exception {

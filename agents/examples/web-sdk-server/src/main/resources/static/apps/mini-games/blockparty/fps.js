@@ -203,7 +203,15 @@
                     e.stopPropagation();
                     this.keys.add(key);
                     if (key === 'Space') this.jump();
-                    if (button.setPointerCapture && e.pointerId !== undefined) button.setPointerCapture(e.pointerId);
+                    // Explicit capture is a nicety for a finger that slides off
+                    // the button mid-press; touch already gets it implicitly.
+                    // It throws InvalidStateError while walk mode holds pointer
+                    // lock, so it must not be the thing that decides whether the
+                    // key above got pressed. minimap.js guards its own the same
+                    // way, for the same reason.
+                    try {
+                        if (button.setPointerCapture && e.pointerId !== undefined) button.setPointerCapture(e.pointerId);
+                    } catch (err) { /* implicit capture already covers touch */ }
                 };
                 const up = (e) => {
                     this.keys.delete(key);

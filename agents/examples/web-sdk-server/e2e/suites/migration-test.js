@@ -34,8 +34,8 @@ async function join(b, path, name, room) {
 
 /** Which of these pages thinks it is the host? */
 const AM_I_HOST = () => {
-  for (const k of ['pictionaryGame', 'airHockeyGame', 'fallGuysGame', 'reactorGame',
-                   'pulseApp', 'liarGame', 'quizGame', 'raceBallsGame', 'partyPhysicsGame',
+  for (const k of ['pictionaryGame', 'airHockeyGame', 'reactorGame',
+                   'pulseApp', 'liarGame', 'quizGame',
                    'mindMapApp', 'pixelArtApp', 'collabDoc', 'dropApp']) {
     const g = window[k];
     if (g && typeof g.isHost === 'function') { try { return { app: k, host: g.isHost() }; } catch (e) {} }
@@ -59,10 +59,10 @@ async function migrate(b, label, path, after) {
 
     // Depart deterministically. Closing the tab relies on a pagehide beacon
     // reaching the server, and roughly one abrupt close in three does not get
-    // it out — with no server-side presence timeout to catch it, the room then
-    // keeps a ghost forever. That gap is real and is measured on its own in
-    // ghost-departure.js; this suite is about whether host election works, so
-    // it announces the departure rather than gambling on the beacon.
+    // it out. The presence sweep does catch that now, but only after a TTL
+    // measured in minutes — see ghost-departure.js, which covers that path on
+    // its own. This suite is about whether host election works, so it announces
+    // the departure rather than gambling on the beacon or waiting out a TTL.
     try { await host.evaluate(() => {
       for (const k of Object.keys(window)) {
         const g = window[k];

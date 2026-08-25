@@ -48,8 +48,8 @@ public class ApiController extends BaseApiConfigController {
     @GetMapping(value = "/games", produces = MediaType.APPLICATION_JSON_VALUE)
     public ResponseEntity<JsonResponse> listGames() {
         // LinkedHashMap so the JSON keeps the same order as the playground page.
-        // party-physics and race-balls are deliberately absent: they are not
-        // published on this site.
+        // Fall Guys, Party Physics and Race Balls were removed from the site;
+        // this list is what the playground shows, so they are gone from here too.
         // URLs are RELATIVE to the site root on purpose: this site is served from
         // /messaging-platform/sdk/, not the domain root, so a leading slash would
         // point a caller at a path that does not exist.
@@ -70,12 +70,6 @@ public class ApiController extends BaseApiConfigController {
         games.put("find-the-liar", game("Find the Liar", "\uD83E\uDD25",
                 "Social deduction \u2014 spot the players who only got a hint.",
                 "apps/mini-games/find-the-liar/index.html", "3-10", "5-10 minutes", "Easy"));
-
-        games.put("fall-guys", game("Fall Guys Race", "\uD83C\uDFC3",
-                "Obstacle course racing \u2014 dodge dynamic hazards and race to victory.",
-                "apps/mini-games/fall-guys/index.html", "4-20", "5-8 minutes", "Medium"));
-
-
 
         games.put("reactor", game("4-Player Reactor", "\u26A1",
                 "Fast-paced reaction game \u2014 hit your colour zone the moment it lights up.",

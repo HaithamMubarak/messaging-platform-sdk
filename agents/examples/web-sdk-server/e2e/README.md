@@ -64,45 +64,32 @@ chunks byte-for-byte, both quiz players seeing the same question.
 room survives *and still works*; `reconnect-test.js` takes a client offline and
 back; `smoke-all.js` is the cheap does-it-connect pass.
 
-**Mobile** — `mobile-play-test.js` runs a phone viewport with real touch and
-presses the on-screen controls. Those only exist below 768px, so no desktop
-run reaches them.
+**Presence** — `ghost-departure.js` is not part of `npm test`; run it with
+`npm test -- ghost`. It is opt in because it has to wait out a presence TTL,
+not because it is allowed to fail.
 
-**Known gaps** — `ghost-departure.js` is not part of `npm test`; run it with
-`npm test -- ghost`. It measures a real platform limitation rather than gating
-on it:
+It kills a client's network so no departure beacon can leave, then asks how
+long the room keeps the ghost. This used to be an open gap — measured at over
+five minutes with no drop, which mattered most for the host, because every
+host-only action is gated on `isHost()` and host election only re-runs when
+somebody is *seen* to leave. A crashed host left a room nobody could ever host.
 
-> Departure is announced by a pagehide beacon from the leaving tab. A crash, a
-> killed process or a dead battery sends nothing, and there is no server-side
-> presence timeout behind it — so the vanished agent stays in the roster. It
-> matters most for the host: host election only re-runs when somebody is *seen*
-> to leave, and every host-only action is gated on `isHost()`, so a host that
-> crashes leaves a room nobody can ever host again. Measured at over five
-> minutes with no drop. The fix belongs in messaging-service — a heartbeat and
-> a short TTL on agent presence.
+`PresenceSweepService` in messaging-service closed it: the session TTL expires
+the vanished agent and a sweep announces the DISCONNECT. Measured at 2.8-3.0
+min over three runs, against a 180s TTL and a 30s sweep. The suite now asserts both halves —
+the ghost leaves the roster, *and* somebody is host afterwards, since dropping
+without promoting would leave exactly the unusable room this was written about.
 
-That gap is also why `migration-test.js` disconnects deliberately before
-closing the tab: roughly one abrupt close in three fails to get its beacon out,
-and that suite is about whether host election works, not about beacon luck.
+The sweep is a backstop measured in minutes, which is why `migration-test.js`
+still disconnects deliberately before closing the tab: roughly one abrupt close
+in three fails to get its beacon out, and that suite is about whether host
+election works, not about beacon luck or about waiting out a TTL.
 
 ## Writing another one
 
 Keep the report shape — print `PASS (n)` then `FAIL (n)` — and the runner will
 pick it up. `lib/harness.js` has the base URL, the screenshot directory, the
 launch options and a small tally helper.
-
-**Fall Guys is slow to settle here, and it is probably the renderer.** It
-stalls the main thread for about seventeen seconds after connecting, and Party
-Physics for about the same — long enough that a click goes unanswered and the
-roster has not converged when a sweep looks. Worth knowing before chasing it:
-no method on the game takes more than 381ms, so it is not the game's own code;
-the stalls only start once the 3D world is built; and this container has no GPU,
-so WebGL runs on SwiftShader where shader compilation costs seconds. Blockparty
-stalls 7s and Race Balls 1.6s on the same libraries, which is the spread you
-would expect from material count rather than from a bug. **Unproven either way
-without a GPU** — do not "optimise" it on this evidence. What it did cause was
-real and is fixed: the socket watchdog used to read those stalls as a dead
-network (see `web-agent.js`, `_startHeartbeat`).
 
 **Do not run a suite while `npm test` is going.** Each one drives two or three
 browsers, and several at once starves the rest: a page that normally reaches its

@@ -21,16 +21,15 @@
 
 ## 🎯 Applications Included
 
-### 🎮 Multiplayer Games (8 Games)
+### 🎮 Multiplayer Games (7 Games)
 
 1. **🏒 Air Hockey** - 2-4 player physics-based hockey
 2. **🧠 Quiz Battle** - Trivia competition with scoring
 3. **⚡ 4-Player Reactor** - Reaction speed battle
 4. **🎯 Find the Liar** - Social deduction game
-5. **🏎️ Race Balls** - 3D multiplayer racing
-6. **🏃 Fall Guys Race** - Obstacle course racing
-7. **🎨 Pictionary** - Drawing guessing game ⭐ NEW
-8. **♟️ Chess** - Classic chess with spectators ⭐ NEW
+5. **🧱 BlockParty** - Voxel sandbox with eleven game modes
+6. **🎨 Pictionary** - Drawing guessing game
+7. **♟️ Chess** - Classic chess with spectators
 
 ### 🛠️ Collaboration Tools (4 Tools)
 
