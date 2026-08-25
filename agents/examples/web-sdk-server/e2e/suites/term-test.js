@@ -49,7 +49,23 @@ const tabs = (p) => p.evaluate(() => document.querySelectorAll('.terminal-tab, .
     check(sawEcho, 'a command runs and its output comes back');
 
     // --- the chords ---------------------------------------------------------
-    const before = await tabs(p);
+    // The app caps concurrent sessions at 20 and says so in a toast. Shells
+    // outlive the browser context, so a machine that has run this suite a few
+    // times arrives already at the cap and the chord correctly refuses — which
+    // looks like a broken shortcut. Make room first, so this measures the
+    // shortcut rather than the state of the machine it runs on.
+    const MAX_SESSIONS = 20;
+    let before = await tabs(p);
+    if (before >= MAX_SESSIONS) {
+        await p.evaluate(() => {
+            const close = document.querySelector('.tab-close');
+            if (close) close.click();
+        });
+        await p.waitForTimeout(2500);
+        const freed = await tabs(p);
+        check(freed < before, `made room at the session cap (${before} → ${freed})`);
+        before = freed;
+    }
     await p.keyboard.press('Control+Shift+T');
     await p.waitForTimeout(4000);
     const afterNew = await tabs(p);

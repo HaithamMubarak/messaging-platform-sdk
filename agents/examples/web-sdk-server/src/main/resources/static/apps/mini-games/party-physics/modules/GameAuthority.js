@@ -590,13 +590,37 @@ class GameAuthority {
 
                     // Player is in power zone
                     if (dist < zone.radius && Math.abs(pos.y - zone.y) < 1) {
-                        // Apply temporary buff (simplified - just log for now)
-                        // TODO: Implement buff system
-                        if (!player.buffs) player.buffs = [];
-                        const hasBuff = player.buffs.find(b => b.type === zone.type);
-                        if (!hasBuff) {
-                            player.buffs.push({ type: zone.type, duration: 10 });
-                            console.log('[GameAuthority] Player', player.name, 'got', zone.type, 'buff!');
+                        // Standing in a zone gave you a buff with no strength to
+                        // it: getBuffMultiplier only honours a buff that carries
+                        // a `mult`, and these carried a type and a duration. Two
+                        // maps put zones on the floor, players walked through
+                        // them, the log said they had picked something up, and
+                        // nothing about the game changed.
+                        //
+                        // The zones speak the map's vocabulary and the buff
+                        // system speaks its own — 'strength' on the floor is the
+                        // 'power' the punch code reads — so they are translated
+                        // here rather than either side being renamed.
+                        const ZONE_BUFFS = {
+                            speed:    { type: 'speed', mult: 1.5, duration: 10 },
+                            strength: { type: 'power', mult: 1.6, duration: 10 },
+                            shield:   { type: 'shield', mult: 0.5, duration: 10 }
+                        };
+                        const granted = ZONE_BUFFS[zone.type];
+                        if (granted) {
+                            if (!player.buffs) player.buffs = [];
+                            const existing = player.buffs.find(b => b.type === granted.type);
+                            if (existing) {
+                                // Standing in it keeps it topped up rather than
+                                // stacking into something absurd.
+                                existing.duration = granted.duration;
+                            } else {
+                                player.buffs.push({ ...granted });
+                                this.emitEvent({
+                                    type: 'buff', peerId: player.peerId, buff: granted.type,
+                                    x: pos.x, y: pos.y, z: pos.z
+                                });
+                            }
                         }
                     }
                 });
