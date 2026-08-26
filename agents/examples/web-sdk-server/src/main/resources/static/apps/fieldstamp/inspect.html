@@ -1,0 +1,127 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <script src="../../js/prod-log.js"></script>
+    <link rel="icon" type="image/svg+xml" href="../../favicon.svg">
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+    <title>Fieldstamp console — run a remote inspection</title>
+    <meta name="description" content="Guide someone through an inspection on their phone, capture stamped evidence, and export a report whose hash chain proves nothing was edited.">
+    <meta name="theme-color" content="#0b1120">
+    <meta name="robots" content="noindex">
+    <link rel="canonical" href="https://hmdevonline.com/messaging-platform/sdk/apps/fieldstamp/inspect.html">
+
+    <link rel="stylesheet" href="../../css/design-tokens.css">
+    <link rel="stylesheet" href="../../css/ui.css">
+    <link rel="stylesheet" href="../../css/sdk-app.css">
+    <link rel="stylesheet" href="../../css/toast.css">
+    <link rel="stylesheet" href="../../css/share-modal.css">
+    <link rel="stylesheet" href="../../css/connection-modal.css">
+    <link rel="stylesheet" href="fieldstamp.css">
+    <link rel="stylesheet" href="../../css/app-chrome.css">
+</head>
+<body class="sdk-app">
+
+    <header class="sdk-header top-bar">
+        <span class="sdk-header__mark">
+            <svg class="icon" aria-hidden="true"><use href="#i-shield"></use></svg>
+        </span>
+        <h1>Fieldstamp</h1>
+        <span class="sdk-room" id="sessionRef">no session</span>
+        <span class="pill-status is-off" id="linkPill"><span class="pill-status__dot"></span>Waiting for the other party</span>
+
+        <div class="sdk-header__right">
+            <span class="fs-counts"><b id="captureCount">0</b> captures <span id="rejectCount" hidden></span></span>
+            <button class="btn btn--ghost" id="shareBtn" type="button" hidden title="Send the join link (QR or link)">
+                <svg class="icon icon--sm" aria-hidden="true"><use href="#i-qr-code"></use></svg>
+                <span>Send link</span>
+            </button>
+        </div>
+    </header>
+
+    <main class="sdk-stage">
+        <div class="sdk-main fs-console">
+
+            <section>
+                <div class="fs-video-wrap">
+                    <video id="liveVideo" playsinline autoplay muted></video>
+                    <div class="fs-novideo" id="noVideo">
+                        <svg class="icon" aria-hidden="true"><use href="#i-video"></use></svg>
+                        <strong>No camera yet</strong>
+                        <p class="sdk-note">Send the join link. When they open it and allow the camera,
+                        the picture appears here — straight from their phone, never through a server.</p>
+                    </div>
+                </div>
+
+                <div class="fs-actions">
+                    <button class="btn btn--primary" id="captureNowBtn" type="button" disabled>
+                        <svg class="icon icon--sm" aria-hidden="true"><use href="#i-target"></use></svg>
+                        <span>Capture now</span>
+                    </button>
+                    <span class="fs-spacer"></span>
+                    <button class="btn" id="verifyBtn" type="button">Verify the chain</button>
+                    <button class="btn" id="exportBtn" type="button">Export report</button>
+                    <button class="btn btn--danger" id="endBtn" type="button">End session</button>
+                </div>
+                <div class="fs-verify" id="verifyResult" hidden></div>
+            </section>
+
+            <aside>
+                <div class="fs-card">
+                    <div class="fs-card__title">What to photograph</div>
+                    <label class="field">
+                        <select id="templateSelect" class="field__select"></select>
+                    </label>
+                    <ul class="fs-prompts" id="promptList" style="margin-top:var(--sp-3)"></ul>
+                    <div class="fs-addrow">
+                        <input class="field__input" id="newPrompt" type="text" placeholder="Ask for something else…">
+                        <button class="btn btn--sm" id="addPromptBtn" type="button">Add</button>
+                    </div>
+                </div>
+
+                <div class="fs-card">
+                    <div class="fs-card__title">Evidence log</div>
+                    <ul class="fs-log" id="evidenceLog"></ul>
+                    <p class="sdk-note" style="margin-top:var(--sp-3)">Stamps, hashes and thumbnails are
+                    appended to storage as new versions. Full-resolution photos stay in this browser
+                    until you export the report.</p>
+                </div>
+            </aside>
+        </div>
+    </main>
+
+    <div class="fs-viewer" id="viewer" hidden>
+        <div class="fs-viewer__panel">
+            <div class="fs-viewer__head">
+                <h3 id="viewerTitle"></h3>
+                <span class="fs-spacer"></span>
+                <button class="btn btn--ghost btn--sm" id="closeViewer" type="button">Close</button>
+            </div>
+            <img id="viewerImg" alt="">
+            <div id="viewerStamp"></div>
+            <label class="field" style="margin-top:var(--sp-4)">
+                <span class="field__label">Note — stored beside the photo, never drawn into it</span>
+                <textarea class="field__textarea fs-note" id="viewerNote" rows="3"
+                          placeholder="What this shows, and why it matters."></textarea>
+            </label>
+        </div>
+    </div>
+
+    <script src="../../js/config-loader.js"></script>
+    <script src="../../lib/qrcode.min.js"></script>
+    <script src="../../generated-web-agent-js/js/web-agent.libs.js"></script>
+    <script src="../../generated-web-agent-js/js/web-agent.js"></script>
+    <script src="../../generated-web-agent-js/js/web-agent.webrtc.js"></script>
+
+    <script src="../../js/icons.js"></script>
+    <script src="../../js/share-modal.js"></script>
+    <script src="../../js/dialog.js"></script>
+    <script src="../../js/common-utils.js"></script>
+    <script src="../../js/connection-modal.js"></script>
+    <script src="../../js/UserConnectionBase.js"></script>
+
+    <script src="fieldstamp-core.js"></script>
+    <script src="inspect.js"></script>
+<script src="../../js/app-chrome.js"></script>
+</body>
+</html>

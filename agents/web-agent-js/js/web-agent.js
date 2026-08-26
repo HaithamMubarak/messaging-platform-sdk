@@ -2,8 +2,11 @@
     // used only in case of debugging
     let DISABLE_ENCRYPTION = false;
 
-    let initialDate = new Date();
-    let requests = 0;
+    // Fallback throttle bucket, used only by requests made outside a connection.
+    // Each AgentConnection carries its OWN bucket (see _throttle below): the
+    // budget is per connection, not per page, because N agents in one realm
+    // used to share one budget and starve each other.
+    const globalThrottle = { requests: 0, initialDate: new Date(), enabled: true };
     const requests_limit = 50;
     const requests_time_period = 1500;
     const DEFAULT_RECEIVE_LIMIT = 50;
@@ -11,7 +14,6 @@
     // long-poll receive, short enough that a dead socket is eventually noticed.
     const DEFAULT_REQUEST_TIMEOUT = 10 * 60 * 1000;
 
-    let xhr_enabled = true;
     const channelPasswordRegex = /[*,\/\\\s]+/;
 
     "use strict";
@@ -241,7 +243,7 @@
 
     function getPublicKey(obj){
 
-        if(!xhr_enabled){
+        if(!globalThrottle.enabled){
             return;
         }
 
@@ -332,13 +334,41 @@
         return encryptWithPemOaep(pem, plaintext);
     }
 
-    function reset(obj){
-        requests = 0;
-        xhr_enabled = false;
+    /**
+     * Client-side throttle tripped.
+     *
+     * This used to set a MODULE-GLOBAL xhr_enabled=false for five seconds and
+     * then drop the request on the floor — no callback, no onreset. That was
+     * fatal rather than merely slow: receive()'s auto-poll re-arms itself
+     * inside its callback, so a swallowed request meant the polling loop never
+     * re-armed and the connection went permanently deaf while still looking
+     * healthy (session valid, readyState true).
+     *
+     * It was also shared by every AgentConnection in the page, so sixteen
+     * agents in one realm shared one budget and tripped it during any join
+     * burst — which is exactly how a room of fifteen went silent.
+     *
+     * Now the caller is always told, so receive()'s existing failure backoff
+     * turns a throttle into a few seconds of lag instead of a dead loop.
+     */
+    function reset(obj, binData, scope){
+        const state = scope || globalThrottle;
+        state.requests = 0;
+        state.enabled = false;
         setTimeout(function(){
-            xhr_enabled = true;
-        },5000);
-        console.log('Something went wrong, you can try to connect after 5 seconds or you can use channel.onreset function');
+            state.enabled = true;
+        }, 5000);
+        console.warn('[web-agent.js] Client throttle tripped; pausing this connection for 5 seconds.');
+
+        if (obj && typeof obj.onreset === 'function') {
+            try { obj.onreset(); } catch (e) { /* a handler must not break the caller */ }
+        }
+        // Tell the caller, or every loop that re-arms in its callback dies here.
+        if (obj && typeof obj.callback === 'function') {
+            try {
+                obj.callback({ status: 'error', statusMessage: 'client-throttled', data: null });
+            } catch (e) { /* as above */ }
+        }
     }
 
     function getActionUrl(url, pubkeyMode, action){
@@ -411,7 +441,18 @@
 
     function request(obj , binData){
 
-        if(!xhr_enabled){
+        // Per-connection when the caller supplies one; the shared bucket only
+        // covers the handful of calls made before a connection exists.
+        const throttle = (obj && obj._throttle) || globalThrottle;
+
+        if(!throttle.enabled){
+            // Still answer the caller. Returning silently here was the second
+            // way a polling loop could die without anything looking wrong.
+            if (obj && typeof obj.callback === 'function') {
+                try {
+                    obj.callback({ status: 'error', statusMessage: 'client-throttled', data: null });
+                } catch (e) { /* a handler must not break the caller */ }
+            }
             return;
         }
 
@@ -423,15 +464,15 @@
 
         const newDate = new Date();
 
-        if((newDate - initialDate) < requests_time_period){
-            requests++;
+        if((newDate - throttle.initialDate) < requests_time_period){
+            throttle.requests++;
         }else{
-            requests = 0;
-            initialDate = new Date();
+            throttle.requests = 0;
+            throttle.initialDate = new Date();
         }
 
-        if(requests > requests_limit){
-            return reset(obj,binData);
+        if(throttle.requests > requests_limit){
+            return reset(obj, binData, throttle);
         }
 
         let method = obj.method || 'get';
@@ -558,6 +599,7 @@
         logPayload('Sending payload:', payload);
 
         request({
+            _throttle: (typeof _self !== 'undefined' && _self && _self._throttle) || undefined,
             useSyncMode : _self.useSyncMode,
             base : _self._api,
             pubKeyEncryptor:_self._pubKeyEncryptor,
@@ -637,6 +679,7 @@
         };
 
         request({
+            _throttle: (typeof _self !== 'undefined' && _self && _self._throttle) || undefined,
             useSyncMode : _self.useSyncMode,
             base : _self._api,
             pubKeyEncryptor: _self._pubKeyEncryptor,
@@ -678,6 +721,7 @@
         logPayload('Sending payload:', payload);
 
         request({
+            _throttle: (typeof _self !== 'undefined' && _self && _self._throttle) || undefined,
             useSyncMode : _self.useSyncMode,
             base : _self._api,
             pubKeyEncryptor: _self._pubKeyEncryptor,
@@ -778,6 +822,7 @@
                                 sessionId : session
                             };
                             _self._put_xhr = request({
+            _throttle: (typeof _self !== 'undefined' && _self && _self._throttle) || undefined,
                                 useSyncMode : _self.useSyncMode,
                                 base : _self._api,
                                 pubKeyEncryptor: _self._pubKeyEncryptor,
@@ -848,6 +893,10 @@
     }
 
     const AgentConnection = function({usePubKey = false, enableWebrtcRelay = false, useWebsocket = _resolveUseWebsocketDefault()} = {}){
+
+        // This connection's own request budget. It used to be one budget for
+        // the whole page, so several agents in one realm starved each other.
+        this._throttle = { requests: 0, initialDate: new Date(), enabled: true };
 
         this.agentName = null;
         this._connectedAgentsMap = {};  // Map agentName -> AgentInfo object (includes connectionTime)
@@ -924,6 +973,7 @@
         const session = _self.sessionId;
 
         request({
+            _throttle: (typeof _self !== 'undefined' && _self && _self._throttle) || undefined,
             useSyncMode : _self.useSyncMode,
             pubKeyEncryptor : _self._pubKeyEncryptor,
             base : _self._api,
@@ -1761,6 +1811,7 @@
         logPayload('Connect payload:', payload);
 
         request({
+            _throttle: (typeof _self !== 'undefined' && _self && _self._throttle) || undefined,
             useSyncMode : _self.useSyncMode,
             onreset : _self.onreset,
             pubKeyEncryptor:_self._pubKeyEncryptor,
@@ -2026,6 +2077,7 @@
         }
 
         request({
+            _throttle: (typeof _self !== 'undefined' && _self && _self._throttle) || undefined,
             useSyncMode : _self.useSyncMode,
             base : _self._api,
             pubKeyEncryptor:_self._pubKeyEncryptor,
@@ -2156,6 +2208,7 @@
         };
 
         _self._receive_xhr = request({
+            _throttle: (typeof _self !== 'undefined' && _self && _self._throttle) || undefined,
             useSyncMode : _self.useSyncMode,
             onreset : _self.onreset,
             pubKeyEncryptor:_self._pubKeyEncryptor,
@@ -2241,7 +2294,7 @@
                     let emptyCheckFactor = 0;
 
                     if(_self.autoReceive === true || typeof _self.autoReceive === 'number'){
-                        additionalTimeout = _self.autoReceive === 'number'?_self.autoReceive:1000;
+                        additionalTimeout = typeof _self.autoReceive === 'number' ? _self.autoReceive : 1000;
                     }
 
                     if(response.status === 'success'/* && extractApiResponse(response)*/){
@@ -2350,6 +2403,7 @@
         } else {
             // Fallback to HTTP
             request({
+            _throttle: (typeof _self !== 'undefined' && _self && _self._throttle) || undefined,
                 useSyncMode : _self.useSyncMode,
                 base : _self._api,
                 pubKeyEncryptor:_self._pubKeyEncryptor,
@@ -2436,6 +2490,7 @@
             return;
         }
         request({
+            _throttle: (typeof _self !== 'undefined' && _self && _self._throttle) || undefined,
             useSyncMode : _self.useSyncMode,
             base : _self._api,
             pubKeyEncryptor:_self._pubKeyEncryptor,
@@ -2731,6 +2786,7 @@
         const session = _self.sessionId;
 
         request({
+            _throttle: (typeof _self !== 'undefined' && _self && _self._throttle) || undefined,
             useSyncMode : _self.useSyncMode,
             pubKeyEncryptor:_self._pubKeyEncryptor,
             base : _self._api,
@@ -2904,6 +2960,7 @@
 
         const overHttp = function() {
             request({
+            _throttle: (typeof _self !== 'undefined' && _self && _self._throttle) || undefined,
                 useSyncMode: _self.useSyncMode,
                 base: _self._api,
                 pubKeyEncryptor: _self._pubKeyEncryptor,
@@ -3143,6 +3200,7 @@
         }
         const session = _self.sessionId;
         request({
+            _throttle: (typeof _self !== 'undefined' && _self && _self._throttle) || undefined,
             useSyncMode : _self.useSyncMode,
             pubKeyEncryptor : _self._pubKeyEncryptor,
             base : _self._api,

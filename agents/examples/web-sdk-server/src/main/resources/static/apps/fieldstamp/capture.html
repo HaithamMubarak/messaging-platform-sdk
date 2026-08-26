@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <script src="../../js/prod-log.js"></script>
+    <link rel="icon" type="image/svg+xml" href="../../favicon.svg">
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+    <title>Fieldstamp — join the inspection</title>
+    <meta name="description" content="Open the link, allow the camera, and follow what the inspector asks for. No app and no account.">
+    <meta name="theme-color" content="#0b1120">
+    <meta name="robots" content="noindex">
+    <link rel="canonical" href="https://hmdevonline.com/messaging-platform/sdk/apps/fieldstamp/capture.html">
+
+    <link rel="stylesheet" href="../../css/design-tokens.css">
+    <link rel="stylesheet" href="../../css/ui.css">
+    <link rel="stylesheet" href="../../css/sdk-app.css">
+    <link rel="stylesheet" href="../../css/toast.css">
+    <link rel="stylesheet" href="../../css/connection-modal.css">
+    <link rel="stylesheet" href="fieldstamp.css">
+    <link rel="stylesheet" href="../../css/app-chrome.css">
+</head>
+<body class="sdk-app">
+
+    <header class="sdk-header top-bar">
+        <span class="sdk-header__mark">
+            <svg class="icon" aria-hidden="true"><use href="#i-shield"></use></svg>
+        </span>
+        <h1>Fieldstamp</h1>
+        <div class="sdk-header__right">
+            <span class="fs-sent"><b id="sentCount">0</b> sent</span>
+        </div>
+    </header>
+
+    <main class="sdk-stage">
+        <div class="sdk-main">
+            <div class="fs-capture" id="liveView">
+
+                <div class="fs-prompt-box" id="promptBox" hidden>
+                    <span class="fs-prompt-box__label">The inspector is asking for</span>
+                    <p class="fs-prompt-box__text" id="promptText"></p>
+                </div>
+
+                <div class="fs-preview-wrap">
+                    <video id="preview" playsinline autoplay muted></video>
+                    <div class="fs-flash" id="flash" aria-hidden="true"></div>
+                    <div class="fs-camera-off" id="cameraOff" hidden>
+                        <svg class="icon" aria-hidden="true"><use href="#i-video-off"></use></svg>
+                        <p>This page needs your camera to work.</p>
+                        <button class="btn btn--primary" id="retryCamera" type="button">Turn the camera on</button>
+                    </div>
+                </div>
+
+                <div class="fs-capture-foot">
+                    <p class="fs-status" id="captureStatus">Connecting…</p>
+
+                    <div class="fs-geo">
+                        <div class="fs-geo__row">
+                            <label for="geoToggle">Stamp my photos with roughly where I am</label>
+                            <input type="checkbox" id="geoToggle">
+                        </div>
+                        <p class="fs-geo__note" id="geoNote">Off. Photos are stamped with the time only.</p>
+                    </div>
+
+                    <button class="btn" id="flipBtn" type="button">Switch camera</button>
+                </div>
+            </div>
+
+            <div class="fs-done" id="donePanel" hidden>
+                <h2>That is everything</h2>
+                <p id="doneReason"></p>
+                <p id="doneCount"></p>
+                <p class="sdk-note">You can close this page. Nothing stays on your phone.</p>
+            </div>
+        </div>
+    </main>
+
+    <script src="../../js/config-loader.js"></script>
+    <script src="../../generated-web-agent-js/js/web-agent.libs.js"></script>
+    <script src="../../generated-web-agent-js/js/web-agent.js"></script>
+    <script src="../../generated-web-agent-js/js/web-agent.webrtc.js"></script>
+
+    <script src="../../js/icons.js"></script>
+    <script src="../../js/dialog.js"></script>
+    <script src="../../js/common-utils.js"></script>
+    <script src="../../js/connection-modal.js"></script>
+    <script src="../../js/UserConnectionBase.js"></script>
+
+    <script src="fieldstamp-core.js"></script>
+    <script src="capture.js"></script>
+<script src="../../js/app-chrome.js"></script>
+</body>
+</html>

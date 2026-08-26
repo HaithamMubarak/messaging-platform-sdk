@@ -17,6 +17,7 @@
   <url><loc>https://hmdevonline.com/messaging-platform/sdk/apps/mini-games/blockparty/play.html</loc><priority>0.7</priority></url>
   <url><loc>https://hmdevonline.com/messaging-platform/sdk/apps/mini-games/air-hockey/index.html</loc><priority>0.6</priority></url>
   <url><loc>https://hmdevonline.com/messaging-platform/sdk/apps/mini-games/quiz-battle/index.html</loc><priority>0.6</priority></url>
+  <url><loc>https://hmdevonline.com/messaging-platform/sdk/apps/mini-games/open-outcry/index.html</loc><priority>0.6</priority></url>
   <url><loc>https://hmdevonline.com/messaging-platform/sdk/apps/mini-games/find-the-liar/index.html</loc><priority>0.6</priority></url>
   <url><loc>https://hmdevonline.com/messaging-platform/sdk/apps/mini-games/reactor/reactor-client.html</loc><priority>0.6</priority></url>
   <url><loc>https://hmdevonline.com/messaging-platform/sdk/apps/pictionary/index.html</loc><priority>0.6</priority></url>
@@ -26,6 +27,7 @@
   <url><loc>https://hmdevonline.com/messaging-platform/sdk/apps/whiteboard/index.html</loc><priority>0.8</priority></url>
   <url><loc>https://hmdevonline.com/messaging-platform/sdk/apps/whiteboard/app.html</loc><priority>0.7</priority></url>
   <url><loc>https://hmdevonline.com/messaging-platform/sdk/apps/rooms/index.html</loc><priority>0.8</priority></url>
+  <url><loc>https://hmdevonline.com/messaging-platform/sdk/apps/fieldstamp/index.html</loc><priority>0.8</priority></url>
   <url><loc>https://hmdevonline.com/messaging-platform/sdk/apps/rooms/app.html</loc><priority>0.7</priority></url>
   <url><loc>https://hmdevonline.com/messaging-platform/sdk/apps/drop/index.html</loc><priority>0.6</priority></url>
   <url><loc>https://hmdevonline.com/messaging-platform/sdk/apps/pulse/index.html</loc><priority>0.6</priority></url>

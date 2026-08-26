@@ -162,6 +162,11 @@ class NodeXMLHttpRequest {
         }
         this.readyState = DONE;
         this._fire('abort');
+        // A browser fires loadend after abort too, and the SDK listens ONLY to
+        // loadend (its onerror/ontimeout handlers are commented out). Without
+        // this, any abort the SDK did not initiate loses its callback — another
+        // way a polling loop dies quietly.
+        this._fire('loadend');
     }
 }
 

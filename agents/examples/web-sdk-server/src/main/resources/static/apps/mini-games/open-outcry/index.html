@@ -1,0 +1,236 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <script src="../../../js/prod-log.js"></script>
+    <link rel="icon" type="image/svg+xml" href="../../../favicon.svg">
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+    <title>Open Outcry — a trading-floor party game on the Messaging Platform SDK</title>
+    <meta name="description" content="The room trades a claim instead of answering it. One player has been dealt the truth and has to make money without the tape giving them away.">
+    <meta name="theme-color" content="#0b1120">
+    <link rel="canonical" href="https://hmdevonline.com/messaging-platform/sdk/apps/mini-games/open-outcry/index.html">
+
+    <meta property="og:type" content="website">
+    <meta property="og:site_name" content="Messaging Platform SDK">
+    <meta property="og:title" content="Open Outcry — a trading-floor party game">
+    <meta property="og:description" content="The room trades a claim instead of answering it. One player has been dealt the truth and has to make money without the tape giving them away.">
+    <meta property="og:url" content="https://hmdevonline.com/messaging-platform/sdk/apps/mini-games/open-outcry/index.html">
+    <meta property="og:image" content="https://hmdevonline.com/messaging-platform/sdk/images/og-image.png">
+    <meta name="twitter:card" content="summary_large_image">
+
+    <link rel="stylesheet" href="../../../css/design-tokens.css">
+    <link rel="stylesheet" href="../../../css/ui.css">
+    <link rel="stylesheet" href="../../../css/sdk-app.css">
+    <link rel="stylesheet" href="../../../css/toast.css">
+    <link rel="stylesheet" href="../../../css/share-modal.css">
+    <link rel="stylesheet" href="../../../css/connection-modal.css">
+    <link rel="stylesheet" href="open-outcry.css">
+    <link rel="stylesheet" href="../../../css/app-chrome.css">
+</head>
+<body class="sdk-app">
+
+    <header class="sdk-header top-bar">
+        <span class="sdk-header__mark">
+            <svg class="icon" aria-hidden="true"><use href="#i-trending-up"></use></svg>
+        </span>
+        <h1>Open Outcry</h1>
+        <span class="sdk-room" id="outcryRoomName">not connected</span>
+        <span class="pill-status is-off" id="phasePill"><span class="pill-status__dot"></span>Lobby</span>
+        <span class="oo-clock" id="clock" aria-live="polite"></span>
+
+        <div class="sdk-header__right">
+            <span class="oo-round" id="roundCount"></span>
+            <button class="btn btn--ghost" id="shareBtn" type="button" hidden
+                    title="Invite someone (QR or link)">
+                <svg class="icon icon--sm" aria-hidden="true"><use href="#i-qr-code"></use></svg>
+                <span>Invite</span>
+            </button>
+        </div>
+    </header>
+
+    <main class="sdk-stage">
+        <div class="sdk-main oo-main">
+
+            <!-- ============================ LOBBY ============================ -->
+            <section class="oo-panel oo-lobby" id="lobbyPanel">
+                <div class="oo-lobby__pitch">
+                    <h2>Nobody answers the question. Everybody trades it.</h2>
+                    <p>Each round opens a market on one claim. Buying <strong>YES</strong> pushes the
+                    price up, buying <strong>NO</strong> pushes it down, and every trade prints on the
+                    tape — the room sees what happened, never who did it.</p>
+                    <p>One player has been dealt the truth. If the claim is about somebody here, that
+                    somebody <em>is</em> the insider. When the market closes you all name who you think
+                    it was. Get it right and they pay you. Get it wrong and they walk with a bonus.</p>
+                </div>
+
+                <div class="oo-lobby__side">
+                    <div class="oo-card">
+                        <div class="oo-card__title">On the floor <span id="lobbyCount"></span></div>
+                        <ul class="oo-players" id="lobbyPlayers"></ul>
+                    </div>
+
+                    <div class="oo-card" id="hostControls" hidden>
+                        <div class="oo-card__title">Floor manager</div>
+                        <label class="oo-field">
+                            <span>Pack</span>
+                            <select id="packSelect" class="field__select"></select>
+                        </label>
+                        <p class="oo-blurb" id="packBlurb"></p>
+                        <div class="oo-field-row">
+                            <label class="oo-field">
+                                <span>Rounds</span>
+                                <select id="roundsSelect" class="field__select">
+                                    <option value="3">3</option>
+                                    <option value="6" selected>6</option>
+                                    <option value="9">9</option>
+                                </select>
+                            </label>
+                            <label class="oo-field">
+                                <span>Market open</span>
+                                <select id="timeSelect" class="field__select">
+                                    <option value="25">25s</option>
+                                    <option value="45" selected>45s</option>
+                                    <option value="70">70s</option>
+                                </select>
+                            </label>
+                        </div>
+                        <button class="btn btn--primary btn--block" id="startBtn" type="button">Open the floor</button>
+                    </div>
+
+                    <div class="oo-card" id="guestWait" hidden>
+                        <div class="oo-card__title">Waiting</div>
+                        <p class="sdk-note">The floor manager opens the market. Keep this page up —
+                        your positions live here.</p>
+                    </div>
+                </div>
+            </section>
+
+            <!-- ============================ FLOOR ============================ -->
+            <section class="oo-panel oo-floor" id="floorPanel" hidden>
+
+                <div class="oo-claim">
+                    <span class="oo-claim__kind" id="claimKind" hidden></span>
+                    <h2 class="oo-claim__text" id="claimText"></h2>
+                </div>
+
+                <!-- private, only rendered for the insider / subject -->
+                <div class="oo-secret" id="secretBox" hidden>
+                    <div class="oo-secret__label">You are the insider</div>
+                    <p class="oo-secret__line" id="secretLine"></p>
+                    <p class="oo-secret__claim" id="subjectClaim"></p>
+                    <div class="oo-secret__buttons" id="subjectButtons" hidden>
+                        <button class="btn btn--primary" id="subjYes" type="button">Yes, true</button>
+                        <button class="btn" id="subjNo" type="button">No, false</button>
+                    </div>
+                    <p class="oo-secret__done" id="subjectDone" hidden></p>
+                </div>
+
+                <div class="oo-market">
+                    <div class="oo-price">
+                        <div class="oo-price__side oo-price__side--yes">
+                            <span class="oo-price__label">YES</span>
+                            <span class="oo-price__value" id="priceYes">50</span><span class="oo-price__cent">¢</span>
+                        </div>
+                        <div class="oo-price__bar"><span id="priceBar" style="width:50%"></span></div>
+                        <div class="oo-price__side oo-price__side--no">
+                            <span class="oo-price__label">NO</span>
+                            <span class="oo-price__value" id="priceNo">50</span><span class="oo-price__cent">¢</span>
+                        </div>
+                    </div>
+                    <canvas id="priceChart" class="oo-chart" aria-label="Price history"></canvas>
+                </div>
+
+                <!-- waiting for a room claim's subject to seal their answer -->
+                <div class="oo-wait" id="subjectPanel" hidden></div>
+
+                <!-- trading -->
+                <div class="oo-trade" id="tradeBar" hidden>
+                    <div class="oo-lots" role="group" aria-label="Lot size">
+                        <span class="oo-lots__label">Lot</span>
+                        <button type="button" class="oo-lot is-on" data-lot="1">1</button>
+                        <button type="button" class="oo-lot" data-lot="5">5</button>
+                        <button type="button" class="oo-lot" data-lot="10">10</button>
+                    </div>
+                    <div class="oo-buttons">
+                        <button class="oo-btn oo-btn--yes" id="buyYes" type="button">
+                            <span class="oo-btn__side">BUY YES</span>
+                            <span class="oo-btn__price">50¢</span>
+                        </button>
+                        <button class="oo-btn oo-btn--no" id="buyNo" type="button">
+                            <span class="oo-btn__side">BUY NO</span>
+                            <span class="oo-btn__price">50¢</span>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- naming the insider -->
+                <div class="oo-vote-panel" id="votePanel" hidden>
+                    <h3>Who was trading on the truth?</h3>
+                    <p class="sdk-note">Read the tape back. Somebody knew.</p>
+                    <div class="oo-vote-list" id="voteList"></div>
+                    <p class="oo-votes-in" id="votesIn"></p>
+                </div>
+
+                <!-- settlement -->
+                <div class="oo-settle" id="settlePanel" hidden>
+                    <div id="settleBody"></div>
+                </div>
+            </section>
+
+            <!-- ============================ OVER ============================= -->
+            <section class="oo-panel oo-over" id="overPanel" hidden>
+                <h2 id="overTitle">Floor closed</h2>
+                <div id="overBody"></div>
+                <button class="btn btn--primary" id="againBtn" type="button" hidden>Back to the lobby</button>
+                <button class="btn btn--ghost" id="abortBtn" type="button" hidden>Abandon</button>
+            </section>
+        </div>
+
+        <!-- ============================== SIDE ============================== -->
+        <aside class="sdk-side oo-side">
+            <div class="oo-wallet">
+                <div class="oo-wallet__cash">
+                    <span class="oo-wallet__label">Your cash</span>
+                    <span class="oo-wallet__value" id="myCash">1000</span>
+                </div>
+                <div class="oo-wallet__pos">
+                    <span class="oo-pos oo-pos--yes">YES <b id="myYes">0</b></span>
+                    <span class="oo-pos oo-pos--no">NO <b id="myNo">0</b></span>
+                </div>
+            </div>
+
+            <div class="sdk-side__title">The tape</div>
+            <ul class="oo-tape sdk-scroll" id="tape">
+                <li class="oo-tape__empty">No prints yet.</li>
+            </ul>
+
+            <div class="sdk-side__title">Standings</div>
+            <ul class="oo-standings" id="standings"></ul>
+        </aside>
+    </main>
+
+    <script src="../../../js/config-loader.js"></script>
+    <script src="../../../lib/qrcode.min.js"></script>
+    <script src="../../../generated-web-agent-js/js/web-agent.libs.js"></script>
+    <script src="../../../generated-web-agent-js/js/web-agent.js"></script>
+    <script src="../../../generated-web-agent-js/js/web-agent.webrtc.js"></script>
+
+    <script src="../../../js/icons.js"></script>
+    <script src="../../../js/share-modal.js"></script>
+    <script src="../../../js/dialog.js"></script>
+    <script src="../../../js/common-utils.js"></script>
+    <script src="../../../js/connection-modal.js"></script>
+
+    <script src="../../../js/UserConnectionBase.js"></script>
+
+    <script src="packs.js"></script>
+    <script src="open-outcry.js"></script>
+
+    <script>
+        if (typeof MiniGameUtils !== 'undefined' && typeof MiniGameUtils.setupCleanupOnUnload === 'function') {
+            MiniGameUtils.setupCleanupOnUnload(() => window.outcryChannel, 'Open Outcry');
+        }
+    </script>
+<script src="../../../js/app-chrome.js"></script>
+</body>
+</html>

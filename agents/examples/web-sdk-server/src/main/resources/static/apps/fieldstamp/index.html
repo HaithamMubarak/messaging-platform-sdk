@@ -1,0 +1,270 @@
+<!DOCTYPE html>
+<html lang="en" class="ap-page">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+    <title>Fieldstamp — the inspection where nobody travels</title>
+
+    <meta name="description" content="Send a link. They open it on their phone, point the camera, and you capture stamped evidence that hashes into a chain — so the record can be added to and never quietly edited.">
+    <meta name="theme-color" content="#0b1120">
+    <link rel="canonical" href="https://hmdevonline.com/messaging-platform/sdk/apps/fieldstamp/index.html">
+
+    <meta property="og:type" content="website">
+    <meta property="og:site_name" content="Messaging Platform SDK">
+    <meta property="og:title" content="Fieldstamp — the inspection where nobody travels">
+    <meta property="og:description" content="Guide someone through an inspection on their phone and capture evidence that hashes into a chain. The video is peer-to-peer; the photos never touch a server.">
+    <meta property="og:url" content="https://hmdevonline.com/messaging-platform/sdk/apps/fieldstamp/index.html">
+    <meta property="og:image" content="https://hmdevonline.com/messaging-platform/sdk/images/og-image.png">
+    <meta name="twitter:card" content="summary_large_image">
+
+    <link rel="icon" type="image/svg+xml" href="../../favicon.svg">
+    <link rel="manifest" href="../../site.webmanifest">
+    <link rel="stylesheet" href="../../css/design-tokens.css">
+    <link rel="stylesheet" href="../../css/ui.css">
+    <link rel="stylesheet" href="../../css/landing.css">
+    <link rel="stylesheet" href="../../css/app-page.css">
+
+    <script src="../../js/prod-log.js" defer></script>
+    <script src="../../js/icons.js" defer></script>
+    <script src="../../js/ui.js" defer></script>
+    <script src="../../js/landing.js" defer></script>
+</head>
+<body>
+<a class="skip-link" href="#main">Skip to content</a>
+
+<header class="site-header" id="siteHeader">
+    <div class="wrap site-header__inner">
+        <a class="brand" href="../../index.html">
+            <svg class="logo-mark" aria-hidden="true"><use href="#i-logo"></use></svg>
+            Messaging Platform SDK
+        </a>
+
+        <button class="btn btn--ghost btn--icon nav-toggle" id="navToggle" aria-expanded="false" aria-controls="siteNav" aria-label="Open menu">
+            <svg class="icon" aria-hidden="true"><use href="#i-menu"></use></svg>
+        </button>
+
+        <nav class="site-nav" id="siteNav" aria-label="Main">
+            <a href="../../index.html#demos">Demos</a>
+            <a href="../../playground.html">Playground</a>
+            <a href="../../docs.html">Docs</a>
+            <a href="../../developer/index.html">Portal</a>
+            <a class="btn btn--gradient" href="inspect.html">Open the console</a>
+        </nav>
+    </div>
+</header>
+
+<nav class="ap-jump" aria-label="On this page">
+    <div class="wrap ap-jump__inner">
+        <span class="ap-jump__label">Fieldstamp</span>
+        <a href="#flow">The session</a>
+        <a href="#stamp">What a stamp holds</a>
+        <a href="#chain">The chain</a>
+        <a href="#report">The report</a>
+        <a href="#limits">What it will not do</a>
+        <a class="ap-jump__cta" href="inspect.html">Open the console →</a>
+    </div>
+</nav>
+
+<main id="main">
+
+    <section class="hero" style="padding-block: var(--sp-16) var(--sp-12)">
+        <div class="wrap">
+            <span class="eyebrow">Playground · Fieldstamp</span>
+            <h1 style="font-size: var(--fs-hero); margin-bottom: var(--sp-4); text-wrap: balance; max-width: 20ch">The inspection where nobody travels.</h1>
+            <p class="hero__lede" style="max-width: 62ch">
+                Send a link. The other person opens it on the phone in their hand — no app, no account —
+                points the camera at the damage, and you talk them round it. You tap to capture; the photo
+                is taken at the sensor's own resolution, hashed on their device, and lands in a log that can
+                be added to and never quietly edited. Then you export the report.
+            </p>
+            <div class="hero__cta">
+                <a class="btn btn--lg btn--gradient" href="inspect.html">
+                    Open the console
+                    <svg class="icon" aria-hidden="true"><use href="#i-arrow-right"></use></svg>
+                </a>
+                <a class="btn btn--lg btn--ghost" href="capture.html">See the phone side</a>
+            </div>
+            <p class="hero__trust">
+                <span><svg class="icon icon--sm" aria-hidden="true"><use href="#i-check"></use></svg> Nothing for them to install</span>
+                <span><svg class="icon icon--sm" aria-hidden="true"><use href="#i-check"></use></svg> Video never touches a server</span>
+                <span><svg class="icon icon--sm" aria-hidden="true"><use href="#i-check"></use></svg> Append-only evidence log</span>
+            </p>
+        </div>
+    </section>
+
+    <section style="padding-top: 0">
+        <div class="wrap">
+            <div class="ap-stats">
+                <div class="ap-stat">
+                    <span class="ap-stat__n">0</span>
+                    <span class="ap-stat__l">apps to install</span>
+                    <span class="ap-stat__s">the person you need a photo from is the one least likely to install anything</span>
+                </div>
+                <div class="ap-stat">
+                    <span class="ap-stat__n">0</span>
+                    <span class="ap-stat__l">frames stored on a server</span>
+                    <span class="ap-stat__s">the live video is peer-to-peer; the stills stay in the inspector's browser</span>
+                </div>
+                <div class="ap-stat">
+                    <span class="ap-stat__n">2</span>
+                    <span class="ap-stat__l">hashes per capture</span>
+                    <span class="ap-stat__s">one of the image, one of the chain it sits in</span>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <section id="flow">
+        <div class="wrap">
+            <h2>The session</h2>
+            <div class="ap-grid">
+                <article class="card ap-tile">
+                    <div class="ap-tile__body">
+                        <h3>You open it</h3>
+                        <p>Name the session after the claim or the job. That name is the storage key the
+                        evidence log is written under, so a second inspector opening the same session sees
+                        the same log.</p>
+                    </div>
+                </article>
+                <article class="card ap-tile">
+                    <div class="ap-tile__body">
+                        <h3>They join from a link</h3>
+                        <p>A browser, a camera permission, and nothing else. The picture comes straight from
+                        their phone to yours — the channel only carries who is here.</p>
+                    </div>
+                </article>
+                <article class="card ap-tile">
+                    <div class="ap-tile__body">
+                        <h3>You ask, they point</h3>
+                        <p>Pick a template — motor claim, property condition, equipment handover — and each
+                        prompt appears on their screen in type you can read outdoors. Ask for anything else
+                        by typing it.</p>
+                    </div>
+                </article>
+                <article class="card ap-tile">
+                    <div class="ap-tile__body">
+                        <h3>You capture</h3>
+                        <p>The still is grabbed on their device at the camera's full resolution, not pulled
+                        out of the compressed video. It arrives in chunks, gets re-hashed on your side, and
+                        is rejected outright if the two hashes disagree.</p>
+                    </div>
+                </article>
+            </div>
+        </div>
+    </section>
+
+    <section id="stamp">
+        <div class="wrap ap-split">
+            <div>
+                <h2>What a stamp holds</h2>
+                <p>Every capture carries the facts that make it worth something later, and nothing that
+                   would make it a liability.</p>
+                <ul class="ap-list">
+                    <li><strong>Time</strong> — the instant, in ISO and in the phone's own timezone.</li>
+                    <li><strong>Who and what</strong> — the name they joined under, the device, the screen.</li>
+                    <li><strong>The image</strong> — pixel dimensions, byte count, and the SHA-256 of the bytes.</li>
+                    <li><strong>Location, only if offered</strong> — off by default. When it is switched on, the
+                        coordinates are rounded to about eleven metres before they are stamped, let alone sent:
+                        enough to say which building, not which window.</li>
+                </ul>
+            </div>
+            <div>
+                <div class="ap-note">
+                    <svg class="icon" aria-hidden="true"><use href="#i-info"></use></svg>
+                    <div>
+                        <p><strong>Notes are stored beside the photo, never drawn into it.</strong> An annotation
+                        that alters the pixels alters the evidence, and then the hash no longer describes what the
+                        camera saw. So your notes travel with the entry and the image is left exactly as it was
+                        taken.</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <section id="chain">
+        <div class="wrap">
+            <h2>The chain</h2>
+            <p style="max-width: 62ch">Each entry's chain hash is taken over the entry before it. That is the
+               whole trick, and it is the reason a Fieldstamp log can be added to but not rewritten.</p>
+            <div class="ap-frame">
+                <div class="ap-frame__bar"><span><span class="ap-frame__name">chain</span> · how each link is made</span></div>
+                <pre style="margin:0;padding:var(--sp-5);overflow-x:auto;font-family:var(--font-mono);font-size:var(--fs-sm);line-height:1.7;color:var(--text-body)">chain₀ = SHA-256( "fieldstamp:&lt;session&gt;" | imageHash₀ | canonicalStamp₀ )
+chain₁ = SHA-256(        chain₀           | imageHash₁ | canonicalStamp₁ )
+chain₂ = SHA-256(        chain₁           | imageHash₂ | canonicalStamp₂ )</pre>
+            </div>
+            <p style="max-width: 62ch; margin-top: var(--sp-4)">Remove the second photo, reorder two of them,
+               or change a single character of a stamp, and every hash from that point on stops matching.
+               <strong>Verify the chain</strong> in the console re-derives the whole thing and names the first
+               entry that does not hold. The stamp is serialised with its keys sorted, so the same entry hashes
+               to the same value in any browser, on any machine, next year.</p>
+            <p style="max-width: 62ch">Underneath, the log is written with the platform's <code>storageAdd</code>,
+               which appends a version rather than replacing the last — so the history is kept by the storage layer
+               as well as by the hashes.</p>
+        </div>
+    </section>
+
+    <section id="report">
+        <div class="wrap ap-split">
+            <div>
+                <h2>The report</h2>
+                <p>One self-contained HTML file: every photo at full resolution, its stamp, its two hashes, and
+                   the instructions for re-deriving the chain from the top. Open it and print to PDF and it is
+                   the same document.</p>
+                <p>The full-resolution photos are in that file and in your browser. They are not in our storage
+                   and never were — what went to storage is the stamp, the hashes and a thumbnail.</p>
+            </div>
+            <div>
+                <div class="ap-try">
+                    <div class="ap-try__row">
+                        <span class="ap-try__what">Export report</span>
+                        <span class="ap-try__how">saves <code>fieldstamp-&lt;session&gt;.html</code></span>
+                    </div>
+                    <div class="ap-try__row">
+                        <span class="ap-try__what">Verify the chain</span>
+                        <span class="ap-try__how">re-derives every hash and names the first break</span>
+                    </div>
+                    <div class="ap-try__row">
+                        <span class="ap-try__what">Reopen the session</span>
+                        <span class="ap-try__how">restores the log from storage, thumbnails only</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <section id="limits">
+        <div class="wrap">
+            <div class="ap-note" style="margin-bottom: var(--sp-8)">
+                <svg class="icon" aria-hidden="true"><use href="#i-alert-triangle"></use></svg>
+                <div>
+                    <p><strong>What Fieldstamp does not do, and you should know before you sell it.</strong>
+                       Both people have to be online at the same time — there is no record-now-send-later mode yet,
+                       and that is the single biggest reason a claimant drops out. The chain proves the log has not
+                       been altered <em>since it was made</em>; it says nothing about whether the person pointed the
+                       camera at the right car. And a rural mobile connection will give you a poor live picture even
+                       though the captured stills come off the sensor at full resolution — the preview is not the
+                       evidence.</p>
+                </div>
+            </div>
+
+            <div class="link-row">
+                <p>Open the console on a laptop, then open the capture page on your phone and join the same
+                   session. That is the whole product in two tabs.</p>
+                <a class="btn btn--gradient" href="inspect.html">Open the console</a>
+            </div>
+        </div>
+    </section>
+
+</main>
+
+<footer class="site-footer">
+    <div class="wrap">
+        <div class="footer-bottom">
+            <span>&copy; 2026 Messaging Platform SDK</span>
+            <span><a href="../../playground.html">Back to the playground</a></span>
+        </div>
+    </div>
+</footer>
+</body>
+</html>

@@ -211,7 +211,7 @@ let API_KEY = '';
     console.log(`sent ${results.answersSent} answers in ${Date.now() - answerStart}ms`);
 
     // Give the relay time to deliver before judging it.
-    await new Promise((r) => setTimeout(r, 15000));
+    await new Promise((r) => setTimeout(r, parseInt(process.env.SETTLE_MS || '15000', 10)));
 
     // Then ask explicitly. If a forced pull finds what the polling loop did
     // not, the messages were never lost — the host simply stopped asking, and
@@ -219,9 +219,14 @@ let API_KEY = '';
     console.log(`host state before forcing: readyState=${host.readyState} session=${host.sessionId ? 'yes' : 'NONE'} ` +
                 `receiveTimer=${host._receiveTimer ? 'scheduled' : 'NONE'} autoReceive=${host.autoReceive}`);
     const beforeForced = seen.size;
-    try {
-        host.receive({ globalOffset: 0, localOffset: 0, limit: 500 }, false);
-    } catch (e) { /* reported below */ }
+    // Off by default: a forced pull races the polling loop for the SAME window,
+    // and whichever the server answers consumes the messages — so switching it
+    // on makes "seen by polling" read zero no matter how well polling worked.
+    if (process.env.FORCE_PULL === '1') {
+        try {
+            host.receive({ globalOffset: 0, localOffset: 0, limit: 500 }, false);
+        } catch (e) { /* reported below */ }
+    }
     await new Promise((r) => setTimeout(r, 8000));
     console.log(`seen by polling ${beforeForced}, after a forced pull ${seen.size}`);
 
