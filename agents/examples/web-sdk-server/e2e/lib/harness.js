@@ -35,6 +35,38 @@ const LAUNCH_WITH_FAKE_MEDIA = {
     args: [...LAUNCH.args, '--use-fake-device-for-media-stream', '--use-fake-ui-for-media-stream']
 };
 
+/**
+ * Wait until the site is actually being served.
+ *
+ * This box rebuilds and restarts web-sdk-service for other work, so a suite
+ * can start against a container that is mid-restart. Without this a run dies
+ * on `page.goto` with ERR_SOCKET_NOT_CONNECTED and reports nothing useful.
+ */
+async function waitForService(timeoutMs) {
+    const deadline = Date.now() + (timeoutMs || 120000);
+    while (Date.now() < deadline) {
+        try {
+            const r = await fetch(BASE + '/app/api/health');
+            if (r.ok) return true;
+        } catch (_) { /* not up yet */ }
+        await new Promise(r => setTimeout(r, 1000));
+    }
+    return false;
+}
+
+/**
+ * Navigate, surviving a restart that lands between two page loads. Suites
+ * should use this rather than page.goto so one blip does not end the run.
+ */
+async function gotoStable(page, url, opts) {
+    try {
+        return await page.goto(url, opts || { waitUntil: 'domcontentloaded' });
+    } catch (e) {
+        await waitForService();
+        return page.goto(url, opts || { waitUntil: 'domcontentloaded' });
+    }
+}
+
 /** A tally that prints the way every suite here reports. */
 function results() {
     const pass = [], fail = [];
@@ -51,4 +83,4 @@ function results() {
     };
 }
 
-module.exports = { BASE, SHOTS, LAUNCH, LAUNCH_WITH_FAKE_MEDIA, results };
+module.exports = { BASE, SHOTS, LAUNCH, LAUNCH_WITH_FAKE_MEDIA, results, waitForService, gotoStable };

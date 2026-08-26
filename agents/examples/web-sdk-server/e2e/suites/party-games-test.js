@@ -11,7 +11,7 @@
  * and once that a guest never receives anything belonging to another guest.
  */
 const { chromium } = require('playwright');
-const { BASE, LAUNCH, results } = require('../lib/harness');
+const { BASE, LAUNCH, results, gotoStable } = require('../lib/harness');
 
 const R = results();
 function check(ok, label, extra) {
@@ -63,10 +63,10 @@ async function openRoom(browser, path, globalName, room) {
 
         // One retry: a restart between two clients joining is common here.
         try {
-            await page.goto(`${BASE}${path}?debug`, { waitUntil: 'domcontentloaded' });
+            await gotoStable(page, `${BASE}${path}?debug`, { waitUntil: 'domcontentloaded' });
         } catch (_) {
             await waitForService();
-            await page.goto(`${BASE}${path}?debug`, { waitUntil: 'domcontentloaded' });
+            await gotoStable(page, `${BASE}${path}?debug`, { waitUntil: 'domcontentloaded' });
         }
         await page.waitForSelector('#connectionModal.active', { timeout: 30000 });
         await page.fill('#usernameInput', name);

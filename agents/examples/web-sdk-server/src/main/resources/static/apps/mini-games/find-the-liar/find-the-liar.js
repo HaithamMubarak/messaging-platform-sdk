@@ -623,18 +623,23 @@ class FindTheLiarGame extends UserConnectionBase {
      * phase, or ending the game from a non-host seat.
      *
      * Three cases have to be told apart:
-     *   _fromHost      the host broadcast it        -> trust
-     *   _fromClient    the host merely relayed it   -> do NOT trust
-     *   neither        a direct data-channel message; trust only if the peer
-     *                  that sent it is the host (this is how the host's
-     *                  TARGETED sends arrive — role-assignment and
-     *                  game-state-sync go via sendData(data, playerName),
-     *                  which bypasses the broadcast wrapper and so never
-     *                  carries _fromHost).
+     * IDENTITY COMES FROM THE TRANSPORT, NEVER FROM THE PAYLOAD.
+     *
+     * `_fromHost` used to be accepted on its own, and that was a hole. The base
+     * class strips the flag off anything it RELAYS, so a forged broadcast is
+     * caught — but an ADDRESSED send (`sendData(payload, victim)`) goes peer to
+     * peer untouched, so any player could put `_fromHost: true` on
+     * `liar-secret-revealed` and hand it straight to somebody, revealing the
+     * liar on their screen from a non-host seat.
+     *
+     * So the flag is not evidence and is not consulted:
+     *   _fromClient    the host merely relayed it   -> never trust
+     *   otherwise      trust only when the peer that sent it IS the host,
+     *                  which covers both the host's broadcasts and its
+     *                  targeted sends (role-assignment, game-state-sync).
      */
     _isFromHost(peerId, data) {
         if (!data) return false;
-        if (data._fromHost) return true;
         if (data._fromClient) return false;
         const host = typeof this._getHostName === 'function' ? this._getHostName() : null;
         return !!host && peerId === host;

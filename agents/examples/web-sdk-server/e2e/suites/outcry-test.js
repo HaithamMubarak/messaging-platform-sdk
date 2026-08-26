@@ -15,7 +15,7 @@
 // ============================================================================
 
 const { chromium } = require('playwright');
-const { BASE, LAUNCH, results } = require('../lib/harness');
+const { BASE, LAUNCH, results, gotoStable } = require('../lib/harness');
 
 const URL = BASE + '/apps/mini-games/open-outcry/index.html';
 const ROOM = 'outcry-e2e-' + Math.random().toString(36).slice(2, 8);
@@ -59,7 +59,7 @@ async function connectClient(browser, name) {
     page.on('console', m => { if (m.type() === 'error') errors.push(m.text()); });
     page.on('pageerror', e => errors.push('pageerror: ' + e.message));
 
-    await page.goto(URL + '?debug', { waitUntil: 'domcontentloaded' });
+    await gotoStable(page, URL + '?debug', { waitUntil: 'domcontentloaded' });
     await page.waitForSelector('#connectionModal.active', { timeout: 30000 });
     await page.fill('#usernameInput', name);
     await page.fill('#channelInput', ROOM);

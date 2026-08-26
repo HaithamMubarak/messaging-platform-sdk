@@ -256,3 +256,13 @@
     .fs-entry { grid-template-columns: 52px 1fr; }
     .fs-entry__thumb { width: 52px; height: 40px; }
 }
+
+
+/* --- Phone --------------------------------------------------------------- */
+/* The console header carries a title, a session name, a status sentence and a
+   count. On a narrow phone the count's WORD is the part worth losing: the
+   number still tells the inspector where they are. */
+@media (max-width: 640px) {
+    .fs-counts__label { display: none; }
+    .fs-counts { min-width: 0; }
+}

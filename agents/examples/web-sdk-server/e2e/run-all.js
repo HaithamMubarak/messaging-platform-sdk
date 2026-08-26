@@ -21,7 +21,7 @@ const GROUPS = {
     'self-checks': ['a11y-selfcheck.js', 'focus-selfcheck.js'],
     'apps': ['chat-test.js', 'wb-test.js', 'wb-history-test.js', 'shape-fidelity-test.js', 'collab-actions-test.js', 'persistence-test.js', 'handover-test.js', 'rooms-test.js', 'term-test.js', 'terminal-scrollback-test.js', 'cloud-test.js',
              'drop-test.js', 'drop-resume-test.js', 'undriven-test.js', 'devpages-test.js', 'coreloop-test.js', 'pulse-moderation-test.js', 'dead-drop-test.js', 'under-the-hood-test.js', 'rewind-test.js', 'sponsorpulse-core-test.js', 'sponsorpulse-test.js',
-             'fieldstamp-test.js'],
+             'fieldstamp-test.js', 'persistence-apps-test.js'],
     'games': ['bp-chrome-test.js', 'pict-test.js', 'chess-features-test.js', 'games-test.js',
               'games-sync-test.js', 'quiz-results-test.js', 'tier2-test.js', 'outcry-test.js',
               'party-games-test.js'],
@@ -29,7 +29,8 @@ const GROUPS = {
     // Slow by nature — it waits out a presence TTL, so it is opt in rather than
     // ungated. Run with: npm test -- ghost
     'presence (opt in)': [],
-    'mobile + security': ['touch-play-test.js', 'injection-test.js', 'forgery-test.js']
+    'mobile + security': ['touch-play-test.js', 'injection-test.js', 'forgery-test.js',
+                          'host-forgery-test.js']
 };
 
 const only = process.argv.slice(2).filter(a => !a.startsWith('-'));
@@ -37,7 +38,7 @@ if (only.some(o => 'ghost'.includes(o) || o.includes('ghost'))) {
     GROUPS['presence (opt in)'] = ['ghost-departure.js'];
 }
 const rows = [];
-let totalPass = 0, totalFail = 0, broken = 0;
+let totalPass = 0, totalFail = 0, broken = 0, crashedCount = 0;
 
 console.log('site under test: ' + BASE + '\n');
 
@@ -57,6 +58,18 @@ for (const [group, files] of Object.entries(GROUPS)) {
         }
         const p = /PASS \((\d+)\)/.exec(out), f = /FAIL \((\d+)\)/.exec(out);
         if (!p && !f) {
+            // A suite that CRASHED must never read as a verdict. Taking the
+            // last line of output used to print "Node.js v20.20.2" — the tail
+            // of a stack trace — in the column where a result belongs, so a
+            // suite that never ran looked exactly like one that passed.
+            const crashed = /triggerUncaughtException|^\s*at .*\(.*:\d+:\d+\)|Error:|MODULE_NOT_FOUND/m.test(out);
+            if (crashed) {
+                const why = (/(?:Error|error):?\s*([^\n]+)/.exec(out) || [, 'see output'])[1];
+                console.log('  ' + file.padEnd(24) + 'CRASHED — did not run  (' + why.slice(0, 40) + ')');
+                rows.push([file, null, null, 'crashed']);
+                crashedCount++;
+                continue;
+            }
             // Sweeps that report in prose rather than a tally.
             const verdict = out.trim().split('\n').filter(Boolean).pop() || 'no output';
             console.log('  ' + file.padEnd(24) + verdict.slice(0, 60));
@@ -74,5 +87,6 @@ for (const [group, files] of Object.entries(GROUPS)) {
 }
 
 console.log('\n' + totalPass + ' assertions passed, ' + totalFail + ' failed, across ' +
-    rows.length + ' suites' + (broken ? ' (' + broken + ' with failures)' : ''));
-process.exit(totalFail ? 1 : 0);
+    rows.length + ' suites' + (broken ? ' (' + broken + ' with failures)' : '') +
+    (crashedCount ? ' — ' + crashedCount + ' CRASHED and proved nothing' : ''));
+process.exit(totalFail || crashedCount ? 1 : 0);

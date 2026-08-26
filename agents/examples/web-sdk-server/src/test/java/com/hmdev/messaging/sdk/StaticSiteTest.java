@@ -239,16 +239,34 @@ class StaticSiteTest {
         while (entries.find()) catalogue++;
         assertThat(catalogue).as("games in the catalogue").isGreaterThan(0);
 
-        Pattern claim = Pattern.compile("(\\d+) multiplayer games");
+        // Prose spells small numbers ("Eight multiplayer games") while a meta
+        // description may use the digit. Both are the same claim, and the
+        // point of this test is that the claim tracks the catalogue — so it
+        // reads either rather than forcing the copy into digits.
+        Pattern claim = Pattern.compile("(\\d+|[A-Za-z]+) multiplayer games");
         for (String page : List.of("index.html", "playground.html")) {
             String html = Files.readString(STATIC.resolve(page), StandardCharsets.UTF_8);
             Matcher m = claim.matcher(html);
             assertThat(m.find()).as(page + " states a game count").isTrue();
             do {
-                assertThat(Integer.parseInt(m.group(1)))
-                        .as(page + " advertises the number of games the catalogue actually has")
+                assertThat(numberFrom(m.group(1)))
+                        .as(page + " advertises the number of games the catalogue actually has"
+                                + " (found \"" + m.group(1) + "\")")
                         .isEqualTo(catalogue);
             } while (m.find());
+        }
+    }
+
+    /** A count written as a digit or as a word, so copy can read naturally. */
+    private static int numberFrom(String token) {
+        List<String> words = List.of("zero", "one", "two", "three", "four", "five", "six",
+                "seven", "eight", "nine", "ten", "eleven", "twelve");
+        int asWord = words.indexOf(token.toLowerCase());
+        if (asWord >= 0) return asWord;
+        try {
+            return Integer.parseInt(token);
+        } catch (NumberFormatException e) {
+            return -1;   // not a number at all: fails the comparison, loudly
         }
     }
 }

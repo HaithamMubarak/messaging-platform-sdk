@@ -210,8 +210,12 @@ section { padding-block: var(--sp-24); }
 
 /* The flagship tier is four cards and wants to read as two pairs, not as a
    row of three with one stranded underneath. */
-#flagshipGrid { grid-template-columns: repeat(auto-fit, minmax(min(100%, 420px), 1fr)); }
-@media (min-width: 900px) { #flagshipGrid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+#flagshipGrid,
+#primitivesGrid { grid-template-columns: repeat(auto-fit, minmax(min(100%, 420px), 1fr)); }
+@media (min-width: 900px) {
+    #flagshipGrid,
+    #primitivesGrid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
 .grid-4 { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: var(--sp-5); }
 
 .tile-icon {
@@ -224,7 +228,7 @@ section { padding-block: var(--sp-24); }
     margin-bottom: var(--sp-4);
 }
 .feature { display: flex; flex-direction: column; }
-.feature h3 { font-size: var(--fs-base); margin-bottom: var(--sp-2); }
+.feature h3 { font-size: var(--fs-lg); margin-bottom: var(--sp-2); }
 .feature p { font-size: var(--fs-md); color: var(--text-body); }
 /* Capability caveats may wrap onto two lines rather than overflow the card. */
 .feature .badge {
@@ -235,7 +239,7 @@ section { padding-block: var(--sp-24); }
 
 /* --- Demo cards --------------------------------------------------------- */
 .demo-card { display: flex; flex-direction: column; }
-.demo-card h3 { font-size: var(--fs-base); margin-bottom: var(--sp-2); }
+.demo-card h3 { font-size: var(--fs-lg); margin-bottom: var(--sp-2); }
 .demo-card p { font-size: var(--fs-md); color: var(--text-body); flex: 1; }
 .demo-card__foot {
     display: flex;
@@ -551,4 +555,83 @@ section { padding-block: var(--sp-24); }
     clip: rect(0, 0, 0, 0);
     white-space: nowrap;
     border: 0;
+}
+
+
+/* ---------------------------------------------------------------------------
+   Landing polish
+   ------------------------------------------------------------------------ */
+
+/* The header is sticky at 64px, and the nav links to #demos. Without this,
+   every in-page jump parks the section heading underneath it. */
+section[id] { scroll-margin-top: 80px; }
+
+/* A card that behaves like a card: the whole thing is the target, not a 90px
+   link inside it. Same pattern the playground already uses. */
+.demo-card { position: relative; }
+
+.demo-card .demo-card__hit {
+    position: absolute;
+    inset: 0;
+    z-index: 1;
+    border-radius: inherit;
+}
+
+/* Real controls inside the card sit above the blanket hit area, so the
+   secondary link and its focus ring still work. */
+.demo-card__foot { position: relative; z-index: 2; }
+
+.demo-card .demo-card__hit:focus-visible {
+    outline: 2px solid var(--brand-hover);
+    outline-offset: 2px;
+}
+
+/* A little lift on hover. Deliberately small: there are a dozen cards on this
+   page and anything more reads as jitter. prefers-reduced-motion is handled
+   globally in design-tokens.css. */
+.card--interactive {
+    transition: background var(--dur, 160ms) var(--ease, ease),
+                border-color var(--dur, 160ms) var(--ease, ease),
+                transform var(--dur, 160ms) var(--ease, ease),
+                box-shadow var(--dur, 160ms) var(--ease, ease);
+}
+
+.card--interactive:hover {
+    transform: translateY(-2px);
+    box-shadow: var(--shadow-2);
+}
+
+/* One deliberate band, not a zebra: the flagship should look like the
+   flagship, and the page gains a light/dark/light rhythm over nine screens. */
+#featured {
+    background: var(--surface-1);
+    border-block: 1px solid var(--border);
+}
+
+/* A grid track sizes to its widest content unless told otherwise, so one long
+   line inside the code panel — the endpoint URL in the hero snippet — stretched
+   the whole hero column past the viewport and took the headline, lede and trust
+   row with it. min-width:0 lets the track shrink and the <pre> scroll on its
+   own, which is what its overflow-x was already there to do. */
+.hero__grid > * { min-width: 0; }
+.code-panel, .code-panel__bar { min-width: 0; max-width: 100%; }
+.code-panel__name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+
+/* --- Phone: a diagram scaled to 320px is a diagram nobody can read -------- */
+/*
+ * `width: 100%` on the SVG scales the whole drawing down with the viewport, so
+ * labels authored at 10.5px render at about seven. Below this width the
+ * diagram keeps its size and the container scrolls instead — the reader pans a
+ * legible drawing rather than squinting at a complete one.
+ */
+@media (max-width: 700px) {
+    .diagram {
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+    }
+    .diagram svg {
+        width: auto;
+        min-width: 520px;
+    }
 }

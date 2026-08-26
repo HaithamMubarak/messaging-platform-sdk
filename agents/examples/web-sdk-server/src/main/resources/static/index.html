@@ -72,18 +72,17 @@
     <section class="hero">
         <div class="wrap hero__grid">
             <div>
-                <h1>Real-time channels for every runtime</h1>
+                <h1>Two devices in sync in under a minute</h1>
                 <p class="hero__lede">
-                    One SDK for pub/sub messaging, WebRTC signaling, presence and per-channel
-                    storage — with clients for JavaScript, Java, Python and C++.
-                    Connect two devices in under a minute.
+                    One SDK for pub/sub channels, presence, WebRTC signaling and per-channel storage —
+                    the same connection in JavaScript, Java, Python and C++.
                 </p>
                 <div class="hero__cta">
                     <button class="btn btn--lg btn--gradient" type="button" data-open-request>
                         Get a free API key
                         <svg class="icon" aria-hidden="true"><use href="#i-arrow-right"></use></svg>
                     </button>
-                    <a class="btn btn--lg btn--ghost" href="apps/whiteboard/app.html">Try the live whiteboard</a>
+                    <a class="btn btn--lg btn--ghost" href="apps/whiteboard/app.html">Watch two tabs sync</a>
                 </div>
                 <p class="hero__trust">
                     <span><svg class="icon icon--sm" aria-hidden="true"><use href="#i-check"></use></svg> Free while in beta</span>
@@ -106,6 +105,7 @@ agent.<span class="tok-fn">connect</span>({
   <span class="tok-prop">channelName</span>:     <span class="tok-str">'my-room'</span>,
   <span class="tok-prop">channelPassword</span>: <span class="tok-str">'secret123'</span>,
   <span class="tok-prop">agentName</span>:       <span class="tok-str">'player-1'</span>,
+  <span class="tok-prop">api</span>:             <span class="tok-str">'https://hmdevonline.com/messaging-platform/api/v1/messaging-service'</span>,
   <span class="tok-prop">apiKey</span>:          <span class="tok-str">'your-api-key'</span>
 });
 
@@ -124,7 +124,7 @@ agent.<span class="tok-fn">sendTextMessage</span>(<span class="tok-str">'Hello, 
             <div class="section-head">
                 <span class="eyebrow">Quick start</span>
                 <h2>From zero to a shared channel in three steps</h2>
-                <p>No build step, no framework, no account required to read along.</p>
+                <p>No build step, no framework. The only thing behind a key is running it.</p>
             </div>
 
             <div class="steps">
@@ -133,7 +133,15 @@ agent.<span class="tok-fn">sendTextMessage</span>(<span class="tok-str">'Hello, 
                     <div>
                         <h3 class="step__title">Include the SDK</h3>
                         <div class="code-panel code-panel--min">
-<pre><code><span class="tok-com">&lt;!-- Core client --&gt;</span>
+                            <div class="code-panel__bar">
+                                <span class="code-panel__name">code</span>
+                                <button class="btn btn--sm btn--ghost code-panel__copy" type="button"
+                                        data-copy-target="qs-snippet-1">
+                                    <svg class="icon icon--sm" aria-hidden="true"><use href="#i-copy"></use></svg>
+                                    Copy
+                                </button>
+                            </div>
+<pre id="qs-snippet-1"><code><span class="tok-com">&lt;!-- Core client --&gt;</span>
 &lt;<span class="tok-key">script</span> <span class="tok-prop">src</span>=<span class="tok-str">"https://hmdevonline.com/messaging-platform/sdk/generated-web-agent-js/js/web-agent.libs.js"</span>&gt;&lt;/<span class="tok-key">script</span>&gt;
 &lt;<span class="tok-key">script</span> <span class="tok-prop">src</span>=<span class="tok-str">"https://hmdevonline.com/messaging-platform/sdk/generated-web-agent-js/js/web-agent.js"</span>&gt;&lt;/<span class="tok-key">script</span>&gt;
 
@@ -155,7 +163,15 @@ agent.<span class="tok-fn">sendTextMessage</span>(<span class="tok-str">'Hello, 
                         </div>
 
                         <div class="code-panel code-panel--min" role="tabpanel" id="panel-js" aria-labelledby="tab-js" tabindex="0">
-<pre><code><span class="tok-key">const</span> agent = <span class="tok-key">new</span> <span class="tok-fn">AgentConnection</span>();
+                            <div class="code-panel__bar">
+                                <span class="code-panel__name">JavaScript</span>
+                                <button class="btn btn--sm btn--ghost code-panel__copy" type="button"
+                                        data-copy-target="qs-snippet-2">
+                                    <svg class="icon icon--sm" aria-hidden="true"><use href="#i-copy"></use></svg>
+                                    Copy
+                                </button>
+                            </div>
+<pre id="qs-snippet-2"><code><span class="tok-key">const</span> agent = <span class="tok-key">new</span> <span class="tok-fn">AgentConnection</span>();
 
 agent.<span class="tok-fn">connect</span>({
   <span class="tok-prop">channelName</span>:     <span class="tok-str">'my-room'</span>,
@@ -167,7 +183,15 @@ agent.<span class="tok-fn">connect</span>({
                         </div>
 
                         <div class="code-panel code-panel--min" role="tabpanel" id="panel-java" aria-labelledby="tab-java" tabindex="0" hidden>
-<pre><code><span class="tok-key">var</span> agent = <span class="tok-key">new</span> <span class="tok-fn">AgentConnection</span>();
+                            <div class="code-panel__bar">
+                                <span class="code-panel__name">Java</span>
+                                <button class="btn btn--sm btn--ghost code-panel__copy" type="button"
+                                        data-copy-target="qs-java">
+                                    <svg class="icon icon--sm" aria-hidden="true"><use href="#i-copy"></use></svg>
+                                    Copy
+                                </button>
+                            </div>
+<pre id="qs-java"><code><span class="tok-key">var</span> agent = <span class="tok-key">new</span> <span class="tok-fn">AgentConnection</span>();
 
 agent.<span class="tok-fn">connect</span>(<span class="tok-fn">ConnectRequest</span>.<span class="tok-fn">builder</span>()
     .<span class="tok-fn">channelName</span>(<span class="tok-str">"my-room"</span>)
@@ -178,7 +202,15 @@ agent.<span class="tok-fn">connect</span>(<span class="tok-fn">ConnectRequest</s
                         </div>
 
                         <div class="code-panel code-panel--min" role="tabpanel" id="panel-py" aria-labelledby="tab-py" tabindex="0" hidden>
-<pre><code>agent = <span class="tok-fn">AgentConnection</span>()
+                            <div class="code-panel__bar">
+                                <span class="code-panel__name">Python</span>
+                                <button class="btn btn--sm btn--ghost code-panel__copy" type="button"
+                                        data-copy-target="qs-py">
+                                    <svg class="icon icon--sm" aria-hidden="true"><use href="#i-copy"></use></svg>
+                                    Copy
+                                </button>
+                            </div>
+<pre id="qs-py"><code>agent = <span class="tok-fn">AgentConnection</span>()
 
 agent.<span class="tok-fn">connect</span>(
     <span class="tok-prop">channel_name</span>=<span class="tok-str">"my-room"</span>,
@@ -189,7 +221,15 @@ agent.<span class="tok-fn">connect</span>(
                         </div>
 
                         <div class="code-panel code-panel--min" role="tabpanel" id="panel-cpp" aria-labelledby="tab-cpp" tabindex="0" hidden>
-<pre><code><span class="tok-fn">AgentConnection</span> agent;
+                            <div class="code-panel__bar">
+                                <span class="code-panel__name">C++</span>
+                                <button class="btn btn--sm btn--ghost code-panel__copy" type="button"
+                                        data-copy-target="qs-cpp">
+                                    <svg class="icon icon--sm" aria-hidden="true"><use href="#i-copy"></use></svg>
+                                    Copy
+                                </button>
+                            </div>
+<pre id="qs-cpp"><code><span class="tok-fn">AgentConnection</span> agent;
 
 <span class="tok-fn">ConnectRequest</span> req;
 req.channelName     = <span class="tok-str">"my-room"</span>;
@@ -207,7 +247,15 @@ agent.<span class="tok-fn">connect</span>(req);</code></pre>
                     <div>
                         <h3 class="step__title">Send and receive</h3>
                         <div class="code-panel code-panel--min">
-<pre><code><span class="tok-com">// Broadcast to everyone in the channel</span>
+                            <div class="code-panel__bar">
+                                <span class="code-panel__name">code</span>
+                                <button class="btn btn--sm btn--ghost code-panel__copy" type="button"
+                                        data-copy-target="qs-snippet-3">
+                                    <svg class="icon icon--sm" aria-hidden="true"><use href="#i-copy"></use></svg>
+                                    Copy
+                                </button>
+                            </div>
+<pre id="qs-snippet-3"><code><span class="tok-com">// Broadcast to everyone in the channel</span>
 agent.<span class="tok-fn">sendTextMessage</span>(<span class="tok-str">'Hello, room!'</span>);
 
 <span class="tok-com">// Or address a single agent, with a message type of your own</span>
@@ -237,11 +285,11 @@ agent.<span class="tok-prop">onMessage</span> = (msg) <span class="tok-key">=&gt
         <div class="wrap">
             <div class="section-head">
                 <span class="eyebrow">Primitives</span>
-                <h2>Six primitives, one connection</h2>
+                <h2>Four primitives, one connection</h2>
                 <p>Everything below runs over the same authenticated channel. Pick what you need and ignore the rest.</p>
             </div>
 
-            <div class="grid-3">
+            <div class="grid-3" id="primitivesGrid">
                 <article class="card feature">
                     <span class="tile-icon"><svg class="icon" aria-hidden="true"><use href="#i-channel"></use></svg></span>
                     <h3>Channels &amp; messaging</h3>
@@ -268,17 +316,6 @@ agent.<span class="tok-prop">onMessage</span> = (msg) <span class="tok-key">=&gt
                     <span class="badge">JavaScript today · other clients in progress</span>
                 </article>
 
-                <article class="card feature">
-                    <span class="tile-icon"><svg class="icon" aria-hidden="true"><use href="#i-key"></use></svg></span>
-                    <h3>Browser-safe keys</h3>
-                    <p>Mint short-lived, single-use or TTL-bound temporary keys from your server. Your long-lived key never ships inside a client bundle.</p>
-                </article>
-
-                <article class="card feature">
-                    <span class="tile-icon"><svg class="icon" aria-hidden="true"><use href="#i-layers"></use></svg></span>
-                    <h3>Channel scopes</h3>
-                    <p>Private scope isolates channels per API key, so two customers can both own "lobby" without ever meeting. Public scope lets any key join the same room — ideal for demos.</p>
-                </article>
             </div>
         </div>
     </section>
@@ -350,7 +387,7 @@ agent.<span class="tok-prop">onMessage</span> = (msg) <span class="tok-key">=&gt
                     </p>
                     <div class="showcase__cta">
                         <a class="btn btn--lg btn--gradient" href="apps/mini-games/blockparty/index.html">
-                            BlockParty Project
+                            Open BlockParty
                             <svg class="icon" aria-hidden="true"><use href="#i-arrow-right"></use></svg>
                         </a>
                     </div>
@@ -370,6 +407,7 @@ agent.<span class="tok-prop">onMessage</span> = (msg) <span class="tok-key">=&gt
 
             <div class="grid-4">
                 <article class="card card--interactive demo-card">
+                    <a class="demo-card__hit" href="apps/whiteboard/app.html"><span class="sr-only">Open the whiteboard</span></a>
                     <span class="tile-icon"><svg class="icon" aria-hidden="true"><use href="#i-pen"></use></svg></span>
                     <h3>Collaborative whiteboard</h3>
                     <p>Pen, shapes, text and sticky notes on one shared board. Every stroke goes out as your hand
@@ -379,11 +417,12 @@ agent.<span class="tok-prop">onMessage</span> = (msg) <span class="tok-key">=&gt
                         <a class="demo-card__link" href="apps/whiteboard/app.html">
                             Open demo <svg class="icon icon--sm" aria-hidden="true"><use href="#i-arrow-right"></use></svg>
                         </a>
-                        <a class="btn btn--sm btn--ghost" href="apps/whiteboard/index.html">What it does</a>
+                        <a class="btn btn--sm btn--ghost" href="apps/whiteboard/index.html">About the whiteboard</a>
                     </div>
                 </article>
 
                 <article class="card card--interactive demo-card">
+                    <a class="demo-card__hit" href="apps/chat.html"><span class="sr-only">Open chat</span></a>
                     <span class="tile-icon"><svg class="icon" aria-hidden="true"><use href="#i-message"></use></svg></span>
                     <h3>Real-time chat</h3>
                     <p>Channels, presence and QR room sharing — the smallest complete example of the SDK.</p>
@@ -396,6 +435,7 @@ agent.<span class="tok-prop">onMessage</span> = (msg) <span class="tok-key">=&gt
                 </article>
 
                 <article class="card card--interactive demo-card">
+                    <a class="demo-card__hit" href="apps/drop/index.html"><span class="sr-only">Open Drop</span></a>
                     <span class="tile-icon"><svg class="icon" aria-hidden="true"><use href="#i-send"></use></svg></span>
                     <h3>Drop</h3>
                     <p>Peer-to-peer file transfer over WebRTC data channels. The file is offered, the other
@@ -409,6 +449,7 @@ agent.<span class="tok-prop">onMessage</span> = (msg) <span class="tok-key">=&gt
                 </article>
 
                 <article class="card card--interactive demo-card">
+                    <a class="demo-card__hit" href="apps/rooms/app.html"><span class="sr-only">Open Rooms</span></a>
                     <span class="tile-icon"><svg class="icon" aria-hidden="true"><use href="#i-video"></use></svg></span>
                     <h3>Rooms</h3>
                     <p>Camera, microphone and screen share in a shared room. The streams go peer to peer;
@@ -418,11 +459,12 @@ agent.<span class="tok-prop">onMessage</span> = (msg) <span class="tok-key">=&gt
                         <a class="demo-card__link" href="apps/rooms/app.html">
                             Open demo <svg class="icon icon--sm" aria-hidden="true"><use href="#i-arrow-right"></use></svg>
                         </a>
-                        <a class="btn btn--sm btn--ghost" href="apps/rooms/index.html">What it does</a>
+                        <a class="btn btn--sm btn--ghost" href="apps/rooms/index.html">About Rooms</a>
                     </div>
                 </article>
 
                 <article class="card card--interactive demo-card">
+                    <a class="demo-card__hit" href="apps/sponsorpulse/host.html"><span class="sr-only">Open SponsorPulse</span></a>
                     <span class="tile-icon"><svg class="icon" aria-hidden="true"><use href="#i-zap"></use></svg></span>
                     <h3>SponsorPulse</h3>
                     <p>A room of people scan a code and answer polls and quiz questions from their own phones.
@@ -432,11 +474,12 @@ agent.<span class="tok-prop">onMessage</span> = (msg) <span class="tok-key">=&gt
                         <a class="demo-card__link" href="apps/sponsorpulse/host.html">
                             Open demo <svg class="icon icon--sm" aria-hidden="true"><use href="#i-arrow-right"></use></svg>
                         </a>
-                        <a class="btn btn--sm btn--ghost" href="apps/sponsorpulse/index.html">What it does</a>
+                        <a class="btn btn--sm btn--ghost" href="apps/sponsorpulse/index.html">About SponsorPulse</a>
                     </div>
                 </article>
 
                 <article class="card card--interactive demo-card">
+                    <a class="demo-card__hit" href="apps/dead-drop/app.html"><span class="sr-only">Open Dead Drop</span></a>
                     <span class="tile-icon"><svg class="icon" aria-hidden="true"><use href="#i-lock"></use></svg></span>
                     <h3>Dead Drop</h3>
                     <p>The one demo on this page that needs only one tab. Leave an encrypted note or file and close
@@ -446,41 +489,44 @@ agent.<span class="tok-prop">onMessage</span> = (msg) <span class="tok-key">=&gt
                         <a class="demo-card__link" href="apps/dead-drop/app.html">
                             Open demo <svg class="icon icon--sm" aria-hidden="true"><use href="#i-arrow-right"></use></svg>
                         </a>
-                        <a class="btn btn--sm btn--ghost" href="apps/dead-drop/index.html">What it does</a>
+                        <a class="btn btn--sm btn--ghost" href="apps/dead-drop/index.html">About Dead Drop</a>
                     </div>
                 </article>
 
                 <article class="card card--interactive demo-card">
+                    <a class="demo-card__hit" href="apps/under-the-hood/app.html"><span class="sr-only">Open Under the Hood</span></a>
                     <span class="tile-icon"><svg class="icon" aria-hidden="true"><use href="#i-activity"></use></svg></span>
                     <h3>Under the Hood</h3>
                     <p>Presence, the elected host and the shape of the relay, drawn live. Press "step aside" and
-                       watch another tab take over — the machinery every app here runs on, and none of them shows.</p>
+                       watch another tab take over — the machinery every other app on this page runs on
+                       without showing you.</p>
                     <div class="demo-card__proves"><span class="badge badge--brand">Host election</span><span class="badge">Relay topology</span></div>
                     <div class="demo-card__foot">
                         <a class="demo-card__link" href="apps/under-the-hood/app.html">
                             Open demo <svg class="icon icon--sm" aria-hidden="true"><use href="#i-arrow-right"></use></svg>
                         </a>
-                        <a class="btn btn--sm btn--ghost" href="apps/under-the-hood/index.html">What it does</a>
+                        <a class="btn btn--sm btn--ghost" href="apps/under-the-hood/index.html">About Under the Hood</a>
                     </div>
                 </article>
 
                 <article class="card card--interactive demo-card">
+                    <a class="demo-card__hit" href="apps/rewind/app.html"><span class="sr-only">Open Rewind</span></a>
                     <span class="tile-icon"><svg class="icon" aria-hidden="true"><use href="#i-clock"></use></svg></span>
                     <h3>Rewind</h3>
-                    <p>Scrub back through a whiteboard session. Every save is a version, so a channel that has been
-                       drawn on was already a recording — nobody had built the thing that watches it.</p>
+                    <p>Scrub back through a whiteboard session. Every save is a version, so any board you have drawn
+                       on is already a recording. Rewind is the player.</p>
                     <div class="demo-card__proves"><span class="badge badge--brand">Storage versioning</span><span class="badge">Ordered log</span></div>
                     <div class="demo-card__foot">
                         <a class="demo-card__link" href="apps/rewind/app.html">
                             Open demo <svg class="icon icon--sm" aria-hidden="true"><use href="#i-arrow-right"></use></svg>
                         </a>
-                        <a class="btn btn--sm btn--ghost" href="apps/rewind/index.html">What it does</a>
+                        <a class="btn btn--sm btn--ghost" href="apps/rewind/index.html">About Rewind</a>
                     </div>
                 </article>
             </div>
 
             <div class="link-row">
-                <p>Feeling competitive? 8 multiplayer games are built on this SDK — each one proves a different primitive.</p>
+                <p>Eight multiplayer games run on this SDK — each one stress-tests a different primitive.</p>
                 <a class="btn btn--ghost" href="playground.html">
                     <svg class="icon icon--sm" aria-hidden="true"><use href="#i-gamepad"></use></svg>
                     Open the playground
@@ -640,7 +686,7 @@ agent.<span class="tok-prop">onMessage</span> = (msg) <span class="tok-key">=&gt
                     </div>
                     <div>
                         <div class="limit__value">~1,000</div>
-                        <div class="limit__label">messages per hour</div>
+                        <div class="limit__label">persisted messages per hour</div>
                     </div>
                     <div>
                         <div class="limit__value">~10 MB</div>

@@ -398,6 +398,31 @@
             this._loadVersions();
         }
 
+        /**
+         * Unwrap one stored version.
+         *
+         * A version written with `encrypted: false` — which is what Pulse uses,
+         * because the point of the app is that you can see the history — comes
+         * back with its `content` as BASE64 of the JSON, not as the object that
+         * went in. Reading `row.content.tallies` therefore yielded undefined on
+         * every row, and the version panel rendered a full history with every
+         * tally empty. (Storage written with `encrypted: true` is decrypted and
+         * parsed by the SDK and arrives as an object, which is why the other
+         * apps that read storage are unaffected.)
+         */
+        _decodeVersion(row) {
+            var raw = (row && row.content !== undefined) ? row.content : row;
+            if (raw && typeof raw === 'object') return raw;
+            if (typeof raw !== 'string') return null;
+            try {
+                var binary = atob(raw);
+                var bytes = new Uint8Array(binary.length);
+                for (var i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+                return JSON.parse(new TextDecoder().decode(bytes));
+            } catch (e) { /* not base64 JSON — fall through */ }
+            try { return JSON.parse(raw); } catch (e) { return null; }
+        }
+
         /** Every version of the poll, newest first — the whole point of Pulse. */
         _loadVersions() {
             var self = this;
@@ -408,7 +433,7 @@
                 if (!Array.isArray(rows)) rows = rows && rows.versions ? rows.versions : [];
 
                 self.versions = rows.map(function (row, i) {
-                    var body = row && row.content ? row.content : row;
+                    var body = self._decodeVersion(row);
                     return {
                         v: rows.length - i,
                         at: (body && body.at) || row.createdAt || row.updatedAt || null,
@@ -421,7 +446,7 @@
                 self.versions.forEach(function (row, i) { row.v = self.versions.length - i; });
 
                 if (self.isHost() && !self.poll) {
-                    var newest = rows.length ? (rows[0].content || rows[0]) : null;
+                    var newest = rows.length ? self._decodeVersion(rows[0]) : null;
                     if (newest && newest.poll) self.poll = newest.poll;
                 }
                 self.renderVersions();

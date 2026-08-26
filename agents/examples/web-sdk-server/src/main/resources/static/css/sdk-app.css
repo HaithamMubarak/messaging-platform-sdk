@@ -223,3 +223,35 @@ body.sdk-app {
         justify-content: center;
     }
 }
+
+
+/* --- Phone: the header row is the tightest space on the site -------------- */
+/*
+ * A header button's label is a nicety; its icon is the control. Below this
+ * width the labels are what push the row past the right edge — which widens
+ * the document and drags every percentage-sized overlay with it.
+ *
+ * The label is CLIPPED rather than display:none so the button keeps its
+ * accessible name. An icon-only button with the text removed outright has no
+ * name at all, and the a11y sweep is right to fail that.
+ */
+@media (max-width: 640px) {
+    .sdk-header__right .btn > span {
+        position: absolute;
+        width: 1px;
+        height: 1px;
+        overflow: hidden;
+        clip-path: inset(50%);
+        white-space: nowrap;
+    }
+    .sdk-header__right .btn { padding-inline: var(--sp-2); }
+
+    /* A status pill's text is written for a laptop and can be a sentence. */
+    .pill-status {
+        min-width: 0;
+        max-width: 13ch;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+    }
+}

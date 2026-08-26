@@ -19,7 +19,7 @@
 // ============================================================================
 
 const { chromium } = require('playwright');
-const { BASE, LAUNCH_WITH_FAKE_MEDIA, results } = require('../lib/harness');
+const { BASE, LAUNCH_WITH_FAKE_MEDIA, results, gotoStable } = require('../lib/harness');
 
 const INSPECT = BASE + '/apps/fieldstamp/inspect.html?debug';
 const CAPTURE = BASE + '/apps/fieldstamp/capture.html?debug';
@@ -55,7 +55,7 @@ async function open(browser, url, name) {
     page.on('console', m => { if (m.type() === 'error') errors.push(m.text()); });
     page.on('pageerror', e => errors.push('pageerror: ' + e.message));
 
-    await page.goto(url, { waitUntil: 'domcontentloaded' });
+    await gotoStable(page, url, { waitUntil: 'domcontentloaded' });
     await page.waitForSelector('#connectionModal.active', { timeout: 30000 });
     await page.fill('#usernameInput', name);
     await page.fill('#channelInput', ROOM);

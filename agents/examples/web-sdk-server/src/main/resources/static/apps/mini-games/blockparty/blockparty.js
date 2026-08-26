@@ -3077,9 +3077,18 @@
             if (!this.sendToHost(payload)) this.sendData(payload);
         }
 
+        /**
+         * Identity comes from the transport, never from the payload.
+         *
+         * The `_fromHost` flag is deliberately NOT consulted: the base class
+         * strips it from anything it relays, but an addressed peer-to-peer
+         * send carries whatever the sender put in it, so accepting the flag
+         * let any player hand a forged host message straight to somebody.
+         * The sender being the host covers both broadcasts and targeted sends.
+         */
         _fromHost(peerId, data) {
-            if (data && data._fromHost) return true;
-            if (data && data._fromClient) return false;
+            if (!data) return false;
+            if (data._fromClient) return false;
             const host = this._hostName();
             return !!host && peerId === host;
         }

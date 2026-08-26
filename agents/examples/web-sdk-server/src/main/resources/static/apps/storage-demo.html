@@ -92,7 +92,9 @@
 
         .example-buttons { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 14px; }
         .row-actions { display: flex; gap: 10px; flex-wrap: wrap; }
-        .row-actions .pro-btn { flex: 1; }
+        .row-actions .pro-btn { flex: 1 1 auto; min-width: 0; }
+        /* Without min-width a flex child refuses to shrink below its content,
+           so the row pushed the page sideways on a narrow phone. */
 
         code {
             background: rgba(99, 102, 241, 0.10);

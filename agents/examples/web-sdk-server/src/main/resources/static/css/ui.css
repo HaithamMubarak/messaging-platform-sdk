@@ -822,3 +822,12 @@ body.modal-open { overflow: hidden; }
     border-color: var(--danger, #f87171);
     pointer-events: auto;
 }
+
+
+/* A code block is the one element whose content cannot wrap, so it scrolls
+   inside itself. Without this a long line widens the whole document and the
+   page scrolls sideways on a phone. */
+pre {
+    max-width: 100%;
+    overflow-x: auto;
+}
