@@ -673,6 +673,39 @@ class QuizBattleGame extends UserConnectionBase {
         this.showQuestion(this.currentQuestion);
     }
 
+    /**
+     * Previous games in this channel, newest first.
+     *
+     * The scoreboard used to live only in the open tabs, so a result was gone
+     * the moment the room emptied. Each finished game is now a stored version,
+     * which makes the channel a record of who has played rather than a single
+     * overwritten scoreboard.
+     */
+    loadPastResults(done) {
+        if (!this.channel || typeof this.channel.storageGetList !== 'function') {
+            if (done) done([]);
+            return;
+        }
+        this.channel.storageGetList('quizbattle_results', (response) => {
+            if (!response || response.status !== 'success') { if (done) done([]); return; }
+
+            let rows = response.data && response.data.data ? response.data.data : response.data;
+            if (!Array.isArray(rows)) rows = (rows && rows.versions) ? rows.versions : [];
+
+            const games = [];
+            rows.forEach((row) => {
+                if (row && row.unreadable) return;
+                try {
+                    const raw = (row && row.content !== undefined) ? row.content : row;
+                    const body = typeof raw === 'string' ? JSON.parse(raw) : raw;
+                    if (body && Array.isArray(body.scores)) games.push(body);
+                } catch (e) { /* a version we cannot read is skipped */ }
+            });
+            games.sort((a, b) => (b.at || 0) - (a.at || 0));
+            if (done) done(games);
+        });
+    }
+
     handleGameEnd(data) {
         console.log('[QuizBattle] Game ended');
         this.gameStarted = false;
@@ -964,8 +997,15 @@ class QuizBattleGame extends UserConnectionBase {
         clearTimeout(this._advanceTimer);
         this._advanceTimer = null;
 
-        // Add own score to playerScores
-        this.playerScores.set(this.username, this.score);
+        // The host's own score is already in playerScores: the host grades
+        // every answer including its own. `this.score` is the local
+        // prediction shown for instant feedback, and overwriting the graded
+        // total with it puts the untrusted number back in charge of the
+        // result — exactly what moving grading to the host removed. Only seed
+        // it when the host has no graded entry at all.
+        if (!this.playerScores.has(this.username)) {
+            this.playerScores.set(this.username, this.score || 0);
+        }
 
         // Collect final scores
         const scores = new Map();
@@ -981,6 +1021,30 @@ class QuizBattleGame extends UserConnectionBase {
             scores: Array.from(scores.entries()),
             timestamp: Date.now()
         });
+
+        // And keep them. A result that exists only in the tabs that were open
+        // is gone the moment the room empties, which for a quiz between friends
+        // is the one thing anybody wants afterwards. Host-only write, encrypted
+        // like everything else in channel storage, appended as a version so the
+        // channel accumulates a record of games rather than one overwritten
+        // scoreboard.
+        if (this.isHost() && this.channel && typeof this.channel.storageAdd === 'function') {
+            const finished = {
+                at: Date.now(),
+                scores: Array.from(scores.entries()).map(([name, score]) => ({ name, score }))
+            };
+            this.channel.storageAdd({
+                storageKey: 'quizbattle_results',
+                content: JSON.stringify(finished),
+                encrypted: true,
+                metadata: { at: finished.at, players: finished.scores.length }
+            }, (response) => {
+                if (!response || response.status !== 'success') {
+                    console.warn('[QuizBattle] Could not keep the results:',
+                        (response && response.statusMessage) || 'unknown');
+                }
+            });
+        }
 
         this.showResults(scores);
     }

@@ -23,7 +23,7 @@ const GROUPS = {
              'drop-test.js', 'drop-resume-test.js', 'undriven-test.js', 'devpages-test.js', 'coreloop-test.js', 'pulse-moderation-test.js', 'dead-drop-test.js', 'under-the-hood-test.js', 'rewind-test.js', 'sponsorpulse-core-test.js', 'sponsorpulse-test.js',
              'fieldstamp-test.js'],
     'games': ['bp-chrome-test.js', 'pict-test.js', 'chess-features-test.js', 'games-test.js',
-              'games-sync-test.js', 'tier2-test.js', 'outcry-test.js',
+              'games-sync-test.js', 'quiz-results-test.js', 'tier2-test.js', 'outcry-test.js',
               'party-games-test.js'],
     'platform': ['migration-test.js', 'reconnect-test.js', 'smoke-all.js'],
     // Slow by nature — it waits out a presence TTL, so it is opt in rather than

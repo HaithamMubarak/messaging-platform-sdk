@@ -47,6 +47,35 @@
         onConnect() {
             UI.toast('Connected to ' + this.channelName, 'success');
             this._sync();
+            this._resumeIncoming();
+        }
+
+        /**
+         * Pick up any half-finished transfer after a reconnect.
+         *
+         * The gap-filling resend is driven by the stall watchdog, which is
+         * armed while chunks are arriving. A connection that drops mid-transfer
+         * leaves the watchdog holding a timer against a channel that no longer
+         * exists — so on the way back in, anything still incomplete asks again
+         * for what it is missing. That is what turns "survives a lost packet"
+         * into "survives losing the connection".
+         */
+        _resumeIncoming() {
+            var self = this;
+            this.transfers.forEach(function (row) {
+                if (!row || row.dir !== 'in' || row.state !== 'accepted') return;
+                var missing = self._missingChunks(row);
+                if (!missing.length) return;
+                // A fresh budget: the previous failures were the disconnect,
+                // not the sender refusing.
+                row._retries = 0;
+                UI.toast('Picking ' + row.name + ' back up — ' + missing.length
+                    + ' piece(s) to go', 'info', 4000);
+                self._say({
+                    type: 'need', id: row.id, missing: missing.slice(0, MAX_NEED_PER_REQUEST)
+                }, row.from);
+                self._watch(row);
+            });
         }
         onDisconnect() { this._status('off', 'Disconnected'); }
         onUserJoin() { this._sync(); }
