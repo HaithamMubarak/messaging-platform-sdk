@@ -434,12 +434,19 @@
             text.type = 'text';
             text.maxLength = 120;
             text.value = value || '';
+            // Built in script, so it never passed under a <label> in the markup:
+            // a screen reader reached it as an unnamed text box. The number is
+            // what distinguishes one option row from the next.
+            var position = el('optionRows').children.length + 1;
+            text.setAttribute('aria-label', 'Answer option ' + position);
+            text.placeholder = 'Option ' + position;
             text.style.cssText = 'flex:1;min-height:44px;padding:.5rem .75rem;border-radius:8px;'
                 + 'border:1px solid var(--border-strong);background:var(--surface-2);color:var(--text)';
             var correctWrap = document.createElement('label');
             correctWrap.style.cssText = 'display:flex;align-items:center;gap:.25rem;font-size:.75rem;color:var(--text-muted)';
             var correct = document.createElement('input');
             correct.type = 'checkbox';
+            correct.setAttribute('aria-label', 'Option ' + position + ' is the correct answer');
             correct.style.cssText = 'width:20px;height:20px';
             correctWrap.appendChild(correct);
             correctWrap.appendChild(document.createTextNode('correct'));
