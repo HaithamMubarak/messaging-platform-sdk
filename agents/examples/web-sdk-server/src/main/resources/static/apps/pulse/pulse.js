@@ -108,13 +108,19 @@
                     this._hostUpvote(from, data.id);
                     break;
 
+                // Moderation is the HOST's own action, not a request anybody
+                // may make. isHost() only asks whether *this tab* is the host —
+                // it says nothing about who sent the message, so a guest could
+                // ask the host to take a question down and the host obliged.
+                // The host feeds its own actions through here locally, where
+                // there is no transport identity, so `from` is us.
                 case 'answered':
-                    if (!this.isHost()) break;
+                    if (!this.isHost() || from !== this.username) break;
                     this._hostAnswered(data.id);
                     break;
 
                 case 'remove':
-                    if (!this.isHost()) break;
+                    if (!this.isHost() || from !== this.username) break;
                     this._hostRemove(data.id);
                     break;
             }
@@ -307,10 +313,14 @@
          * stops being visible to the room.
          */
         _hostRemove(id) {
-            var before = this.questions.length;
-            this.questions = this.questions.filter(function (x) { return x.id !== id; });
-            if (this.questions.length === before) return;
-            this._hostCommit('removed', true);
+            var q = this.questions.filter(function (x) { return x.id === id; })[0];
+            if (!q) return;
+            // Hidden rather than deleted. Moderation happens quickly and
+            // sometimes wrongly, and a host who takes down the wrong question
+            // had no way back — the room only ever sees questions that are not
+            // hidden, and the host keeps the means to undo it.
+            q.removed = !q.removed;
+            this._hostCommit(q.removed ? 'removed' : 'restored', true);
         }
 
         _hostAnswered(id) {
@@ -557,13 +567,20 @@
             }
 
             var self = this;
-            var sorted = this.questions.slice().sort(function (a, b) {
+            // A hidden question is invisible to the room and still visible to
+            // the host, who is the only person who can put it back.
+            var visible = this.questions.filter(function (q) {
+                return !q.removed || self.isHost();
+            });
+            var sorted = visible.slice().sort(function (a, b) {
                 return (b.votes.length - a.votes.length) || (b.at - a.at);
             });
 
             host.replaceChildren.apply(host, sorted.map(function (q) {
                 var mine = q.votes.indexOf(self.username) !== -1;
-                var row = UI.el('article', { class: 'q' + (q.answered ? ' is-answered' : '') }, [
+                var row = UI.el('article', {
+                    class: 'q' + (q.answered ? ' is-answered' : '') + (q.removed ? ' is-removed' : '')
+                }, [
                     UI.el('button', {
                         type: 'button',
                         class: 'q__vote' + (mine ? ' is-mine' : ''),
@@ -589,8 +606,10 @@
                 if (self.isHost()) {
                     row.appendChild(UI.el('button', {
                         type: 'button', class: 'btn btn--ghost btn--sm', 'data-remove': q.id,
-                        'aria-label': 'Remove this question from the board'
-                    }, 'Remove'));
+                        'aria-label': q.removed
+                            ? 'Put this question back on the board'
+                            : 'Take this question off the board'
+                    }, q.removed ? 'Put back' : 'Remove'));
                 }
                 return row;
             }));

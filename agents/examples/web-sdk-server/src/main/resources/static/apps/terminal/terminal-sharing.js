@@ -457,7 +457,18 @@ class TerminalSharing extends UserConnectionBase {
      * Handle session-output message
      */
     handleSessionOutput(msg, src) {
-        const { sessionId, data } = msg;
+        const { sessionId, data, replay } = msg;
+
+        // Mark where the catch-up ends and the live session begins. Without a
+        // line between them a viewer cannot tell what already happened from
+        // what is happening now — the screen just fills silently and the
+        // history reads as if it arrived this second.
+        if (replay && typeof this.onSessionOutput === 'function') {
+            const banner = '\r\n\x1b[2m── replay of what happened before you joined ──\x1b[0m\r\n';
+            const footer = '\r\n\x1b[2m── live from here ──\x1b[0m\r\n';
+            this.onSessionOutput(sessionId, banner + data + footer, src);
+            return;
+        }
 
         // Call callback if registered
         if (typeof this.onSessionOutput === 'function') {

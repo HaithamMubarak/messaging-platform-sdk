@@ -188,3 +188,11 @@
 }
 
 .scrub__range:active { cursor: grabbing; }
+
+/* A question the host has taken down. Only the host ever sees this state —
+   the room simply does not get the question — so it reads as "off the board"
+   rather than as an error. */
+.q.is-removed {
+    opacity: .5;
+    border-style: dashed;
+}
