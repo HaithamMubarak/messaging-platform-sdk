@@ -1,0 +1,180 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <script src="../../../js/prod-log.js"></script>
+    <link rel="icon" type="image/svg+xml" href="../../../favicon.svg">
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+    <title>Gavel — a courtroom for the communal milk, on the Messaging Platform SDK</title>
+    <meta name="description" content="Anonymous testimony, a sealed jury and a sentence that goes on a record nobody can quietly edit. Later trials cite it.">
+    <meta name="theme-color" content="#0b1120">
+    <link rel="canonical" href="https://hmdevonline.com/messaging-platform/sdk/apps/mini-games/gavel/index.html">
+
+    <meta property="og:type" content="website">
+    <meta property="og:site_name" content="Messaging Platform SDK">
+    <meta property="og:title" content="Gavel — a courtroom for the communal milk">
+    <meta property="og:description" content="Anonymous testimony, a sealed jury, and a verdict that cannot be quietly expunged.">
+    <meta property="og:url" content="https://hmdevonline.com/messaging-platform/sdk/apps/mini-games/gavel/index.html">
+    <meta property="og:image" content="https://hmdevonline.com/messaging-platform/sdk/images/og-image.png">
+    <meta name="twitter:card" content="summary_large_image">
+
+    <link rel="stylesheet" href="../../../css/design-tokens.css">
+    <link rel="stylesheet" href="../../../css/ui.css">
+    <link rel="stylesheet" href="../../../css/sdk-app.css">
+    <link rel="stylesheet" href="../../../css/toast.css">
+    <link rel="stylesheet" href="../../../css/share-modal.css">
+    <link rel="stylesheet" href="../../../css/connection-modal.css">
+    <link rel="stylesheet" href="../shared/party.css">
+    <link rel="stylesheet" href="gavel.css">
+    <link rel="stylesheet" href="../../../css/app-chrome.css">
+</head>
+<body class="sdk-app">
+
+    <header class="sdk-header top-bar">
+        <span class="sdk-header__mark">
+            <svg class="icon" aria-hidden="true"><use href="#i-shield"></use></svg>
+        </span>
+        <h1>Gavel</h1>
+        <span class="sdk-room" id="roomName">not connected</span>
+        <span class="pill-status is-off" id="phasePill"><span class="pill-status__dot"></span>Chambers</span>
+        <span class="pk-clock" id="clock" aria-live="polite"></span>
+
+        <div class="sdk-header__right">
+            <span class="pk-round" id="roundCount"></span>
+            <button class="btn btn--ghost" id="shareBtn" type="button" hidden title="Invite someone (QR or link)">
+                <svg class="icon icon--sm" aria-hidden="true"><use href="#i-qr-code"></use></svg>
+                <span>Invite</span>
+            </button>
+        </div>
+    </header>
+
+    <main class="sdk-stage">
+        <div class="sdk-main pk-main">
+
+            <section class="pk-panel pk-lobby" id="lobbyPanel">
+                <div class="pk-lobby__pitch">
+                    <h2>The full apparatus of justice, aimed at forty pence.</h2>
+                    <p>Somebody is in the dock. Anyone may submit testimony <strong>anonymously</strong>
+                    — which is what makes people eloquent — and the bench decides what is admitted.
+                    The jury votes in sealed booths.</p>
+                    <p>The verdict and the sentence go onto a record that is appended to, never
+                    overwritten. Later trials cite it. That is the retention mechanism and the joke at
+                    the same time.</p>
+                </div>
+                <div class="pk-lobby__side">
+                    <div class="pk-card">
+                        <div class="pk-card__title">Present <span id="lobbyCount"></span></div>
+                        <ul class="pk-players" id="lobbyPlayers"></ul>
+                    </div>
+                    <div class="pk-card" id="hostControls" hidden>
+                        <div class="pk-card__title">You are the bench</div>
+                        <label class="pk-field">
+                            <span>The case</span>
+                            <input class="field__input" id="caseTitle" type="text" maxlength="80"
+                                   placeholder="The People v. Martin">
+                        </label>
+                        <label class="pk-field">
+                            <span>The charge</span>
+                            <input class="field__input" id="caseCharge" type="text" maxlength="200"
+                                   placeholder="Re: the communal milk">
+                        </label>
+                        <label class="pk-field">
+                            <span>In the dock</span>
+                            <select id="defendantSelect" class="field__select"></select>
+                        </label>
+                        <button class="btn btn--primary btn--block" id="openBtn" type="button">Open the case</button>
+                    </div>
+                    <div class="pk-card" id="guestWait" hidden>
+                        <div class="pk-card__title">All rise</div>
+                        <p class="sdk-note">The bench opens the case. You will be able to submit
+                        testimony without your name attached to it.</p>
+                    </div>
+                </div>
+            </section>
+
+            <section class="pk-panel" id="gamePanel" hidden>
+                <div class="pk-stage-card">
+                    <div class="gv-case">
+                        <h2 class="gv-case__title" id="caseTitleOut"></h2>
+                        <p class="gv-case__charge" id="caseChargeOut"></p>
+                        <p class="gv-case__dock" id="defendantOut"></p>
+                    </div>
+                    <ul class="gv-exhibits" id="exhibits"></ul>
+                    <div class="gv-jurycount" id="juryCount"></div>
+                    <div class="gv-verdict" id="verdictBox" hidden></div>
+                    <div style="margin-top: var(--sp-4); display: flex; gap: var(--sp-3);">
+                        <button class="btn" id="juryNowBtn" type="button" hidden>Send the jury out now</button>
+                        <button class="btn btn--primary" id="adjournBtn" type="button" hidden>Adjourn</button>
+                    </div>
+                </div>
+
+                <div class="pk-card" id="testimonyPanel" hidden style="margin-top: var(--sp-4)">
+                    <div class="pk-card__title">Submit testimony <span id="mineCount"></span></div>
+                    <div class="ac-compose" style="display:grid; gap: var(--sp-3)">
+                        <textarea class="field__textarea" id="testimonyInput" rows="3" maxlength="200"
+                                  placeholder="Nobody will know it was you. Say the thing."></textarea>
+                        <div style="display:flex; justify-content: space-between; align-items:center; font-size: var(--fs-sm); color: var(--text-muted)">
+                            <span id="pendingNote"></span>
+                            <button class="btn btn--primary" id="sendTestimony" type="button">Submit to the bench</button>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="pk-secret" id="juryPanel" hidden>
+                    <div class="pk-secret__label">Your booth — nobody sees this</div>
+                    <div class="gv-vote" style="margin-top: var(--sp-3)">
+                        <button class="pk-big" id="guiltyBtn" type="button">GUILTY</button>
+                        <button class="pk-big" id="notGuiltyBtn" type="button">NOT GUILTY</button>
+                    </div>
+                </div>
+
+                <div class="pk-wait" id="dockPanel" hidden>
+                    <strong>You are in the dock.</strong>
+                    You do not sit on your own jury. Look composed.
+                </div>
+
+                <div class="pk-card" id="sentencePanel" hidden style="margin-top: var(--sp-4)">
+                    <div class="pk-card__title">Pass sentence</div>
+                    <label class="pk-field">
+                        <span>From the book</span>
+                        <select id="sentenceSelect" class="field__select"></select>
+                    </label>
+                    <label class="pk-field">
+                        <span>Or write your own</span>
+                        <input class="field__input" id="sentenceCustom" type="text" maxlength="160"
+                               placeholder="Leave blank to use the one above">
+                    </label>
+                    <button class="btn btn--primary btn--block" id="passBtn" type="button">Pass sentence and record it</button>
+                </div>
+
+                <div class="pk-card" id="benchCard" hidden style="margin-top: var(--sp-4)">
+                    <div class="pk-card__title">Awaiting the bench</div>
+                    <ul class="gv-pendings" id="benchList"></ul>
+                </div>
+            </section>
+        </div>
+
+        <aside class="sdk-side pk-side">
+            <div class="sdk-side__title">Chambers case law</div>
+            <ul class="gv-laws" id="caseLaw"><li class="pk-empty">No precedent yet.</li></ul>
+        </aside>
+    </main>
+
+    <script src="../../../js/config-loader.js"></script>
+    <script src="../../../lib/qrcode.min.js"></script>
+    <script src="../../../generated-web-agent-js/js/web-agent.libs.js"></script>
+    <script src="../../../generated-web-agent-js/js/web-agent.js"></script>
+    <script src="../../../generated-web-agent-js/js/web-agent.webrtc.js"></script>
+
+    <script src="../../../js/icons.js"></script>
+    <script src="../../../js/share-modal.js"></script>
+    <script src="../../../js/dialog.js"></script>
+    <script src="../../../js/common-utils.js"></script>
+    <script src="../../../js/connection-modal.js"></script>
+    <script src="../../../js/UserConnectionBase.js"></script>
+
+    <script src="../shared/party-kit.js"></script>
+    <script src="gavel.js"></script>
+<script src="../../../js/app-chrome.js"></script>
+</body>
+</html>

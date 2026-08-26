@@ -1,0 +1,53 @@
+/* ==========================================================================
+   Chorus — on top of party.css. Only the creation itself needs its own rules:
+   the whole game is read off that one line of text, from across a room.
+   ========================================================================== */
+
+.ch-creation {
+    font-size: clamp(1.3rem, 3.4vw, 2.2rem);
+    line-height: 1.5;
+    text-wrap: balance;
+    word-break: break-word;
+}
+.ch-lit { color: var(--text-body); }
+
+.ch-slot {
+    display: inline-block;
+    padding: 0 .3em;
+    border-radius: var(--r-sm);
+    background: var(--surface-2);
+    border-bottom: 3px solid var(--border-strong);
+    color: var(--text);
+    transition: background var(--dur) var(--ease), border-color var(--dur) var(--ease);
+}
+.ch-slot.is-filled { background: var(--brand-subtle); border-bottom-color: var(--brand); }
+.ch-slot.is-mine   { box-shadow: 0 0 0 2px var(--accent-subtle); }
+
+/* The live slot is the only thing moving on the screen — it has to be
+   unmissable from the sofa. */
+.ch-slot.is-live {
+    background: var(--warning-bg);
+    border-bottom-color: var(--warning);
+    animation: ch-live 900ms var(--ease) infinite alternate;
+}
+@keyframes ch-live { from { box-shadow: 0 0 0 0 rgba(251,191,36,.5); } to { box-shadow: 0 0 0 8px rgba(251,191,36,0); } }
+
+/* A hole is not blank: it carries the name of whoever left it. */
+.ch-slot.is-hole {
+    background: var(--danger-bg);
+    border-bottom-color: var(--danger);
+    color: var(--danger);
+    font-size: .62em;
+    vertical-align: middle;
+    text-decoration: line-through;
+}
+
+.ch-progress { font-family: var(--font-mono); font-size: var(--fs-sm); color: var(--text-muted); margin-top: var(--sp-3); }
+
+.ch-mine + .ch-mine { margin-top: var(--sp-5); padding-top: var(--sp-4); border-top: 1px solid var(--border); }
+.ch-mine__prompt {
+    font-size: var(--fs-xs);
+    letter-spacing: .09em;
+    text-transform: uppercase;
+    color: var(--warning);
+}

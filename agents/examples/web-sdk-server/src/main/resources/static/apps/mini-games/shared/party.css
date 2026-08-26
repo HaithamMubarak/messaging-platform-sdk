@@ -1,0 +1,249 @@
+/* ==========================================================================
+   PartyKit — shared page furniture for the four "one television, everybody's
+   phone" games. Sits on top of design-tokens.css + ui.css + sdk-app.css.
+
+   Each game keeps its own palette accents in its own file; what lives here is
+   the shape every one of them needs: a lobby, a big stage, a phone panel and
+   a control that is large enough to hit while laughing.
+   ========================================================================== */
+
+#connectionModal { z-index: 9999 !important; }
+#connectionModal.active { backdrop-filter: blur(8px); }
+
+/* ---- shell --------------------------------------------------------------- */
+.pk-main { overflow-y: auto; min-height: 0; -webkit-overflow-scrolling: touch; }
+.pk-panel { width: 100%; max-width: 900px; margin: 0 auto; }
+
+.pk-clock {
+    font-family: var(--font-mono);
+    font-size: var(--fs-lg);
+    font-variant-numeric: tabular-nums;
+    color: var(--text-muted);
+    min-width: 3.2ch;
+}
+.pk-clock.is-urgent { color: var(--danger); }
+
+.pk-round {
+    font-family: var(--font-mono);
+    font-size: var(--fs-sm);
+    color: var(--text-muted);
+    white-space: nowrap;
+}
+
+/* ---- lobby --------------------------------------------------------------- */
+.pk-lobby {
+    display: grid;
+    gap: var(--sp-6);
+    grid-template-columns: 1fr;
+    align-items: start;
+    padding-top: var(--sp-4);
+}
+@media (min-width: 880px) {
+    .pk-lobby { grid-template-columns: minmax(0, 1.15fr) minmax(290px, 0.85fr); gap: var(--sp-8); }
+}
+.pk-lobby__pitch h2 {
+    font-size: var(--fs-2xl);
+    line-height: var(--lh-tight);
+    margin: 0 0 var(--sp-4);
+    text-wrap: balance;
+}
+.pk-lobby__pitch p { color: var(--text-body); line-height: var(--lh-body); margin: 0 0 var(--sp-3); }
+.pk-lobby__pitch strong { color: var(--text); }
+.pk-lobby__side { display: grid; gap: var(--sp-4); }
+
+.pk-card {
+    background: var(--surface-1);
+    border: 1px solid var(--border);
+    border-radius: var(--r-lg);
+    padding: var(--sp-4);
+}
+.pk-card__title {
+    font-size: var(--fs-xs);
+    letter-spacing: .09em;
+    text-transform: uppercase;
+    color: var(--text-muted);
+    margin-bottom: var(--sp-3);
+    display: flex;
+    justify-content: space-between;
+    gap: var(--sp-2);
+}
+
+.pk-players { list-style: none; margin: 0; padding: 0; display: grid; gap: var(--sp-2); }
+.pk-player { display: flex; align-items: center; gap: var(--sp-2); font-size: var(--fs-md); }
+.pk-player__name { color: var(--text-body); }
+.pk-player__name em { color: var(--text-faint); font-style: normal; }
+.pk-tag {
+    margin-left: auto;
+    font-size: var(--fs-xs);
+    color: var(--brand-ink);
+    background: var(--brand-subtle);
+    border-radius: var(--r-pill);
+    padding: 2px 8px;
+    white-space: nowrap;
+}
+
+.pk-field { display: grid; gap: var(--sp-1); margin-bottom: var(--sp-3); }
+.pk-field > span { font-size: var(--fs-xs); color: var(--text-muted); }
+.pk-field-row { display: grid; grid-template-columns: 1fr 1fr; gap: var(--sp-3); }
+.pk-note { font-size: var(--fs-sm); color: var(--text-muted); margin: 0 0 var(--sp-3); }
+
+/* ---- the stage (what the television shows) ------------------------------- */
+.pk-stage-card {
+    background: var(--surface-1);
+    border: 1px solid var(--border);
+    border-radius: var(--r-lg);
+    padding: var(--sp-5);
+    min-height: 180px;
+}
+.pk-headline {
+    font-size: clamp(1.4rem, 4vw, 2.4rem);
+    line-height: var(--lh-tight);
+    margin: 0;
+    text-wrap: balance;
+}
+.pk-kicker {
+    font-size: var(--fs-xs);
+    letter-spacing: .09em;
+    text-transform: uppercase;
+    color: var(--text-muted);
+    margin-bottom: var(--sp-2);
+}
+
+/* ---- the private box (what only you were told) --------------------------- */
+.pk-secret {
+    border: 1px solid var(--warning);
+    background: var(--warning-bg);
+    border-radius: var(--r-lg);
+    padding: var(--sp-4);
+    margin-bottom: var(--sp-4);
+}
+.pk-secret__label {
+    font-size: var(--fs-xs);
+    letter-spacing: .09em;
+    text-transform: uppercase;
+    color: var(--warning);
+    margin-bottom: var(--sp-2);
+}
+.pk-secret__body { font-size: var(--fs-lg); line-height: var(--lh-snug); color: var(--text); margin: 0; }
+.pk-secret__hint { font-size: var(--fs-sm); color: var(--text-muted); margin: var(--sp-2) 0 0; }
+
+/* ---- big controls -------------------------------------------------------- */
+.pk-choices { display: grid; gap: var(--sp-3); margin-top: var(--sp-4); }
+@media (min-width: 620px) { .pk-choices--wide { grid-template-columns: 1fr 1fr; } }
+
+.pk-choice {
+    display: block;
+    width: 100%;
+    text-align: left;
+    min-height: 56px;
+    padding: var(--sp-3) var(--sp-4);
+    font-size: var(--fs-base);
+    line-height: var(--lh-snug);
+    color: var(--text);
+    background: var(--surface-2);
+    border: 1px solid var(--border);
+    border-radius: var(--r-md);
+    cursor: pointer;
+    transition: border-color var(--dur-fast) var(--ease), background var(--dur-fast) var(--ease);
+    touch-action: manipulation;
+}
+.pk-choice:hover { border-color: var(--border-strong); }
+.pk-choice.is-on { border-color: var(--brand); background: var(--brand-subtle); }
+.pk-choice:focus-visible { outline: none; box-shadow: var(--focus-ring); }
+.pk-choice:disabled { opacity: .5; cursor: not-allowed; }
+
+.pk-big {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: var(--sp-1);
+    width: 100%;
+    min-height: 108px;
+    border-radius: var(--r-xl);
+    border: 1px solid transparent;
+    cursor: pointer;
+    font-family: var(--font-mono);
+    font-size: var(--fs-2xl);
+    letter-spacing: .04em;
+    background: var(--brand);
+    color: #fff;
+    transition: transform var(--dur-fast) var(--ease), filter var(--dur-fast) var(--ease);
+    touch-action: manipulation;
+    -webkit-user-select: none;
+    user-select: none;
+}
+.pk-big:hover:not(:disabled) { filter: brightness(1.12); }
+.pk-big:active:not(:disabled) { transform: translateY(1px) scale(.99); }
+.pk-big:focus-visible { outline: none; box-shadow: var(--focus-ring); }
+.pk-big:disabled { background: var(--surface-2); color: var(--text-faint); cursor: not-allowed; }
+.pk-big small { font-family: var(--font-sans); font-size: var(--fs-sm); letter-spacing: 0; opacity: .85; }
+
+@keyframes pk-pulse { from { box-shadow: 0 0 0 0 currentColor; opacity: .9; } to { box-shadow: 0 0 0 16px transparent; opacity: 1; } }
+.pk-pulse { animation: pk-pulse 420ms var(--ease); }
+
+/* ---- waiting ------------------------------------------------------------- */
+.pk-wait {
+    text-align: center;
+    padding: var(--sp-8) var(--sp-4);
+    color: var(--text-muted);
+    font-size: var(--fs-base);
+}
+.pk-wait strong { color: var(--text); display: block; font-size: var(--fs-xl); margin-bottom: var(--sp-2); }
+
+/* ---- side rail ----------------------------------------------------------- */
+.pk-side { display: flex; flex-direction: column; gap: var(--sp-3); min-height: 0; }
+
+.pk-scores { list-style: none; margin: 0; padding: 0; display: grid; gap: 2px; }
+.pk-rank {
+    display: flex;
+    align-items: baseline;
+    gap: var(--sp-2);
+    font-size: var(--fs-md);
+    padding: 4px 8px;
+    border-radius: var(--r-sm);
+}
+.pk-rank.is-me { background: var(--brand-subtle); }
+.pk-rank__pos { font-family: var(--font-mono); color: var(--text-faint); width: 1.6ch; }
+.pk-rank__name { color: var(--text-body); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.pk-rank__score { margin-left: auto; font-family: var(--font-mono); font-variant-numeric: tabular-nums; }
+
+.pk-feed { list-style: none; margin: 0; padding: 0; display: grid; gap: 4px; max-height: 34vh; overflow-y: auto; min-height: 0; }
+.pk-feed li {
+    font-size: var(--fs-sm);
+    line-height: var(--lh-snug);
+    padding: 6px 9px;
+    border-radius: var(--r-sm);
+    background: var(--surface-1);
+    border-left: 2px solid var(--border-strong);
+    color: var(--text-body);
+    animation: pk-in 240ms var(--ease);
+}
+@keyframes pk-in { from { opacity: 0; transform: translateY(-4px); } to { opacity: 1; transform: none; } }
+.pk-feed .is-good { border-left-color: var(--success); }
+.pk-feed .is-bad  { border-left-color: var(--danger); }
+.pk-empty { font-size: var(--fs-sm); color: var(--text-faint); padding: var(--sp-2); list-style: none; }
+
+/* ---- results ------------------------------------------------------------- */
+.pk-result { text-align: center; padding: var(--sp-6) 0; }
+.pk-result h2 { font-size: var(--fs-2xl); margin: 0 0 var(--sp-3); }
+.pk-result p { color: var(--text-body); margin: 0 0 var(--sp-2); }
+
+.pk-table-wrap { overflow-x: auto; border: 1px solid var(--border); border-radius: var(--r-md); }
+.pk-table { width: 100%; border-collapse: collapse; font-size: var(--fs-md); min-width: 420px; }
+.pk-table th, .pk-table td { padding: var(--sp-2) var(--sp-3); text-align: left; border-bottom: 1px solid var(--border); }
+.pk-table thead th {
+    font-size: var(--fs-xs);
+    text-transform: uppercase;
+    letter-spacing: .08em;
+    color: var(--text-muted);
+    background: var(--surface-2);
+}
+.pk-table .num { text-align: right; font-family: var(--font-mono); font-variant-numeric: tabular-nums; }
+.pk-table tbody tr:last-child td { border-bottom: 0; }
+.pk-table tr.is-me { background: var(--brand-subtle); }
+
+@media (max-width: 720px) {
+    .pk-stage-card { padding: var(--sp-4); }
+    .pk-feed { max-height: 22vh; }
+}

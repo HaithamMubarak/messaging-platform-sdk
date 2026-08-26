@@ -19,6 +19,11 @@
 (function () {
     'use strict';
 
+    // A receiver asks for missing pieces rather than restarting; these bound
+    // how insistently, so a bad connection cannot turn into an endless resend.
+    var MAX_CHUNK_RETRIES = 5;
+    var MAX_NEED_PER_REQUEST = 64;
+
     var CHUNK = 16 * 1024;          // what a data channel carries comfortably
     var MAX_FILE = 64 * 1024 * 1024;
     var SEND_GAP_MS = 12;           // let the channel drain between chunks
@@ -117,6 +122,31 @@
                 row.state = 'failed';
                 this.render();
                 UI.toast('Could not reach ' + (this.target || 'the room') + ' — the offer was not sent', 'error', 5000);
+            }
+        }
+
+        /**
+         * Re-send a specific set of chunks to whoever asked for them.
+         *
+         * Bounded on purpose: a receiver that asks for everything, repeatedly,
+         * should not be able to make the sender read the whole file over and
+         * over. `to` comes from the transport, so the pieces go back to the
+         * peer that actually asked.
+         */
+        async _resend(row, indices, to) {
+            if (!to || row.state === 'cancelled') return;
+            var wanted = indices
+                .filter(function (i) { return typeof i === 'number' && i >= 0 && i < row.total; })
+                .slice(0, MAX_NEED_PER_REQUEST);
+            if (!wanted.length) return;
+
+            for (var n = 0; n < wanted.length; n++) {
+                if (row.state === 'cancelled') return;
+                var i = wanted[n];
+                var slice = row.file.slice(i * CHUNK, (i + 1) * CHUNK);
+                var buf = await slice.arrayBuffer();
+                if (!this._say({ type: 'chunk', id: row.id, i: i, b: toB64(buf) }, to)) return;
+                if (SEND_GAP_MS) await wait(SEND_GAP_MS);
             }
         }
 
@@ -237,6 +267,17 @@
                     break;
                 }
 
+                case 'need': {
+                    // The receiver is short of some pieces. Send those and only
+                    // those — resending the whole file to fix one lost chunk is
+                    // how a 4GB transfer used to start again from zero.
+                    var out = this.transfers.get(d.id);
+                    if (!out || out.dir !== 'out' || !Array.isArray(d.missing)) break;
+                    if (!out.file) break;
+                    this._resend(out, d.missing, from);
+                    break;
+                }
+
                 case 'chunk': {
                     var row = this.transfers.get(d.id);
                     if (!row || row.dir !== 'in' || row.state !== 'accepted') break;
@@ -272,11 +313,40 @@
          * sender whose stream silently went nowhere left the receiver at
          * "receiving" for ever.
          */
+        /**
+         * Nothing has arrived for a while — ask for what is missing.
+         *
+         * This used to give up: state 'failed', parts thrown away, and the
+         * whole file sent again from the beginning. But the receiver knows
+         * exactly which indices it is short of, so it can ask for those and
+         * keep everything it already has. Only after several unanswered
+         * requests is the transfer really dead.
+         *
+         * This is also what makes a transfer survive a reconnect: the receiver
+         * wakes up, notices the gap, and asks.
+         */
         _watch(row) {
             var self = this;
             clearTimeout(row._stall);
             row._stall = setTimeout(function () {
                 if (row.state !== 'accepted') return;
+
+                var missing = self._missingChunks(row);
+                row._retries = (row._retries || 0) + 1;
+
+                if (missing.length && row._retries <= MAX_CHUNK_RETRIES) {
+                    // Ask for the gaps, keep what we have, and keep waiting.
+                    var asked = self._say({
+                        type: 'need', id: row.id, missing: missing.slice(0, MAX_NEED_PER_REQUEST)
+                    }, row.from);
+                    if (asked) {
+                        UI.toast('Asking ' + (row.from || 'the sender') + ' for '
+                            + missing.length + ' missing piece(s) of ' + row.name, 'info', 3500);
+                        self._watch(row);
+                        return;
+                    }
+                }
+
                 row.state = 'failed';
                 row.parts = [];
                 self.render();
@@ -284,6 +354,15 @@
                     + Math.round(RECEIVE_STALL_MS / 1000) + 's. Ask '
                     + (row.from || 'the sender') + ' to send it again.', 'error', 6000);
             }, RECEIVE_STALL_MS);
+        }
+
+        /** Which chunk indices this receiver has not got yet. */
+        _missingChunks(row) {
+            var missing = [];
+            for (var i = 0; i < row.total; i++) {
+                if (!row.parts[i]) missing.push(i);
+            }
+            return missing;
         }
 
         decline(id) {

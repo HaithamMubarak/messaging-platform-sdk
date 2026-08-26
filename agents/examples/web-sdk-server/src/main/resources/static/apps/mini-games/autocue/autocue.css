@@ -1,0 +1,80 @@
+/* ==========================================================================
+   Autocue — on top of party.css.
+
+   The one thing this file exists for is the beat between the line and the
+   name. The line lands, the room laughs, and a moment later the author fades
+   in and they laugh again. That delay is the second joke, so it is a
+   transition here rather than an afterthought.
+   ========================================================================== */
+
+.ac-line {
+    font-size: clamp(1.5rem, 4vw, 2.6rem);
+    line-height: var(--lh-tight);
+    margin: 0;
+    text-wrap: balance;
+}
+
+.ac-attrib {
+    display: flex;
+    align-items: center;
+    gap: var(--sp-3);
+    margin-top: var(--sp-5);
+    opacity: 0;
+    transform: translateY(6px);
+    transition: opacity 420ms var(--ease), transform 420ms var(--ease);
+}
+.ac-attrib.is-shown { opacity: 1; transform: none; }
+.ac-attrib__rule { display: block; width: 44px; height: 3px; background: var(--brand); flex-shrink: 0; }
+.ac-attrib__name {
+    font-size: clamp(1.1rem, 2.6vw, 1.6rem);
+    color: var(--brand-ink);
+    font-weight: 600;
+}
+
+.ac-previously { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
+.ac-previously li {
+    font-size: var(--fs-sm);
+    line-height: var(--lh-snug);
+    color: var(--text-muted);
+    padding: 6px 9px;
+    background: var(--surface-1);
+    border-radius: var(--r-sm);
+}
+.ac-by { color: var(--text-faint); font-style: italic; }
+
+/* ---- the writer's desk --------------------------------------------------- */
+.ac-compose { display: grid; gap: var(--sp-3); }
+.ac-compose textarea { width: 100%; min-height: 96px; resize: vertical; }
+.ac-prompts { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: var(--sp-2); }
+.ac-prompts li {
+    font-size: var(--fs-sm);
+    color: var(--text-muted);
+    border: 1px dashed var(--border-strong);
+    border-radius: var(--r-pill);
+    padding: 4px 11px;
+}
+.ac-meta { display: flex; justify-content: space-between; font-size: var(--fs-sm); color: var(--text-muted); }
+
+/* ---- the editor's queue -------------------------------------------------- */
+.ac-pendings { list-style: none; margin: 0; padding: 0; display: grid; gap: var(--sp-2); max-height: 40vh; overflow-y: auto; }
+.ac-pending {
+    display: grid;
+    grid-template-columns: 1fr auto;
+    gap: 4px var(--sp-2);
+    padding: var(--sp-2) var(--sp-3);
+    background: var(--surface-2);
+    border: 1px solid var(--border);
+    border-radius: var(--r-md);
+}
+.ac-pending__text { font-size: var(--fs-md); line-height: var(--lh-snug); }
+.ac-pending__by { grid-column: 1; font-size: var(--fs-xs); color: var(--text-faint); }
+.ac-pending__acts { grid-row: 1 / span 2; grid-column: 2; display: flex; gap: var(--sp-2); align-items: center; }
+
+.ac-teleprompt {
+    font-size: clamp(1.3rem, 5vw, 2rem);
+    line-height: var(--lh-snug);
+    color: var(--text);
+    margin: 0;
+    min-height: 3.2em;
+    text-wrap: balance;
+}

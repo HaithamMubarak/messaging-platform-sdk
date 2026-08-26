@@ -1,0 +1,166 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <script src="../../../js/prod-log.js"></script>
+    <link rel="icon" type="image/svg+xml" href="../../../favicon.svg">
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+    <title>Autocue — the audience writes the speech, on the Messaging Platform SDK</title>
+    <meta name="description" content="One person gives a sincere speech, live. Everybody else is writing it, one line at a time, and the name of whoever wrote each line appears a beat after it lands.">
+    <meta name="theme-color" content="#0b1120">
+    <link rel="canonical" href="https://hmdevonline.com/messaging-platform/sdk/apps/mini-games/autocue/index.html">
+
+    <meta property="og:type" content="website">
+    <meta property="og:site_name" content="Messaging Platform SDK">
+    <meta property="og:title" content="Autocue — the audience writes the speech">
+    <meta property="og:description" content="One person gives a sincere speech, live, and everybody else is writing it one line at a time.">
+    <meta property="og:url" content="https://hmdevonline.com/messaging-platform/sdk/apps/mini-games/autocue/index.html">
+    <meta property="og:image" content="https://hmdevonline.com/messaging-platform/sdk/images/og-image.png">
+    <meta name="twitter:card" content="summary_large_image">
+
+    <link rel="stylesheet" href="../../../css/design-tokens.css">
+    <link rel="stylesheet" href="../../../css/ui.css">
+    <link rel="stylesheet" href="../../../css/sdk-app.css">
+    <link rel="stylesheet" href="../../../css/toast.css">
+    <link rel="stylesheet" href="../../../css/share-modal.css">
+    <link rel="stylesheet" href="../../../css/connection-modal.css">
+    <link rel="stylesheet" href="../shared/party.css">
+    <link rel="stylesheet" href="autocue.css">
+    <link rel="stylesheet" href="../../../css/app-chrome.css">
+</head>
+<body class="sdk-app">
+
+    <header class="sdk-header top-bar">
+        <span class="sdk-header__mark">
+            <svg class="icon" aria-hidden="true"><use href="#i-mic"></use></svg>
+        </span>
+        <h1>Autocue</h1>
+        <span class="sdk-room" id="roomName">not connected</span>
+        <span class="pill-status is-off" id="phasePill"><span class="pill-status__dot"></span>Lobby</span>
+        <span class="pk-clock" id="clock" aria-live="polite"></span>
+
+        <div class="sdk-header__right">
+            <span class="pk-round" id="roundCount"></span>
+            <button class="btn btn--ghost" id="shareBtn" type="button" hidden title="Invite someone (QR or link)">
+                <svg class="icon icon--sm" aria-hidden="true"><use href="#i-qr-code"></use></svg>
+                <span>Invite</span>
+            </button>
+        </div>
+    </header>
+
+    <main class="sdk-stage">
+        <div class="sdk-main pk-main">
+
+            <section class="pk-panel pk-lobby" id="lobbyPanel">
+                <div class="pk-lobby__pitch">
+                    <h2>One of you gives the speech. The rest of you write it.</h2>
+                    <p>The speaker props their phone up and reads whatever appears on it, one line at a
+                    time. Everybody else composes lines, which go privately to the editor — nothing
+                    reaches the lectern unvetted.</p>
+                    <p>The room sees the line that was just delivered, and then, <strong>a beat later</strong>,
+                    the name of whoever wrote it. That beat is the second laugh, every single time.</p>
+                </div>
+                <div class="pk-lobby__side">
+                    <div class="pk-card">
+                        <div class="pk-card__title">In the room <span id="lobbyCount"></span></div>
+                        <ul class="pk-players" id="lobbyPlayers"></ul>
+                    </div>
+                    <div class="pk-card" id="hostControls" hidden>
+                        <div class="pk-card__title">You are the screen and the editor</div>
+                        <label class="pk-field">
+                            <span>Format</span>
+                            <select id="formatSelect" class="field__select"></select>
+                        </label>
+                        <p class="pk-note" id="formatBlurb"></p>
+                        <div class="pk-field-row">
+                            <label class="pk-field">
+                                <span>Speaker</span>
+                                <select id="speakerSelect" class="field__select"></select>
+                            </label>
+                            <label class="pk-field">
+                                <span>Lines</span>
+                                <select id="targetSelect" class="field__select">
+                                    <option value="6">6</option>
+                                    <option value="10" selected>10</option>
+                                    <option value="16">16</option>
+                                </select>
+                            </label>
+                        </div>
+                        <button class="btn btn--primary btn--block" id="startBtn" type="button">Begin the speech</button>
+                    </div>
+                    <div class="pk-card" id="guestWait" hidden>
+                        <div class="pk-card__title">Waiting</div>
+                        <p class="sdk-note">You will find out in a moment whether you are writing or
+                        speaking. One of those is worse.</p>
+                    </div>
+                </div>
+            </section>
+
+            <section class="pk-panel" id="gamePanel" hidden>
+                <div class="pk-stage-card">
+                    <div class="pk-kicker" id="formatName"></div>
+                    <div id="stage"></div>
+                </div>
+
+                <div class="pk-secret" id="speakerPanel" hidden>
+                    <div class="pk-secret__label">You are speaking. Read this out.</div>
+                    <p class="ac-teleprompt" id="speakerLine"></p>
+                    <div style="margin-top: var(--sp-4); display: grid; gap: var(--sp-3);">
+                        <button class="pk-big" id="deliverBtn" type="button" disabled>WAIT<small>the room is still writing</small></button>
+                        <button class="btn btn--ghost" id="endBtn" type="button">That is quite enough</button>
+                    </div>
+                </div>
+
+                <div class="pk-card" id="writerPanel" hidden style="margin-top: var(--sp-4)">
+                    <div class="pk-card__title">Write the next line <span id="mineCount"></span></div>
+                    <div class="ac-compose">
+                        <ul class="ac-prompts" id="promptList"></ul>
+                        <textarea class="field__textarea" id="lineInput" rows="3" maxlength="140"
+                                  placeholder="One line. They have to say it out loud."></textarea>
+                        <div class="ac-meta">
+                            <span id="queueNote"></span>
+                            <button class="btn btn--primary" id="sendBtn" type="button">Send to the editor</button>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="pk-card" id="editorCard" hidden style="margin-top: var(--sp-4)">
+                    <div class="pk-card__title">The editor's queue <span id="queueCount"></span></div>
+                    <ul class="ac-pendings" id="pendingList"></ul>
+                </div>
+            </section>
+
+            <section class="pk-panel pk-result" id="overPanel" hidden>
+                <h2 id="overTitle">Applause</h2>
+                <p>Nobody will be talking about anything else for the rest of the evening.</p>
+                <button class="btn btn--primary" id="againBtn" type="button" hidden>Back to the lobby</button>
+            </section>
+        </div>
+
+        <aside class="sdk-side pk-side">
+            <div class="sdk-side__title">Lines that landed</div>
+            <ul class="pk-scores" id="scores"></ul>
+            <div class="sdk-side__title">Previously</div>
+            <ul class="ac-previously" id="previously"><li class="pk-empty">Nothing yet.</li></ul>
+        </aside>
+    </main>
+
+    <script src="../../../js/config-loader.js"></script>
+    <script src="../../../lib/qrcode.min.js"></script>
+    <script src="../../../generated-web-agent-js/js/web-agent.libs.js"></script>
+    <script src="../../../generated-web-agent-js/js/web-agent.js"></script>
+    <script src="../../../generated-web-agent-js/js/web-agent.webrtc.js"></script>
+
+    <script src="../../../js/icons.js"></script>
+    <script src="../../../js/share-modal.js"></script>
+    <script src="../../../js/dialog.js"></script>
+    <script src="../../../js/common-utils.js"></script>
+    <script src="../../../js/connection-modal.js"></script>
+    <script src="../../../js/UserConnectionBase.js"></script>
+
+    <script src="../shared/party-kit.js"></script>
+    <script src="formats.js"></script>
+    <script src="autocue.js"></script>
+<script src="../../../js/app-chrome.js"></script>
+</body>
+</html>

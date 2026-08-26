@@ -1,0 +1,80 @@
+/* ==========================================================================
+   Gavel — on top of party.css.
+
+   The look is a court list, not a game: it is funnier the more seriously the
+   page takes itself. Everything is set like a document until the verdict,
+   which is the one moment allowed to shout.
+   ========================================================================== */
+
+.gv-case { border-bottom: 2px solid var(--border-strong); padding-bottom: var(--sp-3); margin-bottom: var(--sp-3); }
+.gv-case__title { font-size: clamp(1.3rem, 3.2vw, 2rem); line-height: var(--lh-tight); margin: 0; text-wrap: balance; }
+.gv-case__charge { color: var(--text-body); margin: var(--sp-2) 0 0; }
+.gv-case__dock { font-family: var(--font-mono); font-size: var(--fs-sm); color: var(--danger); margin-top: var(--sp-2); }
+
+.gv-exhibits { list-style: none; margin: 0; padding: 0; display: grid; gap: var(--sp-2); }
+.gv-exhibit {
+    display: grid;
+    grid-template-columns: 28px 1fr;
+    gap: var(--sp-3);
+    align-items: baseline;
+    padding: var(--sp-2) var(--sp-3);
+    background: var(--surface-2);
+    border-left: 3px solid var(--brand);
+    border-radius: 0 var(--r-sm) var(--r-sm) 0;
+    font-size: var(--fs-md);
+    line-height: var(--lh-snug);
+}
+.gv-exhibit__no { font-family: var(--font-mono); color: var(--brand-ink); }
+
+.gv-jurycount { font-family: var(--font-mono); font-size: var(--fs-sm); color: var(--text-muted); margin-top: var(--sp-3); }
+
+/* ---- the bench ----------------------------------------------------------- */
+.gv-pendings { list-style: none; margin: 0; padding: 0; display: grid; gap: var(--sp-2); max-height: 34vh; overflow-y: auto; }
+.gv-pending {
+    display: flex;
+    align-items: center;
+    gap: var(--sp-3);
+    padding: var(--sp-2) var(--sp-3);
+    background: var(--surface-2);
+    border: 1px solid var(--border);
+    border-radius: var(--r-md);
+}
+.gv-pending__text { flex-grow: 1; font-size: var(--fs-md); line-height: var(--lh-snug); }
+.gv-pending__acts { display: flex; gap: var(--sp-2); flex-shrink: 0; }
+
+/* ---- the verdict — the one loud moment ---------------------------------- */
+.gv-verdict {
+    margin-top: var(--sp-5);
+    padding: var(--sp-5);
+    border-radius: var(--r-lg);
+    border: 1px solid var(--border);
+    text-align: center;
+    display: grid;
+    gap: var(--sp-2);
+    justify-items: center;
+}
+.gv-verdict.is-guilty { background: var(--danger-bg); border-color: rgba(248,113,113,.4); }
+.gv-verdict.is-clear  { background: var(--success-bg); border-color: rgba(52,211,153,.4); }
+.gv-verdict__word { font-size: clamp(1.8rem, 5vw, 3rem); line-height: 1; font-weight: 700; }
+.gv-verdict.is-guilty .gv-verdict__word { color: var(--danger); }
+.gv-verdict.is-clear  .gv-verdict__word { color: var(--success); }
+.gv-verdict__tally { font-family: var(--font-mono); color: var(--text-muted); }
+.gv-verdict__sentence { font-size: var(--fs-lg); color: var(--text); max-width: 44ch; }
+.gv-verdict__chain { font-family: var(--font-mono); font-size: var(--fs-xs); color: var(--text-muted); }
+
+.gv-vote { display: grid; gap: var(--sp-3); }
+@media (min-width: 560px) { .gv-vote { grid-template-columns: 1fr 1fr; } }
+.gv-vote .pk-big { min-height: 92px; font-size: var(--fs-xl); }
+#guiltyBtn { background: var(--danger-strong); }
+#notGuiltyBtn { background: var(--success); color: #06281c; }
+#guiltyBtn.is-on, #notGuiltyBtn.is-on { box-shadow: 0 0 0 4px var(--brand-subtle); }
+
+/* ---- the record ---------------------------------------------------------- */
+.gv-laws { list-style: none; margin: 0; padding: 0; display: grid; gap: var(--sp-2); max-height: 40vh; overflow-y: auto; }
+.gv-law { display: grid; grid-template-columns: 44px 1fr; gap: var(--sp-2); font-size: var(--fs-sm); }
+.gv-law__no { font-family: var(--font-mono); color: var(--text-faint); }
+.gv-law__body { display: grid; gap: 2px; }
+.gv-law__body strong { color: var(--text); font-weight: 600; }
+.gv-law__body em { font-style: normal; color: var(--success); font-size: var(--fs-xs); text-transform: uppercase; letter-spacing: .08em; }
+.gv-law__body em.is-guilty { color: var(--danger); }
+.gv-law__body span { color: var(--text-muted); }

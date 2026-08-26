@@ -267,5 +267,29 @@
         });
     }
 
-    window.PartyKit = { PartyGame, boot, esc };
+    /**
+     * Channel storage reads back nested, and each version's `content` is
+     * base64-encoded JSON rather than the object that went in. Miss either
+     * unwrap and a full log reads as empty — which looks exactly like
+     * "nothing was stored", which is why it is worth a helper.
+     */
+    function storedVersions(res) {
+        let rows = res && res.data && res.data.data ? res.data.data : (res && res.data);
+        if (rows && !Array.isArray(rows) && rows.versions) rows = rows.versions;
+        return Array.isArray(rows) ? rows : [];
+    }
+
+    function decodeStored(row) {
+        const raw = row && row.content !== undefined ? row.content : row;
+        if (raw && typeof raw === 'object') return raw;
+        if (typeof raw !== 'string') return null;
+        try {
+            const bin = atob(raw);
+            const text = new TextDecoder().decode(Uint8Array.from(bin, c => c.charCodeAt(0)));
+            return JSON.parse(text);
+        } catch (_) { /* fall through and try plain JSON */ }
+        try { return JSON.parse(raw); } catch (_) { return null; }
+    }
+
+    window.PartyKit = { PartyGame, boot, esc, storedVersions, decodeStored };
 })();
