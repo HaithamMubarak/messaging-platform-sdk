@@ -483,6 +483,7 @@ class ChessGame extends UserConnectionBase {
             this.updateCapturedPieces();
 
             if (this.chess.game_over()) {
+                this._stopClocks();
                 this.handleGameOver();
             }
         } else {
@@ -513,7 +514,105 @@ class ChessGame extends UserConnectionBase {
         });
     }
 
+    /**
+     * A running clock per side, and a game you can take away with you.
+     *
+     * Neither existed: the move list was the only record, and it lived in the
+     * DOM of whichever tab was open. Thinking time is measured locally from the
+     * moves each client already sees, so it needs no new messages and no
+     * agreement between peers — it is a readout, not a rule. Anything that
+     * decided a result would have to live on the host.
+     */
+    _startClocks() {
+        if (this._clockTimer) return;
+        this._clockMs = this._clockMs || { w: 0, b: 0 };
+        this._clockSince = Date.now();
+        this._clockTimer = setInterval(() => this._tickClocks(), 1000);
+    }
+
+    _tickClocks() {
+        if (!this.chess || this.chess.game_over()) return;
+        const turn = this.chess.turn();
+        const now = Date.now();
+        this._clockMs[turn] += now - (this._clockSince || now);
+        this._clockSince = now;
+        this._renderClocks();
+    }
+
+    _renderClocks() {
+        const fmt = (ms) => {
+            const total = Math.floor(ms / 1000);
+            return Math.floor(total / 60) + ':' + String(total % 60).padStart(2, '0');
+        };
+        const turn = this.chess ? this.chess.turn() : 'w';
+        const w = document.getElementById('clockWhite');
+        const b = document.getElementById('clockBlack');
+        if (w) {
+            w.textContent = 'W ' + fmt(this._clockMs.w);
+            w.classList.toggle('is-turn', turn === 'w');
+        }
+        if (b) {
+            b.textContent = 'B ' + fmt(this._clockMs.b);
+            b.classList.toggle('is-turn', turn === 'b');
+        }
+    }
+
+    _stopClocks() {
+        clearInterval(this._clockTimer);
+        this._clockTimer = null;
+    }
+
+    /**
+     * The game as PGN, which is what every chess tool in the world reads.
+     */
+    exportPgn() {
+        if (!this.chess) return;
+
+        const date = new Date();
+        const stamp = date.getFullYear() + '.' +
+            String(date.getMonth() + 1).padStart(2, '0') + '.' +
+            String(date.getDate()).padStart(2, '0');
+
+        // chess.js writes the movetext; the headers say where it came from.
+        const headers = [
+            '[Event "Casual game"]',
+            '[Site "Messaging Platform SDK"]',
+            '[Date "' + stamp + '"]',
+            '[White "' + (this.players && this.players.white ? this.players.white : 'White') + '"]',
+            '[Black "' + (this.players && this.players.black ? this.players.black : 'Black') + '"]',
+            '[Result "' + this._pgnResult() + '"]'
+        ].join('\n');
+
+        const movetext = (typeof this.chess.pgn === 'function')
+            ? this.chess.pgn({ maxWidth: 80, newline: '\n' })
+            : this.chess.history().join(' ');
+
+        // Strip any headers chess.js added, so ours are not duplicated.
+        const body = String(movetext).replace(/^\[[^\]]*\]\s*/gm, '').trim();
+        const pgn = headers + '\n\n' + body + ' ' + this._pgnResult() + '\n';
+
+        const blob = new Blob([pgn], { type: 'application/x-chess-pgn' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = 'game-' + stamp.replace(/\./g, '-') + '.pgn';
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        setTimeout(() => URL.revokeObjectURL(url), 1000);
+        this.showToast('Game exported as PGN', 'success');
+    }
+
+    _pgnResult() {
+        if (!this.chess || !this.chess.game_over()) return '*';
+        if (this.chess.in_checkmate()) return this.chess.turn() === 'w' ? '0-1' : '1-0';
+        return '1/2-1/2';
+    }
+
     addMoveToHistory(move) {
+        // Every move is a clock event, whoever made it.
+        this._startClocks();
+        this._tickClocks();
         const history = document.getElementById('moveHistory');
         const moveNum = Math.floor(this.chess.history().length / 2) + (this.chess.turn() === 'w' ? 0 : 1);
 

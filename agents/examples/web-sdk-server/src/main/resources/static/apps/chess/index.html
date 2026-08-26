@@ -131,6 +131,14 @@
                 <div class="moves-panel">
                     <h3><svg class="icon icon--sm" aria-hidden="true"><use href="#i-list"></use></svg> Move History</h3>
                     <div id="moveHistory" class="move-history"></div>
+                    <div class="move-actions">
+                        <button id="exportPgn" class="btn btn--sm btn--ghost" type="button"
+                                onclick="chessGame?.exportPgn()">
+                            Export PGN
+                        </button>
+                        <span id="clockWhite" class="clock" title="White's thinking time">W 0:00</span>
+                        <span id="clockBlack" class="clock" title="Black's thinking time">B 0:00</span>
+                    </div>
                 </div>
             </div>
         </div>

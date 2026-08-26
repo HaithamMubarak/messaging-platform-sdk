@@ -2977,7 +2977,12 @@ function putChannelStorage( content, metadata, onSuccess, onError) {
         return;
     }
 
-    channel.storagePut({
+    // storageAdd rather than storagePut: every save appends a VERSION instead
+    // of overwriting the last one, so a board has a history you can go back
+    // through. The board was previously a single mutable value — one bad clear
+    // and the work was gone with nothing to return to. The read path still
+    // asks for the latest, so nothing else has to change.
+    channel.storageAdd({
         storageKey: STORAGE_KEY,
         content: content,
         encrypted: true,
@@ -2990,6 +2995,66 @@ function putChannelStorage( content, metadata, onSuccess, onError) {
         }
     });
 }
+
+/**
+ * List the saved versions of this board, newest first.
+ *
+ * Each entry carries the metadata written at save time (when, and by whom), so
+ * a caller can offer "restore the version from four minutes ago" without
+ * reading every blob.
+ */
+function listBoardVersions(onDone) {
+    if (!channel || typeof channel.storageGetList !== 'function') {
+        if (onDone) onDone([]);
+        return;
+    }
+    channel.storageGetList(STORAGE_KEY, function (response) {
+        if (!response || response.status !== 'success' || !Array.isArray(response.data)) {
+            if (onDone) onDone([]);
+            return;
+        }
+        // Newest first: that is the order a person wants to scan.
+        const versions = response.data.slice().sort(function (a, b) {
+            return (b.version || 0) - (a.version || 0);
+        });
+        if (onDone) onDone(versions);
+    });
+}
+
+/**
+ * Put a specific saved version back on the board.
+ *
+ * Applied through the same path as a normal load, so a restored version is
+ * saved as a NEW version rather than rewriting history — going back is itself
+ * an action you can undo.
+ */
+function restoreBoardVersion(version, onDone) {
+    if (!channel || typeof channel.storageGetList !== 'function') {
+        if (onDone) onDone(false);
+        return;
+    }
+    listBoardVersions(function (versions) {
+        const wanted = versions.filter(function (v) { return v.version === version; })[0];
+        if (!wanted) { if (onDone) onDone(false); return; }
+        try {
+            const content = typeof wanted.content === 'string'
+                ? JSON.parse(wanted.content) : wanted.content;
+            // The same path a normal load takes, so a restored version goes
+            // through exactly the code that is already proven.
+            restoreBoardFromObjects(content);
+            redrawCanvas();
+            if (onDone) onDone(true);
+        } catch (e) {
+            console.warn('[Whiteboard] Could not restore version', version, e && e.message);
+            if (onDone) onDone(false);
+        }
+    });
+}
+
+window.whiteboardVersions = {
+    list: listBoardVersions,
+    restore: restoreBoardVersion
+};
 
 /**
  * Save board state to channel storage (host agent only)

@@ -610,3 +610,30 @@ body {
     .chess-board { width: min(100%, 54dvh); }
     .promotion-btn { width: 54px; height: 54px; font-size: 32px; }
 }
+
+
+/* Move actions: export and the two thinking clocks.
+   A chess game with no record of itself is oddly forgettable, and a clock is
+   the one number both players keep glancing at. */
+.move-actions {
+    display: flex;
+    align-items: center;
+    gap: var(--sp-2, .5rem);
+    margin-block-start: var(--sp-3, .75rem);
+    flex-wrap: wrap;
+}
+
+.clock {
+    padding: var(--sp-1, .25rem) var(--sp-2, .5rem);
+    border-radius: var(--r-sm, 6px);
+    background: var(--surface-2, #16203a);
+    color: var(--text-body, #c4cede);
+    font-variant-numeric: tabular-nums;
+    font-size: var(--fs-sm, .8125rem);
+}
+
+.clock.is-turn {
+    background: var(--brand-subtle, rgba(99, 102, 241, .12));
+    color: var(--brand-ink, #a5b4fc);
+    font-weight: 600;
+}
