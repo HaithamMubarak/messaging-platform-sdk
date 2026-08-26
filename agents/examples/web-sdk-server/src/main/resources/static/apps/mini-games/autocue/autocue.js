@@ -40,7 +40,8 @@ class AutocueGame extends PartyKit.PartyGame {
         this.currentLine = null;  // the speaker's line, addressed to them alone
         this.mySubmitted = 0;
 
-        // host only
+        // host only — never written by applyState
+        this.hostDelivered = [];  // the full speech; `delivered` is the display copy
         this.queue = [];          // [{text, author}]
         this.pending = [];        // [{id, text, author}] awaiting approval
         this.format = null;
@@ -64,7 +65,7 @@ class AutocueGame extends PartyKit.PartyGame {
 
         this.queue = [];
         this.pending = [];
-        this.delivered = [];
+        this.hostDelivered = [];
         this.scoreByAuthor = new Map();
         this.unlocked = false;
         this.phase = 'live';
@@ -120,7 +121,7 @@ class AutocueGame extends PartyKit.PartyGame {
 
         const said = this.currentForSpeaker;
         if (said) {
-            this.delivered.unshift({ text: said.text, author: said.author, shown: false });
+            this.hostDelivered.unshift({ text: said.text, author: said.author, shown: false });
             if (said.author) {
                 this.scoreByAuthor.set(said.author, (this.scoreByAuthor.get(said.author) || 0) + 1);
             }
@@ -128,12 +129,12 @@ class AutocueGame extends PartyKit.PartyGame {
             // The name lands a beat after the line. That is the second laugh.
             clearTimeout(this._attribTimer);
             this._attribTimer = setTimeout(() => {
-                if (this.delivered[0]) this.delivered[0].shown = true;
+                if (this.hostDelivered[0]) this.hostDelivered[0].shown = true;
                 this.broadcastState();
             }, AC_ATTRIB_MS);
         }
 
-        if (this.delivered.length >= this.target) return this.hostEnd();
+        if (this.hostDelivered.length >= this.target) return this.hostEnd();
 
         // Never leave the lectern empty: fall back to a scaffold line.
         let next = this.queue.shift();
@@ -147,7 +148,7 @@ class AutocueGame extends PartyKit.PartyGame {
     hostEnd() {
         clearTimeout(this._attribTimer);
         this.phase = 'done';
-        this.delivered.forEach(d => { d.shown = true; });
+        this.hostDelivered.forEach(d => { d.shown = true; });
         this.broadcastState();
     }
 
@@ -155,7 +156,7 @@ class AutocueGame extends PartyKit.PartyGame {
         clearTimeout(this._attribTimer);
         this.phase = 'lobby';
         this.speaker = null;
-        this.delivered = [];
+        this.hostDelivered = [];
         this.queue = [];
         this.pending = [];
         this.broadcastState();
@@ -192,7 +193,7 @@ class AutocueGame extends PartyKit.PartyGame {
             phase: this.phase,
             speaker: this.speaker,
             formatName: this.format ? this.format.name : '',
-            delivered: this.delivered.slice(0, 12),
+            delivered: this.hostDelivered.slice(0, 12),
             queueSize: this.queue.length,
             pendingSize: this.pending.length,
             target: this.target,

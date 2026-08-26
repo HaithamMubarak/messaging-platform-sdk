@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dead Drop</title>
+    <meta name="description" content="Leave an encrypted note or file in a channel. Somebody collects it later — nobody has to be online at the same time.">
+    <meta name="robots" content="noindex, nofollow">
+    <meta name="theme-color" content="#0b1120">
+    <link rel="icon" type="image/svg+xml" href="../../favicon.svg">
+    <link rel="stylesheet" href="../../css/design-tokens.css">
+    <link rel="stylesheet" href="../../css/ui.css">
+    <link rel="stylesheet" href="../../css/connection-modal.css">
+    <link rel="stylesheet" href="dead-drop.css">
+    <script src="../../js/prod-log.js"></script>
+</head>
+<body class="dd">
+
+<div class="dd-wrap">
+    <header class="dd-head">
+        <h1>Dead Drop</h1>
+        <p>Leave something in <span id="boxName" class="dd-box-name">this box</span>. Whoever has the link
+           collects it later — you do not both have to be here.</p>
+    </header>
+
+    <section class="dd-leave">
+        <label for="noteText" class="sr-only">What to leave</label>
+        <textarea id="noteText" maxlength="4000"
+                  placeholder="Write a note. It is encrypted in your browser before it is stored."></textarea>
+        <div class="dd-row">
+            <label for="fileInput" class="btn btn--sm btn--ghost" style="cursor:pointer">
+                Attach a file
+                <input id="fileInput" type="file" style="display:none">
+            </label>
+            <span id="fileState" class="dd-file-state"></span>
+            <span class="dd-spacer"></span>
+            <label for="readOnce">
+                <input type="checkbox" id="readOnce">
+                Read once
+            </label>
+            <button id="leaveBtn" class="btn btn--primary" type="button">Leave it</button>
+        </div>
+        <p class="dd-note">
+            The channel password encrypts every drop in your browser. The server keeps ciphertext it
+            cannot read, so anyone without the link sees nothing — and neither does the service.
+        </p>
+    </section>
+
+    <div class="dd-list-head">
+        <h2>In this box</h2>
+        <span id="boxState" class="dd-state"></span>
+        <span class="dd-spacer"></span>
+        <button id="refreshBtn" class="btn btn--sm btn--ghost" type="button">Check again</button>
+    </div>
+
+    <div id="drops" class="dd-drops"></div>
+</div>
+
+<div id="toast" class="dd-toast" hidden role="status" aria-live="polite"></div>
+
+<script src="../../js/config-loader.js"></script>
+<script src="../../js/api-config.js"></script>
+<script src="../../generated-web-agent-js/js/web-agent.libs.js"></script>
+<script src="../../generated-web-agent-js/js/web-agent.js"></script>
+<script src="../../generated-web-agent-js/js/web-agent.webrtc.js"></script>
+<script src="../../js/common-utils.js"></script>
+<script src="../../js/dialog.js"></script>
+<script src="../../js/connection-modal.js"></script>
+<script src="../../js/room-defaults.js"></script>
+<script src="../../js/UserConnectionBase.js"></script>
+<script src="dead-drop.js"></script>
+</body>
+</html>

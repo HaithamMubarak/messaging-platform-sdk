@@ -2699,8 +2699,58 @@
      * @param {string} storageKey - Storage key
      * @param {function} callback - Callback function(response)
      */
+    /**
+     * List every stored version of a key, decrypting as storageGet does.
+     *
+     * storageGet auto-decrypts when the server says the value was encrypted;
+     * this path did not, so it handed back the raw {cipher, hash} envelope,
+     * base64-encoded. Anything written with encrypted:true was therefore
+     * unreadable through the list API — the versions were all there and none of
+     * them could be used, which looks exactly like an empty history rather than
+     * like a bug.
+     *
+     * Each version is decrypted independently: one unreadable entry (written
+     * under a different channel password, say) leaves the rest usable and is
+     * marked rather than throwing the whole list away.
+     */
     AgentConnection.prototype.storageGetList = function(storageKey, callback){
-        this._storageRequest('getList', storageKey, callback);
+        const _self = this;
+        this._storageRequest('getList', storageKey, function (response) {
+            if (!response || response.status !== 'success') {
+                typeof callback === 'function' && callback(response);
+                return;
+            }
+
+            // The versions sit a couple of levels down, and the shape varies.
+            let payload = response.data && response.data.data ? response.data.data : response.data;
+            const versions = payload && Array.isArray(payload.versions)
+                ? payload.versions
+                : (Array.isArray(payload) ? payload : null);
+
+            if (versions && _self._channelSecret) {
+                versions.forEach(function (entry) {
+                    if (!entry || typeof entry.content !== 'string') return;
+                    try {
+                        // Stored content is base64 of the envelope decryptAndVerify expects.
+                        const envelope = atob(entry.content);
+                        const plain = MySecurity.decryptAndVerify(envelope, _self._channelSecret);
+                        if (plain === null || plain === undefined) return;
+                        entry.encrypted = false;
+                        try {
+                            entry.content = JSON.parse(plain);
+                        } catch (e) {
+                            entry.content = plain;
+                        }
+                    } catch (e) {
+                        // Not ours to read: leave it as it came and say so, so a
+                        // caller can skip it rather than mistake it for content.
+                        entry.unreadable = true;
+                    }
+                });
+            }
+
+            typeof callback === 'function' && callback(response);
+        });
     }
 
     /**

@@ -40,7 +40,9 @@ class ChorusGame extends PartyKit.PartyGame {
         this.mySlots = [];      // [{i, prompt, options, chosen}]
         this.liveSlot = -1;
 
-        // host only
+        // host only — never written by applyState
+        this.hostParts = [];
+        this.hostHoles = [];
         this.slots = [];
         this.owner = new Map();     // slot index -> player
         this.chosen = new Map();    // slot index -> value
@@ -79,13 +81,13 @@ class ChorusGame extends PartyKit.PartyGame {
 
         const template = this.deck[this.round - 1];
         const built = window.ChorusTemplates.buildRound(template, players.length);
-        this.parts = built.parts;
+        this.hostParts = built.parts;
         this.slots = built.slots;
         this.templateName = template.name;
         this.cursor = -1;
         this.owner = new Map();
         this.chosen = new Map();
-        this.holes = [];
+        this.hostHoles = [];
         this.feed = [];
 
         // Deal the slots round-robin so ownership is even and nobody idles.
@@ -145,7 +147,7 @@ class ChorusGame extends PartyKit.PartyGame {
             if (!slot.tapped) {
                 const who = this.owner.get(slot.i);
                 slot.value = null;
-                this.holes.push({ slot: slot.i, who });
+                this.hostHoles.push({ slot: slot.i, who });
                 this.feed.unshift({ text: `${who} missed slot ${slot.i + 1}.`, bad: true });
             }
             this.hostAdvanceCue();
@@ -163,7 +165,7 @@ class ChorusGame extends PartyKit.PartyGame {
         const value = this.chosen.get(slot.i);
         if (!value) {
             // Tapped, but never chose anything to place.
-            this.holes.push({ slot: slot.i, who: from });
+            this.hostHoles.push({ slot: slot.i, who: from });
             this.feed.unshift({ text: `${from} had nothing ready for slot ${slot.i + 1}.`, bad: true });
         } else {
             slot.value = value;
@@ -202,7 +204,8 @@ class ChorusGame extends PartyKit.PartyGame {
         clearTimeout(this._timer);
         clearTimeout(this._cueTimer);
         this.phase = 'lobby';
-        this.parts = [];
+        this.hostParts = [];
+        this.hostHoles = [];
         this.setDeadline(0);
         this.broadcastState();
     }
@@ -227,7 +230,7 @@ class ChorusGame extends PartyKit.PartyGame {
     publicState() {
         // The parts carry values but never owners — the room sees WHAT was
         // placed, not who placed it, until the reveal.
-        const parts = this.parts.map(p => (typeof p === 'string'
+        const parts = this.hostParts.map(p => (typeof p === 'string'
             ? p
             : { i: p.i, value: p.value, live: this.phase === 'assemble' && this.cursor === this.slots.findIndex(s => s.i === p.i) }));
 
@@ -244,7 +247,7 @@ class ChorusGame extends PartyKit.PartyGame {
             secondsLeft: this.secondsLeft(),
             scores: this.scoreList(),
             feed: this.feed.slice(0, 12),
-            holes: this.phase === 'reveal' || this.phase === 'over' ? this.holes : [],
+            holes: this.phase === 'reveal' || this.phase === 'over' ? this.hostHoles : [],
         };
     }
 

@@ -3009,12 +3009,16 @@ function listBoardVersions(onDone) {
         return;
     }
     channel.storageGetList(STORAGE_KEY, function (response) {
-        if (!response || response.status !== 'success' || !Array.isArray(response.data)) {
+        if (!response || response.status !== 'success') {
             if (onDone) onDone([]);
             return;
         }
+        // Same nesting as everywhere else this API is read; see pulse.
+        let rows = response.data && response.data.data ? response.data.data : response.data;
+        if (!Array.isArray(rows)) rows = (rows && rows.versions) ? rows.versions : [];
+
         // Newest first: that is the order a person wants to scan.
-        const versions = response.data.slice().sort(function (a, b) {
+        const versions = rows.slice().sort(function (a, b) {
             return (b.version || 0) - (a.version || 0);
         });
         if (onDone) onDone(versions);

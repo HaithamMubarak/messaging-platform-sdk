@@ -84,7 +84,16 @@
             this.clientReceive(data);
         }
 
-        /** Broadcast the public picture and apply it locally in one move. */
+        /**
+         * Broadcast the public picture and adopt it locally in one move.
+         *
+         * The host adopts it too, so there is one rendering path rather than
+         * two — but that means `applyState` MUST NOT write over anything the
+         * host is the authority for. Keep host-owned structures under their
+         * own names (hostParts, hostDelivered, ...) and let applyState own the
+         * display copies. Getting this wrong is silent: the game plays
+         * correctly, scores correctly, and shows an empty board.
+         */
         broadcastState() {
             if (!this.isHost()) return;
             const s = this.publicState();

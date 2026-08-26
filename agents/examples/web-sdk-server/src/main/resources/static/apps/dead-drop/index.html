@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+    <title>Dead Drop — an encrypted mailbox on the Messaging Platform SDK</title>
+    <meta name="description" content="Leave an encrypted note or file in a channel and close the tab. Somebody opens the same link tomorrow and collects it — nobody has to be online at the same time.">
+    <meta name="theme-color" content="#0b1120">
+    <link rel="canonical" href="https://hmdevonline.com/messaging-platform/sdk/apps/dead-drop/index.html">
+    <meta property="og:type" content="website">
+    <meta property="og:site_name" content="Messaging Platform SDK">
+    <meta property="og:title" content="Dead Drop">
+    <meta property="og:description" content="Leave an encrypted note or file in a channel and close the tab. Somebody collects it later — nobody has to be online at the same time.">
+    <meta property="og:url" content="https://hmdevonline.com/messaging-platform/sdk/apps/dead-drop/index.html">
+    <meta property="og:image" content="https://hmdevonline.com/messaging-platform/sdk/images/og-image.png">
+    <meta name="twitter:card" content="summary_large_image">
+    <meta name="twitter:title" content="Dead Drop">
+    <meta name="twitter:description" content="An encrypted mailbox in a channel. Leave something; somebody collects it later.">
+    <meta name="twitter:image" content="https://hmdevonline.com/messaging-platform/sdk/images/og-image.png">
+
+    <link rel="icon" type="image/svg+xml" href="../../favicon.svg">
+    <link rel="stylesheet" href="../../css/design-tokens.css">
+    <link rel="stylesheet" href="../../css/ui.css">
+    <link rel="stylesheet" href="../../css/landing.css">
+    <link rel="stylesheet" href="../../css/app-page.css">
+
+    <script src="../../js/prod-log.js"></script>
+    <script src="../../js/icons.js" defer></script>
+</head>
+<body>
+<a class="skip-link" href="#main">Skip to content</a>
+
+<header class="site-header" id="siteHeader">
+    <div class="wrap site-header__inner">
+        <a class="brand" href="../../index.html">
+            <svg class="logo-mark" aria-hidden="true"><use href="#i-logo"></use></svg>
+            Messaging Platform SDK
+        </a>
+        <button class="btn btn--ghost btn--icon nav-toggle" id="navToggle" aria-expanded="false" aria-controls="siteNav" aria-label="Open menu">
+            <svg class="icon" aria-hidden="true"><use href="#i-menu"></use></svg>
+        </button>
+        <nav class="site-nav" id="siteNav" aria-label="Main">
+            <a href="../../index.html#demos">Demos</a>
+            <a href="../../playground.html">Playground</a>
+            <a href="../../docs.html">Docs</a>
+            <a href="../../developer/index.html">Portal</a>
+            <a class="btn btn--gradient" href="app.html">Open a box</a>
+        </nav>
+    </div>
+</header>
+
+<main id="main">
+    <section class="hero" style="padding-block: var(--sp-16) var(--sp-12)">
+        <div class="wrap ap-hero">
+            <div>
+                <span class="eyebrow">Playground · Dead Drop</span>
+                <h1 style="font-size: var(--fs-hero); margin-bottom: var(--sp-4); text-wrap: balance">Leave something. Close the tab. They find it tomorrow.</h1>
+                <p class="hero__lede">
+                    Every other app here needs everybody present at once — a whiteboard nobody is drawing
+                    on is nothing. This one is the opposite. You put an encrypted note or a small file in
+                    a channel and walk away; whoever has the link opens it whenever they like.
+                </p>
+                <div class="hero__actions" style="margin-top: var(--sp-6)">
+                    <a class="btn btn--gradient" href="app.html">Open a box</a>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <section class="wrap" style="padding-block: var(--sp-12)">
+        <h2>What it demonstrates</h2>
+        <p>
+            Encrypted channel storage used as a mailbox rather than a cache. Each drop is written with
+            <code>storageAdd</code>, so the channel keeps every one as its own version instead of a
+            single value people overwrite, and <code>encrypted: true</code> means the server stores
+            ciphertext it cannot read. The channel password is the key and it never leaves the browsers
+            that were given the link.
+        </p>
+        <p>
+            Nothing here is relayed peer to peer, because there is no peer. The store <em>is</em> the
+            transport — which is exactly why it still works when you are the only person who has been
+            online all week.
+        </p>
+    </section>
+
+    <section class="wrap" style="padding-block: var(--sp-12)">
+        <h2>Read once</h2>
+        <p>
+            A drop can be marked read-once. Collecting it writes a tombstone rather than deleting
+            anything, so the next person to open the box sees that it was taken and by whom — not what
+            it said. A receipt is more useful than a gap, and honest about what a store can promise.
+        </p>
+    </section>
+
+    <section class="wrap" style="padding-block: var(--sp-12) var(--sp-16)">
+        <h2>What it is not</h2>
+        <p>
+            Not a file host. Attachments are capped well under a megabyte, because a mailbox that
+            quietly accepts a 20MB video is an unpleasant surprise for whoever opens it next. For real
+            file transfer there is <a href="../drop/index.html">Drop</a>, which streams peer to peer and
+            never stores anything at all.
+        </p>
+    </section>
+</main>
+
+<script src="../../js/app-chrome.js"></script>
+</body>
+</html>

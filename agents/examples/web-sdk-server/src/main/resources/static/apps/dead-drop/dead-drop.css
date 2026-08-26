@@ -1,0 +1,135 @@
+/**
+ * Dead Drop.
+ *
+ * A mailbox, so it should feel still rather than live: no presence, no cursors,
+ * nothing moving. The one piece of colour is the read-once badge, because that
+ * is the only thing about a drop that changes what you do with it.
+ */
+
+.dd {
+    min-height: 100vh;
+    background: var(--bg, #0b1120);
+    color: var(--text-body, #c4cede);
+    font-family: var(--font-sans, Inter, system-ui, sans-serif);
+}
+
+.dd-wrap {
+    max-inline-size: 46rem;
+    margin-inline: auto;
+    padding: var(--sp-6, 1.5rem) var(--sp-4, 1rem) var(--sp-12, 3rem);
+    display: flex;
+    flex-direction: column;
+    gap: var(--sp-5, 1.25rem);
+}
+
+.dd-head { display: flex; flex-direction: column; gap: var(--sp-1, .25rem); }
+.dd-head h1 {
+    margin: 0;
+    font-size: var(--fs-2xl, 1.75rem);
+    color: var(--text, #eef2f8);
+    text-wrap: balance;
+}
+.dd-head p { margin: 0; color: var(--text-muted, #8a97ab); font-size: var(--fs-md, .875rem); }
+.dd-box-name { color: var(--brand-ink, #a5b4fc); font-family: var(--font-mono, ui-monospace, monospace); }
+
+.dd-leave {
+    display: flex;
+    flex-direction: column;
+    gap: var(--sp-3, .75rem);
+    padding: var(--sp-4, 1rem);
+    background: var(--surface-1, #101827);
+    border: 1px solid var(--border, rgba(148, 163, 184, .14));
+    border-radius: var(--r-lg, 12px);
+}
+
+.dd-leave textarea {
+    inline-size: 100%;
+    min-block-size: 6.5rem;
+    padding: var(--sp-3, .75rem);
+    border-radius: var(--r-md, 8px);
+    border: 1px solid var(--border-strong, rgba(148, 163, 184, .28));
+    background: var(--surface-2, #16203a);
+    color: var(--text, #eef2f8);
+    font: inherit;
+    font-size: var(--fs-md, .875rem);
+    resize: vertical;
+}
+
+.dd-row {
+    display: flex;
+    align-items: center;
+    gap: var(--sp-3, .75rem);
+    flex-wrap: wrap;
+}
+.dd-row label { display: flex; align-items: center; gap: var(--sp-2, .5rem); font-size: var(--fs-sm, .8125rem); }
+.dd-row input[type="checkbox"] { inline-size: 20px; block-size: 20px; }
+.dd-spacer { flex: 1; }
+.dd-file-state { font-size: var(--fs-xs, .75rem); color: var(--text-muted, #8a97ab); }
+
+.dd-list-head {
+    display: flex;
+    align-items: baseline;
+    gap: var(--sp-3, .75rem);
+}
+.dd-list-head h2 {
+    margin: 0;
+    font-size: var(--fs-xs, .75rem);
+    font-weight: 700;
+    letter-spacing: .08em;
+    text-transform: uppercase;
+    color: var(--text-muted, #8a97ab);
+}
+.dd-state { font-size: var(--fs-sm, .8125rem); color: var(--text-muted, #8a97ab); }
+
+.dd-drops { display: flex; flex-direction: column; gap: var(--sp-3, .75rem); }
+
+.dd-drop {
+    display: flex;
+    flex-direction: column;
+    gap: var(--sp-2, .5rem);
+    padding: var(--sp-4, 1rem);
+    background: var(--surface-1, #101827);
+    border: 1px solid var(--border, rgba(148, 163, 184, .14));
+    border-radius: var(--r-lg, 12px);
+}
+
+/* A collected read-once drop is a receipt, not content: it recedes. */
+.dd-drop--taken { opacity: .62; border-style: dashed; }
+
+.dd-drop__head { display: flex; align-items: center; gap: var(--sp-2, .5rem); flex-wrap: wrap; }
+.dd-drop__by { font-weight: 600; color: var(--text, #eef2f8); font-size: var(--fs-md, .875rem); }
+.dd-drop__when { color: var(--text-muted, #8a97ab); font-size: var(--fs-xs, .75rem); }
+.dd-drop__text {
+    margin: 0;
+    white-space: pre-wrap;      /* a note's own line breaks are part of it */
+    overflow-wrap: anywhere;
+    color: var(--text-body, #c4cede);
+    line-height: var(--lh-body, 1.65);
+}
+.dd-drop__taken { margin: 0; font-size: var(--fs-sm, .8125rem); color: var(--text-muted, #8a97ab); }
+
+.dd-empty {
+    padding: var(--sp-10, 2.5rem) var(--sp-4, 1rem);
+    text-align: center;
+    color: var(--text-muted, #8a97ab);
+}
+
+.dd-note {
+    font-size: var(--fs-xs, .75rem);
+    color: var(--text-muted, #8a97ab);
+    line-height: var(--lh-body, 1.65);
+}
+
+.dd-toast {
+    position: fixed;
+    inset-block-end: var(--sp-4, 1rem);
+    inset-inline-start: 50%;
+    transform: translateX(-50%);
+    padding: var(--sp-2, .5rem) var(--sp-4, 1rem);
+    border-radius: 999px;
+    background: var(--surface-3, #1e2a3d);
+    color: var(--text, #eef2f8);
+    font-size: var(--fs-sm, .8125rem);
+    box-shadow: var(--shadow-2, 0 8px 24px -8px rgba(2, 6, 23, .55));
+    z-index: 60;
+}

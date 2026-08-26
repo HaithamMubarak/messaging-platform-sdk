@@ -8,7 +8,7 @@ const PAGES = ['index.html','playground.html','docs.html','apps/chat.html',
  'apps/test-api-key/index.html','apps/whiteboard/app.html','apps/rooms/app.html',
  'apps/terminal/app.html','apps/chess/index.html','apps/pictionary/index.html',
  'apps/pixel-art/index.html','apps/mind-map/index.html','apps/collab-doc/index.html',
- 'apps/pulse/index.html','apps/sponsorpulse/index.html','apps/sponsorpulse/host.html','apps/sponsorpulse/join.html','apps/drop/index.html','apps/mini-games/blockparty/index.html',
+ 'apps/pulse/index.html','apps/dead-drop/index.html','apps/dead-drop/app.html','apps/sponsorpulse/index.html','apps/sponsorpulse/host.html','apps/sponsorpulse/join.html','apps/drop/index.html','apps/mini-games/blockparty/index.html',
  'apps/mini-games/air-hockey/index.html','apps/mini-games/find-the-liar/index.html','apps/mini-games/quiz-battle/index.html','apps/mini-games/reactor/reactor-client.html'];
 (async()=>{
   const b=await chromium.launch({headless:false,args:['--no-sandbox','--enable-unsafe-swiftshader']});
