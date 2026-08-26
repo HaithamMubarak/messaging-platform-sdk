@@ -500,7 +500,7 @@
 
             cancelBtn.onclick = () => {
                 closeModal();
-                this._addEvent('Encrypted link decryption cancelled', 'disconnected');
+                console.debug('[ShareModal]','Encrypted link decryption cancelled');
             };
 
             confirmBtn.onclick = () => {
@@ -543,10 +543,10 @@
                     auth = this._decodeChannelAuthEncrypted(encoded, agentName);
                     if (!auth) {
                         this._showToast('Failed to decrypt. Wrong agent name?', 'error');
-                        this._addEvent('Decryption failed - incorrect agent name', 'disconnected');
+                        console.debug('[ShareModal]','Decryption failed - incorrect agent name');
                         return;
                     }
-                    this._addEvent('Share link decrypted successfully', 'connected');
+                    console.debug('[ShareModal]','Share link decrypted successfully');
                 } else {
                     // Try decoding using multiple strategies to be tolerant of URL-encoding or URL-safe base64
                     auth = this._decodeChannelAuth(encoded);

@@ -39,9 +39,16 @@ class UserConnectionBase {
             relayEnabled: false,           // Enable server relay mode (websocket/datachannel/sfu)
 
             dataChannelName: 'peer-data',
+            // Reliable and ordered by DEFAULT.
+            //
+            // The default used to be fire-and-forget, and drop (file chunks!),
+            // chess, collab-doc and mind-map never overrode it — so a dropped
+            // packet meant a corrupt file or a lost move with nothing to notice
+            // it. The apps that genuinely want lossy — whiteboard strokes,
+            // pictionary strokes, pixel-art cursors — already pass their own
+            // options, so making the safe case the default costs them nothing.
             dataChannelOptions: {
-                ordered: false,
-                maxRetransmits: 0
+                ordered: true
             },
             enableHostIndicator: true,           // Show host indicator in UI (subclass must implement updateHostIndicator)
 
@@ -2017,11 +2024,6 @@ class UserConnectionBase {
     }
 }
 
-// Export for module systems
-if (typeof module !== 'undefined' && module.exports) {
-    module.exports = AgentSessionBase;
-}
-
 // ============================================
 // GAME INITIALIZER - Common initialization logic
 // ============================================
@@ -2218,6 +2220,13 @@ let GameInitializer = {
 
                     // Show the modal - collapsed when auto-connect is enabled
                     const modal = document.getElementById('connectionModal');
+                    // Resolved before it is read. It used to be declared
+                    // fifteen lines further down, inside the auto-connect
+                    // block, so this `if` hit its temporal dead zone and every
+                    // shared link died with a ReferenceError swallowed by the
+                    // catch below — the link simply appeared not to work.
+                    const connectCallback = config.connectCallback || window.connect;
+
                     if (modal) {
                         modal.classList.add('active');
 
@@ -2235,9 +2244,6 @@ let GameInitializer = {
 
                     // Enable auto-connect if shared link is present - immediate mode (no timer)
                     if (hasSharedLink && window.MiniGameUtils) {
-                        // Use the provided callback or fall back to window.connect
-                        const connectCallback = config.connectCallback || window.connect;
-
                         // Auto-connect disabled - users must click Connect button manually
                         // Even with shared links, waiting for user action
                         console.log(`[${config.gameName}] Shared link detected - waiting for user to click Connect`);
@@ -2291,6 +2297,12 @@ let GameInitializer = {
 // Expose globally
 window.GameInitializer = GameInitializer;
 
-
-
-
+// Exported here rather than mid-file: GameInitializer is declared further down,
+// so the previous placement hit its temporal dead zone and threw for any
+// CommonJS importer — on top of naming a class (AgentSessionBase) that does not
+// exist in this file at all.
+if (typeof module !== 'undefined' && module.exports) {
+    // The previous line named AgentSessionBase, which is not a name in this
+    // file — the class is UserConnectionBase — so this threw for any importer.
+    module.exports = { UserConnectionBase, GameInitializer };
+}
