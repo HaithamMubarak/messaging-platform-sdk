@@ -1,0 +1,148 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <script src="../../../js/prod-log.js"></script>
+    <link rel="icon" type="image/svg+xml" href="../../../favicon.svg">
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+    <title>Nudge — secret missions at the dinner table, on the Messaging Platform SDK</title>
+    <meta name="description" content="Every phone deals you a secret mission to make somebody else do something. Two people are told they have none — and everybody knows those cards exist.">
+    <meta name="theme-color" content="#0b1120">
+    <link rel="canonical" href="https://hmdevonline.com/messaging-platform/sdk/apps/mini-games/nudge/index.html">
+
+    <meta property="og:type" content="website">
+    <meta property="og:site_name" content="Messaging Platform SDK">
+    <meta property="og:title" content="Nudge — secret missions at the dinner table">
+    <meta property="og:description" content="Twelve secret briefings into twelve pockets in thirty seconds, and then the game gets out of the way.">
+    <meta property="og:url" content="https://hmdevonline.com/messaging-platform/sdk/apps/mini-games/nudge/index.html">
+    <meta property="og:image" content="https://hmdevonline.com/messaging-platform/sdk/images/og-image.png">
+    <meta name="twitter:card" content="summary_large_image">
+
+    <link rel="stylesheet" href="../../../css/design-tokens.css">
+    <link rel="stylesheet" href="../../../css/ui.css">
+    <link rel="stylesheet" href="../../../css/sdk-app.css">
+    <link rel="stylesheet" href="../../../css/toast.css">
+    <link rel="stylesheet" href="../../../css/share-modal.css">
+    <link rel="stylesheet" href="../../../css/connection-modal.css">
+    <link rel="stylesheet" href="../shared/party.css">
+    <link rel="stylesheet" href="nudge.css">
+    <link rel="stylesheet" href="../../../css/app-chrome.css">
+</head>
+<body class="sdk-app">
+
+    <header class="sdk-header top-bar">
+        <span class="sdk-header__mark">
+            <svg class="icon" aria-hidden="true"><use href="#i-eye"></use></svg>
+        </span>
+        <h1>Nudge</h1>
+        <span class="sdk-room" id="roomName">not connected</span>
+        <span class="pill-status is-off" id="phasePill"><span class="pill-status__dot"></span>The table</span>
+        <span class="pk-clock" id="clock" aria-live="polite"></span>
+
+        <div class="sdk-header__right">
+            <button class="btn btn--ghost" id="endBtn" type="button" hidden>End it and reveal</button>
+            <button class="btn btn--ghost" id="shareBtn" type="button" hidden title="Invite someone (QR or link)">
+                <svg class="icon icon--sm" aria-hidden="true"><use href="#i-qr-code"></use></svg>
+                <span>Invite</span>
+            </button>
+        </div>
+    </header>
+
+    <main class="sdk-stage">
+        <div class="sdk-main pk-main">
+
+            <section class="pk-panel pk-lobby" id="lobbyPanel">
+                <div class="pk-lobby__pitch">
+                    <h2>Everybody gets a secret job. Two of you get nothing.</h2>
+                    <p>Each phone is dealt one mission — make somebody else at this table do a
+                    specific, visible thing. Then the game leaves. There is nothing to play. There is
+                    only dinner, for half an hour.</p>
+                    <p>Two people are told they have <strong>no mission at all</strong>, and everybody
+                    knows those cards exist. That is why an innocent question about ferries starts to
+                    look like evidence.</p>
+                </div>
+                <div class="pk-lobby__side">
+                    <div class="pk-card">
+                        <div class="pk-card__title">At the table <span id="lobbyCount"></span></div>
+                        <ul class="pk-players" id="lobbyPlayers"></ul>
+                    </div>
+                    <div class="pk-card" id="hostControls" hidden>
+                        <div class="pk-card__title">You are dealing</div>
+                        <p class="pk-note">Three people minimum. It is better with eight, and much
+                        better with everybody's phone face-down on the table.</p>
+                        <button class="btn btn--primary btn--block" id="startBtn" type="button">Deal the missions</button>
+                    </div>
+                    <div class="pk-card" id="guestWait" hidden>
+                        <div class="pk-card__title">Waiting</div>
+                        <p class="sdk-note">Your briefing will arrive here. Do not show anybody.</p>
+                    </div>
+                </div>
+            </section>
+
+            <section class="pk-panel" id="gamePanel" hidden>
+                <div class="pk-stage-card">
+                    <div class="ng-ticker">
+                        <div class="ng-stat ng-stat--done">
+                            <span class="ng-stat__n" id="tickerDone">0</span>
+                            <span class="ng-stat__l" id="tickerDoneLabel">missions completed</span>
+                        </div>
+                        <div class="ng-stat ng-stat--acc">
+                            <span class="ng-stat__n" id="tickerAcc">0</span>
+                            <span class="ng-stat__l" id="tickerAccLabel">accusations made</span>
+                        </div>
+                        <p class="ng-note" id="tickerNote"></p>
+                    </div>
+                </div>
+
+                <div class="pk-secret" id="missionPanel" hidden>
+                    <div class="pk-secret__label" id="missionLabel">Your mission</div>
+                    <p class="ng-mission" id="missionText"></p>
+                    <p class="pk-secret__hint" id="missionHint"></p>
+                    <div style="margin-top: var(--sp-4)">
+                        <button class="pk-big" id="claimBtn" type="button">DONE IT<small>the table will vote</small></button>
+                    </div>
+                </div>
+
+                <div class="pk-card" id="claimPanel" hidden style="margin-top: var(--sp-4)">
+                    <div class="pk-card__title">A claim is open <span id="claimTally"></span></div>
+                    <p id="claimWho" style="margin:0; color: var(--text-body)"></p>
+                    <div class="ng-vote">
+                        <button class="pk-big" id="voteYes" type="button">THEY DID<small>allow it</small></button>
+                        <button class="pk-big" id="voteNo" type="button">NO THEY DIDN'T<small>throw it out</small></button>
+                    </div>
+                </div>
+
+                <div class="pk-card" id="accusePanel" hidden style="margin-top: var(--sp-4)">
+                    <div class="pk-card__title">Who has no mission? One accusation each.</div>
+                    <div class="ng-accuse-grid" id="accuseList"></div>
+                </div>
+            </section>
+
+            <section class="pk-panel pk-result" id="overPanel" hidden>
+                <h2 id="overTitle">The reveal</h2>
+                <p>Everything anybody said this evening now means something else.</p>
+                <div id="revealBody" style="margin-top: var(--sp-5); text-align: left"></div>
+                <button class="btn btn--primary" id="againBtn" type="button" hidden style="margin-top: var(--sp-5)">Deal again</button>
+            </section>
+        </div>
+    </main>
+
+    <script src="../../../js/config-loader.js"></script>
+    <script src="../../../lib/qrcode.min.js"></script>
+    <script src="../../../generated-web-agent-js/js/web-agent.libs.js"></script>
+    <script src="../../../generated-web-agent-js/js/web-agent.js"></script>
+    <script src="../../../generated-web-agent-js/js/web-agent.webrtc.js"></script>
+
+    <script src="../../../js/icons.js"></script>
+    <script src="../../../js/share-modal.js"></script>
+    <script src="../../../js/dialog.js"></script>
+    <script src="../../../js/common-utils.js"></script>
+    <script src="../../../js/connection-modal.js"></script>
+    <script src="../../../js/UserConnectionBase.js"></script>
+
+    <script src="../shared/party-kit.js"></script>
+    <script src="missions.js"></script>
+    <script src="nudge.js"></script>
+<script src="../../../js/app-chrome.js"></script>
+</body>
+</html>

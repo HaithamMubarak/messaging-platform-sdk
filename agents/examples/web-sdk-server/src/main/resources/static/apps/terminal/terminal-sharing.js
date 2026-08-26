@@ -12,6 +12,15 @@
  * - Permission request/grant workflow
  */
 class TerminalSharing extends UserConnectionBase {
+
+    /**
+     * How much of a session's output is kept for late joiners.
+     *
+     * Roughly a few screens' worth. Enough to explain what is on screen, small
+     * enough to send in one message without making a joining viewer wait.
+     */
+    static SCROLLBACK_LIMIT = 64 * 1024;
+
     constructor() {
         super({
             storagePrefix: 'terminal_sharing_',
@@ -220,6 +229,7 @@ class TerminalSharing extends UserConnectionBase {
         if (!this.sharedSessions.has(sessionId)) return false;
 
         this.sharedSessions.delete(sessionId);
+        this.forgetScrollback(sessionId);
 
         if (this.connected) {
             this.sendData({
@@ -285,6 +295,11 @@ class TerminalSharing extends UserConnectionBase {
             return false;
         }
 
+        // Remember what has been on screen, so somebody joining later does not
+        // arrive at a blank terminal with no idea what has happened. Bounded:
+        // a long-running session must not grow this without limit.
+        this._rememberScrollback(sessionId, data);
+
         this.sendData({
             type: 'session-output',
             sessionId: sessionId,
@@ -326,6 +341,7 @@ class TerminalSharing extends UserConnectionBase {
 
         // Remove from shared sessions
         this.sharedSessions.delete(sessionId);
+        this.forgetScrollback(sessionId);
 
         // Remove all viewers for this session
         this.sessionViewers.delete(sessionId);
@@ -349,10 +365,61 @@ class TerminalSharing extends UserConnectionBase {
         // Add viewer to tracking
         this.addViewer(sessionId, src);
 
+        // Catch them up before anything else, so the first thing they see is
+        // the session as it stands rather than an empty screen that only fills
+        // in if somebody happens to type next.
+        this.replayScrollbackTo(sessionId, src);
+
         // Notify UI if callback registered (update viewers list)
         if (typeof this.onViewerJoin === 'function') {
             this.onViewerJoin(sessionId, src);
         }
+    }
+
+    /**
+     * Append to a session's scrollback, keeping it bounded.
+     *
+     * A character budget rather than a line count: terminal output is not
+     * reliably line-shaped, and what matters is how much is shipped to a
+     * joining viewer in one go.
+     */
+    _rememberScrollback(sessionId, data) {
+        if (typeof data !== 'string' || !data) return;
+        if (!this._scrollback) this._scrollback = new Map();
+
+        var existing = this._scrollback.get(sessionId) || '';
+        var combined = existing + data;
+        if (combined.length > TerminalSharing.SCROLLBACK_LIMIT) {
+            // Keep the most recent, which is the part that explains the state.
+            combined = combined.slice(combined.length - TerminalSharing.SCROLLBACK_LIMIT);
+        }
+        this._scrollback.set(sessionId, combined);
+    }
+
+    /**
+     * Send one viewer everything the session has printed so far.
+     *
+     * Addressed to that viewer alone: replaying to the whole room would repaint
+     * the terminal for people who were already watching it.
+     */
+    replayScrollbackTo(sessionId, viewer) {
+        if (!this._scrollback) return false;
+        var history = this._scrollback.get(sessionId);
+        if (!history || !viewer) return false;
+
+        this.sendData({
+            type: 'session-output',
+            sessionId: sessionId,
+            data: history,
+            replay: true
+        }, viewer);
+        console.log('[TerminalSharing] Replayed ' + history.length + ' chars to ' + viewer);
+        return true;
+    }
+
+    /** Forget a session's history when it stops being shared. */
+    forgetScrollback(sessionId) {
+        if (this._scrollback) this._scrollback.delete(sessionId);
     }
 
     /**
@@ -478,6 +545,7 @@ class TerminalSharing extends UserConnectionBase {
 
         // Remove the session from our map
         this.sharedSessions.delete(sessionId);
+        this.forgetScrollback(sessionId);
 
         if (typeof this.onOwnerDisconnect === 'function') {
             this.onOwnerDisconnect(sessionId, src);

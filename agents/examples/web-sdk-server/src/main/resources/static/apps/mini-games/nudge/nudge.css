@@ -1,0 +1,55 @@
+/* ==========================================================================
+   Nudge — on top of party.css.
+
+   The television is meant to be almost empty, all evening. This file spends
+   its effort on making that emptiness look deliberate rather than broken:
+   two enormous numbers and one smug line underneath.
+   ========================================================================== */
+
+.ng-ticker {
+    display: grid;
+    gap: var(--sp-6);
+    justify-items: center;
+    text-align: center;
+    padding: var(--sp-8) var(--sp-4);
+}
+@media (min-width: 620px) { .ng-ticker { grid-template-columns: 1fr 1fr; gap: var(--sp-8); } }
+
+.ng-stat { display: grid; justify-items: center; gap: var(--sp-1); }
+.ng-stat__n {
+    font-family: var(--font-mono);
+    font-size: clamp(3rem, 11vw, 6rem);
+    line-height: .9;
+    font-variant-numeric: tabular-nums;
+}
+.ng-stat__l { font-size: var(--fs-md); color: var(--text-muted); }
+.ng-stat--done .ng-stat__n { color: var(--success); }
+.ng-stat--acc .ng-stat__n { color: var(--warning); }
+
+.ng-note {
+    grid-column: 1 / -1;
+    font-size: var(--fs-lg);
+    color: var(--text-body);
+    text-wrap: balance;
+    max-width: 42ch;
+    margin: 0 auto;
+}
+
+.ng-mission {
+    font-size: clamp(1.25rem, 4vw, 1.75rem);
+    line-height: var(--lh-snug);
+    margin: 0;
+    text-wrap: balance;
+}
+
+.ng-vote { display: grid; gap: var(--sp-3); margin-top: var(--sp-3); }
+@media (min-width: 560px) { .ng-vote { grid-template-columns: 1fr 1fr; } }
+.ng-vote .pk-big { min-height: 84px; font-size: var(--fs-xl); }
+#voteYes { background: var(--success); color: #06281c; }
+#voteNo  { background: var(--danger-strong); }
+#voteYes.is-on, #voteNo.is-on { box-shadow: 0 0 0 4px var(--brand-subtle); }
+
+.ng-accuse-grid { display: grid; gap: var(--sp-2); grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); }
+.ng-accuse-grid .pk-choice { text-align: center; min-height: 48px; }
+
+.ng-innocent { color: var(--warning); font-style: italic; }
