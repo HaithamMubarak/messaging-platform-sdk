@@ -19,7 +19,7 @@ const GROUPS = {
     'site sweeps': ['health.js', 'links.js', 'mobile.js', 'contrast.js', 'token-check.js',
                     'a11y.js', 'focus.js', 'icon-blank-test.js'],
     'self-checks': ['a11y-selfcheck.js', 'focus-selfcheck.js'],
-    'apps': ['chat-test.js', 'wb-test.js', 'shape-fidelity-test.js', 'collab-actions-test.js', 'persistence-test.js', 'handover-test.js', 'rooms-test.js', 'term-test.js', 'terminal-scrollback-test.js', 'cloud-test.js',
+    'apps': ['chat-test.js', 'wb-test.js', 'wb-history-test.js', 'shape-fidelity-test.js', 'collab-actions-test.js', 'persistence-test.js', 'handover-test.js', 'rooms-test.js', 'term-test.js', 'terminal-scrollback-test.js', 'cloud-test.js',
              'drop-test.js', 'drop-resume-test.js', 'undriven-test.js', 'devpages-test.js', 'coreloop-test.js', 'dead-drop-test.js', 'under-the-hood-test.js', 'rewind-test.js', 'sponsorpulse-core-test.js', 'sponsorpulse-test.js',
              'fieldstamp-test.js'],
     'games': ['bp-chrome-test.js', 'pict-test.js', 'chess-features-test.js', 'games-test.js',

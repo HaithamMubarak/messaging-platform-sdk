@@ -17,6 +17,9 @@
 const AC_FLOOR       = 5;     // approved lines before Deliver unlocks
 const AC_ATTRIB_MS   = 1400;  // the beat between the line and the name
 const AC_MAX_LEN     = 140;
+const AC_RESCUES     = 3;     // times the speaker may ask for an easy one
+const AC_BEST_TIME   = 22;    // seconds to vote for the line of the night
+const AC_BEST_POINTS = 3;     // to whoever wrote it
 
 class AutocueGame extends PartyKit.PartyGame {
     constructor() {
@@ -34,11 +37,19 @@ class AutocueGame extends PartyKit.PartyGame {
         this.queueSize = 0;
         this.target = 10;
         this.unlocked = false;
+        this.direction = null;    // the current stage direction, shown to everyone
+        this.heckles = 0;
+        this.lastHeckle = null;
+        this.rescuesLeft = AC_RESCUES;
+        this.bestVotes = 0;
+        this.bestLine = null;
 
         // private
         this.myRole = 'writer';
         this.currentLine = null;  // the speaker's line, addressed to them alone
+        this.myDirection = null;
         this.mySubmitted = 0;
+        this.myBest = null;
 
         // host only — never written by applyState
         this.hostDelivered = [];  // the full speech; `delivered` is the display copy
@@ -46,8 +57,10 @@ class AutocueGame extends PartyKit.PartyGame {
         this.pending = [];        // [{id, text, author}] awaiting approval
         this.format = null;
         this.scoreByAuthor = new Map();
+        this.hostBest = new Map();    // voter -> delivered index
         this._nextId = 1;
         this._attribTimer = null;
+        this._heckleTimer = null;
     }
 
     async onInitialize() { this.setupUI(); }
@@ -67,7 +80,13 @@ class AutocueGame extends PartyKit.PartyGame {
         this.pending = [];
         this.hostDelivered = [];
         this.scoreByAuthor = new Map();
+        this.hostBest = new Map();
         this.unlocked = false;
+        this.direction = null;
+        this.heckles = 0;
+        this.lastHeckle = null;
+        this.rescuesLeft = AC_RESCUES;
+        this.bestLine = null;
         this.phase = 'live';
 
         // Seed the queue so the speaker is never the first to notice a problem.
@@ -145,8 +164,80 @@ class AutocueGame extends PartyKit.PartyGame {
         this.toPlayer(this.speaker, { t: 'line', text: next.text });
     }
 
+    /** The editor changes how the next line is said, not what it says. */
+    hostDirect(text) {
+        if (this.phase !== 'live') return;
+        this.direction = String(text || '').slice(0, 120);
+        this.broadcastState();
+        this.toPlayer(this.speaker, { t: 'direction', text: this.direction });
+    }
+
+    hostHeckle(from) {
+        if (this.phase !== 'live' || from === this.speaker) return;
+        this.heckles += 1;
+        this.lastHeckle = { by: from, at: Date.now() };
+        this.broadcastState();
+        clearTimeout(this._heckleTimer);
+        this._heckleTimer = setTimeout(() => { this.lastHeckle = null; this.broadcastState(); }, 4000);
+    }
+
+    /**
+     * The speaker's rescue. The whole product fails if somebody is left
+     * standing in silence, so they can always reach for a line that works —
+     * three times, so it stays a rescue rather than a strategy.
+     */
+    hostRescue(from) {
+        if (this.phase !== 'live' || from !== this.speaker) return;
+        if (this.rescuesLeft <= 0) return;
+        this.rescuesLeft -= 1;
+        this.currentForSpeaker = { text: this.pick(this.format.scaffolds), author: null };
+        this.direction = null;
+        this.broadcastState();
+        this.toPlayer(this.speaker, { t: 'line', text: this.currentForSpeaker.text });
+    }
+
+    hostVoteBest(from, msg) {
+        if (this.phase !== 'best') return;
+        const i = parseInt(msg.line, 10);
+        if (!(i >= 0 && i < this.hostDelivered.length)) return;
+        this.hostBest.set(from, i);
+        this.broadcastState();
+        if (this.hostBest.size >= this.playerCount()) {
+            clearTimeout(this._attribTimer);
+            this._attribTimer = setTimeout(() => this.hostSettleBest(), 500);
+        }
+    }
+
+    hostSettleBest() {
+        clearTimeout(this._attribTimer);
+        const tally = new Map();
+        this.hostBest.forEach(i => tally.set(i, (tally.get(i) || 0) + 1));
+        let best = null, most = 0;
+        tally.forEach((n, i) => { if (n > most) { most = n; best = i; } });
+        if (best !== null && this.hostDelivered[best]) {
+            const line = this.hostDelivered[best];
+            this.bestLine = { text: line.text, author: line.author, votes: most };
+            if (line.author) {
+                this.scoreByAuthor.set(line.author,
+                    (this.scoreByAuthor.get(line.author) || 0) + AC_BEST_POINTS);
+            }
+        }
+        this.phase = 'done';
+        this.broadcastState();
+    }
+
     hostEnd() {
         clearTimeout(this._attribTimer);
+        this.hostDelivered.forEach(d => { d.shown = true; });
+        // Enough of a speech to have a favourite? Let the room pick one.
+        if (this.hostDelivered.length >= 3) {
+            this.phase = 'best';
+            this.hostBest = new Map();
+            this.setDeadline(AC_BEST_TIME);
+            this.broadcastState();
+            this._attribTimer = setTimeout(() => this.hostSettleBest(), AC_BEST_TIME * 1000);
+            return;
+        }
         this.phase = 'done';
         this.hostDelivered.forEach(d => { d.shown = true; });
         this.broadcastState();
@@ -179,6 +270,9 @@ class AutocueGame extends PartyKit.PartyGame {
                 break;
             case 'submit':  this.hostSubmit(from, msg); break;
             case 'deliver': this.hostDeliver(from); break;
+            case 'heckle':  this.hostHeckle(from); break;
+            case 'rescue':  this.hostRescue(from); break;
+            case 'best':    this.hostVoteBest(from, msg); break;
             case 'end':     if (from === this.speaker) this.hostEnd(); break;
             default: break;
         }
@@ -199,6 +293,13 @@ class AutocueGame extends PartyKit.PartyGame {
             target: this.target,
             unlocked: this.unlocked || this.queue.length >= AC_FLOOR,
             floor: AC_FLOOR,
+            direction: this.direction,
+            heckles: this.heckles,
+            lastHeckle: this.lastHeckle,
+            rescuesLeft: this.rescuesLeft,
+            bestVotes: this.hostBest ? this.hostBest.size : 0,
+            bestLine: this.bestLine || null,
+            secondsLeft: this.secondsLeft(),
             scores,
         };
     }
@@ -217,6 +318,13 @@ class AutocueGame extends PartyKit.PartyGame {
                 break;
             case 'line':
                 this.currentLine = msg.text;
+                this.myDirection = null;
+                PartySFX.play('line');
+                this.renderAll();
+                break;
+            case 'direction':
+                this.myDirection = msg.text;
+                PartySFX.play('direction');
                 this.renderAll();
                 break;
             default: break;
@@ -224,7 +332,16 @@ class AutocueGame extends PartyKit.PartyGame {
     }
 
     applyState(s) {
-        if (s.phase === 'lobby') { this.currentLine = null; this.myRole = 'writer'; }
+        // Sound off observed changes, so the whole room hears the same beats.
+        if ((s.delivered || []).length > (this.delivered || []).length) PartySFX.play('line');
+        const wasShown = (this.delivered || []).filter(d => d.shown).length;
+        const nowShown = (s.delivered || []).filter(d => d.shown).length;
+        if (nowShown > wasShown) PartySFX.play('attrib');
+        if ((s.heckles || 0) > (this.heckles || 0)) PartySFX.play('heckle');
+        if (s.direction && s.direction !== this.direction) PartySFX.play('direction');
+        if (s.phase === 'done' && this.phase !== 'done') PartySFX.play('applause');
+
+        if (s.phase === 'lobby') { this.currentLine = null; this.myRole = 'writer'; this.myDirection = null; this.myBest = null; }
         this.phase = s.phase;
         this.speaker = s.speaker;
         this.formatName = s.formatName;
@@ -234,7 +351,15 @@ class AutocueGame extends PartyKit.PartyGame {
         this.target = s.target;
         this.unlocked = s.unlocked;
         this.floor = s.floor;
+        this.direction = s.direction;
+        this.heckles = s.heckles || 0;
+        this.lastHeckle = s.lastHeckle;
+        this.rescuesLeft = s.rescuesLeft;
+        this.bestVotes = s.bestVotes || 0;
+        this.bestLine = s.bestLine || null;
         this.scores = s.scores || [];
+        if (s.phase !== 'best') this.myBest = null;
+        this.adoptDeadline(s.secondsLeft);
         if (this.speaker === this.username) this.myRole = 'speaker';
         this.renderAll();
     }
@@ -256,6 +381,9 @@ class AutocueGame extends PartyKit.PartyGame {
 
     deliver() { this.toHost({ t: 'deliver' }); }
     endSpeech() { this.toHost({ t: 'end' }); }
+    heckle() { this.toHost({ t: 'heckle' }); PartySFX.play('heckle'); }
+    rescue() { this.toHost({ t: 'rescue' }); }
+    voteBest(i) { this.myBest = i; this.toHost({ t: 'best', line: i }); this.renderAll(); }
 
     // =====================================================================
     // UI
@@ -291,7 +419,21 @@ class AutocueGame extends PartyKit.PartyGame {
         });
         $('deliverBtn').addEventListener('click', () => this.deliver());
         $('endBtn').addEventListener('click', () => this.endSpeech());
+        $('rescueBtn').addEventListener('click', () => this.rescue());
+        $('heckleBtn').addEventListener('click', () => this.heckle());
+        $('directBtn').addEventListener('click', () => {
+            if (!this.isHost()) return;
+            const chosen = $('directionSelect').value;
+            this.hostDirect(chosen || this.pick(window.AutocueFormats.DIRECTIONS));
+        });
 
+        const dsel = $('directionSelect');
+        dsel.innerHTML = '<option value="">Something at random</option>' +
+            window.AutocueFormats.DIRECTIONS.map(d =>
+                `<option value="${PartyKit.esc(d)}">${PartyKit.esc(d)}</option>`).join('');
+
+        PartySFX.attachToggle('soundBtn');
+        this.startClock('clock');
         this.renderAll();
     }
 
@@ -299,6 +441,7 @@ class AutocueGame extends PartyKit.PartyGame {
         this.renderPhase();
         this.renderStage();
         this.renderMine();
+        this.renderBest();
         this.renderEditor();
         this.renderScores();
         this.renderRoster('lobbyPlayers', u => (u.name === this.speaker ? 'speaking' : (u.isHost ? 'screen' : '')));
@@ -308,13 +451,14 @@ class AutocueGame extends PartyKit.PartyGame {
     renderPhase() {
         this.show('lobbyPanel', this.phase === 'lobby');
         this.show('gamePanel', this.phase === 'live');
+        this.show('bestPanel', this.phase === 'best');
         this.show('overPanel', this.phase === 'done');
         this.show('hostControls', this.isHost() && this.phase === 'lobby');
         this.show('guestWait', !this.isHost() && this.phase === 'lobby');
         this.show('editorCard', this.isHost() && this.phase === 'live');
         this.show('againBtn', this.isHost());
 
-        const label = { lobby: 'Lobby', live: 'On stage', done: 'Applause' }[this.phase] || '';
+        const label = { lobby: 'Lobby', live: 'On stage', best: 'Line of the night', done: 'Applause' }[this.phase] || '';
         this.setPhasePill('phasePill', label, this.phase === 'live' ? 'is-live' : this.phase === 'lobby' ? 'is-off' : 'is-busy');
         this.setText('roundCount', this.phase === 'live' ? `${this.delivered.length} / ${this.target} lines` : '');
         this.setText('formatName', this.formatName || '');
@@ -335,6 +479,18 @@ class AutocueGame extends PartyKit.PartyGame {
                 <span class="ac-attrib__rule"></span>
                 <span class="ac-attrib__name">${last.author ? PartyKit.esc(last.author) : 'the autocue itself'}</span>
             </div>`;
+
+        const dir = document.getElementById('directionBox');
+        if (dir) {
+            dir.hidden = !this.direction || this.phase !== 'live';
+            if (this.direction) dir.textContent = this.direction;
+        }
+        const heck = document.getElementById('heckleBox');
+        if (heck) {
+            heck.hidden = !this.lastHeckle;
+            if (this.lastHeckle) heck.textContent = `${this.lastHeckle.by} heckles.`;
+        }
+        this.setText('heckleCount', this.heckles ? `${this.heckles} heckle${this.heckles === 1 ? '' : 's'}` : '');
 
         const prev = document.getElementById('previously');
         if (prev) {
@@ -357,6 +513,17 @@ class AutocueGame extends PartyKit.PartyGame {
             b.innerHTML = ready
                 ? 'SAID IT<small>tap for the next line</small>'
                 : `WAIT<small>${this.queueSize} of ${this.floor || AC_FLOOR} lines written</small>`;
+
+            const r = document.getElementById('rescueBtn');
+            r.disabled = !this.rescuesLeft;
+            r.textContent = this.rescuesLeft
+                ? `Give me an easy one (${this.rescuesLeft} left)`
+                : 'No rescues left';
+            const sd = document.getElementById('speakerDirection');
+            if (sd) {
+                sd.hidden = !this.myDirection;
+                if (this.myDirection) sd.textContent = this.myDirection;
+            }
         }
 
         if (this.phase === 'live' && !isSpeaker) {
@@ -368,6 +535,20 @@ class AutocueGame extends PartyKit.PartyGame {
             this.setText('mineCount', this.mySubmitted === 1 ? '1 line sent' : `${this.mySubmitted} lines sent`);
             this.setText('queueNote', `${this.queueSize} approved and waiting`);
         }
+    }
+
+    renderBest() {
+        if (this.phase !== 'best') return;
+        const el = document.getElementById('bestList');
+        if (!el) return;
+        el.innerHTML = this.delivered.map((d, i) => `
+            <button type="button" class="pk-choice ac-bestline${this.myBest === i ? ' is-on' : ''}" data-i="${i}">
+                <span class="ac-bestline__text">${PartyKit.esc(d.text)}</span>
+                <span class="ac-bestline__by">${d.author ? PartyKit.esc(d.author) : 'the autocue itself'}</span>
+            </button>`).join('');
+        el.querySelectorAll('.ac-bestline').forEach(b =>
+            b.addEventListener('click', () => this.voteBest(parseInt(b.dataset.i, 10))));
+        this.setText('bestVotesNote', `${this.bestVotes} of ${this.playerCount()} have voted`);
     }
 
     renderEditor() {
@@ -418,6 +599,19 @@ class AutocueGame extends PartyKit.PartyGame {
             </li>`).join('');
         if (this.phase === 'done' && rows.length) {
             this.setText('overTitle', `${rows[0].name} put ${rows[0].score} line${rows[0].score === 1 ? '' : 's'} in ${this.speaker || 'their'} mouth`);
+        }
+        const bl = document.getElementById('bestLineBox');
+        if (bl) {
+            bl.hidden = !(this.phase === 'done' && this.bestLine);
+            if (this.phase === 'done' && this.bestLine) {
+                bl.innerHTML = `
+                    <div class="pk-kicker">Line of the night — ${this.bestLine.votes} vote${this.bestLine.votes === 1 ? '' : 's'}</div>
+                    <p class="ac-line">${PartyKit.esc(this.bestLine.text)}</p>
+                    <div class="ac-attrib is-shown">
+                        <span class="ac-attrib__rule"></span>
+                        <span class="ac-attrib__name">${this.bestLine.author ? PartyKit.esc(this.bestLine.author) : 'the autocue itself'}</span>
+                    </div>`;
+            }
         }
     }
 }

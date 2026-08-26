@@ -53,3 +53,23 @@
 .ng-accuse-grid .pk-choice { text-align: center; min-height: 48px; }
 
 .ng-innocent { color: var(--warning); font-style: italic; }
+
+/* ---- the reveal table ---------------------------------------------------- */
+.ng-hard {
+    font-family: var(--font-mono);
+    font-size: var(--fs-xs);
+    text-transform: uppercase;
+    letter-spacing: .08em;
+    color: var(--warning);
+    border: 1px solid var(--warning);
+    border-radius: var(--r-pill);
+    padding: 1px 7px;
+    margin-left: var(--sp-2);
+}
+.ng-done {
+    display: block;
+    font-family: var(--font-mono);
+    font-size: var(--fs-xs);
+    color: var(--success);
+    margin-top: 3px;
+}

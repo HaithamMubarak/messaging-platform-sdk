@@ -15,6 +15,8 @@
 
 const NG_CLAIM_TIME  = 12;   // seconds the table has to agree a claim
 const NG_MISSION_PTS = 100;
+const NG_HARD_PTS    = 150;  // a mission that takes real steering
+const NG_BLUFF_PTS   = 150;  // an innocent who talks a claim past the table
 const NG_CATCH_PTS   = 150;
 const NG_WRONG_PTS   = -75;
 const NG_INNOCENT_PTS = 100;
@@ -35,7 +37,9 @@ class NudgeGame extends PartyKit.PartyGame {
         this.reveal = null;
 
         // private
-        this.mission = null;      // {text} or null when you are one of the innocents
+        this.mission = null;      // the text, or null when you are an innocent
+        this.missionHard = false;
+        this.missionsDone = 0;
         this.hasMission = false;
         this.dealt = false;
         this.myAccusation = null;
@@ -75,25 +79,39 @@ class NudgeGame extends PartyKit.PartyGame {
         this.completed = 0;
         this.claim = null;
 
-        const deck = this.shuffled(window.NudgeMissions.MISSIONS);
-        let d = 0;
+        this.deck = this.shuffled(window.NudgeMissions.MISSIONS);
+        this._deckAt = 0;
+        this.done = new Map();
         players.forEach(name => {
             this.score.set(name, 0);
+            this.done.set(name, 0);
             if (noMission.has(name)) { this.missions.set(name, null); return; }
-            const targets = players.filter(n => n !== name);
-            const template = deck[d++ % deck.length];
-            const text = template.replace('{target}', this.pick(targets));
-            this.missions.set(name, text);
+            this.missions.set(name, this.dealOne(name));
         });
 
         this.phase = 'live';
         this.setDeadline(0);
         this.broadcastState();
-        players.forEach(name => this.toPlayer(name, {
+        players.forEach(name => this.sendMission(name));
+    }
+
+    /** One mission, aimed at somebody who is actually at the table. */
+    dealOne(name) {
+        const targets = this.players().filter(n => n !== name);
+        if (!targets.length) return null;
+        const card = this.deck[this._deckAt++ % this.deck.length];
+        return { text: card.text.replace('{target}', this.pick(targets)), hard: !!card.hard };
+    }
+
+    sendMission(name) {
+        const m = this.missions.get(name);
+        this.toPlayer(name, {
             t: 'mission',
-            text: this.missions.get(name),
-            hasMission: this.missions.get(name) !== null,
-        }));
+            text: m ? m.text : null,
+            hard: !!(m && m.hard),
+            done: this.done ? (this.done.get(name) || 0) : 0,
+            hasMission: m !== null && m !== undefined,
+        });
     }
 
     hostClaim(from) {
@@ -127,12 +145,28 @@ class NudgeGame extends PartyKit.PartyGame {
         if (!this.claim) return;
         const c = this.claim;
         const carried = c.yes > c.no;
+        let bluff = false;
         if (carried) {
             this.completed += 1;
-            this.score.set(c.by, (this.score.get(c.by) || 0) + NG_MISSION_PTS);
-            this.completedList.push({ by: c.by, at: Date.now() });
+            const m = this.missions.get(c.by);
+            if (m) {
+                this.score.set(c.by, (this.score.get(c.by) || 0) + (m.hard ? NG_HARD_PTS : NG_MISSION_PTS));
+                this.done.set(c.by, (this.done.get(c.by) || 0) + 1);
+                // Finishing your job does not retire you for the evening —
+                // without this, half the table has nothing to do by pudding.
+                this.missions.set(c.by, this.dealOne(c.by));
+                this.sendMission(c.by);
+            } else {
+                // An innocent talked a claim past the table. That deserves more
+                // than a mission does.
+                bluff = true;
+                this.score.set(c.by, (this.score.get(c.by) || 0) + NG_BLUFF_PTS);
+                this.done.set(c.by, (this.done.get(c.by) || 0) + 1);
+                this.sendMission(c.by);
+            }
+            this.completedList.push({ by: c.by, at: Date.now(), bluff });
         }
-        this.lastClaim = { by: c.by, carried, yes: c.yes, no: c.no };
+        this.lastClaim = { by: c.by, carried, yes: c.yes, no: c.no, bluff };
         this.claim = null;
         this.setDeadline(0);
         this.broadcastState();
@@ -169,7 +203,7 @@ class NudgeGame extends PartyKit.PartyGame {
         this.missions.forEach((m, name) => {
             const namedBy = [];
             this.accusations.forEach((accused, accuser) => { if (accused === name) namedBy.push(accuser); });
-            rows.push({ name, mission: m, namedBy });
+            rows.push({ name, mission: m ? m.text : null, hard: !!(m && m.hard), done: this.done.get(name) || 0, namedBy });
         });
         this.reveal = { rows, completed: this.completed };
 
@@ -190,13 +224,9 @@ class NudgeGame extends PartyKit.PartyGame {
         switch (msg.t) {
             case 'hello':
                 this.broadcastState();
-                if (this.phase === 'live' && this.missions.has(from)) {
-                    this.toPlayer(from, {
-                        t: 'mission',
-                        text: this.missions.get(from),
-                        hasMission: this.missions.get(from) !== null,
-                    });
-                }
+                // Somebody who refreshed gets their briefing back, or they
+                // spend the rest of dinner wondering what they were meant to do.
+                if (this.phase === 'live' && this.missions.has(from)) this.sendMission(from);
                 break;
             case 'claim':  this.hostClaim(from); break;
             case 'vote':   this.hostVote(from, msg); break;
@@ -236,9 +266,12 @@ class NudgeGame extends PartyKit.PartyGame {
             case 'state': this.applyState(msg); break;
             case 'mission':
                 this.mission = msg.text;
+                this.missionHard = !!msg.hard;
+                this.missionsDone = msg.done || 0;
                 this.hasMission = !!msg.hasMission;
                 this.dealt = true;
                 this.claimedDone = false;
+                PartySFX.play('deal');
                 this.renderAll();
                 break;
             case 'accused':
@@ -250,8 +283,13 @@ class NudgeGame extends PartyKit.PartyGame {
     }
 
     applyState(s) {
+        if (s.claim && !this.claim) PartySFX.play('claim');
+        if (!s.claim && this.claim) PartySFX.play(s.lastClaim && s.lastClaim.carried ? 'carried' : 'thrown');
+        if (s.phase === 'over' && this.phase !== 'over') PartySFX.play('applause');
+
         if (s.phase === 'lobby') {
             this.mission = null; this.hasMission = false; this.dealt = false;
+            this.missionHard = false; this.missionsDone = 0;
             this.myAccusation = null; this.claimedDone = false;
         }
         this.phase = s.phase;
@@ -300,6 +338,7 @@ class NudgeGame extends PartyKit.PartyGame {
         $('claimBtn').addEventListener('click', () => this.claimMission());
         $('voteYes').addEventListener('click', () => this.voteClaim(true));
         $('voteNo').addEventListener('click', () => this.voteClaim(false));
+        PartySFX.attachToggle('soundBtn');
         this.startClock('clock');
         this.renderAll();
     }
@@ -352,13 +391,18 @@ class NudgeGame extends PartyKit.PartyGame {
         box.hidden = false;
 
         if (this.hasMission) {
-            this.setText('missionLabel', 'Your mission — nobody else has it');
+            this.setText('missionLabel',
+                (this.missionHard ? 'Your mission — the hard kind' : 'Your mission — nobody else has it') +
+                (this.missionsDone ? ` · ${this.missionsDone} done` : ''));
             document.getElementById('missionText').textContent = this.mission || '';
-            this.setText('missionHint', 'It has to happen in front of everyone, and it has to be something you could talk them into.');
+            this.setText('missionHint', this.missionHard
+                ? 'This one is worth more, and it will take some steering. Land it and you get another.'
+                : 'It has to happen in front of everyone, and it has to be something you could talk them into. Land it and you get another.');
         } else {
-            this.setText('missionLabel', 'You were dealt nothing');
+            this.setText('missionLabel',
+                'You were dealt nothing' + (this.missionsDone ? ` · ${this.missionsDone} bluff${this.missionsDone === 1 ? '' : 's'} landed` : ''));
             document.getElementById('missionText').textContent = 'You have no mission. Act natural.';
-            this.setText('missionHint', 'Everybody knows this card exists. Say very little and you will look guilty anyway.');
+            this.setText('missionHint', 'Everybody knows this card exists. You may still claim — talk a claim past the table and it pays better than a mission does.');
         }
 
         const btn = document.getElementById('claimBtn');
@@ -416,8 +460,8 @@ class NudgeGame extends PartyKit.PartyGame {
                     <tr class="${r.name === this.username ? 'is-me' : ''}">
                       <td>${PartyKit.esc(r.name)}</td>
                       <td>${r.mission
-                          ? PartyKit.esc(r.mission)
-                          : '<span class="ng-innocent">Nothing at all.</span>'}</td>
+                          ? PartyKit.esc(r.mission) + (r.hard ? ' <span class="ng-hard">hard</span>' : '')
+                          : '<span class="ng-innocent">Nothing at all.</span>'}${r.done ? `<span class="ng-done">${r.done} landed</span>` : ''}</td>
                       <td class="num">${r.namedBy.length ? PartyKit.esc(r.namedBy.join(', ')) : '—'}</td>
                       <td class="num">${scoreOf(r.name)}</td>
                     </tr>`).join('')}

@@ -89,5 +89,24 @@
         },
     ];
 
-    window.AutocueFormats = { FORMATS };
+    /**
+      * Stage directions the editor drops on the speaker mid-speech. They are
+      * deliberately about HOW to say the next line rather than what it says —
+      * a direction that changes the words competes with the writers, and a
+      * direction that changes the delivery makes them funnier.
+      */
+     const DIRECTIONS = [
+         'Say the next line in a whisper.',
+         'Say the next line while making eye contact with one person.',
+         'Pause for three full seconds before the next line.',
+         'Say the next line as though it costs you something.',
+         'Point at somebody as you say the next line.',
+         'Say the next line much too loudly.',
+         'Say the next line, then say "and I mean that".',
+         'Put your hand on your heart for the next line.',
+         'Say the next line like you are reading a verdict.',
+         'Smile all the way through the next line.',
+     ];
+
+     window.AutocueFormats = { FORMATS, DIRECTIONS };
 })();

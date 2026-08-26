@@ -41,6 +41,10 @@
 
         <div class="sdk-header__right">
             <span class="pk-round" id="roundCount"></span>
+            <button class="btn btn--ghost" id="soundBtn" type="button" aria-pressed="true" title="Sound on">
+                <svg class="icon icon--sm" aria-hidden="true"><use href="#i-mic"></use></svg>
+                <span>Sound</span>
+            </button>
             <button class="btn btn--ghost" id="shareBtn" type="button" hidden title="Invite someone (QR or link)">
                 <svg class="icon icon--sm" aria-hidden="true"><use href="#i-qr-code"></use></svg>
                 <span>Invite</span>
@@ -82,6 +86,10 @@
                             <span>In the dock</span>
                             <select id="defendantSelect" class="field__select"></select>
                         </label>
+                        <label class="pk-field">
+                            <span>Cite precedent</span>
+                            <select id="precedentSelect" class="field__select"></select>
+                        </label>
                         <button class="btn btn--primary btn--block" id="openBtn" type="button">Open the case</button>
                     </div>
                     <div class="pk-card" id="guestWait" hidden>
@@ -99,12 +107,38 @@
                         <p class="gv-case__charge" id="caseChargeOut"></p>
                         <p class="gv-case__dock" id="defendantOut"></p>
                     </div>
+                    <div class="gv-precedent" id="precedentBox" hidden></div>
+                    <div class="gv-plea" id="pleaOut" hidden></div>
+                    <div class="gv-objection" id="objectionBox" hidden></div>
                     <ul class="gv-exhibits" id="exhibits"></ul>
                     <div class="gv-jurycount" id="juryCount"></div>
                     <div class="gv-verdict" id="verdictBox" hidden></div>
                     <div style="margin-top: var(--sp-4); display: flex; gap: var(--sp-3);">
                         <button class="btn" id="juryNowBtn" type="button" hidden>Send the jury out now</button>
                         <button class="btn btn--primary" id="adjournBtn" type="button" hidden>Adjourn</button>
+                    </div>
+                </div>
+
+                <div class="pk-secret" id="pleaPanel" hidden>
+                    <div class="pk-secret__label">You are in the dock. Say your piece.</div>
+                    <p class="pk-secret__hint">This one thing cannot be struck. Everything else can.</p>
+                    <div style="display:grid; gap: var(--sp-3); margin-top: var(--sp-3)">
+                        <textarea class="field__textarea" id="pleaInput" rows="3" maxlength="200"
+                                  placeholder="Explain yourself."></textarea>
+                        <button class="btn btn--primary" id="sendPlea" type="button">Enter the plea</button>
+                    </div>
+                </div>
+
+                <div class="pk-wait" id="pleaWait" hidden>
+                    <strong>The defendant is entering a plea.</strong>
+                    Testimony opens the moment they finish.
+                </div>
+
+                <div class="pk-card" id="rulingCard" hidden style="margin-top: var(--sp-4)">
+                    <div class="pk-card__title">An objection is on the floor</div>
+                    <div style="display:flex; gap: var(--sp-3)">
+                        <button class="btn btn--primary" id="sustainBtn" type="button">Sustained</button>
+                        <button class="btn" id="overruleBtn" type="button">Overruled</button>
                     </div>
                 </div>
 
@@ -115,7 +149,10 @@
                                   placeholder="Nobody will know it was you. Say the thing."></textarea>
                         <div style="display:flex; justify-content: space-between; align-items:center; font-size: var(--fs-sm); color: var(--text-muted)">
                             <span id="pendingNote"></span>
-                            <button class="btn btn--primary" id="sendTestimony" type="button">Submit to the bench</button>
+                            <span style="display:flex; gap: var(--sp-2)">
+                                <button class="btn" id="objectBtn" type="button" hidden>Objection</button>
+                                <button class="btn btn--primary" id="sendTestimony" type="button">Submit to the bench</button>
+                            </span>
                         </div>
                     </div>
                 </div>
@@ -174,6 +211,7 @@
     <script src="../../../js/UserConnectionBase.js"></script>
 
     <script src="../shared/party-kit.js"></script>
+    <script src="../shared/party-sfx.js"></script>
     <script src="gavel.js"></script>
 <script src="../../../js/app-chrome.js"></script>
 </body>

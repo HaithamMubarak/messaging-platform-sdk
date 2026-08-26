@@ -3018,8 +3018,15 @@ function listBoardVersions(onDone) {
         if (!Array.isArray(rows)) rows = (rows && rows.versions) ? rows.versions : [];
 
         // Newest first: that is the order a person wants to scan.
+        //
+        // Sorted by `id`, NOT by `version`: the server writes version 0 on
+        // every row, so sorting by it did nothing and the "oldest" entry in the
+        // list was whichever order the rows happened to arrive in. `id` rises
+        // with each write and is what actually identifies one.
         const versions = rows.slice().sort(function (a, b) {
-            return (b.version || 0) - (a.version || 0);
+            const ai = a.id || 0, bi = b.id || 0;
+            if (ai !== bi) return bi - ai;
+            return (Date.parse(b.createdAt || 0) || 0) - (Date.parse(a.createdAt || 0) || 0);
         });
         if (onDone) onDone(versions);
     });
@@ -3032,13 +3039,16 @@ function listBoardVersions(onDone) {
  * saved as a NEW version rather than rewriting history — going back is itself
  * an action you can undo.
  */
-function restoreBoardVersion(version, onDone) {
+function restoreBoardVersion(id, onDone) {
     if (!channel || typeof channel.storageGetList !== 'function') {
         if (onDone) onDone(false);
         return;
     }
     listBoardVersions(function (versions) {
-        const wanted = versions.filter(function (v) { return v.version === version; })[0];
+        // Matched on id for the same reason the sort uses it: `version` is 0
+        // for every row, so matching on it returned an arbitrary entry — which
+        // is why restoring appeared to do nothing.
+        const wanted = versions.filter(function (v) { return v.id === id; })[0];
         if (!wanted) { if (onDone) onDone(false); return; }
         try {
             const content = typeof wanted.content === 'string'
@@ -3059,6 +3069,90 @@ window.whiteboardVersions = {
     list: listBoardVersions,
     restore: restoreBoardVersion
 };
+
+/**
+ * The history panel.
+ *
+ * The listing and restore functions existed without any way to reach them,
+ * which is a feature nobody can use. This is the way in: open it, see when each
+ * version was saved and by whom, and put one back.
+ */
+function openHistory() {
+    const modal = document.getElementById('historyModal');
+    const list = document.getElementById('historyList');
+    const state = document.getElementById('historyState');
+    if (!modal || !list) return;
+
+    modal.style.display = 'flex';
+    list.innerHTML = '';
+    state.textContent = "Reading the board's history…";
+
+    listBoardVersions(function (versions) {
+        if (!versions.length) {
+            state.textContent = 'No earlier versions yet. The board is saved as you draw, '
+                + 'so come back after a few changes.';
+            return;
+        }
+        state.textContent = versions.length + ' version(s). Restoring one saves it as a NEW '
+            + 'version, so going back is itself something you can undo.';
+
+        versions.forEach(function (version, index) {
+            const meta = version.metadata || {};
+            const savedAt = meta.savedAt || (version.createdAt ? Date.parse(version.createdAt) : 0);
+
+            const row = document.createElement('div');
+            row.className = 'wb-history__row' + (index === 0 ? ' wb-history__row--current' : '');
+
+            const when = document.createElement('span');
+            when.className = 'wb-history__when';
+            when.textContent = savedAt ? new Date(savedAt).toLocaleString() : 'unknown time';
+
+            const who = document.createElement('span');
+            who.className = 'wb-history__who';
+            who.textContent = index === 0 ? 'current' : (meta.by ? 'by ' + meta.by : '');
+
+            row.appendChild(when);
+            row.appendChild(who);
+
+            if (index !== 0) {
+                const restore = document.createElement('button');
+                restore.className = 'wb-btn';
+                restore.type = 'button';
+                restore.textContent = 'Restore';
+                restore.addEventListener('click', function () {
+                    restore.disabled = true;
+                    restore.textContent = 'Restoring…';
+                    restoreBoardVersion(version.id, function (ok) {
+                        if (ok) {
+                            closeHistory();
+                            if (typeof showToast === 'function') {
+                                showToast('Restored the version from ' + when.textContent, 'success');
+                            }
+                            // Save it forward, so the restore is itself a version.
+                            if (typeof saveBoardStateToStorage === 'function') saveBoardStateToStorage();
+                        } else {
+                            restore.disabled = false;
+                            restore.textContent = 'Restore';
+                            if (typeof showToast === 'function') {
+                                showToast('Could not restore that version', 'error');
+                            }
+                        }
+                    });
+                });
+                row.appendChild(restore);
+            }
+            list.appendChild(row);
+        });
+    });
+}
+
+function closeHistory() {
+    const modal = document.getElementById('historyModal');
+    if (modal) modal.style.display = 'none';
+}
+
+window.openHistory = openHistory;
+window.closeHistory = closeHistory;
 
 /**
  * Save board state to channel storage (host agent only)
@@ -3296,6 +3390,12 @@ function restoreBoardFromObjects(data) {
 
             // 2. the board as state
             canvasSnapshot = data.base || null;
+            // Replace, do not merge. This function is used both to LOAD a board
+            // into an empty session and to RESTORE an earlier version over the
+            // current one; pushing was right for the first and wrong for the
+            // second, where it left both versions on the board at once and the
+            // stroke count doubled instead of going back.
+            boardState.length = 0;
             ink.forEach(stk => boardState.push(stk));
             objects.forEach(obj => boardState.push(obj));
 

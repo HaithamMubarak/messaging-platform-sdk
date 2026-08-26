@@ -12,6 +12,7 @@
 // and later trials cite it.
 // ============================================================================
 
+const GV_PLEA_TIME     = 40;   // seconds for the defendant to say their piece
 const GV_EVIDENCE_TIME = 90;   // seconds of testimony
 const GV_JURY_TIME     = 25;   // seconds in the booth
 const GV_MAX_LEN       = 200;
@@ -43,6 +44,9 @@ class GavelGame extends PartyKit.PartyGame {
         this.verdict = null;
         this.sentence = '';
         this.caseLaw = [];
+        this.plea = null;          // the defendant's own words, always admitted
+        this.precedent = null;     // an earlier case this one cites
+        this.objection = null;     // {by, ruling} while one is live
 
         // private
         this.myVote = null;
@@ -51,8 +55,10 @@ class GavelGame extends PartyKit.PartyGame {
         // host only
         this.pending = [];      // [{id, text, author}] — author never leaves the bench
         this.votes = new Map();
+        this.objections = 0;
         this._nextId = 1;
         this._timer = null;
+        this._objTimer = null;
     }
 
     async onInitialize() { this.setupUI(); }
@@ -115,11 +121,56 @@ class GavelGame extends PartyKit.PartyGame {
         this.votes = new Map();
         this.verdict = null;
         this.sentence = '';
+        this.plea = null;
+        this.objection = null;
+        this.objections = 0;
 
+        // A cited case is shown throughout. The record is only funny if it is
+        // used, and this is the thing that uses it.
+        const cited = (this.caseLaw || []).find(c => String(c.no) === String(cfg.precedent));
+        this.precedent = cited ? { no: cited.no, title: cited.title, sentence: cited.sentence } : null;
+
+        // The defendant speaks first, and is the one person whose words the
+        // bench cannot strike.
+        this.phase = 'plea';
+        this.setDeadline(GV_PLEA_TIME);
+        this.broadcastState();
+        this._timer = setTimeout(() => this.hostEvidence(), GV_PLEA_TIME * 1000);
+    }
+
+    hostPlea(from, msg) {
+        if (this.phase !== 'plea' || from !== this.defendant) return;
+        const text = String(msg.text || '').trim().slice(0, GV_MAX_LEN);
+        if (!text) return;
+        this.plea = text;
+        clearTimeout(this._timer);
+        this._timer = setTimeout(() => this.hostEvidence(), 900);
+        this.broadcastState();
+    }
+
+    hostEvidence() {
+        clearTimeout(this._timer);
+        if (this.phase === 'evidence') return;
         this.phase = 'evidence';
         this.setDeadline(GV_EVIDENCE_TIME);
         this.broadcastState();
         this._timer = setTimeout(() => this.hostJury(), GV_EVIDENCE_TIME * 1000);
+    }
+
+    /** Pure ceremony, and the cheapest laugh in the game. */
+    hostObject(from) {
+        if (this.phase !== 'evidence' || this.objection) return;
+        this.objections += 1;
+        this.objection = { by: from, ruling: null };
+        this.broadcastState();
+    }
+
+    hostRule(sustained) {
+        if (!this.objection) return;
+        this.objection.ruling = sustained ? 'sustained' : 'overruled';
+        this.broadcastState();
+        clearTimeout(this._objTimer);
+        this._objTimer = setTimeout(() => { this.objection = null; this.broadcastState(); }, 3500);
     }
 
     hostSubmit(from, msg) {
@@ -205,6 +256,8 @@ class GavelGame extends PartyKit.PartyGame {
         switch (msg.t) {
             case 'hello':  this.broadcastState(); break;
             case 'submit': this.hostSubmit(from, msg); break;
+            case 'plea':   this.hostPlea(from, msg); break;
+            case 'object': this.hostObject(from); break;
             case 'vote':   this.hostVote(from, msg); break;
             default: break;
         }
@@ -226,6 +279,10 @@ class GavelGame extends PartyKit.PartyGame {
             verdict: this.verdict,
             tally: this.tally || null,
             sentence: this.sentence,
+            plea: this.plea,
+            precedent: this.precedent,
+            objection: this.objection,
+            objections: this.objections,
             secondsLeft: this.secondsLeft(),
         };
     }
@@ -239,6 +296,16 @@ class GavelGame extends PartyKit.PartyGame {
     }
 
     applyState(s) {
+        // Every cue is driven off an observed change, so the room hears it too.
+        if (s.phase !== this.phase) {
+            if (s.phase === 'evidence' && this.phase === 'plea') PartySFX.play('gavel');
+            if (s.phase === 'jury') PartySFX.play('gavel');
+            if (s.phase === 'sentence') PartySFX.play(s.verdict === 'guilty' ? 'guilty' : 'cleared');
+            if (s.phase === 'done') PartySFX.play('gavel');
+        }
+        if ((s.objections || 0) > (this.objections || 0)) PartySFX.play('objection');
+        if ((s.admitted || []).length > (this.admitted || []).length) PartySFX.play('tick');
+
         if (s.phase !== this.phase && s.phase === 'jury') this.myVote = null;
         if (s.phase === 'lobby') { this.myVote = null; this.mySubmissions = 0; }
         this.phase = s.phase;
@@ -253,6 +320,10 @@ class GavelGame extends PartyKit.PartyGame {
         this.verdict = s.verdict;
         this.tally = s.tally;
         this.sentence = s.sentence;
+        this.plea = s.plea;
+        this.precedent = s.precedent;
+        this.objection = s.objection;
+        this.objections = s.objections || 0;
         this.adoptDeadline(s.secondsLeft);
         this.renderAll();
     }
@@ -270,6 +341,20 @@ class GavelGame extends PartyKit.PartyGame {
         this.mySubmissions += 1;
         this.showToast('Submitted. The bench decides whether it is admitted.', 'info', 2400);
         this.renderAll();
+    }
+
+    submitPlea() {
+        const input = document.getElementById('pleaInput');
+        const text = (input.value || '').trim();
+        if (!text) return;
+        this.toHost({ t: 'plea', text: text.slice(0, GV_MAX_LEN) });
+        input.value = '';
+    }
+
+    object() {
+        if (this.phase !== 'evidence' || this.objection) return;
+        this.toHost({ t: 'object' });
+        PartySFX.play('objection');
     }
 
     vote(v) {
@@ -292,6 +377,7 @@ class GavelGame extends PartyKit.PartyGame {
                 title: $('caseTitle').value,
                 charge: $('caseCharge').value,
                 defendant: $('defendantSelect').value,
+                precedent: $('precedentSelect').value,
             });
         });
         $('sendTestimony').addEventListener('click', () => this.submitTestimony());
@@ -301,6 +387,10 @@ class GavelGame extends PartyKit.PartyGame {
         $('guiltyBtn').addEventListener('click', () => this.vote('guilty'));
         $('notGuiltyBtn').addEventListener('click', () => this.vote('not-guilty'));
         $('juryNowBtn').addEventListener('click', () => { if (this.isHost()) this.hostJury(); });
+        $('sendPlea').addEventListener('click', () => this.submitPlea());
+        $('objectBtn').addEventListener('click', () => this.object());
+        $('sustainBtn').addEventListener('click', () => { if (this.isHost()) this.hostRule(true); });
+        $('overruleBtn').addEventListener('click', () => { if (this.isHost()) this.hostRule(false); });
         $('adjournBtn').addEventListener('click', () => { if (this.isHost()) this.hostAdjourn(); });
 
         const sentSel = $('sentenceSelect');
@@ -315,6 +405,7 @@ class GavelGame extends PartyKit.PartyGame {
             this.hostSentence(custom || sentSel.value);
         });
 
+        PartySFX.attachToggle('soundBtn');
         this.startClock('clock');
         this.renderAll();
     }
@@ -336,12 +427,16 @@ class GavelGame extends PartyKit.PartyGame {
         this.show('hostControls', this.isHost() && this.phase === 'lobby');
         this.show('guestWait', !this.isHost() && this.phase === 'lobby');
         this.show('benchCard', this.isHost() && this.phase === 'evidence');
+        this.show('pleaPanel', this.phase === 'plea' && this.username === this.defendant);
+        this.show('pleaWait', this.phase === 'plea' && this.username !== this.defendant);
+        this.show('objectBtn', this.phase === 'evidence' && this.username !== this.defendant);
+        this.show('rulingCard', this.isHost() && !!this.objection && !this.objection.ruling);
         this.show('sentencePanel', this.isHost() && this.phase === 'sentence');
         this.show('juryNowBtn', this.isHost() && this.phase === 'evidence');
         this.show('adjournBtn', this.isHost() && this.phase === 'done');
 
-        const label = { lobby: 'Chambers', evidence: 'Testimony', jury: 'The jury retires', sentence: 'Sentencing', done: 'Judgment' }[this.phase] || '';
-        const tone = this.phase === 'evidence' ? 'is-live' : this.phase === 'lobby' ? 'is-off' : 'is-busy';
+        const label = { lobby: 'Chambers', plea: 'The plea', evidence: 'Testimony', jury: 'The jury retires', sentence: 'Sentencing', done: 'Judgment' }[this.phase] || '';
+        const tone = this.phase === 'evidence' || this.phase === 'plea' ? 'is-live' : this.phase === 'lobby' ? 'is-off' : 'is-busy';
         this.setPhasePill('phasePill', label, tone);
         this.setText('roundCount', this.phase === 'lobby' ? '' : `Case ${String(this.caseNo).padStart(4, '0')}`);
         this.setText('lobbyCount', this.playerCount() === 1 ? '1 present' : `${this.playerCount()} present`);
@@ -351,6 +446,33 @@ class GavelGame extends PartyKit.PartyGame {
         this.setText('caseTitleOut', this.title || '');
         this.setText('caseChargeOut', this.charge || '');
         this.setText('defendantOut', this.defendant ? `In the dock: ${this.defendant}` : '');
+
+        const prec = document.getElementById('precedentBox');
+        if (prec) {
+            prec.hidden = !this.precedent;
+            if (this.precedent) {
+                prec.innerHTML = `Citing case ${String(this.precedent.no).padStart(4, '0')} — <strong>${PartyKit.esc(this.precedent.title)}</strong>` +
+                    (this.precedent.sentence ? `: ${PartyKit.esc(this.precedent.sentence)}` : '');
+            }
+        }
+
+        const pleaOut = document.getElementById('pleaOut');
+        if (pleaOut) {
+            pleaOut.hidden = !this.plea;
+            if (this.plea) {
+                pleaOut.innerHTML = `<span class="gv-plea__label">The defence says</span>${PartyKit.esc(this.plea)}`;
+            }
+        }
+
+        const obj = document.getElementById('objectionBox');
+        if (obj) {
+            obj.hidden = !this.objection;
+            if (this.objection) {
+                obj.className = 'gv-objection' + (this.objection.ruling ? ' is-' + this.objection.ruling : '');
+                obj.innerHTML = `<strong>Objection</strong> — ${PartyKit.esc(this.objection.by)}` +
+                    (this.objection.ruling ? ` · <em>${this.objection.ruling}</em>` : ' · awaiting a ruling');
+            }
+        }
 
         const el = document.getElementById('exhibits');
         if (el) {
@@ -422,12 +544,21 @@ class GavelGame extends PartyKit.PartyGame {
     renderDefendantOptions() {
         if (this.phase !== 'lobby' || !this.isHost()) return;
         const sel = document.getElementById('defendantSelect');
-        if (!sel) return;
-        const current = sel.value;
-        const names = this.players();
-        sel.innerHTML = '<option value="">Pick at random</option>' +
-            names.map(n => `<option value="${PartyKit.esc(n)}">${PartyKit.esc(n)}</option>`).join('');
-        if (names.includes(current)) sel.value = current;
+        if (sel) {
+            const current = sel.value;
+            const names = this.players();
+            sel.innerHTML = '<option value="">Pick at random</option>' +
+                names.map(n => `<option value="${PartyKit.esc(n)}">${PartyKit.esc(n)}</option>`).join('');
+            if (names.includes(current)) sel.value = current;
+        }
+        const prec = document.getElementById('precedentSelect');
+        if (prec) {
+            const current = prec.value;
+            prec.innerHTML = '<option value="">Cite nothing</option>' +
+                (this.caseLaw || []).slice(-12).reverse().map(c =>
+                    `<option value="${c.no}">${String(c.no).padStart(4, '0')} — ${PartyKit.esc(c.title)}</option>`).join('');
+            if (current) prec.value = current;
+        }
     }
 
     renderCaseLaw() {

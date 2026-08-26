@@ -14,9 +14,13 @@
 // ============================================================================
 
 const CH_CHOOSE_TIME = 25;    // seconds to pick your option
-const CH_CUE_MS      = 2400;  // how long each slot stays live
+const CH_CUE_MS      = 2400;  // how long a slot stays live in round one
+const CH_CUE_STEP    = 400;   // ...and how much faster each round gets
+const CH_CUE_MIN     = 1300;
 const CH_REVEAL_TIME = 10;    // seconds on the finished creation
+const CH_BEST_TIME   = 22;    // seconds to vote for the best of the night
 const CH_HIT_POINTS  = 10;
+const CH_BEST_POINTS = 30;    // to everyone who owned a piece of the winner
 
 class ChorusGame extends PartyKit.PartyGame {
     constructor() {
@@ -35,10 +39,15 @@ class ChorusGame extends PartyKit.PartyGame {
         this.scores = [];
         this.feed = [];
         this.holes = [];
+        this.blame = [];        // cumulative holes per player, all match
+        this.gallery = [];      // every finished creation, for the vote
+        this.bestVotes = 0;
+        this.winner = null;
 
         // private to me
         this.mySlots = [];      // [{i, prompt, options, chosen}]
         this.liveSlot = -1;
+        this.myBest = null;
 
         // host only — never written by applyState
         this.hostParts = [];
@@ -47,6 +56,9 @@ class ChorusGame extends PartyKit.PartyGame {
         this.owner = new Map();     // slot index -> player
         this.chosen = new Map();    // slot index -> value
         this.score = new Map();
+        this.hostBlame = new Map();   // name -> holes left, whole match
+        this.hostGallery = [];        // [{round, templateName, text, holes, owners}]
+        this.hostBest = new Map();    // voter -> round index
         this.deck = [];
         this._timer = null;
         this._cueTimer = null;
@@ -66,7 +78,11 @@ class ChorusGame extends PartyKit.PartyGame {
         }
         this.round = 0;
         this.score = new Map();
-        this.players().forEach(n => this.score.set(n, 0));
+        this.hostBlame = new Map();
+        this.hostGallery = [];
+        this.hostBest = new Map();
+        this.winner = null;
+        this.players().forEach(n => { this.score.set(n, 0); this.hostBlame.set(n, 0); });
         this.hostNextRound();
     }
 
@@ -77,7 +93,10 @@ class ChorusGame extends PartyKit.PartyGame {
         if (this.round > this.totalRounds) return this.hostOver();
 
         const players = this.players();
-        players.forEach(n => { if (!this.score.has(n)) this.score.set(n, 0); });
+        players.forEach(n => {
+            if (!this.score.has(n)) this.score.set(n, 0);
+            if (!this.hostBlame.has(n)) this.hostBlame.set(n, 0);
+        });
 
         const template = this.deck[this.round - 1];
         const built = window.ChorusTemplates.buildRound(template, players.length);
@@ -148,10 +167,16 @@ class ChorusGame extends PartyKit.PartyGame {
                 const who = this.owner.get(slot.i);
                 slot.value = null;
                 this.hostHoles.push({ slot: slot.i, who });
+                this.hostBlame.set(who, (this.hostBlame.get(who) || 0) + 1);
                 this.feed.unshift({ text: `${who} missed slot ${slot.i + 1}.`, bad: true });
             }
             this.hostAdvanceCue();
-        }, CH_CUE_MS);
+        }, this.cueMs());
+    }
+
+    /** Round one is generous. By round four you are on the back foot. */
+    cueMs() {
+        return Math.max(CH_CUE_MIN, CH_CUE_MS - (this.round - 1) * CH_CUE_STEP);
     }
 
     hostTap(from, msg) {
@@ -166,6 +191,7 @@ class ChorusGame extends PartyKit.PartyGame {
         if (!value) {
             // Tapped, but never chose anything to place.
             this.hostHoles.push({ slot: slot.i, who: from });
+            this.hostBlame.set(from, (this.hostBlame.get(from) || 0) + 1);
             this.feed.unshift({ text: `${from} had nothing ready for slot ${slot.i + 1}.`, bad: true });
         } else {
             slot.value = value;
@@ -184,12 +210,74 @@ class ChorusGame extends PartyKit.PartyGame {
         clearTimeout(this._cueTimer);
         this.phase = 'reveal';
         this.cursor = -1;
+
+        // Keep what the room made. Without this there is nothing to vote on
+        // at the end, and the creations vanish the moment they land.
+        const owners = {};
+        this.slots.forEach(s => { if (s.value) owners[s.i] = this.owner.get(s.i); });
+        this.hostGallery.push({
+            round: this.round,
+            templateName: this.templateName,
+            text: this.creationText(),
+            holes: this.hostHoles.length,
+            owners,
+        });
+
         this.setDeadline(CH_REVEAL_TIME);
         this.broadcastState();
         this._timer = setTimeout(() => {
-            if (this.round >= this.totalRounds) this.hostOver();
+            if (this.round >= this.totalRounds) this.hostBestVote();
             else this.hostNextRound();
         }, CH_REVEAL_TIME * 1000);
+    }
+
+    /** The finished creation as one readable line, holes and all. */
+    creationText() {
+        return this.hostParts.map(p => {
+            if (typeof p === 'string') return p;
+            if (p.value) return p.value;
+            const hole = this.hostHoles.find(h => h.slot === p.i);
+            return hole ? `[${hole.who} missed this]` : '____';
+        }).join('');
+    }
+
+    hostBestVote() {
+        clearTimeout(this._timer);
+        if (this.hostGallery.length < 2) return this.hostOver();
+        this.phase = 'best';
+        this.hostBest = new Map();
+        this.setDeadline(CH_BEST_TIME);
+        this.broadcastState();
+        this._timer = setTimeout(() => this.hostSettleBest(), CH_BEST_TIME * 1000);
+    }
+
+    hostVoteBest(from, msg) {
+        if (this.phase !== 'best') return;
+        const idx = parseInt(msg.round, 10);
+        if (!this.hostGallery.some(g => g.round === idx)) return;
+        this.hostBest.set(from, idx);
+        this.broadcastState();
+        if (this.hostBest.size >= this.playerCount()) {
+            clearTimeout(this._timer);
+            this._timer = setTimeout(() => this.hostSettleBest(), 500);
+        }
+    }
+
+    hostSettleBest() {
+        clearTimeout(this._timer);
+        const tally = new Map();
+        this.hostBest.forEach(r => tally.set(r, (tally.get(r) || 0) + 1));
+        let best = null, most = 0;
+        tally.forEach((n, r) => { if (n > most) { most = n; best = r; } });
+
+        if (best !== null) {
+            const won = this.hostGallery.find(g => g.round === best);
+            this.winner = { round: best, votes: most, text: won ? won.text : '', templateName: won ? won.templateName : '' };
+            // Everyone who put a piece in the winning creation shares the prize.
+            const paid = new Set(Object.values(won ? won.owners : {}));
+            paid.forEach(n => this.score.set(n, (this.score.get(n) || 0) + CH_BEST_POINTS));
+        }
+        this.hostOver();
     }
 
     hostOver() {
@@ -213,9 +301,20 @@ class ChorusGame extends PartyKit.PartyGame {
     hostReceive(from, msg) {
         if (!this.score.has(from)) this.score.set(from, 0);
         switch (msg.t) {
-            case 'hello':  this.broadcastState(); break;
+            case 'hello':
+                this.broadcastState();
+                // A player who refreshed has lost their slots; deal them again
+                // or they sit out the round with no idea why.
+                if (this.phase === 'choose' || this.phase === 'assemble') {
+                    const mine = this.slots
+                        .filter(s => this.owner.get(s.i) === from)
+                        .map(s => ({ i: s.i, prompt: s.prompt, options: s.options }));
+                    if (mine.length) this.toPlayer(from, { t: 'deal', round: this.round, slots: mine });
+                }
+                break;
             case 'choose': this.hostChoose(from, msg); break;
             case 'tap':    this.hostTap(from, msg); break;
+            case 'best':   this.hostVoteBest(from, msg); break;
             default: break;
         }
     }
@@ -224,6 +323,13 @@ class ChorusGame extends PartyKit.PartyGame {
         const out = [];
         this.score.forEach((v, k) => out.push({ name: k, score: v }));
         out.sort((a, b) => b.score - a.score);
+        return out;
+    }
+
+    blameList() {
+        const out = [];
+        this.hostBlame.forEach((v, k) => { if (v > 0) out.push({ name: k, holes: v }); });
+        out.sort((a, b) => b.holes - a.holes);
         return out;
     }
 
@@ -245,7 +351,12 @@ class ChorusGame extends PartyKit.PartyGame {
             chosenCount: this.chosen.size,
             cursorSlot: this.phase === 'assemble' && this.slots[this.cursor] ? this.slots[this.cursor].i : -1,
             secondsLeft: this.secondsLeft(),
+            cueMs: this.cueMs(),
             scores: this.scoreList(),
+            blame: this.blameList(),
+            gallery: this.phase === 'best' || this.phase === 'over' ? this.hostGallery : [],
+            bestVotes: this.hostBest ? this.hostBest.size : 0,
+            winner: this.winner || null,
             feed: this.feed.slice(0, 12),
             holes: this.phase === 'reveal' || this.phase === 'over' ? this.hostHoles : [],
         };
@@ -268,6 +379,18 @@ class ChorusGame extends PartyKit.PartyGame {
     }
 
     applyState(s) {
+        // Cues are played off OBSERVED changes rather than host-only code
+        // paths, so everybody in the room hears the same thing.
+        if (s.phase === 'assemble' && s.cursorSlot !== this.liveSlot && s.cursorSlot >= 0) {
+            PartySFX.play(this.mySlots.some(m => m.i === s.cursorSlot) ? 'cue' : 'tick');
+        }
+        const wasFilled = (this.parts || []).filter(p => typeof p !== 'string' && p.value).length;
+        const nowFilled = (s.parts || []).filter(p => typeof p !== 'string' && p.value).length;
+        if (nowFilled > wasFilled) PartySFX.play('place');
+        if ((s.holes || []).length > (this.holes || []).length) PartySFX.play('miss');
+        if (s.phase === 'reveal' && this.phase !== 'reveal') PartySFX.play('reveal');
+        if (s.phase === 'over' && this.phase !== 'over') PartySFX.play('applause');
+
         if (s.round !== this.round) { this.liveSlot = -1; }
         if (s.phase === 'lobby') { this.mySlots = []; }
         if (this.dealRound && this.dealRound !== s.round) this.mySlots = [];
@@ -283,6 +406,11 @@ class ChorusGame extends PartyKit.PartyGame {
         this.scores = s.scores || [];
         this.feed = s.feed || [];
         this.holes = s.holes || [];
+        this.blame = s.blame || [];
+        this.gallery = s.gallery || [];
+        this.bestVotes = s.bestVotes || 0;
+        this.winner = s.winner || null;
+        if (s.phase !== 'best') this.myBest = null;
         this.adoptDeadline(s.secondsLeft);
         this.renderAll();
     }
@@ -296,6 +424,13 @@ class ChorusGame extends PartyKit.PartyGame {
         if (!slot || this.phase !== 'choose') return;
         slot.chosen = option;
         this.toHost({ t: 'choose', slot: slotIndex, option });
+        this.renderAll();
+    }
+
+    voteBest(round) {
+        if (this.phase !== 'best') return;
+        this.myBest = round;
+        this.toHost({ t: 'best', round });
         this.renderAll();
     }
 
@@ -326,6 +461,7 @@ class ChorusGame extends PartyKit.PartyGame {
             if (e.code === 'Space') { e.preventDefault(); this.tap(); }
         });
 
+        PartySFX.attachToggle('soundBtn');
         this.startClock('clock');
         this.renderAll();
     }
@@ -334,7 +470,9 @@ class ChorusGame extends PartyKit.PartyGame {
         this.renderPhase();
         this.renderStage();
         this.renderMine();
+        this.renderBest();
         this.renderScores();
+        this.renderBlame();
         this.renderFeed();
         this.renderClock('clock');
         this.renderRoster('lobbyPlayers');
@@ -343,13 +481,14 @@ class ChorusGame extends PartyKit.PartyGame {
     renderPhase() {
         const inGame = this.phase !== 'lobby';
         this.show('lobbyPanel', this.phase === 'lobby');
-        this.show('gamePanel', inGame && this.phase !== 'over');
+        this.show('gamePanel', inGame && this.phase !== 'over' && this.phase !== 'best');
+        this.show('bestPanel', this.phase === 'best');
         this.show('overPanel', this.phase === 'over');
         this.show('hostControls', this.isHost() && this.phase === 'lobby');
         this.show('guestWait', !this.isHost() && this.phase === 'lobby');
         this.show('againBtn', this.isHost());
 
-        const label = { lobby: 'Lobby', choose: 'Choosing', assemble: 'Assembling', reveal: 'The reveal', over: 'Finished' }[this.phase] || '';
+        const label = { lobby: 'Lobby', choose: 'Choosing', assemble: 'Assembling', reveal: 'The reveal', best: 'Pick the best', over: 'Finished' }[this.phase] || '';
         const tone = this.phase === 'assemble' ? 'is-live' : this.phase === 'lobby' ? 'is-off' : 'is-busy';
         this.setPhasePill('phasePill', label, tone);
         this.setText('roundCount', this.phase === 'lobby' ? '' : `Round ${this.round} / ${this.totalRounds}`);
@@ -433,6 +572,31 @@ class ChorusGame extends PartyKit.PartyGame {
         this.show('tapWrap', false);
     }
 
+    renderBest() {
+        if (this.phase !== 'best') return;
+        const el = document.getElementById('bestList');
+        if (!el) return;
+        el.innerHTML = this.gallery.map(g => `
+            <button type="button" class="pk-choice ch-gallery${this.myBest === g.round ? ' is-on' : ''}" data-round="${g.round}">
+                <span class="ch-gallery__meta">Round ${g.round} — ${PartyKit.esc(g.templateName)}${g.holes ? ` · ${g.holes} hole${g.holes === 1 ? '' : 's'}` : ' · flawless'}</span>
+                <span class="ch-gallery__text">${PartyKit.esc(g.text)}</span>
+            </button>`).join('');
+        el.querySelectorAll('.ch-gallery').forEach(b =>
+            b.addEventListener('click', () => this.voteBest(parseInt(b.dataset.round, 10))));
+        this.setText('bestVotes', `${this.bestVotes} of ${this.playerCount()} have voted`);
+    }
+
+    renderBlame() {
+        const el = document.getElementById('blame');
+        if (!el) return;
+        if (!this.blame.length) { el.innerHTML = '<li class="pk-empty">Nobody has let the room down yet.</li>'; return; }
+        el.innerHTML = this.blame.map(b => `
+            <li class="pk-rank${b.name === this.username ? ' is-me' : ''}">
+                <span class="pk-rank__name">${PartyKit.esc(b.name)}</span>
+                <span class="pk-rank__score">${b.holes}</span>
+            </li>`).join('');
+    }
+
     renderScores() {
         const el = document.getElementById('scores');
         if (!el) return;
@@ -445,7 +609,18 @@ class ChorusGame extends PartyKit.PartyGame {
             </li>`).join('');
 
         if (this.phase === 'over' && rows.length) {
-            this.setText('overTitle', `${rows[0].name} placed the most — ${rows[0].score}`);
+            this.setText('overTitle', `${rows[0].name} wins with ${rows[0].score}`);
+            const w = document.getElementById('winnerBox');
+            if (w) {
+                if (this.winner) {
+                    w.hidden = false;
+                    w.innerHTML = `
+                        <div class="pk-kicker">The room's favourite — round ${this.winner.round}, ${this.winner.votes} vote${this.winner.votes === 1 ? '' : 's'}</div>
+                        <p class="ch-winner">${PartyKit.esc(this.winner.text)}</p>`;
+                } else {
+                    w.hidden = true;
+                }
+            }
         }
     }
 

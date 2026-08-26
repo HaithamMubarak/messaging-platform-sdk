@@ -1727,6 +1727,42 @@
            SYNC MODE MODAL
            ============================================ */
 
+        /* Version history list. Newest first, because that is what you are
+           usually coming back from. */
+        .wb-history {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            max-height: 22rem;
+            overflow-y: auto;
+            margin: 12px 0;
+        }
+
+        .wb-history__row {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 10px 12px;
+            border-radius: 8px;
+            background: rgba(148, 163, 184, 0.08);
+        }
+
+        .wb-history__when {
+            flex: 1;
+            min-width: 0;
+            font-size: 0.8125rem;
+            color: var(--text-body, #c4cede);
+        }
+
+        .wb-history__who {
+            font-size: 0.75rem;
+            color: var(--text-muted, #8a97ab);
+        }
+
+        .wb-history__row--current {
+            outline: 1px solid var(--brand, #5d60ef);
+        }
+
         .sync-mode-modal {
             display: none;
             position: fixed;
@@ -2319,6 +2355,22 @@
     <!-- Connection Modal will be loaded dynamically by connection-modal.js -->
 
     <!-- Sync Mode Settings Modal -->
+    <!-- Version history. Every save appends a version rather than overwriting
+         the last, so the board has a past; this is how you get back to it. -->
+    <div id="historyModal" class="sync-mode-modal">
+        <div class="sync-mode-modal-content" role="dialog" aria-modal="true" aria-labelledby="historyTitle">
+            <h2 id="historyTitle">
+                <svg class="icon" aria-hidden="true"><use href="#i-clock"></use></svg>
+                Earlier versions
+            </h2>
+            <p id="historyState">Reading the board's history…</p>
+            <div id="historyList" class="wb-history"></div>
+            <div class="sync-mode-modal-actions">
+                <button class="wb-btn" onclick="closeHistory()">Close</button>
+            </div>
+        </div>
+    </div>
+
     <div id="syncModeModal" class="sync-mode-modal">
         <div class="sync-mode-modal-content" role="dialog" aria-modal="true" aria-labelledby="syncModeTitle">
             <h2 id="syncModeTitle">
@@ -2423,6 +2475,9 @@
         </button>
         <button class="wb-btn" onclick="exportImage()" title="Save the board as a PNG" aria-label="Save as an image">
             <svg class="icon" aria-hidden="true"><use href="#i-download"></use></svg>
+        </button>
+        <button id="historyBtn" class="wb-btn" onclick="openHistory()" title="Earlier versions of this board" aria-label="History">
+            <svg class="icon" aria-hidden="true"><use href="#i-clock"></use></svg>
         </button>
         <button id="rsyncBtn" class="wb-btn" onclick="triggerManualRsync()" title="Push my board to everyone" aria-label="Push my board to everyone">
             <svg class="icon" aria-hidden="true"><use href="#i-refresh"></use></svg>

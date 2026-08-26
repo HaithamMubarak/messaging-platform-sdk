@@ -41,6 +41,10 @@
 
         <div class="sdk-header__right">
             <span class="pk-round" id="roundCount"></span>
+            <button class="btn btn--ghost" id="soundBtn" type="button" aria-pressed="true" title="Sound on">
+                <svg class="icon icon--sm" aria-hidden="true"><use href="#i-mic"></use></svg>
+                <span>Sound</span>
+            </button>
             <button class="btn btn--ghost" id="shareBtn" type="button" hidden title="Invite someone (QR or link)">
                 <svg class="icon icon--sm" aria-hidden="true"><use href="#i-qr-code"></use></svg>
                 <span>Invite</span>
@@ -101,9 +105,16 @@
                 </div>
             </section>
 
+            <section class="pk-panel" id="bestPanel" hidden>
+                <div class="pk-kicker">Which one was the best?</div>
+                <h2 style="margin: 0 0 var(--sp-4); font-size: var(--fs-2xl)">Pick the room's favourite</h2>
+                <div class="pk-choices" id="bestList"></div>
+                <p class="ch-progress" id="bestVotes"></p>
+            </section>
+
             <section class="pk-panel pk-result" id="overPanel" hidden>
                 <h2 id="overTitle">Finished</h2>
-                <p>The last creation is still on the board above the scores.</p>
+                <div class="pk-stage-card" id="winnerBox" hidden style="text-align:left; margin-bottom: var(--sp-5)"></div>
                 <button class="btn btn--primary" id="againBtn" type="button" hidden>Back to the lobby</button>
             </section>
         </div>
@@ -111,6 +122,8 @@
         <aside class="sdk-side pk-side">
             <div class="sdk-side__title">Scores</div>
             <ul class="pk-scores" id="scores"></ul>
+            <div class="sdk-side__title">Holes left</div>
+            <ul class="pk-scores" id="blame"><li class="pk-empty">Nobody has let the room down yet.</li></ul>
             <div class="sdk-side__title">What happened</div>
             <ul class="pk-feed" id="feed"><li class="pk-empty">Nothing placed yet.</li></ul>
         </aside>
@@ -130,6 +143,7 @@
     <script src="../../../js/UserConnectionBase.js"></script>
 
     <script src="../shared/party-kit.js"></script>
+    <script src="../shared/party-sfx.js"></script>
     <script src="templates.js"></script>
     <script src="chorus.js"></script>
 <script src="../../../js/app-chrome.js"></script>

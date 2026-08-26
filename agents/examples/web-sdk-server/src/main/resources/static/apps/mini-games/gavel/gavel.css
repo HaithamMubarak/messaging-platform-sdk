@@ -78,3 +78,51 @@
 .gv-law__body em { font-style: normal; color: var(--success); font-size: var(--fs-xs); text-transform: uppercase; letter-spacing: .08em; }
 .gv-law__body em.is-guilty { color: var(--danger); }
 .gv-law__body span { color: var(--text-muted); }
+
+/* ---- precedent, plea and objections ------------------------------------- */
+/* All three are things the court says about itself, so they read as marginalia
+   around the exhibits rather than as exhibits. */
+.gv-precedent {
+    font-family: var(--font-mono);
+    font-size: var(--fs-sm);
+    color: var(--brand-ink);
+    background: var(--brand-subtle);
+    border-radius: var(--r-sm);
+    padding: var(--sp-2) var(--sp-3);
+    margin-bottom: var(--sp-3);
+}
+
+.gv-plea {
+    border-left: 3px solid var(--warning);
+    background: var(--warning-bg);
+    padding: var(--sp-3) var(--sp-4);
+    border-radius: 0 var(--r-sm) var(--r-sm) 0;
+    margin-bottom: var(--sp-3);
+    color: var(--text);
+    font-size: var(--fs-md);
+    line-height: var(--lh-snug);
+}
+.gv-plea__label {
+    display: block;
+    font-family: var(--font-mono);
+    font-size: var(--fs-xs);
+    letter-spacing: .1em;
+    text-transform: uppercase;
+    color: var(--warning);
+    margin-bottom: 4px;
+}
+
+.gv-objection {
+    font-family: var(--font-mono);
+    font-size: var(--fs-md);
+    padding: var(--sp-2) var(--sp-3);
+    border-radius: var(--r-sm);
+    margin-bottom: var(--sp-3);
+    background: var(--surface-2);
+    border: 1px solid var(--border-strong);
+    animation: gv-obj 260ms var(--ease);
+}
+@keyframes gv-obj { from { transform: scale(.96); opacity: 0; } to { transform: none; opacity: 1; } }
+.gv-objection.is-sustained { border-color: var(--success); color: var(--success); }
+.gv-objection.is-overruled { border-color: var(--danger); color: var(--danger); }
+.gv-objection em { font-style: normal; text-transform: uppercase; letter-spacing: .08em; }

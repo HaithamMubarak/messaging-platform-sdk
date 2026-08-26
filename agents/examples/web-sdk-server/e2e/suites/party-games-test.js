@@ -189,6 +189,40 @@ async function testChorus(browser) {
         const scores = await val(host, 'game.scores');
         check(scores.some(s => s.score > 0), 'Chorus: placing scores', JSON.stringify(scores));
 
+        const blame = await val(host, 'game.blame');
+        check(blame.some(b => b.name === 'Priya' && b.holes > 0),
+            'Chorus: the blame board tallies who left the holes', JSON.stringify(blame));
+
+        check(await waitFor(async () => ['best', 'over'].includes(await phaseOf(host)), 120000, 'the end of the match'),
+            'Chorus: the match reaches the vote');
+
+        if ((await phaseOf(host)) === 'best') {
+            const gallery = await val(host, 'game.gallery');
+            check(gallery.length >= 2, 'Chorus: every creation is kept for the vote', `${gallery.length}`);
+            check(gallery.every(g => typeof g.text === 'string' && g.text.length > 0),
+                'Chorus: each one reads back as a finished line',
+                (gallery[0] && gallery[0].text || '').slice(0, 50));
+            check(gallery.some(g => /missed this/.test(g.text)),
+                'Chorus: and the holes are still visible in it');
+
+            // Round two gives everybody less time than round one did.
+            const cue = await val(host, 'game.cueMs()');
+            check(cue < 2400, 'Chorus: the cue speeds up as the match goes on', `${cue}ms by round ${await val(host, 'game.round')}`);
+
+            for (const c of clients) {
+                await c.page.evaluate(() => {
+                    const b = document.querySelector('#bestList .ch-gallery');
+                    if (b) b.click();
+                });
+                await sleep(300);
+            }
+            check(await waitFor(async () => (await phaseOf(host)) === 'over', 40000, 'the winner'),
+                'Chorus: the room picks a favourite');
+            const winner = await val(host, 'game.winner');
+            check(winner && winner.votes > 0, 'Chorus: the winning creation is named',
+                winner ? `round ${winner.round}, ${winner.votes} votes` : 'none');
+        }
+
         // A guest must never learn another guest's slot or option.
         await assertPrivacy(clients, ['choose', 'tap'], 'Chorus');
         await consoleClean(clients, 'Chorus');
@@ -260,6 +294,32 @@ async function testAutocue(browser) {
         check(await waitFor(async () => await val(host, 'game.unlocked'), 15000, 'the floor of five'),
             'Autocue: Deliver unlocks once the floor is met');
 
+        // A stage direction goes to the speaker and shows on the television —
+        // and to nobody else's phone.
+        await host.page.evaluate(() => window.autocueGame.hostDirect('Say the next line in a whisper.'));
+        await sleep(900);
+        check(await val(speaker, 'game.myDirection') === 'Say the next line in a whisper.',
+            'Autocue: a stage direction reaches the speaker');
+        check(!(await val(writer, 'game.myDirection')),
+            'Autocue: and is not pushed to a writer\'s phone');
+        check(await val(writer, 'game.direction') === 'Say the next line in a whisper.',
+            'Autocue: but the room can see it on the screen');
+
+        // Heckling.
+        const heckBefore = await val(host, 'game.heckles');
+        await writer.page.click('#heckleBtn');
+        await sleep(800);
+        check((await val(host, 'game.heckles')) === heckBefore + 1, 'Autocue: the audience can heckle');
+
+        // The rescue — the thing that stops a speaker dying in silence.
+        const before = await val(speaker, 'game.currentLine');
+        const rescues = await val(host, 'game.rescuesLeft');
+        await speaker.page.click('#rescueBtn');
+        await sleep(1100);
+        check((await val(host, 'game.rescuesLeft')) === rescues - 1, 'Autocue: a rescue is spent');
+        check((await val(speaker, 'game.currentLine')) !== before,
+            'Autocue: and hands the speaker a line that always works');
+
         // The speaker works through the speech.
         for (let i = 0; i < 6; i++) {
             const p = await phaseOf(host);
@@ -281,8 +341,34 @@ async function testAutocue(browser) {
             check(n === delivered, `Autocue: ${c.name} sees the same speech`, `${n} vs ${delivered}`);
         }
 
-        // A writer must never receive another writer's unapproved line.
+        // Line of the night.
+        if ((await phaseOf(host)) === 'live') {
+            await speaker.page.click('#endBtn').catch(() => {});
+            await sleep(900);
+        }
+        if ((await phaseOf(host)) === 'best') {
+            const options = await host.page.evaluate(() =>
+                document.querySelectorAll('#bestList .ac-bestline').length);
+            check(options >= 3, 'Autocue: the room is offered the delivered lines', `${options}`);
+            for (const c of clients) {
+                await c.page.evaluate(() => {
+                    const b = document.querySelector('#bestList .ac-bestline');
+                    if (b) b.click();
+                });
+                await sleep(300);
+            }
+            check(await waitFor(async () => (await phaseOf(host)) === 'done', 40000, 'the line of the night'),
+                'Autocue: a line of the night is chosen');
+            const best = await val(host, 'game.bestLine');
+            check(best && best.text, 'Autocue: and it is named with its author',
+                best ? `${(best.text || '').slice(0, 30)} — ${best.author}` : 'none');
+        }
+
+        // A writer must never receive another writer's unapproved line, and a
+        // direction meant for the speaker must not arrive on their phone.
         await assertPrivacy(clients, ['submit'], 'Autocue');
+        const writerDirs = await val(writer, 'game.__seen.filter(m => m.t === "direction").length');
+        check(writerDirs === 0, 'Autocue: a writer never receives the speaker\'s direction', `${writerDirs}`);
         await consoleClean(clients, 'Autocue');
     } catch (e) {
         console.error('AUTOCUE THREW:', e && e.stack || e);
@@ -310,9 +396,30 @@ async function testGavel(browser) {
         await host.page.evaluate(() => { document.getElementById('defendantSelect').value = 'Priya'; });
         await host.page.click('#openBtn');
 
-        check(await waitFor(async () => (await phaseOf(host)) === 'evidence', 20000, 'the case to open'),
-            'Gavel: the case opens');
+        check(await waitFor(async () => (await phaseOf(host)) === 'plea', 20000, 'the case to open'),
+            'Gavel: the case opens with the plea');
         check(await val(host, 'game.defendant') === 'Priya', 'Gavel: the right person is in the dock');
+
+        // The defendant finally has something to do.
+        const pleaVisible = await accused.page.evaluate(() =>
+            !document.getElementById('pleaPanel').hidden);
+        check(pleaVisible, 'Gavel: only the defendant is asked for a plea');
+        const jurorSeesPlea = await juror.page.evaluate(() =>
+            !document.getElementById('pleaPanel').hidden);
+        check(!jurorSeesPlea, 'Gavel: a juror is not');
+
+        await accused.page.fill('#pleaInput', 'The milk was, in my view, communal.');
+        await accused.page.click('#sendPlea');
+        await sleep(1400);
+        check((await val(host, 'game.plea')) === 'The milk was, in my view, communal.',
+            'Gavel: the plea is entered');
+
+        check(await waitFor(async () => (await phaseOf(host)) === 'evidence', 20000, 'testimony'),
+            'Gavel: testimony opens after the plea');
+        for (const c of clients) {
+            const seen = await val(c, 'game.plea');
+            check(seen === 'The milk was, in my view, communal.', `Gavel: ${c.name} sees the plea`, seen || 'none');
+        }
 
         for (const c of [juror, accused]) {
             await c.page.fill('#testimonyInput', `${c.name} saw something they cannot unsee.`);
@@ -339,6 +446,16 @@ async function testGavel(browser) {
         const publicExhibits = await val(juror, 'JSON.stringify(game.admitted)');
         check(!/author|Odell|Priya/.test(publicExhibits.replace(/saw something/g, '')) || !/"author"/.test(publicExhibits),
             'Gavel: admitted exhibits carry no author');
+
+        // Objections are pure ceremony and must still be ruled on.
+        await juror.page.click('#objectBtn');
+        await sleep(900);
+        const obj = await val(host, 'game.objection');
+        check(obj && obj.by === 'Odell', 'Gavel: a juror may object', JSON.stringify(obj));
+        await host.page.click('#sustainBtn');
+        await sleep(700);
+        check((await val(juror, 'game.objection.ruling')) === 'sustained',
+            'Gavel: and the bench rules on it');
 
         await host.page.click('#juryNowBtn');
         check(await waitFor(async () => (await phaseOf(host)) === 'jury', 15000, 'the jury'),
@@ -380,7 +497,26 @@ async function testGavel(browser) {
         check(law.some(c => c.title === 'The People v. Priya' && c.verdict === 'guilty'),
             'Gavel: and another client can read it back', JSON.stringify(law[0] || {}).slice(0, 80));
 
-        await assertPrivacy(clients, ['submit', 'vote'], 'Gavel');
+        // A second case can cite the first — the record is only funny if used.
+        await host.page.click('#adjournBtn');
+        await sleep(2500);
+        const options = await host.page.evaluate(() =>
+            document.querySelectorAll('#precedentSelect option').length);
+        check(options >= 2, 'Gavel: the earlier case is offered as precedent', `${options} options`);
+        await host.page.fill('#caseTitle', 'The People v. Odell');
+        await host.page.fill('#caseCharge', 'Re: the thermostat');
+        await host.page.evaluate(() => {
+            document.getElementById('defendantSelect').value = 'Odell';
+            const p = document.getElementById('precedentSelect');
+            p.value = p.options[1].value;
+        });
+        await host.page.click('#openBtn');
+        await sleep(1500);
+        const cited = await val(juror, 'game.precedent');
+        check(cited && cited.title === 'The People v. Priya',
+            'Gavel: and a later trial cites it', JSON.stringify(cited));
+
+        await assertPrivacy(clients, ['submit', 'vote', 'plea'], 'Gavel');
         await consoleClean(clients, 'Gavel');
     } catch (e) {
         console.error('GAVEL THREW:', e && e.stack || e);
@@ -437,6 +573,19 @@ async function testNudge(browser) {
         check(await waitFor(async () => (await val(host, 'game.completed')) >= 1, 25000, 'the claim to carry'),
             'Nudge: the table can allow a claim');
 
+        // A completed mission is replaced, not retired.
+        const after = await val(claimer, 'game.mission');
+        const before2 = hands.find(h => h.name === claimer.name).text;
+        check(after && after !== before2, 'Nudge: a completed mission is replaced with a new one',
+            `${(before2 || '').slice(0, 26)} -> ${(after || '').slice(0, 26)}`);
+        check((await val(claimer, 'game.missionsDone')) === 1, 'Nudge: and the tally follows you');
+
+        const claimerScore = (await val(host, 'game.score ? [...game.score].map(([n,v]) => ({name:n,score:v})) : []'))
+            .find(r => r.name === claimer.name);
+        check(claimerScore && (claimerScore.score === 100 || claimerScore.score === 150),
+            'Nudge: an easy mission and a hard one pay differently',
+            claimerScore ? String(claimerScore.score) : 'none');
+
         // One accusation each, and only one.
         const accuser = clients[1];
         const target = innocents[0].name;
@@ -453,6 +602,9 @@ async function testNudge(browser) {
 
         const reveal = await val(host, 'game.reveal');
         check(reveal && reveal.rows.length === 3, 'Nudge: every hand is shown', `${reveal ? reveal.rows.length : 0} rows`);
+        check(reveal.rows.some(r => r.done > 0), 'Nudge: the reveal shows what each of them landed');
+        check(reveal.rows.filter(r => r.mission).every(r => typeof r.hard === 'boolean'),
+            'Nudge: and how hard it was');
         check(reveal.rows.filter(r => r.mission === null).length === 1,
             'Nudge: the innocent is finally named');
 

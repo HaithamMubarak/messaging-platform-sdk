@@ -51,3 +51,24 @@
     text-transform: uppercase;
     color: var(--warning);
 }
+
+/* ---- the end-of-match gallery -------------------------------------------- */
+/* Each creation is a choice you tap, so it has to be readable at a glance and
+   still show the holes — the holes are half of why one is funnier than another. */
+.ch-gallery { display: grid; gap: var(--sp-2); text-align: left; }
+.ch-gallery__meta {
+    font-family: var(--font-mono);
+    font-size: var(--fs-xs);
+    letter-spacing: .06em;
+    text-transform: uppercase;
+    color: var(--text-muted);
+}
+.ch-gallery__text { font-size: var(--fs-base); line-height: var(--lh-snug); color: var(--text); }
+.ch-gallery.is-on .ch-gallery__meta { color: var(--brand-ink); }
+
+.ch-winner {
+    font-size: clamp(1.2rem, 3vw, 1.8rem);
+    line-height: var(--lh-snug);
+    margin: var(--sp-3) 0 0;
+    text-wrap: balance;
+}
