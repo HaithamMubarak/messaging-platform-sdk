@@ -151,7 +151,7 @@
                     if (parsed === null) parsed = data;
                 }
 
-                if (parsed === null || parsed === undefined) {
+                if (parsed === null || parsed === undefined || typeof parsed !== 'object') {
                     console.warn('[BoardStore] Stored board could not be read');
                     if (done) done(false);
                     return;

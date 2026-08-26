@@ -148,7 +148,11 @@ class FindTheLiarGame extends UserConnectionBase {
             revealedLiars: new Set(),   // Liars caught in Investigation mode (can't vote)
 
             // Role tracking (for game end)
-            playerRoles: new Map(),     // Stores reported roles at game end
+            playerRoles: new Map(),     // Roles shown at game end (from dealtRoles)
+            // What the host actually dealt, kept for the whole game. The host
+            // is the only participant that can be trusted to say who the liar
+            // was, because it is the one that chose.
+            dealtRoles: new Map(),      // name -> 'LIAR' | 'INNOCENT'
 
             // Question tracking
             questions: [],
@@ -865,6 +869,9 @@ class FindTheLiarGame extends UserConnectionBase {
         this.gameState.eliminatedPlayers.clear();
         this.gameState.revealedLiars.clear();
         this.gameState.playerRoles.clear();
+        // A new game deals new roles; keeping the old table would carry the
+        // previous game's liar into this one.
+        this.gameState.dealtRoles.clear();
         this.gameState.questions = [];
         this.gameState.currentQuestionIndex = 0;
         this.gameState.currentAnswers.clear();
@@ -1037,21 +1044,19 @@ class FindTheLiarGame extends UserConnectionBase {
             if (isRound1) {
                 // Round 1: Assign new roles
                 isLiar = this.tempLiarNames.includes(player.name);
+                // The host deals the roles, so the host is the one who knows
+                // them. It used to throw that knowledge away and ask the
+                // players at reveal time — and the liar is precisely the player
+                // with a reason to answer wrongly.
+                this.gameState.dealtRoles.set(player.name, isLiar ? 'LIAR' : 'INNOCENT');
                 if (player.isSelf) {
                     // Host saves their own role for future rounds
                     this.myPersistentRole = isLiar ? 'LIAR' : 'INNOCENT';
                 }
             } else {
-                // Round 2+: Use stored role (each player remembers)
-                if (player.isSelf) {
-                    isLiar = (this.myPersistentRole === 'LIAR');
-                } else {
-                    // For remote players, they already know their role from round 1
-                    // We don't actually know their role on the host!
-                    // This is just for determining what info to send
-                    // We'll send the role indicator in the message
-                    isLiar = null; // We don't know!
-                }
+                // Round 2+: read it from the table dealt in round 1, for
+                // everybody including remote players.
+                isLiar = (this.gameState.dealtRoles.get(player.name) === 'LIAR');
             }
 
             isRevealedLiar = this.gameState.revealedLiars.has(player.name);
@@ -1289,32 +1294,36 @@ class FindTheLiarGame extends UserConnectionBase {
     /**
      * Request all players to reveal their roles (at game end)
      */
+    /**
+     * Reveal the roles the host dealt.
+     *
+     * This used to broadcast "please reveal your role" and believe whatever
+     * came back, which in a game about lying is a curious thing to do: the liar
+     * is the one player with a reason to answer wrongly, and a client could
+     * simply reply INNOCENT. The host dealt the roles in round 1 and now keeps
+     * that table, so it does not need to ask anybody.
+     */
     requestRoleReveal(mode) {
         if (!this.isHost()) return;
 
-        console.log('[FindTheLiar] Requesting role reveal from all players...');
+        console.log('[FindTheLiar] Revealing roles from the host table…');
 
-        // Reset role collection
         this.gameState.playerRoles.clear();
         this.roleRevealMode = mode;
         this.roleRevealTimeout = null;
 
-        // Add host's role
-        const hostName = this.username;
-        const hostRole = this.myPersistentRole || this.myRole;
-        this.gameState.playerRoles.set(hostName, hostRole);
-        console.log(`[FindTheLiar] Host role: ${hostRole}`);
-
-        // Request from all other players
-        this.sendData({
-            type: 'request-role-reveal',
-            message: 'Game over! Please reveal your role.'
+        this.getPeerList().forEach(player => {
+            const dealt = this.gameState.dealtRoles.get(player.name);
+            if (dealt) this.gameState.playerRoles.set(player.name, dealt);
         });
 
-        // Set timeout to process roles after 3 seconds
-        this.roleRevealTimeout = setTimeout(() => {
-            this.processRoleReveals();
-        }, 3000);
+        // The host's own role, whichever way it was recorded.
+        const hostRole = this.gameState.dealtRoles.get(this.username)
+            || this.myPersistentRole || this.myRole;
+        if (hostRole) this.gameState.playerRoles.set(this.username, hostRole);
+
+        // Nothing to wait for any more.
+        this.processRoleReveals();
     }
 
     /**
@@ -1723,10 +1732,12 @@ class FindTheLiarGame extends UserConnectionBase {
     handleRoleRevealResponse(peerId, data) {
         if (!this.isHost()) return;
 
-        console.log(`[FindTheLiar] Role reveal from ${peerId}:`, data.role);
-
-        // Store the role
-        this.gameState.playerRoles.set(peerId, data.role);
+        // Kept so an older client sending this is not an error, but its answer
+        // is no longer what decides anything: the host reveals from the table
+        // it dealt. Accepting a self-reported role would let the liar declare
+        // itself innocent.
+        console.log(`[FindTheLiar] Ignoring a self-reported role from ${peerId}:`, data && data.role);
+        return;
 
         // Check if we have all roles
         const expectedCount = this.getPlayerCount();

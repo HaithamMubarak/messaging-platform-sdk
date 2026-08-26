@@ -100,17 +100,22 @@
 
                 case 'ask':
                     if (!this.isHost()) break;
-                    this._hostAsk(data.by, data.text);
+                    this._hostAsk(from, data.text);
                     break;
 
                 case 'upvote':
                     if (!this.isHost()) break;
-                    this._hostUpvote(data.by, data.id);
+                    this._hostUpvote(from, data.id);
                     break;
 
                 case 'answered':
                     if (!this.isHost()) break;
                     this._hostAnswered(data.id);
+                    break;
+
+                case 'remove':
+                    if (!this.isHost()) break;
+                    this._hostRemove(data.id);
                     break;
             }
         }
@@ -292,6 +297,22 @@
             this._hostCommit('upvote', true);
         }
 
+        /**
+         * Take a question off the board.
+         *
+         * The host could cap how many questions arrived and mark one answered,
+         * but not remove one — so a room with a disruptive question had no way
+         * out except ending the session. Removal is host-only and final: it is
+         * kept out of the versioned history too, because the point is that it
+         * stops being visible to the room.
+         */
+        _hostRemove(id) {
+            var before = this.questions.length;
+            this.questions = this.questions.filter(function (x) { return x.id !== id; });
+            if (this.questions.length === before) return;
+            this._hostCommit('removed', true);
+        }
+
         _hostAnswered(id) {
             var q = this.questions.find(function (x) { return x.id === id; });
             if (!q) return;
@@ -425,6 +446,9 @@
             this.renderVersions();
         }
         markAnswered(id) { this._ask({ type: 'answered', id: id }); }
+
+        /** Host only — the button is not rendered for anyone else. */
+        removeQuestion(id) { this._ask({ type: 'remove', id: id }); }
 
         // ---- rendering -------------------------------------------------------
 
@@ -562,6 +586,12 @@
                         type: 'button', class: 'btn btn--ghost btn--sm', 'data-answered': q.id
                     }, 'Mark answered'));
                 }
+                if (self.isHost()) {
+                    row.appendChild(UI.el('button', {
+                        type: 'button', class: 'btn btn--ghost btn--sm', 'data-remove': q.id,
+                        'aria-label': 'Remove this question from the board'
+                    }, 'Remove'));
+                }
                 return row;
             }));
         }
@@ -662,6 +692,8 @@
         document.getElementById('questions').addEventListener('click', function (e) {
             var up = e.target.closest('[data-upvote]');
             if (up && app) { app.upvote(up.getAttribute('data-upvote')); return; }
+            var rm = e.target.closest('[data-remove]');
+            if (rm && app) { app.removeQuestion(rm.getAttribute('data-remove')); return; }
             var ans = e.target.closest('[data-answered]');
             if (ans && app) app.markAnswered(ans.getAttribute('data-answered'));
         });

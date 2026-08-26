@@ -1647,9 +1647,29 @@ class ReactorGame extends UserConnectionBase {
         }
     }
 
+    /**
+     * A player hit their zone. The host decides what that was worth.
+     *
+     * Two things were wrong here. Every client ran this and broadcast its own
+     * score-update, so four players clicking produced four conflicting
+     * scoreboards on an unordered channel. And the points came from a
+     * reactionTime the PLAYER sent — send zero, collect the maximum bonus every
+     * time. The host already records when it lit the zone (lightActivatedTime),
+     * so it can time the reaction itself.
+     */
     handleZoneReaction(playerId, zone, reactionTime) {
         const playerZone = this.playerZones.get(playerId);
         if (playerZone !== zone) return;
+
+        // Only the host scores. Everyone else waits to be told.
+        if (!this.isHost()) return;
+
+        // The host's own clock, not the number the player sent. Clamped so a
+        // late-arriving hit cannot produce a negative or absurd bonus.
+        if (this.lightActivatedTime) {
+            const measured = Date.now() - this.lightActivatedTime;
+            reactionTime = Math.max(0, Math.min(measured, this.stageConfig.lightDuration || 2000));
+        }
 
         // Deactivate light
         this.deactivateLight(zone);
@@ -1665,7 +1685,9 @@ class ReactorGame extends UserConnectionBase {
         this.gameStats.fastestReaction = Math.min(this.gameStats.fastestReaction, reactionTime);
         this.gameStats.avgReaction = this.gameStats.reactions.reduce((a, b) => a + b, 0) / this.gameStats.reactions.length;
 
-        // Update score
+        // updateScore already broadcasts the result; now that only the host
+        // reaches this point, that broadcast is the single authoritative one
+        // rather than one of four racing each other.
         this.updateScore(playerId, points);
 
         if (playerId === this.username) {

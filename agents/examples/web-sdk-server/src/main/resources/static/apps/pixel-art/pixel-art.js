@@ -186,7 +186,14 @@ class PixelArtApp extends UserConnectionBase {
         this._store = BoardStore.attach(this, {
             key: 'pixelart_canvas',
             snapshot: () => ({ gridSize: this.gridSize, pixels: this.pixels }),
-            restore: (data) => this.handleCanvasSync(data)
+            restore: (data) => {
+                // A stored blob that is not a canvas must not be applied:
+                // handleCanvasSync assigns data.pixels straight onto the grid,
+                // so a payload without it replaced the whole grid with
+                // undefined and the app stopped working entirely.
+                if (!data || !Array.isArray(data.pixels)) return;
+                this.handleCanvasSync(data);
+            }
         });
         // Load only if nobody is here to hand us the live board: a peer's copy
         // is newer than anything stored.

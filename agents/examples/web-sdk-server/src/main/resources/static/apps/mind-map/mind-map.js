@@ -1051,7 +1051,10 @@ class MindMapApp extends UserConnectionBase {
                     fromId: conn.fromId, toId: conn.toId
                 }))
             }),
-            restore: (data) => this.handleMapSync(data)
+            restore: (data) => {
+                if (!data || !Array.isArray(data.nodes)) return;
+                this.handleMapSync(data);
+            }
         });
         // Only when there is nobody to hand us a newer live copy.
         if (this.isHost() && this.getConnectedUsers().length <= 1) {
