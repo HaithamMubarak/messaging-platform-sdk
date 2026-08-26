@@ -1,0 +1,125 @@
+/**
+ * Under the Hood.
+ *
+ * An instrument panel, so it reads like one: monospace for anything that is a
+ * value, colour used only where it means something (the host, you, and the
+ * kind of a log line), and no decoration competing with the diagram.
+ */
+
+.hood {
+    min-height: 100vh;
+    background: var(--bg, #0b1120);
+    color: var(--text-body, #c4cede);
+    font-family: var(--font-sans, Inter, system-ui, sans-serif);
+}
+
+.hood-wrap {
+    max-inline-size: 64rem;
+    margin-inline: auto;
+    padding: var(--sp-6, 1.5rem) var(--sp-4, 1rem) var(--sp-12, 3rem);
+    display: flex;
+    flex-direction: column;
+    gap: var(--sp-5, 1.25rem);
+}
+
+.hood-head h1 { margin: 0 0 var(--sp-1, .25rem); font-size: var(--fs-2xl, 1.75rem); color: var(--text, #eef2f8); }
+.hood-head p { margin: 0; color: var(--text-muted, #8a97ab); font-size: var(--fs-md, .875rem); }
+
+.hood-grid {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    gap: var(--sp-4, 1rem);
+    align-items: start;
+}
+@media (max-width: 860px) { .hood-grid { grid-template-columns: minmax(0, 1fr); } }
+
+.hood-panel {
+    background: var(--surface-1, #101827);
+    border: 1px solid var(--border, rgba(148, 163, 184, .14));
+    border-radius: var(--r-lg, 12px);
+    padding: var(--sp-4, 1rem);
+    display: flex;
+    flex-direction: column;
+    gap: var(--sp-3, .75rem);
+    min-inline-size: 0;
+}
+
+.hood-panel__title {
+    font-size: var(--fs-xs, .75rem);
+    font-weight: 700;
+    letter-spacing: .08em;
+    text-transform: uppercase;
+    color: var(--text-muted, #8a97ab);
+}
+
+.hood-facts { display: flex; gap: var(--sp-4, 1rem); flex-wrap: wrap; }
+.hood-fact { display: flex; flex-direction: column; }
+.hood-fact__label { font-size: var(--fs-xs, .75rem); color: var(--text-muted, #8a97ab); }
+.hood-fact__value {
+    font-family: var(--font-mono, ui-monospace, monospace);
+    font-size: var(--fs-lg, 1.125rem);
+    color: var(--text, #eef2f8);
+}
+.hood-fact__value.is-yes { color: var(--success, #34d399); }
+
+/* ---- roster ---- */
+.hood-peers { display: flex; flex-direction: column; gap: var(--sp-2, .5rem); }
+.hood-peer {
+    display: flex;
+    align-items: center;
+    gap: var(--sp-3, .75rem);
+    padding: var(--sp-2, .5rem) var(--sp-3, .75rem);
+    border-radius: var(--r-md, 8px);
+    background: var(--surface-2, #16203a);
+}
+.hood-peer--host { outline: 1px solid var(--brand, #5d60ef); }
+.hood-peer--me { background: color-mix(in oklab, var(--brand, #5d60ef) 14%, var(--surface-2, #16203a)); }
+.hood-peer__dot {
+    inline-size: 8px; block-size: 8px; border-radius: 999px;
+    background: var(--success, #34d399); flex-shrink: 0;
+}
+.hood-peer__name {
+    flex: 1; min-inline-size: 0;
+    font-family: var(--font-mono, ui-monospace, monospace);
+    font-size: var(--fs-sm, .8125rem);
+    color: var(--text, #eef2f8);
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.hood-peer__tags { display: flex; gap: var(--sp-1, .25rem); flex-shrink: 0; }
+
+/* ---- topology ---- */
+.hood-topology { inline-size: 100%; block-size: auto; }
+.hood-edge { stroke: var(--border-strong, rgba(148, 163, 184, .28)); stroke-width: 1.5; }
+.hood-edge--weak { stroke-dasharray: 4 4; }
+.hood-node { fill: var(--surface-3, #1e2a3d); stroke: var(--border-strong, rgba(148, 163, 184, .28)); stroke-width: 1.5; }
+.hood-node--host { fill: var(--brand, #5d60ef); stroke: var(--brand-hover, #818cf8); }
+.hood-node--me { stroke: var(--accent, #22d3ee); stroke-width: 2.5; }
+.hood-node__label {
+    fill: var(--text-muted, #8a97ab);
+    font-size: 10px;
+    font-family: var(--font-mono, ui-monospace, monospace);
+}
+.hood-topology-note { font-size: var(--fs-xs, .75rem); color: var(--text-muted, #8a97ab); }
+
+/* ---- log ---- */
+.hood-log {
+    display: flex; flex-direction: column; gap: 2px;
+    max-block-size: 18rem; overflow-y: auto;
+    font-family: var(--font-mono, ui-monospace, monospace);
+    font-size: var(--fs-xs, .75rem);
+}
+.hood-log__row { display: flex; gap: var(--sp-2, .5rem); padding: 2px 0; }
+.hood-log__time { color: var(--text-faint, #64748b); flex-shrink: 0; }
+.hood-log__kind {
+    inline-size: 5.5rem; flex-shrink: 0;
+    color: var(--text-muted, #8a97ab);
+}
+.hood-log__text { color: var(--text-body, #c4cede); overflow-wrap: anywhere; }
+.hood-log__row--host .hood-log__kind { color: var(--brand-ink, #a5b4fc); }
+.hood-log__row--join .hood-log__kind { color: var(--success, #34d399); }
+.hood-log__row--leave .hood-log__kind { color: var(--warning, #fbbf24); }
+.hood-log__row--disconnected .hood-log__kind { color: var(--danger, #f87171); }
+
+.hood-empty { color: var(--text-muted, #8a97ab); font-size: var(--fs-sm, .8125rem); margin: 0; }
+.hood-actions { display: flex; gap: var(--sp-2, .5rem); flex-wrap: wrap; }
+.hood-hint { font-size: var(--fs-xs, .75rem); color: var(--text-muted, #8a97ab); line-height: var(--lh-body, 1.65); }

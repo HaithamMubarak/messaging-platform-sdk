@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+    <title>Under the Hood — see the machinery on the Messaging Platform SDK</title>
+    <meta name="description" content="The presence roster, the elected host, the relay topology and the message flow, drawn live. Then make the host leave and watch an election happen.">
+    <meta name="theme-color" content="#0b1120">
+    <link rel="canonical" href="https://hmdevonline.com/messaging-platform/sdk/apps/under-the-hood/index.html">
+    <meta property="og:type" content="website">
+    <meta property="og:site_name" content="Messaging Platform SDK">
+    <meta property="og:title" content="Under the Hood">
+    <meta property="og:description" content="Presence, host election and relay topology, drawn live. Make the host leave and watch an election happen.">
+    <meta property="og:url" content="https://hmdevonline.com/messaging-platform/sdk/apps/under-the-hood/index.html">
+    <meta property="og:image" content="https://hmdevonline.com/messaging-platform/sdk/images/og-image.png">
+    <meta name="twitter:card" content="summary_large_image">
+    <meta name="twitter:title" content="Under the Hood">
+    <meta name="twitter:description" content="Presence, host election and relay topology, drawn live.">
+    <meta name="twitter:image" content="https://hmdevonline.com/messaging-platform/sdk/images/og-image.png">
+
+    <link rel="icon" type="image/svg+xml" href="../../favicon.svg">
+    <link rel="stylesheet" href="../../css/design-tokens.css">
+    <link rel="stylesheet" href="../../css/ui.css">
+    <link rel="stylesheet" href="../../css/landing.css">
+    <link rel="stylesheet" href="../../css/app-page.css">
+
+    <script src="../../js/prod-log.js"></script>
+    <script src="../../js/icons.js" defer></script>
+</head>
+<body>
+<a class="skip-link" href="#main">Skip to content</a>
+
+<header class="site-header" id="siteHeader">
+    <div class="wrap site-header__inner">
+        <a class="brand" href="../../index.html">
+            <svg class="logo-mark" aria-hidden="true"><use href="#i-logo"></use></svg>
+            Messaging Platform SDK
+        </a>
+        <button class="btn btn--ghost btn--icon nav-toggle" id="navToggle" aria-expanded="false" aria-controls="siteNav" aria-label="Open menu">
+            <svg class="icon" aria-hidden="true"><use href="#i-menu"></use></svg>
+        </button>
+        <nav class="site-nav" id="siteNav" aria-label="Main">
+            <a href="../../index.html#demos">Demos</a>
+            <a href="../../playground.html">Playground</a>
+            <a href="../../docs.html">Docs</a>
+            <a href="../../developer/index.html">Portal</a>
+            <a class="btn btn--gradient" href="app.html">Open it</a>
+        </nav>
+    </div>
+</header>
+
+<main id="main">
+    <section class="hero" style="padding-block: var(--sp-16) var(--sp-12)">
+        <div class="wrap ap-hero">
+            <div>
+                <span class="eyebrow">Playground · Under the Hood</span>
+                <h1 style="font-size: var(--fs-hero); margin-bottom: var(--sp-4); text-wrap: balance">Every app here has a host. This is the one that shows you.</h1>
+                <p class="hero__lede">
+                    Presence, the elected host, the shape of the relay and the messages going through
+                    it — drawn live, from the same SDK your own app is using. Open it in two tabs, then
+                    press "step aside" and watch an election happen instead of reading about one.
+                </p>
+                <div class="hero__actions" style="margin-top: var(--sp-6)">
+                    <a class="btn btn--gradient" href="app.html">Open it</a>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <section class="wrap" style="padding-block: var(--sp-12)">
+        <h2>Why it exists</h2>
+        <p>
+            Host election, presence and relay topology are the machinery underneath every app on this
+            site, and none of them shows any of it. You discover there was a host the moment it leaves
+            and something quietly stops working. This page makes all of that visible, which is why it is
+            also the page worth having open while you are debugging one of the others.
+        </p>
+    </section>
+
+    <section class="wrap" style="padding-block: var(--sp-12)">
+        <h2>What it draws</h2>
+        <ul class="ap-list">
+            <li><strong>The roster</strong> — who is here, who is the host, and which peers you hold a direct data channel to.</li>
+            <li><strong>The topology</strong> — a star when the host relays, a mesh when peers talk to each other. Drawn rather than described, because the difference is the whole reason the modes exist.</li>
+            <li><strong>The log</strong> — joins, departures, host changes, data channels opening and messages arriving.</li>
+            <li><strong>Step aside</strong> — makes the host leave deliberately, so an election is something you watch rather than something you infer afterwards.</li>
+        </ul>
+    </section>
+
+    <section class="wrap" style="padding-block: var(--sp-12) var(--sp-16)">
+        <h2>No privileged access</h2>
+        <p>
+            Everything here is read from <code>UserConnectionBase</code> — the roster from
+            <code>getConnectedUsers()</code>, the host from the same election every app runs, the
+            topology from the relay mode. There is no extra protocol and no debug channel. If this page
+            can see it, so can your app, and the code that reads it is short enough to copy.
+        </p>
+    </section>
+</main>
+
+<script src="../../js/app-chrome.js"></script>
+</body>
+</html>

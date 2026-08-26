@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Under the Hood</title>
+    <meta name="description" content="The presence roster, the elected host, the relay topology and the message flow — the machinery every other app uses and none of them shows.">
+    <meta name="robots" content="noindex, nofollow">
+    <meta name="theme-color" content="#0b1120">
+    <link rel="icon" type="image/svg+xml" href="../../favicon.svg">
+    <link rel="stylesheet" href="../../css/design-tokens.css">
+    <link rel="stylesheet" href="../../css/ui.css">
+    <link rel="stylesheet" href="../../css/connection-modal.css">
+    <link rel="stylesheet" href="under-the-hood.css">
+    <script src="../../js/prod-log.js"></script>
+</head>
+<body class="hood">
+
+<div class="hood-wrap">
+    <header class="hood-head">
+        <h1>Under the Hood</h1>
+        <p>Open this in two tabs. Everything below is read from the same SDK your app uses.</p>
+    </header>
+
+    <section class="hood-panel">
+        <div class="hood-facts">
+            <div class="hood-fact">
+                <span class="hood-fact__label">relay mode</span>
+                <span id="mode" class="hood-fact__value">—</span>
+            </div>
+            <div class="hood-fact">
+                <span class="hood-fact__label">people here</span>
+                <span id="meCount" class="hood-fact__value">0</span>
+            </div>
+            <div class="hood-fact">
+                <span class="hood-fact__label">this tab is host</span>
+                <span id="meHost" class="hood-fact__value">no</span>
+            </div>
+        </div>
+        <div class="hood-actions">
+            <button id="pingBtn" class="btn btn--sm" type="button">Send a ping</button>
+            <button id="stepAsideBtn" class="btn btn--sm btn--ghost" type="button">Step aside as host</button>
+        </div>
+        <p class="hood-hint">
+            "Step aside" disconnects this tab on purpose. If it was the host, watch another tab take
+            over — host migration is the part of the system nobody can normally see happening.
+        </p>
+    </section>
+
+    <div class="hood-grid">
+        <section class="hood-panel">
+            <h2 class="hood-panel__title">Who is here</h2>
+            <div id="roster" class="hood-peers"></div>
+        </section>
+
+        <section class="hood-panel">
+            <h2 class="hood-panel__title">How messages travel</h2>
+            <svg id="topology" class="hood-topology" viewBox="0 0 340 240" role="img"
+                 aria-label="Diagram of how peers are connected"></svg>
+            <p id="topologyNote" class="hood-topology-note"></p>
+        </section>
+    </div>
+
+    <section class="hood-panel">
+        <h2 class="hood-panel__title">What just happened</h2>
+        <div id="log" class="hood-log"></div>
+    </section>
+</div>
+
+<script src="../../js/config-loader.js"></script>
+<script src="../../js/api-config.js"></script>
+<script src="../../generated-web-agent-js/js/web-agent.libs.js"></script>
+<script src="../../generated-web-agent-js/js/web-agent.js"></script>
+<script src="../../generated-web-agent-js/js/web-agent.webrtc.js"></script>
+<script src="../../js/common-utils.js"></script>
+<script src="../../js/dialog.js"></script>
+<script src="../../js/connection-modal.js"></script>
+<script src="../../js/room-defaults.js"></script>
+<script src="../../js/UserConnectionBase.js"></script>
+<script src="under-the-hood.js"></script>
+</body>
+</html>
