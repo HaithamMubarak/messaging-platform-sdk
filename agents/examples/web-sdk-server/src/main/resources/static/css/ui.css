@@ -797,3 +797,28 @@ body.modal-open { overflow: hidden; }
     /* The wordmark is also the way home from every page. */
     .brand { min-height: 44px; display: inline-flex; align-items: center; }
 }
+
+/* Save indicator — used by the apps with durable boards.
+   Bottom-left so it never lands under a toast (bottom-centre) or a share
+   dialog, and quiet enough to ignore until it says something is wrong. */
+.save-indicator {
+    position: fixed;
+    inset-block-end: var(--sp-4, 1rem);
+    inset-inline-start: var(--sp-4, 1rem);
+    z-index: 50;
+    padding: var(--sp-1, .25rem) var(--sp-3, .75rem);
+    border-radius: var(--r-pill, 999px);
+    background: var(--surface-2, #16203a);
+    color: var(--text-muted, #8a97ab);
+    font-size: var(--fs-xs, .75rem);
+    border: 1px solid var(--border, rgba(148, 163, 184, .14));
+    pointer-events: none;
+}
+
+.save-indicator--saved { color: var(--success, #34d399); }
+.save-indicator--saving { color: var(--text-body, #c4cede); }
+.save-indicator--failed {
+    color: var(--danger, #f87171);
+    border-color: var(--danger, #f87171);
+    pointer-events: auto;
+}

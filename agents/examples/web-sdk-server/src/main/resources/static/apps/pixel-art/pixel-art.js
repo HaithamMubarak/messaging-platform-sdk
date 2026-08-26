@@ -185,6 +185,7 @@ class PixelArtApp extends UserConnectionBase {
         // itself. Same encrypted channel-storage pattern the whiteboard uses.
         this._store = BoardStore.attach(this, {
             key: 'pixelart_canvas',
+            onState: SaveIndicator.attach({}),
             snapshot: () => ({ gridSize: this.gridSize, pixels: this.pixels }),
             restore: (data) => {
                 // A stored blob that is not a canvas must not be applied:

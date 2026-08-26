@@ -149,6 +149,7 @@ class CollabDoc extends UserConnectionBase {
         // one lost it. Stored encrypted in channel storage, host writes only.
         this._store = BoardStore.attach(this, {
             key: 'collabdoc_document',
+            onState: SaveIndicator.attach({}),
             snapshot: () => ({
                 title: this.docTitle,
                 content: this.editor ? this.editor.getValue() : ''

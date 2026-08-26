@@ -1043,6 +1043,7 @@ class MindMapApp extends UserConnectionBase {
         if (this._store) return;
         this._store = BoardStore.attach(this, {
             key: 'mindmap_board',
+            onState: SaveIndicator.attach({}),
             snapshot: () => ({
                 nodes: Array.from(this.nodes.values()).map(node => ({
                     id: node.id, x: node.x, y: node.y, text: node.text, color: node.color

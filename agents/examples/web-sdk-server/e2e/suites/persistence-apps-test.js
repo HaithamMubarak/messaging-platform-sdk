@@ -87,6 +87,34 @@ async function open(b, path, room, name) {
         await second.context().close();
     }
 
+    // ---- the indicator, because silent saving is untrustworthy ------------
+    {
+        const room = 'ps-ind' + Math.floor(Date.now() / 1000);
+        const p = await open(b, '/apps/mind-map/index.html', room, 'Watcher');
+
+        await p.evaluate(() => {
+            window.mindMapApp.addNode();
+            if (window.mindMapApp._store) window.mindMapApp._store.touch();
+        });
+        await p.waitForTimeout(600);
+
+        const pending = await p.evaluate(() => {
+            const el = document.querySelector('.save-indicator');
+            return el && !el.hidden ? el.textContent : null;
+        });
+        check(/unsaved/i.test(pending || ''),
+            `a change says the work is not saved yet (${pending})`);
+
+        // Then let the debounce fire and the save land.
+        await p.waitForTimeout(6000);
+        const saved = await p.evaluate(() => {
+            const el = document.querySelector('.save-indicator');
+            return el ? el.textContent : null;
+        });
+        check(/saved/i.test(saved || ''), `and says so once it is kept (${saved})`);
+        await p.context().close();
+    }
+
     await b.close();
     console.log('\nPASS (' + pass.length + ')'); pass.forEach(x => console.log('  ✓ ' + x));
     console.log('\nFAIL (' + fail.length + ')'); fail.forEach(x => console.log('  ✗ ' + x));

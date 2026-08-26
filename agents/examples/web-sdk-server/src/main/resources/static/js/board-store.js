@@ -52,6 +52,9 @@
         }
 
         var debounceMs = opts.debounceMs || DEFAULT_DEBOUNCE_MS;
+        // Silent persistence is persistence nobody trusts: an app can pass
+        // onState to show whether the board is saved, saving, or waiting.
+        var onState = typeof opts.onState === 'function' ? opts.onState : function () {};
         var timer = null;
         var saving = false;
         var dirtyWhileSaving = false;
@@ -89,6 +92,7 @@
             }
 
             saving = true;
+            onState('saving');
             ch.storagePut({
                 storageKey: key,
                 content: payload,
@@ -99,7 +103,9 @@
                 var ok = response && response.status === 'success';
                 if (ok) {
                     lastSavedAt = Date.now();
+                    onState('saved', lastSavedAt);
                 } else {
+                    onState('failed');
                     console.warn('[BoardStore] Save failed:',
                         (response && response.statusMessage) || 'unknown');
                 }
@@ -115,6 +121,7 @@
         function touch() {
             if (!app.isHost || !app.isHost()) return;
             clearTimeout(timer);
+            onState('pending');
             timer = setTimeout(function () { save(); }, debounceMs);
         }
 
