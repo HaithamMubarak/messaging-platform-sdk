@@ -73,6 +73,14 @@
             var data = detail && detail.data ? detail.data : detail;
             if (!data || !data.type) return;
 
+            // Who really sent this. The payload's own `by` field is whatever
+            // the sender typed, so tallying it let one person vote as many.
+            //
+            // The host also feeds its OWN actions through here directly, and a
+            // locally injected message carries no transport identity — so an
+            // absent sender means us, not an anonymous one.
+            var from = this.senderOf(detail) || this.username;
+
             switch (data.type) {
                 case 'state':
                     // Only the host's word counts for state.
@@ -87,7 +95,7 @@
 
                 case 'vote':
                     if (!this.isHost()) break;
-                    this._hostVote(data.by, data.option);
+                    this._hostVote(from, data.option);
                     break;
 
                 case 'ask':

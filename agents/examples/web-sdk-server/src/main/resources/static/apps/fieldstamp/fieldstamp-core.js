@@ -210,6 +210,32 @@
         return bytes;
     }
 
+    // ---------------------------------------------------------------- storage
+
+    /**
+     * The platform's storage list comes back nested, and each version's
+     * `content` is base64-encoded JSON rather than the object that was put in.
+     * Both of those have to be unwrapped or the log reads back empty — which
+     * looks exactly like "there is nothing stored".
+     */
+    function storedVersions(res) {
+        let rows = res && res.data && res.data.data ? res.data.data : (res && res.data);
+        if (rows && !Array.isArray(rows) && rows.versions) rows = rows.versions;
+        return Array.isArray(rows) ? rows : [];
+    }
+
+    function decodeStored(row) {
+        const raw = row && row.content !== undefined ? row.content : row;
+        if (raw && typeof raw === 'object') return raw;
+        if (typeof raw !== 'string') return null;
+        try {
+            const bin = atob(raw);
+            const text = new TextDecoder().decode(Uint8Array.from(bin, c => c.charCodeAt(0)));
+            return JSON.parse(text);
+        } catch (_) { /* not base64 JSON — try it as plain JSON */ }
+        try { return JSON.parse(raw); } catch (_) { return null; }
+    }
+
     // ---------------------------------------------------------------- misc
 
     function shortId() {
@@ -251,6 +277,7 @@
         CHUNK,
         sha256Hex, sha256Text, canonical, chainNext, verifyChain,
         chunk, Reassembler,
+        storedVersions, decodeStored,
         coarse, getPosition,
         TEMPLATES, TEMPLATE_ORDER,
         grabFrame, thumbnail, dataUrlBytes,

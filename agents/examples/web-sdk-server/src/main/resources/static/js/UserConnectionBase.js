@@ -594,6 +594,38 @@ class UserConnectionBase {
     }
 
     /**
+     * Who actually sent this — the transport's word, never the payload's.
+     *
+     * Apps routinely read data.by / data.username / data.playerName, which the
+     * sender chose and can therefore lie about: a peer could vote as somebody
+     * else, resign somebody else's chess game, or redirect a file transfer by
+     * naming a different recipient. The channel and the data-channel layer both
+     * know who a message actually came from; this returns that.
+     *
+     * Accepts either shape an app receives: onGameMessage's {from, data} detail
+     * or onDataChannelMessage's (peerId, data) — pass the peerId directly.
+     */
+    senderOf(detail) {
+        if (typeof detail === 'string') return detail;
+        if (!detail) return null;
+        // _fromClient is stamped by the host relay from the transport peer id.
+        return detail.from || detail.agentName || detail._fromClient || null;
+    }
+
+    /**
+     * Did this message really come from the host?
+     *
+     * Checks the sender's identity against the current host rather than
+     * trusting a _fromHost flag, which a client can set on anything it sends.
+     */
+    isFromHost(detail) {
+        const sender = this.senderOf(detail);
+        if (!sender) return false;
+        const host = this._getHostName();
+        return !!host && sender === host;
+    }
+
+    /**
      * Send chat message
      */
     sendChat(message) {
@@ -1093,8 +1125,17 @@ class UserConnectionBase {
             if (this.options.useHostMode && this.isHost() && data._needsRelay) {
                 console.log(`[AgentSessionBase] 📡 Host relaying message from ${peerId} to all clients`);
 
-                // Remove relay metadata
-                const { _fromClient, _needsRelay, ...cleanData } = data;
+                // Remove relay metadata AND any trust markers the sender set.
+                //
+                // _fromHost was not stripped here, so a client could send
+                // {_needsRelay: true, _fromHost: true, ...} and the host would
+                // rebroadcast it with that flag intact — every other client
+                // then believed the message came from the host. That defeated
+                // even the apps that check the flag correctly.
+                //
+                // A client cannot vouch for itself: identity is whatever the
+                // transport says (peerId), never what the payload claims.
+                const { _fromClient, _needsRelay, _fromHost, ...cleanData } = data;
 
                 // Add source information
                 const relayedData = {

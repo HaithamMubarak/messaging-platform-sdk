@@ -126,6 +126,15 @@
             var payload = (detail && detail.data) ? detail.data : detail;
             if (!payload || !payload.type) return;
 
+            // Only the host runs this event. Without this check any attendee
+            // could broadcast sp_state or sp_campaign and rewrite the tally,
+            // the leaderboard and the sponsor branding on every other phone in
+            // the room — which would make the whole host-authoritative design
+            // decorative, since the display half would trust anyone.
+            if (!this.isFromHost(detail)) {
+                return;
+            }
+
             if (payload.type === Core.MSG.STATE) {
                 this.segment = payload.segment || Core.emptySegment();
                 // A new segment means the previous answer no longer applies.

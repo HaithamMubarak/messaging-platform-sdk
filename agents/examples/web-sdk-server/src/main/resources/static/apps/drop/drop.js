@@ -175,7 +175,10 @@
 
         _receive(d, from) {
             if (!d || !d.type) return;
-            from = from || d.by || null;
+            // Deliberately NOT falling back to d.by: that is the sender's own
+            // claim about who they are, and accepting it undoes the point of
+            // taking `from` from the transport in the first place.
+            if (!from) return;
 
             switch (d.type) {
                 case 'offer': {
@@ -204,7 +207,12 @@
                     }
                     // Whoever accepted is who it goes to, so a broadcast offer
                     // does not stream to the whole room at once.
-                    out.to = d.by || out.to;
+                    //
+                    // `from` is the transport's word; d.by is whatever the
+                    // sender typed. Trusting d.by let a peer accept an offer
+                    // and name somebody else as the recipient, redirecting the
+                    // file — a data leak, not merely impersonation.
+                    out.to = from || d.by || out.to;
                     this._stream(out);
                     break;
                 }

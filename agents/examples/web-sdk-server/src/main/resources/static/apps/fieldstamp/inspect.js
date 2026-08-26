@@ -186,12 +186,11 @@ class FieldstampInspector extends UserConnectionBase {
         if (!this.channel) return;
         this.channel.storageGetList(this.logKey(), (res) => {
             if (!res || res.status !== 'success') return;
-            let rows = res.data && res.data.data ? res.data.data : res.data;
-            if (!Array.isArray(rows)) rows = rows && rows.versions ? rows.versions : [];
+            const rows = FS.storedVersions(res);
             if (!rows.length) return;
 
             const restored = rows
-                .map(r => (r && r.content ? r.content : r))
+                .map(FS.decodeStored)
                 .filter(r => r && r.chain && r.stamp)
                 .sort((a, b) => (a.seq || 0) - (b.seq || 0));
 

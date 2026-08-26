@@ -486,10 +486,12 @@ class ChessGame extends UserConnectionBase {
                 this.handleGameOver();
             }
         } else {
-            console.error('[Chess] Invalid remote move:', data);
-            // Sync state
-            this.chess.load(data.fen);
-            this.renderBoard();
+            // An illegal move used to load the position the sender attached, so
+            // anyone could put the board in any state by sending a deliberately
+            // invalid move with a chosen FEN. A move that does not apply is
+            // rejected; the board is not a thing peers get to assign.
+            console.error('[Chess] Ignoring an invalid remote move:', data && data.move);
+            this.showToast('Ignored an illegal move from another player', 'warning');
         }
     }
 
