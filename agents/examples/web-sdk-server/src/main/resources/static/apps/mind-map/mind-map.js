@@ -255,6 +255,13 @@ class MindMapApp extends UserConnectionBase {
                 this.clearAll(true);
                 break;
             case 'map-sync':
+                // Host-only, same as pixel-art's canvas-sync: it is the
+                // sync-to-newcomer message, so from any other peer it is a
+                // whole-map replacement that no button in the app offers.
+                if (!this.isFromHost(peerId)) {
+                    console.warn('[MindMap] Ignoring map-sync from a non-host peer:', peerId);
+                    break;
+                }
                 this.handleMapSync(data);
                 break;
             case 'cursor-move':

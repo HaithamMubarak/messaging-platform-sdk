@@ -397,11 +397,23 @@ class Command {
  * @param {string} op - the id of the action that drew them
  * @returns {number} how many were removed
  */
-function removeStrokesOfAction(op) {
+/**
+ * Take one action's strokes off the board.
+ *
+ * `owner`, when given, restricts the removal to strokes that person drew.
+ * Without it a remote undo removed whatever carried the given action id, so a
+ * peer could send somebody else's commandId and wipe their work from every
+ * board in the room — "you can only undo your own" was true of the UI and not
+ * of the wire.
+ */
+function removeStrokesOfAction(op, owner) {
     if (!op || !Array.isArray(boardState)) return 0;
     let removed = 0;
     for (let i = boardState.length - 1; i >= 0; i--) {
-        if (boardState[i] && boardState[i].op === op) { boardState.splice(i, 1); removed++; }
+        const stroke = boardState[i];
+        if (!stroke || stroke.op !== op) continue;
+        if (owner && stroke.by && stroke.by !== owner) continue;
+        boardState.splice(i, 1); removed++;
     }
     return removed;
 }
@@ -649,13 +661,21 @@ class UndoRedoManager {
         // you can still only undo what you did.
         try {
             if (action === 'undo' && messageData.commandId) {
-                const removed = removeStrokesOfAction(messageData.commandId);
+                // Restricted to the sender's own strokes.
+                const removed = removeStrokesOfAction(messageData.commandId, fromAgent);
                 if (removed) {
                     redrawCanvas();
                     console.log(`[UndoRedo] Applied ${fromAgent}'s undo: -${removed} strokes`);
                 }
             } else if (action === 'redo' && Array.isArray(messageData.strokes) && messageData.strokes.length) {
-                messageData.strokes.forEach(stk => { if (stk) boardState.push(stk); });
+                // Stamp the sender's name on what comes back, so a redo cannot
+                // be used to inject strokes attributed to somebody else — and
+                // so a later undo of them is bounded the same way.
+                messageData.strokes.forEach(stk => {
+                    if (!stk) return;
+                    stk.by = fromAgent;
+                    boardState.push(stk);
+                });
                 redrawCanvas();
                 console.log(`[UndoRedo] Applied ${fromAgent}'s redo: +${messageData.strokes.length} strokes`);
             }

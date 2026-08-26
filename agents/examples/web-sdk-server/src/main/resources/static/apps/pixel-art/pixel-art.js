@@ -251,6 +251,18 @@ class PixelArtApp extends UserConnectionBase {
                 this.clearCanvas(true);
                 break;
             case 'canvas-sync':
+                // Only the host sends this, and only to a newcomer (see
+                // syncCanvasTo). From anyone else it is a whole-canvas
+                // replacement — a way to overwrite everybody's work with your
+                // own, which no button in the app offers.
+                //
+                // clear and grid-resize are deliberately NOT restricted: every
+                // collaborator has a button for those, so they are shared
+                // actions rather than privileged ones.
+                if (!this.isFromHost(peerId)) {
+                    console.warn('[PixelArt] Ignoring canvas-sync from a non-host peer:', peerId);
+                    break;
+                }
                 this.handleCanvasSync(data);
                 break;
             case 'grid-resize':
