@@ -19,6 +19,12 @@
 (function () {
     'use strict';
 
+    // The whiteboard keeps its CURRENT board under one key and its version
+    // history under another — a key that has versions cannot be read back with
+    // storageGet, and the live board's join path depends on exactly that. The
+    // timeline is the history key; the board key is the fallback for channels
+    // drawn on before the split, which hold a single state.
+    var HISTORY_KEY = 'whiteboard-history';
     var BOARD_KEY = 'whiteboard-data';
     var BOARD_W = 1920, BOARD_H = 1080;
 
@@ -72,14 +78,31 @@
             var self = this;
             el('state').textContent = 'Reading the channel…';
 
-            this.channel.storageGetList(BOARD_KEY, function (response) {
-                if (!response || response.status !== 'success') {
-                    el('state').textContent = 'Could not read this channel.';
-                    return;
-                }
+            var readKey = function (key, then) {
+                self.channel.storageGetList(key, then);
+            };
 
-                var rows = response.data && response.data.data ? response.data.data : response.data;
-                if (!Array.isArray(rows)) rows = (rows && rows.versions) ? rows.versions : [];
+            readKey(HISTORY_KEY, function (response) {
+                var rowsFound = self._rowsOf(response);
+                if (rowsFound.length) { self._buildTimeline(rowsFound); return; }
+                // Nothing under the history key: an older channel, whose single
+                // saved board still makes a one-frame timeline worth showing.
+                readKey(BOARD_KEY, function (fallback) {
+                    self._buildTimeline(self._rowsOf(fallback));
+                });
+            });
+        }
+
+        /** Pull the version array out of whichever shape the API returned. */
+        _rowsOf(response) {
+            if (!response || response.status !== 'success') return [];
+            var rows = response.data && response.data.data ? response.data.data : response.data;
+            if (!Array.isArray(rows)) rows = (rows && rows.versions) ? rows.versions : [];
+            return rows;
+        }
+
+        _buildTimeline(rows) {
+            var self = this;
 
                 var frames = [];
                 rows.forEach(function (row) {
@@ -115,10 +138,9 @@
 
                 el('state').textContent = frames.length + ' saved state(s), from '
                     + whenText(frames[0].at) + ' to ' + whenText(frames[frames.length - 1].at);
-                self.at = frames.length - 1;      // open on the latest
-                self.renderControls();
-                self.draw();
-            });
+            self.at = frames.length - 1;      // open on the latest
+            self.renderControls();
+            self.draw();
         }
 
         // ---- playback --------------------------------------------------------

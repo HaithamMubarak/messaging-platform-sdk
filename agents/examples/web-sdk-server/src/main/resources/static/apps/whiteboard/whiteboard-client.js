@@ -4,6 +4,9 @@
  * Includes WhiteboardGame framework integration
  */
 const STORAGE_KEY = 'whiteboard-data';
+// History lives under its own key: a key with versions cannot be read back with
+// storageGet, and the live board's read path depends on exactly that.
+const HISTORY_KEY = 'whiteboard-history';
 
 // ============================================
 // ENCAPSULATED STATE CLASSES
@@ -2977,12 +2980,15 @@ function putChannelStorage( content, metadata, onSuccess, onError) {
         return;
     }
 
-    // storageAdd rather than storagePut: every save appends a VERSION instead
-    // of overwriting the last one, so a board has a history you can go back
-    // through. The board was previously a single mutable value — one bad clear
-    // and the work was gone with nothing to return to. The read path still
-    // asks for the latest, so nothing else has to change.
-    channel.storageAdd({
+    // TWO writes, to two keys, and the split is not incidental.
+    //
+    // The current board stays a storagePut under STORAGE_KEY, because that is
+    // what a newcomer reads with storageGet when it joins. Switching this key
+    // to storageAdd for the sake of history broke that read completely —
+    // storageGet returns an error once a key has versions — so anyone arriving
+    // after a host handover got an empty board. Correctness of the live path
+    // first; history is the extra.
+    channel.storagePut({
         storageKey: STORAGE_KEY,
         content: content,
         encrypted: true,
@@ -2994,6 +3000,22 @@ function putChannelStorage( content, metadata, onSuccess, onError) {
             if (onError) onError(response);
         }
     });
+
+    // And a version, under its own key, for the history panel. Best effort:
+    // failing to record history must never fail the save of the board itself.
+    if (typeof channel.storageAdd === 'function') {
+        channel.storageAdd({
+            storageKey: HISTORY_KEY,
+            content: content,
+            encrypted: true,
+            metadata: metadata
+        }, function (response) {
+            if (!response || response.status !== 'success') {
+                console.warn('[Whiteboard] Could not record a history version:',
+                    (response && response.statusMessage) || 'unknown');
+            }
+        });
+    }
 }
 
 /**
@@ -3008,7 +3030,7 @@ function listBoardVersions(onDone) {
         if (onDone) onDone([]);
         return;
     }
-    channel.storageGetList(STORAGE_KEY, function (response) {
+    channel.storageGetList(HISTORY_KEY, function (response) {
         if (!response || response.status !== 'success') {
             if (onDone) onDone([]);
             return;
@@ -3055,7 +3077,7 @@ function restoreBoardVersion(id, onDone) {
                 ? JSON.parse(wanted.content) : wanted.content;
             // The same path a normal load takes, so a restored version goes
             // through exactly the code that is already proven.
-            restoreBoardFromObjects(content);
+            restoreBoardFromObjects(content, true);
             redrawCanvas();
             if (onDone) onDone(true);
         } catch (e) {
@@ -3366,7 +3388,21 @@ function compactOldestInk(howMany) {
  *
  * @param {Object} data - a v4 board document
  */
-function restoreBoardFromObjects(data) {
+/**
+ * Put a stored board onto the canvas.
+ *
+ * Two callers with different needs, which is where this went wrong once:
+ *
+ *   LOADING (default) — a client fetching the board on join. It must ADD what
+ *   it fetched, because live strokes may already have arrived from a peer while
+ *   the fetch was in flight, and clearing here threw those away: a newcomer
+ *   arriving after a host handover ended up with an empty board.
+ *
+ *   RESTORING (replace = true) — putting an earlier version back over a board
+ *   that already has content. That must replace, or both versions end up on the
+ *   canvas at once and the stroke count doubles instead of going back.
+ */
+function restoreBoardFromObjects(data, replace) {
     const paint = (dataUrl, then) => {
         if (!dataUrl) { then(); return; }
         const img = new Image();
@@ -3390,12 +3426,9 @@ function restoreBoardFromObjects(data) {
 
             // 2. the board as state
             canvasSnapshot = data.base || null;
-            // Replace, do not merge. This function is used both to LOAD a board
-            // into an empty session and to RESTORE an earlier version over the
-            // current one; pushing was right for the first and wrong for the
-            // second, where it left both versions on the board at once and the
-            // stroke count doubled instead of going back.
-            boardState.length = 0;
+            // Only a deliberate restore clears what is already there; see the
+            // note above this function for why a load must not.
+            if (replace) boardState.length = 0;
             ink.forEach(stk => boardState.push(stk));
             objects.forEach(obj => boardState.push(obj));
 
