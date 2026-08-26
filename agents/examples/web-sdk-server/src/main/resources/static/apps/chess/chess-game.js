@@ -603,6 +603,69 @@ class ChessGame extends UserConnectionBase {
         this.showToast('Game exported as PGN', 'success');
     }
 
+    /**
+     * Load a PGN into the board.
+     *
+     * Export without import is half a feature: you could take a game away and
+     * never bring one back. This reads a file, replays it into the position it
+     * describes, and — because a chess board is shared — tells the room, so both
+     * players are looking at the same game rather than one person quietly
+     * studying a different one.
+     *
+     * Host-gated for that reason: loading a game replaces what everyone is
+     * looking at, which is not a thing a spectator gets to do.
+     */
+    loadPgnText(text) {
+        if (!text || typeof text !== 'string') {
+            this.showToast('That file did not contain a game', 'error');
+            return false;
+        }
+        if (!this.isHost()) {
+            this.showToast('Only the host can load a game into the board', 'warning');
+            return false;
+        }
+
+        const fresh = new Chess();
+        const ok = typeof fresh.load_pgn === 'function'
+            ? fresh.load_pgn(text, { sloppy: true })
+            : false;
+
+        if (!ok) {
+            this.showToast('Could not read that PGN', 'error');
+            return false;
+        }
+
+        this.chess = fresh;
+        this.lastMove = null;
+        this.removeGameOverDialog();
+        this.renderBoard();
+        this.updateGameStatus();
+        this.updatePlayersUI();
+
+        // Rebuild the move list from the loaded game.
+        const history = document.getElementById('moveHistory');
+        if (history) history.innerHTML = '';
+        this.chess.history({ verbose: true }).forEach((move) => this.addMoveToHistory(move));
+
+        // A loaded game starts its clocks fresh: the times in the file, if any,
+        // are somebody else's and pretending otherwise would be a lie.
+        this._clockMs = { w: 0, b: 0 };
+        this._renderClocks();
+
+        // Everyone sees the same board.
+        this.syncGameState();
+        this.showToast('Loaded ' + this.chess.history().length + ' move(s)', 'success');
+        return true;
+    }
+
+    loadPgnFile(file) {
+        if (!file) return;
+        const reader = new FileReader();
+        reader.onload = () => this.loadPgnText(String(reader.result || ''));
+        reader.onerror = () => this.showToast('Could not read that file', 'error');
+        reader.readAsText(file);
+    }
+
     _pgnResult() {
         if (!this.chess || !this.chess.game_over()) return '*';
         if (this.chess.in_checkmate()) return this.chess.turn() === 'w' ? '0-1' : '1-0';
@@ -825,6 +888,11 @@ class ChessGame extends UserConnectionBase {
         const data = {
             type: 'game-sync',
             fen: this.chess.fen(),
+            // The PGN as well as the position. A FEN says where the pieces are
+            // and nothing about how they got there, so a synced client had the
+            // right board and an empty move list — which is most of what a
+            // spectator is there to read.
+            pgn: (typeof this.chess.pgn === 'function') ? this.chess.pgn() : '',
             whitePlayer: this.whitePlayer,
             blackPlayer: this.blackPlayer,
             spectators: this.spectators,
@@ -837,7 +905,25 @@ class ChessGame extends UserConnectionBase {
     handleGameSync(data) {
         // A full state reset: any stale game-over dialog goes with it.
         this.removeGameOverDialog();
-        this.chess.load(data.fen);
+
+        // Prefer the PGN, which carries the moves as well as the position;
+        // fall back to the FEN for an older client that only sends one.
+        let replayed = false;
+        if (data.pgn && typeof this.chess.load_pgn === 'function') {
+            const fresh = new Chess();
+            if (fresh.load_pgn(data.pgn, { sloppy: true })) {
+                this.chess = fresh;
+                replayed = true;
+            }
+        }
+        if (!replayed) {
+            this.chess.load(data.fen);
+        } else {
+            // Rebuild the move list to match what just arrived.
+            const history = document.getElementById('moveHistory');
+            if (history) history.innerHTML = '';
+            this.chess.history({ verbose: true }).forEach((move) => this.addMoveToHistory(move));
+        }
         this.whitePlayer = data.whitePlayer;
         this.blackPlayer = data.blackPlayer;
         this.spectators = data.spectators || [];

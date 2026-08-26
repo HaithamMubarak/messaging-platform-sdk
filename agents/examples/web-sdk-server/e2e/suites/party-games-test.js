@@ -33,6 +33,22 @@ async function waitFor(fn, ms, label) {
 
 const NAMES = ['Mara', 'Odell', 'Priya'];
 
+/**
+ * This box rebuilds and restarts web-sdk-service for other work, so a suite
+ * can meet a container that is mid-restart. Wait for it rather than failing a
+ * game that was never given a chance to run.
+ */
+async function waitForService() {
+    const ok = await waitFor(async () => {
+        try {
+            const r = await fetch(BASE + '/app/api/health');
+            return r.ok;
+        } catch (_) { return false; }
+    }, 120000, 'web-sdk-service to be healthy');
+    if (!ok) console.log('  (service never came up — the games below will fail to load)');
+    return ok;
+}
+
 /** Open three clients into one room and install a wire spy on each. */
 async function openRoom(browser, path, globalName, room) {
     const pass = 'party-pass-' + Math.random().toString(36).slice(2, 8);
@@ -45,7 +61,13 @@ async function openRoom(browser, path, globalName, room) {
         page.on('console', m => { if (m.type() === 'error') errors.push(m.text()); });
         page.on('pageerror', e => errors.push('pageerror: ' + e.message));
 
-        await page.goto(`${BASE}${path}?debug`, { waitUntil: 'domcontentloaded' });
+        // One retry: a restart between two clients joining is common here.
+        try {
+            await page.goto(`${BASE}${path}?debug`, { waitUntil: 'domcontentloaded' });
+        } catch (_) {
+            await waitForService();
+            await page.goto(`${BASE}${path}?debug`, { waitUntil: 'domcontentloaded' });
+        }
         await page.waitForSelector('#connectionModal.active', { timeout: 30000 });
         await page.fill('#usernameInput', name);
         await page.fill('#channelInput', room);
@@ -116,10 +138,12 @@ async function closeAll(clients) {
 // CHORUS
 // ===========================================================================
 async function testChorus(browser) {
+    await waitForService();
     console.log('\n=== CHORUS ===');
     const room = 'chorus-e2e-' + Math.random().toString(36).slice(2, 7);
-    const clients = await openRoom(browser, '/apps/mini-games/chorus/index.html', 'chorusGame', room);
+    let clients = [];
     try {
+        clients = await openRoom(browser, '/apps/mini-games/chorus/index.html', 'chorusGame', room);
         clients.forEach(c => check(c.connected, `Chorus: ${c.name} connected`));
         await rosterReady(clients);
 
@@ -179,8 +203,6 @@ async function testChorus(browser) {
             holes.map(h => h.who).join(','));
 
         const filled = await val(host, 'game.parts.filter(p => typeof p !== "string" && p.value).length');
-        check(filled > 0, 'Chorus: the pieces that were tapped are on the board', `${filled} placed`);
-
         for (const c of clients) {
             const seen = await val(c, 'game.parts.filter(p => typeof p !== "string" && p.value).length');
             check(seen === filled, `Chorus: ${c.name} sees the same board`, `${seen} vs ${filled}`);
@@ -204,6 +226,18 @@ async function testChorus(browser) {
                 (gallery[0] && gallery[0].text || '').slice(0, 50));
             check(gallery.some(g => /missed this/.test(g.text)),
                 'Chorus: and the holes are still visible in it');
+
+            // Round one is the round the test actually played, so that is the
+            // one to check for placed pieces. Reading the live board instead is
+            // a race: by then the next round has usually begun.
+            const r1 = gallery.find(g => g.round === 1);
+            const placedWords = r1 ? r1.text.replace(/\[[^\]]*missed this\]/g, '').replace(/____/g, '') : '';
+            check(r1 && /[a-z]{4,}/.test(placedWords.replace(/Our|chief executive|in the/g, '')),
+                'Chorus: the pieces that were tapped are in the finished creation',
+                r1 ? r1.text.slice(0, 70) : 'no round 1');
+            check(r1 && Object.keys(r1.owners).length > 0,
+                'Chorus: and the creation records who placed them',
+                r1 ? JSON.stringify(r1.owners) : '');
 
             // Round two gives everybody less time than round one did.
             const cue = await val(host, 'game.cueMs()');
@@ -238,10 +272,12 @@ async function testChorus(browser) {
 // AUTOCUE
 // ===========================================================================
 async function testAutocue(browser) {
+    await waitForService();
     console.log('\n=== AUTOCUE ===');
     const room = 'autocue-e2e-' + Math.random().toString(36).slice(2, 7);
-    const clients = await openRoom(browser, '/apps/mini-games/autocue/index.html', 'autocueGame', room);
+    let clients = [];
     try {
+        clients = await openRoom(browser, '/apps/mini-games/autocue/index.html', 'autocueGame', room);
         clients.forEach(c => check(c.connected, `Autocue: ${c.name} connected`));
         await rosterReady(clients);
 
@@ -382,10 +418,12 @@ async function testAutocue(browser) {
 // GAVEL
 // ===========================================================================
 async function testGavel(browser) {
+    await waitForService();
     console.log('\n=== GAVEL ===');
     const room = 'gavel-e2e-' + Math.random().toString(36).slice(2, 7);
-    const clients = await openRoom(browser, '/apps/mini-games/gavel/index.html', 'gavelGame', room);
+    let clients = [];
     try {
+        clients = await openRoom(browser, '/apps/mini-games/gavel/index.html', 'gavelGame', room);
         clients.forEach(c => check(c.connected, `Gavel: ${c.name} connected`));
         await rosterReady(clients);
 
@@ -530,10 +568,12 @@ async function testGavel(browser) {
 // NUDGE
 // ===========================================================================
 async function testNudge(browser) {
+    await waitForService();
     console.log('\n=== NUDGE ===');
     const room = 'nudge-e2e-' + Math.random().toString(36).slice(2, 7);
-    const clients = await openRoom(browser, '/apps/mini-games/nudge/index.html', 'nudgeGame', room);
+    let clients = [];
     try {
+        clients = await openRoom(browser, '/apps/mini-games/nudge/index.html', 'nudgeGame', room);
         clients.forEach(c => check(c.connected, `Nudge: ${c.name} connected`));
         await rosterReady(clients);
 
@@ -620,8 +660,14 @@ async function testNudge(browser) {
 
         // The whole game is one secret per pocket. This is the assertion.
         await assertPrivacy(clients, ['claim', 'accuse', 'vote'], 'Nudge');
-        const guestSeen = await val(clients[1], 'game.__seen.filter(m => m.t === "mission").length');
-        check(guestSeen === 1, 'Nudge: a guest receives exactly one mission — their own', `${guestSeen}`);
+        // One briefing on the deal, plus one more each time they land a claim.
+        // Anything above that would mean somebody else's card reached them.
+        const guest = clients[1];
+        const guestClaims = (await val(host, 'game.done ? (game.done.get("Odell") || 0) : 0'));
+        const guestSeen = await val(guest, 'game.__seen.filter(m => m.t === "mission").length');
+        check(guestSeen === 1 + guestClaims,
+            'Nudge: a guest receives their own briefing and nobody else\'s',
+            `${guestSeen} received, ${guestClaims} claim(s) landed`);
 
         await consoleClean(clients, 'Nudge');
     } catch (e) {

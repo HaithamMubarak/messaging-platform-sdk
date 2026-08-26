@@ -136,6 +136,12 @@
                                 onclick="chessGame?.exportPgn()">
                             Export PGN
                         </button>
+                        <label for="importPgn" class="btn btn--sm btn--ghost" style="cursor:pointer">
+                            Load PGN
+                            <input id="importPgn" type="file" accept=".pgn,text/plain"
+                                   style="display:none"
+                                   onchange="chessGame?.loadPgnFile(this.files[0]); this.value='';">
+                        </label>
                         <span id="clockWhite" class="clock" title="White's thinking time">W 0:00</span>
                         <span id="clockBlack" class="clock" title="Black's thinking time">B 0:00</span>
                     </div>

@@ -65,6 +65,32 @@ async function join(b, room, name) {
     check(/e4/.test(pgn.body), `the PGN movetext contains the moves (${pgn.body.slice(0, 40)})`);
     check(pgn.result === '*', `an unfinished game exports as in-progress (${pgn.result})`);
 
+    // ---- and the round trip: load a game back in --------------------------
+    const PGN = '[Event "Test"]\n[Result "*"]\n\n1. d4 d5 2. c4 e6 3. Nc3 Nf6 *\n';
+    const loaded = await white.evaluate((pgn) => window.chessGame.loadPgnText(pgn), PGN);
+    check(loaded, 'a PGN can be loaded into the board');
+
+    await white.waitForTimeout(3000);
+    const loadedMoves = await white.evaluate(() => window.chessGame.chess.history());
+    check(loadedMoves.length === 6 && loadedMoves[0] === 'd4',
+        `the loaded game replaces the board (${JSON.stringify(loadedMoves)})`);
+
+    const listRows = await white.evaluate(() =>
+        document.querySelectorAll('#moveHistory .move-entry').length);
+    check(listRows === 6, `and the move list is rebuilt from it (${listRows})`);
+
+    // A shared board: the other player must be looking at the same game.
+    await black.waitForTimeout(4000);
+    const blackSees = await black.evaluate(() => window.chessGame.chess.history());
+    check(blackSees.length === 6,
+        `the other player sees the loaded game too (${blackSees.length} moves)`);
+
+    // Nonsense is refused rather than half-applied.
+    const before = await white.evaluate(() => window.chessGame.chess.fen());
+    const refused = await white.evaluate(() => window.chessGame.loadPgnText('this is not a game'));
+    const after = await white.evaluate(() => window.chessGame.chess.fen());
+    check(!refused && before === after, 'an unreadable PGN is refused and leaves the board alone');
+
     await b.close();
     console.log('\nPASS (' + pass.length + ')'); pass.forEach(x => console.log('  ✓ ' + x));
     console.log('\nFAIL (' + fail.length + ')'); fail.forEach(x => console.log('  ✗ ' + x));
