@@ -150,6 +150,25 @@
             this._status('off', 'Disconnected');
             this.note('You left the room');
             this._syncComposer();
+            this._stopLocalMedia();
+        }
+
+        /**
+         * Release the camera, microphone and any screen capture.
+         *
+         * Leaving the room did not stop the tracks, so the camera light stayed
+         * on after "You left the room" — the most alarming possible way for a
+         * video app to be untidy, and the reason this is worth its own method
+         * rather than three lines in a handler.
+         */
+        _stopLocalMedia() {
+            [this.cam, this.screen, this._menuPreview].forEach(function (stream) {
+                if (!stream) return;
+                try { stream.getTracks().forEach(function (t) { t.stop(); }); } catch (e) { /* already gone */ }
+            });
+            this.cam = null;
+            this.screen = null;
+            this._menuPreview = null;
         }
 
         onUserJoin() { this._roster(); }

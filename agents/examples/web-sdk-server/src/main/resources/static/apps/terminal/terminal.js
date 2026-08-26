@@ -5995,7 +5995,12 @@ terminalSharing.onFileSystemRequest = async (sessionId, operation, params, sourc
 
     // ✅ SECURITY: Validate permission for the requester
     // Get the permission for this specific agent (or use session default)
-    const requesterPermission = session.agentPermissions?.[sourceAgent] || session.permission;
+    // Defaults to readonly, like the sibling check does. Without the fallback
+    // a session with no permission recorded — which is exactly the shape
+    // created when a viewer joins — left requesterPermission undefined, the
+    // `=== 'readonly'` test below was false, and every write operation was
+    // ALLOWED. A permission check has to fail closed.
+    const requesterPermission = session.agentPermissions?.[sourceAgent] || session.permission || 'readonly';
 
     console.log('[FileSystem] Requester:', sourceAgent, 'permission:', requesterPermission);
 

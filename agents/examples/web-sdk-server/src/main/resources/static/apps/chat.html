@@ -2284,7 +2284,15 @@
                                     return;
                                 }
                                 const isMe = window.channel && window.channel.agentName && it.from === window.channel.agentName;
-                                const messageText = it.encrypted ? 'Encrypted: content' : (it.content || '(None)');
+                                // The SDK clears `encrypted` once it has decrypted an
+                                // item, so a message still marked encrypted here is one
+                                // this client could NOT read — usually a different
+                                // channel password. Saying that is more useful than the
+                                // literal placeholder "Encrypted: content", which read
+                                // like a bug on the page demonstrating encryption.
+                                const messageText = it.encrypted
+                                    ? '🔒 Could not decrypt this message — it was sent with a different channel password'
+                                    : (it.content || '(None)');
                                 appendMessage(it.from || agentName || 'Unknown', messageText, isMe, it.date || Date.now());
                             }
                         });
