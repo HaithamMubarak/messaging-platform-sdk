@@ -334,13 +334,20 @@
 
         onGameMessage(detail) {
             var d = detail && detail.data ? detail.data : detail;
-            if (!d || !d.by) return;
+            if (!d) return;
+
+            // d.by is the sender's own claim. Taking it at face value let a
+            // member post chat, publish state or unpublish a stream as anybody
+            // else — and the host then amplified the forgery to the whole room.
+            // A locally injected message (no transport identity) is ours.
+            var from = this.senderOf(detail) || this.username;
+            d.by = from;
 
             if (this.isHost() && !d._relayed) {
                 d._relayed = true;
                 try { this.sendCustomEventMessage(d, '*'); } catch (e) { /* best effort */ }
             }
-            if (d.by === this.username) return;
+            if (from === this.username) return;
 
             if (d.id) {
                 this.seen = this.seen || [];

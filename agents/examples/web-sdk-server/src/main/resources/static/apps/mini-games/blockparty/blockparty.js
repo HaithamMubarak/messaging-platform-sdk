@@ -2796,6 +2796,10 @@
                     }
                     break;
                 case 'lock':
+                    // Every other case in this switch checks _fromHost; this
+                    // one did not, so any player could lock or unlock the world
+                    // for everybody.
+                    if (!this.isHost() && !this._fromHost(peerId, data)) break;
                     this._setWorldLocked(!!data.locked, data.by);
                     break;
                 case 'physics':

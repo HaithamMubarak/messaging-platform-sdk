@@ -396,6 +396,19 @@ class ReactorGame extends UserConnectionBase {
     onDataChannelMessage(peerId, data) {
         console.log('[Reactor] DataChannel message from', peerId, '- type:', data.type);
 
+        // The host runs the round: it schedules the lights, owns the clock and
+        // owns the scoreboard. Every one of these was accepted from any peer,
+        // so a player could light their own zone, restart the round, or simply
+        // declare a score. 'zone-reaction' is the one thing a player legitimately
+        // sends, and the host attributes it by peerId rather than by payload.
+        const HOST_ONLY = ['light-activate', 'game-start', 'game-end', 'round-start',
+                           'round-end', 'score-update', 'zone-assignments', 'game-state',
+                           'stage-change', 'sequence-start', 'color-match'];
+        if (HOST_ONLY.indexOf(data.type) !== -1 && !this.isFromHost(peerId)) {
+            console.warn('[Reactor] Ignoring', data.type, 'from a non-host peer:', peerId);
+            return;
+        }
+
         switch(data.type) {
             case 'light-activate':
                 // Accept light activation from host

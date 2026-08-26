@@ -330,6 +330,15 @@ class QuizBattleGame extends UserConnectionBase {
     onDataChannelMessage(peerId, data) {
         console.log('[QuizBattle] DataChannel message from', peerId, '- type:', data.type);
 
+        // Messages only the host is entitled to send. Accepting these from any
+        // peer let a player start the game, skip to a question of their
+        // choosing, rewrite the scoreboard or end the round for everybody.
+        const HOST_ONLY = ['game-start', 'next-question', 'game-state', 'game-end'];
+        if (HOST_ONLY.indexOf(data.type) !== -1 && !this.isFromHost(peerId)) {
+            console.warn('[QuizBattle] Ignoring', data.type, 'from a non-host peer:', peerId);
+            return;
+        }
+
         switch(data.type) {
             case 'game-start':
                 this.handleGameStart(data);

@@ -460,6 +460,20 @@ class AirHockeyGame extends UserConnectionBase {
     }
 
     onDataChannelMessage(peerId, data) {
+        // The host simulates the puck, keeps the score and runs the match.
+        // isHostPeer() was written for exactly this and then never called, so
+        // any peer could score a goal, start or end the game, move the puck or
+        // reassign the players. A paddle position is the one thing a player
+        // legitimately sends, and it is attributed by peerId.
+        const HOST_ONLY = ['puck-update', 'game-start', 'game-end', 'game-pause',
+                           'game-pause-player-join', 'game-resume', 'game-resume-after-join',
+                           'goal', 'game-state', 'settings-change', 'player-assignments',
+                           'reset-ball', 'new-game'];
+        if (HOST_ONLY.indexOf(data.type) !== -1 && !this.isHostPeer(peerId)) {
+            console.warn('[AirHockey] Ignoring', data.type, 'from a non-host peer:', peerId);
+            return;
+        }
+
         switch (data.type) {
             case 'paddle-update':
                 this.handlePaddleUpdate(peerId, data);
