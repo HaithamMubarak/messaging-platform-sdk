@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Rewind</title>
+    <meta name="description" content="Scrub back through a whiteboard session. Every save is a version, so a channel that has been drawn on is already a recording.">
+    <meta name="robots" content="noindex, nofollow">
+    <meta name="theme-color" content="#0b1120">
+    <link rel="icon" type="image/svg+xml" href="../../favicon.svg">
+    <link rel="stylesheet" href="../../css/design-tokens.css">
+    <link rel="stylesheet" href="../../css/ui.css">
+    <link rel="stylesheet" href="../../css/connection-modal.css">
+    <link rel="stylesheet" href="rewind.css">
+    <script src="../../js/prod-log.js"></script>
+</head>
+<body class="rw">
+
+<div class="rw-wrap">
+    <header class="rw-head">
+        <h1>Rewind</h1>
+        <p>Playing back <span id="channelName" class="rw-channel">this channel</span> — open the same
+           channel and password you used in the whiteboard.</p>
+    </header>
+
+    <p id="state" class="rw-state">Not connected yet.</p>
+
+    <div class="rw-stage-wrap">
+        <canvas id="stage" class="rw-stage" width="1280" height="720"
+                role="img" aria-label="The board at the selected point in time"></canvas>
+    </div>
+
+    <div class="rw-transport">
+        <button id="playBtn" class="btn btn--primary" type="button" disabled>Play</button>
+        <label for="scrub" class="sr-only">Position in the session</label>
+        <input id="scrub" class="rw-scrub" type="range" min="0" max="0" value="0" step="1" disabled>
+        <span id="position" class="rw-position">—</span>
+        <span id="frameTime" class="rw-time"></span>
+        <button id="reloadBtn" class="btn btn--sm btn--ghost" type="button">Reload</button>
+    </div>
+
+    <p class="rw-note">
+        Read-only on purpose. A player that could write would have to agree with whoever is drawing
+        right now about what the board is, and that is the argument host authority exists to settle —
+        a viewer does not need to join it.
+    </p>
+</div>
+
+<script src="../../js/config-loader.js"></script>
+<script src="../../js/api-config.js"></script>
+<script src="../../generated-web-agent-js/js/web-agent.libs.js"></script>
+<script src="../../generated-web-agent-js/js/web-agent.js"></script>
+<script src="../../generated-web-agent-js/js/web-agent.webrtc.js"></script>
+<script src="../../js/common-utils.js"></script>
+<script src="../../js/dialog.js"></script>
+<script src="../../js/connection-modal.js"></script>
+<script src="../../js/room-defaults.js"></script>
+<script src="../../js/UserConnectionBase.js"></script>
+<script src="rewind.js"></script>
+</body>
+</html>

@@ -1,0 +1,73 @@
+/**
+ * Rewind.
+ *
+ * A player, so the board is the page and everything else gets out of its way:
+ * one row of transport controls under a white stage, and nothing competing with
+ * the drawing for attention.
+ */
+
+.rw {
+    min-height: 100vh;
+    background: var(--bg, #0b1120);
+    color: var(--text-body, #c4cede);
+    font-family: var(--font-sans, Inter, system-ui, sans-serif);
+}
+
+.rw-wrap {
+    max-inline-size: 62rem;
+    margin-inline: auto;
+    padding: var(--sp-6, 1.5rem) var(--sp-4, 1rem) var(--sp-12, 3rem);
+    display: flex;
+    flex-direction: column;
+    gap: var(--sp-4, 1rem);
+}
+
+.rw-head h1 { margin: 0 0 var(--sp-1, .25rem); font-size: var(--fs-2xl, 1.75rem); color: var(--text, #eef2f8); }
+.rw-head p { margin: 0; color: var(--text-muted, #8a97ab); font-size: var(--fs-md, .875rem); }
+.rw-channel { color: var(--brand-ink, #a5b4fc); font-family: var(--font-mono, ui-monospace, monospace); }
+
+.rw-stage-wrap {
+    background: var(--surface-1, #101827);
+    border: 1px solid var(--border, rgba(148, 163, 184, .14));
+    border-radius: var(--r-lg, 12px);
+    padding: var(--sp-3, .75rem);
+}
+
+/* The board is 16:9 and white, like the whiteboard it came from. */
+.rw-stage {
+    display: block;
+    inline-size: 100%;
+    block-size: auto;
+    aspect-ratio: 16 / 9;
+    background: #ffffff;
+    border-radius: var(--r-md, 8px);
+}
+
+.rw-transport {
+    display: flex;
+    align-items: center;
+    gap: var(--sp-3, .75rem);
+    flex-wrap: wrap;
+    padding: var(--sp-3, .75rem) var(--sp-4, 1rem);
+    background: var(--surface-1, #101827);
+    border: 1px solid var(--border, rgba(148, 163, 184, .14));
+    border-radius: var(--r-lg, 12px);
+}
+
+.rw-scrub {
+    flex: 1;
+    min-inline-size: 12rem;
+    accent-color: var(--brand, #5d60ef);
+    block-size: 44px;                 /* a real target, not a hairline */
+}
+
+.rw-position {
+    font-family: var(--font-mono, ui-monospace, monospace);
+    font-size: var(--fs-sm, .8125rem);
+    color: var(--text, #eef2f8);
+    font-variant-numeric: tabular-nums;
+}
+
+.rw-time { font-size: var(--fs-xs, .75rem); color: var(--text-muted, #8a97ab); }
+.rw-state { font-size: var(--fs-sm, .8125rem); color: var(--text-muted, #8a97ab); line-height: var(--lh-body, 1.65); }
+.rw-note { font-size: var(--fs-xs, .75rem); color: var(--text-muted, #8a97ab); line-height: var(--lh-body, 1.65); }

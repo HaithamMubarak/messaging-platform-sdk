@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+    <title>Rewind — replay a session on the Messaging Platform SDK</title>
+    <meta name="description" content="Scrub back through a whiteboard session. Every save is a version, so a channel that has been drawn on is already a recording — no recorder required.">
+    <meta name="theme-color" content="#0b1120">
+    <link rel="canonical" href="https://hmdevonline.com/messaging-platform/sdk/apps/rewind/index.html">
+    <meta property="og:type" content="website">
+    <meta property="og:site_name" content="Messaging Platform SDK">
+    <meta property="og:title" content="Rewind">
+    <meta property="og:description" content="Scrub back through a whiteboard session. The channel's saved versions are the timeline.">
+    <meta property="og:url" content="https://hmdevonline.com/messaging-platform/sdk/apps/rewind/index.html">
+    <meta property="og:image" content="https://hmdevonline.com/messaging-platform/sdk/images/og-image.png">
+    <meta name="twitter:card" content="summary_large_image">
+    <meta name="twitter:title" content="Rewind">
+    <meta name="twitter:description" content="Scrub back through a whiteboard session.">
+    <meta name="twitter:image" content="https://hmdevonline.com/messaging-platform/sdk/images/og-image.png">
+
+    <link rel="icon" type="image/svg+xml" href="../../favicon.svg">
+    <link rel="stylesheet" href="../../css/design-tokens.css">
+    <link rel="stylesheet" href="../../css/ui.css">
+    <link rel="stylesheet" href="../../css/landing.css">
+    <link rel="stylesheet" href="../../css/app-page.css">
+
+    <script src="../../js/prod-log.js"></script>
+    <script src="../../js/icons.js" defer></script>
+</head>
+<body>
+<a class="skip-link" href="#main">Skip to content</a>
+
+<header class="site-header" id="siteHeader">
+    <div class="wrap site-header__inner">
+        <a class="brand" href="../../index.html">
+            <svg class="logo-mark" aria-hidden="true"><use href="#i-logo"></use></svg>
+            Messaging Platform SDK
+        </a>
+        <button class="btn btn--ghost btn--icon nav-toggle" id="navToggle" aria-expanded="false" aria-controls="siteNav" aria-label="Open menu">
+            <svg class="icon" aria-hidden="true"><use href="#i-menu"></use></svg>
+        </button>
+        <nav class="site-nav" id="siteNav" aria-label="Main">
+            <a href="../../index.html#demos">Demos</a>
+            <a href="../../playground.html">Playground</a>
+            <a href="../../docs.html">Docs</a>
+            <a href="../../developer/index.html">Portal</a>
+            <a class="btn btn--gradient" href="app.html">Open it</a>
+        </nav>
+    </div>
+</header>
+
+<main id="main">
+    <section class="hero" style="padding-block: var(--sp-16) var(--sp-12)">
+        <div class="wrap ap-hero">
+            <div>
+                <span class="eyebrow">Playground · Rewind</span>
+                <h1 style="font-size: var(--fs-hero); margin-bottom: var(--sp-4); text-wrap: balance">The session was already being recorded.</h1>
+                <p class="hero__lede">
+                    The whiteboard writes a new version of the board every time it saves. So a channel
+                    that has been drawn on is a recording, and always was — nobody had built the thing
+                    that watches it. Open the same channel here and scrub back through it.
+                </p>
+                <div class="hero__actions" style="margin-top: var(--sp-6)">
+                    <a class="btn btn--gradient" href="app.html">Open it</a>
+                    <a class="btn btn--ghost" href="../whiteboard/index.html">Draw something first</a>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <section class="wrap" style="padding-block: var(--sp-12)">
+        <h2>What it demonstrates</h2>
+        <p>
+            The channel as an ordered log. Every other app on this site treats storage as somewhere to
+            keep the current value; this one treats the list of versions as a timeline, which is what
+            <code>storageAdd</code> is actually for. Each version is encrypted with the channel
+            password, so Rewind can only replay a session you already had the key to.
+        </p>
+    </section>
+
+    <section class="wrap" style="padding-block: var(--sp-12)">
+        <h2>How it draws</h2>
+        <p>
+            From the stored strokes rather than a picture: each save carries the paths that made the
+            board, so a session replays at whatever size the window happens to be. Boards saved before
+            strokes were stored as objects fall back to the image in the same record, which is why an
+            old channel still plays.
+        </p>
+    </section>
+
+    <section class="wrap" style="padding-block: var(--sp-12) var(--sp-16)">
+        <h2>Read-only, deliberately</h2>
+        <p>
+            A player that could write would have to agree with whoever is drawing right now about what
+            the board is — and settling that argument is exactly what host authority is for. A viewer
+            does not need to join it, so Rewind never sends anything at all.
+        </p>
+    </section>
+</main>
+
+<script src="../../js/app-chrome.js"></script>
+</body>
+</html>

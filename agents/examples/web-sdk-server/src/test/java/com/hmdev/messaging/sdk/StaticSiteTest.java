@@ -44,13 +44,15 @@ class StaticSiteTest {
             // a join link is handed out at an event and both carry noindex.
             "apps/sponsorpulse/index.html",
             "apps/dead-drop/index.html",
-            "apps/under-the-hood/index.html");
+            "apps/under-the-hood/index.html",
+            "apps/rewind/index.html");
     // apps/quickshare/quickshare.html is deliberately absent: QuickShare was
     // retired to a noindex redirect at Drop, and a redirect has nothing to
     // unfurl.
 
     /** Pages that must never be indexed, whether or not robots.txt is fetched. */
     private static final List<String> PRIVATE_PAGES = List.of(
+            "apps/rewind/app.html",
             "apps/under-the-hood/app.html",
             "apps/dead-drop/app.html",
             "apps/sponsorpulse/host.html",
