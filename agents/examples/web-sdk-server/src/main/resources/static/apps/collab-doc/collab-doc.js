@@ -112,6 +112,7 @@ class CollabDoc extends UserConnectionBase {
 
         // Listen to changes
         this.editor.on('change', (cm, change) => {
+            if (this._store) this._store.touch();
             this.handleLocalChange(change);
         });
 
@@ -143,6 +144,33 @@ class CollabDoc extends UserConnectionBase {
             window.ConnectionModal.hide();
         }
         console.log('[CollabDoc] Connected:', detail);
+
+        // The document used to exist only in the open tabs; closing the last
+        // one lost it. Stored encrypted in channel storage, host writes only.
+        this._store = BoardStore.attach(this, {
+            key: 'collabdoc_document',
+            snapshot: () => ({
+                title: this.docTitle,
+                content: this.editor ? this.editor.getValue() : ''
+            }),
+            restore: (data) => {
+                if (!data) return;
+                if (data.title) {
+                    this.docTitle = data.title;
+                    const titleEl = document.getElementById('docTitle');
+                    if (titleEl) titleEl.value = data.title;
+                }
+                if (this.editor && typeof data.content === 'string') {
+                    this.editor.setValue(data.content);
+                }
+            }
+        });
+        // Only when nobody is here to hand us a newer live copy.
+        if (this.isHost() && this.getConnectedUsers().length <= 1) {
+            this._store.load((restored) => {
+                if (restored && this.showToast) this.showToast('Restored the saved document', 'success');
+            });
+        }
 
         // Show app container
         document.getElementById('appContainer').classList.remove('hidden');

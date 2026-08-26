@@ -361,9 +361,20 @@ class QuizBattleGame extends UserConnectionBase {
         }
     }
 
+    /**
+     * The host's scoreboard, replacing whatever this client had.
+     *
+     * This used to write data.score under the SENDER's name, so any player
+     * could set their own total by sending one message. The guard in
+     * onDataChannelMessage already restricts this type to the host; this
+     * replaces the whole table rather than trusting a single number.
+     */
     handleScoreUpdate(peerId, data) {
-        console.log('[QuizBattle] Score update from', peerId, ':', data.score);
-        this.playerScores.set(peerId, data.score);
+        if (!Array.isArray(data.scores)) return;
+        this.playerScores = new Map(data.scores.map(function (row) {
+            return [row.name, row.score];
+        }));
+        if (typeof this.updatePlayersList === 'function') this.updatePlayersList();
     }
 
     setupUI() {
@@ -583,22 +594,75 @@ class QuizBattleGame extends UserConnectionBase {
         this.showQuestion(data.questionIndex);
     }
 
+    /**
+     * The host grades. Players report what they picked, not how they did.
+     *
+     * Every client used to mark its own answer and send the resulting score,
+     * and the host wrote that number straight into the table — so the score was
+     * whatever the player said it was, and a player on a slow connection could
+     * also claim any time bonus they liked. The host has correctAnswerText and
+     * the question clock, so it can decide both.
+     *
+     * The player's own screen still shows immediate feedback, because waiting
+     * for a round trip to find out whether you were right ruins the moment;
+     * that local view is now a prediction, and the host's table is the truth.
+     */
     handlePlayerAnswer(peerId, data) {
-        // Track answer from any player (host collects all scores)
-        const playerName = data.playerName || peerId;
-        console.log('[QuizBattle] Player', playerName, 'answered:', data.answer, 'correct:', data.correct, 'score:', data.score);
+        // Identity from the transport: playerName is the sender's own claim.
+        const playerName = this.senderOf(peerId) || peerId;
 
-        this.playerAnswers.set(playerName, data);
-
-        // Update player score
-        if (data.score !== undefined) {
-            this.playerScores.set(playerName, data.score);
+        if (!this.isHost()) {
+            // A non-host only needs to know somebody answered, for the UI.
+            this.playerAnswers.set(playerName, data);
+            return;
         }
 
-        if (this.isHost() && this._answeredThisQuestion) {
+        const question = this.currentQuestionData;
+        const answered = typeof data.answerText === 'string' ? data.answerText : null;
+
+        // One answer per player per question: a second one is ignored rather
+        // than added, so repeatedly sending the right answer cannot farm points.
+        const already = this._answeredThisQuestion && this._answeredThisQuestion.has(playerName);
+
+        let correct = false;
+        let awarded = 0;
+
+        if (question && answered !== null && !already) {
+            correct = (answered === question.correctAnswerText);
+            if (correct) {
+                // Time bonus from the host's own clock, not the player's.
+                // The host's own remaining clock for this question (10s a
+                // question, set where the timer starts), clamped so a stale
+                // value cannot inflate the bonus.
+                const timeLeft = Math.max(0, Math.min(10, this.timeLeft || 0));
+                awarded = 100 + Math.floor(timeLeft * 10);
+            }
+        }
+
+        if (!already) {
+            const running = this.playerScores.get(playerName) || 0;
+            this.playerScores.set(playerName, running + awarded);
+        }
+
+        this.playerAnswers.set(playerName, {
+            playerName: playerName,
+            answerText: answered,
+            correct: correct,
+            score: this.playerScores.get(playerName) || 0
+        });
+
+        if (this._answeredThisQuestion) {
             this._answeredThisQuestion.add(playerName);
             this._maybeAdvanceEarly();
         }
+
+        // Publish the table the host just computed, so every screen agrees.
+        this.sendData({
+            type: 'score-update',
+            scores: Array.from(this.playerScores.entries()).map(function (e) {
+                return { name: e[0], score: e[1] };
+            })
+        });
     }
 
     handleGameState(data) {
@@ -785,14 +849,12 @@ class QuizBattleGame extends UserConnectionBase {
         this.showAnswerFeedback(answerIndex, correct);
 
         // Send answer to all peers via DataChannel (host will track scores)
+        // Only what was picked. `correct`, `score` and `timeLeft` used to travel
+        // with it and the host believed all three; the host works them out now.
         this.sendData({
             type: 'player-answer',
-            playerName: this.username,
             questionIndex: this.currentQuestion,
             answerText: selectedAnswer,
-            correct: correct,
-            score: this.score,
-            timeLeft: this.timeLeft,
             timestamp: Date.now()
         });
 

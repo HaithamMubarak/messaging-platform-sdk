@@ -162,6 +162,7 @@ class MindMapApp extends UserConnectionBase {
             window.ConnectionModal.hide();
         }
         console.log('[MindMap] Connected:', detail);
+        this._attachStore();
 
         // Show app container
         document.getElementById('appContainer').classList.remove('hidden');
@@ -291,6 +292,7 @@ class MindMapApp extends UserConnectionBase {
     // ============================================
 
     addNode() {
+        if (this._store) this._store.touch();
         // Create node at center of view
         const centerX = this.canvas.width / 2 - this.panX;
         const centerY = this.canvas.height / 2 - this.panY;
@@ -340,6 +342,7 @@ class MindMapApp extends UserConnectionBase {
     }
 
     updateNode(node) {
+        if (this._store) this._store.touch();
         const data = {
             type: 'update-node',
             nodeId: node.id,
@@ -363,6 +366,7 @@ class MindMapApp extends UserConnectionBase {
     }
 
     deleteNode(nodeId) {
+        if (this._store) this._store.touch();
         if (!this.nodes.has(nodeId)) return;
 
         // Remove connections
@@ -402,6 +406,7 @@ class MindMapApp extends UserConnectionBase {
     // ============================================
 
     addConnection(fromId, toId) {
+        if (this._store) this._store.touch();
         // Check if connection already exists
         const exists = this.connections.some(conn =>
             (conn.fromId === fromId && conn.toId === toId) ||
@@ -434,6 +439,7 @@ class MindMapApp extends UserConnectionBase {
     }
 
     deleteConnection(fromId, toId) {
+        if (this._store) this._store.touch();
         this.connections = this.connections.filter(conn =>
             !(conn.fromId === fromId && conn.toId === toId)
         );
@@ -1026,6 +1032,35 @@ class MindMapApp extends UserConnectionBase {
     // SYNC
     // ============================================
 
+    /**
+     * Keep the map between sessions.
+     *
+     * The map lived only in the peers holding it, so an empty room lost the
+     * work. syncMapTo already knows how to serialise it and handleMapSync
+     * knows how to apply it, so persistence is those two plus a store.
+     */
+    _attachStore() {
+        if (this._store) return;
+        this._store = BoardStore.attach(this, {
+            key: 'mindmap_board',
+            snapshot: () => ({
+                nodes: Array.from(this.nodes.values()).map(node => ({
+                    id: node.id, x: node.x, y: node.y, text: node.text, color: node.color
+                })),
+                connections: this.connections.map(conn => ({
+                    fromId: conn.fromId, toId: conn.toId
+                }))
+            }),
+            restore: (data) => this.handleMapSync(data)
+        });
+        // Only when there is nobody to hand us a newer live copy.
+        if (this.isHost() && this.getConnectedUsers().length <= 1) {
+            this._store.load((restored) => {
+                if (restored && this.showToast) this.showToast('Restored the saved map', 'success');
+            });
+        }
+    }
+
     syncMapTo(username) {
         const data = {
             type: 'map-sync',
@@ -1046,6 +1081,7 @@ class MindMapApp extends UserConnectionBase {
     }
 
     handleMapSync(data) {
+        if (this._store) this._store.touch();
         // Clear existing
         this.nodes.clear();
         this.connections = [];

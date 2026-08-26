@@ -181,6 +181,21 @@ class PixelArtApp extends UserConnectionBase {
         }
         console.log('[PixelArt] Connected:', detail);
 
+        // A shared canvas that vanished when the last tab closed now keeps
+        // itself. Same encrypted channel-storage pattern the whiteboard uses.
+        this._store = BoardStore.attach(this, {
+            key: 'pixelart_canvas',
+            snapshot: () => ({ gridSize: this.gridSize, pixels: this.pixels }),
+            restore: (data) => this.handleCanvasSync(data)
+        });
+        // Load only if nobody is here to hand us the live board: a peer's copy
+        // is newer than anything stored.
+        if (this.isHost() && this.getConnectedUsers().length <= 1) {
+            this._store.load((restored) => {
+                if (restored) this.showToast('Restored the saved canvas', 'success');
+            });
+        }
+
         // Show app container
         document.getElementById('appContainer').classList.remove('hidden');
 
@@ -400,6 +415,7 @@ class PixelArtApp extends UserConnectionBase {
     }
 
     handleRemotePixel(data) {
+        if (this._store) this._store.touch();
         this.setPixel(data.x, data.y, data.color, true);
     }
 
@@ -442,6 +458,7 @@ class PixelArtApp extends UserConnectionBase {
     }
 
     handleRemoteFill(data) {
+        if (this._store) this._store.touch();
         const stack = [[data.startX, data.startY]];
         const visited = new Set();
 
