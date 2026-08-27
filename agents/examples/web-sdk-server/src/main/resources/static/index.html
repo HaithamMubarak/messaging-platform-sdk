@@ -535,6 +535,22 @@ agent.<span class="tok-prop">onMessage</span> = (msg) <span class="tok-key">=&gt
                     Open the playground
                 </a>
             </div>
+
+            <!-- Built on the SDK but not part of this site: ClassKit lives in
+                 the apps deployment. The link is relative on purpose so it
+                 resolves within /messaging-platform/ wherever this is mounted,
+                 which also means it points at nothing on a local container
+                 where only the SDK is served. See EXTERNAL_BY_DESIGN in
+                 e2e/suites/links.js. -->
+            <div class="link-row">
+                <p><strong>ClassKit</strong> puts several of these demos in one room — faces, a shared
+                   whiteboard and a graded quiz, all on screen at once. It is a full app built on the
+                   SDK rather than a demonstration of one primitive.</p>
+                <a class="btn btn--ghost" href="../apps/classkit/">
+                    <svg class="icon icon--sm" aria-hidden="true"><use href="#i-arrow-right"></use></svg>
+                    See ClassKit
+                </a>
+            </div>
         </div>
     </section>
 

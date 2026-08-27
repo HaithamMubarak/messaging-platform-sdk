@@ -6,13 +6,23 @@ const seen = new Set(), bad = [];
 /**
  * Links that deliberately leave this site.
  *
- * Some cards point at products hosted beside the SDK site rather than inside
- * it, and those are allowed to be absent here. Nothing claims that today: the
- * CoShell card was removed once its target was found to redirect to
- * apps/terminal, which the catalogue already lists — so the list is empty and
- * every href must resolve.
+ * Some links point at apps hosted beside the SDK site rather than inside it,
+ * and those are allowed to be absent here.
+ *
+ * ClassKit is one: it is a full app in the apps deployment, and the landing
+ * page and playground both link across to it. The href is relative on purpose
+ * so it resolves within /messaging-platform/ wherever this site is mounted —
+ * which means that on a local container, where only the SDK is served, it
+ * points at something this container does not have. Absent here is not broken;
+ * the app has its own suite, and it is run against the deployed copy.
+ *
+ * The list is short on purpose. The CoShell entry that used to live here was
+ * removed with its card, once that card was found to redirect to a page the
+ * catalogue already listed.
  */
-const EXTERNAL_BY_DESIGN = [];
+// Matched against the path AFTER it is resolved against the page, so the
+// `../` in the markup is already gone by the time it is tested here.
+const EXTERNAL_BY_DESIGN = [/^apps\/classkit\//];
 (async () => {
   const b = await chromium.launch({headless:true,args:['--no-sandbox']});
   const p = await b.newPage();
