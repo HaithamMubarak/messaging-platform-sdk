@@ -22,7 +22,7 @@
 
 .fs-console { display: grid; gap: var(--sp-4); min-height: 0; overflow-y: auto; }
 @media (min-width: 1000px) {
-    .fs-console { grid-template-columns: minmax(0, 1.35fr) minmax(320px, 0.85fr); align-items: start; }
+    .fs-console { grid-template-columns: minmax(0, 1.35fr) minmax(min(320px, 100%), 0.85fr); align-items: start; }
 }
 
 .fs-video-wrap {

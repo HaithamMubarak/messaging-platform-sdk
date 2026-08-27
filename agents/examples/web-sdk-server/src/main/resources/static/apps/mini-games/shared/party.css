@@ -39,7 +39,7 @@
     padding-top: var(--sp-4);
 }
 @media (min-width: 880px) {
-    .pk-lobby { grid-template-columns: minmax(0, 1.15fr) minmax(290px, 0.85fr); gap: var(--sp-8); }
+    .pk-lobby { grid-template-columns: minmax(0, 1.15fr) minmax(min(290px, 100%), 0.85fr); gap: var(--sp-8); }
 }
 .pk-lobby__pitch h2 {
     font-size: var(--fs-2xl);
@@ -246,4 +246,13 @@
 @media (max-width: 720px) {
     .pk-stage-card { padding: var(--sp-4); }
     .pk-feed { max-height: 22vh; }
+}
+
+/* --- Small phones (320px) ------------------------------------------------ */
+/* Autocue carries a second meta count in the header (the heckle tally) and is
+   the one game that still runs the row over on a 320px screen. The counts are
+   supplementary — both numbers also appear in the game itself — so they are
+   the right thing to drop rather than a control. */
+@media (max-width: 400px) {
+    .pk-round { display: none; }
 }

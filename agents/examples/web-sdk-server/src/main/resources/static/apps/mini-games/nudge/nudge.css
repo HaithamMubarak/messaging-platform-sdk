@@ -49,7 +49,7 @@
 #voteNo  { background: var(--danger-strong); }
 #voteYes.is-on, #voteNo.is-on { box-shadow: 0 0 0 4px var(--brand-subtle); }
 
-.ng-accuse-grid { display: grid; gap: var(--sp-2); grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); }
+.ng-accuse-grid { display: grid; gap: var(--sp-2); grid-template-columns: repeat(auto-fill, minmax(min(140px, 100%), 1fr)); }
 .ng-accuse-grid .pk-choice { text-align: center; min-height: 48px; }
 
 .ng-innocent { color: var(--warning); font-style: italic; }

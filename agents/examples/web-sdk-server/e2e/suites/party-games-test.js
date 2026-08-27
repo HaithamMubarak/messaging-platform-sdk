@@ -627,14 +627,37 @@ async function testNudge(browser) {
             claimerScore ? String(claimerScore.score) : 'none');
 
         // One accusation each, and only one.
-        const accuser = clients[1];
+        //
+        // Who the innocent is changes every run, so neither the accuser nor
+        // the second target may be a fixed index: this used to name clients[1]
+        // and then 'Mara' literally. When the innocent happened to BE
+        // clients[1] the game correctly refused a self-accusation and the test
+        // read that as a product failure — and worse, whenever the accuser was
+        // Mara the follow-up was refused for being a self-accusation too, so
+        // "a second one is refused" passed without ever exercising the
+        // one-each rule it claims to test.
         const target = innocents[0].name;
+        // Prefer a non-host accuser: PartyKit short-circuits both toHost and
+        // toPlayer when the sender IS the host, so a host accuser would never
+        // put the accusation on the wire at all.
+        const accuser = clients.slice(1).find(c => c.name !== target)
+            || clients.find(c => c.name !== target);
+        const second = NAMES.find(n => n !== accuser.name && n !== target);
+        check(!!accuser && !!second && accuser.name !== target && second !== accuser.name,
+            'Nudge: the accusation test names somebody other than itself',
+            `${accuser ? accuser.name : '?'} -> ${target}, then ${second}`);
+
         await accuser.page.evaluate(t => window.nudgeGame.accuse(t), target);
         await sleep(1200);
-        check(await val(accuser, 'game.myAccusation') === target, 'Nudge: an accusation is registered', target);
-        await accuser.page.evaluate(() => window.nudgeGame.accuse('Mara'));
+        check(await val(accuser, 'game.myAccusation') === target, 'Nudge: an accusation is registered',
+            `${accuser.name} -> ${target}`);
+
+        // A DIFFERENT, valid target — so the only thing that can refuse it is
+        // the one-each rule.
+        await accuser.page.evaluate(n => window.nudgeGame.accuse(n), second);
         await sleep(800);
-        check(await val(accuser, 'game.myAccusation') === target, 'Nudge: and a second one is refused');
+        check(await val(accuser, 'game.myAccusation') === target,
+            'Nudge: and a second one is refused', `still ${target}, not ${second}`);
 
         await host.page.click('#endBtn');
         check(await waitFor(async () => (await phaseOf(host)) === 'over', 20000, 'the reveal'),

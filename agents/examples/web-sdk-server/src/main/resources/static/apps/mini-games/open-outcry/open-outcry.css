@@ -48,7 +48,7 @@
     padding-top: var(--sp-4);
 }
 @media (min-width: 860px) {
-    .oo-lobby { grid-template-columns: minmax(0, 1.15fr) minmax(280px, 0.85fr); gap: var(--sp-8); }
+    .oo-lobby { grid-template-columns: minmax(0, 1.15fr) minmax(min(280px, 100%), 0.85fr); gap: var(--sp-8); }
 }
 .oo-lobby__pitch h2 {
     font-size: var(--fs-2xl);
