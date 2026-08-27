@@ -27,6 +27,15 @@ Think of it as the **JavaScript equivalent** of our Java and Python agents, but 
 
 ---
 
+> **What the npm package contains.** Installing
+> `@messaging-platform/web-agent-js` gives you `js/web-agent.js`,
+> `js/web-agent.libs.js`, `js/web-agent.webrtc.js` and the TypeScript
+> definitions — that is the SDK. The file tables and project tree below
+> describe this **repository folder**, which additionally holds page helpers
+> (`config-loader.js`, `mini-game-utils.js`, `share-modal.js`) and stylesheets
+> used by the showcase site. Those are not published, and nothing in the Quick
+> Start above needs them.
+
 ## ✨ Features That Rock
 
 ### 🎯 Main SDK Files
@@ -82,81 +91,81 @@ web-agent-js/
 
 ## 🚀 Quick Start
 
-### 1. Include SDK Files
+### 1. Install
+
+```bash
+npm i @messaging-platform/web-agent-js
+```
+
+About 80 KB gzipped, with TypeScript definitions included.
+
+```js
+import { AgentConnection, generateRandomAgentName } from '@messaging-platform/web-agent-js';
+// CommonJS:
+// const { AgentConnection } = require('@messaging-platform/web-agent-js');
+```
+
+Or with no build step at all, straight from script tags — load the libraries
+first, since `web-agent.js` expects them as globals:
 
 ```html
-<!DOCTYPE html>
-<html>
-<head>
-    <!-- CSS -->
-    <link rel="stylesheet" href="path/to/web-agent-js/css/common.css">
-    <link rel="stylesheet" href="path/to/web-agent-js/css/mini-games-connection.css">
-</head>
-<body>
-    <!-- Your content -->
-    
-    <!-- JS Libraries (load in order) -->
-    <script src="path/to/web-agent-js/js/config-loader.js"></script>
-    <script src="path/to/web-agent-js/js/web-agent.libs.js"></script>
-    <script src="path/to/web-agent-js/js/web-agent.webrtc.js"></script>
-    <script src="path/to/web-agent-js/js/web-agent.js"></script>
-    <script src="path/to/web-agent-js/js/mini-game-utils.js"></script>
-</body>
-</html>
+<script src="node_modules/@messaging-platform/web-agent-js/js/web-agent.libs.js"></script>
+<script src="node_modules/@messaging-platform/web-agent-js/js/web-agent.js"></script>
+
+<!-- Optional: peer-to-peer data channels, audio and video -->
+<script src="node_modules/@messaging-platform/web-agent-js/js/web-agent.webrtc.js"></script>
 ```
 
-### 2. Basic Usage
+### 2. Join a channel and send something
 
-```javascript
-// Create agent and channel
-const agent = await Agent.create({
+A channel is identified by a name and a password. Everyone who connects with the
+same pair is in the same room; there are no accounts to create.
+
+```js
+const agent = new AgentConnection();
+
+agent.on('connect', () => {
+    agent.sendMessage({ msg: { hello: 'everyone' } });     // to the whole channel
+});
+
+agent.on('message', (event) => {
+    console.log('received', event);
+});
+
+agent.on('agentConnected', (event) => console.log('joined:', event));
+agent.on('agentDisconnected', (event) => console.log('left:', event));
+
+agent.connect({
+    api: 'https://hmdevonline.com/messaging-platform/api/v1/messaging-service',
     apiKey: 'your-api-key',
-    baseURL: 'http://localhost:8080'
-});
-
-const channel = await agent.getOrCreateChannel({
+    apiKeyScope: 'public',          // 'public' keys are safe to ship in a browser
     channelName: 'my-room',
-    channelPassword: 'optional-password'
-});
-
-// Listen for messages
-channel.setCustomMessageHandler((message) => {
-    console.log('Received:', message);
-});
-
-// Send a message
-channel.sendMessage({
-    type: 'chat',
-    content: 'Hello World!'
+    channelPassword: 'a-shared-secret',
+    agentName: generateRandomAgentName(),
 });
 ```
 
-### 3. With WebRTC
+To reach one participant rather than the whole channel, name them:
 
-```javascript
-const game = await Game.create({
-    username: 'Player1',
-    channelName: 'game-room',
-    channelPassword: ''
-});
-
-const channel = game.channel;
-const webrtcHelper = game.webrtcHelper;
-
-// Broadcast via WebRTC (low latency)
-webrtcHelper.broadcastDataChannel({
-    type: 'position',
-    x: 100,
-    y: 200
-});
-
-// Listen for WebRTC messages
-webrtcHelper.setDataChannelHandler((message) => {
-    console.log('WebRTC message:', message);
-});
+```js
+agent.sendMessage({ msg: { deal: 'your card' }, destAgent: 'Priya', encrypted: true });
 ```
 
----
+### 3. Warn before losing work
+
+The SDK only prompts on unload when an app says there is something to lose, so
+a read-only page never nags:
+
+```js
+agent.setUnsavedChanges(true);   // ...and false once saved
+```
+
+### 4. Peer-to-peer, with WebRTC
+
+Load `web-agent.webrtc.js` as well and the connection gains a WebRTC helper for
+data channels and media that travel browser to browser rather than through the
+service. See `WEB-AGENT-GUIDE.md` for the signalling flow and the helper's API.
+
 
 ## 📚 Core Components
 

@@ -255,3 +255,22 @@ body.sdk-app {
         white-space: nowrap;
     }
 }
+
+/* --- Small phones (320px) ------------------------------------------------ */
+/*
+ * At 390px the header fits; at 320px it is about twenty pixels over, and every
+ * item in it was refusing to shrink. Nothing here is removed — the title
+ * truncates, the room name and the status pill take less, and the row closes
+ * up. Losing a control would be worse than losing a few characters of a name.
+ */
+@media (max-width: 400px) {
+    .sdk-header { gap: var(--sp-1); padding: 0 var(--sp-2); }
+    .sdk-header h1 {
+        min-width: 0;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+    }
+    .sdk-room { max-width: 8ch; }
+    .pill-status { max-width: 9ch; }
+}

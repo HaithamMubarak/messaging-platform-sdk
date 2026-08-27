@@ -126,6 +126,7 @@
     <script src="../../generated-web-agent-js/js/web-agent.webrtc.js"></script> <!-- WebRTC Helper -->
 
     <!-- UserConnectionBase for terminal sharing -->
+    <script src="../../js/telemetry.js"></script>
     <script src="../../js/UserConnectionBase.js"></script>
     <script src="terminal-sharing.js"></script>
 
@@ -911,7 +912,7 @@
                         <h4 style="font-size: 15px; color: var(--text-primary); margin-bottom: 12px; text-align: center;">
                             <svg class="icon icon--sm" aria-hidden="true"><use href="#i-zap"></use></svg> Why Install as an App?
                         </h4>
-                        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 12px; font-size: 13px;">
+                        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(min(200px, 100%), 1fr)); gap: 12px; font-size: 13px;">
                             <div style="padding: 10px;">
                                 <div style="color: var(--accent-green); margin-bottom: 4px;"><svg class="icon icon--sm" aria-hidden="true"><use href="#i-check-circle"></use></svg> Works Offline</div>
                                 <div style="color: var(--text-secondary); font-size: 12px;">Access UI even without internet</div>
@@ -1083,7 +1084,7 @@
                         </ul>
 
                         <h4 style="font-size: 14px; color: var(--text-primary); margin-bottom: 12px;">Features</h4>
-                        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 12px;">
+                        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(min(200px, 100%), 1fr)); gap: 12px;">
                             <div style="background: var(--bg-panel); padding: 12px; border-radius: 6px;">
                                 <div style="font-size: 16px; margin-bottom: 4px;"><svg class="icon icon--sm" aria-hidden="true"><use href="#i-monitor"></use></svg></div>
                                 <div style="font-size: 12px; font-weight: bold; color: var(--text-primary);">Local

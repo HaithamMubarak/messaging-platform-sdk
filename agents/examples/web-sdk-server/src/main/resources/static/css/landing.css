@@ -205,8 +205,8 @@ section { padding-block: var(--sp-24); }
 .step__title { font-size: var(--fs-base); font-weight: 700; margin-bottom: var(--sp-3); }
 
 /* --- Feature grid ------------------------------------------------------- */
-.grid-3 { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: var(--sp-5); }
-.grid-2 { display: grid; grid-template-columns: repeat(auto-fit, minmax(340px, 1fr)); gap: var(--sp-5); }
+.grid-3 { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(300px, 100%), 1fr)); gap: var(--sp-5); }
+.grid-2 { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(340px, 100%), 1fr)); gap: var(--sp-5); }
 
 /* The flagship tier is four cards and wants to read as two pairs, not as a
    row of three with one stranded underneath. */
@@ -216,7 +216,7 @@ section { padding-block: var(--sp-24); }
     #flagshipGrid,
     #primitivesGrid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
-.grid-4 { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: var(--sp-5); }
+.grid-4 { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(240px, 100%), 1fr)); gap: var(--sp-5); }
 
 .tile-icon {
     display: grid;
@@ -289,7 +289,7 @@ section { padding-block: var(--sp-24); }
     border-radius: var(--r-xl);
     padding: var(--sp-10);
 }
-.limits { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: var(--sp-5); margin-top: var(--sp-6); }
+.limits { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(160px, 100%), 1fr)); gap: var(--sp-5); margin-top: var(--sp-6); }
 .limit__value { font-size: var(--fs-xl); font-weight: 700; color: var(--text); font-variant-numeric: tabular-nums; }
 .limit__label { font-size: var(--fs-md); color: var(--text-muted); }
 
@@ -388,7 +388,7 @@ section { padding-block: var(--sp-24); }
 
 .showcase__body {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+    grid-template-columns: repeat(auto-fit, minmax(min(320px, 100%), 1fr));
     gap: var(--sp-8);
     align-items: start;
 }
@@ -634,4 +634,20 @@ section[id] { scroll-margin-top: 80px; }
         width: auto;
         min-width: 520px;
     }
+}
+
+/* --- Small phones (320px) ------------------------------------------------ */
+/*
+ * Two rows were built for a laptop and could not close up: the site header
+ * (a long brand name beside the menu button) and a card's footer, where a
+ * "About <app>" link and an "Open" link sat on one line that would not wrap.
+ */
+@media (max-width: 420px) {
+    .site-header__inner { gap: var(--sp-3); }
+    .brand { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+    .entry-foot,
+    .demo-card__foot { flex-wrap: wrap; }
+    .entry-foot .btn,
+    .demo-card__foot .btn { min-width: 0; }
 }

@@ -429,7 +429,7 @@
         function addOptionRow(value) {
             var row = document.createElement('div');
             row.setAttribute('data-option-row', '');
-            row.style.cssText = 'display:flex;gap:.5rem;align-items:center';
+            row.style.cssText = 'display:flex;gap:.5rem;align-items:center;flex-wrap:wrap';
             var text = document.createElement('input');
             text.type = 'text';
             text.maxLength = 120;
@@ -440,7 +440,10 @@
             var position = el('optionRows').children.length + 1;
             text.setAttribute('aria-label', 'Answer option ' + position);
             text.placeholder = 'Option ' + position;
-            text.style.cssText = 'flex:1;min-height:44px;padding:.5rem .75rem;border-radius:8px;'
+            // min-width:0 matters: a flex child will not shrink below its own
+            // intrinsic width without it, and a text input's default width is
+            // wide enough to push this row off a 320px screen.
+            text.style.cssText = 'flex:1;min-width:0;min-height:44px;padding:.5rem .75rem;border-radius:8px;'
                 + 'border:1px solid var(--border-strong);background:var(--surface-2);color:var(--text)';
             var correctWrap = document.createElement('label');
             correctWrap.style.cssText = 'display:flex;align-items:center;gap:.25rem;font-size:.75rem;color:var(--text-muted)';

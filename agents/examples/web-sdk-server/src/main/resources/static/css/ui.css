@@ -249,7 +249,7 @@ img, svg { max-width: 100%; }
 
 .field-row {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    grid-template-columns: repeat(auto-fit, minmax(min(180px, 100%), 1fr));
     gap: var(--sp-4);
 }
 
@@ -667,7 +667,7 @@ body.modal-open { overflow: hidden; }
 /* --- Stat cards --------------------------------------------------------- */
 .stats-grid {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(232px, 1fr));
+    grid-template-columns: repeat(auto-fit, minmax(min(232px, 100%), 1fr));
     gap: var(--sp-4);
 }
 .stat-card {
@@ -733,7 +733,7 @@ body.modal-open { overflow: hidden; }
        Clear of the header for the same reason — a notice that covers the
        controls it is telling you about is worse than no notice. */
     .toast-region { left: var(--sp-3); right: var(--sp-3); width: auto; top: 72px; bottom: auto; }
-    .stats-grid { grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); }
+    .stats-grid { grid-template-columns: repeat(auto-fit, minmax(min(150px, 100%), 1fr)); }
     .search-input { min-width: 0; width: 100%; }
     .toolbar { width: 100%; }
 }

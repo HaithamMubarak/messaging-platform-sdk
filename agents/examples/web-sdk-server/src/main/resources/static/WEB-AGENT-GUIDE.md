@@ -25,6 +25,19 @@
 
 ### Installation
 
+With a bundler — about 80 KB gzipped, and the TypeScript types come with it:
+
+```bash
+npm i @messaging-platform/web-agent-js
+```
+
+```js
+import { AgentConnection } from '@messaging-platform/web-agent-js';
+// or: const { AgentConnection } = require('@messaging-platform/web-agent-js');
+```
+
+Or straight from script tags, with no build step at all:
+
 ```html
 <!-- Core (required) -->
 <script src="js/web-agent.libs.js"></script>

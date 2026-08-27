@@ -1,0 +1,200 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <script src="js/prod-log.js"></script>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>What the demos measure — Messaging Platform SDK</title>
+    <meta name="description" content="Exactly what the Messaging Platform SDK demos record about a session, what they refuse to record, and how to switch it off.">
+    <meta name="theme-color" content="#0b1120">
+    <link rel="canonical" href="https://hmdevonline.com/messaging-platform/sdk/privacy.html">
+    <meta property="og:type" content="website">
+    <meta property="og:site_name" content="Messaging Platform SDK">
+    <meta property="og:title" content="What the demos measure">
+    <meta property="og:description" content="Four counters, no content. Exactly what the demos record, what they refuse to record, and how to switch it off.">
+    <meta property="og:url" content="https://hmdevonline.com/messaging-platform/sdk/privacy.html">
+    <meta property="og:image" content="https://hmdevonline.com/messaging-platform/sdk/images/og-image.png">
+    <meta name="twitter:card" content="summary_large_image">
+    <meta name="twitter:title" content="What the demos measure">
+    <meta name="twitter:description" content="Four counters, no content. Exactly what the demos record, what they refuse to record, and how to switch it off.">
+    <meta name="twitter:image" content="https://hmdevonline.com/messaging-platform/sdk/images/og-image.png">
+    <link rel="icon" type="image/svg+xml" href="favicon.svg">
+    <link rel="stylesheet" href="css/design-tokens.css">
+    <link rel="stylesheet" href="css/ui.css">
+    <link rel="stylesheet" href="css/landing.css">
+    <link rel="manifest" href="site.webmanifest">
+    <script src="js/icons.js" defer></script>
+    <script src="js/ui.js" defer></script>
+    <script src="js/landing.js" defer></script>
+    <script src="js/telemetry.js"></script>
+    <style>
+        .prose { max-width: 68ch; margin: 0 auto; padding: 56px 0 80px; }
+        .prose h1 { font-size: clamp(28px, 5vw, 40px); line-height: 1.15; letter-spacing: -0.02em; }
+        .prose .lede { margin-top: 16px; font-size: 18px; line-height: 1.6; color: var(--text-muted); }
+        .prose h2 { margin-top: 48px; font-size: 20px; letter-spacing: -0.01em; }
+        .prose p { margin-top: 14px; line-height: 1.7; color: var(--text-muted); }
+        .prose strong { color: var(--text-strong, inherit); font-weight: 600; }
+        .prose ul { margin-top: 14px; padding-left: 20px; color: var(--text-muted); line-height: 1.7; }
+        .prose li { margin-top: 6px; }
+        .prose code { font-family: var(--font-mono, ui-monospace, monospace); font-size: 0.9em;
+                      background: var(--surface-2); padding: 1px 5px; border-radius: 4px;
+                      overflow-wrap: anywhere; }
+        .ledger { margin-top: 20px; border: 1px solid var(--border); border-radius: 10px;
+                  overflow: hidden; }
+        .ledger__row { display: grid; grid-template-columns: minmax(min(190px, 45%), 1fr) 2fr;
+                       gap: 12px; padding: 12px 16px; border-top: 1px solid var(--border); }
+        .ledger__row:first-child { border-top: 0; }
+        .ledger__k { font-family: var(--font-mono, ui-monospace, monospace); font-size: 13px; }
+        .ledger__v { font-size: 14px; color: var(--text-muted); line-height: 1.55; }
+        .no-list { margin-top: 18px; border-left: 3px solid var(--border); padding-left: 18px; }
+        .optout { margin-top: 20px; display: flex; flex-wrap: wrap; align-items: center; gap: 12px; }
+        .optout__state { font-size: 14px; color: var(--text-muted); }
+        @media (max-width: 560px) {
+            .ledger__row { grid-template-columns: 1fr; gap: 4px; }
+        }
+    </style>
+</head>
+<body>
+    <a class="skip-link" href="#content">Skip to the content</a>
+
+    <header class="site-header" id="siteHeader">
+        <div class="wrap site-header__inner">
+            <a class="brand" href="index.html">
+                <svg class="logo-mark" aria-hidden="true"><use href="#i-logo"></use></svg>
+                Messaging Platform SDK
+            </a>
+
+            <button class="btn btn--ghost btn--icon nav-toggle" id="navToggle" aria-expanded="false"
+                    aria-controls="siteNav" aria-label="Open menu">
+                <svg class="icon" aria-hidden="true"><use href="#i-menu"></use></svg>
+            </button>
+
+            <nav class="site-nav" id="siteNav" aria-label="Main">
+                <a href="index.html#demos">Demos</a>
+                <a href="playground.html">Playground</a>
+                <a href="docs.html">Docs</a>
+                <a href="developer/index.html">Portal</a>
+                <a class="btn btn--gradient" href="developer/index.html">Get a free API key</a>
+            </nav>
+        </div>
+    </header>
+
+    <main class="wrap" id="content">
+        <article class="prose">
+            <h1>What the demos measure</h1>
+            <p class="lede">
+                Every demo on this site tells you the server does not see what you send.
+                That claim is only worth something if the page measuring the demos
+                collects less than the demos themselves. Here is the whole of it.
+            </p>
+
+            <h2>Four counters</h2>
+            <p>
+                The demo pages record four things, and nothing else. They exist to answer
+                one question — how often a live session actually falls over — so that the
+                work goes where the breakage is.
+            </p>
+            <div class="ledger">
+                <div class="ledger__row">
+                    <div class="ledger__k">session_started</div>
+                    <div class="ledger__v">A demo connected to a channel.</div>
+                </div>
+                <div class="ledger__row">
+                    <div class="ledger__k">host_lost</div>
+                    <div class="ledger__v">The person hosting the session went away and someone else was promoted.</div>
+                </div>
+                <div class="ledger__row">
+                    <div class="ledger__k">reconnect_succeeded</div>
+                    <div class="ledger__v">A dropped connection came back, and on which attempt.</div>
+                </div>
+                <div class="ledger__row">
+                    <div class="ledger__k">reconnect_failed</div>
+                    <div class="ledger__v">A dropped connection gave up.</div>
+                </div>
+            </div>
+            <p>
+                Each one carries the name of the demo folder you are in
+                (<code>whiteboard</code>, <code>chorus</code>), one of three words for the
+                kind of device (<code>phone</code>, <code>tablet</code>,
+                <code>desktop</code>), and a reference number generated in the page. Any
+                other word the page tried to send would be discarded by the server, which
+                keeps a fixed list of the four event names above and refuses everything else.
+            </p>
+
+            <h2>What is deliberately not collected</h2>
+            <div class="no-list">
+                <ul>
+                    <li>Not the channel name, and not the channel password.</li>
+                    <li>Not your display name, or anyone else's in the room.</li>
+                    <li>Not a single byte of what you draw, type, say or share — that never reaches the server in the first place.</li>
+                    <li>Not your IP address, and not your browser's user-agent string.</li>
+                    <li>No cookie, no fingerprint, no identifier that survives the tab. The reference number is made when the page loads and is never written to storage, so two visits cannot be joined together — not by us, not by anyone reading the table.</li>
+                </ul>
+            </div>
+            <p>
+                What comes back out is counts: how many sessions started, how many lost a
+                host, broken down by demo and device class. Individual rows are never
+                served. They are deleted after <strong>90 days</strong> by a job that runs
+                nightly.
+            </p>
+
+            <h2>The SDK itself sends nothing</h2>
+            <p>
+                This applies to the demos on this site only. The published package,
+                <code>@messaging-platform/web-agent-js</code>, contains none of this code
+                and makes no call of its own. An SDK that phoned home from inside other
+                people's applications would be indefensible, so it does not.
+            </p>
+
+            <h2>Turning it off</h2>
+            <p>
+                Do Not Track and Global Privacy Control are honoured before anything is
+                queued — if your browser sends either, these pages have already recorded
+                nothing. You can also switch it off here, on this device:
+            </p>
+            <div class="optout">
+                <button class="btn btn--ghost" type="button" id="optOutBtn">Turn off measurement</button>
+                <span class="optout__state" id="optOutState">Checking…</span>
+            </div>
+            <p>
+                That sets <code>sdk_telemetry=off</code> in this browser's local storage.
+                Clearing site data clears the setting too, so it will need saying again.
+                Nothing else about the demos changes — they connect, host and reconnect
+                exactly as before.
+            </p>
+        </article>
+    </main>
+
+<footer class="site-footer">
+    <div class="wrap">
+        <div class="footer-bottom">
+            <span>&copy; 2026 Messaging Platform SDK</span>
+            <span><a href="index.html">Back to the site</a></span>
+        </div>
+    </div>
+</footer>
+
+<script>
+    (function () {
+        var btn = document.getElementById('optOutBtn');
+        var state = document.getElementById('optOutState');
+
+        function render() {
+            var on = window.SdkTelemetry && window.SdkTelemetry.enabled();
+            state.textContent = on
+                ? 'Currently on — four counters, no content.'
+                : 'Off. This browser records nothing.';
+            btn.disabled = !on;
+            btn.textContent = on ? 'Turn off measurement' : 'Already off';
+        }
+
+        btn.addEventListener('click', function () {
+            if (window.SdkTelemetry) window.SdkTelemetry.optOut();
+            render();
+        });
+
+        render();
+    })();
+</script>
+</body>
+</html>

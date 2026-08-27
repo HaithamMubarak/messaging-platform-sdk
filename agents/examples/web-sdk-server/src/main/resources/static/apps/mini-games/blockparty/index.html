@@ -57,7 +57,7 @@
         .bp-stat__l { font-size: var(--fs-md); font-weight: 600; color: var(--text-body); }
         .bp-stat__s { font-size: var(--fs-xs); color: var(--text-muted); }
 
-        .bp-grid { display: grid; gap: var(--sp-5); grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); }
+        .bp-grid { display: grid; gap: var(--sp-5); grid-template-columns: repeat(auto-fit, minmax(min(260px, 100%), 1fr)); }
         .bp-tile { padding: 0; overflow: hidden; display: flex; flex-direction: column; }
         .bp-tile__art {
             display: flex; align-items: flex-end; justify-content: center; min-height: 200px; padding-bottom: var(--sp-3);
@@ -101,7 +101,7 @@
         .bp-steps figcaption { font-size: var(--fs-xs); color: var(--text-muted); }
         @media (max-width: 640px) { .bp-steps { grid-template-columns: 1fr; } }
 
-        .bp-modes { display: grid; gap: var(--sp-3); grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); }
+        .bp-modes { display: grid; gap: var(--sp-3); grid-template-columns: repeat(auto-fit, minmax(min(220px, 100%), 1fr)); }
 
         /* Getting around a long page: sticky, quiet, and it scrolls sideways
            on a phone rather than wrapping into three rows. */
@@ -143,7 +143,7 @@
         .bp-ref__pic { border: 1px solid var(--border); border-radius: var(--r-md); overflow: hidden; background: #0b1120; padding: var(--sp-3); }
         .bp-ref__note { font-size: var(--fs-sm); color: var(--text-muted); margin: 0; }
 
-        .bp-maps { display: grid; gap: var(--sp-3); grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); }
+        .bp-maps { display: grid; gap: var(--sp-3); grid-template-columns: repeat(auto-fit, minmax(min(180px, 100%), 1fr)); }
         .bp-map { border: 1px solid var(--border); border-radius: var(--r-lg); overflow: hidden; background: var(--surface-1); }
         .bp-map__art { height: 96px; }
         .bp-map__body { padding: var(--sp-3) var(--sp-4) var(--sp-4); display: flex; flex-direction: column; gap: 2px; border-top: 1px solid var(--border); }

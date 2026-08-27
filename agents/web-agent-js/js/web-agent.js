@@ -3324,7 +3324,20 @@
     }
 
     // Add beforeunload warning for active connections (browser environment only)
-    if (typeof window !== 'undefined' && window.addEventListener) {
+    // Test for a REAL DOM, and nothing weaker.
+    //
+    // Two decoys make the obvious checks pass under Node: this module is
+    // invoked with `global` when there is no window, and Node has had
+    // globalThis.addEventListener since v15; and loading the bundled browser
+    // libraries installs a stub `document` carrying only addEventListener and
+    // removeEventListener. So both `window.addEventListener` and
+    // `typeof document !== 'undefined'` are true in a plain `require()`, and
+    // the SDK used to register browser lifecycle handlers that can never fire
+    // and announce it on every import.
+    //
+    // `document.createElement` is the thing the stub does not have.
+    if (typeof document !== 'undefined' && typeof document.createElement === 'function'
+        && typeof window !== 'undefined' && window.addEventListener) {
         /**
          * Warn user before closing/refreshing page if there are active agent connections
          * AND automatically disconnect all connections when page unloads
@@ -3387,7 +3400,7 @@
             }
         });
 
-        console.log('[web-agent.js] Beforeunload/pagehide listeners registered - pagehide performs beacon cleanup');
+        console.debug('[web-agent.js] Beforeunload/pagehide listeners registered - pagehide performs beacon cleanup');
     }
 
     // Export for Node.js

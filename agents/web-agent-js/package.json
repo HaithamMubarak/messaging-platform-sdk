@@ -17,9 +17,8 @@
     "index.js",
     "index.mjs",
     "index.d.ts",
+    "node-xhr.js",
     "js/**/*.js",
-    "css/**/*.css",
-    "lib/**/*.js",
     "README.md"
   ],
   "repository": {
@@ -36,7 +35,8 @@
     }
   },
   "scripts": {
-    "test": "node test/smoke.test.js"
+    "test": "node test/smoke.test.js && node test/pack.test.js",
+    "prepublishOnly": "npm test"
   },
   "types": "index.d.ts"
 }
