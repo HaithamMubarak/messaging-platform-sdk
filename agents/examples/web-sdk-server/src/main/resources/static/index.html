@@ -141,7 +141,10 @@ agent.<span class="tok-fn">sendTextMessage</span>(<span class="tok-str">'Hello, 
                                     Copy
                                 </button>
                             </div>
-<pre id="qs-snippet-1"><code><span class="tok-com">&lt;!-- Core client --&gt;</span>
+<pre id="qs-snippet-1"><code><span class="tok-com"># With a bundler — 80 KB gzipped, types included</span>
+npm i @messaging-platform/web-agent-js
+
+<span class="tok-com">&lt;!-- Or straight from a script tag --&gt;</span>
 &lt;<span class="tok-key">script</span> <span class="tok-prop">src</span>=<span class="tok-str">"https://hmdevonline.com/messaging-platform/sdk/generated-web-agent-js/js/web-agent.libs.js"</span>&gt;&lt;/<span class="tok-key">script</span>&gt;
 &lt;<span class="tok-key">script</span> <span class="tok-prop">src</span>=<span class="tok-str">"https://hmdevonline.com/messaging-platform/sdk/generated-web-agent-js/js/web-agent.js"</span>&gt;&lt;/<span class="tok-key">script</span>&gt;
 
@@ -526,7 +529,7 @@ agent.<span class="tok-prop">onMessage</span> = (msg) <span class="tok-key">=&gt
             </div>
 
             <div class="link-row">
-                <p>Eight multiplayer games run on this SDK — each one stress-tests a different primitive.</p>
+                <p>Seven multiplayer games run on this SDK — each one stress-tests a different primitive.</p>
                 <a class="btn btn--ghost" href="playground.html">
                     <svg class="icon icon--sm" aria-hidden="true"><use href="#i-gamepad"></use></svg>
                     Open the playground
@@ -619,7 +622,7 @@ agent.<span class="tok-prop">onMessage</span> = (msg) <span class="tok-key">=&gt
                         <text x="270" y="388">Channel storage</text>
                         <text x="530" y="388">WebRTC signaling</text>
                     </g>
-                    <g text-anchor="middle" font-size="10.5" fill="#8a97ab">
+                    <g text-anchor="middle" font-size="11.5" fill="#8a97ab">
                         <text x="270" y="343">broadcast · direct · filtered</text>
                         <text x="530" y="343">who is in the room, live</text>
                         <text x="270" y="405">key-value that outlives a session</text>
@@ -765,6 +768,7 @@ agent.<span class="tok-prop">onMessage</span> = (msg) <span class="tok-key">=&gt
         <div class="footer-bottom">
             <span>&copy; 2026 Messaging Platform SDK</span>
             <span>Beta · APIs may change</span>
+            <span><a href="privacy.html">What the demos measure</a></span>
         </div>
     </div>
 </footer>

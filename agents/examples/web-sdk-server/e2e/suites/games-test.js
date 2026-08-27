@@ -109,7 +109,6 @@ async function game(b, label, path, start, playing, minPlayers) {
     args: ['--no-sandbox', '--enable-unsafe-swiftshader', '--use-gl=angle', '--use-angle=swiftshader'] });
 
   await game(b, 'air-hockey',    'air-hockey/index.html',    () => window.startGame(), /Blue \d+ Red \d+/);
-  await game(b, 'quiz-battle',   'quiz-battle/index.html',   () => window.quizGame.startGame(), /QUESTION \d+\/\d+/);
   await game(b, 'reactor',       'reactor/index.html',       () => window.startGame(), /Round: \d+\/\d+/);
   await game(b, 'find-the-liar', 'find-the-liar/index.html', () => window.liarGame.requestNewRound(), /Round \d+\/\d+/, 3);
 

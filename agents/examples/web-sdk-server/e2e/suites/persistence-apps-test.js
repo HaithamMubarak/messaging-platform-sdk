@@ -1,8 +1,8 @@
 /**
  * Does the work survive an empty room?
  *
- * collab-doc, mind-map and pixel-art kept their state only in the peers holding
- * it, so the last tab closing took the board with it. Each now writes an
+ * collab-doc kept its state only in the peers holding it, so the last tab
+ * closing took the document with it. It now writes an
  * encrypted blob to channel storage, host-only, and reads it back when it
  * rejoins an otherwise empty room.
  *
@@ -25,7 +25,7 @@ async function open(b, path, room, name) {
     await p.fill('#passwordInput', 'pw12345');
     await p.click('#connectBtn');
     await p.waitForFunction(() => {
-        const a = window.collabDoc || window.mindMapApp || window.pixelArtApp || window.pixelArt;
+        const a = window.collabDoc;
         return !!(a && a.connected);
     }, { timeout: 45000 }).catch(() => {});
     await p.waitForTimeout(3500);
@@ -62,39 +62,14 @@ async function open(b, path, room, name) {
         await second.context().close();
     }
 
-    // ---- mind-map ----------------------------------------------------------
-    {
-        const room = 'ps-map' + Math.floor(Date.now() / 1000);
-        const first = await open(b, '/apps/mind-map/index.html', room, 'Mapper');
-        const before = await first.evaluate(() => {
-            const app = window.mindMapApp;
-            if (!app) return -1;
-            app.addNode();
-            if (app._store) app._store.touch();
-            return app.nodes.size;
-        });
-        const saved = await first.evaluate(() => new Promise((res) => {
-            if (!window.mindMapApp || !window.mindMapApp._store) return res(false);
-            window.mindMapApp._store.flush(res);
-        }));
-        check(saved && before > 0, `mind-map: the host saves ${before} node(s)`);
-        await first.context().close();
-
-        const second = await open(b, '/apps/mind-map/index.html', room, 'Mapper2');
-        await second.waitForTimeout(4000);
-        const after = await second.evaluate(() => window.mindMapApp ? window.mindMapApp.nodes.size : -1);
-        check(after >= before, `mind-map: the nodes come back after the room emptied (${before} -> ${after})`);
-        await second.context().close();
-    }
-
     // ---- the indicator, because silent saving is untrustworthy ------------
     {
         const room = 'ps-ind' + Math.floor(Date.now() / 1000);
-        const p = await open(b, '/apps/mind-map/index.html', room, 'Watcher');
+        const p = await open(b, '/apps/collab-doc/index.html', room, 'Watcher');
 
         await p.evaluate(() => {
-            window.mindMapApp.addNode();
-            if (window.mindMapApp._store) window.mindMapApp._store.touch();
+            window.collabDoc.editor.setValue('a change the indicator has to notice');
+            if (window.collabDoc._store) window.collabDoc._store.touch();
         });
         await p.waitForTimeout(600);
 

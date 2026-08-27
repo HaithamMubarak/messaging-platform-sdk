@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
     <title>Playground — Multiplayer games built on the Messaging Platform SDK</title>
 
-    <meta name="description" content="8 multiplayer games built on the Messaging Platform SDK. Each one demonstrates a different primitive: presence, channel storage, WebRTC data channels or broadcast messaging.">
+    <meta name="description" content="7 multiplayer games and the demos around them, built on the Messaging Platform SDK. Each one demonstrates a different primitive: presence, channel storage, storage versions, WebRTC data channels, directed messaging or broadcast.">
     <meta name="theme-color" content="#0b1120">
     <link rel="canonical" href="https://hmdevonline.com/messaging-platform/sdk/playground.html">
 
@@ -174,7 +174,7 @@
                         <span class="demo-card__link">Open <svg class="icon icon--sm" aria-hidden="true"><use href="#i-arrow-right"></use></svg></span>
                     </div>
                 </article>
-                <article class="card card--interactive game-card entry" data-proves="storage ephemeral" data-solo="true">
+                <article class="card card--interactive game-card entry" data-proves="storage versions" data-solo="true">
                     <a class="entry-hit" href="apps/dead-drop/app.html"><span class="sr-only">Open Dead Drop</span></a>
                     <div class="game-card__head">
                         <span class="tile-icon" style="margin:0"><svg class="icon" aria-hidden="true"><use href="#i-lock"></use></svg></span>
@@ -247,7 +247,7 @@
                     </div>
                 </article>
 
-                <article class="card card--interactive game-card entry" data-proves="peer-to-peer media storage" data-solo="false">
+                <article class="card card--interactive game-card entry" data-proves="p2p video binary versions storage" data-solo="false">
                     <a class="entry-hit" href="apps/fieldstamp/inspect.html"><span class="sr-only">Open Fieldstamp</span></a>
                     <div class="game-card__head">
                         <span class="tile-icon" style="margin:0"><svg class="icon" aria-hidden="true"><use href="#i-shield"></use></svg></span>
@@ -316,7 +316,7 @@
                     </div>
                 </article>
 
-                <article class="card card--interactive game-card entry" data-proves="private messaging" data-solo="true">
+                <article class="card card--interactive game-card entry" data-proves="directed host" data-solo="true">
                     <a class="entry-hit" href="apps/mini-games/open-outcry/index.html"><span class="sr-only">Open Open Outcry</span></a>
                     <div class="game-card__head">
                         <span class="tile-icon" style="margin:0"><svg class="icon" aria-hidden="true"><use href="#i-trending-up"></use></svg></span>
@@ -333,7 +333,7 @@
                     </div>
                 </article>
 
-                <article class="card card--interactive game-card entry" data-proves="private messaging" data-solo="false">
+                <article class="card card--interactive game-card entry" data-proves="directed host" data-solo="false">
                     <a class="entry-hit" href="apps/mini-games/chorus/index.html"><span class="sr-only">Open Chorus</span></a>
                     <div class="game-card__head">
                         <span class="tile-icon" style="margin:0"><svg class="icon" aria-hidden="true"><use href="#i-users"></use></svg></span>
@@ -350,7 +350,7 @@
                     </div>
                 </article>
 
-                <article class="card card--interactive game-card entry" data-proves="private messaging" data-solo="false">
+                <article class="card card--interactive game-card entry" data-proves="directed host" data-solo="false">
                     <a class="entry-hit" href="apps/mini-games/autocue/index.html"><span class="sr-only">Open Autocue</span></a>
                     <div class="game-card__head">
                         <span class="tile-icon" style="margin:0"><svg class="icon" aria-hidden="true"><use href="#i-mic"></use></svg></span>
@@ -367,7 +367,7 @@
                     </div>
                 </article>
 
-                <article class="card card--interactive game-card entry" data-proves="private messaging" data-solo="false">
+                <article class="card card--interactive game-card entry" data-proves="directed host storage versions" data-solo="false">
                     <a class="entry-hit" href="apps/mini-games/gavel/index.html"><span class="sr-only">Open Gavel</span></a>
                     <div class="game-card__head">
                         <span class="tile-icon" style="margin:0"><svg class="icon" aria-hidden="true"><use href="#i-shield"></use></svg></span>
@@ -384,7 +384,7 @@
                     </div>
                 </article>
 
-                <article class="card card--interactive game-card entry" data-proves="private messaging" data-solo="false">
+                <article class="card card--interactive game-card entry" data-proves="directed host" data-solo="false">
                     <a class="entry-hit" href="apps/mini-games/nudge/index.html"><span class="sr-only">Open Nudge</span></a>
                     <div class="game-card__head">
                         <span class="tile-icon" style="margin:0"><svg class="icon" aria-hidden="true"><use href="#i-eye"></use></svg></span>
@@ -433,23 +433,6 @@
                     </div>
                     <div class="entry-foot">
                         <span class="entry-players"><svg class="icon icon--sm" aria-hidden="true"><use href="#i-users"></use></svg>Needs 2</span>
-                        <span class="demo-card__link">Open <svg class="icon icon--sm" aria-hidden="true"><use href="#i-arrow-right"></use></svg></span>
-                    </div>
-                </article>
-
-                <article class="card card--interactive game-card entry" data-proves="broadcast presence" data-solo="false">
-                    <a class="entry-hit" href="apps/mini-games/quiz-battle/index.html"><span class="sr-only">Open Quiz Battle</span></a>
-                    <div class="game-card__head">
-                        <span class="tile-icon" style="margin:0"><svg class="icon" aria-hidden="true"><use href="#i-message"></use></svg></span>
-                        <h3>Quiz Battle</h3>
-                    </div>
-                    <p>A host reads questions, everyone answers against the clock, and the scoreboard updates for the whole room at once.</p>
-                    <div class="game-card__proves">
-                        <span class="badge badge--brand">Broadcast messaging</span>
-                        <span class="badge">Presence</span>
-                    </div>
-                    <div class="entry-foot">
-                        <span class="entry-players"><svg class="icon icon--sm" aria-hidden="true"><use href="#i-users"></use></svg>Needs 2+</span>
                         <span class="demo-card__link">Open <svg class="icon icon--sm" aria-hidden="true"><use href="#i-arrow-right"></use></svg></span>
                     </div>
                 </article>
@@ -557,16 +540,6 @@
                     </div>
                 </article>
 
-                <article class="card card--interactive demo-card entry" data-proves="presence storage" data-solo="false">
-                    <a class="entry-hit" href="apps/mind-map/index.html"><span class="sr-only">Open Mind map</span></a>
-                    <span class="tile-icon"><svg class="icon" aria-hidden="true"><use href="#i-layers"></use></svg></span>
-                    <h3>Mind map</h3>
-                    <p>A shared node graph — every drag and edit replicates instantly.</p>
-                    <div class="demo-card__foot">
-                        <span class="demo-card__link">Open <svg class="icon icon--sm" aria-hidden="true"><use href="#i-arrow-right"></use></svg></span>
-                    </div>
-                </article>
-
                 <article class="card card--interactive demo-card entry" data-proves="broadcast directed" data-solo="false">
                     <a class="entry-hit" href="apps/chat.html"><span class="sr-only">Open Chat</span></a>
                     <span class="tile-icon"><svg class="icon" aria-hidden="true"><use href="#i-message"></use></svg></span>
@@ -574,17 +547,6 @@
                     <p>Plain group chat: the smallest complete thing you can build on the SDK.</p>
                     <div class="demo-card__foot">
                         <span class="demo-card__link">Open <svg class="icon icon--sm" aria-hidden="true"><use href="#i-arrow-right"></use></svg></span>
-                    </div>
-                </article>
-
-                <article class="card card--interactive demo-card entry" data-proves="presence" data-solo="false">
-                    <a class="entry-hit" href="apps/pixel-art/index.html"><span class="sr-only">Open Pixel art editor</span></a>
-                    <span class="tile-icon"><svg class="icon" aria-hidden="true"><use href="#i-pen"></use></svg></span>
-                    <h3>Pixel art editor</h3>
-                    <p>Collaborative sprite editing on a shared canvas grid.</p>
-                    <div class="demo-card__foot">
-                        <span class="demo-card__link">Open <svg class="icon icon--sm" aria-hidden="true"><use href="#i-arrow-right"></use></svg></span>
-                        <span class="badge badge--warning">Experimental</span>
                     </div>
                 </article>
 
@@ -618,23 +580,6 @@
                     </div>
                 </article>
 
-                <article class="card card--interactive demo-card entry" data-proves="presence p2p directed" data-solo="false">
-                    <!-- Not part of the SDK site: CoShell is a product built on the platform and
-                         hosted alongside it. The link is relative on purpose — it resolves within
-                         /messaging-platform/, which is already routed here, so it works wherever
-                         this site is mounted. -->
-                    <a class="entry-hit" href="../apps/coshell/"><span class="sr-only">Open CoShell</span></a>
-                    <span class="tile-icon"><svg class="icon" aria-hidden="true"><use href="#i-terminal"></use></svg></span>
-                    <h3>CoShell</h3>
-                    <p>Share a real terminal over one link, with voice, file transfer and a recording of the
-                        session. The shell runs on the host's machine and guests drive it through a channel,
-                        so nothing has to be exposed for somebody to help you.</p>
-                    <div class="demo-card__foot">
-                        <span class="demo-card__link">Open <svg class="icon icon--sm" aria-hidden="true"><use href="#i-arrow-right"></use></svg></span>
-                        <span class="badge badge--brand">Built on the platform</span>
-                    </div>
-                </article>
-
             </div>
 
             <div class="link-row">
@@ -650,6 +595,7 @@
         <div class="footer-bottom">
             <span>&copy; 2026 Messaging Platform SDK</span>
             <span><a href="index.html">Back to the overview</a></span>
+            <span><a href="privacy.html">What the demos measure</a></span>
         </div>
     </div>
 </footer>

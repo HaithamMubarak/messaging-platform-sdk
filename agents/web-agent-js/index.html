@@ -92,7 +92,7 @@
 
         .file-grid {
             display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            grid-template-columns: repeat(auto-fit, minmax(min(300px, 100%), 1fr));
             gap: 20px;
             margin-top: 20px;
         }
@@ -247,6 +247,46 @@
 
         .icon {
             font-size: 28px;
+        }
+
+        /* API names like setCustomMessageHandler(callback) have no spaces to
+           break at, so on a narrow screen they run past the right edge and take
+           the whole page with them. */
+        li strong,
+        li code,
+        .feature-list strong {
+            overflow-wrap: anywhere;
+        }
+
+        /* A code sample cannot wrap, so it scrolls inside its own block. Left
+           to overflow it widens the document and the whole page slides
+           sideways on a phone. */
+        .code-block {
+            overflow-x: auto;
+            max-width: 100%;
+        }
+
+        /* A grid item is min-content wide by default, so one unbreakable word
+           inside a card (AgentConnection, setCustomMessageHandler) stops the
+           track from ever shrinking and the page slides sideways with it. The
+           wrap rule above only reached list items; the cards need it too. */
+        .file-grid > *,
+        .stats > * {
+            min-width: 0;
+        }
+
+        .file-card strong,
+        .file-card code,
+        .file-name,
+        .file-description {
+            overflow-wrap: anywhere;
+        }
+
+        /* Headings carry the same unbreakable identifiers (AgentConnection,
+           web-agent.webrtc.js), and a heading that cannot wrap widens the
+           document just as readily as a code sample. */
+        h1, h2, h3, h4 {
+            overflow-wrap: anywhere;
         }
 
         @media (max-width: 768px) {
@@ -576,7 +616,7 @@ webrtcHelper.<span class="function">setConnectionClosedHandler</span>((peerId) =
         <!-- Features -->
         <div class="section">
             <h2><span class="icon">✨</span> Key Features</h2>
-            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 20px;">
+            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(min(250px, 100%), 1fr)); gap: 20px;">
                 <div>
                     <h3>🚀 Real-Time</h3>
                     <ul class="feature-list">

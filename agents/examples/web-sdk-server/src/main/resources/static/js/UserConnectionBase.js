@@ -42,10 +42,10 @@ class UserConnectionBase {
             // Reliable and ordered by DEFAULT.
             //
             // The default used to be fire-and-forget, and drop (file chunks!),
-            // chess, collab-doc and mind-map never overrode it — so a dropped
+            // chess and collab-doc never overrode it — so a dropped
             // packet meant a corrupt file or a lost move with nothing to notice
             // it. The apps that genuinely want lossy — whiteboard strokes,
-            // pictionary strokes, pixel-art cursors — already pass their own
+            // pictionary strokes — already pass their own
             // options, so making the safe case the default costs them nothing.
             dataChannelOptions: {
                 ordered: true
@@ -308,6 +308,7 @@ class UserConnectionBase {
             this._syncAgentsBadge();
 
             console.log('[UserConnectionBase] Connected');
+            this._beacon('session_started', null, apiUrl);
 
             // Setup automatic cleanup on page unload
             this._setupCleanupOnUnload();
@@ -317,6 +318,29 @@ class UserConnectionBase {
             this.connecting = false;
             throw error;
         }
+    }
+
+    /**
+     * Hand one session-health event to the beacon, if there is one.
+     *
+     * Four events, no content: how often a session starts, how often a host
+     * vanishes, and whether the reconnect that follows works. Fifty-two e2e
+     * suites simulate those failures and none of them says how often they
+     * happen for real; that is the gap this closes.
+     *
+     * Wrapped in every guard there is because measurement must never be able
+     * to break the thing it measures — a missing script, a blocked storage
+     * API, a page with no beacon support all end the same way: nothing sent,
+     * connection unaffected. See js/telemetry.js for what is refused.
+     *
+     * @private
+     */
+    _beacon(event, detail, apiUrl) {
+        try {
+            if (typeof window === 'undefined' || !window.SdkTelemetry) return;
+            if (apiUrl) window.SdkTelemetry.useBase(apiUrl);
+            window.SdkTelemetry.record(event, detail);
+        } catch (e) { /* never let a counter cost a connection */ }
     }
 
     /**
@@ -512,6 +536,9 @@ class UserConnectionBase {
 
             try {
                 await this._rejoin();
+                // Read the counter before it is cleared: "came back on the
+                // fourth try" and "came back at once" are different answers.
+                this._beacon('reconnect_succeeded', 'try' + this._reconnectAttempt);
                 this.reconnecting = false;
                 this._reconnectAttempt = 0;
                 this._deadSessionId = null;
@@ -532,6 +559,7 @@ class UserConnectionBase {
         }
 
         this.reconnecting = false;
+        this._beacon('reconnect_failed', 'after' + this._reconnectAttempt);
         if (typeof this.onReconnectFailed === 'function') {
             try { this.onReconnectFailed(); } catch (e) { console.warn(e); }
         }
@@ -1329,6 +1357,9 @@ class UserConnectionBase {
         if (!this.wasHost && isHostNow) {
             console.log('[AgentSessionBase] 🎯 Host transferred to us!');
             this.wasHost = true;
+            // Exactly one client is promoted per host loss, so this counts
+            // rooms that lost their host — not people who noticed.
+            this._beacon('host_lost');
 
             // Update host indicator
             this.updateHostIndicator();

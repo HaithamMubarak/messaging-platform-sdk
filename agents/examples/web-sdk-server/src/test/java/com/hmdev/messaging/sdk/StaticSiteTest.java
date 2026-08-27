@@ -33,7 +33,6 @@ class StaticSiteTest {
     private static final List<String> SHAREABLE = List.of(
             "apps/mini-games/blockparty/index.html",
             "apps/mini-games/air-hockey/index.html",
-            "apps/mini-games/quiz-battle/index.html",
             "apps/mini-games/find-the-liar/index.html",
             "apps/mini-games/reactor/reactor-client.html",
             "apps/pictionary/index.html",

@@ -110,15 +110,6 @@ async function blip(b, label, path, work) {
   const b = await chromium.launch({ headless: false,
     args: ['--no-sandbox', '--enable-unsafe-swiftshader', '--use-gl=angle', '--use-angle=swiftshader'] });
 
-  await blip(b, 'mind-map', 'mind-map/index.html', async (a, c) => {
-    const before = await a.evaluate(() => window.mindMapApp.nodes.size);
-    await c.bringToFront();
-    await c.evaluate(() => window.mindMapApp.addNode());
-    await c.waitForTimeout(3000);
-    await a.bringToFront(); await a.waitForTimeout(5000);
-    return (await a.evaluate(() => window.mindMapApp.nodes.size)) > before;
-  });
-
   await blip(b, 'collab-doc', 'collab-doc/index.html', async (a, c) => {
     await c.bringToFront();
     await c.evaluate(() => window.collabDoc.editor.setValue('typed after the wifi came back'));

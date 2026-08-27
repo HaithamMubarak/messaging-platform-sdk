@@ -11,13 +11,10 @@ const APPS = [
   ['chess',        'chess/index.html'],
   ['collab-doc',   'collab-doc/index.html'],
   ['drop',         'drop/index.html'],
-  ['mind-map',     'mind-map/index.html'],
-  ['pixel-art',    'pixel-art/index.html'],
-  ['pulse',        'pulse/index.html'],
+      ['pulse',        'pulse/index.html'],
   ['air-hockey',   'mini-games/air-hockey/index.html'],
   ['find-the-liar','mini-games/find-the-liar/index.html'],
-  ['quiz-battle',  'mini-games/quiz-battle/index.html'],
-  ['reactor',      'mini-games/reactor/index.html']
+    ['reactor',      'mini-games/reactor/index.html']
 ];
 const ROOT = BASE + '/apps/';
 

@@ -11,7 +11,7 @@ const { chromium } = require('playwright');
 const PAGES = ['index.html','playground.html','docs.html','apps/chat.html',
  'apps/whiteboard/index.html','apps/rooms/index.html','apps/terminal/index.html',
  'apps/pictionary/index.html','apps/drop/index.html','apps/pulse/index.html',
- 'apps/mini-games/blockparty/index.html','apps/mini-games/quiz-battle/index.html'];
+ 'apps/mini-games/blockparty/index.html',];
 
 (async () => {
   const b = await chromium.launch({ headless: false,

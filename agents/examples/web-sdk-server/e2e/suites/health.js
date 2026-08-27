@@ -7,19 +7,18 @@ const { chromium } = require('playwright');
 const ROOT = BASE + '/';
 
 const PAGES = [
-    'index.html', 'playground.html', 'docs.html',
+    'index.html', 'playground.html', 'docs.html', 'privacy.html',
     'developer/index.html', 'developer/dashboard.html', 'admin/index.html', 'admin/dashboard.html',
     'error/404.html', 'error/5xx.html',
     'apps/whiteboard/index.html', 'apps/whiteboard/app.html',
     'apps/rooms/index.html', 'apps/rooms/app.html',
     'apps/terminal/index.html', 'apps/terminal/app.html',
     'apps/mini-games/blockparty/index.html', 'apps/mini-games/blockparty/play.html',
-    'apps/chess/index.html', 'apps/collab-doc/index.html', 'apps/mind-map/index.html',
-    'apps/pictionary/index.html', 'apps/pixel-art/index.html', 'apps/pulse/index.html', 'apps/rewind/index.html', 'apps/rewind/app.html', 'apps/under-the-hood/index.html', 'apps/under-the-hood/app.html', 'apps/dead-drop/index.html', 'apps/dead-drop/app.html', 'apps/sponsorpulse/index.html', 'apps/sponsorpulse/host.html', 'apps/sponsorpulse/join.html',
+    'apps/chess/index.html', 'apps/collab-doc/index.html', 'apps/pictionary/index.html', 'apps/pulse/index.html', 'apps/rewind/index.html', 'apps/rewind/app.html', 'apps/under-the-hood/index.html', 'apps/under-the-hood/app.html', 'apps/dead-drop/index.html', 'apps/dead-drop/app.html', 'apps/sponsorpulse/index.html', 'apps/sponsorpulse/host.html', 'apps/sponsorpulse/join.html',
     'apps/drop/index.html', 'apps/quickshare/quickshare.html',
     'apps/chat.html', 'apps/storage-demo.html', 'apps/webrtc.html',
     'apps/turn-stun-test.html', 'apps/cloud-connection-demo.html', 'apps/test-api-key/index.html',
-    'apps/mini-games/air-hockey/index.html', 'apps/mini-games/find-the-liar/index.html', 'apps/mini-games/quiz-battle/index.html', 'apps/mini-games/reactor/index.html'
+    'apps/mini-games/air-hockey/index.html', 'apps/mini-games/find-the-liar/index.html', 'apps/mini-games/reactor/index.html'
 ];
 
 (async () => {

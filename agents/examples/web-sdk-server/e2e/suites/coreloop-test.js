@@ -54,18 +54,6 @@ async function pair(b, label, path, act, read, expect) {
   const b = await chromium.launch({ headless: false,
     args: ['--no-sandbox', '--enable-unsafe-swiftshader', '--use-gl=angle', '--use-angle=swiftshader'] });
 
-  // mind-map: a node added on one map appears on the other
-  await pair(b, 'mind-map', 'mind-map/index.html',
-    () => window.mindMapApp.addNode(),
-    () => window.mindMapApp.nodes.size,
-    (x, y) => y > x);
-
-  // pixel-art: a painted pixel arrives
-  await pair(b, 'pixel-art', 'pixel-art/index.html',
-    () => window.pixelArtApp.setPixel(4, 4, '#ff0000'),
-    () => { const g = window.pixelArtApp.pixels; return g && g[4] ? String(g[4][4]) : 'no-grid'; },
-    (x, y) => y !== x && /#?ff0000/i.test(y));
-
   // collab-doc: typing reaches the other editor
   await pair(b, 'collab-doc', 'collab-doc/index.html',
     () => window.collabDoc.editor.setValue('hello from alpha'),

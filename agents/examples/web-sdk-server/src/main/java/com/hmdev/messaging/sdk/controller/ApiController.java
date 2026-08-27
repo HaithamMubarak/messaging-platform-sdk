@@ -63,10 +63,6 @@ public class ApiController extends BaseApiConfigController {
                 "Classic air hockey with a multiplayer twist \u2014 score goals and dominate the rink.",
                 "apps/mini-games/air-hockey/index.html", "2-4", "3-5 minutes", "Easy"));
 
-        games.put("quiz-battle", game("Quiz Battle", "\uD83E\uDDE0",
-                "Answer trivia questions faster than your opponents.",
-                "apps/mini-games/quiz-battle/index.html", "2-10", "3-5 minutes", "Easy"));
-
         games.put("find-the-liar", game("Find the Liar", "\uD83E\uDD25",
                 "Social deduction \u2014 spot the players who only got a hint.",
                 "apps/mini-games/find-the-liar/index.html", "3-10", "5-10 minutes", "Easy"));

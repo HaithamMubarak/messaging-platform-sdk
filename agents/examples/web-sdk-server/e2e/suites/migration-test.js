@@ -168,15 +168,6 @@ async function migrate(b, label, path, after) {
     return now > before;
   });
 
-  await migrate(b, 'mind-map', 'mind-map/index.html', async (h, o) => {
-    const before = await o.evaluate(() => window.mindMapApp.nodes.size);
-    await h.bringToFront();
-    await h.evaluate(() => window.mindMapApp.addNode());
-    await h.waitForTimeout(3000);
-    await o.bringToFront(); await o.waitForTimeout(5000);
-    return (await o.evaluate(() => window.mindMapApp.nodes.size)) > before;
-  });
-
   await migrate(b, 'collab-doc', 'collab-doc/index.html', async (h, o) => {
     await h.bringToFront();
     await h.evaluate(() => window.collabDoc.editor.setValue('written after the host left'));

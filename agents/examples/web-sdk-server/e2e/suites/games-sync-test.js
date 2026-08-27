@@ -35,35 +35,8 @@ async function join(b, path, name, room) {
   const b = await chromium.launch({ headless: false,
     args: ['--no-sandbox', '--enable-unsafe-swiftshader', '--use-gl=angle', '--use-angle=swiftshader'] });
 
-  // ---- quiz battle: one room, one question ------------------------------
-  let room = 'qz' + Math.floor(Math.random() * 99999);
-  const qa = await join(b, 'quiz-battle/index.html', 'Alpha', room);
-  const qc = await join(b, 'quiz-battle/index.html', 'Beta', room);
-  await qa.bringToFront(); await qa.waitForTimeout(3000);
-  await qa.evaluate(() => window.quizGame.startGame());
-  const q = (p) => p.evaluate(() => ({
-    text: (document.querySelector('#questionText, .question-text') || {}).innerText || '',
-    n: (document.body.innerText.match(/QUESTION (\d+)/) || [])[1]
-  }));
-  let agreed = 0, samples = 0, advanced = new Set();
-  for (const wait of [5000, 5000, 6000]) {
-    await qa.waitForTimeout(wait);
-    const A = await q(qa);
-    await qc.bringToFront(); await qc.waitForTimeout(600);
-    const B = await q(qc);
-    await qa.bringToFront();
-    samples++;
-    if (A.text && A.text === B.text && A.n === B.n) agreed++;
-    advanced.add(A.text);
-    check(A.text === B.text && A.n === B.n,
-      `quiz: both players are on the same question (${(A.text || 'none').slice(0, 34)} | ${(B.text || 'none').slice(0, 34)})`);
-  }
-  check(advanced.size > 1, `quiz: the room moves through questions together (${advanced.size} seen)`);
-  check([...new Set([...qa.errs, ...qc.errs])].filter(e => e.startsWith('THREW')).length === 0, 'quiz: nothing throws');
-  await qa.ctx.close(); await qc.ctx.close();
-
   // ---- reactor: the counter tells the truth -----------------------------
-  room = 'rc' + Math.floor(Math.random() * 99999);
+  let room = 'rc' + Math.floor(Math.random() * 99999);
   const ra = await join(b, 'reactor/index.html', 'Alpha', room);
   const rc = await join(b, 'reactor/index.html', 'Beta', room);
   await ra.bringToFront(); await ra.waitForTimeout(5000);

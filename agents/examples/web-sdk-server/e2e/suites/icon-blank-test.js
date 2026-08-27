@@ -80,11 +80,10 @@ async function look(b, url, label, after) {
   const ALL = ['../index.html', '../playground.html', '../docs.html',
     'whiteboard/index.html', 'whiteboard/app.html', 'rooms/index.html', 'rooms/app.html',
     'terminal/index.html', 'terminal/app.html', 'chat.html', 'cloud-connection-demo.html',
-    'mini-games/blockparty/index.html', 'chess/index.html', 'pixel-art/index.html',
-    'mind-map/index.html', 'collab-doc/index.html', 'pulse/index.html', 'drop/index.html',
+    'mini-games/blockparty/index.html', 'chess/index.html', 'collab-doc/index.html', 'pulse/index.html', 'drop/index.html',
     'turn-stun-test.html', 'test-api-key/index.html',
     'mini-games/air-hockey/index.html', 'mini-games/find-the-liar/index.html',
-    'mini-games/quiz-battle/index.html', 'mini-games/reactor/index.html'];
+    'mini-games/reactor/index.html'];
   for (const page of ALL) {
     try { await look(b, H + page, page.replace('../', '')); }
     catch (e) { check(false, `${page}: page loaded (${e.message.slice(0, 50)})`); }

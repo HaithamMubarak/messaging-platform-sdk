@@ -6,13 +6,13 @@ const seen = new Set(), bad = [];
 /**
  * Links that deliberately leave this site.
  *
- * The playground cards CoShell, a product hosted beside the SDK site rather
- * than inside it. The href is relative on purpose so it resolves within
- * /messaging-platform/ wherever the site is mounted — which means that on a
- * local container, where this tree is served at the root, it points at
- * something the container does not serve. Absent here is not broken.
+ * Some cards point at products hosted beside the SDK site rather than inside
+ * it, and those are allowed to be absent here. Nothing claims that today: the
+ * CoShell card was removed once its target was found to redirect to
+ * apps/terminal, which the catalogue already lists — so the list is empty and
+ * every href must resolve.
  */
-const EXTERNAL_BY_DESIGN = [/^apps\/coshell\//];
+const EXTERNAL_BY_DESIGN = [];
 (async () => {
   const b = await chromium.launch({headless:true,args:['--no-sandbox']});
   const p = await b.newPage();

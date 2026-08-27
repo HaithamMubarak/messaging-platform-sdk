@@ -17,15 +17,15 @@ const { BASE } = require('./lib/harness');
 // not, and the self-checks exist to prove the sweeps can fail.
 const GROUPS = {
     'site sweeps': ['health.js', 'links.js', 'mobile.js', 'contrast.js', 'token-check.js',
-                    'a11y.js', 'focus.js', 'icon-blank-test.js'],
+                    'a11y.js', 'focus.js', 'icon-blank-test.js', 'responsive-test.js'],
     'self-checks': ['a11y-selfcheck.js', 'focus-selfcheck.js'],
     'apps': ['chat-test.js', 'wb-test.js', 'wb-history-test.js', 'shape-fidelity-test.js', 'collab-actions-test.js', 'persistence-test.js', 'handover-test.js', 'rooms-test.js', 'term-test.js', 'terminal-scrollback-test.js', 'cloud-test.js',
              'drop-test.js', 'drop-resume-test.js', 'undriven-test.js', 'devpages-test.js', 'coreloop-test.js', 'pulse-moderation-test.js', 'dead-drop-test.js', 'under-the-hood-test.js', 'rewind-test.js', 'sponsorpulse-core-test.js', 'sponsorpulse-test.js',
              'fieldstamp-test.js', 'persistence-apps-test.js'],
     'games': ['bp-chrome-test.js', 'pict-test.js', 'chess-features-test.js', 'games-test.js',
-              'games-sync-test.js', 'quiz-results-test.js', 'tier2-test.js', 'outcry-test.js',
+              'games-sync-test.js', 'tier2-test.js', 'outcry-test.js',
               'party-games-test.js'],
-    'platform': ['migration-test.js', 'reconnect-test.js', 'smoke-all.js'],
+    'platform': ['migration-test.js', 'reconnect-test.js', 'smoke-all.js', 'telemetry-test.js'],
     // Slow by nature — it waits out a presence TTL, so it is opt in rather than
     // ungated. Run with: npm test -- ghost
     'presence (opt in)': [],

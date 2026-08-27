@@ -1,11 +1,12 @@
 /**
  * Durable boards for the apps that had none.
  *
- * collab-doc, mind-map and pixel-art all lost everything the moment the last
- * tab closed: their state lived only in the peers holding it, so a room that
- * emptied took the work with it. The whiteboard already solved this — it writes
- * an encrypted blob to channel storage and reads it back on join — and this is
- * that pattern, extracted once so three apps get it for one build.
+ * collab-doc lost everything the moment the last tab closed: its state lived
+ * only in the peers holding it, so a room that emptied took the work with it.
+ * The whiteboard already solved this — it writes an encrypted blob to channel
+ * storage and reads it back on join — and this is that pattern, extracted so
+ * any app can adopt it. (mind-map and pixel-art were the other two callers;
+ * both were retired as redundant with the whiteboard.)
  *
  * The rules that make it safe to share:
  *

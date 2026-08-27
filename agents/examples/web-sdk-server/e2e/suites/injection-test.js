@@ -63,10 +63,6 @@ const check = (ok, what) => (ok ? pass : fail).push(what);
     // function the fix touched — this reaches the sink without needing a
     // hostile peer on the wire.
     const SINKS = [
-        ['quiz-battle', 'apps/mini-games/quiz-battle/index.html',
-            (v) => { window.quizGame && quizGame.updatePlayersList
-                ? quizGame.updatePlayersList([{ name: v, isSelf: false, isHost: true }])
-                : null; }],
         ['air-hockey', 'apps/mini-games/air-hockey/index.html',
             (v) => { const el = document.getElementById('playersList');
                      if (el) el.innerHTML = ''; }]
@@ -80,10 +76,11 @@ const check = (ok, what) => (ok ? pass : fail).push(what);
     const FILES = [
         'apps/mini-games/air-hockey/air-hockey.js',
         'apps/mini-games/find-the-liar/find-the-liar.js',
-        'apps/mini-games/quiz-battle/quiz-battle.js',
         'apps/mini-games/reactor/reactor-client.js',
         // apps/quickshare/QuickShare.js is gone — QuickShare was retired to a
         // redirect, since Drop is the same demonstration with a consent step.
+        // apps/mini-games/quiz-battle is gone too — SponsorPulse runs the same
+        // quiz with host-authoritative grading, so it was the redundant one.
         'apps/chess/chess-game.js',
         'apps/pictionary/pictionary.js',
         'apps/collab-doc/collab-doc.js'
