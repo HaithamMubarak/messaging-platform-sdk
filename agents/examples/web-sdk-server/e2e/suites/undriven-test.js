@@ -1,12 +1,13 @@
 /**
- * The two reachable apps nothing had ever driven.
+ * The reachable app nothing had ever driven.
  *
  * storage-demo: channel storage is one of the platform's four primitives, and
  * the whole point is that what one person writes another person reads. Never
  * once tested with two clients.
  *
- * webrtc: media negotiation between two peers, with fake devices so the
- * browser has a camera and microphone to offer.
+ * This suite also covered apps/webrtc.html, the bare media-negotiation demo.
+ * That page is gone: Rooms is the same negotiation as a product people can
+ * actually use, and two cards for one primitive is one card too many.
  */
 const { BASE, SHOTS } = require('../lib/harness');
 const { chromium } = require('playwright');
@@ -104,44 +105,6 @@ async function join(b, path, name, room, fill) {
 
     const threw = [...new Set([...a.errs, ...c.errs])].filter(e => e.startsWith('THREW'));
     check(threw.length === 0, `storage: nothing throws (${threw.slice(0, 1).join('') || 'clean'})`);
-    await a.ctx.close(); await c.ctx.close();
-  }
-
-  // ---------- webrtc: two peers negotiate media ---------------------------
-  {
-    const room = 'wr' + Math.floor(Math.random() * 99999);
-    const fill = async (p, name, room) => {
-      await p.waitForSelector('#channelName', { timeout: 25000 });
-      await p.fill('#channelName', room);
-      await p.fill('#agentName', name);
-      const pw = await p.$('#channelPassword, #passwordInput');
-      if (pw) await pw.fill('pw12345');
-      await p.click('#connectBtn');
-    };
-    const a = await join(b, 'webrtc.html', 'Caller', room, fill);
-    const c = await join(b, 'webrtc.html', 'Callee', room, fill);
-    await a.bringToFront(); await a.waitForTimeout(4000);
-
-    const state = (p) => p.evaluate(() => ({
-      text: document.body.innerText.replace(/\s+/g, ' ').slice(0, 150),
-      localHasStream: !!(document.getElementById('localVideo') || {}).srcObject,
-      // `channel` is a top-level let: reachable bare, never on window.
-      peers: (() => { try { return channel && channel.getConnectedUsers
-        ? channel.getConnectedUsers() : null; } catch (e) { return 'unreachable'; } })()
-    }));
-    const sa = await state(a), sc = await state(c);
-    const caller = await a.evaluate(() => ({
-      status: (document.getElementById('connectionStatus') || {}).textContent || '',
-      connectedAs: (document.getElementById('agentNameDisplay') || {}).value || '',
-      logTail: [...document.querySelectorAll('#log .msg, #log div')].slice(-3).map(e => e.textContent.trim()).join(' | ')
-    }));
-    check(/connected/i.test(caller.logTail) || /connected/i.test(caller.status) || !!caller.connectedAs,
-      `webrtc: the caller connects (status="${caller.status.slice(0,40)}" as="${caller.connectedAs}" log="${caller.logTail.slice(0,80)}")`);
-    check(sa.localHasStream || sc.localHasStream || true,
-      `webrtc: local media state readable (caller=${sa.localHasStream}, callee=${sc.localHasStream})`);
-    await a.screenshot({ path: SHOT + 'webrtc.png' });
-    const threw = [...new Set([...a.errs, ...c.errs])].filter(e => e.startsWith('THREW'));
-    check(threw.length === 0, `webrtc: nothing throws (${threw.slice(0, 1).join('') || 'clean'})`);
     await a.ctx.close(); await c.ctx.close();
   }
 
