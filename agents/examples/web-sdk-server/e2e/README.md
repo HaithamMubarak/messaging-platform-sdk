@@ -125,3 +125,7 @@ Three habits worth keeping, all learned the hard way here:
   suites have produced were the test's fault: a control read from the wrong
   object, a log read from the wrong end, a synthetic touch that never landed.
   Confirm a red result is real before changing anything.
+
+## Marketing homepage review
+
+`homepages-test.js` is an opt-in, loopback-only suite for the SDK and Apps landing pages. It does not join channels or submit real API-key requests. Point `SDK_BASE_URL` and `APPS_BASE_URL` at the isolated sibling-worktree preview, then run `xvfb-run -a node suites/homepages-test.js`. `SDK_SHOT_DIR` receives the responsive captures and `homepages-report.json`. Preview setup is documented in the services repository under `docker/apps-service/review/README.md`. This suite is intentionally excluded from the full live-app runner.
