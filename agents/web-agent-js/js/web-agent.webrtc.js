@@ -245,7 +245,10 @@
                 const turnServer = process.env.TURN_SERVER;
                 const stunServer = process.env.STUN_SERVER;
                 const turnUsername = process.env.TURN_USERNAME;
-                const turnPassword = process.env.TURN_PASSWORD;
+                // TURN_CREDENTIAL is what the deployment actually sets, and
+                // reading only TURN_PASSWORD is what silently broke the SFU:
+                // see the note below.
+                const turnPassword = process.env.TURN_PASSWORD || process.env.TURN_CREDENTIAL;
 
                 // If custom TURN/STUN servers are configured in environment
                 if (turnServer || stunServer) {
@@ -254,18 +257,40 @@
 
                     console.log(`[WebRTC] Node.js: Using TURN/STUN from process.env - TURN: ${turn}, STUN: ${stun}`);
 
-                    return [
-                        {
-                            urls: [
-                                `stun:${stun}`,
-                                `turn:${turn}?transport=udp`,
-                                `turn:${turn}?transport=tcp`
-                            ],
+                    /*
+                     * A TURN URL WITHOUT A CREDENTIAL POISONS THE WHOLE LIST.
+                     *
+                     * This used to return one entry mixing stun: and turn: URLs
+                     * with `credential: undefined`, because it read only
+                     * TURN_PASSWORD while the deployment sets TURN_CREDENTIAL.
+                     * In a browser that is merely ignored. In node, wrtc's
+                     * parser rejects it and `new RTCPeerConnection` THROWS
+                     * "ICE server parse failed" — so the SFU could not build a
+                     * peer connection at all, every SDP offer it received died
+                     * in the handler, and the relay never answered anybody.
+                     * That is why thirteen relay agents ran for weeks with
+                     * sourceStreams: 0. One missing environment variable, and
+                     * the failure surfaced nowhere near it.
+                     *
+                     * So: STUN and TURN are separate entries, and TURN is
+                     * included only when there is something to authenticate
+                     * with. Losing TURN degrades reachability; an unparseable
+                     * list loses WebRTC entirely.
+                     */
+                    const servers = [{ urls: `stun:${stun}` }];
+                    if (turnUsername && turnPassword) {
+                        servers.push({
+                            urls: [`turn:${turn}?transport=udp`, `turn:${turn}?transport=tcp`],
                             username: turnUsername,
-                            credential: turnPassword
-                        },
-                        { urls: 'stun:stun.l.google.com:19302' }
-                    ];
+                            credential: turnPassword,
+                        });
+                    } else {
+                        console.warn('[WebRTC] TURN configured without credentials '
+                            + '(TURN_USERNAME + TURN_PASSWORD/TURN_CREDENTIAL); '
+                            + 'using STUN only rather than an ICE list that will not parse.');
+                    }
+                    servers.push({ urls: 'stun:stun.l.google.com:19302' });
+                    return servers;
                 }
             }
 
@@ -411,10 +436,10 @@
             // Emit an 'offer' event so the UI can react
             this.emit('offer', streamId, offer.sdp);
 
-            // Send to remote agent via channel
+            // Send to remote agent via channel, with the candidates in it.
             this.channel.sendWebRtcSignaling({
                 type: 'offer',
-                sdp: offer.sdp,
+                sdp: await this._gatheredSdp(pc, offer.sdp),
                 streamSessionId: streamId
             }, remoteAgent);
 
@@ -490,6 +515,9 @@
 
             // Set remote description AFTER adding transceivers (required for wrtc in Node.js)
             await pc.setRemoteDescription(new _RTCSessionDescription({type: 'offer', sdp: sdpOffer}));
+            // The answerer has the same problem as the offerer: the other side
+            // may have trickled candidates before this point.
+            await this._flushIce(streamId);
 
             // Attach answerer media before creating the answer so P2P media is
             // bidirectional rather than only flowing from offerer to answerer.
@@ -514,7 +542,7 @@
 
             this.channel.sendWebRtcSignaling({
                 type: 'answer',
-                sdp: answer.sdp,
+                sdp: await this._gatheredSdp(pc, answer.sdp),
                 streamSessionId: streamId
             }, sourceAgent);
 
@@ -522,6 +550,64 @@
             this.emit('answer', streamId, answer.sdp);
 
             console.log(`[WebRTC] Sent SDP answer for ${streamId}`);
+        }
+
+        /**
+         * Wait for ICE gathering, then hand back the description that has the
+         * candidates in it.
+         *
+         * WHY THIS EXISTS. Trickle ICE sends each candidate as its own
+         * signalling message. Between a node peer and a browser those messages
+         * go over the messaging channel, and in practice almost none of them
+         * survived the trip: the browser would end up with a single remote
+         * candidate out of the dozens the relay emitted, and whether the
+         * connection came up at all depended on which one that was. Half the
+         * spike runs connected and half stalled in "checking" — the classic
+         * shape of a lossy signalling path, not of a broken network.
+         *
+         * Waiting for gathering to finish puts every candidate in the SDP
+         * itself, which is one message and cannot be half-delivered. It costs
+         * a little setup latency and it is what makes this reliable. Trickle
+         * still runs alongside; this only removes the dependence on it.
+         *
+         * The wait is bounded: an unreachable STUN server never completes
+         * gathering, and blocking forever on that would be worse than the
+         * problem being solved.
+         */
+        async _gatheredSdp(pc, fallbackSdp, timeoutMs = 3000) {
+            /*
+             * ONLY IN NODE. Measured, not assumed: waiting here made the
+             * node relay work and made the BROWSER-to-browser mesh stop
+             * working — the Rooms suite went from 91 green to ten media
+             * assertions red and back again with this one line. Browsers
+             * trickle over this channel reliably and always have; the node
+             * peer is the one whose candidates go missing. So the wait is
+             * applied where the evidence says it is needed and nowhere else.
+             */
+            const inNode = typeof process !== 'undefined'
+                && process.versions && process.versions.node
+                && typeof window !== 'undefined' && window === global;
+            if (!inNode) return fallbackSdp;
+
+            if (pc.iceGatheringState !== 'complete') {
+                await new Promise((resolve) => {
+                    const done = () => {
+                        if (pc.iceGatheringState !== 'complete') return;
+                        pc.removeEventListener('icegatheringstatechange', done);
+                        clearTimeout(timer);
+                        resolve();
+                    };
+                    const timer = setTimeout(() => {
+                        pc.removeEventListener('icegatheringstatechange', done);
+                        console.warn('[WebRTC] ICE gathering did not finish in time; '
+                            + 'sending what we have and relying on trickle.');
+                        resolve();
+                    }, timeoutMs);
+                    pc.addEventListener('icegatheringstatechange', done);
+                    done();
+                });
+            }
+            return (pc.localDescription && pc.localDescription.sdp) || fallbackSdp;
         }
 
         /**
@@ -555,6 +641,7 @@
                 if (session) session.state = 'answer-received';
 
                 console.log(`[WebRTC] Applied remote SDP answer for ${streamId}`);
+                await this._flushIce(streamId);
             } catch (err) {
                 // Handle race condition where state changed between check and setRemoteDescription
                 if (err.name === 'InvalidStateError') {
@@ -570,15 +657,36 @@
         }
 
         /**
-         * Handle ICE candidate received from remote (Java) agent
-         * Modern browsers handle ICE candidate queueing internally if remote description not yet set
+         * Handle an ICE candidate from the remote agent.
+         *
+         * CANDIDATES ARRIVE BEFORE THE ANSWER, AND THEY ARE NOT QUEUED FOR YOU.
+         *
+         * This used to say browsers queue candidates internally when the
+         * remote description is not set yet. They do not: addIceCandidate
+         * rejects with InvalidStateError, and the old code logged that and
+         * dropped the candidate. Whenever the remote's candidates were
+         * trickled ahead of its answer — which is the normal case, because a
+         * peer starts gathering the moment it creates its answer — EVERY
+         * candidate was thrown away and the connection failed with nothing in
+         * the log but a line saying a candidate could not be added.
+         *
+         * So buffer them, and apply them once there is a remote description.
          */
         async handleIceCandidate(streamId, candidate) {
             const pc = this.peerConnections.get(streamId);
             if (!pc) return console.warn(`[WebRTC] No peer connection for ${streamId}`);
 
-            // Modern browsers can handle addIceCandidate even before setRemoteDescription
-            // The browser will queue candidates internally if needed
+            if (!pc.remoteDescription) {
+                if (!this.pendingIce) this.pendingIce = new Map();
+                if (!this.pendingIce.has(streamId)) this.pendingIce.set(streamId, []);
+                this.pendingIce.get(streamId).push(candidate);
+                console.log(`[WebRTC] Buffered ICE candidate for ${streamId} (no remote description yet)`);
+                return;
+            }
+            await this._addIce(streamId, pc, candidate);
+        }
+
+        async _addIce(streamId, pc, candidate) {
             try {
                 await pc.addIceCandidate(new _RTCIceCandidate({
                     candidate: candidate.candidate,
@@ -589,6 +697,16 @@
             } catch (err) {
                 console.error(`[WebRTC] Failed to add ICE candidate for ${streamId}:`, err);
             }
+        }
+
+        /** Apply whatever arrived before the remote description did. */
+        async _flushIce(streamId) {
+            const pc = this.peerConnections.get(streamId);
+            const queued = this.pendingIce && this.pendingIce.get(streamId);
+            if (!pc || !queued || !queued.length) return;
+            this.pendingIce.delete(streamId);
+            console.log(`[WebRTC] Applying ${queued.length} buffered ICE candidates for ${streamId}`);
+            for (const c of queued) await this._addIce(streamId, pc, c);
         }
 
         /**

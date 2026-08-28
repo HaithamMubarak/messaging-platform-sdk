@@ -1,0 +1,102 @@
+<!doctype html><html><head><meta charset="utf-8"><title>SFU spike</title></head>
+<body>
+<video id="v" autoplay playsinline muted style="width:320px;background:#000"></video>
+<script src="web-agent.libs.js"></script>
+<script src="web-agent.js"></script>
+<script src="web-agent.webrtc.js"></script>
+<script>
+/*
+ * The smallest thing that can answer "does the relay carry a frame".
+ *
+ * Deliberately NOT the Rooms app: Rooms is a mesh, so running the spike
+ * through it would prove the mesh works, which is already known. This page
+ * publishes to, or subscribes from, the relay agent and nothing else.
+ */
+window.SPIKE = (function () {
+    var conn = null, helper = null, got = [];
+
+    async function join(o) {
+        conn = new AgentConnection({ useWebsocket: true, enableWebrtcRelay: !!o.relay });
+        await new Promise(function (res, rej) {
+            var done = false;
+            conn.addEventListener('connect', function (e) {
+                if (done) return;
+                done = true;
+                var r = e.response || {};
+                r.status === 'success' ? res(r) : rej(new Error(r.data || r.statusMessage || 'connect failed'));
+            });
+            conn.connect({
+                channelName: o.channel, channelPassword: o.password, agentName: o.agent,
+                api: o.apiUrl, apiKey: o.apiKey, apiKeyScope: 'public',
+                useWebsocket: true, useInitialReceiveConfig: true, autoReceive: true,
+                enableWebrtcRelay: !!o.relay,
+            });
+            setTimeout(function () { if (!done) { done = true; rej(new Error('connect timeout')); } }, 25000);
+        });
+        helper = new WebRtcHelper(conn);
+        helper.on('remote-stream', function (sid, stream) {
+            got.push(sid);
+            document.getElementById('v').srcObject = stream;
+        });
+        return conn.agentName || o.agent;
+    }
+
+    /*
+     * What ICE actually did.
+     *
+     * NOTE: trickled candidates never appear in remoteDescription.sdp, so
+     * reading the SDP for them says "none" even on a healthy connection —
+     * that reading cost an hour. The states and the selected candidate pair
+     * are the evidence.
+     */
+    async function ice() {
+        var out = [];
+        var ids = [];
+        helper.streamSessions.forEach(function (sess, id) { ids.push([id, sess]); });
+        for (var i = 0; i < ids.length; i++) {
+            var id = ids[i][0], sess = ids[i][1];
+            var pc = helper.peerConnections && helper.peerConnections.get(id);
+            var row = { id: id, session: sess.state, pc: pc ? pc.connectionState : null,
+                        ice: pc ? pc.iceConnectionState : null,
+                        gathering: pc ? pc.iceGatheringState : null,
+                        signaling: pc ? pc.signalingState : null,
+                        hasRemote: !!(pc && pc.remoteDescription), pair: null, remoteCands: 0 };
+            if (pc && pc.getStats) {
+                var st = await pc.getStats();
+                st.forEach(function (r) {
+                    if (r.type === 'remote-candidate') row.remoteCands++;
+                    if (r.type === 'candidate-pair' && r.state === 'succeeded') row.pair = r.localCandidateId + ' <- ' + r.remoteCandidateId;
+                });
+            }
+            out.push(row);
+        }
+        return out;
+    }
+
+    async function publish(relayAgent) {
+        var s = await navigator.mediaDevices.getUserMedia({ video: { width: 640, height: 480 }, audio: true });
+        document.getElementById('v').srcObject = s;
+        helper.setLocalMediaStream(s);
+        // The stream must be IN the constraints — an empty object negotiates
+        // nothing. Same trap that had Rooms' own video going nowhere.
+        return helper.createStreamOffer(relayAgent, { stream: s });
+    }
+
+    /* A frame, not an element. A black <video> satisfies "it exists". */
+    function painted() {
+        var v = document.getElementById('v');
+        if (!v.srcObject || !v.videoWidth) return { ok: false, w: 0 };
+        var c = document.createElement('canvas');
+        c.width = 64; c.height = 48;
+        c.getContext('2d').drawImage(v, 0, 0, 64, 48);
+        var d = c.getContext('2d').getImageData(0, 0, 64, 48).data;
+        var lit = 0, sum = 0;
+        for (var i = 0; i < d.length; i += 4) { sum += d[i] + d[i+1] + d[i+2]; if (d[i] + d[i+1] + d[i+2] > 40) lit++; }
+        return { ok: lit > 64, w: v.videoWidth, lit: lit, mean: Math.round(sum / (d.length / 4) / 3) };
+    }
+
+    return { join: join, publish: publish, painted: painted, ice: ice,
+             streams: function () { return got.slice(); },
+             agents: function () { return new Promise(function (r) { conn.getActiveAgents(r); }); } };
+})();
+</script></body></html>
