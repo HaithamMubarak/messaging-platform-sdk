@@ -22,7 +22,10 @@ const seen = new Set(), bad = [];
  */
 // Matched against the path AFTER it is resolved against the page, so the
 // `../` in the markup is already gone by the time it is tested here.
-const EXTERNAL_BY_DESIGN = [/^apps\/rooms\//, /^apps\/droppro\//];
+// The whole apps deployment, not one app at a time: the SDK nav now links to
+// its index, and every app under it is served by a different container that a
+// local SDK-only run does not have.
+const EXTERNAL_BY_DESIGN = [/^apps\//];
 (async () => {
   const b = await chromium.launch({headless:true,args:['--no-sandbox']});
   const p = await b.newPage();
