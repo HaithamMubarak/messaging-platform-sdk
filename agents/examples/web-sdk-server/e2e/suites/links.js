@@ -22,11 +22,11 @@ const seen = new Set(), bad = [];
  */
 // Matched against the path AFTER it is resolved against the page, so the
 // `../` in the markup is already gone by the time it is tested here.
-const EXTERNAL_BY_DESIGN = [/^apps\/classkit\//, /^apps\/droppro\//];
+const EXTERNAL_BY_DESIGN = [/^apps\/rooms\//, /^apps\/droppro\//];
 (async () => {
   const b = await chromium.launch({headless:true,args:['--no-sandbox']});
   const p = await b.newPage();
-  const queue = ['index.html','playground.html','docs.html','apps/whiteboard/index.html','apps/rooms/index.html','apps/terminal/index.html'];
+  const queue = ['index.html','playground.html','docs.html','apps/whiteboard/index.html','apps/terminal/index.html'];
   while (queue.length) {
     const rel = queue.shift();
     if (seen.has(rel)) continue;
