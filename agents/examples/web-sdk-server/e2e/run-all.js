@@ -25,7 +25,7 @@ const GROUPS = {
     'games': ['bp-chrome-test.js', 'pict-test.js', 'chess-features-test.js', 'games-test.js',
               'games-sync-test.js', 'tier2-test.js', 'outcry-test.js',
               'party-games-test.js'],
-    'platform': ['migration-test.js', 'reconnect-test.js', 'smoke-all.js', 'telemetry-test.js'],
+    'platform': ['tenancy-test.js', 'migration-test.js', 'reconnect-test.js', 'smoke-all.js', 'telemetry-test.js'],
     // Slow by nature — it waits out a presence TTL, so it is opt in rather than
     // ungated. Run with: npm test -- ghost
     'presence (opt in)': [],
