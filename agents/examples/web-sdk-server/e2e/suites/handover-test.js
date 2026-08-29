@@ -70,7 +70,18 @@ async function contribute(p, who, x) {
     await alice.evaluate(() => { if (typeof disconnect === 'function') disconnect(); });
     await alice.waitForTimeout(1500);
     await alice.ctx.close();
-    await bob.bringToFront(); await bob.waitForTimeout(20000);
+    /*
+     * Host election happens when the room notices the old host is gone, and
+     * how long that takes depends on the box. Twenty seconds was enough on an
+     * idle machine and not enough under a full suite run, so this suite failed
+     * three assertions whenever it ran alongside everything else — which reads
+     * as a regression and is not one. Wait for the handover instead of
+     * guessing how long it takes.
+     */
+    await bob.bringToFront();
+    await bob.waitForFunction(
+        () => !!(window.channel && channel.isHostAgent && channel.isHostAgent()),
+        null, { timeout: 60000 }).catch(() => {});
     const inherited = await state(bob);
     check(inherited.host, 'the survivor takes over as host');
     check(inherited.notes === 1 && inherited.authors.includes('Alice'),
@@ -78,13 +89,29 @@ async function contribute(p, who, x) {
 
     // the new host adds to it, and saves everything — including work not his
     await contribute(bob, 'Bob', 800);
+    /*
+     * This wait is for the host's SAVE, not for his own screen. Polling
+     * boardState here looks equivalent and is not: his local state has both
+     * notes immediately, while what Carol will read is whatever reached
+     * storage. Replacing this with a poll made the suite fail in isolation,
+     * which is the good outcome — the fixed wait was doing real work and
+     * there is no observable signal for "the save landed" to wait on instead.
+     */
     await bob.waitForTimeout(10000);
     const both = await state(bob);
     check(both.notes === 2 && both.authors.length === 2,
         `the new host's board carries both people (${JSON.stringify(both.authors)})`);
 
     const carol = await join(b, 'Carol');
-    await carol.bringToFront(); await carol.waitForTimeout(13000);
+    await carol.bringToFront();
+    await carol.waitForFunction(
+        // typeof: on a page that has only just loaded, boardState does not
+        // exist yet and a bare reference throws — which waitForFunction
+        // reports as a failed wait, so the poll gave up instantly and the
+        // assertion sampled an empty board.
+        () => typeof boardState !== 'undefined'
+            && boardState.filter((x) => x.type === 'text' || x.type === 'note').length >= 2,
+        null, { timeout: 40000 }).catch(() => {});
     const arrived = await state(carol);
     check(arrived.notes === 2, `somebody arriving after the handover gets both notes (${arrived.notes})`);
     check(arrived.authors.length === 2,
