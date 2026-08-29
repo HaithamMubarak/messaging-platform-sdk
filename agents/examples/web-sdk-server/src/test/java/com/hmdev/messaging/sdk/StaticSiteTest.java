@@ -39,9 +39,9 @@ class StaticSiteTest {
             "apps/chess/index.html",
             "apps/whiteboard/index.html",
             "apps/chat.html",
-            // The feature page is shareable; host.html and join.html are not —
-            // a join link is handed out at an event and both carry noindex.
-            "apps/sponsorpulse/index.html",
+            // The feature page is shareable; app.html is not — it carries noindex,
+            // because a log is opened from a link somebody was given.
+            "apps/evidence-chain/index.html",
             "apps/dead-drop/index.html",
             "apps/under-the-hood/index.html",
             "apps/rewind/index.html");
@@ -54,8 +54,7 @@ class StaticSiteTest {
             "apps/rewind/app.html",
             "apps/under-the-hood/app.html",
             "apps/dead-drop/app.html",
-            "apps/sponsorpulse/host.html",
-            "apps/sponsorpulse/join.html",
+            "apps/evidence-chain/app.html",
             "admin/index.html",
             "admin/dashboard.html",
             "developer/index.html",

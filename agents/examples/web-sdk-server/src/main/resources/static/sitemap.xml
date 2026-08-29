@@ -39,11 +39,6 @@
   <url><loc>https://hmdevonline.com/messaging-platform/sdk/apps/storage-demo.html</loc><priority>0.5</priority></url>
   <url><loc>https://hmdevonline.com/messaging-platform/sdk/apps/cloud-connection-demo.html</loc><priority>0.4</priority></url>
     <url>
-        <loc>https://hmdevonline.com/messaging-platform/sdk/apps/evidence-chain/app.html</loc>
-        <changefreq>monthly</changefreq>
-        <priority>0.6</priority>
-    </url>
-    <url>
         <loc>https://hmdevonline.com/messaging-platform/sdk/apps/dead-drop/index.html</loc>
         <changefreq>monthly</changefreq>
         <priority>0.7</priority>
