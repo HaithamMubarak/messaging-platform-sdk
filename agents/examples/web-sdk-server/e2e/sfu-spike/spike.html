@@ -95,7 +95,19 @@ window.SPIKE = (function () {
         return { ok: lit > 64, w: v.videoWidth, lit: lit, mean: Math.round(sum / (d.length / 4) / 3) };
     }
 
-    return { join: join, publish: publish, painted: painted, ice: ice,
+    /*
+     * Frames actually decoded, so a viewer can be told apart from a viewer
+     * who is technically connected and receiving a slideshow. "A frame
+     * arrived" is a liveness check; this is the capacity question.
+     */
+    function frames() {
+        var v = document.getElementById('v');
+        if (!v || !v.getVideoPlaybackQuality) return null;
+        var q = v.getVideoPlaybackQuality();
+        return { total: q.totalVideoFrames, dropped: q.droppedVideoFrames, t: performance.now() };
+    }
+
+    return { join: join, publish: publish, painted: painted, ice: ice, frames: frames,
              streams: function () { return got.slice(); },
              agents: function () { return new Promise(function (r) { conn.getActiveAgents(r); }); } };
 })();

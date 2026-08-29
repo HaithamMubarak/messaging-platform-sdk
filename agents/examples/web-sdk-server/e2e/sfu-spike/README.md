@@ -43,18 +43,41 @@ node only, which is where candidates were actually going missing.
 
 ## The number, and how much to trust it
 
-With the fixes, 1/3/6 viewers all receive real frames, first within 10–25s, and
-a late joiner is served.
+With the fixes, every viewer receives real frames and a late joiner is served.
 
-| viewers | SFU CPU above idle | marginal |
-|--------:|-------------------:|---------:|
-| 1       | ~40% of a core     | —        |
-| 3       | ~50–93%            | ~26%/viewer |
-| 6       | ~117%              | ~8%/viewer  |
+The first measurements were worthless: the browsers driving the test shared six
+cores with the SFU, so the same six-viewer run reported anywhere from 50% to
+93% CPU. Pinning the SFU to two cores of its own (`docker update
+--cpuset-cpus="4,5"`) and measuring **delivered frame rate** rather than "did a
+frame arrive" made it legible. Frame rate matters because a saturating relay
+does not stop delivering — it delivers a slideshow, and every liveness check in
+this file would keep passing right through the point where the product stops
+working.
 
-Marginal cost FALLS as viewers are added, which argues for forwarding with a
-fixed receive cost rather than per-viewer transcoding. But this box has six
-cores and was also running every Chromium tab in the test, so the numbers are
-contended and they move a lot between runs. **They are not a capacity claim.**
-A real number needs viewers driven from another machine. Until then the honest
-public statement stays "a working group, not a broadcast to hundreds".
+One 640x480 publisher at 20 fps, SFU pinned to two cores:
+
+| viewers | SFU CPU (of 200%) | frame rate delivered |
+|--------:|------------------:|---------------------:|
+| 1       | 38%               | 19.8 /s              |
+| 3       | 52%               | 20.0 /s              |
+| 6       | 72–88%            | 19.9–20.0 /s         |
+| 10      | 130%              | 19.4 /s              |
+
+Cost is **linear with a fixed base**: roughly 30% of a core to receive the
+stream, then 7–11% of a core for each viewer it is sent to. That is a
+forwarding profile — transcoding would cost far more per viewer and the frame
+rate would fall away as viewers were added. It does not fall: ten viewers all
+got the source's full rate.
+
+**What can be claimed:** ten simultaneous viewers of one 640x480 20 fps stream,
+measured, no frame loss, at about two thirds of two dedicated cores.
+Extrapolating the measured marginal cost gives roughly **16–24 viewers per two
+cores** before saturation.
+
+**What cannot:** a bigger number, or this one at a higher resolution. The
+per-viewer cost is per stream and a 720p camera is not a 640x480 one. Ten was
+also the most viewers this box could drive as browsers — beyond that the test
+would be measuring Chromium, not the relay — so the 16–24 figure is arithmetic
+on a measured slope, not an observation. Watch SFU CPU alongside frame rate:
+if CPU is well under its allocation while frame rate falls, the harness is the
+bottleneck and the number is about the test, not the product.

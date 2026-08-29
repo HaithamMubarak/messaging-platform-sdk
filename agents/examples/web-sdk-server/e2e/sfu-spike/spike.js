@@ -140,7 +140,26 @@ const check = (ok, what) => (ok ? pass : fail).push(what) && console.log((ok ? '
     check(arrived === viewers.length,
         `every viewer gets one (${arrived}/${viewers.length}, first within ${Math.round(latency / 1000)}s)`);
 
+    /*
+     * Frame rate per viewer, over a window, while the CPU is also sampled.
+     * A relay that is saturating does not stop delivering — it delivers a
+     * slideshow, and every "did a frame arrive" check in this file would keep
+     * passing right through the point where the product stops working.
+     */
+    const fBefore = [];
+    for (const v of viewers) fBefore.push(await v.evaluate(() => window.SPIKE.frames()));
     const busy = cpuSample(6);
+    const fAfter = [];
+    for (const v of viewers) fAfter.push(await v.evaluate(() => window.SPIKE.frames()));
+    const fps = fBefore.map((b, i) => {
+        const a = fAfter[i];
+        if (!b || !a || a.t <= b.t) return null;
+        return +(((a.total - b.total) * 1000) / (a.t - b.t)).toFixed(1);
+    }).filter((x) => x !== null);
+    const meanFps = fps.length ? +(fps.reduce((s, x) => s + x, 0) / fps.length).toFixed(1) : 0;
+    console.log(`\nframe rate per viewer: ${JSON.stringify(fps)}  (mean ${meanFps}/s)`);
+    check(meanFps >= 10,
+        `viewers are getting video, not a slideshow (mean ${meanFps} fps across ${fps.length})`);
     const perViewer = arrived ? (busy.median - idle.median) / arrived : 0;
     console.log(`\nSFU CPU: idle ${idle.median}% → ${busy.median}% with ${arrived} viewers`);
     console.log(`         ${perViewer.toFixed(1)}% of a core per viewer`);
