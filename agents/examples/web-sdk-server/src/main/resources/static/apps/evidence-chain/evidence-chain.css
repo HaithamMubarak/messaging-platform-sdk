@@ -1,0 +1,157 @@
+/* Evidence Chain — the demo page. Tokens and buttons come from
+   design-tokens.css and ui.css; nothing here redefines them. */
+
+.ec {
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+}
+
+.ec-wrap {
+    max-width: 60rem;
+    margin: 0 auto;
+    padding: var(--space-6) var(--space-4) var(--space-8);
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-6);
+}
+
+.ec-head h1 { margin: 0 0 var(--space-2); font-size: var(--fs-2xl); }
+.ec-head p { margin: 0; color: var(--text-muted); max-width: 52ch; line-height: 1.6; }
+.ec-log-name { color: var(--accent); font-weight: 600; }
+
+/* ---------------------------------------------------------------- compose */
+
+.ec-compose {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+    padding: var(--space-4);
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-3);
+}
+
+.ec-compose textarea {
+    width: 100%;
+    resize: vertical;
+    font: inherit;
+    color: var(--text);
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-md);
+    padding: var(--space-3);
+}
+
+.ec-row { display: flex; flex-wrap: wrap; gap: var(--space-2); }
+
+.ec-state { margin: 0; font-size: var(--fs-sm); color: var(--text-muted); min-height: 1.4em; }
+.ec-state--ok   { color: var(--success, #34d399); }
+.ec-state--bad  { color: var(--danger, #f87171); }
+.ec-state--warn { color: var(--warning, #fbbf24); }
+
+/* -------------------------------------------------------------------- log */
+
+.ec-log-head { display: flex; flex-wrap: wrap; align-items: baseline; gap: var(--space-3); }
+.ec-log-head h2 { margin: 0; font-size: var(--fs-lg); }
+.ec-count { color: var(--text-muted); font-weight: 400; }
+
+.ec-tamper {
+    margin: 0;
+    font-size: var(--fs-sm);
+    color: var(--warning, #fbbf24);
+}
+
+.ec-linkish {
+    background: none;
+    border: 0;
+    padding: 0;
+    font: inherit;
+    color: inherit;
+    text-decoration: underline;
+    cursor: pointer;
+}
+
+.ec-entries {
+    list-style: none;
+    margin: var(--space-3) 0 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-2);
+}
+
+.ec-entry {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-left: 3px solid var(--border);
+    border-radius: var(--radius-md);
+    padding: var(--space-3);
+}
+
+.ec-entry--ok     { border-left-color: var(--success, #34d399); }
+.ec-entry--broken { border-left-color: var(--danger, #f87171); background: color-mix(in srgb, var(--danger, #f87171) 6%, var(--surface)); }
+
+.ec-entry-head {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: var(--space-2);
+    font-size: var(--fs-sm);
+}
+
+.ec-seq { font-weight: 700; color: var(--accent); }
+.ec-by  { font-weight: 600; }
+.ec-at  { color: var(--text-muted); margin-left: auto; }
+
+.ec-note { margin: var(--space-2) 0; line-height: 1.5; overflow-wrap: anywhere; }
+
+.ec-hashes {
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr);
+    gap: 0 var(--space-2);
+    margin: 0;
+    font-size: var(--fs-xs);
+    font-family: var(--font-mono, ui-monospace, monospace);
+    color: var(--text-muted);
+}
+
+.ec-hashes dt { font-weight: 600; }
+.ec-hashes dd { margin: 0; overflow-wrap: anywhere; }
+
+.ec-break {
+    margin: var(--space-2) 0 0;
+    font-size: var(--fs-sm);
+    font-weight: 600;
+    color: var(--danger, #f87171);
+}
+
+.ec-entry-tools { display: flex; gap: var(--space-2); margin-top: var(--space-2); }
+
+/* ---------------------------------------------------------------- explain */
+
+.ec-explain {
+    border-top: 1px solid var(--border);
+    padding-top: var(--space-5);
+}
+
+.ec-explain h2 { margin: 0 0 var(--space-3); font-size: var(--fs-lg); }
+.ec-explain p { margin: 0 0 var(--space-3); color: var(--text-muted); line-height: 1.6; max-width: 62ch; }
+.ec-genesis code { color: var(--accent); }
+
+.ec-formula {
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-md);
+    padding: var(--space-3);
+    overflow-x: auto;
+    font-size: var(--fs-sm);
+}
+
+.ec-note-small { font-size: var(--fs-sm); font-style: italic; }
+
+@media (max-width: 40rem) {
+    .ec-wrap { padding: var(--space-4) var(--space-3) var(--space-6); }
+    .ec-at { margin-left: 0; width: 100%; }
+    .ec-hashes { grid-template-columns: 1fr; }
+}

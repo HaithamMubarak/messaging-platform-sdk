@@ -1,0 +1,127 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+    <title>Evidence Chain — a log that cannot be quietly rewritten, on the Messaging Platform SDK</title>
+    <meta name="description" content="Append entries to a channel and each one hashes over the last. Alter or remove one and the verifier names the entry where the chain first breaks.">
+    <meta name="theme-color" content="#0b1120">
+    <link rel="canonical" href="https://hmdevonline.com/messaging-platform/sdk/apps/evidence-chain/index.html">
+    <meta property="og:type" content="website">
+    <meta property="og:site_name" content="Messaging Platform SDK">
+    <meta property="og:title" content="Evidence Chain">
+    <meta property="og:description" content="Append-only channel storage, made tamper-evident. Break it yourself and watch the verifier catch it.">
+    <meta property="og:url" content="https://hmdevonline.com/messaging-platform/sdk/apps/evidence-chain/index.html">
+    <meta property="og:image" content="https://hmdevonline.com/messaging-platform/sdk/images/og-image.png">
+    <meta name="twitter:card" content="summary_large_image">
+    <meta name="twitter:title" content="Evidence Chain">
+    <meta name="twitter:description" content="Append-only channel storage, made tamper-evident.">
+    <meta name="twitter:image" content="https://hmdevonline.com/messaging-platform/sdk/images/og-image.png">
+
+    <link rel="icon" type="image/svg+xml" href="../../favicon.svg">
+    <link rel="stylesheet" href="../../css/design-tokens.css">
+    <link rel="stylesheet" href="../../css/ui.css">
+    <link rel="stylesheet" href="../../css/landing.css">
+    <link rel="stylesheet" href="../../css/app-page.css">
+
+    <script src="../../js/prod-log.js"></script>
+    <script src="../../js/icons.js" defer></script>
+</head>
+<body>
+<a class="skip-link" href="#main">Skip to content</a>
+
+<header class="site-header" id="siteHeader">
+    <div class="wrap site-header__inner">
+        <a class="brand" href="../../index.html">
+            <svg class="logo-mark" aria-hidden="true"><use href="#i-logo"></use></svg>
+            Messaging Platform SDK
+        </a>
+        <button class="btn btn--ghost btn--icon nav-toggle" id="navToggle" aria-expanded="false" aria-controls="siteNav" aria-label="Open menu">
+            <svg class="icon" aria-hidden="true"><use href="#i-menu"></use></svg>
+        </button>
+        <nav class="site-nav" id="siteNav" aria-label="Main">
+            <a href="../../index.html#demos">Demos</a>
+            <a href="../../playground.html">Playground</a>
+            <a href="../../docs.html">Docs</a>
+            <a href="../../developer/index.html">Portal</a>
+            <a class="btn btn--gradient" href="app.html">Open it</a>
+        </nav>
+    </div>
+</header>
+
+<main id="main">
+    <section class="hero" style="padding-block: var(--sp-16) var(--sp-12)">
+        <div class="wrap ap-hero">
+            <div>
+                <span class="eyebrow">Playground · Evidence Chain</span>
+                <h1 style="font-size: var(--fs-hero); margin-bottom: var(--sp-4); text-wrap: balance">A record you can add to, and nothing else.</h1>
+                <p class="hero__lede">
+                    Write entries into a channel. Each one is hashed together with the hash of the entry
+                    before it, so the log has an order that is part of the data rather than a promise
+                    about it. Then alter an entry, or delete one, and press verify — it will tell you
+                    exactly where the chain stopped holding.
+                </p>
+                <div class="hero__actions" style="margin-top: var(--sp-6)">
+                    <a class="btn btn--gradient" href="app.html">Open it</a>
+                    <a class="btn btn--ghost" href="../pulse/index.html">See versions used as a poll</a>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <section class="wrap" style="padding-block: var(--sp-12)">
+        <h2>What it demonstrates</h2>
+        <p>
+            Two platform facts, and the point is that neither is enough by itself.
+            <code>storageAdd</code> <strong>appends a version instead of replacing a value</strong>,
+            so the channel keeps every entry that was ever written — that gives you a log.
+            The hash of each entry covers the previous entry's hash, which welds those entries into
+            an order — that is what turns a log into a record.
+        </p>
+        <p>
+            Storage without the chain lets somebody hand you a shorter list and call it the whole
+            thing. The chain without storage lets somebody hand you a different list. Together they
+            mean an entry can be added, and nothing else can happen to one.
+        </p>
+    </section>
+
+    <section class="wrap" style="padding-block: var(--sp-12)">
+        <h2>Break it yourself</h2>
+        <p>
+            Every entry on the page has <strong>Alter</strong> and <strong>Remove</strong> next to it.
+            Both edit this tab's copy of the log — storage is append-only, so there is nothing there
+            to rewrite, and that is the realistic threat anyway: somebody hands you a log and says it
+            is the record. Verification is what tells you it is not.
+        </p>
+        <p>
+            A verifier nobody has watched fail is a verifier nobody should trust, which is why those
+            two buttons are on the page rather than in a test.
+        </p>
+    </section>
+
+    <section class="wrap" style="padding-block: var(--sp-12)">
+        <h2>Why sorted keys matter</h2>
+        <p>
+            Stamps are serialised with their keys sorted, so the same entry produces the same string —
+            and therefore the same hash — on any browser, next year. Re-derivation only works because
+            of that. Serialise with <code>JSON.stringify</code> straight off an object and two browsers
+            that happened to build it in a different order will disagree about a log neither of them
+            has touched.
+        </p>
+    </section>
+
+    <section class="wrap" style="padding-block: var(--sp-12) var(--sp-16)">
+        <h2>This is the primitive, not a product</h2>
+        <p>
+            There is no camera here, no capture templates, no exportable report and no operator
+            manual. Those belong to an inspection product built on exactly the four functions this
+            page ships — <code>sha256Text</code>, <code>canonical</code>, <code>chainNext</code> and
+            <code>verifyChain</code> — which are on <code>window.EvidenceChainCore</code> so you can
+            paste them into a console and satisfy yourself before building anything on them.
+        </p>
+    </section>
+</main>
+
+<script src="../../js/app-chrome.js"></script>
+</body>
+</html>

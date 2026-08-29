@@ -43,22 +43,14 @@ the host; the `_fromHost` flag alone is not enough, since a peer can forge it.
 If you change `hostOrder`, `broadcastState` or `toPlayer`, rerun the E2E — its
 privacy check asserts that no guest ever receives an `order` message.
 
-## The commercial model this is built for
+## Where the commercial model went
 
-The shape is Jackbox's, and it is the reason the game is built host-authoritative
-with phone controllers rather than as a lobby everyone pays into:
-
-- **Base game** — the host buys once, three to twelve phones join free. Nobody
-  but the host needs an account, which is what this platform is best at.
-- **Packs** — `packs.js` is the product surface. `house` ships; `work` and `bar`
-  carry `locked: true`, which is presentation only in this showcase build. Four
-  to six packs a year is the treadmill; budget a writer, not a one-off build.
-- **Venue tier** — a pub running a weekly night: their branding, their own
-  questions, a leaderboard that persists across weeks. The branding rig in
-  [SponsorPulse](../../sponsorpulse/) does most of that already.
-- **Streamer mode** — guests play the real market while the audience trades a
-  free-for-all version of the same round. Unbuilt, and it is the distribution
-  strategy rather than a feature: a browser game has no shelf.
+This runbook used to carry the business plan for Open Outcry — the pack
+treadmill, the venue tier, the distribution strategy. It moved to
+`messaging-platform-apps/docs/open-outcry-business.md` on 2026-08-29,
+because a plan for making money from a game is not documentation for the
+platform the game is built on. The game, and the transport rule above that
+makes it work, stay here.
 
 ## Two things that will bite
 

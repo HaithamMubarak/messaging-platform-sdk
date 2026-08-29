@@ -79,8 +79,8 @@ const check = (ok, what) => (ok ? pass : fail).push(what);
         'apps/mini-games/reactor/reactor-client.js',
         // apps/quickshare/QuickShare.js is gone — QuickShare was retired to a
         // redirect, since Drop is the same demonstration with a consent step.
-        // apps/mini-games/quiz-battle is gone too — SponsorPulse runs the same
-        // quiz with host-authoritative grading, so it was the redundant one.
+        // apps/mini-games/quiz-battle is gone too — it was retired when the
+        // host-authoritative quiz it demonstrated moved into an events product.
         'apps/chess/chess-game.js',
         'apps/pictionary/pictionary.js',
         'apps/collab-doc/collab-doc.js'

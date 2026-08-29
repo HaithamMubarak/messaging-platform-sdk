@@ -64,18 +64,18 @@ chunks byte-for-byte, both quiz players seeing the same question.
 room survives *and still works*; `reconnect-test.js` takes a client offline and
 back; `smoke-all.js` is the cheap does-it-connect pass.
 
-**Load** — `load/sponsorpulse-load.js` answers the question the browser suites
-cannot: can a room the size SponsorPulse is sold for actually connect and
-answer at once. It drives the SDK directly rather than opening a hundred
-browsers, which is only possible because the npm package can now be required
-from Node.
+**Load** — `load/room-scale-load.js` answers the question the browser suites
+cannot: how many agents one channel actually holds at once. Every suite here
+opens two or three clients; this one opens a hundred. It drives the SDK
+directly rather than opening a hundred browsers, which is only possible
+because the npm package can now be required from Node.
 
 It takes the endpoint as an argument and refuses to run against anything that
 looks like a shared deployment — a load test is the last thing that should
 reach production by accident:
 
 ```
-node load/sponsorpulse-load.js http://127.0.0.1:8082/messaging-platform/api/v1/messaging-service 100
+node load/room-scale-load.js http://127.0.0.1:8082/messaging-platform/api/v1/messaging-service 100
 ```
 
 It fetches a short-lived developer key the same way the web app does, and it

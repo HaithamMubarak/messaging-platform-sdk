@@ -3,8 +3,9 @@
  *
  * The primitive on show is **storage versioning**. This is the smallest live
  * *writer* of `storageAdd` / `storageGetList` on the site (Rewind only reads a
- * version list back; Gavel and Fieldstamp bury the same calls inside a much
- * larger app), so the poll here deliberately does not keep a running total in
+ * version list back; Gavel buries the same calls inside a much larger app, and
+ * Evidence Chain uses them to weld the versions into a hash chain), so the poll
+ * here deliberately does not keep a running total in
  * one overwritten value: every change appends a new
  * version, and the panel on the right reads them all back. A poll therefore has
  * a shape over time — you can see the moment the room changed its mind — which

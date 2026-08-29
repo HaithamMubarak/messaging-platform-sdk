@@ -13,7 +13,7 @@ const PAGES = [
     'apps/whiteboard/index.html', 'apps/whiteboard/app.html',
     'apps/terminal/index.html', 'apps/terminal/app.html',
     'apps/mini-games/blockparty/index.html', 'apps/mini-games/blockparty/play.html',
-    'apps/chess/index.html', 'apps/collab-doc/index.html', 'apps/pictionary/index.html', 'apps/pulse/index.html', 'apps/rewind/index.html', 'apps/rewind/app.html', 'apps/under-the-hood/index.html', 'apps/under-the-hood/app.html', 'apps/dead-drop/index.html', 'apps/dead-drop/app.html', 'apps/sponsorpulse/index.html', 'apps/sponsorpulse/host.html', 'apps/sponsorpulse/join.html',
+    'apps/chess/index.html', 'apps/collab-doc/index.html', 'apps/pictionary/index.html', 'apps/pulse/index.html', 'apps/rewind/index.html', 'apps/rewind/app.html', 'apps/under-the-hood/index.html', 'apps/under-the-hood/app.html', 'apps/dead-drop/index.html', 'apps/dead-drop/app.html', 'apps/evidence-chain/index.html', 'apps/evidence-chain/app.html',
     'apps/drop/index.html', 'apps/quickshare/quickshare.html',
     'apps/chat.html', 'apps/storage-demo.html', 'apps/turn-stun-test.html', 'apps/cloud-connection-demo.html', 'apps/test-api-key/index.html',
     'apps/mini-games/air-hockey/index.html', 'apps/mini-games/find-the-liar/index.html', 'apps/mini-games/reactor/index.html'

@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Evidence Chain</title>
+    <meta name="description" content="Append entries to a channel log whose hashes chain into each other, then tamper with one and watch the verifier catch it.">
+    <meta name="robots" content="noindex, nofollow">
+    <meta name="theme-color" content="#0b1120">
+    <link rel="icon" type="image/svg+xml" href="../../favicon.svg">
+    <link rel="stylesheet" href="../../css/design-tokens.css">
+    <link rel="stylesheet" href="../../css/ui.css">
+    <link rel="stylesheet" href="../../css/connection-modal.css">
+    <link rel="stylesheet" href="evidence-chain.css">
+    <script src="../../js/prod-log.js"></script>
+</head>
+<body class="ec">
+
+<div class="ec-wrap">
+    <header class="ec-head">
+        <h1>Evidence Chain</h1>
+        <p>
+            Every entry in <span id="logName" class="ec-log-name">this log</span> is hashed
+            together with the one before it. Add entries, then alter or remove one and
+            press <strong>Verify</strong> — the chain names the first entry that broke.
+        </p>
+    </header>
+
+    <section class="ec-compose" aria-labelledby="composeHead">
+        <h2 id="composeHead" class="sr-only">Append an entry</h2>
+        <label for="note" class="sr-only">What to record</label>
+        <textarea id="note" maxlength="280" rows="2"
+                  placeholder="Record something. It is hashed, chained to the entry before it, and appended — never overwritten."></textarea>
+        <div class="ec-row">
+            <button id="appendBtn" class="btn btn--primary btn--sm" type="button">Append entry</button>
+            <button id="verifyBtn" class="btn btn--sm" type="button">Verify the chain</button>
+            <button id="reloadBtn" class="btn btn--sm btn--ghost" type="button">Reload from storage</button>
+        </div>
+        <p id="state" class="ec-state" role="status" aria-live="polite">Not connected yet.</p>
+    </section>
+
+    <section class="ec-log" aria-labelledby="logHead">
+        <div class="ec-log-head">
+            <h2 id="logHead">The log <span class="ec-count">(<span id="count">0</span>)</span></h2>
+            <p id="tamperFlag" class="ec-tamper" hidden>
+                This tab’s copy has been tampered with. Storage still holds the original —
+                <button class="ec-linkish" type="button" onclick="window.ecApp.reload()">reload</button>
+                to get it back.
+            </p>
+        </div>
+        <ol id="entries" class="ec-entries"></ol>
+    </section>
+
+    <section class="ec-explain" aria-labelledby="explainHead">
+        <h2 id="explainHead">What is actually happening</h2>
+        <p class="ec-genesis">
+            genesis = <code id="genesis">evidence-chain:&lt;log&gt;</code>
+        </p>
+<pre class="ec-formula"><code>chain₀ = SHA-256( genesis   | contentHash₀ | canonical(stamp₀) )
+chainₙ = SHA-256( chainₙ₋₁ | contentHashₙ | canonical(stampₙ) )</code></pre>
+        <p>
+            <strong><code>storageAdd</code> appends a version rather than replacing a value</strong>,
+            so the channel keeps every entry ever written — that gives you a log. The hash of each
+            entry covers the previous entry's hash, which welds the entries into an order — that is
+            what turns a log into a record.
+        </p>
+        <p>
+            Neither half is enough alone. Storage without the chain lets somebody hand you a shorter
+            list and call it the whole thing. The chain without storage lets somebody hand you a
+            different list. Together they mean an entry can be added, and nothing else.
+        </p>
+        <p>
+            Stamps are serialised with <em>sorted keys</em>, so the same entry hashes to the same
+            value on any browser, next year. That is the only reason re-derivation works at all.
+        </p>
+        <p class="ec-note-small">
+            This page is the primitive, not a product. Fieldstamp — a remote inspection with a phone
+            camera, capture templates and an exportable report — is built on exactly these four
+            functions, and lives elsewhere.
+        </p>
+    </section>
+</div>
+
+<script src="../../js/config-loader.js"></script>
+<script src="../../js/api-config.js"></script>
+<script src="../../generated-web-agent-js/js/web-agent.libs.js"></script>
+<script src="../../generated-web-agent-js/js/web-agent.js"></script>
+<script src="../../generated-web-agent-js/js/web-agent.webrtc.js"></script>
+<script src="../../js/common-utils.js"></script>
+<script src="../../js/dialog.js"></script>
+<script src="../../js/connection-modal.js"></script>
+<script src="../../js/telemetry.js"></script>
+<script src="../../js/UserConnectionBase.js"></script>
+<script src="evidence-chain.js"></script>
+</body>
+</html>

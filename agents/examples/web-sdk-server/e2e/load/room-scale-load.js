@@ -1,24 +1,25 @@
 #!/usr/bin/env node
 /**
- * Can SponsorPulse hold a room the size it is sold for?
+ * How many agents can one channel actually hold at once?
  *
- * The pitch is "a hundred people in a room scan a code and answer", so the
- * number that matters is whether a hundred concurrent attendees can connect,
- * answer, and have every answer reach the host — not how fast one browser is.
+ * Every browser suite here opens two or three clients. The question they cannot
+ * answer is what happens at a hundred: whether a hundred concurrent agents can
+ * connect, send, and have every message reach the host — not how fast one
+ * browser is.
  *
  * A hundred real browsers is not a realistic harness, so this drives the SDK
- * directly: each attendee is an agent from the npm package, which is only
+ * directly: each participant is an agent from the npm package, which is only
  * possible because the package can now be required from Node at all.
  *
  * It runs against a LOCAL messaging service. It deliberately takes the endpoint
  * as an argument with no default pointing anywhere shared: a load test is the
  * last thing that should find its way to a production deployment by accident.
  *
- *   node load/sponsorpulse-load.js http://127.0.0.1:8082/messaging-platform/api/v1/messaging-service [attendees]
+ *   node load/room-scale-load.js http://127.0.0.1:8082/messaging-platform/api/v1/messaging-service [participants]
  *
  * KNOWN FINDING, not yet fixed (measured here, reproducible):
  *
- *   Up to about ten attendees, everything is delivered. From roughly twenty-five
+ *   Up to about ten participants, everything is delivered. From roughly twenty-five
  *   upwards the host's auto-receive loop reports NOTHING while a single forced
  *   pull from offset zero immediately finds ~85% of the answers. The host is
  *   healthy at that moment — session valid, readyState true, poll timer
@@ -36,13 +37,13 @@
 const path = require('path');
 
 const API = process.argv[2];
-const ATTENDEES = parseInt(process.argv[3] || '100', 10);
+const PARTICIPANTS = parseInt(process.argv[3] || '100', 10);
 // Where to get a short-lived developer key, the same way the web app does.
 const KEY_SOURCE = process.argv[4] || 'http://localhost:8084/app/api/config';
 
 if (!API) {
     console.error('Refusing to run without an explicit local API endpoint.');
-    console.error('Usage: node load/sponsorpulse-load.js <apiUrl> [attendees]');
+    console.error('Usage: node load/room-scale-load.js <apiUrl> [participants]');
     process.exit(2);
 }
 if (/hmdevonline\.com|https:\/\/(?!127|localhost)/.test(API)) {
@@ -128,7 +129,7 @@ let API_KEY = '';
 
 (async () => {
     API_KEY = await fetchApiKey();
-    console.log(`SponsorPulse load: ${ATTENDEES} attendees against ${API}`);
+    console.log(`Room scale: ${PARTICIPANTS} agents against ${API}`);
     console.log(`room ${ROOM}\n`);
 
     // The host joins first and becomes the authority, as in the real app.
@@ -157,23 +158,23 @@ let API_KEY = '';
     host.addEventListener('message', () => { rawEvents++; });
     results._rawEvents = () => rawEvents;
 
-    // Attendees arrive in waves — a room does not scan the code in lockstep,
+    // Participants arrive in waves — a room does not join in lockstep,
     // and one big burst measures the harness rather than the service.
     const WAVE = 10;
     const agents = [];
-    for (let start = 0; start < ATTENDEES; start += WAVE) {
+    for (let start = 0; start < PARTICIPANTS; start += WAVE) {
         // A fresh key per wave. The endpoint caps a temporary key at five
         // minutes, and a hundred agents took longer than that to bring up — so
         // the later waves were refused with "Invalid API key", which looked
-        // like a capacity limit and was really an expiry. Every attendee's
+        // like a capacity limit and was really an expiry. Every participant's
         // browser fetches its own key anyway, so this is also the truer shape.
         const waveKey = await fetchApiKey().catch(() => API_KEY);
         const wave = [];
-        for (let i = start; i < Math.min(start + WAVE, ATTENDEES); i++) {
+        for (let i = start; i < Math.min(start + WAVE, PARTICIPANTS); i++) {
             const agent = new AgentConnection({});
             agents.push(agent);
             wave.push(
-                connect(agent, 'Attendee' + i, waveKey)
+                connect(agent, 'Participant' + i, waveKey)
                     .then(() => { results.connected++; agent._joined = true; })
                     .catch((e) => {
                         results.failed++;
@@ -183,7 +184,7 @@ let API_KEY = '';
             );
         }
         await Promise.all(wave);
-        process.stdout.write(`  connected ${results.connected}/${ATTENDEES}\r`);
+        process.stdout.write(`  connected ${results.connected}/${PARTICIPANTS}\r`);
     }
     console.log(`\nconnected ${results.connected}, failed ${results.failed}`);
     Object.keys(results.failReasons).forEach((why) => {
@@ -198,9 +199,9 @@ let API_KEY = '';
     agents.filter((a) => a && a._joined).forEach((agent, i) => {
         try {
             agent.sendMessage({
-                content: JSON.stringify({ type: 'sp_answer', segmentId: 'seg-load', optionId: 'a' }),
+                content: JSON.stringify({ type: 'load_ping', seq: 'seg-load' }),
                 to: 'Organiser',
-                customType: 'sponsorpulse'
+                customType: 'loadtest'
             });
             results.answersSent++;
         } catch (e) {
@@ -232,7 +233,7 @@ let API_KEY = '';
 
     const delivered = seen.size;
     console.log('\n--- results ---');
-    console.log(`attendees connected       ${results.connected}/${ATTENDEES}`);
+    console.log(`agents connected       ${results.connected}/${PARTICIPANTS}`);
     console.log(`connect p50 / p95         ${percentile(results.connectMs, 50)}ms / ${percentile(results.connectMs, 95)}ms`);
     console.log(`answers sent              ${results.answersSent}`);
     console.log(`distinct answerers seen   ${delivered}`);
@@ -252,7 +253,7 @@ let API_KEY = '';
     // Requiring answersSent > 0 explicitly: without it a run where nothing was
     // sent satisfies "95% of zero was delivered" and reports success, which is
     // the one result a load test must never give.
-    const ok = results.connected >= ATTENDEES * 0.95
+    const ok = results.connected >= PARTICIPANTS * 0.95
         && results.answersSent >= results.connected * 0.95
         && delivered >= results.answersSent * 0.95;
     console.log(ok
