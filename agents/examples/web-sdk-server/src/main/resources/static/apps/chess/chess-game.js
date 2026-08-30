@@ -282,8 +282,17 @@ class ChessGame extends UserConnectionBase {
 
         for (let row = 0; row < 8; row++) {
             for (let col = 0; col < 8; col++) {
-                // Adjust for board flip
-                const displayRow = this.boardFlipped ? row : 7 - row;
+                // Adjust for board flip.
+                //
+                // `row` walks the grid from the top down; chess.js indexes
+                // board() from rank 8 down. So an UNflipped board — the one
+                // White is looking at — wants grid row 0 to be board index 0,
+                // which puts Black's back rank at the top and White's own
+                // pieces nearest to White. The mapping used to be inverted,
+                // and both players were served a board mirrored about its
+                // middle: legal, playable, and upside down. The columns were
+                // always right, which is what made it hard to see.
+                const displayRow = this.boardFlipped ? 7 - row : row;
                 const displayCol = this.boardFlipped ? 7 - col : col;
 
                 const square = board[displayRow][displayCol];

@@ -72,6 +72,45 @@ class StaticSiteTest {
         return Files.readString(path, StandardCharsets.UTF_8);
     }
 
+    @Test
+    @DisplayName("every playground entry shows a screenshot of itself, and the file is there")
+    void playgroundEntriesCarryScreenshots() throws IOException {
+        String page = read("playground.html");
+
+        // The card-wide link is what makes something an entry — games and the
+        // plain demos below them use different card classes, so counting one
+        // of those two would quietly ignore the other five.
+        int entries = page.split("class=\"entry-hit\"", -1).length - 1;
+        assertThat(entries).isGreaterThan(20);
+
+        Matcher m = Pattern.compile(
+                "<figure class=\"entry-shot\"><img src=\"(img/playground/[^\"]+)\"[^>]*alt=\"([^\"]*)\">")
+                .matcher(page);
+        int found = 0;
+        while (m.find()) {
+            found++;
+            Path shot = STATIC.resolve(m.group(1));
+            assertThat(Files.exists(shot))
+                    .as("screenshot referenced by the playground is missing: " + m.group(1))
+                    .isTrue();
+            // A thumbnail with no description is a thumbnail a screen reader
+            // cannot report; "Screenshot" would pass a presence check and say
+            // nothing, so require a real sentence.
+            assertThat(m.group(2).length())
+                    .as("alt text too short for " + m.group(1))
+                    .isGreaterThan(30);
+        }
+        assertThat(found).isEqualTo(entries);
+    }
+
+    @Test
+    @DisplayName("the SDK header exposes the games playground directly")
+    void sdkHeaderLinksToPlayground() throws IOException {
+        String home = read("index.html");
+        assertThat(home).contains("<nav class=\"site-nav\" id=\"siteNav\"");
+        assertThat(home).contains("<a href=\"playground.html\">Playground</a>");
+    }
+
     // ------------------------------------------------------------ meta tags
 
     @Test

@@ -342,6 +342,31 @@ section { padding-block: var(--sp-24); }
 
 /* --- Playground --------------------------------------------------------- */
 .game-card { display: flex; flex-direction: column; }
+
+/* Every entry carries a screenshot of itself with something actually
+   happening in it — a game mid-round, a log with entries, a transfer that
+   went through. The card's padding is cancelled so the picture reaches the
+   card's edges, and the crop is anchored to the top because that is where an
+   app puts the thing that identifies it. */
+.entry-shot {
+    margin: calc(var(--sp-6) * -1) calc(var(--sp-6) * -1) var(--sp-5);
+    border-bottom: 1px solid var(--border);
+    border-radius: var(--r-lg) var(--r-lg) 0 0;
+    overflow: hidden;
+    background: var(--surface-2);
+}
+
+.entry-shot img {
+    display: block;
+    width: 100%;
+    /* The width/height attributes are there so the space is reserved before
+       the picture arrives, but `height` is a presentational hint and a real
+       declaration, so it beats aspect-ratio unless it is handed back. */
+    height: auto;
+    aspect-ratio: 16 / 10;
+    object-fit: cover;
+    object-position: top center;
+}
 .game-card__head { display: flex; align-items: center; gap: var(--sp-3); margin-bottom: var(--sp-3); }
 .game-card h3 { font-size: var(--fs-base); }
 .game-card p { font-size: var(--fs-md); color: var(--text-body); flex: 1; }
