@@ -41,7 +41,6 @@ public class SecurityProperties {
         "/favicon.ico",       // Favicon
         "/",                  // Root — the index page only; NOT a prefix
         "/index.html",        // Index page
-        "/terminal/stream",   // WebSocket streaming (ticket-authenticated)
         "/cloud/connection",  // Cloud configuration
         "/terminal/shells"    // List available shells (used by the UI to populate shell options)
     );
@@ -53,7 +52,24 @@ public class SecurityProperties {
      * the bypass this split exists to prevent.
      */
     public static final List<String> PUBLIC_SUBTREES = Arrays.asList(
-        "/h2-console"         // H2 Database Console and its resources (localhost only)
+        "/h2-console",        // H2 Database Console and its resources (localhost only)
+        /*
+         * The terminal WebSocket, whose path carries the session id:
+         * /terminal/stream/{sessionId}.
+         *
+         * It was listed in PUBLIC_ENDPOINTS, which is an EXACT match — so
+         * "/terminal/stream" never matched "/terminal/stream/9d5f…" and the
+         * filter blocked the socket the service had just issued a token for.
+         * The comment there said "ticket-authenticated" and the client says
+         * the same: a browser WebSocket cannot send X-SLS-Token, so the
+         * capability is the unguessable session id, on a service bound to
+         * loopback behind an origin allow-list.
+         *
+         * A subtree, because that is the list where a wildcard is deliberate
+         * and visible. The matcher requires a path-segment boundary, so this
+         * does not make "/terminal/streamer" public.
+         */
+        "/terminal/stream"
     );
 
     /**

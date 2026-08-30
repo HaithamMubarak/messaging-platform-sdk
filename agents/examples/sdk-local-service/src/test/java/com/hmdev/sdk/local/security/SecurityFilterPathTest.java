@@ -46,6 +46,28 @@ class SecurityFilterPathTest {
         assertThat(isPublic("/")).as("the index page itself stays reachable").isTrue();
     }
 
+    @Test
+    void theTerminalWebSocketIsReachableWithItsSessionId() {
+        /*
+         * The path carries the session id, so an exact-match entry can never
+         * match it. That is what happened: "/terminal/stream" sat in
+         * PUBLIC_ENDPOINTS, the filter blocked
+         * "/terminal/stream/9d5f-…", and the service rejected the socket it
+         * had just issued a token for. A browser WebSocket cannot send
+         * X-SLS-Token, so there is no second way in.
+         */
+        assertThat(isPublic("/terminal/stream/9d5f6b7c-1234-4a5b-8c9d-0e1f2a3b4c5d")).isTrue();
+        assertThat(isPublic("/terminal/stream")).isTrue();
+    }
+
+    @Test
+    void butOnlyOnAPathSegmentBoundary() {
+        // The control: a prefix that is not a whole segment must not inherit
+        // the exemption, or "/terminal/stream" would open "/terminal/streamer".
+        assertThat(isPublic("/terminal/streamer")).isFalse();
+        assertThat(isPublic("/terminal/stream-admin")).isFalse();
+    }
+
     @ParameterizedTest(name = "{0} requires authentication")
     @ValueSource(strings = {
             "/terminal/sessions",
