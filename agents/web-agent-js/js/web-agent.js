@@ -1026,6 +1026,22 @@
 
             _self._websocket.onopen = function() {
                 console.log('[WebSocket] Connected');
+                /*
+                 * Was this a RECONNECT rather than a first connection? The
+                 * distinction matters to anything holding shared state: while
+                 * the socket was down the channel carried on without this
+                 * agent, so what it holds may now be stale. The catch-up
+                 * receive below replays what was missed, but an application
+                 * that keeps a snapshot (a board, a game, a document) needs to
+                 * ask the room for a fresh one, and it can only do that if it
+                 * is told the gap happened.
+                 *
+                 * 'connection-lost' is not that signal: it fires only when the
+                 * ladder gives up entirely. A drop that recovers is silent,
+                 * and silent is exactly the case that leaves two screens
+                 * disagreeing.
+                 */
+                const reconnected = _self._websocketReconnectAttempts > 0;
                 _self._websocketConnected = true;
                 _self._websocketReconnectAttempts = 0;
                 _self._connectionLostDispatched = false;
@@ -1042,6 +1058,8 @@
                         { globalOffset: 0, localOffset: 0, limit: _self.defaultLimit || DEFAULT_RECEIVE_LIMIT };
                     _self.receive(range);
                 }
+
+                _self.dispatchEvent('socket-open', { reconnected: reconnected });
             };
 
             _self._websocket.onmessage = function(event) {
