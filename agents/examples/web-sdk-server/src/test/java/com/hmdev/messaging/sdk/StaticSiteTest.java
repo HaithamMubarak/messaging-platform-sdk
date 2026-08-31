@@ -111,6 +111,15 @@ class StaticSiteTest {
         assertThat(home).contains("<a href=\"playground.html\">Playground</a>");
     }
 
+    @Test
+    @DisplayName("browser documentation keeps the developer key on the developer's server")
+    void browserDocumentationTeachesTemporaryKeyHandoff() throws IOException {
+        String guide = read("WEB-AGENT-GUIDE.md");
+        assertThat(guide).contains("/channels/api-access");
+        assertThat(guide).contains("process.env.MESSAGING_PLATFORM_API_KEY");
+        assertThat(guide).doesNotContain("agent.requestTempKey");
+    }
+
     // ------------------------------------------------------------ meta tags
 
     @Test

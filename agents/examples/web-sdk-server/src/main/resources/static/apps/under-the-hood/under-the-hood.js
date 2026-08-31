@@ -31,6 +31,11 @@
             super({
                 storagePrefix: 'hood_',
                 customType: 'hood',
+                // This page exists to show what actually travels on a channel,
+                // so it opts out of the customType filter every other app
+                // wants: a message from some other app sharing this room is
+                // exactly the thing worth seeing here, not noise to drop.
+                promiscuous: true,
                 autoCreateDataChannel: true    // so the topology has edges to draw
             });
             this.log = [];

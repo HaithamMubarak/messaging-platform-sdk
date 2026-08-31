@@ -53,6 +53,27 @@ tasks.named('test') {
     useJUnitPlatform()
 }
 
+/*
+ * The static site's JavaScript has behaviour worth testing, and StaticSiteTest
+ * can only read it as text. This runs the real browser file under node against
+ * the real dispatch path. Skipped rather than failed when node is absent, so a
+ * JDK-only machine can still build -- but it runs on any machine that has it,
+ * which is every machine that builds the site.
+ */
+tasks.register('jsTest', Exec) {
+    description = 'Runs the static site JavaScript tests under node'
+    group = 'verification'
+    def testFile = file('src/test/js/custom-type-filter.test.js')
+    onlyIf {
+        def hasNode = ['sh', '-c', 'command -v node'].execute().waitFor() == 0
+        if (!hasNode) logger.lifecycle('jsTest: node not found, skipping')
+        hasNode && testFile.exists()
+    }
+    commandLine 'node', testFile.absolutePath
+}
+
+tasks.named('check') { dependsOn 'jsTest' }
+
 // Task to copy CORE SDK resources from web-agent-js module
 // Mini-game specific files (mini-game-utils.js, share-modal.js, etc.) are now in this module's static/
 // Only create this task if web-agent-js module is available (multi-module build)
@@ -137,9 +158,11 @@ tasks.register('copyUserGuide', Copy) {
     description = 'Copy USER-GUIDE.md from the repository root into the static folder for docs.html'
     group = 'build'
 
-    // USER-GUIDE links to the developer guide, so that has to land beside it
-    // or every one of those links 404s for a reader of the served docs.
+    // The docs shell serves these repository-root guides directly. Keep them
+    // as copies, not hand-maintained static duplicates, so security guidance
+    // cannot drift between the repository and the public docs page.
     from(rootProject.file('USER-GUIDE.md'))
+    from(rootProject.file('WEB-AGENT-GUIDE.md'))
     from(rootProject.file('DEVELOPER-GUIDE.md'))
     into file('src/main/resources/static')
 
@@ -210,4 +233,3 @@ tasks.withType(GenerateModuleMetadata).configureEach {
     suppressedValidationErrors.add('enforced-platform')
     suppressedValidationErrors.add('dependencies-without-versions')
 }
-

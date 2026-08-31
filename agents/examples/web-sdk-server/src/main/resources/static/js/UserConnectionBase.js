@@ -701,6 +701,8 @@ class UserConnectionBase {
      * @returns {number} Number of peers data was sent to
      */
     sendData(data, targetPeer = null) {
+        data = this._stampApp(data);
+
         // Route based on relay mode
         switch (this.relayMode) {
             case 'websocket-relay':
@@ -1015,6 +1017,8 @@ class UserConnectionBase {
 
                 // Handle custom messages
                 if (msg.type === 'custom') {
+                    if (!this.acceptsCustomType(msg.customType)) return;
+
                     let payload = msg.content;
                     if (typeof payload === 'string') {
                         try { payload = JSON.parse(payload); } catch (e) {}
@@ -1186,13 +1190,22 @@ class UserConnectionBase {
                     }
                 });
 
-                // Also process locally for host
-                if (typeof this.onDataChannelMessage === 'function') {
+                // Also process locally for host -- but only if it is ours.
+                //
+                // The relay above deliberately runs first and unconditionally.
+                // Host authority is channel-wide while apps are not, so if two
+                // apps share a room the host may belong to the other one;
+                // refusing to relay would leave that app's peers unable to
+                // talk to each other. Forwarding is a transport duty and is
+                // owed to everyone in the room. Acting on the contents is not.
+                if (typeof this.onDataChannelMessage === 'function'
+                        && this.acceptsCustomType(cleanData && cleanData._app)) {
                     this.onDataChannelMessage(peerId, cleanData);
                 }
             } else {
                 // Regular message processing
-                if (typeof this.onDataChannelMessage === 'function') {
+                if (typeof this.onDataChannelMessage === 'function'
+                        && this.acceptsCustomType(data && data._app)) {
                     this.onDataChannelMessage(peerId, data);
                 }
             }
@@ -1526,6 +1539,60 @@ class UserConnectionBase {
     onChat(detail) {}
 
     // Called when game message received
+    /**
+     * Is this custom message ours to act on?
+     *
+     * Every app declares a `customType` when it connects and the platform
+     * echoes it back on each message, but nothing ever read it back: a custom
+     * message went to onGameMessage whoever had sent it. That survived only
+     * because each app generated its own channel name, so two apps sharing a
+     * room was an accident rather than a plan.
+     *
+     * It was never harmless. The `data.type` vocabularies overlap across
+     * apps -- `stroke-batch` is whiteboard AND pictionary, `game-sync` is
+     * chess AND pictionary, `game-start` is air-hockey, pictionary AND
+     * reactor -- so two apps in one room means each acting on the other's
+     * messages. Sharing one channel across apps turns that from a rare
+     * accident into the default, which is why the filter comes first.
+     *
+     * Deliberately conservative: a message is only ever dropped when both
+     * sides are known and disagree.
+     *
+     * - We declared no customType: accept everything. Anything that never
+     *   opted in behaves exactly as it did before.
+     * - The message carries no customType: accept it. It cannot be
+     *   attributed, and dropping it would silently break any sender that
+     *   predates this.
+     * - `promiscuous: true`: accept everything, for tools whose job is to
+     *   watch the channel rather than to play in it (Under the Hood).
+     */
+    /**
+     * Mark an outbound data-channel payload with the app that sent it.
+     *
+     * The custom-message envelope already carries `customType`, but the P2P
+     * path does not go through it: sendData in p2p mode hands the payload
+     * straight to the data channel, so a receiver has nothing to attribute it
+     * by. `_app` is that attribution, and it rides alongside the `_fromClient`
+     * / `_needsRelay` markers the transport already adds.
+     *
+     * Additive on the wire: a peer running an older build simply does not see
+     * the key, and one that sends nothing is accepted as unattributable.
+     */
+    _stampApp(data) {
+        const mine = this.options && this.options.customType;
+        if (!mine) return data;
+        if (!data || typeof data !== 'object' || Array.isArray(data)) return data;
+        if (data._app) return data;
+        return Object.assign({}, data, { _app: mine });
+    }
+
+    acceptsCustomType(incoming) {
+        if (this.options && this.options.promiscuous) return true;
+        const mine = this.options && this.options.customType;
+        if (!mine || !incoming) return true;
+        return incoming === mine;
+    }
+
     onGameMessage(detail) {}
 
     // Called when DataChannel opens (WebRTC)

@@ -112,7 +112,7 @@
         <p class="home-eyebrow">Start building</p><h2 id="quickstart-title">Your first<br>shared channel.</h2>
         <p>Connect with a room name and password. Listen for messages. Give another client the same room details and start building together.</p>
         <div class="home-install"><span class="home-install-label">JavaScript package</span><div><code id="qs-snippet-1">npm i @messaging-platform/web-agent-js</code><button class="btn btn--sm btn--ghost btn--icon" type="button" data-copy-target="qs-snippet-1" aria-label="Copy npm install command"><svg class="icon" aria-hidden="true"><use href="#i-copy"></use></svg></button></div></div>
-        <p class="home-key-note"><svg class="icon" aria-hidden="true"><use href="#i-key"></use></svg><span>Use a temporary key in browser code. Keep your long-lived developer key on your server.</span></p>
+        <p class="home-key-note"><svg class="icon" aria-hidden="true"><use href="#i-key"></use></svg><span>Your backend uses the developer API key directly. Browser code uses a temporary key issued by that backend.</span></p>
         <a class="home-text-link" href="docs.html">Read the complete setup guide <svg class="icon" aria-hidden="true"><use href="#i-arrow-right"></use></svg></a>
         <details class="home-script-setup"><summary>Prefer a script tag?</summary><p>Load these in order, then use the JavaScript example without its import line.</p><pre id="browser-setup"><code>&lt;script src=<span class="tok-str">&quot;https://hmdevonline.com/messaging-platform/sdk/generated-web-agent-js/js/web-agent.libs.js&quot;</span>&gt;&lt;/script&gt;
 &lt;script src=<span class="tok-str">&quot;https://hmdevonline.com/messaging-platform/sdk/generated-web-agent-js/js/web-agent.js&quot;</span>&gt;&lt;/script&gt;</code></pre><button class="btn btn--sm btn--ghost" type="button" data-copy-target="browser-setup"><svg class="icon" aria-hidden="true"><use href="#i-copy"></use></svg> Copy script tags</button></details>
@@ -146,7 +146,7 @@ agent.connect({
   channelName: <span class="tok-str">&#39;design-room&#39;</span>, channelPassword: <span class="tok-str">&#39;shared-secret&#39;</span>,
   agentName: <span class="tok-str">&#39;user-&#39;</span> + crypto.randomUUID(), autoReceive: <span class="tok-key">true</span>
 });</code></pre>
-  <div class="home-code-caption">Open a second client with a different agent name to exchange messages.</div>
+  <div class="home-code-caption">The browser receives this temporary key from your own server. <a href="#temporary-keys">See the safe handoff</a>.</div>
 </div>
         <div class="code-panel home-code-panel" role="tabpanel" id="panel-java" aria-labelledby="tab-java" tabindex="0" hidden>
   <div class="code-panel__bar"><span class="code-panel__name">SharedRoom.java</span><button class="btn btn--sm btn--ghost code-panel__copy" type="button" data-copy-target="qs-java"><svg class="icon" aria-hidden="true"><use href="#i-copy"></use></svg> Copy</button></div>
@@ -235,6 +235,50 @@ agent = AgentConnection.with_api_key(
       <article><svg class="icon" aria-hidden="true"><use href="#i-shield-check"></use></svg><div><h3>Channel isolation</h3><p>Private scope separates channels by developer. Public scope lets different developers join a shared room.</p></div></article>
       <article><svg class="icon" aria-hidden="true"><use href="#i-lock"></use></svg><div><h3>Encrypted transport</h3><p>TLS for API traffic, DTLS for peer connections, and channel passwords hashed before sending.</p></div></article>
     </div></div>
+  </section>
+  <section class="home-section home-key-guide" id="temporary-keys" aria-labelledby="temporary-keys-title">
+    <div class="wrap">
+      <div class="home-section-head"><div><p class="home-eyebrow">Browser credential handoff</p><h2 id="temporary-keys-title">Your backend keeps the developer key. Your browser gets a temporary one.</h2></div><p>Developers normally have both a frontend and backend. The backend calls the platform directly with its developer API key; it mints a temporary key only when the frontend needs its own platform connection.</p></div>
+      <ol class="home-key-steps">
+        <li><strong>1. Your server</strong><span>Authenticates the signed-in user and calls the platform using the developer key stored in its environment.</span></li>
+        <li><strong>2. Messaging Platform</strong><span>Issues a short-lived, optionally single-use temporary key and returns its expiry.</span></li>
+        <li><strong>3. Browser</strong><span>Receives only the temporary key, opens its connection, and never stores the developer key.</span></li>
+      </ol>
+      <div class="home-key-code-grid">
+        <article class="code-panel home-key-code"><div class="code-panel__bar"><span class="code-panel__name">server.mjs — your backend</span><button class="btn btn--sm btn--ghost code-panel__copy" type="button" data-copy-target="temporary-key-server"><svg class="icon" aria-hidden="true"><use href="#i-copy"></use></svg> Copy</button></div><pre id="temporary-key-server"><code>// The developer key stays here. It may call platform APIs directly.
+// This route mints a temporary key only for an authorised browser connection.
+app.post('/api/messaging-access', requireSignedInUser, async (req, res) =&gt; {
+  const platform = await fetch('https://hmdevonline.com/messaging-platform/api/v1/messaging-service/channels/api-access', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'X-API-Key': process.env.MESSAGING_PLATFORM_API_KEY },
+    body: JSON.stringify({ ttlSeconds: 30, singleUse: true })
+  });
+  const body = await platform.json();
+  const access = body.data;
+  if (!platform.ok || !access?.temporaryKey) return res.status(502).json({ error: 'Could not create messaging access.' });
+  res.set('Cache-Control', 'no-store');
+  res.json({ temporaryKey: access.temporaryKey, expiresAt: access.expiresAt });
+});</code></pre></article>
+        <article class="code-panel home-key-code"><div class="code-panel__bar"><span class="code-panel__name">client.js — browser</span><button class="btn btn--sm btn--ghost code-panel__copy" type="button" data-copy-target="temporary-key-client"><svg class="icon" aria-hidden="true"><use href="#i-copy"></use></svg> Copy</button></div><pre id="temporary-key-client"><code>const access = await fetch('/api/messaging-access', {
+  method: 'POST', credentials: 'same-origin'
+}).then(async response =&gt; {
+  const body = await response.json();
+  if (!response.ok) throw new Error(body.error || 'Access was not granted.');
+  return body;
+});
+
+const agent = new AgentConnection();
+agent.connect({
+  api: 'https://hmdevonline.com/messaging-platform/api/v1/messaging-service',
+  apiKey: access.temporaryKey,
+  channelName: 'design-room', channelPassword: 'shared-secret',
+  agentName: 'user-' + crypto.randomUUID(), autoReceive: true
+});</code></pre></article>
+      </div>
+      <p class="home-key-rule"><strong>Backend direct access:</strong> use the developer API key from your server environment when your backend creates channels, runs a worker, or calls a platform API itself. Do not create a temporary key for server-to-server calls. Create one only after authorising a frontend user who needs to connect from their browser.</p>
+      <p class="home-key-note"><svg class="icon" aria-hidden="true"><use href="#i-shield-check"></use></svg><span><strong>Why use a temporary key?</strong> If a browser is compromised, the exposed key expires quickly and can be limited to one connection. Your developer key can create access for every client, so it must stay in your server environment—not in JavaScript, a mobile bundle, local storage, or a repository.</span></p>
+      <a class="home-text-link" href="docs.html?doc=WEB-AGENT-GUIDE.md#temporary-api-keys">Read the complete temporary-key guide <svg class="icon" aria-hidden="true"><use href="#i-arrow-right"></use></svg></a>
+    </div>
   </section>
   <section class="home-section home-games" id="featured" aria-labelledby="games-title">
     <div class="wrap home-games-grid" id="games">
