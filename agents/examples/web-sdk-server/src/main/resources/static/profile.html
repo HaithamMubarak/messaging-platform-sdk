@@ -148,6 +148,24 @@
       </div>
       <p id="pBackupNote" class="mp-profile__lead" hidden></p>
     </section>
+
+    <section class="card mp-profile__card" id="pDriveCard" hidden>
+      <h2>Google Drive</h2>
+      <p class="mp-profile__lead">
+        Keep the same encrypted file in your own Google Drive, so a new device
+        can pick it up after you sign in. Google stores it in a hidden folder
+        for this app and <strong>only ever sees the encrypted bytes</strong> &mdash;
+        the key that opens it stays with your account here.
+      </p>
+      <div class="mp-profile__actions">
+        <button type="button" id="pDriveConnect" class="mp-google">
+          <span class="mp-google__g" aria-hidden="true">G</span> Connect Google Drive
+        </button>
+        <button type="button" id="pDriveBackup" class="btn btn--ghost" hidden>Back up now</button>
+        <button type="button" id="pDriveRestore" class="btn btn--ghost" hidden>Restore from Drive</button>
+      </div>
+      <p id="pDriveNote" class="mp-profile__lead" hidden></p>
+    </section>
   </section>
 </main>
 
@@ -156,6 +174,7 @@
 <script src="/messaging-platform/sdk/js/app-config.js"></script>
 <script src="/messaging-platform/sdk/js/mp.js"></script>
 <script src="/messaging-platform/sdk/js/keyring-file.js"></script>
+<script src="/messaging-platform/sdk/js/drive-backup.js"></script>
 <script src="/messaging-platform/sdk/js/profile.js"></script>
 <script src="/messaging-platform/sdk/js/profile-chip.js"></script>
 </body>

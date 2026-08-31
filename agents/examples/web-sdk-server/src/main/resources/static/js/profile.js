@@ -217,6 +217,64 @@
         e.target.value = '';
     });
 
+    /* ---- Google Drive: the same encrypted file, in the user's own Drive ---- */
+    function driveNote(text) {
+        var n = el('pDriveNote');
+        n.hidden = false;
+        n.textContent = text;
+    }
+
+    function showDriveButtons(connected) {
+        el('pDriveBackup').hidden = !connected;
+        el('pDriveRestore').hidden = !connected;
+        el('pDriveConnect').textContent = connected ? 'Reconnect Google Drive' : 'Connect Google Drive';
+    }
+
+    if (window.DriveBackup) {
+        // Only offered when Google is actually configured here; a button that
+        // opens a broken flow is worse than no button.
+        A.googleAvailable().then(function (ok) {
+            if (ok) el('pDriveCard').hidden = false;
+        });
+
+        el('pDriveConnect').addEventListener('click', function () {
+            driveNote('Waiting for Google…');
+            window.DriveBackup.connect().then(function () {
+                showDriveButtons(true);
+                driveNote('Connected. Your backup can now be kept in your Drive.');
+            }).catch(function (e) { driveNote(e.message); });
+        });
+
+        el('pDriveBackup').addEventListener('click', function () {
+            driveNote('Encrypting and uploading…');
+            var data = K.exportData(accountId);
+            A.exportKey().then(function (key) {
+                if (!key) throw new Error('Sign in to back up.');
+                return window.KeyringFile.write(data, key);
+            }).then(function (file) {
+                return window.DriveBackup.put(file);
+            }).then(function () {
+                driveNote(data.channels.length + ' channel(s) backed up to your Drive, encrypted.');
+            }).catch(function (e) { driveNote(e.message); });
+        });
+
+        el('pDriveRestore').addEventListener('click', function () {
+            driveNote('Fetching from Drive…');
+            Promise.all([window.DriveBackup.get(), A.exportKey()]).then(function (both) {
+                if (!both[0]) { driveNote('There is no backup in your Drive yet.'); return null; }
+                return window.KeyringFile.read(both[0], both[1]);
+            }).then(function (data) {
+                if (!data) return;
+                // Merge, never last-write-wins: two devices each holding rows
+                // the other lacks must end up with both, not with whichever
+                // wrote most recently.
+                var r = K.importData(accountId, data);
+                renderList();
+                driveNote(r.added + ' restored, ' + r.skipped + ' already here.');
+            }).catch(function (e) { driveNote(e.message); });
+        });
+    }
+
     function note(text) {
         var n = el('pBackupNote');
         n.hidden = false;
