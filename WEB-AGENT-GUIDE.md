@@ -427,17 +427,78 @@ agent.sendMessage({ content: 'Hello team!', filter: 'team=blue,level>3' });
 
 ### Temporary API Keys
 
+Do not let a browser use your developer API key to ask for a temporary key.
+That only moves the permanent credential into client-side code. Your own server
+must authenticate the visitor, call the platform with its environment-held
+developer key, and return only the short-lived result.
+
+Your backend should use the developer API key directly for its own platform
+calls. It does not need a temporary key for server-to-server work:
+
 ```javascript
-agent.requestTempKey = true;  // Agent will request and use a temporary key
+// server-worker.mjs — backend-to-platform call; never sent to the frontend
+const channels = await fetch(
+    'https://hmdevonline.com/messaging-platform/api/v1/messaging-service/channels',
+    { headers: { 'X-API-Key': process.env.MESSAGING_PLATFORM_API_KEY } }
+).then(response => response.json());
+```
+
+Create a temporary key only after authorising a frontend user who needs their
+own browser connection. The backend route below is the boundary between those
+two cases:
+
+```javascript
+// server.mjs — frontend handoff route; runs on your server, never in a browser bundle
+app.post('/api/messaging-access', requireSignedInUser, async (req, res) => {
+    const response = await fetch(
+        'https://hmdevonline.com/messaging-platform/api/v1/messaging-service/channels/api-access',
+        {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-API-Key': process.env.MESSAGING_PLATFORM_API_KEY
+            },
+            body: JSON.stringify({ ttlSeconds: 30, singleUse: true })
+        }
+    );
+    const body = await response.json();
+    const access = body.data;
+    if (!response.ok || !access?.temporaryKey) {
+        return res.status(502).json({ error: 'Messaging access could not be created.' });
+    }
+    res.set('Cache-Control', 'no-store');
+    res.json({ temporaryKey: access.temporaryKey, expiresAt: access.expiresAt });
+});
+```
+
+```javascript
+// client.js — receives an expiring credential only
+const access = await fetch('/api/messaging-access', {
+    method: 'POST', credentials: 'same-origin'
+}).then(async response => {
+    const body = await response.json();
+    if (!response.ok) throw new Error(body.error || 'Access was not granted.');
+    return body;
+});
 
 agent.connect({
     channelName: 'my-channel',
     channelPassword: 'password',
     agentName: 'agent-1',
     api: 'https://hmdevonline.com/messaging-platform/api/v1/messaging-service',
-    apiKey: 'your-permanent-key',
+    apiKey: access.temporaryKey,
     autoReceive: true
 });
+```
+
+Use a short TTL. For a one-time connection, use `singleUse: true`; for an
+operation that legitimately needs repeat calls, use the smallest multi-use TTL
+your flow can tolerate. The platform returns the granted `ttlSeconds` and
+`expiresAt`; do not assume a requested TTL was granted unchanged.
+
+```javascript
+// Wrong: a permanent key in browser JavaScript can be extracted and reused.
+agent.connect({ apiKey: 'your-permanent-key' });
 ```
 
 ### `apiKeyScope` — Channel Isolation
@@ -488,8 +549,10 @@ See `examples/quickshare/QuickShare.js` for a complete working implementation.
 // ❌ Never hardcode API keys
 const apiKey = 'your-key-here';
 
-// ✅ Load from server
-const { apiKey } = await fetch('/api/config').then(r => r.json());
+// ✅ Ask your authenticated backend for a temporary key
+const { temporaryKey } = await fetch('/api/messaging-access', {
+    method: 'POST', credentials: 'same-origin'
+}).then(r => r.json());
 
 // ✅ Strong channel passwords
 agent.connect({ channelPassword: 'Xy9$mK#pL2@nQ5!wR', ... });

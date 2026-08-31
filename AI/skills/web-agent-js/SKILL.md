@@ -20,6 +20,35 @@ const agent = new AgentConnection({ usePubKey: false });
 
 `usePubKey` — keep `false`; RSA public-key encryption is reserved for future use. HTTPS is sufficient.
 
+## Browser credential boundary
+
+The browser must never hold the developer API key. Its authenticated backend
+keeps that key in an environment variable and calls the platform directly to
+mint a short-lived key only when the browser needs its own connection:
+
+```js
+// Backend endpoint, after authorizing the signed-in user.
+const response = await fetch(
+  'https://hmdevonline.com/messaging-platform/api/v1/messaging-service/channels/api-access',
+  {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'X-API-Key': process.env.MESSAGING_PLATFORM_API_KEY
+    },
+    body: JSON.stringify({ ttlSeconds: 30, singleUse: true })
+  }
+);
+const { data } = await response.json();
+res.set('Cache-Control', 'no-store');
+res.json({ temporaryKey: data.temporaryKey, expiresAt: data.expiresAt });
+```
+
+The browser fetches that app endpoint and supplies `temporaryKey` as `apiKey`
+when constructing `AgentConnection`. Do not let browser code call
+`/channels/api-access` itself. A backend calling the platform for its own work
+uses the developer key directly and does not mint a temporary key.
+
 ---
 
 ## Connect
@@ -183,7 +212,9 @@ fs.delete('filename.txt', cb);
 ## Notes for assistants
 
 - Always set `usePubKey: false` — the RSA hook exists but is not active.
-- `apiKeyScope: 'public'` is the correct choice for browser clients; never put `'private'`-scope keys in browser JS.
+- Do not put a developer key in browser JS. Use a backend-issued temporary key;
+  `apiKeyScope` selects the channel namespace and is independent of this
+  credential boundary.
 - The `channelSecret` is derived client-side from `channelName + password` via PBKDF2 — it is never sent to the server.
 - `agent.connectedAgents` (array) and `agent._connectedAgentsMap` (map by name) are kept in sync automatically on `agent-connect`/`agent-disconnect` events.
 - Storage operations require an active session (`readyState === true`).

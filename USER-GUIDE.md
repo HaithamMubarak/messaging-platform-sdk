@@ -287,14 +287,15 @@ agent.sendMessage("Hello from Web!");
 ### API Key Security
 
 ✅ **DO:**
-- Use temporary API keys (5–15 minute TTL) in client-side code
-- Never hardcode API keys — load from server or environment variables
+- Use a short-lived temporary key in client-side code
+- Keep the developer API key in a server environment variable
+- Return temporary-key responses with `Cache-Control: no-store`
 - Use `private` scope for production; `public` only for demos/testing
 
 ❌ **DON'T:**
 - Store keys in browser localStorage
 - Commit keys to git
-- Use `private`-scope keys in browser/client code
+- Send a developer API key to browser/client code
 
 ### Connection Management
 
