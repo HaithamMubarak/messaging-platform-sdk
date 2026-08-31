@@ -171,19 +171,23 @@
     /* ---- backup: a file, never an upload ---- */
     el('pExport').addEventListener('click', function () {
         var data = K.exportData(accountId);
-        var blob = new Blob([JSON.stringify({
-            format: 'mp-keyring', version: 1, exportedAt: new Date().toISOString(),
-            channels: data.channels
-        }, null, 2)], { type: 'application/json' });
-        var url = URL.createObjectURL(blob);
-        var a = document.createElement('a');
-        a.href = url;
-        a.download = 'mp-keyring.json';
-        document.body.appendChild(a);
-        a.click();
-        a.remove();
-        URL.revokeObjectURL(url);
-        note(data.channels.length + ' channel(s) exported. The file holds their passwords.');
+        note('Encrypting…');
+        A.exportKey().then(function (key) {
+            if (!key) throw new Error('Sign in to export.');
+            return window.KeyringFile.write(data, key);
+        }).then(function (file) {
+            var blob = new Blob([JSON.stringify(file, null, 2)], { type: 'application/json' });
+            var url = URL.createObjectURL(blob);
+            var a = document.createElement('a');
+            a.href = url;
+            a.download = 'mp-keyring.json';
+            document.body.appendChild(a);
+            a.click();
+            a.remove();
+            URL.revokeObjectURL(url);
+            note(data.channels.length + ' channel(s) exported, encrypted with your account key. '
+               + 'Sign in on another device to open it.');
+        }).catch(function (e) { note(e.message || 'Export failed.'); });
     });
 
     el('pImport').addEventListener('click', function () { el('pFile').click(); });
@@ -196,14 +200,18 @@
             var parsed;
             try { parsed = JSON.parse(reader.result); }
             catch (err) { return note('That file is not a keyring export.'); }
-            if (!parsed || !Array.isArray(parsed.channels)) {
-                return note('That file is not a keyring export.');
-            }
-            // Merge, never replace: importing an older backup must not undo
-            // channels saved since it was taken.
-            var r = K.importData(accountId, parsed);
-            renderList();
-            note(r.added + ' added, ' + r.skipped + ' already here.');
+            note('Opening…');
+            // The key is only needed for an encrypted file; a v1 plaintext
+            // backup opens without one, so ask for it but do not require it.
+            A.exportKey().catch(function () { return null; }).then(function (key) {
+                return window.KeyringFile.read(parsed, key);
+            }).then(function (data) {
+                // Merge, never replace: importing an older backup must not
+                // undo channels saved since it was taken.
+                var r = K.importData(accountId, data);
+                renderList();
+                note(r.added + ' added, ' + r.skipped + ' already here.');
+            }).catch(function (e) { note(e.message || 'That file could not be opened.'); });
         };
         reader.readAsText(file);
         e.target.value = '';

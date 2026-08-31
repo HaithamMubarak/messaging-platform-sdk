@@ -18,6 +18,7 @@
     var KEY = 'rooms.token';
     var CACHE = 'mp.me.v1';   // sessionStorage: 20 landing pages should not each hit /me
     var RESUME = 'mp.resumeHash';  // an invite hash held across the OAuth round trip
+    var _exportKey = null;         // memory only, for this page's lifetime
 
     function base() {
         var host = window.location.hostname;
@@ -29,6 +30,7 @@
     function setToken(t) {
         try { t ? localStorage.setItem(KEY, t) : localStorage.removeItem(KEY); } catch (e) {}
         try { sessionStorage.removeItem(CACHE); } catch (e) {}
+        _exportKey = null;   // a key outliving its session is a key left lying about
     }
 
     function call(path, opts) {
@@ -151,6 +153,30 @@
             var path = returnTo || (window.location.pathname + window.location.search);
             if (path.charAt(0) !== '/') path = '/' + path;
             return base() + '/auth/google/start?returnTo=' + encodeURIComponent(path);
+        },
+
+        /**
+         * This account's backup key, minted by the service on first ask.
+         *
+         * Held in memory for the page's lifetime and persisted nowhere. Not
+         * because the key outranks the channel passwords already sitting in
+         * localStorage -- that would be theatre -- but because a signed-in
+         * client is always one request away from it, so caching buys nothing
+         * and leaves one more thing lying about.
+         */
+        exportKey: function () {
+            if (!token()) return Promise.resolve(null);
+            if (_exportKey) return Promise.resolve(_exportKey);
+            return call('/export-key').then(function (d) {
+                _exportKey = d && d.key ? d.key : null;
+                return _exportKey;
+            });
+        },
+
+        /** Destroy it. Every existing backup becomes unreadable, by everyone. */
+        destroyExportKey: function () {
+            _exportKey = null;
+            return call('/export-key', { method: 'DELETE' });
         },
 
         /** Adopt a session minted elsewhere (the Google callback). */
