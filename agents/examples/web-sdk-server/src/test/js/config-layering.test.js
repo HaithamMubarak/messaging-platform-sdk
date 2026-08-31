@@ -126,6 +126,16 @@ function htmlFiles(dir) {
     });
 }
 
+check('the app-facing API loads wherever the keyring does', () => {
+    const STATIC = path.join(DIR, '..');
+    const missing = htmlFiles(STATIC).filter((f) => {
+        const t = fs.readFileSync(f, 'utf8');
+        return t.includes('app-config.js') && !t.includes('mp.js');
+    }).map((f) => path.relative(STATIC, f));
+    assert.deepStrictEqual(missing, [],
+        'an app on these pages would have to reach into storage itself: ' + missing.join(', '));
+});
+
 check('every page with the keyring also has app config', () => {
     const STATIC = path.join(DIR, '..');
     const missing = htmlFiles(STATIC).filter((f) => {
