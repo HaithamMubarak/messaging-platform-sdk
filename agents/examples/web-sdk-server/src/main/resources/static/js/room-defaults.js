@@ -67,16 +67,31 @@
         const legacy = opts.sharedDefaults || [];
         const isReplaceable = (el) => !el || !el.value.trim() || legacy.indexOf(el.value.trim()) !== -1;
 
+        // The channel the visitor is already in, if any -- these older forms
+        // now follow the same room as the modal apps rather than each keeping
+        // a private one. Per-app values are still written, and still used when
+        // there is no shared channel yet.
+        const AC = window.ActiveChannel;
+        if (AC) AC.seedFromLegacy(prefix);
+        const active = AC ? AC.read() : null;
+
         if (channelEl && isReplaceable(channelEl)) {
             const saved = read(localStorage, prefix + 'channel');
-            channelEl.value = saved || ((opts.channelPrefix || 'room-') + randomDigits(8));
+            channelEl.value = (active && active.name) || saved
+                || ((opts.channelPrefix || 'room-') + randomDigits(8));
             write(localStorage, prefix + 'channel', channelEl.value);
+            if (AC) AC.write(channelEl.value, 'defaults');
         }
 
         if (passwordEl && isReplaceable(passwordEl)) {
+            // Only reuse the shared password for the shared room; a password
+            // carried onto a different channel opens nothing.
+            const sharedPw = (AC && active && channelEl && channelEl.value === active.name)
+                ? AC.readPassword() : '';
             const saved = read(sessionStorage, prefix + 'password');
-            passwordEl.value = saved || randomPassword();
+            passwordEl.value = sharedPw || saved || randomPassword();
             write(sessionStorage, prefix + 'password', passwordEl.value);
+            if (AC) AC.writePassword(passwordEl.value);
         }
         // A password from an older build must not linger in localStorage.
         try { localStorage.removeItem(prefix + 'password'); } catch (e) { /* ignore */ }

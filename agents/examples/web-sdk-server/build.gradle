@@ -62,7 +62,7 @@ tasks.named('test') {
  */
 def hasNode = { ['sh', '-c', 'command -v node'].execute().waitFor() == 0 }
 
-['custom-type-filter', 'app-host-election'].each { name ->
+['custom-type-filter', 'app-host-election', 'active-channel'].each { name ->
     tasks.register("jsTest_${name.replaceAll('-', '_')}", Exec) {
         description = "Runs src/test/js/${name}.test.js under node"
         group = 'verification'

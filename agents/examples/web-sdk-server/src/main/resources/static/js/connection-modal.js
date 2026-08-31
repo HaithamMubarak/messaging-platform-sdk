@@ -191,7 +191,7 @@
          * or sit readable on a shared machine. Name and room are not secrets
          * and stay in localStorage so returning users keep their identity.
          */
-        function persistValues(u, c, p) {
+        function persistValues(u, c, p, source) {
             localStorage.setItem(localStoragePrefix + 'username', u || '');
             localStorage.setItem(localStoragePrefix + 'channel', c || '');
             try {
@@ -199,6 +199,16 @@
             } catch (e) { /* private mode: fall through, the field just re-generates */ }
             // Clear any password left in localStorage by an older build.
             localStorage.removeItem(localStoragePrefix + 'password');
+
+            // The same values under the shared keys, so the next app opens in
+            // this room rather than inventing its own. The per-app keys above
+            // are still written and still read as a fallback, so this is
+            // reversible without stranding anybody.
+            if (window.ActiveChannel) {
+                if (c) window.ActiveChannel.write(c, source);
+                window.ActiveChannel.writePassword(p);
+                window.ActiveChannel.writeUsername(u);
+            }
         }
 
         // Helper to load persisted values
@@ -288,6 +298,12 @@
         if (persisted.u && userEl) {
             userEl.value = persisted.u;
             userEl.disabled = false;
+        } else if (userEl && window.ActiveChannel && window.ActiveChannel.readUsername()) {
+            // A name the person already chose in another app. Keeping it is the
+            // whole point of a shared identity; regenerating one per app is how
+            // somebody ends up as three different strangers in one room.
+            userEl.value = window.ActiveChannel.readUsername();
+            userEl.disabled = false;
         } else if (userEl) {
             // No saved username - generate one ONCE
             const base = (window.generateRandomAgentName && typeof window.generateRandomAgentName === 'function')
@@ -300,12 +316,28 @@
         // Update quick username input
         if (quickUserEl) quickUserEl.value = userEl ? userEl.value : '';
 
-        // Priority 3: For channel and password - URL > localStorage > generate
+        // Priority 3: channel and password.
+        //
+        // An invite still wins outright -- an invite that did not put you in
+        // the inviter's room is a broken invite. Below that the ACTIVE channel
+        // comes before this app's own remembered one, which is what makes the
+        // room follow you from app to app; the per-app value stays as the
+        // fallback for a browser that has not been anywhere else yet.
+        if (window.ActiveChannel) window.ActiveChannel.seedFromLegacy(localStoragePrefix);
+        var active = window.ActiveChannel ? window.ActiveChannel.read() : null;
+        var activePw = window.ActiveChannel ? window.ActiveChannel.readPassword() : '';
+
         if (chEl) {
-            chEl.value = urlChannel || persisted.c || (channelPrefix + randomDigits(8));
+            chEl.value = urlChannel || (active && active.name) || persisted.c
+                || (channelPrefix + randomDigits(8));
         }
         if (pwEl) {
-            pwEl.value = urlPassword || persisted.p || generatePassword();
+            // Only pair the shared password with the shared channel: carrying
+            // it onto a different room would be a password for a door it does
+            // not open.
+            var pwForActive = (!urlChannel && active && chEl && chEl.value === active.name)
+                ? activePw : '';
+            pwEl.value = urlPassword || pwForActive || persisted.p || generatePassword();
         }
 
         // Persist initial values
