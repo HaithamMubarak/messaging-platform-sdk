@@ -6,10 +6,11 @@
  * ever built to watch it. This is that: open the channel a board lives in, and
  * scrub through its history.
  *
- * The primitive on show is **the channel as an ordered log**. Every other app
- * treats storage as a place to keep the current value; this one treats the list
- * of versions as a timeline, which is the thing storageAdd is actually for and
- * which only pulse touches, and only in passing.
+ * The primitive on show is **the channel as an ordered log**. Most apps treat
+ * storage as a place to keep the current value; this one treats the list of
+ * versions as a timeline, which is the thing storageAdd is actually for.
+ * Pulse and Evidence Chain lean on the same pair -- a poll whose every vote
+ * appends a version, and a log that can only be appended to.
  *
  * It is read-only on purpose. A player that could write would need to agree
  * with whoever is drawing right now about what the board is, and that argument

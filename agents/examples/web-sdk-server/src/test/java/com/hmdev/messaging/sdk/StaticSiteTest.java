@@ -9,7 +9,9 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.stream.Stream;
@@ -70,6 +72,41 @@ class StaticSiteTest {
         Path path = STATIC.resolve(relative);
         assertThat(Files.exists(path)).as("%s exists", relative).isTrue();
         return Files.readString(path, StandardCharsets.UTF_8);
+    }
+
+    @Test
+    @DisplayName("a playground heading that counts its entries counts them correctly")
+    void playgroundHeadingsDoNotClaimAStaleCount() throws IOException {
+        String page = read("playground.html");
+
+        // "The four with a page of their own" sat above eight of them. A
+        // heading that names a number is a claim a reader can check in one
+        // glance, and it goes stale the moment somebody adds an entry -- so
+        // check it here instead of hoping.
+        Map<String, Integer> words = new LinkedHashMap<>();
+        String[] names = {"two", "three", "four", "five", "six", "seven", "eight",
+                          "nine", "ten", "eleven", "twelve"};
+        for (int i = 0; i < names.length; i++) words.put(names[i], i + 2);
+
+        // Split on the section headings, so each chunk holds one heading and
+        // the entries that follow it.
+        String[] sections = page.split("(?=<h2)");
+        for (String section : sections) {
+            Matcher h = Pattern.compile("<h2[^>]*>(.*?)</h2>", Pattern.DOTALL).matcher(section);
+            if (!h.find()) continue;
+            String heading = h.group(1).replaceAll("<[^>]*>", "").toLowerCase();
+            int entries = section.split("class=\"entry-hit\"", -1).length - 1;
+            if (entries == 0) continue;
+
+            for (Map.Entry<String, Integer> w : words.entrySet()) {
+                if (heading.matches(".*\\b" + w.getKey() + "\\b.*")) {
+                    assertThat(entries)
+                            .as("heading \"" + heading.trim() + "\" says " + w.getKey()
+                                + " but " + entries + " entries follow it")
+                            .isEqualTo(w.getValue());
+                }
+            }
+        }
     }
 
     @Test
