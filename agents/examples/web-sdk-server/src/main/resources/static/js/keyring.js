@@ -20,6 +20,11 @@
  *
  * Nothing here is read or written unless somebody is signed in: the anonymous
  * tier has an active channel (active-channel.js) and no saved list at all.
+ *
+ * LAYERING: this file knows nothing about apps, and must not learn. Which app
+ * used which channel is an APP's business and lives in app-config.js, which
+ * points at channels by id. Apps come and go; a channel outlives them, and an
+ * export of your channels should be exactly that.
  */
 (function (window) {
     'use strict';
@@ -98,7 +103,6 @@
             })[0];
             if (existing) {
                 existing.lastUsedAt = Date.now();
-                if (entry.app && existing.apps.indexOf(entry.app) === -1) existing.apps.push(entry.app);
                 save(accountId, data);
                 return existing;
             }
@@ -107,7 +111,6 @@
                 label: entry.label || entry.name,   // the name is the default label
                 name: entry.name,
                 password: entry.password || '',
-                apps: entry.app ? [entry.app] : [],
                 createdAt: Date.now(),
                 lastUsedAt: Date.now()
             };
@@ -135,16 +138,16 @@
             return true;
         },
 
-        touch: function (accountId, name, password, app) {
+        /** Mark a channel as used just now. Returns the row, or null. */
+        touch: function (accountId, name, password) {
             var data = load(accountId);
             var row = data.channels.filter(function (c) {
                 return sameChannel(c, name, password);
             })[0];
-            if (!row) return false;
+            if (!row) return null;
             row.lastUsedAt = Date.now();
-            if (app && row.apps.indexOf(app) === -1) row.apps.push(app);
             save(accountId, data);
-            return true;
+            return row;
         },
 
         /** Everything, for an export file. */
@@ -173,7 +176,6 @@
                     label: c.label || c.name,
                     name: c.name,
                     password: c.password || '',
-                    apps: Array.isArray(c.apps) ? c.apps : [],
                     createdAt: c.createdAt || Date.now(),
                     lastUsedAt: c.lastUsedAt || Date.now()
                 });

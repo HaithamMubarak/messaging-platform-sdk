@@ -298,6 +298,7 @@
 }
 
 .connection-modal input[type="text"],
+.connection-modal input[type="email"],
 .connection-modal input[type="password"] {
     width: 100%;
     padding: 10px 12px;
@@ -311,12 +312,14 @@
 }
 
 .connection-modal input[type="text"]::placeholder,
+.connection-modal input[type="email"]::placeholder,
 .connection-modal input[type="password"]::placeholder {
     color: #9ca3af;
     opacity: 1;
 }
 
 .connection-modal input[type="text"]:focus,
+.connection-modal input[type="email"]:focus,
 .connection-modal input[type="password"]:focus {
     outline: none;
     border-color: #6965db;
@@ -324,6 +327,7 @@
 }
 
 .connection-modal input[type="text"]:read-only,
+.connection-modal input[type="email"]:read-only,
 .connection-modal input[type="password"]:read-only {
     background: #f3f4f6;
     cursor: not-allowed;
@@ -760,3 +764,80 @@ button[id*="disconnect"]:hover,
 .connection-modal .mp-save-row:has(input[disabled]) { color: #94a3b8; cursor: default; }
 .connection-modal .mp-save-note { margin-top: 4px; }
 .connection-modal .mp-google { width: 100%; margin-bottom: 12px; }
+
+/* Sign in / create, laid out like the Rooms gate this shares an account with. */
+.connection-modal .mp-signin__lead { margin: 0 0 14px; }
+
+.connection-modal .mp-subtabs {
+    display: flex;
+    gap: 4px;
+    margin: 0 0 14px;
+    padding: 3px;
+    background: #f1f5f9;
+    border-radius: 8px;
+}
+
+.connection-modal .mp-subtab {
+    flex: 1;
+    appearance: none;
+    border: 0;
+    border-radius: 6px;
+    background: transparent;
+    padding: 7px 10px;
+    font: inherit;
+    font-size: 13px;
+    color: #64748b;
+    cursor: pointer;
+}
+
+.connection-modal .mp-subtab.is-active { background: #ffffff; color: #1e293b; font-weight: 600; }
+.connection-modal .mp-subtab:focus-visible { outline: 2px solid #4f46e5; outline-offset: 1px; }
+
+/* "or" with a rule either side, so Google reads as an alternative to the
+   email path above it rather than a competing primary action. */
+.connection-modal .mp-or {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin: 16px 0 12px;
+    color: #94a3b8;
+    font-size: 12px;
+}
+.connection-modal .mp-or::before,
+.connection-modal .mp-or::after {
+    content: "";
+    flex: 1;
+    height: 1px;
+    background: #e2e8f0;
+}
+.connection-modal .mp-or[hidden] { display: none; }
+
+.connection-modal .mp-google {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    width: 100%;
+    padding: 10px 12px;
+    background: #ffffff;
+    border: 1px solid #d1d5db;
+    border-radius: 8px;
+    font: inherit;
+    font-size: 14px;
+    font-weight: 600;
+    color: #1e293b;
+    cursor: pointer;
+}
+.connection-modal .mp-google:hover { background: #f8fafc; border-color: #cbd5e1; }
+.connection-modal .mp-google__g {
+    display: inline-flex; align-items: center; justify-content: center;
+    width: 18px; height: 18px; border-radius: 50%;
+    background: #4285f4; color: #fff; font-size: 11px; font-weight: 700;
+}
+.connection-modal .mp-signin__ok { color: #15803d; }
+
+/* The action row squeezes its secondary button until the label breaks across
+   two lines ("Forgotten your / password?"). Let the row wrap instead: a
+   button that moves to its own line reads fine; a broken label does not. */
+.connection-modal #panelSignin .modal-buttons { flex-wrap: wrap; }
+.connection-modal #panelSignin .modal-buttons > button { white-space: nowrap; }

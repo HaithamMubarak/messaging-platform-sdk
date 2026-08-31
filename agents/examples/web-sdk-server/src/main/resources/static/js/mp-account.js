@@ -17,6 +17,7 @@
 
     var KEY = 'rooms.token';
     var CACHE = 'mp.me.v1';   // sessionStorage: 20 landing pages should not each hit /me
+    var RESUME = 'mp.resumeHash';  // an invite hash held across the OAuth round trip
 
     function base() {
         var host = window.location.hostname;
@@ -108,6 +109,17 @@
             }).catch(function () {});
         },
 
+        /**
+         * Ask for a password-reset link.
+         *
+         * The caller shows the same message whether or not the address is
+         * known -- a form that answers differently is a way to ask which
+         * emails have accounts here.
+         */
+        forgot: function (email) {
+            return call('/auth/forgot', { method: 'POST', body: { email: email } });
+        },
+
         /** Is Google sign-in configured on this deployment? */
         googleAvailable: function () {
             return fetch(base() + '/auth/google/status')
@@ -116,17 +128,73 @@
                 .catch(function () { return false; });
         },
 
-        /** Where to send the browser to start Google sign-in. */
+        /**
+         * Where to send the browser to start Google sign-in.
+         *
+         * returnTo must be a RELATIVE path. The service only honours a
+         * returnTo beginning with "/" and otherwise falls back to the Rooms
+         * app -- which is open-redirect protection worth keeping, so this
+         * sends a path rather than asking the server to accept absolute URLs.
+         * Passing window.location.href is what sent everyone to Rooms after
+         * signing in from anywhere else.
+         *
+         * The fragment is deliberately NOT part of returnTo: the service
+         * appends #googleToken to the target, and a target that already had a
+         * fragment would produce two. An invite hash is stashed here and put
+         * back by adoptFragment() on the way in, so following an invite and
+         * signing in on the way does not lose the room.
+         */
         googleStartUrl: function (returnTo) {
-            return base() + '/auth/google/start?returnTo=' +
-                encodeURIComponent(returnTo || window.location.href);
+            try {
+                if (window.location.hash) sessionStorage.setItem(RESUME, window.location.hash);
+            } catch (e) {}
+            var path = returnTo || (window.location.pathname + window.location.search);
+            if (path.charAt(0) !== '/') path = '/' + path;
+            return base() + '/auth/google/start?returnTo=' + encodeURIComponent(path);
         },
+
+        /** Adopt a session minted elsewhere (the Google callback). */
+        adoptToken: function (t) { setToken(t); },
 
         /** Stable id for keying this account's saved list. */
         idOf: function (user) {
             return (user && (user.id || user.email)) ? String(user.id || user.email) : null;
         }
     };
+
+    /**
+     * Take the session the Google callback handed back in the fragment.
+     *
+     * It arrives as #googleToken=... because a fragment never reaches a
+     * server and never lands in a log. It is consumed and removed on load, so
+     * a refresh or a shared URL cannot replay it -- and any invite hash held
+     * before the round trip is put back in its place.
+     */
+    function adoptFragment() {
+        var hash = window.location.hash || '';
+        if (hash.indexOf('googleToken=') === -1 && hash.indexOf('googleError=') === -1) return;
+
+        var params = {};
+        hash.replace(/^#/, '').split('&').forEach(function (kv) {
+            var i = kv.indexOf('=');
+            if (i > 0) params[kv.slice(0, i)] = decodeURIComponent(kv.slice(i + 1));
+        });
+
+        if (params.googleToken) Account.adoptToken(params.googleToken);
+        if (params.googleError) Account.lastError = params.googleError;
+
+        var resume = '';
+        try {
+            resume = sessionStorage.getItem(RESUME) || '';
+            sessionStorage.removeItem(RESUME);
+        } catch (e) {}
+        try {
+            window.history.replaceState(null, '',
+                window.location.pathname + window.location.search + resume);
+        } catch (e) { window.location.hash = resume; }
+    }
+
+    adoptFragment();
 
     window.MPAccount = Account;
 })(window);

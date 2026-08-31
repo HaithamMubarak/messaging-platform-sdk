@@ -61,26 +61,51 @@
             </p>
         </div>
 
-        <!-- Sign in: an account gates SAVING, never connecting. -->
+        <!-- Sign in: an account gates SAVING, never connecting.
+             Laid out like the Rooms sign-in gate, which this shares an account
+             with: sign in and register are two TABS rather than a button that
+             changes what the form means, and Google sits below the email path
+             under an "or" instead of above it -- an account you already have
+             should not be the second option on the screen. -->
         <div id="panelSignin" class="mp-panel" role="tabpanel" aria-labelledby="tabSignin" hidden>
-            <p class="mp-note">
+            <p class="mp-note mp-signin__lead">
                 Sign in to save channels you want to come back to. You do not need an
                 account to join a room &mdash; that stays one click.
             </p>
-            <button type="button" id="googleSignInBtn" class="btn-primary mp-google" hidden>
-                Continue with Google
-            </button>
-            <label for="signinEmail" class="form-label-visible">Email</label>
-            <input type="email" id="signinEmail" autocomplete="email" placeholder="you@example.com">
-            <label for="signinPassword" class="form-label-visible">Password</label>
-            <input type="password" id="signinPassword" autocomplete="current-password" placeholder="Your password">
-            <label for="signinName" class="form-label-visible" id="signinNameLabel" hidden>Display name</label>
-            <input type="text" id="signinName" autocomplete="nickname" placeholder="Your name" hidden>
+
+            <div class="mp-subtabs" role="tablist" aria-label="Sign in or create an account">
+                <button type="button" class="mp-subtab is-active" id="modeSignin" role="tab"
+                        aria-selected="true">Sign in</button>
+                <button type="button" class="mp-subtab" id="modeRegister" role="tab"
+                        aria-selected="false">Create an account</button>
+            </div>
+
+            <label class="form-label-visible" for="signinName" id="signinNameLabel" hidden>Your name</label>
+            <input type="text" id="signinName" autocomplete="name" maxlength="60"
+                   placeholder="Amina Osei" hidden>
+
+            <label class="form-label-visible" for="signinEmail">Email</label>
+            <input type="email" id="signinEmail" autocomplete="email" maxlength="254"
+                   placeholder="you@example.com">
+
+            <label class="form-label-visible" for="signinPassword">Password</label>
+            <input type="password" id="signinPassword" autocomplete="current-password"
+                   maxlength="200" placeholder="at least 8 characters">
+
             <div class="modal-buttons">
                 <button type="button" id="signinBtn" class="btn-primary">Sign in</button>
-                <button type="button" id="signinToggleMode" class="ghost">Create an account</button>
+                <button type="button" id="signinForgot" class="ghost">Forgotten your password?</button>
             </div>
+
+            <!-- Only shown when the service says a Google client is configured:
+                 a button that opens a broken flow is worse than no button. -->
+            <div class="mp-or" id="googleWrap" hidden><span>or</span></div>
+            <button type="button" id="googleSignInBtn" class="mp-google" hidden>
+                <span class="mp-google__g" aria-hidden="true">G</span> Sign in with Google
+            </button>
+
             <p id="signinError" class="connect-error" role="alert" hidden></p>
+            <p id="signinOk" class="mp-note mp-signin__ok" role="status" hidden></p>
         </div>
 
         <form id="connectionForm" class="mp-panel" role="tabpanel" aria-labelledby="tabCustom" onsubmit="return false;">
@@ -752,6 +777,7 @@
                 var b = el('googleSignInBtn');
                 if (b && ok) {
                     b.hidden = false;
+                    if (el('googleWrap')) el('googleWrap').hidden = false;
                     b.addEventListener('click', function () {
                         window.location.href = window.MPAccount.googleStartUrl(window.location.href);
                     });
@@ -770,15 +796,43 @@
         if (chEl) chEl.addEventListener('input', refreshSaveRow);
         if (pwEl) pwEl.addEventListener('input', refreshSaveRow);
 
-        // Sign in / create an account, in one panel.
+        // Sign in / create an account: two tabs over one set of fields.
         var registerMode = false;
-        var modeBtn = el('signinToggleMode');
-        if (modeBtn) modeBtn.addEventListener('click', function () {
-            registerMode = !registerMode;
-            el('signinNameLabel').hidden = !registerMode;
-            el('signinName').hidden = !registerMode;
-            el('signinBtn').textContent = registerMode ? 'Create account' : 'Sign in';
-            modeBtn.textContent = registerMode ? 'I already have an account' : 'Create an account';
+        function setMode(register) {
+            registerMode = register;
+            el('signinNameLabel').hidden = !register;
+            el('signinName').hidden = !register;
+            el('signinBtn').textContent = register ? 'Create account' : 'Sign in';
+            el('signinForgot').hidden = register;   // nothing to recover yet
+            el('signinPassword').setAttribute('autocomplete',
+                register ? 'new-password' : 'current-password');
+            [['modeSignin', !register], ['modeRegister', register]].forEach(function (pair) {
+                var t = el(pair[0]);
+                if (!t) return;
+                t.classList.toggle('is-active', pair[1]);
+                t.setAttribute('aria-selected', pair[1] ? 'true' : 'false');
+            });
+            var err = el('signinError'); if (err) err.hidden = true;
+            var ok = el('signinOk'); if (ok) ok.hidden = true;
+        }
+        if (el('modeSignin')) el('modeSignin').addEventListener('click', function () { setMode(false); });
+        if (el('modeRegister')) el('modeRegister').addEventListener('click', function () { setMode(true); });
+
+        if (el('signinForgot')) el('signinForgot').addEventListener('click', function () {
+            var email = el('signinEmail').value.trim();
+            var ok = el('signinOk'), err = el('signinError');
+            if (err) err.hidden = true;
+            if (!email) {
+                if (err) { err.hidden = false; err.textContent = 'Enter your email first.'; }
+                return;
+            }
+            // Deliberately the same answer whether or not the address is known:
+            // this form must not become a way to ask which emails have accounts.
+            if (window.MPAccount) window.MPAccount.forgot(email).catch(function () {});
+            if (ok) {
+                ok.hidden = false;
+                ok.textContent = 'If that address has an account, a reset link is on its way.';
+            }
         });
 
         var signinBtn = el('signinBtn');
@@ -812,12 +866,13 @@
             recordConnect: function (channel, password) {
                 if (!accountId || !window.Keyring) return;
                 var chk = document.getElementById('saveChannelChk');
-                if (chk && chk.checked) {
-                    window.Keyring.add(accountId, {
-                        name: channel, password: password, app: appId
-                    });
-                } else {
-                    window.Keyring.touch(accountId, channel, password, appId);
+                var row = (chk && chk.checked)
+                    ? window.Keyring.add(accountId, { name: channel, password: password })
+                    : window.Keyring.touch(accountId, channel, password);
+                // The app records that it used this channel. The channel does
+                // not record the app: the arrow points one way, app -> channel.
+                if (row && window.AppConfig) {
+                    window.AppConfig.noteChannel(accountId, appId, row.id);
                 }
                 renderSaved();
                 refreshSaveRow();

@@ -86,18 +86,33 @@
       An account lets you save channels you want to come back to. You never need
       one to join a room &mdash; that stays one click.
     </p>
-    <button type="button" id="pGoogle" class="btn btn--gradient" hidden>Continue with Google</button>
+    <div class="mp-subtabs" role="tablist" aria-label="Sign in or create an account">
+      <button type="button" class="mp-subtab is-active" id="pModeSignin" role="tab" aria-selected="true">Sign in</button>
+      <button type="button" class="mp-subtab" id="pModeRegister" role="tab" aria-selected="false">Create an account</button>
+    </div>
+
+    <label for="pName" id="pNameLabel" hidden>Your name</label>
+    <input id="pName" type="text" autocomplete="name" maxlength="60" placeholder="Amina Osei" hidden>
+
     <label for="pEmail">Email</label>
-    <input id="pEmail" type="email" autocomplete="email" placeholder="you@example.com">
+    <input id="pEmail" type="email" autocomplete="email" maxlength="254" placeholder="you@example.com">
+
     <label for="pPassword">Password</label>
-    <input id="pPassword" type="password" autocomplete="current-password" placeholder="Your password">
-    <label for="pName" id="pNameLabel" hidden>Display name</label>
-    <input id="pName" type="text" autocomplete="nickname" placeholder="Your name" hidden>
+    <input id="pPassword" type="password" autocomplete="current-password" maxlength="200"
+           placeholder="at least 8 characters">
+
     <div class="mp-profile__actions">
       <button type="button" id="pSubmit" class="btn btn--gradient">Sign in</button>
-      <button type="button" id="pMode" class="btn btn--ghost">Create an account</button>
+      <button type="button" id="pForgot" class="btn btn--ghost">Forgotten your password?</button>
     </div>
+
+    <div class="mp-or" id="pGoogleWrap" hidden><span>or</span></div>
+    <button type="button" id="pGoogle" class="mp-google" hidden>
+      <span class="mp-google__g" aria-hidden="true">G</span> Sign in with Google
+    </button>
+
     <p id="pError" class="mp-profile__error" role="alert" hidden></p>
+    <p id="pOk" class="mp-profile__ok" role="status" hidden></p>
   </section>
 
   <section id="signedIn" hidden>
@@ -138,6 +153,7 @@
 
 <script src="/messaging-platform/sdk/js/mp-account.js"></script>
 <script src="/messaging-platform/sdk/js/keyring.js"></script>
+<script src="/messaging-platform/sdk/js/app-config.js"></script>
 <script src="/messaging-platform/sdk/js/profile.js"></script>
 <script src="/messaging-platform/sdk/js/profile-chip.js"></script>
 </body>

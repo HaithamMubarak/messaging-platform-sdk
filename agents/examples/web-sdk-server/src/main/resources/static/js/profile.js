@@ -38,10 +38,14 @@
             name.textContent = row.name;
             main.appendChild(label);
             main.appendChild(name);
-            if (row.apps && row.apps.length) {
+            // Which apps used this room is derived from APP config, which
+            // points at channels by id -- the channel row itself holds no app
+            // state, so forgetting a channel cannot strand a name in it.
+            var using = window.AppConfig ? window.AppConfig.appsUsing(accountId, row.id) : [];
+            if (using.length) {
                 var apps = document.createElement('div');
                 apps.className = 'mp-row__apps';
-                apps.textContent = row.apps.join(' · ');
+                apps.textContent = using.join(' · ');
                 main.appendChild(apps);
             }
 
@@ -69,6 +73,9 @@
                 if (!window.confirm('Forget "' + row.label + '"?\n\n' +
                     'The channel keeps existing — you just lose the saved password.')) return;
                 K.remove(accountId, row.id);
+                // Apps referenced it by id; drop those references rather than
+                // leaving them pointing at a channel that no longer exists.
+                if (window.AppConfig) window.AppConfig.forgetChannel(accountId, row.id);
                 renderList();
             });
 
@@ -89,14 +96,43 @@
         renderList();
     }
 
-    /* ---- sign in / create account ---- */
+    /* ---- sign in / create account ----
+     * Two tabs over one set of fields, matching the Rooms gate and the
+     * connection modal: this is the same account in all three places, so it
+     * should not be three different-looking forms.
+     */
     var registerMode = false;
-    el('pMode').addEventListener('click', function () {
-        registerMode = !registerMode;
-        el('pNameLabel').hidden = !registerMode;
-        el('pName').hidden = !registerMode;
-        el('pSubmit').textContent = registerMode ? 'Create account' : 'Sign in';
-        el('pMode').textContent = registerMode ? 'I already have an account' : 'Create an account';
+    function setMode(register) {
+        registerMode = register;
+        el('pNameLabel').hidden = !register;
+        el('pName').hidden = !register;
+        el('pSubmit').textContent = register ? 'Create account' : 'Sign in';
+        el('pForgot').hidden = register;
+        el('pPassword').setAttribute('autocomplete', register ? 'new-password' : 'current-password');
+        [['pModeSignin', !register], ['pModeRegister', register]].forEach(function (pair) {
+            var t = el(pair[0]);
+            t.classList.toggle('is-active', pair[1]);
+            t.setAttribute('aria-selected', pair[1] ? 'true' : 'false');
+        });
+        el('pError').hidden = true;
+        el('pOk').hidden = true;
+    }
+    el('pModeSignin').addEventListener('click', function () { setMode(false); });
+    el('pModeRegister').addEventListener('click', function () { setMode(true); });
+
+    el('pForgot').addEventListener('click', function () {
+        var email = el('pEmail').value.trim();
+        el('pError').hidden = true;
+        if (!email) {
+            el('pError').hidden = false;
+            el('pError').textContent = 'Enter your email first.';
+            return;
+        }
+        // Same answer either way: this must not become a way to ask which
+        // addresses have accounts.
+        A.forgot(email).catch(function () {});
+        el('pOk').hidden = false;
+        el('pOk').textContent = 'If that address has an account, a reset link is on its way.';
     });
 
     el('pSubmit').addEventListener('click', function () {
@@ -126,6 +162,7 @@
         if (!ok) return;
         var b = el('pGoogle');
         b.hidden = false;
+        el('pGoogleWrap').hidden = false;
         b.addEventListener('click', function () {
             window.location.href = A.googleStartUrl(window.location.href);
         });

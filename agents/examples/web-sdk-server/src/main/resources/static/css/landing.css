@@ -737,3 +737,37 @@ section[id] { scroll-margin-top: 80px; }
     font-size: var(--fs-sm, 12px); color: var(--text-muted); overflow-wrap: anywhere; }
 .mp-row__apps { font-size: var(--fs-sm, 12px); color: var(--text-muted); }
 .mp-row__actions { display: flex; gap: var(--sp-2); flex-shrink: 0; }
+
+/* Sign-in controls on the profile, matching the connection modal and the
+   Rooms gate — one account, so it should not be three different forms. */
+.mp-profile .mp-subtabs {
+    display: flex; gap: 4px; padding: 3px; max-width: 380px;
+    background: var(--surface-2); border: 1px solid var(--border); border-radius: 8px;
+}
+.mp-profile .mp-subtab {
+    flex: 1; appearance: none; border: 0; border-radius: 6px; background: transparent;
+    padding: 7px 10px; font: inherit; font-size: 13px; color: var(--text-muted); cursor: pointer;
+}
+.mp-profile .mp-subtab.is-active { background: var(--surface-1); color: var(--text); font-weight: 600; }
+.mp-profile .mp-subtab:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+.mp-profile .mp-or {
+    display: flex; align-items: center; gap: 10px; max-width: 380px;
+    margin: 4px 0; color: var(--text-muted); font-size: 12px;
+}
+.mp-profile .mp-or::before, .mp-profile .mp-or::after {
+    content: ""; flex: 1; height: 1px; background: var(--border);
+}
+.mp-profile .mp-google {
+    display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+    max-width: 380px; width: 100%; padding: 10px 12px;
+    background: var(--surface-2); color: var(--text);
+    border: 1px solid var(--border); border-radius: 8px;
+    font: inherit; font-size: 14px; font-weight: 600; cursor: pointer;
+}
+.mp-profile .mp-google:hover { border-color: var(--border-strong); }
+.mp-profile .mp-google__g {
+    display: inline-flex; align-items: center; justify-content: center;
+    width: 18px; height: 18px; border-radius: 50%;
+    background: #4285f4; color: #fff; font-size: 11px; font-weight: 700;
+}
+.mp-profile__ok { color: #4ade80; font-size: var(--fs-md); margin: 0; }
