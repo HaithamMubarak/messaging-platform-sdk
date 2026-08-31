@@ -283,9 +283,26 @@ class StaticSiteTest {
                     String path = href.split("[?#]")[0];
                     if (path.isEmpty()) continue;
 
+                    // An absolute link is a GATEWAY path, not a repo path. The
+                    // gateway serves this tree at /messaging-platform/sdk/ and
+                    // the profile at the platform root, so map both back rather
+                    // than exempting them -- an unresolvable absolute link is
+                    // still a 404 for a real visitor.
+                    String repoPath = path;
+                    if (repoPath.startsWith("/messaging-platform/sdk/")) {
+                        repoPath = repoPath.substring("/messaging-platform/sdk/".length());
+                    } else if (repoPath.equals("/messaging-platform/profile.html")) {
+                        repoPath = "profile.html";
+                    } else if (repoPath.startsWith("/messaging-platform/")) {
+                        // Another service owns it (apps, rooms-api). Not ours to check.
+                        continue;
+                    } else if (repoPath.startsWith("/")) {
+                        repoPath = repoPath.substring(1);
+                    }
+
                     Path target = path.startsWith("/")
-                            ? STATIC.resolve(path.substring(1))
-                            : page.getParent().resolve(path);
+                            ? STATIC.resolve(repoPath)
+                            : page.getParent().resolve(repoPath);
                     // A link that climbs out of this tree points at something
                     // hosted beside us, not at a file we ship — the playground's
                     // CoShell card is one, resolving within /messaging-platform/.

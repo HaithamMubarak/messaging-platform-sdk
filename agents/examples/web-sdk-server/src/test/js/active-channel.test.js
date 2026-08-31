@@ -169,5 +169,39 @@ check('and loads it BEFORE them, or window.ActiveChannel is not there yet', () =
     assert.deepStrictEqual(wrong, [], 'loaded too late in: ' + wrong.join(', '));
 });
 
+console.log('\nthe account layer');
+
+check('every page with a nav gets the profile chip, and the account client with it', () => {
+    const wrong = htmlFiles(STATIC).filter((f) => {
+        const t = fs.readFileSync(f, 'utf8');
+        if (!t.includes('class="site-nav"')) return false;
+        return !t.includes('profile-chip.js') || !t.includes('mp-account.js');
+    }).map((f) => path.relative(STATIC, f));
+    assert.deepStrictEqual(wrong, [],
+        'these landing pages would have no way to sign in: ' + wrong.join(', '));
+});
+
+check('every page with the modal can reach the saved list', () => {
+    const wrong = htmlFiles(STATIC).filter((f) => {
+        const t = fs.readFileSync(f, 'utf8');
+        if (!t.includes('connection-modal.js')) return false;
+        return !t.includes('keyring.js') || !t.includes('mp-account.js');
+    }).map((f) => path.relative(STATIC, f));
+    assert.deepStrictEqual(wrong, [],
+        'the Saved tab would be permanently empty on: ' + wrong.join(', '));
+});
+
+check('the profile page is reachable at the PLATFORM root, not under /sdk/', () => {
+    // The gateway lives in the sibling services repo, which a clean checkout
+    // of this one alone will not have. Skip rather than fail there -- but
+    // when it IS present, a missing route means profile.html 404s in
+    // production while every page links to it.
+    const conf = path.join(__dirname, '..', '..', '..', '..', '..', '..', '..',
+        'messaging-platform-services', 'docker', 'gateway', 'nginx.conf');
+    if (!fs.existsSync(conf)) { console.log('       (services repo not present, skipped)'); return; }
+    assert.ok(/location = \/messaging-platform\/profile\.html/.test(fs.readFileSync(conf, 'utf8')),
+        'the gateway has no route for /messaging-platform/profile.html, so it 404s');
+});
+
 console.log(failures ? `\n${failures} failed` : '\nall passed');
 process.exit(failures ? 1 : 0);

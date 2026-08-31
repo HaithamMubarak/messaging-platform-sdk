@@ -676,3 +676,64 @@ section[id] { scroll-margin-top: 80px; }
     .entry-foot .btn,
     .demo-card__foot .btn { min-width: 0; }
 }
+
+/* --- The account chip, injected into every landing nav by profile-chip.js -- */
+.site-nav .mp-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    white-space: nowrap;
+}
+
+.site-nav .mp-chip__initial {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 24px;
+    height: 24px;
+    border-radius: 50%;
+    background: var(--brand-subtle, rgba(99, 102, 241, 0.16));
+    color: var(--accent-ink, #818cf8);
+    font-size: 12px;
+    font-weight: 700;
+    line-height: 1;
+}
+
+/* A display name can be anything, so it is allowed to truncate rather than
+   push the nav wider than the page. */
+.site-nav .mp-chip__name { max-width: 12ch; overflow: hidden; text-overflow: ellipsis; }
+
+/* --- The profile page ----------------------------------------------------- */
+
+/* `[hidden]` is a UA rule of the same specificity as a class, and author
+   styles win ties -- so `.mp-profile__card { display: flex }` silently makes
+   the hidden attribute inert, and the signed-out form renders underneath the
+   signed-in one. Restate it, narrowly, before anything sets display. */
+.mp-profile [hidden] { display: none !important; }
+
+.mp-profile { padding: 40px 0 80px; display: flex; flex-direction: column; gap: var(--sp-5); }
+.mp-profile h1 { margin-bottom: var(--sp-2); }
+.mp-profile__card { display: flex; flex-direction: column; gap: var(--sp-3); }
+.mp-profile__lead { color: var(--text-body); font-size: var(--fs-md); line-height: 1.7; margin: 0; }
+.mp-profile__actions { display: flex; flex-wrap: wrap; gap: var(--sp-3); align-items: center; }
+.mp-profile__error { color: #f87171; font-size: var(--fs-md); margin: 0; }
+.mp-profile input[type="email"], .mp-profile input[type="password"], .mp-profile input[type="text"] {
+    width: 100%; max-width: 380px; padding: 10px 12px;
+    background: var(--surface-2); color: var(--text);
+    border: 1px solid var(--border); border-radius: 8px; font: inherit;
+}
+.mp-profile__list { display: flex; flex-direction: column; gap: var(--sp-2); }
+.mp-row {
+    display: flex; align-items: center; justify-content: space-between; gap: var(--sp-4);
+    flex-wrap: wrap;
+    padding: 12px 14px; background: var(--surface-2);
+    border: 1px solid var(--border); border-radius: 10px;
+}
+.mp-row__main { min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.mp-row__label { font-weight: 600; color: var(--text); }
+/* The channel name decides which room you join, so it wraps rather than
+   truncating -- a half-shown name is worse than a taller row. */
+.mp-row__name { font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+    font-size: var(--fs-sm, 12px); color: var(--text-muted); overflow-wrap: anywhere; }
+.mp-row__apps { font-size: var(--fs-sm, 12px); color: var(--text-muted); }
+.mp-row__actions { display: flex; gap: var(--sp-2); flex-shrink: 0; }

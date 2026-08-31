@@ -682,3 +682,81 @@ button[id*="disconnect"]:hover,
 }
 
 .connection-modal .password-toggle-btn svg[hidden] { display: none; }
+
+/* --- Tabs, the saved list, and the save row ------------------------------
+   All of this is inside the EXPANDED modal. The collapsed quick card is
+   untouched, so a first-time visitor still meets a name field and one
+   Connect button with no tab to choose. */
+
+.connection-modal .mp-tabs {
+    display: flex;
+    gap: 4px;
+    margin: 0 0 16px;
+    border-bottom: 1px solid #e2e8f0;
+}
+
+.connection-modal .mp-tab {
+    appearance: none;
+    background: none;
+    border: 0;
+    border-bottom: 2px solid transparent;
+    margin-bottom: -1px;
+    padding: 8px 12px;
+    font: inherit;
+    font-size: 14px;
+    color: #64748b;
+    cursor: pointer;
+}
+
+.connection-modal .mp-tab:hover { color: #1e293b; }
+.connection-modal .mp-tab.is-active { color: #4f46e5; border-bottom-color: #4f46e5; font-weight: 600; }
+.connection-modal .mp-tab:focus-visible { outline: 2px solid #4f46e5; outline-offset: 2px; border-radius: 4px; }
+.connection-modal .mp-tab[hidden] { display: none; }
+.connection-modal .mp-panel[hidden] { display: none; }
+
+.connection-modal .mp-saved-list { display: flex; flex-direction: column; gap: 6px; }
+
+.connection-modal .mp-saved-row {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 2px;
+    width: 100%;
+    padding: 10px 12px;
+    background: #f8fafc;
+    border: 1px solid #e2e8f0;
+    border-radius: 8px;
+    font: inherit;
+    text-align: left;
+    cursor: pointer;
+}
+
+.connection-modal .mp-saved-row:hover { background: #f1f5f9; border-color: #cbd5e1; }
+.connection-modal .mp-saved-row:focus-visible { outline: 2px solid #4f46e5; outline-offset: 2px; }
+.connection-modal .mp-saved-label { font-weight: 600; color: #1e293b; font-size: 14px; }
+
+/* The channel name is identity, so it is shown in full and monospaced --
+   truncating it would hide the one thing that decides which room you join. */
+.connection-modal .mp-saved-name {
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+    font-size: 12px;
+    color: #64748b;
+    overflow-wrap: anywhere;
+}
+
+.connection-modal .mp-note { font-size: 12px; color: #64748b; margin: 8px 0 0; line-height: 1.6; }
+
+.connection-modal .mp-save-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin: 14px 0 0;
+    font-size: 14px;
+    color: #1e293b;
+    cursor: pointer;
+}
+
+.connection-modal .mp-save-row input[disabled] { cursor: not-allowed; }
+.connection-modal .mp-save-row:has(input[disabled]) { color: #94a3b8; cursor: default; }
+.connection-modal .mp-save-note { margin-top: 4px; }
+.connection-modal .mp-google { width: 100%; margin-bottom: 12px; }

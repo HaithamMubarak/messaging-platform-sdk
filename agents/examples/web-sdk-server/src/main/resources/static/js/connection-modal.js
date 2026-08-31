@@ -44,7 +44,46 @@
             <button id="modalToggleBtn2" class="modal-toggle-btn" aria-label="Toggle form"><svg class="chev" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg></button>
         </div>
 
-        <form id="connectionForm" onsubmit="return false;">
+        <div class="mp-tabs" role="tablist" aria-label="How to join">
+            <button type="button" class="mp-tab is-active" id="tabCustom" role="tab"
+                    aria-selected="true" aria-controls="panelCustom">Channel</button>
+            <button type="button" class="mp-tab" id="tabSaved" role="tab"
+                    aria-selected="false" aria-controls="panelSaved" hidden>Saved</button>
+            <button type="button" class="mp-tab" id="tabSignin" role="tab"
+                    aria-selected="false" aria-controls="panelSignin">Sign in</button>
+        </div>
+
+        <!-- Saved: only ever rendered for a signed-in person. -->
+        <div id="panelSaved" class="mp-panel" role="tabpanel" aria-labelledby="tabSaved" hidden>
+            <div id="savedList" class="mp-saved-list"></div>
+            <p class="mp-note" id="savedEmpty" hidden>
+                Channels you save will appear here. They are kept on this device only.
+            </p>
+        </div>
+
+        <!-- Sign in: an account gates SAVING, never connecting. -->
+        <div id="panelSignin" class="mp-panel" role="tabpanel" aria-labelledby="tabSignin" hidden>
+            <p class="mp-note">
+                Sign in to save channels you want to come back to. You do not need an
+                account to join a room &mdash; that stays one click.
+            </p>
+            <button type="button" id="googleSignInBtn" class="btn-primary mp-google" hidden>
+                Continue with Google
+            </button>
+            <label for="signinEmail" class="form-label-visible">Email</label>
+            <input type="email" id="signinEmail" autocomplete="email" placeholder="you@example.com">
+            <label for="signinPassword" class="form-label-visible">Password</label>
+            <input type="password" id="signinPassword" autocomplete="current-password" placeholder="Your password">
+            <label for="signinName" class="form-label-visible" id="signinNameLabel" hidden>Display name</label>
+            <input type="text" id="signinName" autocomplete="nickname" placeholder="Your name" hidden>
+            <div class="modal-buttons">
+                <button type="button" id="signinBtn" class="btn-primary">Sign in</button>
+                <button type="button" id="signinToggleMode" class="ghost">Create an account</button>
+            </div>
+            <p id="signinError" class="connect-error" role="alert" hidden></p>
+        </div>
+
+        <form id="connectionForm" class="mp-panel" role="tabpanel" aria-labelledby="tabCustom" onsubmit="return false;">
             <label for="usernameInput" class="form-label-visible">Your Name</label>
             <input type="text" id="usernameInput" placeholder="Your name" autocomplete="nickname">
 
@@ -76,6 +115,14 @@
                     </svg>
                 </button>
             </div>
+
+            <label class="mp-save-row" for="saveChannelChk">
+                <input type="checkbox" id="saveChannelChk" disabled>
+                <span id="saveChannelLabel">Save this channel</span>
+            </label>
+            <p class="mp-note mp-save-note" id="saveChannelNote">
+                <a href="#" id="saveSigninLink">Sign in</a> to save channels.
+            </p>
 
             <div class="modal-buttons">
                 <button type="button" id="connectBtn" class="btn-primary">Connect</button>
@@ -515,7 +562,15 @@
             let settled = false;
             const watch = setInterval(function () {
                 const modal = document.getElementById('connectionModal');
-                if (modal && !modal.classList.contains('active')) { settled = true; done(); }
+                if (modal && !modal.classList.contains('active')) {
+                    settled = true;
+                    done();
+                    // The modal closing IS the app saying the room was joined:
+                    // apps hide it from their own onConnect. Recording here
+                    // rather than on the click means a channel is only ever
+                    // saved after it actually let you in.
+                    try { window.ConnectionModal.recordConnect(channel, password); } catch (e) {}
+                }
             }, 300);
             const deadline = setTimeout(function () {
                 if (settled) return;
@@ -605,6 +660,146 @@
         if (toggleBtn2) toggleBtn2.addEventListener('click', toggleModal);
         // Removed: collapsedHeader click handler - expand only via button
 
+        /* ---------------------------------------------------------------
+         * Tabs, sign-in and the saved list.
+         *
+         * All of this lives in the EXPANDED modal only. The collapsed quick
+         * card -- a name and one Connect button -- is untouched and is still
+         * what a first-time visitor meets, so the one-click path into a demo
+         * survives the arrival of tabs. An account gates SAVING, never
+         * connecting.
+         * --------------------------------------------------------------- */
+        var appId = (config.appId || channelPrefix.replace(/-$/, '') || 'app');
+        var currentUser = null;
+        var accountId = null;
+
+        function el(id) { return document.getElementById(id); }
+
+        function showTab(name) {
+            [['Custom', 'connectionForm'], ['Saved', 'panelSaved'], ['Signin', 'panelSignin']]
+                .forEach(function (pair) {
+                    var tab = el('tab' + pair[0]);
+                    var panel = el(pair[1]);
+                    var on = pair[0].toLowerCase() === name;
+                    if (tab) {
+                        tab.classList.toggle('is-active', on);
+                        tab.setAttribute('aria-selected', on ? 'true' : 'false');
+                    }
+                    if (panel) panel.hidden = !on;
+                });
+        }
+
+        function renderSaved() {
+            var list = el('savedList');
+            var empty = el('savedEmpty');
+            if (!list) return;
+            var rows = (accountId && window.Keyring) ? window.Keyring.list(accountId) : [];
+            list.innerHTML = '';
+            if (empty) empty.hidden = rows.length > 0;
+            rows.forEach(function (row) {
+                var item = document.createElement('button');
+                item.type = 'button';
+                item.className = 'mp-saved-row';
+                item.setAttribute('data-id', row.id);
+                var label = document.createElement('span');
+                label.className = 'mp-saved-label';
+                label.textContent = row.label;          // textContent: a label is user input
+                var name = document.createElement('span');
+                name.className = 'mp-saved-name';
+                name.textContent = row.name;
+                item.appendChild(label);
+                item.appendChild(name);
+                item.addEventListener('click', function () {
+                    // Fill the fields and hand over -- Connect stays the one
+                    // verb that connects, so nothing happens behind your back.
+                    if (chEl) chEl.value = row.name;
+                    if (pwEl) pwEl.value = row.password || '';
+                    showTab('custom');
+                    refreshSaveRow();
+                });
+                list.appendChild(item);
+            });
+        }
+
+        function refreshSaveRow() {
+            var chk = el('saveChannelChk');
+            var note = el('saveChannelNote');
+            var lbl = el('saveChannelLabel');
+            if (!chk) return;
+            chk.disabled = !accountId;
+            if (note) note.hidden = !!accountId;
+            if (!accountId) { chk.checked = false; return; }
+            var saved = window.Keyring &&
+                window.Keyring.has(accountId, chEl ? chEl.value : '', pwEl ? pwEl.value : '');
+            chk.checked = !!saved;
+            if (lbl) lbl.textContent = saved ? 'Saved on this device' : 'Save this channel';
+        }
+
+        function applyUser(user) {
+            currentUser = user;
+            accountId = window.MPAccount ? window.MPAccount.idOf(user) : null;
+            var savedTab = el('tabSaved');
+            var signinTab = el('tabSignin');
+            if (savedTab) savedTab.hidden = !accountId;
+            if (signinTab) signinTab.hidden = !!accountId;
+            renderSaved();
+            refreshSaveRow();
+        }
+
+        if (window.MPAccount) {
+            window.MPAccount.me().then(applyUser).catch(function () { applyUser(null); });
+            window.MPAccount.googleAvailable().then(function (ok) {
+                var b = el('googleSignInBtn');
+                if (b && ok) {
+                    b.hidden = false;
+                    b.addEventListener('click', function () {
+                        window.location.href = window.MPAccount.googleStartUrl(window.location.href);
+                    });
+                }
+            });
+        }
+
+        ['Custom', 'Saved', 'Signin'].forEach(function (n) {
+            var t = el('tab' + n);
+            if (t) t.addEventListener('click', function () { showTab(n.toLowerCase()); });
+        });
+        var saveLink = el('saveSigninLink');
+        if (saveLink) saveLink.addEventListener('click', function (e) {
+            e.preventDefault(); showTab('signin');
+        });
+        if (chEl) chEl.addEventListener('input', refreshSaveRow);
+        if (pwEl) pwEl.addEventListener('input', refreshSaveRow);
+
+        // Sign in / create an account, in one panel.
+        var registerMode = false;
+        var modeBtn = el('signinToggleMode');
+        if (modeBtn) modeBtn.addEventListener('click', function () {
+            registerMode = !registerMode;
+            el('signinNameLabel').hidden = !registerMode;
+            el('signinName').hidden = !registerMode;
+            el('signinBtn').textContent = registerMode ? 'Create account' : 'Sign in';
+            modeBtn.textContent = registerMode ? 'I already have an account' : 'Create an account';
+        });
+
+        var signinBtn = el('signinBtn');
+        if (signinBtn) signinBtn.addEventListener('click', function () {
+            var err = el('signinError');
+            if (err) err.hidden = true;
+            var email = el('signinEmail').value.trim();
+            var pw = el('signinPassword').value;
+            var name = el('signinName').value.trim();
+            var done = function (user) {
+                applyUser(user);
+                showTab(window.Keyring && window.Keyring.list(accountId).length ? 'saved' : 'custom');
+            };
+            var fail = function (e) {
+                if (err) { err.hidden = false; err.textContent = e.message || 'That did not work.'; }
+            };
+            if (!window.MPAccount) return;
+            if (registerMode) window.MPAccount.register(email, name || email, pw).then(done).catch(fail);
+            else window.MPAccount.login(email, pw).then(done).catch(fail);
+        });
+
         // Public API for hiding modal after connection
         window.ConnectionModal = {
             /**
@@ -613,6 +808,20 @@
              * is looking at the form, not the corner of the screen.
              */
             fail: function (err) { if (_reportFailure) _reportFailure(err); },
+            /** Called by the modal's own connect path once a room is joined. */
+            recordConnect: function (channel, password) {
+                if (!accountId || !window.Keyring) return;
+                var chk = document.getElementById('saveChannelChk');
+                if (chk && chk.checked) {
+                    window.Keyring.add(accountId, {
+                        name: channel, password: password, app: appId
+                    });
+                } else {
+                    window.Keyring.touch(accountId, channel, password, appId);
+                }
+                renderSaved();
+                refreshSaveRow();
+            },
             hide: function() {
                 const modal = document.getElementById('connectionModal');
                 if (modal) {
