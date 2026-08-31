@@ -291,6 +291,16 @@ class UserConnectionBase {
                     channelName,
                     channelPassword,
                     agentName: username,
+                    // Declaring the app does two things, both of which need it
+                    // to be sent and neither of which happened before: the
+                    // service stops delivering other apps' CUSTOM events at
+                    // all, and the tag lands on this agent's AgentInfo so host
+                    // election can be scoped to the app rather than the room.
+                    //
+                    // A promiscuous page must NOT declare one: the same field
+                    // is the delivery filter, so declaring an app is how you
+                    // stop hearing every other one.
+                    customEventType: this.options.promiscuous ? '' : (this.options.customType || ''),
                     autoReceive: true,
                     // TRUE = use stored offset (latest) = NEW messages only
                     // not needed anymore since webrtc are ephemeral messages
@@ -861,6 +871,15 @@ class UserConnectionBase {
      * @private
      */
     _getHostName() {
+        // `connectedAgents[0]` is the first agent in the ROOM, which is the
+        // wrong answer as soon as a room holds more than one app: a client
+        // would address its host-bound traffic to somebody running something
+        // else. The connection scopes this to agents running this app when it
+        // can do so safely, and falls back to room-wide when it cannot.
+        if (this.channel && typeof this.channel.getHostAgentName === 'function') {
+            const host = this.channel.getHostAgentName();
+            if (host) return host;
+        }
         const users = this.getConnectedUsers();
         return users.length > 0 ? users[0] : null;
     }

@@ -1795,6 +1795,10 @@
 
         // prepare payload: either channelId-based or channelName-based
         let payload;
+        // Kept so isHostAgent() can scope its election to agents running the
+        // same app. The server already stamps this onto AgentInfo and
+        // broadcasts it, so every peer's tag arrives with its connectionTime.
+        _self.customEventType = customEventType || '';
         let agentContext = {
             agentType: 'WEB-AGENT',
             descriptor: navigator.userAgent,
@@ -2959,28 +2963,62 @@
             return isHost;
         }
 
-        // No peer specified - find overall host (earliest connectionTime across all agents)
+        // No peer specified: who is host of THIS APP.
+        const host = this.getHostAgentName();
+        return host === null || host === this.agentName;
+    }
+
+    /**
+     * The agent this connection considers host, or null if there is nobody.
+     *
+     * Election is scoped to the app when it safely can be. A channel holds one
+     * room, but several apps may sit in it once a channel is shared across
+     * them -- and "first agent in the channel" then elects a whiteboard user
+     * as the host of a chess game, so the game has no host at all and the
+     * whiteboard's own host-only storage writes never run.
+     *
+     * The scoping is off unless it is certainly safe:
+     *
+     *  - this connection declared no customEventType (it did not opt in), or
+     *  - ANY agent in the room is untagged, so we cannot tell what it is
+     *    running,
+     *
+     * then election stays channel-wide, exactly as before. The second rule is
+     * what prevents a split brain: an untagged peer on an older build elects
+     * channel-wide, so everyone else must too, or two agents would each
+     * believe they were host.
+     */
+    AgentConnection.prototype.getHostAgentName = function() {
+        const agentsInfo = this._connectedAgentsMap || {};
         const agentNames = Object.keys(agentsInfo);
+        if (agentNames.length === 0) return null;
 
-        if (agentNames.length === 0) {
-            return true;  // Only agent, so is host
-        }
-
-        // Find agent with earliest connectionTime
-        let earliestAgent = this.agentName;
-        let earliestTime = myConnectionTime;
-
-        agentNames.forEach(agentName => {
-            const agentInfo = agentsInfo[agentName];
-            if (agentInfo && agentInfo.connectionTime) {
-                if (agentInfo.connectionTime < earliestTime) {
-                    earliestTime = agentInfo.connectionTime;
-                    earliestAgent = agentName;
-                }
-            }
+        const mine = this.customEventType || '';
+        const everyoneTagged = agentNames.every((n) => {
+            const i = agentsInfo[n];
+            return i && typeof i.customEventType === 'string' && i.customEventType !== '';
         });
 
-        return earliestAgent === this.agentName;
+        const candidates = (mine && everyoneTagged)
+            ? agentNames.filter((n) => agentsInfo[n].customEventType === mine)
+            : agentNames;
+        if (candidates.length === 0) return null;
+
+        // Earliest connectionTime wins; equal times fall back to alphabetical,
+        // which is the tiebreaker the pairwise check above already uses.
+        let host = null, hostTime = Infinity;
+        candidates.forEach((name) => {
+            const t = agentsInfo[name] && agentsInfo[name].connectionTime;
+            if (typeof t !== 'number') return;
+            if (t < hostTime || (t === hostTime && host !== null && name < host)) {
+                hostTime = t;
+                host = name;
+            }
+        });
+        // Nobody had a usable connectionTime: fall back to alphabetical order
+        // rather than declaring the room hostless.
+        if (host === null) host = candidates.slice().sort()[0];
+        return host;
     }
 
 

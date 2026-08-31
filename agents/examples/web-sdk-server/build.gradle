@@ -60,16 +60,28 @@ tasks.named('test') {
  * JDK-only machine can still build -- but it runs on any machine that has it,
  * which is every machine that builds the site.
  */
-tasks.register('jsTest', Exec) {
-    description = 'Runs the static site JavaScript tests under node'
-    group = 'verification'
-    def testFile = file('src/test/js/custom-type-filter.test.js')
-    onlyIf {
-        def hasNode = ['sh', '-c', 'command -v node'].execute().waitFor() == 0
-        if (!hasNode) logger.lifecycle('jsTest: node not found, skipping')
-        hasNode && testFile.exists()
+def hasNode = { ['sh', '-c', 'command -v node'].execute().waitFor() == 0 }
+
+['custom-type-filter', 'app-host-election'].each { name ->
+    tasks.register("jsTest_${name.replaceAll('-', '_')}", Exec) {
+        description = "Runs src/test/js/${name}.test.js under node"
+        group = 'verification'
+        def testFile = file("src/test/js/${name}.test.js")
+        onlyIf {
+            if (!hasNode()) logger.lifecycle("jsTest: node not found, skipping ${name}")
+            hasNode() && testFile.exists()
+        }
+        // The election tests read the GENERATED web-agent bundle, so it has to
+        // have been copied from the web-agent-js module first.
+        dependsOn 'processResources'
+        commandLine 'node', testFile.absolutePath
     }
-    commandLine 'node', testFile.absolutePath
+}
+
+tasks.register('jsTest') {
+    description = 'Runs every static site JavaScript test'
+    group = 'verification'
+    dependsOn tasks.matching { it.name.startsWith('jsTest_') }
 }
 
 tasks.named('check') { dependsOn 'jsTest' }
