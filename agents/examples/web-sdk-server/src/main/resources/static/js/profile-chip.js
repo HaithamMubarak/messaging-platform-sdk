@@ -21,12 +21,13 @@
         a.className = 'mp-chip';
         if (!user) {
             a.href = PROFILE + '#signin';
-            a.textContent = 'Sign in';
+            a.setAttribute('aria-label', 'Sign in to your Platform account');
+            a.textContent = 'Platform account';
             return a;
         }
         var name = (user.displayName || user.email || '').trim();
         a.href = PROFILE;
-        a.setAttribute('aria-label', 'Your profile — ' + name);
+        a.setAttribute('aria-label', 'Your Platform account — ' + name);
         var dot = document.createElement('span');
         dot.className = 'mp-chip__initial';
         dot.setAttribute('aria-hidden', 'true');

@@ -69,15 +69,17 @@
              should not be the second option on the screen. -->
         <div id="panelSignin" class="mp-panel" role="tabpanel" aria-labelledby="tabSignin" hidden>
             <p class="mp-note mp-signin__lead">
-                Sign in to save channels you want to come back to. You do not need an
-                account to join a room &mdash; that stays one click.
+                Sign in to your <strong>Platform account</strong> to save channels you
+                want to come back to. It is a different account from the Developer
+                Portal, where API keys live; the two are not linked yet. You do not
+                need either to join a room &mdash; that stays one click.
             </p>
 
-            <div class="mp-subtabs" role="tablist" aria-label="Sign in or create an account">
+            <div class="mp-subtabs" role="tablist" aria-label="Sign in to or create a Platform account">
                 <button type="button" class="mp-subtab is-active" id="modeSignin" role="tab"
                         aria-selected="true">Sign in</button>
                 <button type="button" class="mp-subtab" id="modeRegister" role="tab"
-                        aria-selected="false">Create an account</button>
+                        aria-selected="false">Create a Platform account</button>
             </div>
 
             <label class="form-label-visible" for="signinName" id="signinNameLabel" hidden>Your name</label>
@@ -146,7 +148,7 @@
                 <span id="saveChannelLabel">Save this channel</span>
             </label>
             <p class="mp-note mp-save-note" id="saveChannelNote">
-                <a href="#" id="saveSigninLink">Sign in</a> to save channels.
+                <a href="#" id="saveSigninLink">Sign in to your Platform account</a> to save channels.
             </p>
 
             <div class="modal-buttons">
@@ -779,7 +781,7 @@
                     b.hidden = false;
                     if (el('googleWrap')) el('googleWrap').hidden = false;
                     b.addEventListener('click', function () {
-                        window.location.href = window.MPAccount.googleStartUrl(window.location.href);
+                        window.location.href = window.MPAccount.googleStartUrl();
                     });
                 }
             });

@@ -181,6 +181,99 @@ check('every page with a nav gets the profile chip, and the account client with 
         'these landing pages would have no way to sign in: ' + wrong.join(', '));
 });
 
+check('the two separate account doors are labelled consistently', () => {
+    const chip = fs.readFileSync(path.join(STATIC, 'js', 'profile-chip.js'), 'utf8');
+    assert.ok(chip.includes("a.textContent = 'Platform account'"),
+        'the shared account entry no longer says which account it opens');
+    assert.ok(chip.includes("Sign in to your Platform account"),
+        'the signed-out account entry has no accessible platform-account label');
+
+    const ambiguousPortal = htmlFiles(STATIC).filter((f) => {
+        const t = fs.readFileSync(f, 'utf8');
+        return t.includes('developer/index.html') && t.includes('>Portal<');
+    }).map((f) => path.relative(STATIC, f));
+    assert.deepStrictEqual(ambiguousPortal, [],
+        'these pages still hide the Developer Portal behind an ambiguous label: ' + ambiguousPortal.join(', '));
+
+    const profile = fs.readFileSync(path.join(STATIC, 'profile.html'), 'utf8');
+    assert.ok(profile.includes('separate from your Developer Portal account'),
+        'the profile page does not explain that the two accounts are independent');
+});
+
+/*
+ * The slice is called "label BOTH doors", and the check above only ever looked
+ * at one of them. The Developer Portal is the other door, and the connection
+ * modal is the platform-account door that a visitor is far more likely to meet
+ * first -- it is on every demo page, where profile.html is on none of them.
+ */
+check('the Developer Portal door says which account it is, and links to the other one', () => {
+    for (const page of ['developer/index.html', 'developer/dashboard.html']) {
+        // Normalised: this copy is prose in an indented HTML block, so where the
+        // lines happen to wrap must not decide whether the check passes.
+        const t = fs.readFileSync(path.join(STATIC, page), 'utf8').replace(/\s+/g, ' ');
+        assert.ok(/Developer Portal account/.test(t),
+            page + ' does not name the account it signs you in to');
+        assert.ok(t.includes('/messaging-platform/profile.html'),
+            page + ' never points at the Platform account, so the two doors stay unrelated');
+        assert.ok(/not linked yet/.test(t),
+            page + ' does not say the two accounts are independent');
+    }
+});
+
+check('the connection modal names the Platform account rather than "an account"', () => {
+    const modal = fs.readFileSync(path.join(STATIC, 'js', 'connection-modal.js'), 'utf8');
+    assert.ok(modal.includes('Platform account'),
+        'the modal asks people to "sign in" without saying to what');
+    assert.ok(modal.includes('Developer'),
+        'the modal never distinguishes itself from the Developer Portal account');
+
+    // Rule 5 is stated here in prose; keep the prose honest.
+    assert.ok(/do not\s+need either to join a room/.test(modal.replace(/\s+/g, ' ')),
+        'the modal no longer promises that joining a room needs no account');
+});
+
+/*
+ * Rule 5: an account gates SAVING, never CONNECTING.
+ *
+ * The collapsed quick card -- a name and one Connect button -- is what a
+ * first-time, signed-out visitor meets, and it has to stay one click. Nothing
+ * asserted this. The entire quick card could be deleted, or its handler could
+ * grow an "if (!accountId) return showSignin()", and all seven suites stayed
+ * green while the front door of every demo quietly closed.
+ */
+check('the one-click quick card an anonymous visitor meets still exists', () => {
+    const modal = fs.readFileSync(path.join(STATIC, 'js', 'connection-modal.js'), 'utf8');
+    for (const needle of ['id="quickConnectBtn"', 'id="quickUsernameInput"', 'class="collapsed-header"']) {
+        assert.ok(modal.includes(needle),
+            'the collapsed quick card lost ' + needle + ', so the one-click path is gone');
+    }
+});
+
+check('and connecting from it is not gated on an account', () => {
+    const modal = fs.readFileSync(path.join(STATIC, 'js', 'connection-modal.js'), 'utf8');
+    const start = modal.indexOf('quickConnectBtn.onclick');
+    assert.ok(start > 0, 'the quick Connect button no longer has a handler');
+    // The handler body, up to the end of its function.
+    const body = modal.slice(start, modal.indexOf('\n        }', start));
+
+    assert.ok(/attempt\(/.test(body),
+        'the quick Connect button no longer actually connects');
+    for (const gate of ['accountId', 'MPAccount', 'signedIn', 'panelSignin', 'showTab']) {
+        assert.ok(!body.includes(gate),
+            'quick connect now consults ' + gate + ' -- an account has started gating '
+          + 'CONNECTING, which rule 5 forbids; it may gate saving only');
+    }
+});
+
+check('an account gates the SAVE control, and only that', () => {
+    const modal = fs.readFileSync(path.join(STATIC, 'js', 'connection-modal.js'), 'utf8');
+    // The save checkbox is the one control allowed to care whether you are
+    // signed in. If this stops being true, the line below has moved and the
+    // check above is no longer describing the real boundary.
+    assert.ok(/chk\.disabled = !accountId/.test(modal),
+        'the save checkbox is no longer what an account gates');
+});
+
 check('every page with the modal can reach the saved list', () => {
     const wrong = htmlFiles(STATIC).filter((f) => {
         const t = fs.readFileSync(f, 'utf8');

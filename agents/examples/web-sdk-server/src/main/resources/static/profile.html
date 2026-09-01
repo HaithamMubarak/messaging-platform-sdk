@@ -4,25 +4,28 @@
     <meta charset="UTF-8">
     <script src="/messaging-platform/sdk/js/prod-log.js"></script>
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Your profile</title>
-    <meta name="description" content="Exactly what the Messaging Platform SDK demos record about a session, what they refuse to record, and how to switch it off.">
+    <title>Your Platform account — Messaging Platform</title>
+    <!-- This head was a copy of privacy.html's, so this page declared privacy.html
+         as its canonical URL and previewed as the telemetry page wherever it was
+         shared. It is its own page and says so. -->
+    <meta name="description" content="Your Platform account: the channels you have saved, kept on this device, and the encrypted backup you can take with you.">
     <meta name="theme-color" content="#0b1120">
-    <link rel="canonical" href="https://hmdevonline.com/messaging-platform/sdk/privacy.html">
+    <link rel="canonical" href="https://hmdevonline.com/messaging-platform/profile.html">
     <meta property="og:type" content="website">
-    <meta property="og:site_name" content="Messaging Platform SDK">
-    <meta property="og:title" content="What the demos measure">
-    <meta property="og:description" content="Four counters, no content. Exactly what the demos record, what they refuse to record, and how to switch it off.">
-    <meta property="og:url" content="https://hmdevonline.com/messaging-platform/sdk/privacy.html">
+    <meta property="og:site_name" content="Messaging Platform">
+    <meta property="og:title" content="Your Platform account">
+    <meta property="og:description" content="The channels you have saved, kept on this device, and the encrypted backup you can take with you.">
+    <meta property="og:url" content="https://hmdevonline.com/messaging-platform/profile.html">
     <meta property="og:image" content="https://hmdevonline.com/messaging-platform/sdk/images/og-image.png">
     <meta name="twitter:card" content="summary_large_image">
-    <meta name="twitter:title" content="What the demos measure">
-    <meta name="twitter:description" content="Four counters, no content. Exactly what the demos record, what they refuse to record, and how to switch it off.">
+    <meta name="twitter:title" content="Your Platform account">
+    <meta name="twitter:description" content="The channels you have saved, kept on this device, and the encrypted backup you can take with you.">
     <meta name="twitter:image" content="https://hmdevonline.com/messaging-platform/sdk/images/og-image.png">
     <link rel="icon" type="image/svg+xml" href="/messaging-platform/sdk/favicon.svg">
     <link rel="stylesheet" href="/messaging-platform/sdk/css/design-tokens.css">
     <link rel="stylesheet" href="/messaging-platform/sdk/css/ui.css">
     <link rel="stylesheet" href="/messaging-platform/sdk/css/landing.css">
-    <link rel="manifest" href="site.webmanifest">
+    <link rel="manifest" href="/messaging-platform/sdk/site.webmanifest">
     <script src="/messaging-platform/sdk/js/icons.js" defer></script>
     <script src="/messaging-platform/sdk/js/ui.js" defer></script>
     <script src="/messaging-platform/sdk/js/landing.js" defer></script>
@@ -72,7 +75,7 @@
                 <a href="/messaging-platform/sdk/playground.html">Playground</a>
                 <a href="/messaging-platform/sdk/docs.html">Docs</a>
                 <a href="/messaging-platform/sdk/../apps/index.html">Apps</a>
-<a href="/messaging-platform/sdk/developer/index.html">Portal</a>
+<a href="/messaging-platform/sdk/developer/index.html">Developer Portal</a>
                 <a class="btn btn--gradient" href="/messaging-platform/sdk/developer/index.html">Get a free API key</a>
             </nav>
         </div>
@@ -81,14 +84,15 @@
   <h1>Your profile</h1>
 
   <section id="signedOut" class="card mp-profile__card" hidden>
-    <h2>Sign in</h2>
+    <h2>Sign in to your Platform account</h2>
     <p class="mp-profile__lead">
-      An account lets you save channels you want to come back to. You never need
-      one to join a room &mdash; that stays one click.
+      This Platform account lets you save channels you want to come back to. It
+      is separate from your Developer Portal account for API keys; they are not
+      linked yet. You never need either account to join a room &mdash; that stays one click.
     </p>
-    <div class="mp-subtabs" role="tablist" aria-label="Sign in or create an account">
+    <div class="mp-subtabs" role="tablist" aria-label="Sign in to or create a Platform account">
       <button type="button" class="mp-subtab is-active" id="pModeSignin" role="tab" aria-selected="true">Sign in</button>
-      <button type="button" class="mp-subtab" id="pModeRegister" role="tab" aria-selected="false">Create an account</button>
+      <button type="button" class="mp-subtab" id="pModeRegister" role="tab" aria-selected="false">Create a Platform account</button>
     </div>
 
     <label for="pName" id="pNameLabel" hidden>Your name</label>
@@ -117,7 +121,7 @@
 
   <section id="signedIn" hidden>
     <section class="card mp-profile__card">
-      <h2>Account</h2>
+      <h2>Platform account</h2>
       <p id="pWho" class="mp-profile__lead"></p>
       <button type="button" id="pSignOut" class="btn btn--ghost">Sign out</button>
     </section>
@@ -125,8 +129,16 @@
     <section class="card mp-profile__card">
       <h2>Saved channels</h2>
       <p class="mp-profile__lead">
-        Kept on this device only. We never store your channels &mdash; if you lose
-        them, ask someone in the room to share the link again.
+        Kept on this device only. We never store your channels on our servers &mdash;
+        if you lose them, ask someone in the room to share the link again.
+      </p>
+      <p class="mp-profile__lead mp-profile__custody">
+        Being straight about what that is worth: this is <strong>custody, not
+        incapability</strong>. Your channels sit in this browser&rsquo;s local storage,
+        and every app on this site runs on the same origin, so any of them
+        <em>could</em> read them. We ask them not to, and the platform API never
+        hands an app a channel password. That is a rule we keep, not a wall that
+        would stop us.
       </p>
       <div id="pList" class="mp-profile__list"></div>
       <p id="pEmpty" class="mp-profile__lead" hidden>
@@ -138,8 +150,9 @@
       <h2>Backup</h2>
       <p class="mp-profile__lead">
         Your saved channels live in this browser. Export a copy to move them to
-        another device &mdash; the file contains channel passwords, so keep it as
-        carefully as you would keep them.
+        another device. The file is encrypted with a key held by your account, so
+        you must be signed in as yourself to open it &mdash; a copy that leaks is
+        ciphertext to whoever finds it.
       </p>
       <div class="mp-profile__actions">
         <button type="button" id="pExport" class="btn btn--ghost">Export&hellip;</button>

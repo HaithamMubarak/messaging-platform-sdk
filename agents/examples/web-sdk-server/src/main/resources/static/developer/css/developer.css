@@ -35,6 +35,23 @@
 .auth__brand .logo-mark { width: 32px; height: 32px; flex: none; }
 .auth__card h1 { font-size: var(--fs-xl); margin-bottom: var(--sp-2); }
 .auth__card > p { color: var(--text-muted); font-size: var(--fs-md); margin-bottom: var(--sp-6); }
+/* There are two accounts on this platform -- this Developer Portal one for
+   API keys, and the Platform account that saves channels -- and a visitor can
+   arrive at either door with no way to tell them apart. This says which door
+   they are standing at, so it must read as a standing note rather than as the
+   page's own subtitle: quieter than the lead paragraph above it, and boxed. */
+.auth__aside {
+    margin-bottom: var(--sp-6);
+    padding: var(--sp-3) var(--sp-4);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-md, 8px);
+    background: var(--surface-2, transparent);
+    font-size: var(--fs-sm);
+    color: var(--text-muted);
+    line-height: 1.5;
+}
+.auth__card > p.auth__aside { margin-bottom: var(--sp-6); }
+
 .auth__footer {
     margin-top: var(--sp-6);
     padding-top: var(--sp-5);
