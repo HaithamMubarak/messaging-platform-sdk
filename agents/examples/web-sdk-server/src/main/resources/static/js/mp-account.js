@@ -26,6 +26,27 @@
         return '/messaging-platform/rooms-api/api';
     }
 
+    // OAuth state must carry an on-site path, never a complete URL.  Some
+    // callers quite reasonably pass window.location.href, so make that safe
+    // here instead of relying on every caller to remember the distinction.
+    function localReturnPath(returnTo) {
+        var fallback = window.location.pathname + window.location.search;
+        var path = returnTo || fallback;
+        if (/^[a-z][a-z\d+.-]*:/i.test(path)) {
+            try {
+                var url = new URL(path);
+                var host = window.location.host || window.location.hostname;
+                if (!/^https?:$/.test(url.protocol) || url.host !== host) return fallback;
+                return url.pathname + url.search;
+            } catch (e) {
+                return fallback;
+            }
+        }
+        // These are network-path references in a browser, not local paths.
+        if (path.indexOf('//') === 0 || path.indexOf('/\\') === 0) return fallback;
+        return path.charAt(0) === '/' ? path : '/' + path;
+    }
+
     function token() { try { return localStorage.getItem(KEY) || null; } catch (e) { return null; } }
     function setToken(t) {
         try { t ? localStorage.setItem(KEY, t) : localStorage.removeItem(KEY); } catch (e) {}
@@ -133,12 +154,10 @@
         /**
          * Where to send the browser to start Google sign-in.
          *
-         * returnTo must be a RELATIVE path. The service only honours a
-         * returnTo beginning with "/" and otherwise falls back to the Rooms
-         * app -- which is open-redirect protection worth keeping, so this
-         * sends a path rather than asking the server to accept absolute URLs.
-         * Passing window.location.href is what sent everyone to Rooms after
-         * signing in from anywhere else.
+         * The service accepts only a same-origin path.  This also accepts a
+         * same-origin absolute URL for older callers, then reduces it to its
+         * path and query before it leaves the page.  A foreign or malformed
+         * URL falls back to the page currently being viewed.
          *
          * The fragment is deliberately NOT part of returnTo: the service
          * appends #googleToken to the target, and a target that already had a
@@ -150,8 +169,7 @@
             try {
                 if (window.location.hash) sessionStorage.setItem(RESUME, window.location.hash);
             } catch (e) {}
-            var path = returnTo || (window.location.pathname + window.location.search);
-            if (path.charAt(0) !== '/') path = '/' + path;
+            var path = localReturnPath(returnTo);
             return base() + '/auth/google/start?returnTo=' + encodeURIComponent(path);
         },
 

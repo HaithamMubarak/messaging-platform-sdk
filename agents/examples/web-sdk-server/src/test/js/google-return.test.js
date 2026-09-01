@@ -1,11 +1,9 @@
 /**
  * Signing in with Google must bring you back where you were.
  *
- * The service honours `returnTo` only when it begins with "/" and otherwise
- * redirects to the Rooms app -- deliberate open-redirect protection. The
- * client was passing window.location.href, an ABSOLUTE url, so every returnTo
- * failed that test and everyone who signed in from anywhere on the platform
- * landed in Rooms.
+ * The service only accepts a same-origin path.  Callers can pass
+ * window.location.href, but the client must reduce that absolute URL to its
+ * path and query before starting the OAuth round trip.
  *
  * The second half: the callback hands the session back as #googleToken=... in
  * the fragment, and nothing was reading it, so a completed Google sign-in
@@ -62,6 +60,19 @@ check('it never sends an absolute url, from any page', () => {
         assert.ok(!/^https?:/.test(returnTo), 'sent an absolute url for ' + p);
         assert.strictEqual(returnTo, p);
     });
+});
+
+check('a same-origin absolute URL is reduced to its local path', () => {
+    const { A } = load('/messaging-platform/profile.html', '?tab=security', '#signin');
+    const absolute = 'https://hmdevonline.com/messaging-platform/profile.html?tab=security#signin';
+    const returnTo = decodeURIComponent(A.googleStartUrl(absolute).split('returnTo=')[1]);
+    assert.strictEqual(returnTo, '/messaging-platform/profile.html?tab=security');
+});
+
+check('a foreign absolute URL cannot influence the return target', () => {
+    const { A } = load('/messaging-platform/profile.html', '?tab=security');
+    const returnTo = decodeURIComponent(A.googleStartUrl('https://elsewhere.example/steal').split('returnTo=')[1]);
+    assert.strictEqual(returnTo, '/messaging-platform/profile.html?tab=security');
 });
 
 check('the query string survives the round trip', () => {
