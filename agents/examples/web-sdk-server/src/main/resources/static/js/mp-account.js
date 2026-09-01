@@ -67,15 +67,28 @@
             return r.json().catch(function () { return {}; }).then(function (data) {
                 // The service sends a sentence written for a person. Showing
                 // "Request failed (400)" instead throws that away.
-                if (!r.ok) throw new Error(data.error || ('Request failed (' + r.status + ')'));
+                if (!r.ok) {
+                    var err = new Error(data.error || ('Request failed (' + r.status + ')'));
+                    // A caller has to be able to tell a REJECTED session from a
+                    // service that is merely unwell; without this the only
+                    // signal is a message written for a human to read.
+                    err.status = r.status;
+                    throw err;
+                }
                 return data;
             });
         });
     }
 
+    /* The cache exists so twenty landing pages do not each hit /me. It is
+     * deliberately short-lived: with no expiry at all, a session revoked in
+     * another tab -- or on another machine -- kept rendering as signed in for
+     * as long as this tab stayed open, because nothing ever asked again. */
+    var CACHE_TTL_MS = 5 * 60 * 1000;
+
     function cacheMe(user) {
         try {
-            if (user) sessionStorage.setItem(CACHE, JSON.stringify(user));
+            if (user) sessionStorage.setItem(CACHE, JSON.stringify({ at: Date.now(), u: user }));
             else sessionStorage.removeItem(CACHE);
         } catch (e) {}
     }
@@ -83,7 +96,13 @@
     function cachedMe() {
         try {
             var raw = sessionStorage.getItem(CACHE);
-            return raw ? JSON.parse(raw) : null;
+            if (!raw) return null;
+            var v = JSON.parse(raw);
+            // An entry written by an older build carries no timestamp; treat
+            // it as stale rather than trusting it for the life of the tab.
+            if (!v || typeof v.at !== 'number' || !v.u) return null;
+            if (Date.now() - v.at > CACHE_TTL_MS) return null;
+            return v.u;
         } catch (e) { return null; }
     }
 
@@ -104,11 +123,22 @@
             }
             return call('/auth/me').then(function (u) {
                 cacheMe(u); return u;
-            }).catch(function () {
+            }).catch(function (e) {
                 // An expired or revoked token should sign the person out
                 // rather than leave every later call failing on its own.
-                setToken(null);
-                return null;
+                //
+                // ONLY those. This used to discard the token on any failure at
+                // all, so one dropped request, one 502, one moment of flaky
+                // wifi logged somebody out permanently -- there is no refresh
+                // token here, so the session is simply gone and they have to
+                // sign in again. A transient failure must leave it alone.
+                if (e && (e.status === 401 || e.status === 403)) {
+                    setToken(null);
+                    return null;
+                }
+                // Still signed in as far as we know: report what we last knew
+                // rather than flickering the whole site to signed-out.
+                return cachedMe();
             });
         },
 
