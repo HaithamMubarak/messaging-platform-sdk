@@ -274,6 +274,41 @@ check('an account gates the SAVE control, and only that', () => {
         'the save checkbox is no longer what an account gates');
 });
 
+/*
+ * The save checkbox shows whether the channel IS saved -- refreshSaveRow ticks
+ * it from Keyring.has -- so unticking it has to be able to unsay it. It used to
+ * call touch(), which only bumps lastUsedAt on a row that is already there: the
+ * channel stayed saved and the box came back ticked next time. A control that
+ * reports state and cannot change it is lying about what it is.
+ */
+check('the account chip is a real target on a touch screen', () => {
+    // It is an <a class="mp-chip">, not a .btn, so every rule in the
+    // coarse-pointer block missed it and it stayed the height of the initial
+    // circle inside it -- about 24px. It is the only way to reach the platform
+    // account from most pages.
+    const ui = fs.readFileSync(path.join(STATIC, 'css', 'ui.css'), 'utf8');
+    const i = ui.indexOf('@media (pointer: coarse)');
+    assert.ok(i > 0, 'the coarse-pointer block is gone');
+    const block = ui.slice(i, ui.indexOf('\n}', i));
+    assert.ok(/\.mp-chip\s*\{[^}]*min-height:\s*44px/.test(block),
+        'the account chip is not given a 44px target on a touch screen');
+});
+
+check('unticking "save this channel" actually unsaves it', () => {
+    const modal = fs.readFileSync(path.join(STATIC, 'js', 'connection-modal.js'), 'utf8');
+    const start = modal.indexOf("var chk = document.getElementById('saveChannelChk');");
+    assert.ok(start > 0, 'the save checkbox is no longer read on connect');
+    const body = modal.slice(start, start + 1600);
+
+    assert.ok(/Keyring\.add\(/.test(body), 'ticking it no longer saves');
+    assert.ok(/Keyring\.remove\(/.test(body),
+        'unticking the box does not remove the saved channel, so the box ticks '
+      + 'itself again next time and the control does nothing');
+    assert.ok(/AppConfig\.forgetChannel\(/.test(body),
+        'the channel was removed but the app references pointing at it by id '
+      + 'were left aimed at a row that no longer exists');
+});
+
 check('every page with the modal can reach the saved list', () => {
     const wrong = htmlFiles(STATIC).filter((f) => {
         const t = fs.readFileSync(f, 'utf8');

@@ -71,6 +71,35 @@ check('and a row that arrives from a backup file carries none either', () => {
         'importData built a row with a different shape from add()');
 });
 
+/*
+ * The same room, saved twice, is one row.
+ *
+ * A channel is name AND password, and both sides of that comparison were used
+ * raw -- so a caller omitting the password and one passing '' described the
+ * same passwordless room and did not match each other. add() then failed to
+ * find the existing row and appended a second one.
+ */
+check('a missing password and an empty one are the same room', () => {
+    const { K } = load();
+    const first = K.add('a1', { name: 'open-room' });                 // no password key
+    const again = K.add('a1', { name: 'open-room', password: '' });   // explicitly empty
+    assert.strictEqual(K.list('a1').length, 1,
+        'the same passwordless room was saved twice: ' + JSON.stringify(K.list('a1')));
+    assert.strictEqual(again.id, first.id, 'add() returned a different row for the same room');
+
+    assert.ok(K.has('a1', 'open-room'), 'has() cannot find a room saved without a password');
+    assert.ok(K.has('a1', 'open-room', ''), 'has() disagrees with itself about the same room');
+    assert.ok(K.touch('a1', 'open-room'), 'touch() cannot find it either');
+});
+
+check('but a different password is still a different room', () => {
+    const { K } = load();
+    K.add('a1', { name: 'room', password: 'one' });
+    K.add('a1', { name: 'room', password: 'two' });
+    assert.strictEqual(K.list('a1').length, 2,
+        'two rooms sharing a name but not a password were merged into one');
+});
+
 check('the keyring source never mentions apps', () => {
     // A comment is fine; a field or parameter is the regression.
     const src = read('keyring.js');

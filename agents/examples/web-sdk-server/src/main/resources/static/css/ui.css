@@ -796,6 +796,11 @@ body.modal-open { overflow: hidden; }
 
     /* The wordmark is also the way home from every page. */
     .brand { min-height: 44px; display: inline-flex; align-items: center; }
+
+    /* The account chip is an <a>, not a .btn, so every rule above missed it
+       and it stayed a ~24px target -- the height of the initial circle inside
+       it. It is the only way to reach the platform account from most pages. */
+    .mp-chip { min-height: 44px; }
 }
 
 /* Save indicator — used by the apps with durable boards.

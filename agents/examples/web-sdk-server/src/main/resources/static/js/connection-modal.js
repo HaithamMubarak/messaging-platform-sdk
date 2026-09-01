@@ -868,9 +868,27 @@
             recordConnect: function (channel, password) {
                 if (!accountId || !window.Keyring) return;
                 var chk = document.getElementById('saveChannelChk');
-                var row = (chk && chk.checked)
-                    ? window.Keyring.add(accountId, { name: channel, password: password })
-                    : window.Keyring.touch(accountId, channel, password);
+                var row;
+                if (chk && chk.checked) {
+                    row = window.Keyring.add(accountId, { name: channel, password: password });
+                } else {
+                    // Unticking has to mean something. This box shows whether
+                    // the channel IS saved -- refreshSaveRow ticks it from
+                    // Keyring.has -- so unticking it and connecting used to
+                    // call touch(), which only bumps lastUsedAt on a row that
+                    // is already there. The channel stayed saved and the box
+                    // came back ticked: the control said one thing and did
+                    // nothing. Take it out instead.
+                    var saved = window.Keyring.touch(accountId, channel, password);
+                    if (saved) {
+                        window.Keyring.remove(accountId, saved.id);
+                        // Apps pointed at it by id; drop those rather than
+                        // leaving them aimed at a channel that is gone.
+                        if (window.AppConfig) window.AppConfig.forgetChannel(accountId, saved.id);
+                        saved = null;
+                    }
+                    row = saved;
+                }
                 // The app records that it used this channel. The channel does
                 // not record the app: the arrow points one way, app -> channel.
                 if (row && window.AppConfig) {

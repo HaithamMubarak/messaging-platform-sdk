@@ -76,8 +76,18 @@
         set(key, JSON.stringify(data));
     }
 
+    /**
+     * Is this the same room?
+     *
+     * A channel is identified by name AND password. Both sides are normalised
+     * because a caller that omits the password entirely and one that passes ''
+     * mean the same thing -- a room with no password -- and comparing them raw
+     * made them different rooms. add() would then not find the existing row
+     * and would append a second one, so the same room saved twice through the
+     * public API produced two entries.
+     */
     function sameChannel(a, name, password) {
-        return a.name === name && a.password === password;
+        return a.name === name && (a.password || '') === (password || '');
     }
 
     var Keyring = {
