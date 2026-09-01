@@ -153,6 +153,16 @@
     el('pSignOut').addEventListener('click', function () {
         A.logout().then(function () {
             accountId = null;
+            // The Drive token is a live credential to somebody's own Google
+            // Drive, held in memory for the page's lifetime. Signing out and
+            // handing the laptop over used to leave it there, so the next
+            // person's "Back up now" wrote THEIR channels into the previous
+            // person's Drive. The saved list itself is deliberately NOT
+            // cleared: it is the only copy there is, and losing it on a
+            // routine sign-out would be worse than anything this prevents.
+            if (window.DriveBackup) window.DriveBackup.disconnect();
+            showDriveButtons(false);
+            el('pDriveNote').hidden = true;
             show(false);
             if (window.ProfileChip) window.ProfileChip.render(null);
         });
@@ -164,7 +174,7 @@
         b.hidden = false;
         el('pGoogleWrap').hidden = false;
         b.addEventListener('click', function () {
-            window.location.href = A.googleStartUrl(window.location.href);
+            window.location.href = A.googleStartUrl();
         });
     });
 
@@ -246,8 +256,22 @@
         });
 
         el('pDriveBackup').addEventListener('click', function () {
-            driveNote('Encrypting and uploading…');
             var data = K.exportData(accountId);
+            // Backing up nothing REPLACES the file in Drive, so an empty list
+            // here destroys the only copy the user has -- and the commonest way
+            // to have an empty list is to be on a new device, which is exactly
+            // when somebody presses this meaning to RESTORE. Ask first; the
+            // question costs a click and the mistake costs the lot.
+            if (!data.channels.length && !window.confirm(
+                    'You have no saved channels on this device.\n\n'
+                  + 'Backing up now will REPLACE whatever is in your Drive with an '
+                  + 'empty list. If you meant to bring channels back from Drive, '
+                  + 'choose "Restore from Drive" instead.\n\n'
+                  + 'Replace the backup with an empty one?')) {
+                driveNote('Left your Drive backup alone.');
+                return;
+            }
+            driveNote('Encrypting and uploading…');
             A.exportKey().then(function (key) {
                 if (!key) throw new Error('Sign in to back up.');
                 return window.KeyringFile.write(data, key);

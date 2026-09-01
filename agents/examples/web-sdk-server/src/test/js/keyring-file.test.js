@@ -78,6 +78,61 @@ check('a v1 plaintext backup still imports, with no key at all', async () => {
     assert.deepStrictEqual(back.channels, DATA.channels);
 });
 
+/*
+ * Relabelling DOWNWARDS was the hole. Editing 2 -> 3 is caught by the version
+ * check above; editing 2 -> 1 took the plaintext branch, which reads
+ * `file.channels` -- a field a v2 file does not have -- and so returned an
+ * EMPTY list and reported success. The AAD binds the version inside the
+ * ciphertext, but nothing encrypted is ever opened on that branch, so the AAD
+ * cannot catch it and this is the only place it can be caught.
+ *
+ * A silent empty restore is worse than a failure: the person is told their
+ * backup opened, and merges nothing.
+ */
+check('relabelling a v2 file as v1 is refused, not silently read as empty', async () => {
+    const file = await KF.write(DATA, KEY);
+    file.version = 1;
+    await assert.rejects(() => KF.read(file, KEY), /has been edited/);
+});
+
+check('a v1 file with no channels array is damaged, not empty', async () => {
+    await assert.rejects(
+        () => KF.read({ format: 'mp-keyring', version: 1 }), /damaged/);
+    await assert.rejects(
+        () => KF.read({ format: 'mp-keyring', version: 1, channels: 'nope' }), /damaged/);
+});
+
+/*
+ * The AAD reaching the crypto at all, asserted directly. Every other version
+ * test is answered by a plain field comparison before a single byte is
+ * decrypted, so all of them would still pass with `additionalData` deleted
+ * from both calls.
+ */
+check('the AAD is really bound into the ciphertext', async () => {
+    const { subtle } = require('crypto').webcrypto;
+    const file = await KF.write(DATA, KEY);
+    const key = await subtle.importKey('raw', Buffer.from(KEY, 'base64'),
+        { name: 'AES-GCM' }, false, ['decrypt']);
+    const args = [{ name: 'AES-GCM', iv: Buffer.from(file.iv, 'base64') }, key,
+                  Buffer.from(file.ct, 'base64')];
+
+    // The right AAD opens it...
+    const plain = await subtle.decrypt(
+        Object.assign({}, args[0], { additionalData: Buffer.from('mp-keyring/2', 'utf8') }),
+        args[1], args[2]);
+    assert.deepStrictEqual(JSON.parse(Buffer.from(plain).toString('utf8')).channels,
+        DATA.channels);
+
+    // ...and no other value does, including none at all.
+    for (const aad of ['mp-keyring/1', 'mp-keyring/3', '']) {
+        await assert.rejects(() => subtle.decrypt(
+            Object.assign({}, args[0], { additionalData: Buffer.from(aad, 'utf8') }),
+            args[1], args[2]), 'AAD "' + aad + '" should not have opened the file');
+    }
+    await assert.rejects(() => subtle.decrypt(args[0], args[1], args[2]),
+        'the file opened with no AAD at all, so nothing is bound to the version');
+});
+
 check('a file that is not ours is refused', async () => {
     await assert.rejects(() => KF.read({ hello: 'world' }, KEY), /not a keyring backup/);
 });

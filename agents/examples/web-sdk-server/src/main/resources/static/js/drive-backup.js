@@ -43,10 +43,22 @@
             var s = document.createElement('script');
             s.src = GIS;
             s.async = true;
-            s.onload = resolve;
+            // onload only says the response arrived. An extension or a content
+            // blocker can serve an empty 200, and then initTokenClient is read
+            // off undefined and the person is shown a TypeError as product
+            // copy. Check for the thing we came for, not for the script tag.
+            s.onload = function () {
+                if (window.google && window.google.accounts && window.google.accounts.oauth2) resolve();
+                else reject(new Error('Google sign-in loaded but did not start. '
+                                    + 'A content blocker is the usual cause.'));
+            };
             s.onerror = function () { reject(new Error('Google sign-in could not be loaded.')); };
             document.head.appendChild(s);
         });
+        // A rejected promise cached here is permanent: one blocked load, and
+        // Drive stays broken until the page is reloaded even though the very
+        // next attempt would have worked. Cache the attempt, not the failure.
+        _gisLoading = _gisLoading.catch(function (e) { _gisLoading = null; throw e; });
         return _gisLoading;
     }
 
@@ -118,10 +130,25 @@
         });
     }
 
-    /** The file's Drive id, or null. */
+    /**
+     * The file's Drive id, or null.
+     *
+     * Two details that are not decoration:
+     *
+     *  - `trashed=false`. Drive's list does NOT exclude trashed files by
+     *    default, so a backup the user deleted could still be found and
+     *    restored, and `put` would PATCH the file in the bin rather than the
+     *    live one.
+     *  - newest first, explicitly. appDataFolder tolerates two files with the
+     *    same name, and nothing here has ever stopped a second one being
+     *    created — an interrupted first upload is enough. Unordered, `files[0]`
+     *    is whichever Drive felt like returning, so a backup could silently
+     *    restore an older list than the one just written.
+     */
     function find() {
         return api(FILES + '?spaces=appDataFolder&fields=files(id,name,modifiedTime)'
-                 + '&q=' + encodeURIComponent("name='" + FILENAME + "'"))
+                 + '&orderBy=' + encodeURIComponent('modifiedTime desc')
+                 + '&q=' + encodeURIComponent("name='" + FILENAME + "' and trashed=false"))
             .then(function (r) { return r.json(); })
             .then(function (d) {
                 var files = (d && d.files) || [];

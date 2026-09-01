@@ -148,7 +148,22 @@
                 return Promise.reject(new Error('That file is not a keyring backup.'));
             }
             if (file.version === 1) {
-                return Promise.resolve({ channels: Array.isArray(file.channels) ? file.channels : [] });
+                // A v1 file is plaintext and carries its channels in the
+                // clear. Anything else calling itself v1 is not one, and the
+                // commonest way to produce one is to edit the version of a v2
+                // file -- which took the branch above and restored NOTHING,
+                // reporting success. The AAD binds the version inside the
+                // ciphertext, but nothing encrypted is ever opened down here,
+                // so this is the only place that mismatch can be caught.
+                if (file.ct || file.iv) {
+                    return Promise.reject(new Error(
+                        'That backup is encrypted but labelled as an old plaintext one. '
+                      + 'It has been edited, and cannot be trusted.'));
+                }
+                if (!Array.isArray(file.channels)) {
+                    return Promise.reject(new Error('That backup file is damaged.'));
+                }
+                return Promise.resolve({ channels: file.channels });
             }
             if (file.version !== VERSION) {
                 return Promise.reject(new Error(
