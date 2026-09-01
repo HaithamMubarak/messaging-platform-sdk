@@ -160,6 +160,21 @@
         <input type="file" id="pFile" accept="application/json,.json" hidden>
       </div>
       <p id="pBackupNote" class="mp-profile__lead" hidden></p>
+
+      <!-- Custody means the key is held on the user's behalf, so the user has
+           to be able to take it away. Kept at the bottom, boxed and away from
+           "Back up now": the two buttons do opposite things and a misclick is
+           unrecoverable. -->
+      <div class="mp-danger">
+        <h3 class="mp-danger__title">Destroy the backup key</h3>
+        <p class="mp-profile__lead">
+          If a backup file of yours has ended up somewhere it should not be,
+          destroying the key is what makes it unreadable &mdash; it is the only
+          remedy, and it cannot be undone.
+        </p>
+        <button type="button" id="pDestroyKey" class="btn btn--danger">Destroy backup key&hellip;</button>
+        <p id="pDestroyNote" class="mp-profile__lead" role="status" hidden></p>
+      </div>
     </section>
 
     <section class="card mp-profile__card" id="pDriveCard" hidden>
@@ -182,6 +197,7 @@
   </section>
 </main>
 
+<script src="/messaging-platform/sdk/js/dialog.js"></script>
 <script src="/messaging-platform/sdk/js/mp-account.js"></script>
 <script src="/messaging-platform/sdk/js/keyring.js"></script>
 <script src="/messaging-platform/sdk/js/app-config.js"></script>

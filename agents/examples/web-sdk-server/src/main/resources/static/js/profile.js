@@ -227,6 +227,46 @@
         e.target.value = '';
     });
 
+    /* ---- destroying the key ----
+     *
+     * Rule 3 is custody, not incapability: we hold the export key on the
+     * user's behalf. An endpoint that can take it back existed from the start
+     * and nothing ever called it, which made the custody story a half-promise
+     * -- the remedy was real but reachable only with curl.
+     *
+     * The Drive file is deliberately NOT deleted. It is the user's own file in
+     * their own Drive; after this it is unreadable bytes, and removing it is
+     * their decision to make, not ours.
+     */
+    el('pDestroyKey').addEventListener('click', function () {
+        var note = function (text) {
+            var n = el('pDestroyNote');
+            n.hidden = false;
+            n.textContent = text;
+        };
+        window.AppDialog.ask({
+            title: 'Destroy your backup key?',
+            body: 'Every backup you have ever made — the downloaded files and the copy '
+                + 'in your Google Drive — becomes permanently unreadable, for everyone, '
+                + 'including you and including us. The channels saved in this browser are '
+                + 'untouched. Your next backup will mint a fresh key, and only backups '
+                + 'made after that will be restorable.',
+            confirmWord: 'destroy',
+            placeholder: 'destroy',
+            confirmLabel: 'Destroy key',
+            danger: true
+        }).then(function (typed) {
+            if (typed !== 'destroy') return;          // cancelled, or not typed
+            note('Destroying…');
+            return A.destroyExportKey().then(function () {
+                note('Backup key destroyed. Old backups can no longer be restored. '
+                   + 'Make a new backup when you\u2019re ready.');
+            });
+        }).catch(function (e) {
+            note(e && e.message ? e.message : 'That did not work.');
+        });
+    });
+
     /* ---- Google Drive: the same encrypted file, in the user's own Drive ---- */
     function driveNote(text) {
         var n = el('pDriveNote');

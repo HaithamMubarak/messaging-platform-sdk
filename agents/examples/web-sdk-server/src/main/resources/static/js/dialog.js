@@ -59,7 +59,14 @@ function mountDialogStyles() {
 
 /**
  * @param {Object} opts {title, body, confirmLabel, cancelLabel, danger,
- *                       input:boolean, value, placeholder, cancellable}
+ *                       input:boolean, value, placeholder, cancellable,
+ *                       confirmWord}
+ *
+ * `confirmWord` is for the handful of actions that cannot be undone by
+ * anyone, ever. It shows the input, holds the confirm button disabled until
+ * the field matches that word exactly, and leaves focus on Cancel -- so the
+ * action cannot be reached by a reflex Enter, and cannot be reached at all
+ * without reading. Enter does nothing until the word matches.
  * @returns {Promise<boolean|string|null>} the answer: true/false for a
  *          question, the text or null when `input` is set.
  */
@@ -85,6 +92,7 @@ function ask(opts) {
         card.appendChild(p);
 
         let field = null;
+        if (opts.confirmWord) opts.input = true;
         if (opts.input) {
             field = document.createElement('input');
             field.className = 'mgu-input';
@@ -127,7 +135,15 @@ function ask(opts) {
             resolve(value);
         }
         const no = function () { finish(opts.input ? null : false); };
-        const yes = function () { finish(opts.input ? (field ? field.value : '') : true); };
+        // A word-gated dialog refuses to fire until the word is right, whether
+        // it is reached by click, by Enter, or by anything added later.
+        const armed = function () {
+            return !opts.confirmWord || (field && field.value === opts.confirmWord);
+        };
+        const yes = function () {
+            if (!armed()) return;
+            finish(opts.input ? (field ? field.value : '') : true);
+        };
 
         function onKey(e) {
             if (e.key === 'Escape' && cancellable) { e.preventDefault(); no(); }
@@ -148,9 +164,23 @@ function ask(opts) {
         scrim.onclick = function (e) { if (e.target === scrim && cancellable) no(); };
         document.addEventListener('keydown', onKey, true);
 
+        if (opts.confirmWord && field) {
+            const sync = function () {
+                goBtn.disabled = !armed();
+                goBtn.setAttribute('aria-disabled', goBtn.disabled ? 'true' : 'false');
+            };
+            field.addEventListener('input', sync);
+            sync();
+        }
+
         document.body.appendChild(scrim);
-        (field || goBtn).focus();
-        if (field) field.select();
+        // Destructive-by-typing dialogs open on Cancel, not on the field: the
+        // safe way out should be what a reflex Enter finds.
+        if (opts.confirmWord && cancelBtn) cancelBtn.focus();
+        else {
+            (field || goBtn).focus();
+            if (field) field.select();
+        }
     });
 }
 
