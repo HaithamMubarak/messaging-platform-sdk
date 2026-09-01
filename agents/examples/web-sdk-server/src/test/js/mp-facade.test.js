@@ -146,6 +146,17 @@ check('the guarantee it advertises is the one it can keep', () => {
     assert.strictEqual(MP.guarantees.appsCannotReadStorage, false);
     assert.ok(/not\s+a\s+wall/i.test(MP.guarantees.statement),
         'the advertised statement stopped admitting it is a policy');
+
+    /*
+     * Pinning the two keys that exist only stops those two flipping. A NEW
+     * key -- `channelsEncryptedAtRest: true`, say -- is a fresh claim nobody
+     * checked, and it would be advertised to every app with this suite green.
+     * The set is the guarantee, not just its current values.
+     */
+    assert.deepStrictEqual(Object.keys(MP.guarantees).sort(),
+        ['appsCannotReadStorage', 'passwordsNeverReturned', 'statement'],
+        'MP.guarantees grew or lost a claim. A new guarantee is a new promise: '
+      + 'prove the code keeps it, then add it here deliberately.');
 });
 
 (async () => {

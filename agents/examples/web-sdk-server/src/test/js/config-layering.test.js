@@ -50,6 +50,27 @@ check('a saved channel carries no app state at all', () => {
         ['createdAt', 'id', 'label', 'lastUsedAt', 'name', 'password']);
 });
 
+/*
+ * add() is not the only door into the channel list. importData() builds rows
+ * too -- from a file, which is the one input that did not come from this code
+ * -- and it was pinned by nothing. An `apps` field riding in on a backup would
+ * land straight in the list with the shape check above still green.
+ */
+check('and a row that arrives from a backup file carries none either', () => {
+    const { K } = load();
+    K.importData('a1', { channels: [{
+        name: 'room-1', password: 'p', label: 'One',
+        apps: ['chess', 'whiteboard'],       // must not survive the import
+        somethingElse: 'also not ours',
+    }] });
+    const row = K.list('a1')[0];
+    assert.ok(!('apps' in row),
+        'an imported channel row carried an app field in: ' + JSON.stringify(row));
+    assert.deepStrictEqual(Object.keys(row).sort(),
+        ['createdAt', 'id', 'label', 'lastUsedAt', 'name', 'password'],
+        'importData built a row with a different shape from add()');
+});
+
 check('the keyring source never mentions apps', () => {
     // A comment is fine; a field or parameter is the regression.
     const src = read('keyring.js');

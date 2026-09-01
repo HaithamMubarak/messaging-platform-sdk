@@ -62,15 +62,25 @@ tasks.named('test') {
  */
 def hasNode = { ['sh', '-c', 'command -v node'].execute().waitFor() == 0 }
 
-['custom-type-filter', 'app-host-election', 'active-channel',
- 'google-return', 'config-layering', 'mp-facade', 'keyring-file'].each { name ->
+/*
+ * Discovered, not listed.
+ *
+ * This was a hardcoded array of seven names, each guarded by
+ * `testFile.exists()` -- so a suite that was renamed, or a new one that nobody
+ * remembered to add here, did not fail: it silently did not run, and `check`
+ * stayed green while defending nothing. Adding a file is exactly the moment
+ * the list does not get updated. Walk the directory.
+ */
+def jsTestFiles = fileTree(dir: 'src/test/js', include: '*.test.js').files.sort { it.name }
+
+jsTestFiles.collect { it.name - '.test.js' }.each { name ->
     tasks.register("jsTest_${name.replaceAll('-', '_')}", Exec) {
         description = "Runs src/test/js/${name}.test.js under node"
         group = 'verification'
         def testFile = file("src/test/js/${name}.test.js")
         onlyIf {
             if (!hasNode()) logger.lifecycle("jsTest: node not found, skipping ${name}")
-            hasNode() && testFile.exists()
+            hasNode()
         }
         // The election tests read the GENERATED web-agent bundle, so it has to
         // have been copied from the web-agent-js module first.
