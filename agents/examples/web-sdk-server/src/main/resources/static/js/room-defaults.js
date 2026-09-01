@@ -38,6 +38,31 @@
         return out;
     }
 
+    /**
+     * Is the current URL an invite?
+     *
+     * Decoded exactly the way connection-modal.js decodes it, so the two
+     * agree on what an invite is: everything up to a second '#', run through
+     * ChannelAuthUtils when it is loaded and through plain base64 JSON when it
+     * is not. An invite is a hash that yields an object carrying a channel.
+     */
+    function inviteInHash() {
+        const hash = window.location.hash || '';
+        if (!hash || hash.charAt(0) !== '#') return false;
+        const content = hash.substring(1).split('#')[0];
+        if (!content) return false;
+
+        let decoded = null;
+        try {
+            decoded = (window.ChannelAuthUtils && window.ChannelAuthUtils.decodeAuto)
+                ? window.ChannelAuthUtils.decodeAuto(content, null)
+                : JSON.parse(atob(content));
+        } catch (e) {
+            return false;
+        }
+        return !!(decoded && decoded.c);
+    }
+
     function read(store, key) {
         try { return store.getItem(key) || ''; } catch (e) { return ''; }
     }
@@ -62,7 +87,13 @@
         if (!channelEl && !passwordEl) return;
 
         // A shared invite link owns the room; never overwrite it.
-        if (window.location.hash && /[?&#](c|channel)=/.test(window.location.hash)) return;
+        //
+        // An invite hash is base64 JSON -- `#eyJjIjoi...`, decoded by
+        // ChannelAuthUtils -- not `?c=`. This used to test for query-style
+        // parameters, which no invite this site has ever produced can match,
+        // so the guard returned false for every real invite and the shared
+        // channel was free to overwrite the room somebody had been sent to.
+        if (inviteInHash()) return;
 
         const legacy = opts.sharedDefaults || [];
         const isReplaceable = (el) => !el || !el.value.trim() || legacy.indexOf(el.value.trim()) !== -1;
