@@ -304,9 +304,19 @@
             title: 'Look under the hood',
             collapsedTitle: 'Under the Hood',
             onConnect: async function (username, channel, password) {
+                // This page is `promiscuous`, which means rawRoom: it joins the
+                // name it is given, verbatim, and derives no suffix of its own.
+                // So to watch an app's room it has to be told which one --
+                // every other app is in `channel + "." + appId` now.
+                var appId = (el('inspectApp') && el('inspectApp').value || '').trim();
+                if (appId && !/^[a-z0-9-]+$/.test(appId)) {
+                    throw new Error('An app name is lower-case letters, digits and hyphens.');
+                }
+                var room = appId ? channel + '.' + appId : channel;
+
                 await app.initialize();
                 await app.connect({
-                    username: username, channelName: channel, channelPassword: password
+                    username: username, channelName: room, channelPassword: password
                 });
                 app.start();
             }

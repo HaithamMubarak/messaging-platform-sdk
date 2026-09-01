@@ -123,3 +123,26 @@
 .hood-empty { color: var(--text-muted, #8a97ab); font-size: var(--fs-sm, .8125rem); margin: 0; }
 .hood-actions { display: flex; gap: var(--sp-2, .5rem); flex-wrap: wrap; }
 .hood-hint { font-size: var(--fs-xs, .75rem); color: var(--text-muted, #8a97ab); line-height: var(--lh-body, 1.65); }
+
+/* Naming the app whose room to watch. Rule 7 gives every app a room of its
+   own, so this page can no longer see anything by simply being on the
+   channel — it has to say what it is inspecting. */
+.hood-inspect { margin-top: var(--sp-4, 1rem); }
+.hood-inspect__label {
+    display: block;
+    font-size: var(--fs-sm, .85rem);
+    font-weight: 600;
+    margin-bottom: var(--sp-2, .5rem);
+}
+.hood-inspect input {
+    width: 100%;
+    max-width: 22rem;
+    min-height: 44px;              /* the site's coarse-pointer rule */
+    padding: 0 var(--sp-3, .75rem);
+    font: inherit;
+    color: var(--text, inherit);
+    background: var(--surface-2, transparent);
+    border: 1px solid var(--border, currentColor);
+    border-radius: var(--radius-md, 8px);
+}
+.hood-inspect input:invalid { border-color: var(--danger, #b3261e); }

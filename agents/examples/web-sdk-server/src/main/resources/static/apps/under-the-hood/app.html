@@ -45,6 +45,23 @@
             "Step aside" disconnects this tab on purpose. If it was the host, watch another tab take
             over — host migration is the part of the system nobody can normally see happening.
         </p>
+
+        <!-- Rule 7: every app now joins `channel + "." + appId`, so this page
+             sees nothing on the bare channel. To watch an app you must name
+             it, which is the honest shape: inspecting is a deliberate act. -->
+        <div class="hood-inspect">
+            <label class="hood-inspect__label" for="inspectApp">App to inspect</label>
+            <input id="inspectApp" type="text" placeholder="whiteboard" autocomplete="off"
+                   pattern="[a-z0-9-]*" maxlength="40"
+                   aria-describedby="inspectAppHint">
+            <p id="inspectAppHint" class="hood-hint">
+                Each app joins a room of its own — the channel plus its name. Leave this blank to
+                watch the bare channel, or type an app (<code>whiteboard</code>, <code>chess</code>)
+                to join the room that app is actually in.
+                <strong>Inspecting a room makes this tab a peer in it, and can affect host election
+                there.</strong>
+            </p>
+        </div>
     </section>
 
     <div class="hood-grid">

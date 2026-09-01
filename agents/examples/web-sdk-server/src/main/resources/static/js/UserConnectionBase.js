@@ -72,6 +72,13 @@ class UserConnectionBase {
             ...options
         };
 
+        // Whether the caller DECLARED an app, as opposed to inheriting the
+        // `customType: 'session'` default above. The wire room is derived from
+        // a declared app only: a third-party caller that names no app must keep
+        // joining exactly the room it always did. See _wireRoom.
+        this._appDeclared = Object.prototype.hasOwnProperty.call(options || {}, 'customType')
+            && !!(options || {}).customType;
+
         // Simple structure like legacy code
         this.channel = null;           // AgentConnection instance
         this.webrtcHelper = null;      // WebRtcHelper instance
@@ -202,6 +209,57 @@ class UserConnectionBase {
     /**
      * Connect to game channel - same as legacy code
      */
+    /**
+     * The room this app actually joins, as opposed to the channel a person
+     * chose.  RULE 7: a channel is a CREDENTIAL; the room is
+     * `channel + "." + appId`, and nothing above this layer ever sees it.
+     *
+     * One channel used to mean one room for every app at once, which was
+     * settled by shipping rather than decided.  It does not work: host
+     * authority is channel-wide while apps are not, and the customType filter
+     * discards foreign traffic — so a peer from another app is not a
+     * collaborator in the room, it is an inert seat.  It stalls a game waiting
+     * on a quorum that can never act, absorbs a dealt mission, and — because
+     * WebRTC media never passes through the message filter — can be offered a
+     * live camera stream.  App-scoped host election was written to contain
+     * this and one untagged tab collapses it back to room-wide.
+     *
+     * So scope the ROOM once, here, instead of re-scoping roster, seating,
+     * election and media inside every app forever.  The channel still follows
+     * a person from app to app, which is the whole feature: two people on the
+     * same channel in the same app still meet.  What goes away is the
+     * cross-app roster ghost, which today only ever breaks something.
+     *
+     * The bare channel is what the keyring, `mp.active.v1`, every invite link
+     * and every visible field hold.  Only the join call is suffixed.
+     *
+     * @param {string} channelName the channel a person chose
+     * @param {object} options     the connection options
+     * @returns {string} the room to join on the wire
+     */
+    static wireRoom(channelName, options) {
+        const opts = options || {};
+
+        // A tool whose job is to watch a room must be able to name it exactly.
+        // `promiscuous` already means "see everything", which is incoherent
+        // with being confined to one app's room, so it implies rawRoom.
+        if (opts.rawRoom || opts.promiscuous) return channelName;
+
+        // Not declared: behave exactly as before. A caller outside this repo
+        // must not have its wire room changed by a version bump.
+        if (!opts._appDeclared) return channelName;
+
+        const appId = String(opts.customType || '');
+        // The segment after the LAST dot has to identify the app, so an appId
+        // may not contain one -- otherwise `a.b` + `c` and `a` + `b.c` are the
+        // same room, and two apps silently share one.
+        if (!/^[a-z0-9-]+$/.test(appId)) {
+            throw new Error('customType must match /^[a-z0-9-]+$/ to scope a room; got "'
+                          + appId + '"');
+        }
+        return channelName + '.' + appId;
+    }
+
     async connect(credentials) {
         const { username, channelName, channelPassword } = credentials;
 
@@ -233,8 +291,21 @@ class UserConnectionBase {
 
         try {
             this.username = username;
-            this.channelName = channelName;
+            this.channelName = channelName;          // bare, always
             this.channelPassword = channelPassword || '';
+
+            const wireRoom = UserConnectionBase.wireRoom(channelName, {
+                ...this.options, _appDeclared: this._appDeclared });
+            if (wireRoom !== channelName) {
+                console.log('[UserConnectionBase] channel "' + channelName
+                          + '" -> room "' + wireRoom + '"');
+            } else if (!this.options.promiscuous && !this.options.rawRoom
+                       && !this._appDeclared) {
+                console.warn('[UserConnectionBase] no customType declared, so this '
+                           + 'connection joins the unscoped room "' + channelName
+                           + '" and will share it with every other app on this '
+                           + 'channel. Declare customType to get a room of your own.');
+            }
 
             // Get config
             console.log('[UserConnectionBase] Requesting API key...');
@@ -288,7 +359,10 @@ class UserConnectionBase {
                 this.channel.connect({
                     api: apiUrl,
                     apiKey: apiKey,
-                    channelName,
+                    // The ROOM, not the channel. this.channelName stays bare:
+                    // it is what the UI shows, what the keyring saves and what
+                    // an invite carries. See wireRoom.
+                    channelName: wireRoom,
                     channelPassword,
                     agentName: username,
                     // Declaring the app does two things, both of which need it
