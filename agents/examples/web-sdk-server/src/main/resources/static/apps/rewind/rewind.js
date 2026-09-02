@@ -54,7 +54,15 @@
             super({
                 storagePrefix: 'rewind_',
                 customType: 'rewind',
-                autoCreateDataChannel: false    // a viewer talks to nobody
+                autoCreateDataChannel: false,   // a viewer talks to nobody
+                // Rule 7 puts every app in `channel + "." + appId`, and this
+                // page's whole job is to read a DIFFERENT app's storage. Left
+                // to derive its own room it joined `channel.rewind`, which
+                // nothing writes to, so every session looked like a channel
+                // nobody had drawn in -- the empty-state message, forever.
+                // rawRoom means "join the name you are given, verbatim"; the
+                // caller below supplies the whiteboard's room.
+                rawRoom: true
             });
             this.frames = [];      // one per stored version, oldest first
             this.at = 0;
@@ -63,7 +71,10 @@
 
         onConnect() {
             if (window.ConnectionModal && window.ConnectionModal.hide) window.ConnectionModal.hide();
-            el('channelName').textContent = this.channelName || 'this channel';
+            // Show the channel the person typed, not the derived room: they
+            // asked for "standup", and `standup.whiteboard` is plumbing.
+            var shown = (this.channelName || '').replace(/\.whiteboard$/, '');
+            el('channelName').textContent = shown || 'this channel';
             this.load();
         }
 
@@ -269,9 +280,14 @@
             title: 'Replay a session',
             collapsedTitle: 'Rewind',
             onConnect: async function (username, channel, password) {
+                // The room a whiteboard writes to. Typing "standup" here means
+                // the board drawn in the whiteboard app on channel "standup",
+                // which is `standup.whiteboard` on the wire.
+                var room = /\.whiteboard$/.test(channel) ? channel : channel + '.whiteboard';
+
                 await app.initialize();
                 await app.connect({
-                    username: username, channelName: channel, channelPassword: password
+                    username: username, channelName: room, channelPassword: password
                 });
                 app.start();
             }

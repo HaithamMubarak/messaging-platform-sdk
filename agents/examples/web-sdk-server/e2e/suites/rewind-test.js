@@ -44,9 +44,22 @@ async function openApp(b, path, room, name, readyFn) {
         await wb.mouse.move(950, y, { steps: 12 });
         await wb.mouse.up();
         await wb.waitForTimeout(1500);
-        await wb.evaluate(() => {
-            if (typeof saveBoardState === 'function') saveBoardState();
-        }).catch(() => {});
+        // The whiteboard's save is saveBoardStateToStorage. This used to call
+        // saveBoardState -- a name that does not exist -- behind a
+        // `typeof === 'function'` guard and a swallowed catch, so it silently
+        // saved nothing and the suite could only pass when the app happened to
+        // autosave by another route. A guard that turns "the function is gone"
+        // into "everything is fine" is the same failure this repo keeps
+        // finding: the check that cannot fail. So call it, and shout if it is
+        // not there.
+        const saved = await wb.evaluate(() => {
+            if (typeof saveBoardStateToStorage !== 'function') return 'missing';
+            saveBoardStateToStorage();
+            return 'called';
+        });
+        if (saved === 'missing') {
+            check(false, 'the whiteboard exposes saveBoardStateToStorage for the test to drive');
+        }
         await wb.waitForTimeout(4000);
     }
 
