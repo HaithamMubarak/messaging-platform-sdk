@@ -1,15 +1,20 @@
 /**
- * Evidence Chain: append-only storage, made tamper-evident.
+ * Evidence Chain: the demo of the Attest primitive.
  *
  * The suite exists to prove the verifier can FAIL. A chain that always reports
  * "ok" is indistinguishable from a chain that is never checked, so a green run
  * here has to include the verifier catching a break at the right entry — twice,
  * once for an altered entry and once for a removed one.
  *
- * It also proves the log is genuinely in channel storage rather than in the
- * tab that wrote it: the second browser context is created after the first is
- * destroyed, so there is no peer and nothing in memory. Whatever it reads came
- * out of storage.
+ * It also proves the log is genuinely in channel storage and the platform
+ * chain rather than in the tab that wrote it: the second browser context is
+ * created after the first is destroyed, so there is no peer and nothing in
+ * memory. Whatever it reads came out of storage and out of attestList.
+ *
+ * The app moved off its own hand-rolled chain onto attest(), so two things
+ * changed here on purpose: sequence numbers are assigned by the server and
+ * start at 1 (the app never picks one), and verification now has two halves --
+ * the signed chain, and whether each stored note still hashes to its receipt.
  */
 const { BASE } = require('../lib/harness');
 const { chromium } = require('playwright');
@@ -65,12 +70,18 @@ const append = async (p, text) => {
         const wrote = await first.evaluate(() => window.ecApp.entries.length);
         check(wrote === 3, `three entries appended (${wrote})`);
 
-        const seqs = await first.evaluate(() => window.ecApp.entries.map(e => e.stamp.seq));
-        check(JSON.stringify(seqs) === '[0,1,2]', `each append took the next sequence (${seqs})`);
+        const seqs = await first.evaluate(() => window.ecApp.entries.map(e => e.seq));
+        check(JSON.stringify(seqs) === '[1,2,3]',
+            `the server assigned each append the next sequence, starting at 1 (${seqs})`);
 
         const distinct = await first.evaluate(() =>
             new Set(window.ecApp.entries.map(e => e.chain)).size);
         check(distinct === 3, 'every entry has its own chain hash');
+
+        const signed = await first.evaluate(() =>
+            (window.ecApp.bundle.records || []).every(r => !!r.sig && !!r.kid)
+            && (window.ecApp.bundle.publicKeys || []).length > 0);
+        check(signed, 'each record is signed, and the key to check it came back with the log');
 
         await first.context().close();      // nobody is online now
         first = null;
@@ -93,7 +104,9 @@ const append = async (p, text) => {
         const altered = await second.evaluate(() => window.ecApp.verify());
         check(altered.ok === false, 'altering entry 1 is DETECTED — the verifier can fail');
         check(altered.brokenAt === 1, `and it names entry 1 as the first break (got ${altered.brokenAt})`);
-        check(altered.expected !== altered.found, 'the re-derived hash differs from the recorded one');
+        check(altered.expected !== altered.found, 'the re-derived hash differs from the attested one');
+        check(altered.scope === 'content',
+            `and it is named as a content break, not a chain break (got ${altered.scope})`);
 
         const flagged = await second.evaluate(() =>
             document.querySelectorAll('.ec-entry--broken').length);
@@ -114,6 +127,8 @@ const append = async (p, text) => {
         check(removed.ok === false, 'removing an entry is DETECTED');
         check(removed.brokenAt === 1,
             `the break is at the entry that moved up into the hole (got ${removed.brokenAt})`);
+        check(removed.scope === 'order' || removed.scope === 'count',
+            `and the log and its receipts are reported as disagreeing (got ${removed.scope})`);
 
         // ---- an entry is somebody else's text ----------------------------
         await second.evaluate(() => window.ecApp.reload());

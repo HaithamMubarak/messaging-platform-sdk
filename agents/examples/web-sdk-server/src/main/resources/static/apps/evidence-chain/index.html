@@ -72,16 +72,25 @@
     <section class="wrap" style="padding-block: var(--sp-12)">
         <h2>What it demonstrates</h2>
         <p>
-            Two platform facts, and the point is that neither is enough by itself.
+            Two platform features, and the point is that neither is enough by itself.
             <code>storageAdd</code> <strong>appends a version instead of replacing a value</strong>,
-            so the channel keeps every entry that was ever written — that gives you a log.
-            The hash of each entry covers the previous entry's hash, which welds those entries into
-            an order — that is what turns a log into a record.
+            so the channel keeps every note that was ever written — that gives you a log.
+            <code>attest</code> sends the <strong>hash</strong> of each note to the platform, which
+            assigns the order, stamps its own clock, welds each record to the one before it and
+            signs the result — that is what turns a log into a record. The platform never sees the
+            note itself, only its hash.
         </p>
         <p>
             Storage without the chain lets somebody hand you a shorter list and call it the whole
-            thing. The chain without storage lets somebody hand you a different list. Together they
+            thing. The chain without storage proves an order but not what was in it. Together they
             mean an entry can be added, and nothing else can happen to one.
+        </p>
+        <p>
+            Verification asks both questions, and you can watch each fail.
+            <code>AgentConnection.attestVerify</code> re-derives every hash and checks every
+            signature against the published key — <strong>without asking the platform whether the
+            platform is honest</strong>. Then each stored note is re-hashed and compared to the
+            receipt written for it, which is what catches somebody editing the text afterwards.
         </p>
     </section>
 

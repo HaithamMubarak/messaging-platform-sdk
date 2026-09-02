@@ -239,11 +239,11 @@
                         <span class="tile-icon" style="margin:0"><svg class="icon" aria-hidden="true"><use href="#i-shield"></use></svg></span>
                         <h3>Evidence Chain</h3>
                     </div>
-                    <p>Append entries to a channel and each one hashes over the one before it, so the log can be added to and nothing else. Alter an entry or delete one yourself — the verifier names where the chain first breaks.</p>
+                    <p>The demo of <code>attest</code>: the note goes to channel storage, its hash goes to the platform, which orders it, signs it and welds it to the record before. Alter an entry or delete one yourself — verification re-derives the chain and checks every signature without asking the platform whether the platform is honest, then names where it broke.</p>
                     <div class="game-card__proves">
-                        <span class="badge badge--brand">Storage versions</span>
-                        <span class="badge">Append-only log</span>
-                        <span class="badge">Tamper-evident</span>
+                        <span class="badge badge--brand">Attest receipts</span>
+                        <span class="badge">Signed chain</span>
+                        <span class="badge">Offline verification</span>
                     </div>
                     <div class="entry-foot">
                         <a class="btn btn--sm btn--ghost entry-alt" href="apps/evidence-chain/index.html">What it does</a>
