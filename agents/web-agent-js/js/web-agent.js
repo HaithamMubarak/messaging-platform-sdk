@@ -2846,6 +2846,213 @@
         xhr.send(JSON.stringify(payload));
     }
 
+    // ---- Attest: hash-chain receipts --------------------------------------
+    //
+    // The server witnesses only what a server honestly can -- the ORDER of
+    // records, its own clock, and the authenticated agent -- and signs that.
+    // The content never leaves your machine: you hash it here and send the
+    // hash. Everything below is the client half of that bargain, including a
+    // verifier that re-derives a chain with no help from the platform.
+
+    function attestUrl(apiBase, endpoint){
+        let baseUrl = apiBase || '';
+        if(baseUrl.endsWith('/')){
+            baseUrl = baseUrl.substring(0, baseUrl.length - 1);
+        }
+        return `${baseUrl}/attest/${endpoint}`;
+    }
+
+    /**
+     * Stable JSON: same object, same string, same hash, everywhere, next year.
+     *
+     * This MUST stay byte-identical to AttestCrypto.canonical() on the server
+     * and to canonical() in the evidence-chain demo. JSON.stringify alone is
+     * not stable -- key order follows insertion -- and a chain whose canonical
+     * form drifts is a chain that stops verifying with no error to read.
+     */
+    function attestCanonical(obj){
+        if(obj === null || typeof obj !== 'object') return JSON.stringify(obj);
+        if(Array.isArray(obj)) return '[' + obj.map(attestCanonical).join(',') + ']';
+        return '{' + Object.keys(obj).sort().map(function(k){
+            return JSON.stringify(k) + ':' + attestCanonical(obj[k]);
+        }).join(',') + '}';
+    }
+
+    function attestSha256Hex(bytesOrText){
+        const data = typeof bytesOrText === 'string'
+            ? new TextEncoder().encode(bytesOrText)
+            : bytesOrText;
+        return crypto.subtle.digest('SHA-256', data).then(function(digest){
+            return Array.prototype.slice.call(new Uint8Array(digest)).map(function(b){
+                return b.toString(16).padStart(2, '0');
+            }).join('');
+        });
+    }
+
+    function attestB64ToBytes(b64){
+        const bin = atob(b64);
+        const out = new Uint8Array(bin.length);
+        for(let i = 0; i < bin.length; i++) out[i] = bin.charCodeAt(i);
+        return out;
+    }
+
+    /**
+     * Hash content the way Attest expects. Exposed because an app should never
+     * have to guess how its own receipt was computed.
+     * @param {string|ArrayBuffer|Uint8Array} content
+     * @returns {Promise<string>} lowercase hex SHA-256
+     */
+    AgentConnection.prototype.attestHash = function(content){
+        return attestSha256Hex(content);
+    }
+
+    /**
+     * Append one record to a chain (created on first use).
+     * @param {object} options - {chainKey, kind, contentHash, meta}
+     * @param {function} callback - Callback function(response)
+     */
+    AgentConnection.prototype.attest = function(options, callback){
+        const _self = this;
+        const {chainKey, kind, contentHash, meta = null} = options || {};
+
+        if(!_self.readyState || !_self.sessionId){
+            typeof callback === 'function' && callback({status : 'error', data : 'The channel is not ready.'});
+            return;
+        }
+
+        _self._attestPost('append', {
+            chainKey : chainKey,
+            kind : kind,
+            contentHash : contentHash,
+            meta : meta
+        }, callback);
+    }
+
+    /**
+     * Read a chain back, oldest first, with the genesis and public keys needed
+     * to verify it.
+     * @param {string} chainKey
+     * @param {function} callback - Callback function(response)
+     */
+    AgentConnection.prototype.attestList = function(chainKey, callback){
+        this._attestPost('list', {chainKey : chainKey}, callback);
+    }
+
+    /**
+     * A self-contained bundle: chain, genesis, rule, and key. The server walks
+     * the chain before issuing one and refuses a bundle it knows is broken.
+     * @param {string} chainKey
+     * @param {function} callback - Callback function(response)
+     */
+    AgentConnection.prototype.attestExport = function(chainKey, callback){
+        this._attestPost('export', {chainKey : chainKey}, callback);
+    }
+
+    /**
+     * Every chain name in this channel.
+     * @param {function} callback - Callback function(response)
+     */
+    AgentConnection.prototype.attestChains = function(callback){
+        this._attestPost('chains', {}, callback);
+    }
+
+    /**
+     * Re-derive a chain and check every signature. Deliberately takes plain
+     * data rather than talking to the platform: this is what makes an exported
+     * receipt outlive us. Feed it a bundle from a file and it still answers.
+     *
+     * @param {object} bundle - {channelId, chainKey, genesis, records, publicKeys}
+     * @returns {Promise<object>} {ok:true, length} | {ok:false, brokenAt, reason}
+     */
+    AgentConnection.attestVerify = async function(bundle){
+        const records = (bundle && bundle.records) || [];
+        const keys = (bundle && bundle.publicKeys) || [];
+        if(!bundle || !bundle.genesis){
+            return {ok : false, brokenAt : null, reason : 'bundle has no genesis to start from'};
+        }
+
+        // Import each published key once, by kid.
+        const byKid = {};
+        for(const k of keys){
+            try {
+                byKid[k.kid] = await crypto.subtle.importKey(
+                    'spki', attestB64ToBytes(k.publicKey),
+                    {name : 'ECDSA', namedCurve : 'P-256'}, false, ['verify']);
+            } catch(e) {
+                return {ok : false, brokenAt : null, reason : 'could not import key ' + k.kid};
+            }
+        }
+
+        let prev = bundle.genesis;
+        for(let i = 0; i < records.length; i++){
+            const r = records[i];
+
+            if(r.prev !== prev){
+                return {ok : false, brokenAt : i, reason : 'prev does not match the previous record\'s chain'};
+            }
+
+            // The stamp is rebuilt, not trusted: if a stored agent name or time
+            // were altered, the chain value below stops matching.
+            const stamp = attestCanonical({agent : r.stamp.agent, serverTime : r.stamp.serverTime});
+            const expect = await attestSha256Hex(r.prev + '|' + r.contentHash + '|' + stamp);
+            if(expect !== r.chain){
+                return {ok : false, brokenAt : i, reason : 'chain value does not match its own contents'};
+            }
+
+            const key = byKid[r.kid];
+            if(!key){
+                return {ok : false, brokenAt : i, reason : 'no published key with kid ' + r.kid};
+            }
+            const sigOk = await crypto.subtle.verify(
+                {name : 'ECDSA', hash : 'SHA-256'}, key,
+                attestB64ToBytes(r.sig),
+                new TextEncoder().encode(r.chain));
+            if(!sigOk){
+                return {ok : false, brokenAt : i, reason : 'signature does not verify against the published key'};
+            }
+
+            prev = r.chain;
+        }
+        return {ok : true, length : records.length};
+    }
+
+    /** Shared POST for the attest endpoints. @private */
+    AgentConnection.prototype._attestPost = function(endpoint, body, callback){
+        const _self = this;
+
+        if(!_self.readyState || !_self.sessionId){
+            typeof callback === 'function' && callback({status : 'error', data : 'The channel is not ready.'});
+            return;
+        }
+
+        const payload = Object.assign({sessionId : _self.sessionId}, body || {});
+
+        const xhr = new XMLHttpRequest();
+        xhr.open('POST', attestUrl(_self._api, endpoint));
+        xhr.setRequestHeader('Content-Type', 'application/json');
+
+        xhr.onload = function() {
+            // 201 on append, 200 on the reads.
+            if (xhr.status === 200 || xhr.status === 201) {
+                try {
+                    typeof callback === 'function' && callback(JSON.parse(xhr.responseText));
+                } catch(e) {
+                    typeof callback === 'function' && callback({status: 'error', data: 'Invalid response'});
+                }
+            } else {
+                let msg = xhr.responseText || xhr.statusText;
+                try { msg = (JSON.parse(xhr.responseText).statusMessage) || msg; } catch(e) {}
+                typeof callback === 'function' && callback({status: 'error', data: msg, statusMessage: msg});
+            }
+        };
+
+        xhr.onerror = function() {
+            typeof callback === 'function' && callback({status: 'error', data: 'Network error'});
+        };
+
+        xhr.send(JSON.stringify(payload));
+    }
+
     AgentConnection.prototype.status = function(callback){
         const _self = this;
 

@@ -13,11 +13,12 @@
 1. [Quick Start](#quick-start)
 2. [Basic Messaging](#basic-messaging)
 3. [Channel Storage (Key-Value Store)](#channel-storage-key-value-store)
-4. [WebRTC Video Streaming](#webrtc-video-streaming)
-5. [Advanced Topics](#advanced-topics)
-6. [Security Best Practices](#security-best-practices)
-7. [Troubleshooting](#troubleshooting)
-8. [API Reference](#api-reference)
+4. [Attest (Tamper-Evident Receipts)](#attest-tamper-evident-receipts)
+5. [WebRTC Video Streaming](#webrtc-video-streaming)
+6. [Advanced Topics](#advanced-topics)
+7. [Security Best Practices](#security-best-practices)
+8. [Troubleshooting](#troubleshooting)
+9. [API Reference](#api-reference)
 
 ---
 
@@ -313,6 +314,109 @@ agent.storageGet({ storageKey: 'prefs' }, (r) => {
     else useDefaults();
 });
 ```
+
+---
+
+## Attest (Tamper-Evident Receipts)
+
+Sometimes you need to prove that something happened: a form was signed, a
+handover was acknowledged, a file was delivered. Attest records that as a hash
+chain the recipient can check — including long after they have stopped
+believing you.
+
+**Your content never leaves your machine.** You hash it; you send the hash. The
+server adds only what a server can honestly witness — the order records were
+written in, its own clock, and the authenticated agent — and signs that.
+
+### Writing a chain
+
+A chain is named by you: one per consent, per shift, per delivery.
+
+```javascript
+// Hash whatever you want to prove. Text, a Blob, an ArrayBuffer.
+const contentHash = await agent.attestHash(JSON.stringify(signedForm));
+
+agent.attest({
+    chainKey: 'consent-9f2e',      // your name for this chain
+    kind: 'consent-signed',        // your vocabulary
+    contentHash,                   // computed here, not there
+    meta: { formVersion: 7 }       // small, and PUBLIC-SAFE (see below)
+}, (r) => {
+    if (r.status === 'success') {
+        console.log('record', r.data.record.seq, r.data.record.chain);
+    }
+});
+```
+
+The first `attest()` on a `chainKey` creates the chain. Every later one links to
+the previous record, so a record cannot be removed or reordered without breaking
+everything after it.
+
+### Reading and verifying
+
+```javascript
+agent.attestList('consent-9f2e', async (r) => {
+    const bundle = r.data;                            // records + genesis + keys
+    const result = await AgentConnection.attestVerify(bundle);
+
+    if (result.ok) console.log(`${result.length} records, all intact`);
+    else console.log(`broken at record ${result.brokenAt}: ${result.reason}`);
+});
+```
+
+`attestVerify` is deliberately a plain function over plain data. It does not call
+the platform: it re-derives every hash and checks every signature against the
+published key. Hand it a bundle you saved to a file last year and it still
+answers — which is the entire point of a receipt.
+
+For something to file or attach to an invoice, `attestExport` returns a
+self-contained bundle including the chain rule and the public key:
+
+```javascript
+agent.attestExport('consent-9f2e', (r) => save(JSON.stringify(r.data.bundle)));
+```
+
+### The rules that keep it honest
+
+**`meta` is public-safe, and small (4 KB).** It is hashed into the chain and
+travels with any export, so it must be something you would hand to a stranger.
+Anything sensitive belongs in the content you hashed, not here.
+
+**The author is the session, not the payload.** Attest stamps the agent the
+transport authenticated. A request that tries to name a different author is
+ignored, not honoured.
+
+**Chains are append-only.** There is no update and no delete — not by
+convention, but because no such endpoint exists.
+
+### What a receipt does and does not prove
+
+It proves that a given hash was recorded, in this position in the chain, at the
+time this platform's clock said, by this authenticated agent — and that nothing
+has been altered since.
+
+It does **not** prove the time is correct beyond trusting this platform's clock
+(it is not an RFC 3161 timestamping authority), and it does not make a document
+legally binding. Whether a receipt satisfies a regulator, a court, or an insurer
+is their decision, not ours. Say what it is; do not oversell it.
+
+### Verifying without the SDK
+
+The format is deliberately boring so that anyone can check it:
+
+```
+genesis  = sha256(channelId + "|" + chainKey)
+chain[i] = sha256(prev + "|" + contentHash + "|" + canonical(stamp))
+signature: ECDSA P-256 / SHA-256 over the chain value, in IEEE P1363 raw
+           r||s form (64 bytes), base64. Key from GET /attest/keys, SPKI base64.
+           Note the format: WebCrypto uses raw r||s, while openssl's command
+           line expects DER -- convert if you verify that way.
+```
+
+where `canonical` is JSON with object keys sorted recursively and no incidental
+whitespace, and `stamp` is `{agent, serverTime}`. That is checkable with
+WebCrypto in a browser, `openssl` on a terminal, or twenty lines in any
+language.
 
 ---
 
@@ -656,6 +760,12 @@ webrtc.on('ice-candidate', (streamId, c) => console.log('ICE:', c));
 | `storageKeys(callback)` | List all keys |
 | `storageValues(callback)` | Every value in the channel |
 | `storageDeleteByKey(storageKey, callback)` | Delete key |
+| `attestHash(content)` | Promise of the SHA-256 hex Attest expects |
+| `attest(params, callback)` | Append a record to a chain (created on first use) |
+| `attestList(chainKey, callback)` | Read a chain back with its genesis and keys |
+| `attestExport(chainKey, callback)` | Self-contained bundle to file or send on |
+| `attestChains(callback)` | Every chain name in this channel |
+| `AgentConnection.attestVerify(bundle)` | Static — re-derive and check a chain offline |
 
 ### WebRtcHelper Methods
 
