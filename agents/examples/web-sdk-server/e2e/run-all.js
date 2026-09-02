@@ -29,7 +29,7 @@ const GROUPS = {
     // ungated. Run with: npm test -- ghost
     'presence (opt in)': [],
     'mobile + security': ['touch-play-test.js', 'injection-test.js', 'forgery-test.js',
-                          'host-forgery-test.js']
+                          'host-forgery-test.js', 'vote-privacy-test.js']
 };
 
 const only = process.argv.slice(2).filter(a => !a.startsWith('-'));

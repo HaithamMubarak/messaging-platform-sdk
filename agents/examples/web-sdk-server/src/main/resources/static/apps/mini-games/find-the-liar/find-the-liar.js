@@ -645,6 +645,33 @@ class FindTheLiarGame extends UserConnectionBase {
         return !!host && peerId === host;
     }
 
+    /**
+     * Send something to the host and to NOBODY ELSE.
+     *
+     * The same auto-relay described above cuts the other way. A plain
+     * sendData() from a client is wrapped with _needsRelay and the host
+     * rebroadcasts it to every other client — so a vote, an answer or a role
+     * sent that way arrives in every opponent's browser. In a hidden-role
+     * game that is the whole secret, handed out before the reveal.
+     *
+     * An addressed send goes peer to peer and is relayed to nobody, so every
+     * client -> host message must name the host. This mirrors toHost() in
+     * shared/party-kit.js, which was extracted from this game precisely
+     * because getting it wrong here is invisible: the UI looks right, and the
+     * leak is only in the other players' devtools.
+     *
+     * The host calls its own handler directly — there is nobody to send to.
+     */
+    _toHost(msg) {
+        const host = typeof this._getHostName === 'function' ? this._getHostName() : null;
+        if (!host) {
+            console.warn('[FindTheLiar] No host yet, dropping', msg && msg.type);
+            return 0;
+        }
+        if (host === this.username) return 0;
+        return this.sendData(msg, host);
+    }
+
     onDataChannelMessage(peerId, data) {
         console.log('[FindTheLiar] Message from', peerId, ':', data.type);
 
@@ -1506,13 +1533,21 @@ class FindTheLiarGame extends UserConnectionBase {
                 console.log('[FindTheLiar] 😈 Escaped detection! Sending auto-celebration...');
 
                 setTimeout(() => {
-                    this.sendData({
+                    const celebration = {
                         type: 'liar-disturbance',
                         disturbanceType: 'celebration',
                         emoji: this.myCelebrationEmoji || '😈',
                         text: this.myCelebrationText || 'HAHAHA!',
                         isAuto: true
-                    });
+                    };
+                    // Same routing as a manual disturbance: the host is the
+                    // only broadcaster, so a client addresses it rather than
+                    // leaning on the relay.
+                    if (this.isHost()) {
+                        this.handleLiarDisturbance(this.username, celebration);
+                    } else {
+                        this._toHost(celebration);
+                    }
                 }, 2500); // Send after a short delay
             }
         }
@@ -1724,11 +1759,12 @@ class FindTheLiarGame extends UserConnectionBase {
     handleRoleRevealRequest(data) {
         console.log('[FindTheLiar] Role reveal requested by host');
 
-        // Send our role back to host
+        // Send our role back to host — ADDRESSED. This is the secret the whole
+        // game turns on; a plain sendData() here posts it to every opponent.
         const myRole = this.myPersistentRole || this.myRole;
         console.log('[FindTheLiar] Revealing role:', myRole);
 
-        this.sendData({
+        this._toHost({
             type: 'role-reveal-response',
             role: myRole
         });
@@ -1852,7 +1888,8 @@ class FindTheLiarGame extends UserConnectionBase {
             this.gameState.currentAnswers.set(this.username, trimmed);
             this.checkAllAnswersSubmitted();
         } else {
-            this.sendData({
+            // Addressed: an answer is private until the host reveals the round.
+            this._toHost({
                 type: 'submit-answer',
                 answer: trimmed
             });
@@ -1879,7 +1916,8 @@ class FindTheLiarGame extends UserConnectionBase {
             this.gameState.votes.set(this.username, votedForName);
             this.checkAllVotesSubmitted();
         } else {
-            this.sendData({
+            // Addressed: a vote is secret until every vote is in.
+            this._toHost({
                 type: 'submit-vote',
                 votedFor: votedForName
             });
@@ -1893,7 +1931,7 @@ class FindTheLiarGame extends UserConnectionBase {
         if (this.isHost()) {
             this.startRound();
         } else {
-            this.sendData({ type: 'request-new-round' });
+            this._toHost({ type: 'request-new-round' });
             this.showToast('Requesting new round...', 'info');
         }
     }
@@ -2999,8 +3037,10 @@ class FindTheLiarGame extends UserConnectionBase {
             // If we are the host, handle it directly
             this.handleLiarDisturbance(this.username, message);
         } else {
-            // Non-host: sendData() automatically routes to host
-            this.sendData(message);
+            // Addressed to the host, which rebroadcasts it in
+            // handleLiarDisturbance. A plain sendData() would be relayed to
+            // everyone AND rebroadcast, so every peer saw the effect twice.
+            this._toHost(message);
         }
 
         // Update last effect time
