@@ -19,7 +19,7 @@ const GROUPS = {
     'site sweeps': ['health.js', 'links.js', 'mobile.js', 'contrast.js', 'token-check.js',
                     'a11y.js', 'focus.js', 'icon-blank-test.js', 'responsive-test.js'],
     'self-checks': ['a11y-selfcheck.js', 'focus-selfcheck.js'],
-    'apps': ['chat-test.js', 'wb-test.js', 'wb-history-test.js', 'shape-fidelity-test.js', 'collab-actions-test.js', 'persistence-test.js', 'handover-test.js', 'term-test.js', 'terminal-scrollback-test.js', 'cloud-test.js',
+    'apps': ['chat-test.js', 'wb-test.js', 'wb-history-test.js', 'shape-fidelity-test.js', 'collab-actions-test.js', 'persistence-test.js', 'handover-test.js', 'term-test.js', 'terminal-scrollback-test.js',
              'drop-test.js', 'drop-resume-test.js', 'undriven-test.js', 'devpages-test.js', 'coreloop-test.js', 'pulse-moderation-test.js', 'dead-drop-test.js', 'under-the-hood-test.js', 'rewind-test.js', 'evidence-chain-test.js', 'persistence-apps-test.js'],
     'games': ['bp-chrome-test.js', 'pict-test.js', 'chess-features-test.js', 'games-test.js',
               'games-sync-test.js', 'tier2-test.js', 'outcry-test.js',

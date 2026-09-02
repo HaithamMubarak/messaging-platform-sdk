@@ -79,7 +79,7 @@ async function look(b, url, label, after) {
   // slot that collapsed to nothing shows up wherever it happens.
   const ALL = ['../index.html', '../playground.html', '../docs.html',
     'whiteboard/index.html', 'whiteboard/app.html', 'rooms/index.html', 'rooms/app.html',
-    'terminal/index.html', 'terminal/app.html', 'chat.html', 'cloud-connection-demo.html',
+    'terminal/index.html', 'terminal/app.html', 'chat.html',
     'mini-games/blockparty/index.html', 'chess/index.html', 'collab-doc/index.html', 'pulse/index.html', 'drop/index.html',
     'turn-stun-test.html', 'test-api-key/index.html',
     'mini-games/air-hockey/index.html', 'mini-games/find-the-liar/index.html',

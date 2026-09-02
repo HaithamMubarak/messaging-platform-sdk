@@ -3,16 +3,16 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-    <title>Playground — Multiplayer games built on the Messaging Platform SDK</title>
+    <title>Playground — working demos of the Messaging Platform SDK</title>
 
-    <meta name="description" content="7 multiplayer games and the demos around them, built on the Messaging Platform SDK. Each one demonstrates a different primitive: presence, channel storage, storage versions, WebRTC data channels, directed messaging or broadcast.">
+    <meta name="description" content="Working demos built on the Messaging Platform SDK — whiteboards, file transfer, polls, a shared terminal and a dozen games. Each one demonstrates a different primitive: presence, channel storage, storage versions, WebRTC data channels, directed messaging or broadcast.">
     <meta name="theme-color" content="#0b1120">
     <link rel="canonical" href="https://hmdevonline.com/messaging-platform/sdk/playground.html">
 
     <meta property="og:type" content="website">
     <meta property="og:site_name" content="Messaging Platform SDK">
-    <meta property="og:title" content="Playground — Multiplayer games built on the Messaging Platform SDK">
-    <meta property="og:description" content="Open a game, share the room link, and play. Every game is a working example of the SDK.">
+    <meta property="og:title" content="Playground — working demos of the Messaging Platform SDK">
+    <meta property="og:description" content="Open a demo and use it. Every one is a working example of the SDK, and many need nobody but you.">
     <meta property="og:image" content="https://hmdevonline.com/messaging-platform/sdk/images/og-image.png">
     <meta name="twitter:card" content="summary_large_image">
 
@@ -60,14 +60,14 @@
         <div class="wrap">
             <div class="section-head">
                 <span class="eyebrow">Playground</span>
-                <h1 style="font-size: var(--fs-3xl); margin-bottom: var(--sp-4)">Games that double as documentation</h1>
+                <h1 style="font-size: var(--fs-3xl); margin-bottom: var(--sp-4)">Demos that double as documentation</h1>
                 <p>
                     Every app below is complete and working, and each one leans on a different primitive. Filter by
                     the one you are trying to build with, open it, and share the room link. No login required.
                 </p>
             </div>
             <div class="hero__cta">
-                <a class="btn btn--gradient" href="../apps/rooms/">Open Rooms</a>
+                <a class="btn btn--gradient" href="apps/pulse/index.html">Open Pulse</a>
                 <a class="btn btn--ghost" href="index.html#quickstart">See how it's built</a>
             </div>
         </div>
@@ -114,7 +114,8 @@
                 <h2 style="font-size: var(--fs-2xl)">The ones with a page of their own</h2>
                 <p>Each of these has been taken past "it demonstrates the primitive" and into something you
                    could hand to somebody — and each has a page explaining what it does and where every
-                   screen hides. Start here if you are only opening one thing.</p>
+                   screen hides. If you are only opening one thing and you are on your own, use the
+                   "Playable alone" filter first: several of these want a second person before anything moves.</p>
             </div>
 
             <div class="grid-2" id="flagshipGrid" data-entry-grid>
@@ -125,7 +126,6 @@
                     <div class="game-card__head">
                         <span class="tile-icon" style="margin:0"><svg class="icon" aria-hidden="true"><use href="#i-video"></use></svg></span>
                         <h3>Rooms</h3>
-                        <span class="badge badge--success">New</span>
                     </div>
                     <p>Sign in, make a room, send one link. Camera, screen share, a shared whiteboard, live quizzes and the graphs from them — all on screen at once. Streams go straight to the people watching them; the channel carries only who is here.</p>
                     <div class="game-card__proves">
@@ -146,7 +146,6 @@
                     <div class="game-card__head">
                         <span class="tile-icon" style="margin:0"><svg class="icon" aria-hidden="true"><use href="#i-clock"></use></svg></span>
                         <h3>Rewind</h3>
-                        <span class="badge badge--success">New</span>
                     </div>
                     <p>Scrub back through a whiteboard session. Every save is a version, so a channel that has been drawn on is already a recording — the channel as an ordered log rather than a place to keep the latest value.</p>
                     <div class="game-card__proves">
@@ -165,7 +164,6 @@
                     <div class="game-card__head">
                         <span class="tile-icon" style="margin:0"><svg class="icon" aria-hidden="true"><use href="#i-activity"></use></svg></span>
                         <h3>Under the Hood</h3>
-                        <span class="badge badge--success">New</span>
                     </div>
                     <p>Presence, the elected host and the shape of the relay, drawn live. Press "step aside" and watch host migration happen — the part of the system every app depends on and none of them shows.</p>
                     <div class="game-card__proves">
@@ -184,9 +182,8 @@
                     <div class="game-card__head">
                         <span class="tile-icon" style="margin:0"><svg class="icon" aria-hidden="true"><use href="#i-lock"></use></svg></span>
                         <h3>Dead Drop</h3>
-                        <span class="badge badge--success">New</span>
                     </div>
-                    <p>Leave an encrypted note or file in a channel and close the tab. Whoever has the link collects it later. The only app here that works with nobody else online — the store is the transport.</p>
+                    <p>Leave an encrypted note or file in a channel and close the tab. Whoever has the link collects it later. Nothing is live and nobody has to be online — the store is the transport.</p>
                     <div class="game-card__proves">
                         <span class="badge badge--brand">Encrypted storage</span>
                         <span class="badge">Versioning</span>
@@ -216,18 +213,18 @@
                     </div>
                 </article>
 
-                <article class="card card--interactive game-card entry" data-proves="broadcast presence storage" data-solo="true">
+                <article class="card card--interactive game-card entry" data-proves="broadcast presence storage versions" data-solo="true">
                     <a class="entry-hit" href="apps/whiteboard/app.html"><span class="sr-only">Open Whiteboard</span></a>
                     <figure class="entry-shot"><img src="img/playground/whiteboard.webp" width="960" height="600" loading="lazy" decoding="async" alt="The Whiteboard with two people in the room and four thick strokes in black, red, green and blue beside the tool rail."></figure>
                     <div class="game-card__head">
                         <span class="tile-icon" style="margin:0"><svg class="icon" aria-hidden="true"><use href="#i-pen"></use></svg></span>
                         <h3>Whiteboard</h3>
                     </div>
-                    <p>A shared drawing surface — pen, shapes, text and sticky notes. Every stroke reaches the room as it is made, undo reaches everybody, and the board is still there when you come back.</p>
+                    <p>A shared drawing surface — pen, shapes, text and sticky notes. Every stroke reaches the room as it is made, undo reaches everybody, and the board is still there when you come back — stored encrypted, so the server keeps a board it cannot read.</p>
                     <div class="game-card__proves">
                         <span class="badge badge--brand">Broadcast</span>
                         <span class="badge">Presence</span>
-                        <span class="badge">Channel storage</span>
+                        <span class="badge">Encrypted storage</span>
                     </div>
                     <div class="entry-foot">
                         <a class="btn btn--sm btn--ghost entry-alt" href="apps/whiteboard/index.html">What it does</a>
@@ -241,7 +238,6 @@
                     <div class="game-card__head">
                         <span class="tile-icon" style="margin:0"><svg class="icon" aria-hidden="true"><use href="#i-shield"></use></svg></span>
                         <h3>Evidence Chain</h3>
-                        <span class="badge badge--success">New</span>
                     </div>
                     <p>Append entries to a channel and each one hashes over the one before it, so the log can be added to and nothing else. Alter an entry or delete one yourself — the verifier names where the chain first breaks.</p>
                     <div class="game-card__proves">
@@ -282,8 +278,8 @@
         <div class="wrap">
             <div class="section-head">
                 <span class="eyebrow">The rest of the catalogue</span>
-                <h2 style="font-size: var(--fs-2xl)">Games, each proving a different primitive</h2>
-                <p>Smaller, but every one of them is a working multiplayer app you can read the source of.</p>
+                <h2 style="font-size: var(--fs-2xl)">Each proving a different primitive</h2>
+                <p>Smaller, but every one of them is a working app you can read the source of.</p>
             </div>
 
             <div class="grid-3" id="gameGrid" data-entry-grid>
@@ -294,7 +290,6 @@
                     <div class="game-card__head">
                         <span class="tile-icon" style="margin:0"><svg class="icon" aria-hidden="true"><use href="#i-download"></use></svg></span>
                         <h3>Drop</h3>
-                        <span class="badge badge--success">New</span>
                     </div>
                     <p>Send a file to whoever is in the room. It travels in chunks over the data channel, straight between browsers — nothing is uploaded and nothing is stored.</p>
                     <div class="game-card__proves">
@@ -304,6 +299,7 @@
                     </div>
                     <div class="entry-foot">
                         <span class="entry-players"><svg class="icon icon--sm" aria-hidden="true"><use href="#i-users"></use></svg>Needs 2+</span>
+                        <a class="btn btn--sm btn--ghost entry-alt" href="../apps/droppro/">As a product</a>
                         <span class="demo-card__link">Open <svg class="icon icon--sm" aria-hidden="true"><use href="#i-arrow-right"></use></svg></span>
                     </div>
                 </article>
@@ -325,76 +321,26 @@
                         <span class="demo-card__link">Open <svg class="icon icon--sm" aria-hidden="true"><use href="#i-arrow-right"></use></svg></span>
                     </div>
                 </article>
-
                 <article class="card card--interactive game-card entry" data-proves="directed host" data-solo="false">
-                    <a class="entry-hit" href="apps/mini-games/chorus/index.html"><span class="sr-only">Open Chorus</span></a>
-                    <figure class="entry-shot"><img src="img/playground/chorus.webp" width="960" height="600" loading="lazy" decoding="async" alt="Chorus in its lobby — everybody owns one piece of the sound and nobody owns the whole."></figure>
+                    <a class="entry-hit" href="apps/mini-games/chorus/index.html"><span class="sr-only">Open the party games</span></a>
+                    <figure class="entry-shot"><img src="img/playground/gavel.webp" width="960" height="600" loading="lazy" decoding="async" alt="Gavel&#x27;s chambers with two people present and the bench&#x27;s form for the case, the charge, who is in the dock and which precedent to cite."></figure>
                     <div class="game-card__head">
                         <span class="tile-icon" style="margin:0"><svg class="icon" aria-hidden="true"><use href="#i-users"></use></svg></span>
-                        <h3>Chorus</h3>
+                        <h3>Party games</h3>
+                        <span class="badge">4 decks</span>
                     </div>
-                    <p>Everyone owns one tiny piece of the thing being built and nobody sees the whole. Tap when your slot lights up, or leave a hole with your name in it.</p>
+                    <p>Four games on one spine: the host is the only broadcaster, every player-to-host message is addressed rather than shouted, and nobody sees the state they are not entitled to. Chorus hands everyone one piece of something nobody can see whole; Autocue makes a room write a speech through a vetting editor; Gavel runs a courtroom on anonymous testimony; Nudge deals secret missions and tells two people they have none.</p>
                     <div class="game-card__proves">
                         <span class="badge badge--brand">Addressed messaging</span>
                         <span class="badge">Host authority</span>
+                        <span class="badge">Private state</span>
                     </div>
                     <div class="entry-foot">
                         <span class="entry-players"><svg class="icon icon--sm" aria-hidden="true"><use href="#i-users"></use></svg>3+</span>
-                        <span class="demo-card__link">Open <svg class="icon icon--sm" aria-hidden="true"><use href="#i-arrow-right"></use></svg></span>
-                    </div>
-                </article>
-
-                <article class="card card--interactive game-card entry" data-proves="directed host" data-solo="false">
-                    <a class="entry-hit" href="apps/mini-games/autocue/index.html"><span class="sr-only">Open Autocue</span></a>
-                    <figure class="entry-shot"><img src="img/playground/autocue.webp" width="960" height="600" loading="lazy" decoding="async" alt="Autocue&#x27;s lobby, where one player gives the speech and the others write it as it is being given."></figure>
-                    <div class="game-card__head">
-                        <span class="tile-icon" style="margin:0"><svg class="icon" aria-hidden="true"><use href="#i-mic"></use></svg></span>
-                        <h3>Autocue</h3>
-                    </div>
-                    <p>One person gives a sincere speech, live. Everybody else is writing it, one line at a time, through an editor who vets every line.</p>
-                    <div class="game-card__proves">
-                        <span class="badge badge--brand">Private roles</span>
-                        <span class="badge">Moderated queue</span>
-                    </div>
-                    <div class="entry-foot">
-                        <span class="entry-players"><svg class="icon icon--sm" aria-hidden="true"><use href="#i-users"></use></svg>3+</span>
-                        <span class="demo-card__link">Open <svg class="icon icon--sm" aria-hidden="true"><use href="#i-arrow-right"></use></svg></span>
-                    </div>
-                </article>
-
-                <article class="card card--interactive game-card entry" data-proves="directed host storage versions" data-solo="false">
-                    <a class="entry-hit" href="apps/mini-games/gavel/index.html"><span class="sr-only">Open Gavel</span></a>
-                    <figure class="entry-shot"><img src="img/playground/gavel.webp" width="960" height="600" loading="lazy" decoding="async" alt="Gavel&#x27;s chambers with two people present and the bench&#x27;s form for the case, the charge, who is in the dock and which precedent to cite."></figure>
-                    <div class="game-card__head">
-                        <span class="tile-icon" style="margin:0"><svg class="icon" aria-hidden="true"><use href="#i-shield"></use></svg></span>
-                        <h3>Gavel</h3>
-                    </div>
-                    <p>A full courtroom for the communal milk. Anonymous testimony, a sealed jury, and a verdict appended to a record that cannot be quietly edited.</p>
-                    <div class="game-card__proves">
-                        <span class="badge badge--brand">Anonymous submission</span>
-                        <span class="badge">Storage versions</span>
-                    </div>
-                    <div class="entry-foot">
-                        <span class="entry-players"><svg class="icon icon--sm" aria-hidden="true"><use href="#i-users"></use></svg>3+</span>
-                        <span class="demo-card__link">Open <svg class="icon icon--sm" aria-hidden="true"><use href="#i-arrow-right"></use></svg></span>
-                    </div>
-                </article>
-
-                <article class="card card--interactive game-card entry" data-proves="directed host" data-solo="false">
-                    <a class="entry-hit" href="apps/mini-games/nudge/index.html"><span class="sr-only">Open Nudge</span></a>
-                    <figure class="entry-shot"><img src="img/playground/nudge.webp" width="960" height="600" loading="lazy" decoding="async" alt="Nudge at the table, where everybody is dealt a secret job."></figure>
-                    <div class="game-card__head">
-                        <span class="tile-icon" style="margin:0"><svg class="icon" aria-hidden="true"><use href="#i-eye"></use></svg></span>
-                        <h3>Nudge</h3>
-                    </div>
-                    <p>Every phone is dealt a secret mission to make somebody else do something. Two people are told they have none.</p>
-                    <div class="game-card__proves">
-                        <span class="badge badge--brand">Private briefings</span>
-                        <span class="badge">Secret voting</span>
-                    </div>
-                    <div class="entry-foot">
-                        <span class="entry-players"><svg class="icon icon--sm" aria-hidden="true"><use href="#i-users"></use></svg>3+</span>
-                        <span class="demo-card__link">Open <svg class="icon icon--sm" aria-hidden="true"><use href="#i-arrow-right"></use></svg></span>
+                        <a class="btn btn--sm btn--ghost entry-alt" href="apps/mini-games/chorus/index.html">Chorus</a>
+                        <a class="btn btn--sm btn--ghost entry-alt" href="apps/mini-games/autocue/index.html">Autocue</a>
+                        <a class="btn btn--sm btn--ghost entry-alt" href="apps/mini-games/gavel/index.html">Gavel</a>
+                        <a class="btn btn--sm btn--ghost entry-alt" href="apps/mini-games/nudge/index.html">Nudge</a>
                     </div>
                 </article>
 
@@ -404,7 +350,6 @@
                     <div class="game-card__head">
                         <span class="tile-icon" style="margin:0"><svg class="icon" aria-hidden="true"><use href="#i-activity"></use></svg></span>
                         <h3>Pulse</h3>
-                        <span class="badge badge--success">New</span>
                     </div>
                     <p>Live questions and polls for a room or a talk. Every vote appends a version rather than overwriting one, so the result has a history you can scrub back through.</p>
                     <div class="game-card__proves">
@@ -495,22 +440,23 @@
                         <span class="badge">Host authority</span>
                     </div>
                     <div class="entry-foot">
-                        <span class="demo-card__link">Open <svg class="icon icon--sm" aria-hidden="true"><use href="#i-arrow-right"></use></svg></span>
+                        <span class="entry-players"><svg class="icon icon--sm" aria-hidden="true"><use href="#i-users"></use></svg>Needs 2</span>
                         <span class="demo-card__link">Open <svg class="icon icon--sm" aria-hidden="true"><use href="#i-arrow-right"></use></svg></span>
                     </div>
                 </article>
 
-                <article class="card card--interactive game-card entry" data-proves="storage" data-solo="false">
+                <article class="card card--interactive game-card entry" data-proves="directed host" data-solo="false">
                     <a class="entry-hit" href="apps/chess/index.html"><span class="sr-only">Open Chess</span></a>
                     <figure class="entry-shot"><img src="img/playground/chess.webp" width="960" height="600" loading="lazy" decoding="async" alt="A chess game between two players after 1.e4 e5 2.Nf3 Nc6 3.Bc4 Bc5, White to move, with the move history and clocks beside the board."></figure>
                     <div class="game-card__head">
                         <span class="tile-icon" style="margin:0"><svg class="icon" aria-hidden="true"><use href="#i-layers"></use></svg></span>
                         <h3>Chess</h3>
                     </div>
-                    <p>Turn-based chess with the board kept in channel storage, so a game survives a refresh on either side.</p>
+                    <p>Turn-based chess where the board is rebuilt from the other player, not from a server. A joiner is sent the position and the whole move list in one addressed message, so a spectator arrives mid-game with the history intact.</p>
                     <div class="game-card__proves">
-                        <span class="badge badge--brand">Turn-based state</span>
-                        <span class="badge">Channel storage</span>
+                        <span class="badge badge--brand">Addressed messages</span>
+                        <span class="badge">Turn-based state</span>
+                        <span class="badge">State handover</span>
                     </div>
                     <div class="entry-foot">
                         <span class="entry-players"><svg class="icon icon--sm" aria-hidden="true"><use href="#i-users"></use></svg>Needs 2</span>
@@ -528,7 +474,7 @@
             <div class="section-head">
                 <span class="eyebrow">Also built on the SDK</span>
                 <h2 style="font-size: var(--fs-2xl)">Collaboration experiments</h2>
-                <p>Rougher than the four above, but each one is the shortest useful reference for a different sync pattern.</p>
+                <p>Rougher than the ones above, but each is the shortest useful reference for a different sync pattern.</p>
             </div>
 
             <div class="grid-4" id="toolGrid" data-entry-grid>
@@ -538,58 +484,33 @@
                     <figure class="entry-shot"><img src="img/playground/collaborative-document.webp" width="960" height="600" loading="lazy" decoding="async" alt="The collaborative document with two people editing one markdown file — the rollout plan, 292 characters, both names in the corner."></figure>
                     <span class="tile-icon"><svg class="icon" aria-hidden="true"><use href="#i-book"></use></svg></span>
                     <h3>Collaborative document</h3>
-                    <p>Markdown editing with live cursors and shared revisions.</p>
+                    <p>Markdown editing with live cursors. The whole document is broadcast on every change and the last writer wins, so it is a demo of cursors and sync — not of merging.</p>
                     <div class="demo-card__foot">
                         <span class="demo-card__link">Open <svg class="icon icon--sm" aria-hidden="true"><use href="#i-arrow-right"></use></svg></span>
                     </div>
                 </article>
 
-                <article class="card card--interactive demo-card entry" data-proves="broadcast directed" data-solo="false">
+                <article class="card card--interactive demo-card entry" data-proves="broadcast presence" data-solo="false">
                     <a class="entry-hit" href="apps/chat.html"><span class="sr-only">Open Chat</span></a>
                     <figure class="entry-shot"><img src="img/playground/chat.webp" width="960" height="600" loading="lazy" decoding="async" alt="The chat demo connected with two agents in the channel and three messages exchanged."></figure>
                     <span class="tile-icon"><svg class="icon" aria-hidden="true"><use href="#i-message"></use></svg></span>
                     <h3>Chat</h3>
-                    <p>Plain group chat: the smallest complete thing you can build on the SDK.</p>
+                    <p>The only demo on the raw connection API rather than the wrapper: connect by channel ID, resume a session after a reload, and approve another agent’s key before they can join.</p>
                     <div class="demo-card__foot">
                         <span class="demo-card__link">Open <svg class="icon icon--sm" aria-hidden="true"><use href="#i-arrow-right"></use></svg></span>
                     </div>
                 </article>
 
-                <article class="card card--interactive demo-card entry" data-proves="storage" data-solo="false">
+                <article class="card card--interactive demo-card entry" data-proves="storage versions" data-solo="true">
                     <a class="entry-hit" href="apps/storage-demo.html"><span class="sr-only">Open Channel storage</span></a>
                     <figure class="entry-shot"><img src="img/playground/channel-storage.webp" width="960" height="600" loading="lazy" decoding="async" alt="The channel storage demo after a PUT and a GET: the agenda key stored as JSON and read back."></figure>
                     <span class="tile-icon"><svg class="icon" aria-hidden="true"><use href="#i-hard-drive"></use></svg></span>
                     <h3>Channel storage</h3>
-                    <p>Read, write and watch a channel's key-value store from the browser.</p>
+                    <p>Read, write and watch a channel's key-value store from the browser — put and get a value, list the keys, then append versions and read the history back.</p>
                     <div class="demo-card__foot">
                         <span class="demo-card__link">Open <svg class="icon icon--sm" aria-hidden="true"><use href="#i-arrow-right"></use></svg></span>
                     </div>
                 </article>
-
-                <article class="card card--interactive demo-card entry" data-proves="presence" data-solo="false">
-                    <a class="entry-hit" href="apps/cloud-connection-demo.html"><span class="sr-only">Open Connection component</span></a>
-                    <figure class="entry-shot"><img src="img/playground/connection-component.webp" width="960" height="600" loading="lazy" decoding="async" alt="The connection panel on its own, connected as Amina, with the test message it sent showing in the log below."></figure>
-                    <span class="tile-icon"><svg class="icon" aria-hidden="true"><use href="#i-channel"></use></svg></span>
-                    <h3>Connection component</h3>
-                    <p>The drop-in connect panel the other demos use, on its own.</p>
-                    <div class="demo-card__foot">
-                        <span class="demo-card__link">Open <svg class="icon icon--sm" aria-hidden="true"><use href="#i-arrow-right"></use></svg></span>
-                    </div>
-                </article>
-
-            <article class="card card--interactive demo-card entry" data-proves="binary p2p" data-solo="false">
-                <a class="entry-hit" href="../apps/droppro/"><span class="sr-only">See Drop Pro</span></a>
-                    <figure class="entry-shot"><img src="img/playground/drop-pro.webp" width="960" height="600" loading="lazy" decoding="async" alt="The Drop Pro page: &quot;Your file never touches our server&quot;, with the numbers underneath — zero bytes stored, 16 KB chunks, SHA-256 on both ends."></figure>
-                <span class="tile-icon"><svg class="icon" aria-hidden="true"><use href="#i-upload"></use></svg></span>
-                <h3>Drop Pro</h3>
-                <p>The Drop demo as a product: a file goes straight from one browser to the other, hashed
-                   before it leaves and checked byte for byte when it lands — and refused if it does not
-                   match. Nothing is stored in between.</p>
-                <div class="demo-card__foot">
-                    <span class="demo-card__link">See it <svg class="icon icon--sm" aria-hidden="true"><use href="#i-arrow-right"></use></svg></span>
-                    <span class="badge badge--brand">Built on the platform</span>
-                </div>
-            </article>
 
             </div>
 
@@ -610,7 +531,7 @@
         </div>
     </div>
 </footer>
-<script src="/messaging-platform/sdk/js/mp-account.js"></script>
-<script src="/messaging-platform/sdk/js/profile-chip.js"></script>
+<script src="js/mp-account.js"></script>
+<script src="js/profile-chip.js"></script>
 </body>
 </html>

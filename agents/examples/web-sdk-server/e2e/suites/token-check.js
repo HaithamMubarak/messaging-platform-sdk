@@ -4,7 +4,7 @@ const { chromium } = require('playwright');
 // against the design tokens, and without them every var() resolves to nothing
 // — the page renders unstyled in ways no console error reports.
 const PAGES = ['index.html','playground.html','docs.html','apps/chat.html',
- 'apps/storage-demo.html','apps/turn-stun-test.html','apps/cloud-connection-demo.html',
+ 'apps/storage-demo.html','apps/turn-stun-test.html',
  'apps/test-api-key/index.html','apps/whiteboard/app.html','apps/terminal/app.html','apps/chess/index.html','apps/pictionary/index.html',
  'apps/collab-doc/index.html',
  'apps/pulse/index.html','apps/rewind/index.html','apps/rewind/app.html','apps/under-the-hood/index.html','apps/under-the-hood/app.html','apps/dead-drop/index.html','apps/dead-drop/app.html','apps/evidence-chain/index.html','apps/evidence-chain/app.html','apps/drop/index.html','apps/mini-games/blockparty/index.html',

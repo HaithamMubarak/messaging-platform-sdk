@@ -173,6 +173,42 @@
             </div>
         </div>
 
+        <!-- Append + history. PUT replaces; ADD keeps every version, and
+             GET-LIST is the only way to read them back. Without these two the
+             page could not show the half of the API that makes a channel a log
+             rather than a bucket. -->
+        <div class="pro-card">
+            <div class="pro-card__title">
+                <svg class="icon icon--sm" aria-hidden="true"><use href="#i-clock"></use></svg> ADD — Append a version
+                <span class="pro-badge" id="versionCountBadge" style="display:none;"></span>
+            </div>
+            <p class="pro-card__hint">
+                PUT above replaces everything under a key. ADD keeps what was there and writes a new
+                version beside it, so the key becomes an ordered log. Append a few, then read them back.
+            </p>
+
+            <div class="grid" style="margin-bottom:0;">
+                <div>
+                    <div class="form-group">
+                        <label class="pro-label">Key</label>
+                        <input type="text" class="pro-field" id="addKey" placeholder="e.g., audit-log" value="demo-history">
+                    </div>
+                    <div class="form-group">
+                        <label class="pro-label">Value (JSON)</label>
+                        <textarea class="pro-field" id="addValue" aria-label="Value to append"
+                                  style="min-height: 96px;">{"note": "first entry"}</textarea>
+                    </div>
+                    <div class="row-actions">
+                        <button onclick="storageAppend()" id="addBtn" class="pro-btn pro-btn--primary"><svg class="icon icon--sm" aria-hidden="true"><use href="#i-database"></use></svg> ADD (Append)</button>
+                        <button onclick="storageHistory()" id="histBtn" class="pro-btn"><svg class="icon icon--sm" aria-hidden="true"><use href="#i-clock"></use></svg> Read history</button>
+                    </div>
+                </div>
+                <div id="historyOutput" class="output" style="min-height: 150px;">
+                    <div class="pro-empty"><span class="pro-empty__icon"><svg class="icon icon--lg" aria-hidden="true"><use href="#i-inbox"></use></svg></span><span class="pro-empty__text">Append a version, then read the history back</span></div>
+                </div>
+            </div>
+        </div>
+
         <!-- List Operations -->
         <div class="pro-card">
             <div class="pro-card__title">
@@ -534,6 +570,104 @@
             });
         }
 
+
+        // Storage ADD — append a version rather than replacing the key.
+        function storageAppend() {
+            if (!agent || !connected) {
+                log('Not connected to a channel yet', 'error');
+                return;
+            }
+
+            const key = document.getElementById('addKey').value.trim();
+            const valueText = document.getElementById('addValue').value.trim();
+            if (!key) {
+                log('A key is required', 'error');
+                return;
+            }
+
+            let value;
+            try {
+                value = JSON.parse(valueText);
+            } catch (e) {
+                DemoKit.toast('Invalid JSON: ' + e.message, 'err');
+                return;
+            }
+            value.timestamp = Date.now();
+
+            agent.storageAdd({
+                storageKey: key,
+                content: value,
+                encrypted: false
+            }, function (response) {
+                console.log('[Storage ADD] Response:', response);
+                if (response.status === 'success') {
+                    log(`ADD successful: a new version of ${key}`, 'success');
+                    DemoKit.toast(`Appended to “${key}”`, 'ok');
+                    storageHistory();
+                } else {
+                    log(`ADD failed: ${response.statusMessage || 'Unknown error'}`, 'error');
+                    DemoKit.toast('ADD failed', 'err');
+                }
+            });
+        }
+
+        // Storage GET-LIST — every version under a key, oldest first.
+        function storageHistory() {
+            if (!agent || !connected) {
+                log('Not connected to a channel yet', 'error');
+                return;
+            }
+
+            const key = document.getElementById('addKey').value.trim();
+            if (!key) {
+                log('A key is required', 'error');
+                return;
+            }
+
+            // Note the shape: storageGetList takes the key as a PLAIN STRING,
+            // not the options object every other storage call takes. And the
+            // rows come back with `content` as base64-encoded JSON, so each one
+            // needs decoding twice — atob, then parse. storageGet does that for
+            // you; this call does not.
+            agent.storageGetList(key, function (response) {
+                console.log('[Storage GET-LIST] Response:', response);
+                const output = document.getElementById('historyOutput');
+                const badge = document.getElementById('versionCountBadge');
+
+                if (response.status !== 'success') {
+                    log(`History failed: ${response.statusMessage || 'Unknown error'}`, 'error');
+                    DemoKit.toast('Could not read the history', 'err');
+                    return;
+                }
+
+                const versions = (response.data && response.data.data && response.data.data.versions) || [];
+                const rows = versions.map(function (entry, i) {
+                    let decoded = entry.content;
+                    try {
+                        decoded = JSON.parse(atob(entry.content));
+                    } catch (e) {
+                        // Leave it as it came; showing the raw row beats hiding it.
+                    }
+                    return { version: i + 1, content: decoded };
+                });
+
+                output.innerHTML = '';
+                if (!rows.length) {
+                    const empty = document.createElement('div');
+                    empty.className = 'pro-empty';
+                    empty.innerHTML = '<span class="pro-empty__text">No versions under that key yet</span>';
+                    output.appendChild(empty);
+                    badge.style.display = 'none';
+                } else {
+                    const pre = document.createElement('pre');
+                    pre.textContent = JSON.stringify(rows, null, 2);
+                    output.appendChild(pre);
+                    badge.textContent = rows.length + (rows.length === 1 ? ' version' : ' versions');
+                    badge.style.display = '';
+                }
+                log(`History: ${rows.length} version(s) of ${key}`, 'success');
+            });
+        }
 
         // List keys
         function listKeys() {

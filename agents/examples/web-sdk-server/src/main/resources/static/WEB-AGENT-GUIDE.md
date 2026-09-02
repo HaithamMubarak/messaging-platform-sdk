@@ -539,7 +539,10 @@ class MyFileShare extends AgentInteractionBase {
 }
 ```
 
-See `examples/quickshare/QuickShare.js` for a complete working implementation.
+See `agents/examples/web-sdk-server/src/main/resources/static/apps/drop/drop.js`
+for a complete working implementation — QuickShare was retired to a redirect and
+Drop is the maintained version, with the offer/accept step, 16 KB chunking, gap
+refill and resume after a reconnect.
 
 ---
 

@@ -6,7 +6,7 @@
 const { BASE, SHOTS } = require('../lib/harness');
 const { chromium } = require('playwright');
 const PAGES = ['index.html','playground.html','docs.html','apps/chat.html','apps/storage-demo.html',
- 'apps/turn-stun-test.html','apps/cloud-connection-demo.html','apps/test-api-key/index.html',
+ 'apps/turn-stun-test.html','apps/test-api-key/index.html',
  'apps/whiteboard/index.html','apps/whiteboard/app.html','apps/terminal/index.html','apps/terminal/app.html','apps/chess/index.html','apps/pictionary/index.html',
  'apps/collab-doc/index.html','apps/pulse/index.html','apps/rewind/index.html','apps/under-the-hood/index.html','apps/dead-drop/index.html','apps/evidence-chain/index.html','apps/evidence-chain/app.html',
  'apps/drop/index.html','apps/mini-games/blockparty/index.html','apps/mini-games/air-hockey/index.html',
