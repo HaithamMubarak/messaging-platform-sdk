@@ -758,6 +758,19 @@
         try {
             app = new Pulse();
             window.pulseApp = app;
+
+            // Attach before connecting, so the connect-time calls are on the
+            // panel too rather than only whatever happens afterwards.
+            var wireMount = document.getElementById('wirePanel');
+            if (window.SdkWire && wireMount) {
+                window.pulseWire = window.SdkWire.attach(app, {
+                    mount: wireMount,
+                    note: 'Every row is a real call this page just made. An untargeted ' +
+                          'send from a guest reaches the host, not the room — the host ' +
+                          'decides what to relay.'
+                });
+            }
+
             await app.connect({ username: username, channelName: channel, channelPassword: password });
             app.start();
             document.getElementById('roomName').textContent = channel;

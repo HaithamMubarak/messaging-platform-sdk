@@ -274,3 +274,66 @@ body.sdk-app {
     .sdk-room { max-width: 8ch; }
     .pill-status { max-width: 9ch; }
 }
+
+/* ---- the wire panel ------------------------------------------------------ */
+/*
+ * "Show me the call that did that." js/sdk-wire.js wraps an app's connection
+ * and prints one row per SDK call; this is what those rows look like. The
+ * shape is Under the Hood's log (.hood-log__row) generalised, so the two read
+ * as the same idea at two levels of detail.
+ */
+.sdk-wire {
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+    font-family: var(--font-mono);
+    font-size: var(--fs-xs);
+    line-height: var(--lh-snug);
+    min-height: 0;
+}
+
+.sdk-wire__row { display: flex; gap: var(--sp-2); align-items: baseline; }
+.sdk-wire__t   { color: var(--text-faint); flex: none; }
+.sdk-wire__fn  { color: var(--brand-ink); flex: none; font-weight: 600; }
+.sdk-wire__meta{ color: var(--text-muted); overflow-wrap: anywhere; }
+
+/* The distinction the SDK actually makes: addressed, or left to the host. */
+.sdk-wire__row--directed  .sdk-wire__fn { color: var(--accent-ink); }
+.sdk-wire__row--storage   .sdk-wire__fn { color: var(--success); }
+
+.sdk-wire__empty {
+    margin: 0;
+    font-family: var(--font-sans);
+    font-size: var(--fs-xs);
+    color: var(--text-muted);
+    line-height: var(--lh-snug);
+}
+
+.sdk-wire__count {
+    font-family: var(--font-mono);
+    font-size: var(--fs-xs);
+    font-weight: 400;
+    color: var(--text-faint);
+    letter-spacing: 0;
+}
+
+/* ---- the companion ------------------------------------------------------- */
+/*
+ * js/companion.js starts a real second connection in this tab so a demo does
+ * something for somebody on their own. It must never be mistaken for another
+ * human, so it is marked wherever it appears.
+ */
+.companion-btn.is-on {
+    border-color: var(--brand);
+    color: var(--brand-ink);
+}
+
+.companion-tag { margin-left: var(--sp-2); }
+
+/* A dashed ring says "not a real person" without inventing a new colour. */
+.is-companion .avatar,
+.avatar--companion {
+    border: 2px dashed var(--brand-ink);
+    background: var(--surface-2);
+    color: var(--brand-ink);
+}

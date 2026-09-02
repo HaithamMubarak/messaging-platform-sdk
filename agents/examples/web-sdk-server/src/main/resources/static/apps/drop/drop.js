@@ -649,6 +649,28 @@
             }
             app.render();
             app.renderPeers();
+
+            // Drop is the one demo that proves nothing on your own: without a
+            // second person there is no one to offer a file to. The companion
+            // is a real second connection that accepts what it is offered, so
+            // the whole transfer runs — offer, accept, chunks, progress, done.
+            //
+            // It does not reassemble the file; it does not need to. The sender
+            // counts its own chunks out, so this side of the wire behaves
+            // exactly as it does with a person on the other end.
+            if (window.Companion) {
+                window.dropCompanion = window.Companion.attach(app, {
+                    onData: function (c, from, data) {
+                        if (!data || data.type !== 'offer') return;
+                        c.send({ type: 'accept', id: data.id, by: c.name }, from);
+                    }
+                }, {
+                    noteText: 'The companion is a second connection running in this tab. ' +
+                              'It accepts what you send it, so the transfer really runs — but ' +
+                              'there is no network between the two, so the speed here is not ' +
+                              'representative.'
+                });
+            }
         } catch (err) {
             console.error('[Drop] connect failed:', err);
             if (window.ConnectionModal) ConnectionModal.fail(err);

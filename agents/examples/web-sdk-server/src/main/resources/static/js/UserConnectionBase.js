@@ -2488,6 +2488,13 @@ let GameInitializer = {
 // Expose globally
 window.GameInitializer = GameInitializer;
 
+// `class UserConnectionBase {}` at the top level of a classic script creates a
+// global LEXICAL binding, not a property of window — so `UserConnectionBase`
+// resolves for any other script on the page, while `window.UserConnectionBase`
+// is undefined. Every app here subclasses it by name and never noticed; anything
+// that looks it up dynamically (js/companion.js) got a silent undefined.
+window.UserConnectionBase = UserConnectionBase;
+
 // Exported here rather than mid-file: GameInitializer is declared further down,
 // so the previous placement hit its temporal dead zone and threw for any
 // CommonJS importer — on top of naming a class (AgentSessionBase) that does not

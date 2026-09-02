@@ -83,9 +83,14 @@
         <div class="card sdk-scroll versions" id="versions"></div>
         <p class="sdk-note">
             Every vote appends a version with <code>storageAdd</code>; this panel reads them back with
-            <code>storageGetList</code>. Evidence Chain and Rewind lean on the same pair — a log you
-            can only append to, and a whiteboard you can scrub backwards through.
+            <code>storageGetList</code>. <a href="../evidence-chain/index.html">Evidence Chain</a> and
+            <a href="../rewind/index.html">Rewind</a> lean on the same pair — a log you can only append
+            to, and a whiteboard you can scrub backwards through.
         </p>
+
+        <!-- Every SDK call this page makes, as it makes it. The note above says
+             which methods carry a vote; this shows them actually firing. -->
+        <div id="wirePanel"></div>
     </aside>
 </main>
 
@@ -107,6 +112,7 @@
 <script src="../../js/connection-modal.js"></script>
 <script src="../../js/telemetry.js"></script>
 <script src="../../js/UserConnectionBase.js"></script>
+<script src="../../js/sdk-wire.js"></script>
 <script src="pulse.js"></script>
 </body>
 </html>
