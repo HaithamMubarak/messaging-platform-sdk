@@ -1,5 +1,6 @@
 /*
- * Hooks (signed webhooks out) and Meter (usage that can be billed).
+ * Hooks (signed webhooks out), Meter (usage that can be billed) and Charter
+ * (the compliance export).
  *
  *     node suites/hooks-meter-test.js
  *
@@ -189,7 +190,68 @@ function verifySignature(header, body, secret) {
         check(noAuth.status === 401, 'usage is not readable without a session',
             'status ' + noAuth.status);
 
-        // ---- 6. cleanup ------------------------------------------------------
+        // ---- 6. Charter -------------------------------------------------------
+        //
+        // The enterprise question is "what do you hold about us, who touched
+        // it, and can we check the record was not edited". Charter answers it
+        // by assembly, so the assertions are about SCOPE and HONESTY rather
+        // than about anything new working.
+        console.log('\n[6] one answer to the compliance question');
+        const mine = await call('GET', '/charter/export', undefined, asDev);
+        check(mine.status === 200 && mine.data && mine.data.charterVersion === 1,
+            'a tenant can export their own charter', 'status ' + mine.status);
+        check(mine.data && mine.data.notIncluded && mine.data.notIncluded.length >= 4,
+            'and it states what it does NOT contain, rather than reading as complete',
+            JSON.stringify((mine.data.notIncluded || []).map(x => x.what)));
+        check(/sha256\(prev/.test((mine.data && mine.data.howToVerify) || ''),
+            'with the rule for re-deriving a chain, so verifying needs no help from us');
+
+        const noAuthCharter = await call('GET', '/charter/export');
+        check(noAuthCharter.status === 401, 'a charter is not readable without a session',
+            'status ' + noAuthCharter.status);
+
+        // Scope is the property that matters. Export two tenants and make sure
+        // neither bundle contains the other's channels — a compliance export is
+        // the single most useful thing to obtain about somebody else's account.
+        const adminAuth = await call('POST', '/admin/auth', { email: EMAIL, password: PASSWORD });
+        const adminToken = adminAuth.data && (adminAuth.data.token || adminAuth.data.sessionToken);
+        if (!check(!!adminToken, 'an admin session is available to compare tenants')) {
+            // fall through — the rest of this section needs it
+        } else {
+            const asAdmin = { 'X-Admin-Token': adminToken };
+            const a = await call('GET', '/charter/admin/export?developerId=2', undefined, asAdmin);
+            const b = await call('GET', '/charter/admin/export?developerId=4', undefined, asAdmin);
+            const idsOf = r => ((r.data && r.data.channels) || []).map(c => c.channelId);
+            const aIds = idsOf(a), bIds = idsOf(b);
+            check(a.status === 200 && b.status === 200, 'two tenants export',
+                aIds.length + ' and ' + bIds.length + ' channels');
+            const overlap = aIds.filter(id => bIds.indexOf(id) !== -1);
+            check(overlap.length === 0,
+                'and neither bundle contains a single channel belonging to the other',
+                overlap.slice(0, 3).join(','));
+            // A test that passed because both were empty would prove nothing.
+            check(aIds.length > 0 && bIds.length > 0,
+                'with both bundles non-empty, so the check above means something',
+                aIds.length + '/' + bIds.length);
+
+            // The chain summary must be self-sufficient: genesis re-derives here.
+            const withChain = ((b.data && b.data.channels) || [])
+                .filter(c => c.attestChains && c.attestChains.length)[0];
+            if (withChain) {
+                const chain = withChain.attestChains[0];
+                const expected = crypto.createHash('sha256')
+                    .update(withChain.channelId + '|' + chain.chainKey).digest('hex');
+                check(chain.genesis === expected,
+                    'the genesis in the bundle is the one a verifier would compute',
+                    chain.genesis.slice(0, 16) + '… vs ' + expected.slice(0, 16) + '…');
+                check(/^[0-9a-f]{64}$/.test(chain.head || ''),
+                    'and the chain head is carried so the export can be checked cold');
+            } else {
+                check(false, 'a tenant with an Attest chain was found to check the genesis against');
+            }
+        }
+
+        // ---- 7. cleanup ------------------------------------------------------
         const deleted = await call('DELETE', `/hooks/${endpointId}`, undefined, asDev);
         check(deleted.status === 200, 'the endpoint can be removed');
 
