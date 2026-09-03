@@ -16,11 +16,12 @@
 4. [Attest (Tamper-Evident Receipts)](#attest-tamper-evident-receipts)
 5. [Till (Licences and Seats)](#till-licences-and-seats)
 6. [Knock (Reaching a Closed Browser)](#knock-reaching-a-closed-browser)
-7. [WebRTC Video Streaming](#webrtc-video-streaming)
-8. [Advanced Topics](#advanced-topics)
-9. [Security Best Practices](#security-best-practices)
-10. [Troubleshooting](#troubleshooting)
-11. [API Reference](#api-reference)
+7. [Vault (Encrypted Blobs)](#vault-encrypted-blobs)
+8. [WebRTC Video Streaming](#webrtc-video-streaming)
+9. [Advanced Topics](#advanced-topics)
+10. [Security Best Practices](#security-best-practices)
+11. [Troubleshooting](#troubleshooting)
+12. [API Reference](#api-reference)
 
 ---
 
@@ -592,6 +593,77 @@ back to anyone, including other members of the channel.
 
 ---
 
+## Vault (Encrypted Blobs)
+
+Chunked, resumable storage for things past Dead Drop's 512 KB line.
+
+### Say the right sentence
+
+Dead Drop's promise is **"never on a server"**. Vault's promise is **"never
+*readable* by the server"**. The ciphertext is stored, on disk, in this
+platform's database. The key is generated in the browser and never sent, so the
+server cannot read a byte of it and has nothing to hand over if asked — but the
+bytes exist. That is a weaker claim than the one made everywhere else here, and
+a product adopts Vault knowingly and repeats the second sentence, or it uses
+Dead Drop instead.
+
+### Storing something
+
+```javascript
+const { blobId, key } = await channel.vaultPut(file, {
+    ttlSeconds: 3600,
+    onProgress: p => bar.style.width = (p.sent / p.total * 100) + '%'
+});
+// Share blobId AND key with whoever should be able to read it.
+// Lose the key and the bytes are gone — that is the point, not a gap.
+```
+
+A key is generated **per blob**, not per channel: a key that opens everything
+is a key whose loss opens everything. Each chunk carries its own 12-byte IV,
+because reusing a nonce across chunks under one AES-GCM key leaks the XOR of
+the plaintexts.
+
+### Reading it back
+
+```javascript
+const bytes = await channel.vaultGet(blobId, key, {
+    onProgress: p => status.textContent = `${p.received}/${p.total}`
+});
+```
+
+Chunks are fetched in order and decrypted as they arrive, so peak memory is one
+chunk plus the output rather than two copies of the whole file — the ceiling
+Drop Pro hit at 1.5 GB.
+
+### Resume
+
+`vaultPut` asks the server what already arrived and sends only what is missing,
+so an interrupted upload continues instead of starting over. Re-sending the
+chunk that was in flight when the connection died is accepted, not rejected —
+otherwise resume would be the thing that breaks resume.
+
+### The rules that keep it honest
+
+- **The server verifies the ciphertext hash before sealing a blob.** It is the
+  one hash a server can honestly check, because it has the ciphertext. A blob
+  whose bytes do not add up is refused, never quietly stored — otherwise a
+  truncated upload could be downloaded as though it were whole.
+- **Everything expires.** A blob store with no TTL is a landfill with a quota
+  attached. TTLs are capped by the deployment and swept on a timer.
+- **Quota is checked up front**, against the declared size, not as chunks
+  arrive — so a 100 MB upload fails in the first second rather than the last.
+- **Blob ids are random and access is scoped to the channel.** An unguessable
+  id is not an access control decision; the channel check is.
+
+| Limit | Default | Property |
+|-------|---------|----------|
+| Per blob | 100 MB | `vault.max-blob-bytes` |
+| Per chunk | 1 MB | `vault.max-chunk-bytes` |
+| Per channel | 500 MB | `vault.channel-quota-bytes` |
+| TTL default / max | 7 / 30 days | `vault.default-ttl-seconds`, `vault.max-ttl-seconds` |
+
+---
+
 ## WebRTC Video Streaming
 
 ### Broadcast Video
@@ -948,6 +1020,13 @@ webrtc.on('ice-candidate', (streamId, c) => console.log('ICE:', c));
 | `knockUnsubscribe()` | Promise — stop knocks to this browser |
 | `knock(agentName, options?, callback)` | Knock on one member; per-device outcomes |
 | `knockReachable(callback)` | Who can be reached here — names and device counts only |
+| `vaultPut(blobOrBuffer, options?)` | Promise — encrypt, chunk, upload resumably; returns `{blobId, key}` |
+| `vaultGet(blobId, key, options?)` | Promise — download and decrypt, chunk by chunk |
+| `vaultNewKey()` | Promise — a fresh AES-256-GCM key, base64 |
+| `vaultList(callback)` | Blobs in this channel — sizes and hashes, never keys |
+| `vaultStatus(blobId, callback)` | What arrived, what is missing |
+| `vaultQuota(callback)` | This deployment's limits and the channel's usage |
+| `vaultDelete(blobId, callback)` | Delete one |
 
 ### WebRtcHelper Methods
 
