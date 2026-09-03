@@ -85,6 +85,83 @@ async function open(b, room, name) {
         !(document.getElementById('drops').innerText || '').includes('this one is read once'));
     check(hidden, 'and a collected read-once drop no longer shows its contents');
 
+    // ---- a file too big for the box goes to the vault, visibly -------------
+    //
+    // Dead Drop's promise is "never on a server". Vault's is "never READABLE by
+    // the server". A file above the inline line is stored under the second one,
+    // and the whole point of this section is that the app SAYS SO rather than
+    // quietly upgrading one promise into the other.
+    // A fresh context: the first one was destroyed on purpose above, which is
+    // the app's whole claim. Leaving the big file from a new browser and
+    // collecting it from another one keeps that claim intact.
+    const third = await open(b, room, 'Bigleaver');
+    const big = await third.evaluate(async () => {
+        const app = window.deadDropApp;
+        if (typeof app.channel.vaultPut !== 'function') return { noVault: true };
+
+        // 900 KB — comfortably over the 512 KB inline line.
+        const size = 900 * 1024;
+        const bytes = new Uint8Array(size);
+        for (let i = 0; i < size; i++) bytes[i] = (i * 13 + 5) & 0xff;
+        const file = new File([bytes], 'cut.bin', { type: 'application/octet-stream' });
+
+        app.chooseFile(file);
+        const said = document.getElementById('fileState').textContent;
+
+        document.getElementById('noteText').value = 'a big one';
+        app.leaveNote();
+        // vaultPut then a storage write; give both room.
+        await new Promise(r => setTimeout(r, 12000));
+        await new Promise(r => app.refresh ? (app.refresh(), setTimeout(r, 3000)) : r());
+
+        const drop = app.drops.find(d => d.file && d.file.vault);
+        return {
+            said,
+            found: !!drop,
+            id: drop && drop.id,
+            blobId: drop && drop.file.vault.blobId,
+            hasKey: !!(drop && drop.file.vault.key),
+            noB64: !!(drop && !drop.file.b64),
+            size: drop && drop.file.size
+        };
+    });
+
+    if (big.noVault) {
+        check(false, 'the SDK on this site has vaultPut — otherwise this section proves nothing');
+    } else {
+        check(/cannot read it/i.test(big.said || ''),
+            'choosing an oversized file says the promise is different BEFORE it is left',
+            big.said);
+        check(big.found && big.size === 900 * 1024,
+            'the drop is written with a vault reference', String(big.size));
+        check(big.noB64 && big.hasKey,
+            'and carries a key rather than the bytes — the card is not the file');
+
+        const badged = await third.evaluate(() =>
+            (document.getElementById('drops').innerText || '').includes('Held as ciphertext'));
+        check(badged, 'the card says which promise this drop is under');
+
+        // The far side collects it: proves the key travelled and decrypts.
+        await third.context().close();     // nobody is online again
+
+        const fourth = await open(b, room, 'Bigcollector');
+        const collected = await fourth.evaluate(async (id) => {
+            const app = window.deadDropApp;
+            await new Promise(r => (app.refresh(), setTimeout(r, 3000)));
+            const drop = app.drops.find(d => d.id === id);
+            if (!drop) return { missing: true };
+            const bytes = await app.channel.vaultGet(drop.file.vault.blobId, drop.file.vault.key);
+            let ok = bytes.length === 900 * 1024;
+            for (let i = 0; ok && i < 2048; i++) {
+                if (bytes[i] !== ((i * 13 + 5) & 0xff)) ok = false;
+            }
+            return { ok, length: bytes.length };
+        }, big.id);
+        check(collected.ok === true,
+            'the other side fetches and decrypts it byte for byte',
+            JSON.stringify(collected));
+    }
+
     await b.close();
     console.log('\nPASS (' + pass.length + ')'); pass.forEach(x => console.log('  ✓ ' + x));
     console.log('\nFAIL (' + fail.length + ')'); fail.forEach(x => console.log('  ✗ ' + x));
