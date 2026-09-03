@@ -11,18 +11,53 @@
 namespace hmdev {
 namespace messaging {
 
+namespace {
+    // Must match the Java, Python and JS agents byte for byte: the service
+    // derives the channel id from the password HASH, so an agent that hashes
+    // differently lands on a different channel under the same name and never
+    // meets the others. (That was the case until 2026-09-03: this file used
+    // base64(sha256(name+password)) and base64 HMACs, and a C++ agent could
+    // not share a channel with any other SDK.)
+    const char* kPbkdf2Salt = "messaging-platform";
+    const int kPbkdf2Iterations = 100000;
+    const int kPbkdf2KeyLength = 32;   // 256 bits
+
+    std::string base64UrlNoPadding(const std::vector<unsigned char>& data) {
+        std::string s = Security::base64Encode(data);
+        for (char& c : s) {
+            if (c == '+') c = '-';
+            else if (c == '/') c = '_';
+        }
+        while (!s.empty() && s.back() == '=') s.pop_back();
+        return s;
+    }
+
+    std::string hexEncode(const std::vector<unsigned char>& data) {
+        std::stringstream ss;
+        for (unsigned char byte : data) {
+            ss << std::hex << std::setw(2) << std::setfill('0') << static_cast<int>(byte);
+        }
+        return ss.str();
+    }
+}
+
 std::string Security::deriveChannelSecret(const std::string& channelName,
                                           const std::string& channelPassword) {
-    // Concatenate channelName and channelPassword to derive secret
-    std::string combined = channelName + channelPassword;
-    auto hash = sha256(combined);
-    return base64Encode(hash);
+    // PBKDF2-HMAC-SHA256(name + password, "messaging-platform", 100000, 32)
+    // -> "channel_" + url-safe base64 without padding. Same as MySecurity in
+    // the Java, Python and JS agents.
+    const std::string combined = channelName + channelPassword;
+    std::vector<unsigned char> key(kPbkdf2KeyLength);
+    PKCS5_PBKDF2_HMAC(combined.c_str(), static_cast<int>(combined.size()),
+                      reinterpret_cast<const unsigned char*>(kPbkdf2Salt),
+                      static_cast<int>(std::strlen(kPbkdf2Salt)),
+                      kPbkdf2Iterations, EVP_sha256(), kPbkdf2KeyLength, key.data());
+    return "channel_" + base64UrlNoPadding(key);
 }
 
 std::string Security::hash(const std::string& password, const std::string& secret) {
-    // HMAC-SHA256 of password with secret
-    auto hmac = hmacSha256(password, secret);
-    return base64Encode(hmac);
+    // Hex HMAC-SHA256(password) keyed by the channel secret, as the other agents do.
+    return hexEncode(hmacSha256(password, secret));
 }
 
 std::string Security::generateChannelId(const std::string& channelName,

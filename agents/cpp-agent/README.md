@@ -48,6 +48,17 @@ sudo apt-get install nlohmann-json3-dev
 
 ## Troubleshooting
 
+**"My C++ agent and my Java/Python/JS agent are on the same channel but never
+see each other."** Update to a build from 2026-09-03 or later. Before that,
+`Security::deriveChannelSecret` and `Security::hash` used their own scheme
+(base64 SHA-256 / base64 HMAC), while every other agent uses
+PBKDF2-HMAC-SHA256 (salt `messaging-platform`, 100 000 iterations, 32 bytes,
+`channel_` + url-safe base64) and a hex HMAC. The service derives the channel
+id from the password hash, so the old C++ agent silently landed on a
+different channel under the same name. C++ agents built before the fix cannot
+share a channel with ones built after it either.
+
+
 - `MESSAGING_UDP_PORT`: Override UDP port (default: 9999)
 
 ## Environment Variables
