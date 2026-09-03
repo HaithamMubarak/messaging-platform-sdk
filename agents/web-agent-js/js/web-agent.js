@@ -3666,6 +3666,135 @@
         console.debug('[web-agent.js] Beforeunload/pagehide listeners registered - pagehide performs beacon cleanup');
     }
 
+    // ---- DiskSink: receive to disk instead of to memory --------------------
+    //
+    // Drop Pro assembles a transfer in memory and dies somewhere past 1.5 GB.
+    // That ceiling is not a bug in the transfer -- it is what happens when the
+    // only place to put the bytes is an array. This is the other place.
+    //
+    // OPFS (the Origin Private File System) is a real file on disk, private to
+    // this origin, that survives a reload and can be written at an offset. Two
+    // things follow that memory could never give:
+    //
+    //   * the size of the file is bounded by the disk, not the tab;
+    //   * an interrupted transfer RESUMES, because what already arrived is
+    //     still there after the page is closed and reopened.
+    //
+    // What it is not: shared, backed up, or permanent. A browser may evict
+    // origin-private storage under pressure, and clearing site data takes it.
+    // Treat it as a place to land a transfer, not a place to keep one.
+
+    /**
+     * Open (or reopen) a disk-backed sink.
+     *
+     *     const sink = await AgentConnection.diskSink({name : 'movie.mp4'});
+     *     console.log(sink.written);      // >0 means there is something to resume
+     *     await sink.writeAt(sink.written, chunk);
+     *     const file = await sink.finish();
+     *
+     * Resolves null where OPFS is unavailable, so a caller can fall back to
+     * memory rather than failing -- the fallback is the caller's decision to
+     * make, and silently pretending would hide a 1.5 GB ceiling coming back.
+     */
+    AgentConnection.diskSink = async function(options){
+        const opts = options || {};
+        const name = String(opts.name || 'transfer.bin').replace(/[^A-Za-z0-9._-]/g, '_');
+
+        if(typeof navigator === 'undefined' || !navigator.storage
+                || typeof navigator.storage.getDirectory !== 'function'){
+            return null;
+        }
+
+        let root, handle;
+        try {
+            root = await navigator.storage.getDirectory();
+            const dir = await root.getDirectoryHandle('mp-transfers', {create : true});
+            handle = await dir.getFileHandle(name, {create : true});
+        } catch(e) {
+            return null;
+        }
+
+        // A fresh sink truncates; a resuming one keeps what is there. Getting
+        // this backwards either loses a resume or appends to stale bytes, and
+        // both look like corruption much later.
+        if(opts.resume === false){
+            const writable = await handle.createWritable({keepExistingData : false});
+            await writable.close();
+        }
+
+        const sink = {
+            name : name,
+            written : (await handle.getFile()).size,
+
+            /** Write at an explicit offset. Out-of-order chunks are fine. */
+            writeAt : async function(offset, bytes){
+                const writable = await handle.createWritable({keepExistingData : true});
+                await writable.write({type : 'write', position : offset, data : bytes});
+                await writable.close();
+                const size = (await handle.getFile()).size;
+                sink.written = size;
+                return size;
+            },
+
+            /** Append. Convenience for the ordinary in-order case. */
+            write : async function(bytes){
+                return sink.writeAt(sink.written, bytes);
+            },
+
+            /** How much is on disk right now — the basis of resuming. */
+            size : async function(){
+                const size = (await handle.getFile()).size;
+                sink.written = size;
+                return size;
+            },
+
+            /**
+             * The finished file.
+             *
+             * A File, not an ArrayBuffer: handing back bytes would put the
+             * whole transfer in memory again and undo the entire point. Give
+             * this to a download link, an <video src>, or FormData.
+             */
+            finish : async function(){
+                return handle.getFile();
+            },
+
+            /** Throw it away. Call this on a cancelled transfer. */
+            discard : async function(){
+                try {
+                    const dir = await root.getDirectoryHandle('mp-transfers', {create : true});
+                    await dir.removeEntry(name);
+                    sink.written = 0;
+                    return true;
+                } catch(e) {
+                    return false;
+                }
+            }
+        };
+        return sink;
+    };
+
+    /** Every part-finished transfer this origin is holding, and how big. */
+    AgentConnection.diskSinkList = async function(){
+        if(typeof navigator === 'undefined' || !navigator.storage
+                || typeof navigator.storage.getDirectory !== 'function'){
+            return null;
+        }
+        try {
+            const root = await navigator.storage.getDirectory();
+            const dir = await root.getDirectoryHandle('mp-transfers', {create : true});
+            const out = [];
+            for await (const [name, handle] of dir.entries()){
+                if(handle.kind !== 'file') continue;
+                const file = await handle.getFile();
+                out.push({name : name, size : file.size, lastModified : file.lastModified});
+            }
+            return out;
+        } catch(e) {
+            return null;
+        }
+    };
+
     // ---- Key escrow and the recovery ceremony ------------------------------
     //
     // Encrypted storage where a fumbled key loses the records is a liability,

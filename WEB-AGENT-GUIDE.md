@@ -919,6 +919,33 @@ agent.connect({
 
 See [USER-GUIDE.md § API Key & Channel Isolation](USER-GUIDE.md#api-key--channel-isolation) for full explanation.
 
+### Receiving to disk instead of memory
+
+Assembling a transfer in an array is what puts a ceiling on it — Drop Pro's is
+about 1.5 GB. `diskSink` writes arriving chunks to OPFS, a real file private to
+this origin:
+
+```javascript
+const sink = await AgentConnection.diskSink({ name: 'movie.mp4' });
+if (!sink) fallBackToMemory();          // null where OPFS is unavailable
+
+if (sink.written > 0) askPeerToResumeFrom(sink.written);
+
+await sink.writeAt(offset, chunk);      // out-of-order chunks are fine
+const file = await sink.finish();       // a File — the bytes never come back into memory
+```
+
+Two properties follow: the size is bounded by the disk rather than the tab, and
+an interrupted transfer **resumes after the page is closed and reopened**,
+because what arrived is still on disk.
+
+`resume: false` truncates. Getting that backwards appends to stale bytes, and
+that looks like corruption a long way from its cause.
+
+**What OPFS is not**: shared, backed up, or permanent. A browser may evict
+origin-private storage under pressure, and clearing site data takes it. It is a
+place to land a transfer, not to keep one.
+
 ### File Sharing (P2P via DataChannels)
 
 ```javascript
@@ -1089,6 +1116,8 @@ webrtc.on('ice-candidate', (streamId, c) => console.log('ICE:', c));
 | `escrowRecover(options)` | Promise — open it with phrase + owner share; attested either way |
 | `escrowList(callback)` | Escrows in this channel — labels and dates, never a half |
 | `escrowHistory(callback)` | The ceremony's Attest chain: seals, recoveries, failed attempts |
+| `AgentConnection.diskSink(options)` | Static, Promise — a disk-backed (OPFS) sink for an incoming transfer; null where unsupported |
+| `AgentConnection.diskSinkList()` | Static, Promise — part-finished transfers this origin holds |
 
 ### WebRtcHelper Methods
 
