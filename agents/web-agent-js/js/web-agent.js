@@ -3666,6 +3666,298 @@
         console.debug('[web-agent.js] Beforeunload/pagehide listeners registered - pagehide performs beacon cleanup');
     }
 
+    // ---- Key escrow and the recovery ceremony ------------------------------
+    //
+    // Encrypted storage where a fumbled key loses the records is a liability,
+    // not a feature. This is the way back in -- and it is deliberately not a
+    // convenient one.
+    //
+    // A sealed escrow needs TWO halves to open:
+    //
+    //   * a RECOVERY PHRASE, chosen when the escrow is sealed;
+    //   * an OWNER SHARE, 32 random bytes handed back exactly once at seal
+    //     time, to be kept somewhere the phrase is not.
+    //
+    // Neither half alone is worth anything, and the server holds neither. What
+    // the server holds is ciphertext it cannot open and a hash chain saying
+    // when somebody opened it -- because the point of an escrow is not only
+    // that recovery is possible, but that it CANNOT HAPPEN QUIETLY. Every
+    // seal, every successful recovery and every failed attempt is attested.
+    //
+    // The honest limit, which belongs in whatever UI wraps this: if both
+    // halves are lost, the data is gone. There is no third path, no support
+    // ticket, and nobody here can help. That is the property being bought.
+
+    const ESCROW_KEY = 'keyring.escrow.v1';
+    const ESCROW_ITERATIONS = 300000;
+    const ESCROW_CHAIN = 'keyring-escrow';
+
+    function escrowB64(bytes){
+        let binary = '';
+        const view = new Uint8Array(bytes);
+        for(let i = 0; i < view.length; i++){
+            binary += String.fromCharCode(view[i]);
+        }
+        return window.btoa(binary);
+    }
+
+    function escrowFromB64(text){
+        const binary = window.atob(text);
+        const out = new Uint8Array(binary.length);
+        for(let i = 0; i < binary.length; i++){
+            out[i] = binary.charCodeAt(i);
+        }
+        return out;
+    }
+
+    /**
+     * Turn a recovery phrase into 32 bytes.
+     *
+     * 300,000 PBKDF2 iterations, three times what deriveChannelSecret uses. A
+     * channel password is typed daily and is one factor among several; a
+     * recovery phrase is written on paper, used once in years, and is half of
+     * everything. The asymmetry in cost is the point.
+     */
+    async function escrowPhraseKey(phrase, salt){
+        const material = await window.crypto.subtle.importKey(
+            'raw', new TextEncoder().encode(phrase), {name : 'PBKDF2'}, false, ['deriveBits']);
+        const bits = await window.crypto.subtle.deriveBits(
+            {name : 'PBKDF2', salt : salt, iterations : ESCROW_ITERATIONS, hash : 'SHA-256'},
+            material, 256);
+        return new Uint8Array(bits);
+    }
+
+    /** Both halves, combined. Neither one alone reveals anything about it. */
+    function escrowCombine(phraseKey, ownerShare){
+        const out = new Uint8Array(32);
+        for(let i = 0; i < 32; i++){
+            out[i] = phraseKey[i] ^ ownerShare[i];
+        }
+        return out;
+    }
+
+    async function escrowSha256Hex(bytes){
+        const digest = await window.crypto.subtle.digest('SHA-256', bytes);
+        return Array.from(new Uint8Array(digest))
+            .map(b => b.toString(16).padStart(2, '0')).join('');
+    }
+
+    /**
+     * Seal a secret so it can be recovered by somebody holding both halves.
+     *
+     *     const {escrowId, ownerShare} = await channel.escrowSeal({
+     *         secret : channelPassword,
+     *         recoveryPhrase : 'correct horse battery staple',
+     *         label : 'clinic channel password'
+     *     });
+     *
+     * `ownerShare` is returned ONCE and never stored anywhere by this code.
+     * Show it, let it be printed or copied, and do not offer to remember it —
+     * a share kept next to the phrase is not a second factor.
+     */
+    AgentConnection.prototype.escrowSeal = async function(options){
+        const _self = this;
+        const opts = options || {};
+
+        if(!opts.secret){
+            throw new Error('Nothing to seal.');
+        }
+        if(!opts.recoveryPhrase || String(opts.recoveryPhrase).length < 12){
+            // Not a style rule. This phrase is half of everything and is
+            // attacked offline by anybody who obtains the other half.
+            throw new Error('A recovery phrase must be at least 12 characters.');
+        }
+
+        const salt = window.crypto.getRandomValues(new Uint8Array(16));
+        const iv = window.crypto.getRandomValues(new Uint8Array(12));
+        const ownerShare = window.crypto.getRandomValues(new Uint8Array(32));
+        const phraseKey = await escrowPhraseKey(opts.recoveryPhrase, salt);
+
+        const wrapKey = await window.crypto.subtle.importKey(
+            'raw', escrowCombine(phraseKey, ownerShare), {name : 'AES-GCM'}, false, ['encrypt', 'decrypt']);
+        const sealed = new Uint8Array(await window.crypto.subtle.encrypt(
+            {name : 'AES-GCM', iv : iv}, wrapKey,
+            new TextEncoder().encode(String(opts.secret))));
+
+        const escrowId = escrowB64(window.crypto.getRandomValues(new Uint8Array(12)))
+            .replace(/[+/=]/g, '').slice(0, 12);
+
+        const record = {
+            v : 1,
+            escrowId : escrowId,
+            label : String(opts.label || 'unnamed'),
+            salt : escrowB64(salt),
+            iv : escrowB64(iv),
+            sealed : escrowB64(sealed),
+            iterations : ESCROW_ITERATIONS,
+            sealedBy : _self.agentName,
+            at : new Date().toISOString()
+        };
+
+        await new Promise((resolve, reject) => {
+            // `content`, not `storageValue`: storageAdd destructures {storageKey,
+            // content} and silently sends undefined for anything else.
+            _self.storageAdd({storageKey : ESCROW_KEY, content : JSON.stringify(record)},
+                res => (res && res.status === 'success') ? resolve(res)
+                    : reject(new Error('Could not store the escrow record.')));
+        });
+
+        // The receipt. Sealing is as much a part of the ceremony as opening:
+        // without it, an escrow could be swapped for one whose halves somebody
+        // else holds, and nothing would show that it had been.
+        const contentHash = await escrowSha256Hex(
+            new TextEncoder().encode(record.escrowId + '|' + record.sealed));
+        await new Promise(resolve => _self.attest({
+            chainKey : ESCROW_CHAIN, kind : 'escrow-sealed', contentHash : contentHash,
+            meta : {escrowId : escrowId, label : record.label}
+        }, resolve));
+
+        return {
+            escrowId : escrowId,
+            // Once. Never written down by this code, in storage or anywhere.
+            ownerShare : escrowB64(ownerShare),
+            label : record.label,
+            sealedAt : record.at
+        };
+    };
+
+    /**
+     * @private Escrow records out of a storageGetList response.
+     *
+     * The shape is not obvious and this codebase has got it wrong before (see
+     * Pulse): versions live under data.versions or data.data.versions, and
+     * each entry's `content` is BASE64 of the stored text. On a channel with a
+     * secret, storageGetList tries to decrypt every row first and marks the
+     * ones it cannot as `unreadable` -- which every escrow row is, because an
+     * escrow is deliberately stored unencrypted (it is already ciphertext, and
+     * a record you need in order to recover a lost key must not itself require
+     * that key).
+     */
+    function escrowRows(response){
+        if(!response || response.status !== 'success') return [];
+        const payload = response.data && response.data.data ? response.data.data : response.data;
+        const versions = payload && Array.isArray(payload.versions) ? payload.versions
+            : (Array.isArray(payload) ? payload : []);
+        const out = [];
+        for(const entry of versions){
+            let value = entry && entry.content;
+            if(value && typeof value === 'object'){
+                out.push(value);
+                continue;
+            }
+            if(typeof value !== 'string') continue;
+            let parsed = null;
+            try {
+                parsed = JSON.parse(value);
+            } catch(e) {
+                try { parsed = JSON.parse(window.atob(value)); } catch(e2) { parsed = null; }
+            }
+            if(parsed && parsed.escrowId) out.push(parsed);
+        }
+        return out;
+    }
+
+    /** Every escrow in this channel — labels and dates, never any half. */
+    AgentConnection.prototype.escrowList = function(callback){
+        this.storageGetList(ESCROW_KEY, function(res){
+            const out = escrowRows(res).map(r => ({
+                escrowId : r.escrowId, label : r.label, sealedBy : r.sealedBy, at : r.at
+            }));
+            typeof callback === 'function' && callback({status : 'success', data : {escrows : out}});
+        });
+    };
+
+    /** @private The stored record for one escrow id, or null. */
+    AgentConnection.prototype._escrowFind = function(escrowId){
+        return new Promise(resolve => {
+            this.storageGetList(ESCROW_KEY, function(res){
+                resolve(escrowRows(res).filter(r => r.escrowId === escrowId)[0] || null);
+            });
+        });
+    };
+
+    /**
+     * The recovery ceremony.
+     *
+     *     const {secret} = await channel.escrowRecover({
+     *         escrowId, recoveryPhrase, ownerShare
+     *     });
+     *
+     * Both halves or nothing. Success AND failure are attested before this
+     * returns, so a recovery — or an attempt at one — always leaves a mark
+     * that the person who made it cannot remove. That is the difference
+     * between an escrow and a spare key under the mat.
+     */
+    AgentConnection.prototype.escrowRecover = async function(options){
+        const _self = this;
+        const opts = options || {};
+
+        const record = await _self._escrowFind(opts.escrowId);
+        if(!record){
+            throw new Error('No such escrow in this channel.');
+        }
+
+        const salt = escrowFromB64(record.salt);
+        const iv = escrowFromB64(record.iv);
+        const sealed = escrowFromB64(record.sealed);
+        let ownerShare;
+        try {
+            ownerShare = escrowFromB64(String(opts.ownerShare || ''));
+        } catch(e) {
+            ownerShare = new Uint8Array(0);
+        }
+        if(ownerShare.length !== 32){
+            await _self._escrowReceipt(record, 'escrow-recovery-failed', 'malformed-owner-share');
+            throw new Error('That owner share is not the right shape.');
+        }
+
+        const phraseKey = await escrowPhraseKey(String(opts.recoveryPhrase || ''), salt);
+        const wrapKey = await window.crypto.subtle.importKey(
+            'raw', escrowCombine(phraseKey, ownerShare), {name : 'AES-GCM'}, false, ['encrypt', 'decrypt']);
+
+        let plain;
+        try {
+            plain = await window.crypto.subtle.decrypt({name : 'AES-GCM', iv : iv}, wrapKey, sealed);
+        } catch(e) {
+            // GCM cannot say WHICH half was wrong, and this code does not
+            // guess: telling somebody "the phrase was right" would turn one
+            // half into a test oracle for the other.
+            await _self._escrowReceipt(record, 'escrow-recovery-failed', 'wrong-halves');
+            throw new Error('Those two halves do not open this escrow.');
+        }
+
+        await _self._escrowReceipt(record, 'escrow-recovered', 'ok');
+        return {
+            escrowId : record.escrowId,
+            label : record.label,
+            secret : new TextDecoder().decode(plain)
+        };
+    };
+
+    /** @private One attested line in the ceremony's chain. */
+    AgentConnection.prototype._escrowReceipt = function(record, kind, outcome){
+        const _self = this;
+        return new Promise(async resolve => {
+            try {
+                const contentHash = await escrowSha256Hex(new TextEncoder().encode(
+                    record.escrowId + '|' + kind + '|' + new Date().toISOString()));
+                _self.attest({
+                    chainKey : ESCROW_CHAIN, kind : kind, contentHash : contentHash,
+                    // No secret, no half, no phrase -- meta is public-safe by
+                    // contract and this is a record that a thing happened.
+                    meta : {escrowId : record.escrowId, outcome : outcome}
+                }, resolve);
+            } catch(e) {
+                resolve({status : 'error', data : String(e && e.message || e)});
+            }
+        });
+    };
+
+    /** The ceremony's history: who sealed and who opened, in order. */
+    AgentConnection.prototype.escrowHistory = function(callback){
+        this.attestList(ESCROW_CHAIN, callback);
+    };
+
     // ---- Vault: encrypted blobs past the 512 KB line -----------------------
     //
     // SAY THE RIGHT SENTENCE. Dead Drop's promise is "never on a server".

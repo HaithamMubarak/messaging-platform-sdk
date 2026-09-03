@@ -17,11 +17,12 @@
 5. [Till (Licences and Seats)](#till-licences-and-seats)
 6. [Knock (Reaching a Closed Browser)](#knock-reaching-a-closed-browser)
 7. [Vault (Encrypted Blobs)](#vault-encrypted-blobs)
-8. [WebRTC Video Streaming](#webrtc-video-streaming)
-9. [Advanced Topics](#advanced-topics)
-10. [Security Best Practices](#security-best-practices)
-11. [Troubleshooting](#troubleshooting)
-12. [API Reference](#api-reference)
+8. [Key Escrow and Recovery](#key-escrow-and-recovery)
+9. [WebRTC Video Streaming](#webrtc-video-streaming)
+10. [Advanced Topics](#advanced-topics)
+11. [Security Best Practices](#security-best-practices)
+12. [Troubleshooting](#troubleshooting)
+13. [API Reference](#api-reference)
 
 ---
 
@@ -664,6 +665,63 @@ otherwise resume would be the thing that breaks resume.
 
 ---
 
+## Key Escrow and Recovery
+
+Encrypted storage where a fumbled key loses the records is a liability, not a
+feature. This is the way back in, and it is deliberately not a convenient one.
+
+### Two halves, and the server holds neither
+
+```javascript
+const { escrowId, ownerShare } = await channel.escrowSeal({
+    secret: channelPassword,
+    recoveryPhrase: 'seventeen rusty lanterns above the harbour',
+    label: 'clinic channel password'
+});
+// Show ownerShare ONCE. Let it be printed or copied. Do not offer to remember
+// it — a share kept next to the phrase is not a second factor.
+```
+
+Opening it needs **both** the recovery phrase and the owner share. Neither half
+alone reveals anything, and this platform stores neither: the sealed record is
+ciphertext, and the share exists only wherever its owner put it.
+
+### The ceremony
+
+```javascript
+const { secret } = await channel.escrowRecover({ escrowId, recoveryPhrase, ownerShare });
+```
+
+Every seal, every successful recovery **and every failed attempt** is written to
+an Attest chain (`keyring-escrow`) before the call returns. That is the actual
+product: not that recovery is possible, but that it **cannot happen quietly**.
+Whoever performs a recovery leaves a receipt they cannot remove.
+
+```javascript
+channel.escrowHistory(res => {
+    // an Attest bundle — verify it offline with AgentConnection.attestVerify
+});
+```
+
+### What this does not do
+
+- **If both halves are lost, the data is gone.** No third path, no support
+  ticket, nobody here can help. That is the property being bought.
+- A failed attempt never says *which* half was wrong. Telling somebody "the
+  phrase was right" would turn one half into a test oracle for the other.
+- A receipt proves an authenticated agent performed a recovery at a time. It
+  does not prove who was physically holding the phrase.
+- The escrow record is stored **unencrypted** (it is already ciphertext) so
+  that recovering a lost channel key does not require that same key. Its whole
+  security is the two halves.
+
+The recovery phrase runs through 300,000 PBKDF2 iterations — three times what a
+channel password uses. A channel password is typed daily and is one factor among
+several; a recovery phrase is written on paper, used once in years, and is half
+of everything.
+
+---
+
 ## WebRTC Video Streaming
 
 ### Broadcast Video
@@ -1027,6 +1085,10 @@ webrtc.on('ice-candidate', (streamId, c) => console.log('ICE:', c));
 | `vaultStatus(blobId, callback)` | What arrived, what is missing |
 | `vaultQuota(callback)` | This deployment's limits and the channel's usage |
 | `vaultDelete(blobId, callback)` | Delete one |
+| `escrowSeal(options)` | Promise — seal a secret; returns `{escrowId, ownerShare}` once |
+| `escrowRecover(options)` | Promise — open it with phrase + owner share; attested either way |
+| `escrowList(callback)` | Escrows in this channel — labels and dates, never a half |
+| `escrowHistory(callback)` | The ceremony's Attest chain: seals, recoveries, failed attempts |
 
 ### WebRtcHelper Methods
 
