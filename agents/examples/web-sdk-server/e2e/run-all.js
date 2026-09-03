@@ -30,7 +30,7 @@ const GROUPS = {
     'presence (opt in)': [],
     'mobile + security': ['touch-play-test.js', 'injection-test.js', 'forgery-test.js',
                           'host-forgery-test.js', 'vote-privacy-test.js'],
-    'mechanisms': ['companion-test.js', 'attest-test.js']
+    'mechanisms': ['companion-test.js', 'attest-test.js', 'till-test.js']
 };
 
 const only = process.argv.slice(2).filter(a => !a.startsWith('-'));

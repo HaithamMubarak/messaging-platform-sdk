@@ -3666,10 +3666,157 @@
         console.debug('[web-agent.js] Beforeunload/pagehide listeners registered - pagehide performs beacon cleanup');
     }
 
+    // ---- Till: licences, seats and the honest gate -------------------------
+    //
+    // One licensing check instead of one per app. Till answers three questions
+    // -- is this key good for this app, is a seat free, and until when -- and
+    // nothing else. It never sees a card; a payment provider owns that.
+    //
+    // READ THIS BEFORE GATING ANYTHING ON IT. A check that runs in a browser
+    // is a COURTESY. It shows an honest user the honest path and it makes the
+    // paid door obvious. It stops nobody who opens devtools, and it is not
+    // supposed to. The check that PROTECTS something is the one on whichever
+    // server call the app already makes -- Till just makes the honest check
+    // cheap enough that no app has an excuse to skip it.
+    //
+    //   const verdict = await AgentConnection.Till.check({
+    //       api : '/messaging-platform/api/v1/messaging-service',
+    //       app : 'signet',
+    //       key : localStorage.getItem('signet.licence')
+    //   });
+    //   if(!verdict.valid) showBuyScreen(verdict.reason);
+
+    function tillUrl(apiBase, endpoint){
+        let baseUrl = apiBase || '';
+        if(baseUrl.endsWith('/')){
+            baseUrl = baseUrl.substring(0, baseUrl.length - 1);
+        }
+        return `${baseUrl}/till/${endpoint}`;
+    }
+
+    function tillPost(apiBase, endpoint, body){
+        return new Promise(function(resolve){
+            const xhr = new XMLHttpRequest();
+            xhr.open('POST', tillUrl(apiBase, endpoint));
+            xhr.setRequestHeader('Content-Type', 'application/json');
+            xhr.onload = function(){
+                let parsed = null;
+                try { parsed = JSON.parse(xhr.responseText); } catch(e) {}
+                if((xhr.status === 200 || xhr.status === 201) && parsed && parsed.data){
+                    resolve(parsed.data);
+                    return;
+                }
+                // A refusal and a network failure are BOTH "no entitlement".
+                // Returning a verdict rather than throwing keeps every caller
+                // on one path: an app that crashed on a flaky network would
+                // lock out a paying customer over a dropped packet.
+                const message = (parsed && parsed.statusMessage) || xhr.statusText || 'unavailable';
+                resolve({valid : false, reason : 'unavailable', detail : message, seats : 0, seatsUsed : 0});
+            };
+            xhr.onerror = function(){
+                resolve({valid : false, reason : 'unavailable', detail : 'Network error', seats : 0, seatsUsed : 0});
+            };
+            xhr.send(JSON.stringify(body || {}));
+        });
+    }
+
+    const Till = {
+
+        /** Set once at boot so every later call can omit `api`. */
+        api : null,
+
+        configure : function(api){
+            Till.api = api;
+            return Till;
+        },
+
+        _base : function(api){
+            const base = api || Till.api;
+            if(!base){
+                throw new Error('Till needs an API base: Till.configure(api) or pass {api}.');
+            }
+            return base;
+        },
+
+        /**
+         * Is this key good for this app right now?
+         *
+         * Resolves to { valid, plan, seats, seatsUsed, expiresAt, reason } and
+         * never rejects. `reason` is one of: unknown_or_revoked, revoked,
+         * past_due, expired, site_mismatch, no_seats_available, unavailable.
+         *
+         * An unknown key and a key for a DIFFERENT product both answer
+         * "unknown_or_revoked" — the server will not tell a caller what else
+         * the holder owns, and will not confirm a guess.
+         */
+        check : function({api = null, app, key, seatRef = null} = {}){
+            return tillPost(Till._base(api), 'entitlement', {app : app, key : key, seatRef : seatRef});
+        },
+
+        /**
+         * Take or refresh a seat.
+         *
+         * `seatRef` is whatever this app calls a user; it is hashed before the
+         * server stores it, so Till counts seats without keeping a list of who
+         * they are. Refreshing a seat you already hold always succeeds, even on
+         * a full licence — otherwise closing a laptop could lock you out until
+         * a colleague left.
+         */
+        claimSeat : function({api = null, app, key, seatRef} = {}){
+            return tillPost(Till._base(api), 'seat/claim', {app : app, key : key, seatRef : seatRef});
+        },
+
+        releaseSeat : function({api = null, app, key, seatRef} = {}){
+            return tillPost(Till._base(api), 'seat/release', {app : app, key : key, seatRef : seatRef});
+        },
+
+        /**
+         * check() (or claimSeat() when a seatRef is given), rejecting when the
+         * answer is no — for `await`-shaped app shells.
+         *
+         * The rejection carries the verdict, so a caller can say WHY the door
+         * is shut ("your licence expired") instead of a blank refusal.
+         */
+        require : async function(options = {}){
+            const verdict = options.seatRef
+                ? await Till.claimSeat(options)
+                : await Till.check(options);
+            if(!verdict || !verdict.valid){
+                const error = new Error('Not licensed for ' + options.app + ': '
+                    + ((verdict && verdict.reason) || 'unknown'));
+                error.verdict = verdict;
+                throw error;
+            }
+            return verdict;
+        },
+
+        /**
+         * Keep the holder's own copy of their key in this browser.
+         *
+         * Convenience, not custody: it is the customer's key, on the
+         * customer's machine, and localStorage is exactly as private as the
+         * machine is. Nothing here is a secret from the person sitting there.
+         */
+        remember : function(app, key){
+            try { window.localStorage.setItem('till.licence.' + app, key); } catch(e) {}
+        },
+
+        recall : function(app){
+            try { return window.localStorage.getItem('till.licence.' + app); } catch(e) { return null; }
+        },
+
+        forget : function(app){
+            try { window.localStorage.removeItem('till.licence.' + app); } catch(e) {}
+        }
+    };
+
+    AgentConnection.Till = Till;
+
     // Export for Node.js
     if (typeof module !== 'undefined' && module.exports) {
         module.exports = {
             AgentConnection,
+            Till,
             MySecurity,
             FileSystem,
             generateRandomAgentName

@@ -36,6 +36,18 @@ it already.
 Point them elsewhere with `SDK_BASE_URL`. Screenshots land in `shots/`
 (git-ignored); override with `SDK_SHOT_DIR`.
 
+**Environment for `till-test.js`.** Till is licensing, so its suite talks to
+messaging-service rather than a page, and it needs three values:
+
+    export ADMIN_EMAIL=... ADMIN_PASSWORD=...        # to mint test licences
+    export TILL_WEBHOOK_SECRET=...                   # the same one the service was started with
+    # optional: TILL_API_BASE, default http://127.0.0.1:8082/messaging-platform/api/v1/messaging-service
+
+Without the webhook secret the suite **fails** rather than skipping that
+section. That is deliberate. A webhook section that quietly skips itself is how
+an unsigned upgrade path ships: the endpoint that can hand somebody a paid
+licence must have its accept path proven, not assumed.
+
 ## What is here
 
 **Site sweeps** — every page, cheaply.

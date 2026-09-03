@@ -14,11 +14,12 @@
 2. [Basic Messaging](#basic-messaging)
 3. [Channel Storage (Key-Value Store)](#channel-storage-key-value-store)
 4. [Attest (Tamper-Evident Receipts)](#attest-tamper-evident-receipts)
-5. [WebRTC Video Streaming](#webrtc-video-streaming)
-6. [Advanced Topics](#advanced-topics)
-7. [Security Best Practices](#security-best-practices)
-8. [Troubleshooting](#troubleshooting)
-9. [API Reference](#api-reference)
+5. [Till (Licences and Seats)](#till-licences-and-seats)
+6. [WebRTC Video Streaming](#webrtc-video-streaming)
+7. [Advanced Topics](#advanced-topics)
+8. [Security Best Practices](#security-best-practices)
+9. [Troubleshooting](#troubleshooting)
+10. [API Reference](#api-reference)
 
 ---
 
@@ -420,6 +421,98 @@ language.
 
 ---
 
+## Till (Licences and Seats)
+
+One licensing check, so no app builds "Stripe checkout in v1" for the fifth
+time. Till answers three questions — is this key good for this app, is a seat
+free, and until when — and nothing else. It never sees a card.
+
+### Read this before you gate anything on it
+
+**A licence check in a browser is a courtesy.** It shows an honest customer the
+honest path and makes the paid door obvious. It stops nobody who opens
+devtools, and it is not meant to. The check that *protects* something is the
+one on whichever server call your app already had to make. Till makes the
+honest check cheap enough that no app has an excuse to skip it — it does not
+make a client trustworthy, and no amount of care on this page changes that.
+
+### Checking a licence
+
+```javascript
+const Till = AgentConnection.Till.configure('/messaging-platform/api/v1/messaging-service');
+
+const verdict = await Till.check({ app: 'signet', key: Till.recall('signet') });
+if (!verdict.valid) {
+    showPurchaseScreen(verdict.reason);   // never a blank "no"
+}
+```
+
+`check()` resolves to `{ valid, plan, seats, seatsUsed, expiresAt, reason }` and
+**never rejects** — a dropped packet resolves `{valid: false, reason:
+'unavailable'}`, because an app that threw on a flaky network would lock out a
+paying customer over one lost request. Treat `unavailable` as "ask again", not
+as "unlicensed forever".
+
+`reason` is one of `unknown_or_revoked`, `revoked`, `past_due`, `expired`,
+`site_mismatch`, `no_seats_available`, `unavailable`.
+
+### Seats
+
+```javascript
+const seat = await Till.claimSeat({ app: 'signet', key, seatRef: currentUser.email });
+if (!seat.valid && seat.reason === 'no_seats_available') {
+    showSeatFullScreen(seat.seats);
+}
+// when they sign out
+await Till.releaseSeat({ app: 'signet', key, seatRef: currentUser.email });
+```
+
+`seatRef` is whatever your app calls a user. It is **hashed before the server
+stores it** — Till counts distinct seats without keeping a list of who they
+are. Re-claiming a seat you already hold always succeeds, even on a full
+licence: otherwise closing a laptop could lock somebody out until a colleague
+signed off.
+
+`seats: 0` means unmetered — a site licence.
+
+### Gating an app shell
+
+```javascript
+try {
+    await AgentConnection.Till.require({ app: 'signet', key, seatRef: user.email });
+    startApp();
+} catch (e) {
+    // e.verdict carries the reason, so the screen can say WHY
+    showPurchaseScreen(e.verdict);
+}
+```
+
+### The rules that keep it honest
+
+- **A key is a bearer credential**, so it travels in a POST body and never in a
+  URL. URLs end up in access logs, proxy logs, browser history and `Referer`
+  headers. (The design sketch said `GET /till/entitlement?key=...`; this is a
+  deliberate departure from it.)
+- **The server stores only a hash of the key.** It is shown once when issued
+  and cannot be read back — a copy of the licence table is not a set of working
+  licences. Lost key, new licence.
+- **An unknown key and a real key for a different product get the same
+  answer.** The endpoint will not confirm a guess or tell a caller what else
+  somebody owns.
+- **Site binding is a guard rail, not a boundary.** `site` stops a key being
+  pasted into another deployment by a helpful colleague. The origin is asserted
+  by the caller, and a caller that is not a browser asserts whatever it likes.
+- **Webhooks are verified over the raw body before anything parses it**,
+  compared in constant time, refused outside a five-minute window, and recorded
+  by event id so a replay is applied once. With no signing secret configured,
+  every webhook is refused — the endpoint that can hand out a paid plan fails
+  closed.
+- **`/checkout` answers 501** until a provider is actually wired. An endpoint
+  that silently upgraded an account would be worse than none, because it would
+  look finished.
+
+---
+
 ## WebRTC Video Streaming
 
 ### Broadcast Video
@@ -766,6 +859,12 @@ webrtc.on('ice-candidate', (streamId, c) => console.log('ICE:', c));
 | `attestExport(chainKey, callback)` | Self-contained bundle to file or send on |
 | `attestChains(callback)` | Every chain name in this channel |
 | `AgentConnection.attestVerify(bundle)` | Static — re-derive and check a chain offline |
+| `AgentConnection.Till.configure(api)` | Static — set the API base once |
+| `AgentConnection.Till.check({app, key})` | Static — licence verdict; never rejects |
+| `AgentConnection.Till.claimSeat({app, key, seatRef})` | Static — take or refresh a seat |
+| `AgentConnection.Till.releaseSeat({app, key, seatRef})` | Static — give a seat back |
+| `AgentConnection.Till.require({app, key, seatRef?})` | Static — as above, but rejects when the answer is no |
+| `AgentConnection.Till.remember/recall/forget(app, key?)` | Static — the holder's own copy of their key, in their browser |
 
 ### WebRtcHelper Methods
 
