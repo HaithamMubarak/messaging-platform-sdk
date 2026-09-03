@@ -15,11 +15,12 @@
 3. [Channel Storage (Key-Value Store)](#channel-storage-key-value-store)
 4. [Attest (Tamper-Evident Receipts)](#attest-tamper-evident-receipts)
 5. [Till (Licences and Seats)](#till-licences-and-seats)
-6. [WebRTC Video Streaming](#webrtc-video-streaming)
-7. [Advanced Topics](#advanced-topics)
-8. [Security Best Practices](#security-best-practices)
-9. [Troubleshooting](#troubleshooting)
-10. [API Reference](#api-reference)
+6. [Knock (Reaching a Closed Browser)](#knock-reaching-a-closed-browser)
+7. [WebRTC Video Streaming](#webrtc-video-streaming)
+8. [Advanced Topics](#advanced-topics)
+9. [Security Best Practices](#security-best-practices)
+10. [Troubleshooting](#troubleshooting)
+11. [API Reference](#api-reference)
 
 ---
 
@@ -513,6 +514,84 @@ try {
 
 ---
 
+## Knock (Reaching a Closed Browser)
+
+A knock is a **content-free ping**. No payload is sent — not an encrypted one,
+none at all — so the push service learns that something happened in some
+subscription and never what, or from whom. When the person opens the page, the
+page fetches the real thing over the authenticated channel.
+
+### The sentence you are allowed to write
+
+**"A knock was sent."** Never "they were notified". Push is best effort:
+permission gets declined, iOS delivers only to an installed PWA, push services
+throttle, and a sleeping laptop gets it when it wakes. Nothing in this API
+knows whether a human saw anything. Attest can receipt that a knock was sent;
+nothing can receipt that somebody read it.
+
+### Subscribing
+
+```javascript
+// From a CLICK. A permission prompt on page load is refused outright by some
+// browsers and resented by every user.
+const res = await channel.knockSubscribe({ swPath: '/knock-sw.js' });
+if (!res.ok) {
+    // 'unsupported' | 'denied' | 'no_key' | 'ephemeral_key' | 'subscribe_failed'
+    explain(res.reason);
+}
+```
+
+Each failure is a different problem, so they are different reasons.
+`ephemeral_key` means the platform has no configured VAPID key: a subscription
+taken against it dies at the next restart, so the SDK refuses rather than
+spending somebody's permission on it (pass `allowEphemeralKey: true` in a demo
+where the churn does not matter).
+
+**The service worker's scope is its own directory.** `/js/knock-sw.js` can only
+control `/js/*`, which is the single most common reason push "silently does
+nothing". Serve it from the root of whatever scope needs it — the SDK site
+serves one at `/knock-sw.js`.
+
+### Knocking
+
+```javascript
+channel.knock('Dana', { tag: 'shift-handover' }, (res) => {
+    // res.data.sent / rateCapped / failed, one result per device,
+    // and res.data.meaning — the sentence to show the user
+    show(res.data.meaning);
+});
+```
+
+`tag` becomes a push Topic, so three knocks about the same thing collapse into
+one waiting notification rather than three buzzes.
+
+### Who can be reached
+
+```javascript
+channel.knockReachable(res => {
+    // [{agent: 'Dana', devices: 2}, ...] — names and counts, never endpoints
+});
+```
+
+An endpoint is the capability to ping somebody's device. It is never handed
+back to anyone, including other members of the channel.
+
+### The rules that keep it honest
+
+- **Membership is the authorisation.** The session says which channel you are
+  in, and every lookup is scoped to it. You cannot subscribe for somebody else,
+  knock outside your channel, or read anybody's endpoint.
+- **Knocks are rate-capped per device.** Not to be polite to the push service —
+  something that can ping a phone in a loop is a weapon.
+- **The server will not fetch whatever URL it is handed.** A push endpoint is
+  client-supplied and server-fetched, which is the exact shape of an SSRF
+  gadget; endpoints are checked against an allowlist of push hosts at subscribe
+  time.
+- **A dead subscription is deleted, not retried forever.** A 404 or 410 from a
+  push service means gone.
+
+---
+
 ## WebRTC Video Streaming
 
 ### Broadcast Video
@@ -865,6 +944,10 @@ webrtc.on('ice-candidate', (streamId, c) => console.log('ICE:', c));
 | `AgentConnection.Till.releaseSeat({app, key, seatRef})` | Static — give a seat back |
 | `AgentConnection.Till.require({app, key, seatRef?})` | Static — as above, but rejects when the answer is no |
 | `AgentConnection.Till.remember/recall/forget(app, key?)` | Static — the holder's own copy of their key, in their browser |
+| `knockSubscribe(options?)` | Promise — ask this browser to accept knocks (call from a click) |
+| `knockUnsubscribe()` | Promise — stop knocks to this browser |
+| `knock(agentName, options?, callback)` | Knock on one member; per-device outcomes |
+| `knockReachable(callback)` | Who can be reached here — names and device counts only |
 
 ### WebRtcHelper Methods
 

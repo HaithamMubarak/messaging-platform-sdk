@@ -3666,6 +3666,208 @@
         console.debug('[web-agent.js] Beforeunload/pagehide listeners registered - pagehide performs beacon cleanup');
     }
 
+    // ---- Knock: reach a browser that is closed -----------------------------
+    //
+    // A knock is a CONTENT-FREE ping. No payload is sent -- not an encrypted
+    // one, none at all -- so the push service learns that something happened
+    // and never what, or from whom. When the person opens the page, the page
+    // fetches the real thing over the authenticated channel.
+    //
+    // What an app may say: "a knock was sent". What no app may say: "they were
+    // notified". Push is best effort -- permission gets declined, iOS delivers
+    // only to an installed PWA, services throttle, a sleeping laptop gets it on
+    // waking. Nothing in this file knows whether a human saw anything, so
+    // nothing built on it may claim so.
+
+    function knockUrl(apiBase, endpoint){
+        let baseUrl = apiBase || '';
+        if(baseUrl.endsWith('/')){
+            baseUrl = baseUrl.substring(0, baseUrl.length - 1);
+        }
+        return `${baseUrl}/knock/${endpoint}`;
+    }
+
+    /** base64url (what a VAPID key is) to the Uint8Array PushManager wants. */
+    function knockKeyToBytes(base64url){
+        const padded = (base64url + '='.repeat((4 - base64url.length % 4) % 4))
+            .replace(/-/g, '+').replace(/_/g, '/');
+        const raw = window.atob(padded);
+        const bytes = new Uint8Array(raw.length);
+        for(let i = 0; i < raw.length; i++){
+            bytes[i] = raw.charCodeAt(i);
+        }
+        return bytes;
+    }
+
+    function knockB64Url(arrayBuffer){
+        const bytes = new Uint8Array(arrayBuffer);
+        let binary = '';
+        for(let i = 0; i < bytes.length; i++){
+            binary += String.fromCharCode(bytes[i]);
+        }
+        return window.btoa(binary).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+    }
+
+    /**
+     * Ask this browser to accept knocks in the current channel.
+     *
+     * Four things have to go right, and each fails differently, so the result
+     * says WHICH: no service worker or PushManager (unsupported), the person
+     * said no (denied), the platform has no usable key (no_key), or the
+     * subscription itself failed (subscribe_failed).
+     *
+     * Call it from a click. A permission prompt fired on page load is refused
+     * outright by some browsers and resented by every user.
+     *
+     *     const res = await channel.knockSubscribe({swPath : '/knock-sw.js'});
+     *     if(!res.ok) explain(res.reason);
+     */
+    AgentConnection.prototype.knockSubscribe = async function(options){
+        const _self = this;
+        const opts = options || {};
+        const swPath = opts.swPath || '/knock-sw.js';
+
+        if(!_self.readyState || !_self.sessionId){
+            return {ok : false, reason : 'not_connected'};
+        }
+        if(typeof navigator === 'undefined' || !('serviceWorker' in navigator) || !('PushManager' in window)){
+            return {ok : false, reason : 'unsupported'};
+        }
+
+        // The server's key first: if it is ephemeral, every subscription taken
+        // with it dies at the next restart, and asking somebody for permission
+        // that will be wasted is worse than not asking.
+        const keyInfo = await new Promise(resolve => {
+            const xhr = new XMLHttpRequest();
+            xhr.open('GET', knockUrl(_self._api, 'key'));
+            xhr.onload = function(){
+                try { resolve(JSON.parse(xhr.responseText).data); } catch(e) { resolve(null); }
+            };
+            xhr.onerror = function(){ resolve(null); };
+            xhr.send();
+        });
+        if(!keyInfo || !keyInfo.applicationServerKey){
+            return {ok : false, reason : 'no_key'};
+        }
+        if(keyInfo.ephemeral && !opts.allowEphemeralKey){
+            // Deliberately a refusal rather than a warning. Pass
+            // allowEphemeralKey:true in a demo where the churn does not matter.
+            return {ok : false, reason : 'ephemeral_key',
+                    detail : 'The platform has no configured VAPID key, so this subscription '
+                           + 'would stop working at its next restart.'};
+        }
+
+        try {
+            const registration = await navigator.serviceWorker.register(swPath);
+            await navigator.serviceWorker.ready;
+
+            const permission = await window.Notification.requestPermission();
+            if(permission !== 'granted'){
+                return {ok : false, reason : 'denied'};
+            }
+
+            let subscription = await registration.pushManager.getSubscription();
+            if(!subscription){
+                subscription = await registration.pushManager.subscribe({
+                    // Required to be true by every browser: a subscription that
+                    // could ping silently is not allowed to exist.
+                    userVisibleOnly : true,
+                    applicationServerKey : knockKeyToBytes(keyInfo.applicationServerKey)
+                });
+            }
+
+            const json = subscription.toJSON ? subscription.toJSON() : {};
+            const keys = json.keys || {};
+            const stored = await new Promise(resolve => {
+                _self._knockPost('subscribe', {
+                    endpoint : subscription.endpoint,
+                    p256dh : keys.p256dh || knockB64Url(subscription.getKey('p256dh')),
+                    auth : keys.auth || knockB64Url(subscription.getKey('auth'))
+                }, resolve);
+            });
+            if(!stored || stored.status !== 'success'){
+                return {ok : false, reason : 'subscribe_failed',
+                        detail : (stored && (stored.statusMessage || stored.data)) || 'unknown'};
+            }
+            return {ok : true, endpoint : subscription.endpoint,
+                    subscriptions : stored.data && stored.data.subscriptions};
+        } catch(e) {
+            return {ok : false, reason : 'subscribe_failed', detail : String(e && e.message || e)};
+        }
+    };
+
+    /** Stop knocks to this browser in this channel. */
+    AgentConnection.prototype.knockUnsubscribe = async function(){
+        const _self = this;
+        if(typeof navigator === 'undefined' || !('serviceWorker' in navigator)){
+            return {ok : false, reason : 'unsupported'};
+        }
+        const registration = await navigator.serviceWorker.getRegistration();
+        const subscription = registration && await registration.pushManager.getSubscription();
+        if(!subscription){
+            return {ok : true, reason : 'not_subscribed'};
+        }
+        await new Promise(resolve => _self._knockPost('unsubscribe', {endpoint : subscription.endpoint}, resolve));
+        await subscription.unsubscribe();
+        return {ok : true};
+    };
+
+    /**
+     * Knock on one member of this channel.
+     *
+     * The callback receives per-device outcomes -- sent, rate_capped, failed,
+     * dropped -- and a `meaning` string saying what "sent" is worth. Show the
+     * user that sentence, not a checkmark.
+     */
+    AgentConnection.prototype.knock = function(agentName, options, callback){
+        if(typeof options === 'function'){
+            callback = options;
+            options = {};
+        }
+        this._knockPost('send', {agent : agentName, tag : (options || {}).tag || null}, callback);
+    };
+
+    /** Who here can be knocked on: names and device counts, never endpoints. */
+    AgentConnection.prototype.knockReachable = function(callback){
+        this._knockPost('reachable', {}, callback);
+    };
+
+    /** Shared POST for the knock endpoints. @private */
+    AgentConnection.prototype._knockPost = function(endpoint, body, callback){
+        const _self = this;
+
+        if(!_self.readyState || !_self.sessionId){
+            typeof callback === 'function' && callback({status : 'error', data : 'The channel is not ready.'});
+            return;
+        }
+
+        const payload = Object.assign({sessionId : _self.sessionId}, body || {});
+
+        const xhr = new XMLHttpRequest();
+        xhr.open('POST', knockUrl(_self._api, endpoint));
+        xhr.setRequestHeader('Content-Type', 'application/json');
+
+        xhr.onload = function(){
+            if(xhr.status === 200 || xhr.status === 201){
+                try {
+                    typeof callback === 'function' && callback(JSON.parse(xhr.responseText));
+                } catch(e) {
+                    typeof callback === 'function' && callback({status : 'error', data : 'Invalid response'});
+                }
+            } else {
+                let msg = xhr.responseText || xhr.statusText;
+                try { msg = (JSON.parse(xhr.responseText).statusMessage) || msg; } catch(e) {}
+                typeof callback === 'function' && callback({status : 'error', data : msg, statusMessage : msg});
+            }
+        };
+
+        xhr.onerror = function(){
+            typeof callback === 'function' && callback({status : 'error', data : 'Network error'});
+        };
+
+        xhr.send(JSON.stringify(payload));
+    };
+
     // ---- Till: licences, seats and the honest gate -------------------------
     //
     // One licensing check instead of one per app. Till answers three questions
