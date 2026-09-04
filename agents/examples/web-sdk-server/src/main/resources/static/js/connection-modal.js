@@ -256,6 +256,24 @@
         const pwEl = document.getElementById('passwordInput');
         const userEl = document.getElementById('usernameInput');
         const quickUserEl = document.getElementById('quickUsernameInput');
+        // Declared here because persistence is set up before account discovery
+        // completes. Once known, an account gets its own fallback identity.
+        var currentUser = null;
+        var accountId = null;
+
+        function usernameKey() {
+            return localStoragePrefix + 'username' + (accountId ? '.' + accountId : '');
+        }
+        function channelKey() {
+            return localStoragePrefix + 'channel' + (accountId ? '.' + accountId : '');
+        }
+        function passwordKey() {
+            return localStoragePrefix + 'password' + (accountId ? '.' + accountId : '');
+        }
+
+        function accountDefaultName() {
+            return currentUser ? (currentUser.displayName || currentUser.email || '') : '';
+        }
 
         /**
          * Persist what the user typed.
@@ -266,11 +284,15 @@
          * and stay in localStorage so returning users keep their identity.
          */
         function persistValues(u, c, p, source) {
-            localStorage.setItem(localStoragePrefix + 'username', u || '');
-            localStorage.setItem(localStoragePrefix + 'channel', c || '');
             try {
-                sessionStorage.setItem(localStoragePrefix + 'password', p || '');
-            } catch (e) { /* private mode: fall through, the field just re-generates */ }
+                localStorage.setItem(usernameKey(), u || '');
+                localStorage.setItem(channelKey(), c || '');
+                sessionStorage.setItem(passwordKey(), p || '');
+            } catch (e) {
+                // A connection can still succeed when browser storage is
+                // unavailable, but never pretend it was remembered.
+                throw new Error('Connected, but this browser could not save the channel.');
+            }
             // Clear any password left in localStorage by an older build.
             localStorage.removeItem(localStoragePrefix + 'password');
 
@@ -279,9 +301,12 @@
             // are still written and still read as a fallback, so this is
             // reversible without stranding anybody.
             if (window.ActiveChannel) {
-                if (c) window.ActiveChannel.write(c, source);
-                window.ActiveChannel.writePassword(p);
-                window.ActiveChannel.writeUsername(u);
+                if (c) window.ActiveChannel.write(c, source, accountId);
+                window.ActiveChannel.writePassword(p, accountId);
+                // A guest can keep one cross-app identity. A signed-in person
+                // must not put their alias in a browser-global key that the
+                // next Platform account on this device would inherit.
+                if (!accountId) window.ActiveChannel.writeUsername(u);
             }
         }
 
@@ -289,9 +314,9 @@
         function loadPersisted() {
             try {
                 return {
-                    u: localStorage.getItem(localStoragePrefix + 'username') || '',
-                    c: localStorage.getItem(localStoragePrefix + 'channel') || '',
-                    p: sessionStorage.getItem(localStoragePrefix + 'password') || ''
+                    u: localStorage.getItem(usernameKey()) || '',
+                    c: localStorage.getItem(channelKey()) || '',
+                    p: sessionStorage.getItem(passwordKey()) || ''
                 };
             } catch (e) {
                 return {u: '', c: '', p: ''};
@@ -310,7 +335,6 @@
                 userEl.value = base + '-' + randomDigits(4);
             }
             if (quickUserEl) quickUserEl.value = userEl ? userEl.value : '';
-            persistValues(userEl ? userEl.value : '', chEl ? chEl.value : '', pwEl ? pwEl.value : '');
         }
 
         // Load persisted values
@@ -414,8 +438,9 @@
             pwEl.value = urlPassword || pwForActive || persisted.p || generatePassword();
         }
 
-        // Persist initial values
-        persistValues(userEl ? userEl.value : '', chEl ? chEl.value : '', pwEl ? pwEl.value : '');
+        // Draft values do not become the active channel until an app confirms
+        // a successful join.  Regenerating or opening an invite must never
+        // overwrite another account's confirmed room.
 
         // Detect if hash auth (shared link) is present
         const hasHashAuth = !!(urlChannel || urlPassword);
@@ -477,11 +502,6 @@
                 }
             });
         }
-
-        // Persist whenever user edits the inputs
-        if (userEl) userEl.addEventListener('change', () => persistValues(userEl.value, chEl ? chEl.value : '', pwEl ? pwEl.value : ''));
-        if (chEl) chEl.addEventListener('change', () => persistValues(userEl ? userEl.value : '', chEl.value, pwEl ? pwEl.value : ''));
-        if (pwEl) pwEl.addEventListener('change', () => persistValues(userEl ? userEl.value : '', chEl ? chEl.value : '', pwEl.value));
 
         // Sync quick username input with main username input
         if (userEl && quickUserEl) {
@@ -596,7 +616,17 @@
                     // apps hide it from their own onConnect. Recording here
                     // rather than on the click means a channel is only ever
                     // saved after it actually let you in.
-                    try { window.ConnectionModal.recordConnect(channel, password); } catch (e) {}
+                    try {
+                        // The app closed the modal, so the room was actually
+                        // joined. A rejected attempt must not rewrite the
+                        // active channel or a person's saved identity.
+                        persistValues(username, channel, password);
+                        window.ConnectionModal.recordConnect(channel, password, username);
+                    } catch (e) {
+                        // The room is joined, but a quota/private-mode failure
+                        // means it will not be remembered. Say so explicitly.
+                        window.setTimeout(function () { window.alert(e.message || 'This browser could not save the channel.'); }, 0);
+                    }
                 }
             }, 300);
             const deadline = setTimeout(function () {
@@ -646,7 +676,6 @@
                     return;
                 }
                 if (userEl) userEl.value = username;
-                persistValues(username, chEl ? chEl.value.trim() : '', pwEl ? pwEl.value.trim() : '');
                 attempt(username);
             };
         }
@@ -697,8 +726,6 @@
          * connecting.
          * --------------------------------------------------------------- */
         var appId = (config.appId || channelPrefix.replace(/-$/, '') || 'app');
-        var currentUser = null;
-        var accountId = null;
 
         function el(id) { return document.getElementById(id); }
 
@@ -741,6 +768,12 @@
                     // verb that connects, so nothing happens behind your back.
                     if (chEl) chEl.value = row.name;
                     if (pwEl) pwEl.value = row.password || '';
+                    // Legacy rows have no per-channel name. Reset to this
+                    // account's default instead of carrying another row's
+                    // alias across to a different room.
+                    var joinAs = row.username || accountDefaultName();
+                    if (userEl) userEl.value = joinAs;
+                    if (quickUserEl) quickUserEl.value = joinAs;
                     showTab('custom');
                     refreshSaveRow();
                 });
@@ -765,6 +798,16 @@
         function applyUser(user) {
             currentUser = user;
             accountId = window.MPAccount ? window.MPAccount.idOf(user) : null;
+            if (accountId) {
+                var savedName = loadPersisted().u || accountDefaultName();
+                if (userEl) userEl.value = savedName;
+                if (quickUserEl) quickUserEl.value = savedName;
+                var saved = loadPersisted();
+                var activeForAccount = window.ActiveChannel ? window.ActiveChannel.read(accountId) : null;
+                var activePassword = window.ActiveChannel ? window.ActiveChannel.readPassword(accountId) : '';
+                if (chEl) chEl.value = (activeForAccount && activeForAccount.name) || saved.c || chEl.value;
+                if (pwEl) pwEl.value = activePassword || saved.p || pwEl.value;
+            }
             var savedTab = el('tabSaved');
             var signinTab = el('tabSignin');
             if (savedTab) savedTab.hidden = !accountId;
@@ -775,6 +818,9 @@
 
         if (window.MPAccount) {
             window.MPAccount.me().then(applyUser).catch(function () { applyUser(null); });
+            window.MPAccount.onChange(function () {
+                window.MPAccount.me(true).then(applyUser).catch(function () { applyUser(null); });
+            });
             window.MPAccount.googleAvailable().then(function (ok) {
                 var b = el('googleSignInBtn');
                 if (b && ok) {
@@ -830,11 +876,17 @@
             }
             // Deliberately the same answer whether or not the address is known:
             // this form must not become a way to ask which emails have accounts.
-            if (window.MPAccount) window.MPAccount.forgot(email).catch(function () {});
-            if (ok) {
+            if (window.MPAccount) window.MPAccount.forgot(email).then(function (result) {
+                if (!ok) return;
                 ok.hidden = false;
-                ok.textContent = 'If that address has an account, a reset link is on its way.';
-            }
+                ok.textContent = result && result.emailDelivers
+                    ? 'If that address has an account, a reset link is on its way.'
+                    : 'If that address has an account, a reset link was created. Email delivery is not configured here.';
+            }).catch(function () {
+                if (!ok) return;
+                ok.hidden = false;
+                ok.textContent = 'If that address has an account, a reset link was created.';
+            });
         });
 
         var signinBtn = el('signinBtn');
@@ -865,12 +917,14 @@
              */
             fail: function (err) { if (_reportFailure) _reportFailure(err); },
             /** Called by the modal's own connect path once a room is joined. */
-            recordConnect: function (channel, password) {
+            recordConnect: function (channel, password, username) {
                 if (!accountId || !window.Keyring) return;
                 var chk = document.getElementById('saveChannelChk');
                 var row;
                 if (chk && chk.checked) {
-                    row = window.Keyring.add(accountId, { name: channel, password: password });
+                    row = window.Keyring.add(accountId, {
+                        name: channel, password: password, username: username
+                    });
                 } else {
                     // Unticking has to mean something. This box shows whether
                     // the channel IS saved -- refreshSaveRow ticks it from

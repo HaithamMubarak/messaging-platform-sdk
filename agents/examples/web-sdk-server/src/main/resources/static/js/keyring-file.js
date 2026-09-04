@@ -8,7 +8,8 @@
  *
  * FORMAT
  *
- *   v2 (written today)   { format, version: 2, keyId, iv, ct }
+ *   v3 (written today)   { format, version: 3, keyId, iv, ct }
+ *   v2 (still readable)  { format, version: 2, keyId, iv, ct }
  *   v1 (still readable)  { format, version: 1, channels: [...] }   plaintext
  *
  * v2 is AES-256-GCM under the account's export key -- a raw 256-bit key the
@@ -34,10 +35,10 @@
     'use strict';
 
     var FORMAT = 'mp-keyring';
-    var VERSION = 2;
+    var VERSION = 3;
     /* Bound to the version, so a v2 file cannot be replayed as some future v3
      * by editing one number: the tag would not verify. */
-    var AAD = 'mp-keyring/2';
+    function aad(version) { return 'mp-keyring/' + version; }
     var IV_BYTES = 12;   // GCM's nominal nonce size
 
     /** WebCrypto, wherever we are. */
@@ -111,14 +112,20 @@
          * Encrypt a channel list into a v2 file.
          * @param {{channels: Array}} data
          * @param {string} keyB64 the account's export key
+         * @param {string} accountId account that owns this backup
          * @returns {Promise<object>} the file, ready to be JSON.stringify'd
          */
-        write: function (data, keyB64) {
-            var payload = JSON.stringify({ channels: (data && data.channels) || [] });
+        write: function (data, keyB64, accountId) {
+            if (!accountId) return Promise.reject(new Error('Sign in to create an account-bound backup.'));
+            var payload = JSON.stringify({
+                accountId: String(accountId),
+                createdAt: Date.now(),
+                channels: (data && data.channels) || []
+            });
             var iv = randomBytes(IV_BYTES);   // fresh per write; never reused
             return Promise.all([importKey(keyB64), keyIdOf(keyB64)]).then(function (both) {
                 return subtle().encrypt(
-                    { name: 'AES-GCM', iv: iv, additionalData: utf8(AAD) },
+                    { name: 'AES-GCM', iv: iv, additionalData: utf8(aad(VERSION)) },
                     both[0], utf8(payload)
                 ).then(function (ct) {
                     return {
@@ -140,10 +147,11 @@
          * version field was there from the start.
          *
          * @param {object} file   parsed JSON
-         * @param {string} [keyB64] required for v2
+         * @param {string} [keyB64] required for v2/v3
+         * @param {string} [accountId] expected owner for v3
          * @returns {Promise<{channels: Array}>}
          */
-        read: function (file, keyB64) {
+        read: function (file, keyB64, accountId) {
             if (!file || file.format !== FORMAT) {
                 return Promise.reject(new Error('That file is not a keyring backup.'));
             }
@@ -163,9 +171,9 @@
                 if (!Array.isArray(file.channels)) {
                     return Promise.reject(new Error('That backup file is damaged.'));
                 }
-                return Promise.resolve({ channels: file.channels });
+                return Promise.resolve({ channels: file.channels, version: 1, legacy: true });
             }
-            if (file.version !== VERSION) {
+            if (file.version !== 2 && file.version !== VERSION) {
                 return Promise.reject(new Error(
                     'That backup was written by a newer version of the platform.'));
             }
@@ -188,14 +196,29 @@
                 return importKey(keyB64);
             }).then(function (key) {
                 return subtle().decrypt(
-                    { name: 'AES-GCM', iv: b64decode(file.iv), additionalData: utf8(AAD) },
+                    { name: 'AES-GCM', iv: b64decode(file.iv), additionalData: utf8(aad(file.version)) },
                     key, b64decode(file.ct)
                 );
             }).then(function (plain) {
                 var parsed = JSON.parse(fromUtf8(new Uint8Array(plain)));
-                return { channels: Array.isArray(parsed.channels) ? parsed.channels : [] };
+                if (!Array.isArray(parsed.channels)) throw new Error('That backup file is damaged.');
+                if (file.version === VERSION) {
+                    if (!parsed.accountId || typeof parsed.accountId !== 'string') {
+                        throw new Error('That backup file is damaged.');
+                    }
+                    if (accountId && parsed.accountId !== String(accountId)) {
+                        throw new Error('That backup belongs to a different Platform account.');
+                    }
+                }
+                return {
+                    channels: parsed.channels,
+                    accountId: file.version === VERSION ? parsed.accountId : null,
+                    createdAt: parsed.createdAt || null,
+                    version: file.version,
+                    legacy: file.version !== VERSION
+                };
             }).catch(function (e) {
-                if (/different account|newer version|damaged|Sign in|256-bit/.test(e.message)) throw e;
+                if (/different (Platform )?account|newer version|damaged|Sign in|256-bit/.test(e.message)) throw e;
                 throw new Error('That backup could not be opened. It may be damaged.');
             });
         }

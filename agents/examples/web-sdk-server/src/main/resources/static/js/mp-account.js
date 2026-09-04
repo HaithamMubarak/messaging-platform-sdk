@@ -19,6 +19,7 @@
     var CACHE = 'mp.me.v1';   // sessionStorage: 20 landing pages should not each hit /me
     var RESUME = 'mp.resumeHash';  // an invite hash held across the OAuth round trip
     var _exportKey = null;         // memory only, for this page's lifetime
+    var listeners = [];
 
     function base() {
         var host = window.location.hostname;
@@ -48,10 +49,30 @@
     }
 
     function token() { try { return localStorage.getItem(KEY) || null; } catch (e) { return null; } }
+    // This is not a password hash or an authentication mechanism.  It is a
+    // small, non-secret fingerprint used only to prove that the cached /me
+    // answer belongs to the token currently in localStorage.  Rooms shares
+    // that token but has its own account module, so an unbound cache could
+    // otherwise make account B operate on account A's browser-local keyring.
+    function tokenStamp(t) {
+        var a = 2166136261, b = 0x9e3779b9, text = String(t || '');
+        for (var i = 0; i < text.length; i++) {
+            a = Math.imul(a ^ text.charCodeAt(i), 16777619);
+            b = Math.imul(b ^ text.charCodeAt(i), 2246822519);
+        }
+        return (a >>> 0).toString(36) + '-' + (b >>> 0).toString(36);
+    }
+
+    function notify() {
+        listeners.slice().forEach(function (fn) { try { fn(); } catch (e) {} });
+        try { window.dispatchEvent(new CustomEvent('mp-account-token-changed')); } catch (e2) {}
+    }
+
     function setToken(t) {
         try { t ? localStorage.setItem(KEY, t) : localStorage.removeItem(KEY); } catch (e) {}
         try { sessionStorage.removeItem(CACHE); } catch (e) {}
         _exportKey = null;   // a key outliving its session is a key left lying about
+        notify();
     }
 
     function call(path, opts) {
@@ -88,7 +109,9 @@
 
     function cacheMe(user) {
         try {
-            if (user) sessionStorage.setItem(CACHE, JSON.stringify({ at: Date.now(), u: user }));
+            if (user) sessionStorage.setItem(CACHE, JSON.stringify({
+                at: Date.now(), stamp: tokenStamp(token()), u: user
+            }));
             else sessionStorage.removeItem(CACHE);
         } catch (e) {}
     }
@@ -100,7 +123,7 @@
             var v = JSON.parse(raw);
             // An entry written by an older build carries no timestamp; treat
             // it as stale rather than trusting it for the life of the tab.
-            if (!v || typeof v.at !== 'number' || !v.u) return null;
+            if (!v || typeof v.at !== 'number' || !v.u || v.stamp !== tokenStamp(token())) return null;
             if (Date.now() - v.at > CACHE_TTL_MS) return null;
             return v.u;
         } catch (e) { return null; }
@@ -109,6 +132,13 @@
     var Account = {
         signedIn: function () { return !!token(); },
         token: token,
+
+        /** Re-render callers when another same-origin app changes the session. */
+        onChange: function (fn) {
+            if (typeof fn !== 'function') return function () {};
+            listeners.push(fn);
+            return function () { listeners = listeners.filter(function (x) { return x !== fn; }); };
+        },
 
         /**
          * The signed-in user, or null. Cached for the session so twenty pages
@@ -235,6 +265,17 @@
             return (user && (user.id || user.email)) ? String(user.id || user.email) : null;
         }
     };
+
+    // A different tab or the Rooms app may mutate the shared token directly.
+    // `storage` never fires in the tab that performed the write; setToken()
+    // covers that case and this covers every other same-origin tab.
+    if (window.addEventListener) window.addEventListener('storage', function (e) {
+        if (e && e.key === KEY) {
+            try { sessionStorage.removeItem(CACHE); } catch (ignore) {}
+            _exportKey = null;
+            notify();
+        }
+    });
 
     /**
      * Take the session the Google callback handed back in the fragment.

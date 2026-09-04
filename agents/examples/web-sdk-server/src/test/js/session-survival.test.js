@@ -62,7 +62,15 @@ function load(replies, { token = 'tok-1', cached = null } = {}) {
 }
 
 const USER = { id: 'u1', email: 'a@b.c', displayName: 'Amina' };
-const fresh = (u) => ({ at: Date.now(), u: u });
+function stamp(token) {
+    let a = 2166136261, b = 0x9e3779b9;
+    for (let i = 0; i < token.length; i++) {
+        a = Math.imul(a ^ token.charCodeAt(i), 16777619);
+        b = Math.imul(b ^ token.charCodeAt(i), 2246822519);
+    }
+    return (a >>> 0).toString(36) + '-' + (b >>> 0).toString(36);
+}
+const fresh = (u) => ({ at: Date.now(), stamp: stamp('tok-1'), u: u });
 
 const checks = [];
 const check = (n, f) => checks.push([n, f]);
@@ -117,7 +125,7 @@ check('through a blip, the site keeps showing who you are', async () => {
 });
 
 check('a cached answer goes stale, so a revoked session is noticed', async () => {
-    const stale = { at: Date.now() - (6 * 60 * 1000), u: USER };   // 6 minutes old
+    const stale = { at: Date.now() - (6 * 60 * 1000), stamp: stamp('tok-1'), u: USER }; // 6 minutes old
     const { A, calls } = load([{ ok: false, status: 401, body: {} }], { cached: stale });
     assert.strictEqual(await A.me(), null,
         'a session revoked elsewhere still rendered as signed in');
@@ -131,6 +139,13 @@ check('a fresh cached answer is still served without a request', async () => {
     assert.ok(u && u.id === 'u1');
     assert.strictEqual(calls.length, 0,
         'every page load now hits /me, which is what the cache was for');
+});
+
+check('a cached identity from another token is never served', async () => {
+    const wrongTokenCache = { at: Date.now(), stamp: stamp('tok-a'), u: USER };
+    const { A, calls } = load([{ ok: true, body: { id: 'u2' } }], { token: 'tok-b', cached: wrongTokenCache });
+    assert.strictEqual((await A.me()).id, 'u2');
+    assert.strictEqual(calls.length, 1, 'a cache from account A was used with account B token');
 });
 
 check('a cache entry from an older build is not trusted forever', async () => {

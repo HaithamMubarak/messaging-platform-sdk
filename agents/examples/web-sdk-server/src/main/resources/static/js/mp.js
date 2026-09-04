@@ -126,15 +126,21 @@
                     if (typeof opts.connect !== 'function') {
                         throw new Error('MP.channels.connect needs a connect function to hand the room to.');
                     }
-                    // The app records that it used this channel; the channel
-                    // records nothing about the app.
-                    if (C && opts.appId) C.noteChannel(p.id, opts.appId, row.id);
-                    K.touch(p.id, row.name, row.password);
-
-                    return opts.connect({
+                    var joinAs = opts.username || row.username
+                        || (MP._user && MP._user.displayName) || '';
+                    // A rejected connection is not a use.  Recording before
+                    // the app accepts the room made failed joins silently
+                    // change recency, aliases, and app history.
+                    return Promise.resolve(opts.connect({
                         channelName: row.name,
                         channelPassword: row.password,
-                        username: opts.username || (MP._user && MP._user.displayName) || ''
+                        username: joinAs
+                    })).then(function (result) {
+                        K.touch(p.id, row.name, row.password, joinAs);
+                        // The app records that it used this channel; the
+                        // channel records nothing about the app.
+                        if (C && opts.appId) C.noteChannel(p.id, opts.appId, row.id);
+                        return result;
                     });
                 });
             },

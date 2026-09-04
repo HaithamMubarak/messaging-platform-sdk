@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <script src="js/prod-log.js"></script>
+    <script src="sdk/js/prod-log.js"></script>
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Your Platform account — Messaging Platform</title>
     <!-- This head was a copy of privacy.html's, so this page declared privacy.html
@@ -21,15 +21,15 @@
     <meta name="twitter:title" content="Your Platform account">
     <meta name="twitter:description" content="The channels you have saved, kept on this device, and the encrypted backup you can take with you.">
     <meta name="twitter:image" content="https://hmdevonline.com/messaging-platform/sdk/images/og-image.png">
-    <link rel="icon" type="image/svg+xml" href="favicon.svg">
-    <link rel="stylesheet" href="css/design-tokens.css">
-    <link rel="stylesheet" href="css/ui.css">
-    <link rel="stylesheet" href="css/landing.css">
-    <link rel="manifest" href="site.webmanifest">
-    <script src="js/icons.js" defer></script>
-    <script src="js/ui.js" defer></script>
-    <script src="js/landing.js" defer></script>
-    <script src="js/telemetry.js"></script>
+    <link rel="icon" type="image/svg+xml" href="sdk/favicon.svg">
+    <link rel="stylesheet" href="sdk/css/design-tokens.css">
+    <link rel="stylesheet" href="sdk/css/ui.css">
+    <link rel="stylesheet" href="sdk/css/landing.css">
+    <link rel="manifest" href="sdk/site.webmanifest">
+    <script src="sdk/js/icons.js" defer></script>
+    <script src="sdk/js/ui.js" defer></script>
+    <script src="sdk/js/landing.js" defer></script>
+    <script src="sdk/js/telemetry.js"></script>
     <style>
         .prose { max-width: 68ch; margin: 0 auto; padding: 56px 0 80px; }
         .prose h1 { font-size: clamp(28px, 5vw, 40px); line-height: 1.15; letter-spacing: -0.02em; }
@@ -60,7 +60,7 @@
 <body class="sdk-home">
 <header class="site-header" id="siteHeader">
         <div class="wrap site-header__inner">
-            <a class="brand" href="index.html">
+            <a class="brand" href="sdk/index.html">
                 <svg class="logo-mark" aria-hidden="true"><use href="#i-logo"></use></svg>
                 Messaging Platform SDK
             </a>
@@ -71,12 +71,12 @@
             </button>
 
             <nav class="site-nav" id="siteNav" aria-label="Main">
-                <a href="index.html#demos">Demos</a>
-                <a href="playground.html">Playground</a>
-                <a href="docs.html">Docs</a>
-                <a href="../apps/index.html">Apps</a>
-<a href="developer/index.html">Developer Portal</a>
-                <a class="btn btn--gradient" href="developer/index.html">Get a free API key</a>
+                <a href="sdk/index.html#demos">Demos</a>
+                <a href="sdk/playground.html">Playground</a>
+                <a href="sdk/docs.html">Docs</a>
+                <a href="apps/index.html">Apps</a>
+                <a href="sdk/developer/index.html">Developer Portal</a>
+                <a class="btn btn--gradient" href="sdk/developer/index.html">Get a free API key</a>
             </nav>
         </div>
     </header>
@@ -130,7 +130,8 @@
       <h2>Saved channels</h2>
       <p class="mp-profile__lead">
         Kept on this device only. We never store your channels on our servers &mdash;
-        if you lose them, ask someone in the room to share the link again.
+        including the name you use in each channel. If you lose them, ask someone
+        in the room to share the link again.
       </p>
       <p class="mp-profile__lead mp-profile__custody">
         Being straight about what that is worth: this is <strong>custody, not
@@ -149,10 +150,10 @@
     <section class="card mp-profile__card">
       <h2>Backup</h2>
       <p class="mp-profile__lead">
-        Your saved channels live in this browser. Export a copy to move them to
-        another device. The file is encrypted with a key held by your account, so
-        you must be signed in as yourself to open it &mdash; a copy that leaks is
-        ciphertext to whoever finds it.
+        Your saved channels and their per-channel join names live in this browser.
+        Export a copy to move them to another device. The file is encrypted with a
+        key held by your account, so you must be signed in as yourself to open it
+        &mdash; a copy that leaks is ciphertext to whoever finds it.
       </p>
       <div class="mp-profile__actions">
         <button type="button" id="pExport" class="btn btn--ghost">Export&hellip;</button>
@@ -197,14 +198,23 @@
   </section>
 </main>
 
-<script src="js/dialog.js"></script>
-<script src="js/mp-account.js"></script>
-<script src="js/keyring.js"></script>
-<script src="js/app-config.js"></script>
-<script src="js/mp.js"></script>
-<script src="js/keyring-file.js"></script>
-<script src="js/drive-backup.js"></script>
-<script src="js/profile.js"></script>
-<script src="js/profile-chip.js"></script>
+<footer class="site-footer">
+  <div class="wrap"><div class="footer-bottom">
+    <span>&copy; 2026 Messaging Platform</span>
+    <span><a href="sdk/privacy">Privacy Policy</a></span>
+    <span><a href="sdk/terms">Terms of Service</a></span>
+  </div></div>
+</footer>
+
+<script src="sdk/js/dialog.js"></script>
+<script src="sdk/js/mp-account.js"></script>
+<script src="sdk/js/active-channel.js"></script>
+<script src="sdk/js/keyring.js"></script>
+<script src="sdk/js/app-config.js"></script>
+<script src="sdk/js/mp.js"></script>
+<script src="sdk/js/keyring-file.js"></script>
+<script src="sdk/js/drive-backup.js"></script>
+<script src="sdk/js/profile.js"></script>
+<script src="sdk/js/profile-chip.js"></script>
 </body>
 </html>

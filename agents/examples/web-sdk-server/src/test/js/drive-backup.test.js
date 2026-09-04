@@ -27,6 +27,8 @@ const fs = require('fs');
 
 const STATIC = path.join(__dirname, '..', '..', 'main', 'resources', 'static');
 const KF = require(path.join(STATIC, 'js', 'keyring-file.js'));
+const rawWrite = KF.write;
+KF.write = (data, key, account) => rawWrite(data, key, account || 'drive-test-account');
 
 const KEY = Buffer.alloc(32, 7).toString('base64');
 const DATA = { channels: [
@@ -182,7 +184,7 @@ check('a keyring goes up encrypted and comes back down readable', async () => {
     assert.ok(!raw.includes('pw-1'), 'the channel password went to Drive in the clear');
     assert.ok(!raw.includes('room-standup'), 'the room name went to Drive in the clear');
     assert.strictEqual(stored.format, 'mp-keyring');
-    assert.strictEqual(stored.version, 2);
+    assert.strictEqual(stored.version, 3);
 
     const back = await KF.read(await DB.get(), KEY);
     assert.deepStrictEqual(back.channels, DATA.channels,

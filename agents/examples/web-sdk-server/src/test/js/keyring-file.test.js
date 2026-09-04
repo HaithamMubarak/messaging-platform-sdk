@@ -10,6 +10,9 @@ const assert = require('assert');
 const path = require('path');
 const KF = require(path.join(__dirname, '..', '..', 'main', 'resources', 'static',
     'js', 'keyring-file.js'));
+const ACCOUNT = 'account-a';
+const rawWrite = KF.write;
+KF.write = (data, key, account) => rawWrite(data, key, account || ACCOUNT);
 
 const KEY = Buffer.from(require('crypto').randomBytes(32)).toString('base64');
 const OTHER = Buffer.from(require('crypto').randomBytes(32)).toString('base64');
@@ -40,7 +43,7 @@ check('the file on disk contains none of the plaintext', async () => {
 check('it declares its format and version, so it can be replaced later', async () => {
     const file = await KF.write(DATA, KEY);
     assert.strictEqual(file.format, 'mp-keyring');
-    assert.strictEqual(file.version, 2);
+    assert.strictEqual(file.version, 3);
     assert.ok(file.keyId && file.iv && file.ct);
 });
 
@@ -56,6 +59,12 @@ check('another account\'s key is refused by name, not by a vague failure', async
     await assert.rejects(() => KF.read(file, OTHER), /different account/);
 });
 
+check('a v3 backup is bound to its Platform account even with the same key', async () => {
+    const file = await KF.write(DATA, KEY);
+    await assert.rejects(() => KF.read(file, KEY, 'account-b'), /different Platform account/);
+    assert.deepStrictEqual((await KF.read(file, KEY, ACCOUNT)).channels, DATA.channels);
+});
+
 check('a tampered ciphertext does not decrypt', async () => {
     const file = await KF.write(DATA, KEY);
     const bytes = Buffer.from(file.ct, 'base64');
@@ -64,12 +73,12 @@ check('a tampered ciphertext does not decrypt', async () => {
     await assert.rejects(() => KF.read(file, KEY), /could not be opened/);
 });
 
-check('the version is authenticated: relabelling a v2 file does not open it', async () => {
-    // AAD binds the ciphertext to "mp-keyring/2". Editing the number in the
+check('the version is authenticated: relabelling a v3 file does not open it', async () => {
+    // AAD binds the ciphertext to "mp-keyring/3". Editing the number in the
     // JSON must not turn it into a different format's file.
     const file = await KF.write(DATA, KEY);
-    file.version = 3;
-    await assert.rejects(() => KF.read(file, KEY), /newer version/);
+    file.version = 2;
+    await assert.rejects(() => KF.read(file, KEY), /could not be opened/);
 });
 
 check('a v1 plaintext backup still imports, with no key at all', async () => {
@@ -79,7 +88,7 @@ check('a v1 plaintext backup still imports, with no key at all', async () => {
 });
 
 /*
- * Relabelling DOWNWARDS was the hole. Editing 2 -> 3 is caught by the version
+ * Relabelling DOWNWARDS was the hole. Editing 3 -> 2 is rejected by the
  * check above; editing 2 -> 1 took the plaintext branch, which reads
  * `file.channels` -- a field a v2 file does not have -- and so returned an
  * EMPTY list and reported success. The AAD binds the version inside the
@@ -89,7 +98,7 @@ check('a v1 plaintext backup still imports, with no key at all', async () => {
  * A silent empty restore is worse than a failure: the person is told their
  * backup opened, and merges nothing.
  */
-check('relabelling a v2 file as v1 is refused, not silently read as empty', async () => {
+check('relabelling a v3 file as v1 is refused, not silently read as empty', async () => {
     const file = await KF.write(DATA, KEY);
     file.version = 1;
     await assert.rejects(() => KF.read(file, KEY), /has been edited/);
@@ -118,13 +127,13 @@ check('the AAD is really bound into the ciphertext', async () => {
 
     // The right AAD opens it...
     const plain = await subtle.decrypt(
-        Object.assign({}, args[0], { additionalData: Buffer.from('mp-keyring/2', 'utf8') }),
+        Object.assign({}, args[0], { additionalData: Buffer.from('mp-keyring/3', 'utf8') }),
         args[1], args[2]);
     assert.deepStrictEqual(JSON.parse(Buffer.from(plain).toString('utf8')).channels,
         DATA.channels);
 
     // ...and no other value does, including none at all.
-    for (const aad of ['mp-keyring/1', 'mp-keyring/3', '']) {
+    for (const aad of ['mp-keyring/1', 'mp-keyring/2', '']) {
         await assert.rejects(() => subtle.decrypt(
             Object.assign({}, args[0], { additionalData: Buffer.from(aad, 'utf8') }),
             args[1], args[2]), 'AAD "' + aad + '" should not have opened the file');

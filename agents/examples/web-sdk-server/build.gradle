@@ -51,6 +51,23 @@ dependencies {
 
 tasks.named('test') {
     useJUnitPlatform()
+
+    /*
+     * StaticSiteTest reads src/main/resources/static straight off disk, and
+     * LegalController's routes out of src/main/java -- neither of which Gradle
+     * would otherwise count as an input to this task. So `test` stayed
+     * UP-TO-DATE while the site changed underneath it, and two real failures
+     * (a lost game-count claim, an entry floor that had drifted past its own
+     * assertion) sat green for weeks until a --rerun-tasks surfaced them.
+     *
+     * Declaring them makes an edit to the site re-run the suite that guards it.
+     */
+    inputs.dir('src/main/resources/static')
+            .withPropertyName('staticSite')
+            .withPathSensitivity(PathSensitivity.RELATIVE)
+    inputs.dir('src/main/java')
+            .withPropertyName('controllerSources')
+            .withPathSensitivity(PathSensitivity.RELATIVE)
 }
 
 /*

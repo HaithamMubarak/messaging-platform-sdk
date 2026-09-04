@@ -11,7 +11,29 @@
 
     var A = window.MPAccount, K = window.Keyring;
     var accountId = null;
+    var busy = {};
     var el = function (id) { return document.getElementById(id); };
+
+    function withCurrentAccount(work) {
+        return A.me(true).then(function (user) {
+            var current = A.idOf(user);
+            if (!current || current !== accountId) {
+                applyUser(user);
+                throw new Error('Your Platform account changed. Please try that action again.');
+            }
+            return work(current);
+        });
+    }
+
+    function singleFlight(name, buttonIds, work) {
+        if (busy[name]) return Promise.resolve(null);
+        busy[name] = true;
+        (buttonIds || []).forEach(function (id) { if (el(id)) el(id).disabled = true; });
+        return Promise.resolve().then(work).finally(function () {
+            busy[name] = false;
+            (buttonIds || []).forEach(function (id) { if (el(id)) el(id).disabled = false; });
+        });
+    }
 
     function show(signedIn) {
         el('signedIn').hidden = !signedIn;
@@ -38,6 +60,12 @@
             name.textContent = row.name;
             main.appendChild(label);
             main.appendChild(name);
+            if (row.username) {
+                var identity = document.createElement('div');
+                identity.className = 'mp-row__name';
+                identity.textContent = 'Join as ' + row.username;
+                main.appendChild(identity);
+            }
             // Which apps used this room is derived from APP config, which
             // points at channels by id -- the channel row itself holds no app
             // state, so forgetting a channel cannot strand a name in it.
@@ -65,6 +93,27 @@
                 renderList();
             });
 
+            var editIdentity = document.createElement('button');
+            editIdentity.type = 'button';
+            editIdentity.className = 'btn btn--ghost btn--sm';
+            editIdentity.textContent = 'Edit join name';
+            editIdentity.addEventListener('click', function () {
+                var next = window.prompt('Name to use in this channel', row.username || '');
+                if (next === null) return;
+                K.setUsername(accountId, row.id, next);
+                renderList();
+            });
+
+            var resetIdentity = document.createElement('button');
+            resetIdentity.type = 'button';
+            resetIdentity.className = 'btn btn--ghost btn--sm';
+            resetIdentity.textContent = 'Use account name';
+            resetIdentity.hidden = !row.username;
+            resetIdentity.addEventListener('click', function () {
+                K.setUsername(accountId, row.id, '');
+                renderList();
+            });
+
             var forget = document.createElement('button');
             forget.type = 'button';
             forget.className = 'btn btn--ghost btn--sm';
@@ -80,6 +129,8 @@
             });
 
             actions.appendChild(rename);
+            actions.appendChild(editIdentity);
+            actions.appendChild(resetIdentity);
             actions.appendChild(forget);
             wrap.appendChild(main);
             wrap.appendChild(actions);
@@ -88,7 +139,11 @@
     }
 
     function applyUser(user) {
+        var previousAccount = accountId;
         accountId = A.idOf(user);
+        if (previousAccount && previousAccount !== accountId && window.DriveBackup) {
+            window.DriveBackup.disconnect();
+        }
         if (!accountId) { show(false); return; }
         el('pWho').textContent = (user.displayName || user.email) +
             (user.email && user.displayName ? ' · ' + user.email : '');
@@ -130,9 +185,17 @@
         }
         // Same answer either way: this must not become a way to ask which
         // addresses have accounts.
-        A.forgot(email).catch(function () {});
-        el('pOk').hidden = false;
-        el('pOk').textContent = 'If that address has an account, a reset link is on its way.';
+        A.forgot(email).then(function (result) {
+            el('pOk').hidden = false;
+            el('pOk').textContent = result && result.emailDelivers
+                ? 'If that address has an account, a reset link is on its way.'
+                : 'If that address has an account, a reset link was created. Email delivery is not configured here.';
+        }).catch(function () {
+            // Keep the non-enumerating response even when a transient request
+            // failure prevents us from learning whether delivery is enabled.
+            el('pOk').hidden = false;
+            el('pOk').textContent = 'If that address has an account, a reset link was created.';
+        });
     });
 
     el('pSubmit').addEventListener('click', function () {
@@ -151,6 +214,7 @@
     });
 
     el('pSignOut').addEventListener('click', function () {
+        var leaving = accountId;
         A.logout().then(function () {
             accountId = null;
             // The Drive token is a live credential to somebody's own Google
@@ -161,6 +225,7 @@
             // cleared: it is the only copy there is, and losing it on a
             // routine sign-out would be worse than anything this prevents.
             if (window.DriveBackup) window.DriveBackup.disconnect();
+            if (window.ActiveChannel) window.ActiveChannel.clear(leaving);
             showDriveButtons(false);
             el('pDriveNote').hidden = true;
             show(false);
@@ -180,11 +245,12 @@
 
     /* ---- backup: a file, never an upload ---- */
     el('pExport').addEventListener('click', function () {
-        var data = K.exportData(accountId);
+        singleFlight('export', ['pExport'], function () { return withCurrentAccount(function (id) {
+        var data = K.exportData(id);
         note('Encrypting…');
-        A.exportKey().then(function (key) {
+        return A.exportKey().then(function (key) {
             if (!key) throw new Error('Sign in to export.');
-            return window.KeyringFile.write(data, key);
+            return window.KeyringFile.write(data, key, id);
         }).then(function (file) {
             var blob = new Blob([JSON.stringify(file, null, 2)], { type: 'application/json' });
             var url = URL.createObjectURL(blob);
@@ -198,6 +264,7 @@
             note(data.channels.length + ' channel(s) exported, encrypted with your account key. '
                + 'Sign in on another device to open it.');
         }).catch(function (e) { note(e.message || 'Export failed.'); });
+        }); });
     });
 
     el('pImport').addEventListener('click', function () { el('pFile').click(); });
@@ -205,6 +272,11 @@
     el('pFile').addEventListener('change', function (e) {
         var file = e.target.files && e.target.files[0];
         if (!file) return;
+        if (file.size > 1024 * 1024) {
+            note('That backup is too large to import.');
+            e.target.value = '';
+            return;
+        }
         var reader = new FileReader();
         reader.onload = function () {
             var parsed;
@@ -213,15 +285,23 @@
             note('Opening…');
             // The key is only needed for an encrypted file; a v1 plaintext
             // backup opens without one, so ask for it but do not require it.
-            A.exportKey().catch(function () { return null; }).then(function (key) {
-                return window.KeyringFile.read(parsed, key);
+            singleFlight('import', ['pImport'], function () { return withCurrentAccount(function (id) {
+            return A.exportKey().catch(function () { return null; }).then(function (key) {
+                return window.KeyringFile.read(parsed, key, id);
             }).then(function (data) {
+                if (data.legacy && !window.confirm('This is an old plaintext backup without account binding. Import it only if you trust its source. Continue?')) return;
+                var preview = K.previewImport(id, data);
+                if (!window.confirm('Import preview: ' + preview.added + ' new, ' + preview.updated
+                    + ' join name(s) filled, ' + preview.skipped + ' unchanged, ' + preview.invalid
+                    + ' invalid. Continue?')) return;
                 // Merge, never replace: importing an older backup must not
                 // undo channels saved since it was taken.
-                var r = K.importData(accountId, data);
+                var r = K.importData(id, data);
                 renderList();
-                note(r.added + ' added, ' + r.skipped + ' already here.');
+                note(r.added + ' added, ' + r.updated + ' profile name(s) filled, '
+                    + r.skipped + ' already here, ' + r.invalid + ' invalid.');
             }).catch(function (e) { note(e.message || 'That file could not be opened.'); });
+            }); });
         };
         reader.readAsText(file);
         e.target.value = '';
@@ -258,7 +338,9 @@
         }).then(function (typed) {
             if (typed !== 'destroy') return;          // cancelled, or not typed
             note('Destroying…');
-            return A.destroyExportKey().then(function () {
+            return singleFlight('destroy', ['pDestroyKey'], function () {
+                return withCurrentAccount(function () { return A.destroyExportKey(); });
+            }).then(function () {
                 note('Backup key destroyed. Old backups can no longer be restored. '
                    + 'Make a new backup when you\u2019re ready.');
             });
@@ -289,14 +371,17 @@
 
         el('pDriveConnect').addEventListener('click', function () {
             driveNote('Waiting for Google…');
-            window.DriveBackup.connect().then(function () {
+            singleFlight('driveConnect', ['pDriveConnect'], function () { return withCurrentAccount(function () {
+            return window.DriveBackup.connect().then(function () {
                 showDriveButtons(true);
-                driveNote('Connected. Your backup can now be kept in your Drive.');
+                driveNote('Connected. Drive access is held only until you sign out or reload this page.');
             }).catch(function (e) { driveNote(e.message); });
+            }); });
         });
 
         el('pDriveBackup').addEventListener('click', function () {
-            var data = K.exportData(accountId);
+            singleFlight('driveBackup', ['pDriveBackup', 'pDriveRestore'], function () { return withCurrentAccount(function (id) {
+            var data = K.exportData(id);
             // Backing up nothing REPLACES the file in Drive, so an empty list
             // here destroys the only copy the user has -- and the commonest way
             // to have an empty list is to be on a new device, which is exactly
@@ -312,30 +397,52 @@
                 return;
             }
             driveNote('Encrypting and uploading…');
-            A.exportKey().then(function (key) {
+            var revision = null;
+            return Promise.all([window.DriveBackup.snapshot(), A.exportKey()]).then(function (both) {
+                var remote = both[0].file, key = both[1];
+                revision = both[0].revision;
                 if (!key) throw new Error('Sign in to back up.');
-                return window.KeyringFile.write(data, key);
+                // A Drive backup is a synchronization point, not a blind
+                // replacement. Bring remote-only rows into this device before
+                // creating the next encrypted file.
+                if (!remote) return key;
+                return window.KeyringFile.read(remote, key, id).then(function (remoteData) {
+                    var merged = K.importData(id, remoteData);
+                    data = K.exportData(id);
+                    if (merged.added || merged.updated) renderList();
+                    return key;
+                });
+            }).then(function (key) {
+                if (!key) throw new Error('Sign in to back up.');
+                return window.KeyringFile.write(data, key, id);
             }).then(function (file) {
-                return window.DriveBackup.put(file);
+                return window.DriveBackup.put(file, revision);
             }).then(function () {
                 driveNote(data.channels.length + ' channel(s) backed up to your Drive, encrypted.');
             }).catch(function (e) { driveNote(e.message); });
+            }); });
         });
 
         el('pDriveRestore').addEventListener('click', function () {
+            singleFlight('driveRestore', ['pDriveBackup', 'pDriveRestore'], function () { return withCurrentAccount(function (id) {
             driveNote('Fetching from Drive…');
-            Promise.all([window.DriveBackup.get(), A.exportKey()]).then(function (both) {
+            return Promise.all([window.DriveBackup.get(), A.exportKey()]).then(function (both) {
                 if (!both[0]) { driveNote('There is no backup in your Drive yet.'); return null; }
-                return window.KeyringFile.read(both[0], both[1]);
+                return window.KeyringFile.read(both[0], both[1], id);
             }).then(function (data) {
                 if (!data) return;
                 // Merge, never last-write-wins: two devices each holding rows
                 // the other lacks must end up with both, not with whichever
                 // wrote most recently.
-                var r = K.importData(accountId, data);
+                var preview = K.previewImport(id, data);
+                if (!window.confirm('Restore preview: ' + preview.added + ' new, ' + preview.updated
+                    + ' join name(s) filled, ' + preview.skipped + ' unchanged. Continue?')) return;
+                var r = K.importData(id, data);
                 renderList();
-                driveNote(r.added + ' restored, ' + r.skipped + ' already here.');
+                driveNote(r.added + ' restored, ' + r.updated + ' profile name(s) filled, '
+                    + r.skipped + ' already here, ' + r.invalid + ' invalid.');
             }).catch(function (e) { driveNote(e.message); });
+            }); });
         });
     }
 
@@ -348,4 +455,5 @@
     /* ---- boot ---- */
     if (window.location.hash === '#signin') show(false);
     A.me().then(applyUser).catch(function () { show(false); });
+    A.onChange(function () { A.me(true).then(applyUser).catch(function () { show(false); }); });
 })(window, document);

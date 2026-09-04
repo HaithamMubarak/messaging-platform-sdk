@@ -38,8 +38,18 @@
     }
 
     function write(accountId, data) {
-        if (!accountId) return;
-        try { localStorage.setItem(keyFor(accountId), JSON.stringify(data)); } catch (e) {}
+        if (!accountId) return false;
+        try {
+            var encoded = JSON.stringify(data);
+            localStorage.setItem(keyFor(accountId), encoded);
+            return localStorage.getItem(keyFor(accountId)) === encoded;
+        } catch (e) { return false; }
+    }
+
+    function storageError() {
+        var e = new Error('This browser could not save app settings. Free some storage or leave private browsing, then try again.');
+        e.code = 'MP_STORAGE_UNAVAILABLE';
+        return e;
     }
 
     var AppConfig = {
@@ -55,7 +65,7 @@
             var cur = all[appId] || {};
             Object.keys(patch || {}).forEach(function (k) { cur[k] = patch[k]; });
             all[appId] = cur;
-            write(accountId, all);
+            if (!write(accountId, all)) throw storageError();
         },
 
         /**
@@ -75,7 +85,7 @@
             cur.usedChannelIds.unshift(channelId);
             cur.usedChannelIds = cur.usedChannelIds.slice(0, 20);
             all[appId] = cur;
-            write(accountId, all);
+            if (!write(accountId, all)) throw storageError();
         },
 
         /**
@@ -103,7 +113,7 @@
                     touched = true;
                 }
             });
-            if (touched) write(accountId, all);
+            if (touched && !write(accountId, all)) throw storageError();
         },
 
         clear: function (accountId) {

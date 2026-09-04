@@ -146,7 +146,7 @@
      *    restore an older list than the one just written.
      */
     function find() {
-        return api(FILES + '?spaces=appDataFolder&fields=files(id,name,modifiedTime)'
+        return api(FILES + '?spaces=appDataFolder&fields=files(id,name,modifiedTime,version,etag)'
                  + '&orderBy=' + encodeURIComponent('modifiedTime desc')
                  + '&q=' + encodeURIComponent("name='" + FILENAME + "' and trashed=false"))
             .then(function (r) { return r.json(); })
@@ -170,8 +170,22 @@
          * Write the encrypted file, replacing whatever is there.
          * @param {object} file the `mp-keyring` v2 object
          */
-        put: function (file) {
+        put: function (file, expected) {
             return authorize().then(find).then(function (existing) {
+                // Detect the common multi-device race before replacing a
+                // remote file we just merged. Google also enforces the ETag
+                // below when it provides one.
+                if (expected && expected.missing && existing) {
+                    var appeared = new Error('A Drive backup appeared from another device. Please try again.');
+                    appeared.code = 'MP_DRIVE_CONFLICT';
+                    throw appeared;
+                }
+                if (expected && existing && expected.id === existing.id
+                        && expected.version && existing.version !== expected.version) {
+                    var conflict = new Error('Your Drive backup changed on another device. Please try again.');
+                    conflict.code = 'MP_DRIVE_CONFLICT';
+                    throw conflict;
+                }
                 var meta = existing ? {} : { name: FILENAME, parents: ['appDataFolder'] };
                 var boundary = 'mpk' + Date.now();
                 var body =
@@ -185,7 +199,11 @@
                     : UPLOAD + '?uploadType=multipart';
                 return api(url, {
                     method: existing ? 'PATCH' : 'POST',
-                    headers: { 'Content-Type': 'multipart/related; boundary=' + boundary },
+                    headers: (function () {
+                        var h = { 'Content-Type': 'multipart/related; boundary=' + boundary };
+                        if (expected && expected.etag) h['If-Match'] = expected.etag;
+                        return h;
+                    })(),
                     body: body
                 }).then(function (r) { return r.json(); });
             });
@@ -200,6 +218,16 @@
                 if (!existing) return null;
                 return api(FILES + '/' + existing.id + '?alt=media')
                     .then(function (r) { return r.json(); });
+            });
+        },
+
+        /** Same data as get(), plus the Drive revision used for a safe write. */
+        snapshot: function () {
+            return authorize().then(find).then(function (existing) {
+                if (!existing) return { file: null, revision: { missing: true } };
+                return api(FILES + '/' + existing.id + '?alt=media')
+                    .then(function (r) { return r.json(); })
+                    .then(function (file) { return { file: file, revision: existing }; });
             });
         },
 

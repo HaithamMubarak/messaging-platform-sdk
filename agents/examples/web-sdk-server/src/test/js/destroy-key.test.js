@@ -19,6 +19,8 @@ const fs = require('fs');
 
 const STATIC = path.join(__dirname, '..', '..', 'main', 'resources', 'static');
 const KF = require(path.join(STATIC, 'js', 'keyring-file.js'));
+const rawWrite = KF.write;
+KF.write = (data, key, account) => rawWrite(data, key, account || 'destroy-test-account');
 
 /* ------------------------------------------------------ the confirmation */
 

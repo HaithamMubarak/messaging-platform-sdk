@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Terms of Service — Messaging Platform SDK</title>
+    <meta name="description" content="Terms for the Messaging Platform SDK, demos, Platform account and optional Google Drive backup.">
+    <meta name="theme-color" content="#0b1120">
+    <link rel="canonical" href="https://hmdevonline.com/messaging-platform/sdk/terms">
+    <meta property="og:type" content="website">
+    <meta property="og:site_name" content="Messaging Platform SDK">
+    <meta property="og:title" content="Terms of Service — Messaging Platform SDK">
+    <meta property="og:description" content="Terms for the Messaging Platform SDK, demos and Platform account.">
+    <meta property="og:url" content="https://hmdevonline.com/messaging-platform/sdk/terms">
+    <link rel="icon" type="image/svg+xml" href="favicon.svg">
+    <link rel="stylesheet" href="css/design-tokens.css">
+    <link rel="stylesheet" href="css/ui.css">
+    <link rel="stylesheet" href="css/landing.css">
+    <script src="js/prod-log.js" defer></script>
+    <script src="js/icons.js" defer></script>
+    <script src="js/ui.js" defer></script>
+    <script src="js/landing.js" defer></script>
+    <style>
+        .prose { max-width: 68ch; margin: 0 auto; padding: 56px 0 80px; }
+        .prose h1 { font-size: clamp(28px, 5vw, 40px); line-height: 1.15; letter-spacing: -0.02em; }
+        .prose .lede { margin-top: 16px; font-size: 18px; line-height: 1.6; color: var(--text-muted); }
+        .prose h2 { margin-top: 42px; font-size: 20px; letter-spacing: -0.01em; }
+        .prose p, .prose li { line-height: 1.7; color: var(--text-muted); }
+        .prose p { margin-top: 14px; }
+        .prose ul { margin-top: 14px; padding-left: 20px; }
+        .prose li { margin-top: 6px; }
+        .prose a { color: var(--accent); }
+        .effective { margin-top: 20px; font-size: 14px; color: var(--text-muted); }
+    </style>
+</head>
+<body>
+<a class="skip-link" href="#content">Skip to the content</a>
+<header class="site-header" id="siteHeader">
+    <div class="wrap site-header__inner">
+        <a class="brand" href="index.html"><svg class="logo-mark" aria-hidden="true"><use href="#i-logo"></use></svg>Messaging Platform SDK</a>
+        <button class="btn btn--ghost btn--icon nav-toggle" id="navToggle" aria-expanded="false" aria-controls="siteNav" aria-label="Open menu"><svg class="icon" aria-hidden="true"><use href="#i-menu"></use></svg></button>
+        <nav class="site-nav" id="siteNav" aria-label="Main">
+            <a href="index.html#demos">Demos</a><a href="playground.html">Playground</a><a href="docs.html">Docs</a><a href="../apps/index.html">Apps</a><a href="developer/index.html">Developer Portal</a>
+            <a class="btn btn--gradient" href="developer/index.html">Get a free API key</a>
+        </nav>
+    </div>
+</header>
+<main class="wrap" id="content">
+    <article class="prose">
+        <h1>Terms of Service</h1>
+        <p class="effective">Effective: 2 September 2026</p>
+        <p class="lede">These terms govern use of the Messaging Platform SDK website, its examples and demos, and the optional Platform account features.</p>
+
+        <h2>Using the Platform</h2>
+        <p>You may use the SDK, documentation and demonstrations for lawful development, testing and evaluation. You are responsible for your applications, the channels you create, the information you choose to send, and obtaining any permissions or notices your users need.</p>
+        <p>The Platform is currently a beta service. Features, APIs, limits and availability may change. Do not rely on the beta service for safety-critical, regulated, or production workloads unless you have separately agreed terms with the operator.</p>
+
+        <h2>Accounts and Google sign-in</h2>
+        <p>A Platform account is optional. It helps you return to channels saved in your browser. If you choose Sign in with Google, Google authenticates you and we use the information returned by the sign-in flow to create or access your Platform account. Your use of Google sign-in and any Google services is also subject to Google's terms and privacy policies.</p>
+        <p>Keep your account and browser secure. Tell us promptly through the project contact below if you believe your account has been used without permission.</p>
+
+        <h2>Saved channels and backups</h2>
+        <p>Saved-channel metadata is kept in the browser storage for the signed-in Platform account. Channel secrets are protected locally. You are responsible for choosing whom to share a channel name, password, exported keyring, or device with.</p>
+        <p>Drive backup is optional. When you request it, the browser asks Google for access to the app-specific Drive folder and writes an encrypted backup there. We do not operate a server-side Drive integration or hold a credential to open that file. You remain responsible for retaining your own copies and for reviewing Google Drive access in your Google account.</p>
+
+        <h2>Acceptable use</h2>
+        <p>You must not misuse the service, including by attempting to disrupt it, bypass limits or access controls, probe other users' channels or accounts, distribute malware, infringe rights, or use the Platform in violation of applicable law. We may restrict or suspend access to protect the service, users, or third parties.</p>
+
+        <h2>Third-party services</h2>
+        <p>The site may link to or optionally connect with third-party services, including Google identity and Google Drive. Those services are governed by their own terms. We are not responsible for third-party services, their availability, or their handling of your data.</p>
+
+        <h2>Disclaimers and liability</h2>
+        <p>The beta Platform is provided on an “as is” and “as available” basis. To the extent permitted by law, we do not make warranties about uninterrupted availability, fitness for a particular purpose, or that the service will be error-free. To the extent permitted by law, we are not liable for indirect, incidental, special, consequential, or lost-data damages arising from use of the beta Platform.</p>
+
+        <h2>Changes and contact</h2>
+        <p>We may update these terms as the Platform changes. The effective date above shows when they were last updated. Continuing to use the Platform after an update means you accept the updated terms.</p>
+        <p>For questions about these terms, privacy, or a Platform account, contact the project operator through the <a href="https://github.com/HaithamMubarak/messaging-platform-sdk/issues" target="_blank" rel="noopener noreferrer">Messaging Platform SDK project</a>.</p>
+    </article>
+</main>
+<footer class="site-footer"><div class="wrap"><div class="footer-bottom"><span>&copy; 2026 Messaging Platform SDK</span><span><a href="privacy">Privacy Policy</a></span><span><a href="index.html">Back to the site</a></span></div></div></footer>
+<script src="js/mp-account.js"></script>
+<script src="js/profile-chip.js"></script>
+</body>
+</html>

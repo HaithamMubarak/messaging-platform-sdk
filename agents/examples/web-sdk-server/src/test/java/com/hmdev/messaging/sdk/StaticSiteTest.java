@@ -9,9 +9,11 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.stream.Stream;
@@ -118,7 +120,11 @@ class StaticSiteTest {
         // plain demos below them use different card classes, so counting one
         // of those two would quietly ignore the other five.
         int entries = page.split("class=\"entry-hit\"", -1).length - 1;
-        assertThat(entries).isGreaterThan(20);
+        // A floor, so `found == entries` below cannot pass on an empty page.
+        // NOT a catalogue count -- that is gameCountCopyMatchesCatalogue's job,
+        // and a floor pinned to today's exact total fails the next time one
+        // entry moves, which is how this assertion came to be wrong at 20.
+        assertThat(entries).isGreaterThan(10);
 
         Matcher m = Pattern.compile(
                 "<figure class=\"entry-shot\"><img src=\"(img/playground/[^\"]+)\"[^>]*alt=\"([^\"]*)\">")
@@ -257,11 +263,34 @@ class StaticSiteTest {
 
     // ----------------------------------------------------------- link health
 
+    /**
+     * Extension-free URLs that a controller serves, read from the controller
+     * itself rather than listed here. Google's OAuth configuration points at
+     * /privacy and /terms, so they are links with no file behind them — and
+     * deleting the controller has to fail this test, not quietly re-break the
+     * links it was added to keep working.
+     */
+    private static Set<String> controllerRoutes() throws IOException {
+        Path controller = Paths.get(
+                "src/main/java/com/hmdev/messaging/sdk/controller/LegalController.java");
+        if (!Files.exists(controller)) return Set.of();
+        Matcher m = Pattern.compile("@GetMapping\\(\\{([^}]*)\\}\\)")
+                .matcher(Files.readString(controller, StandardCharsets.UTF_8));
+        Set<String> routes = new HashSet<>();
+        while (m.find()) {
+            Matcher path = Pattern.compile("\"/([^\"]*)\"").matcher(m.group(1));
+            while (path.find()) routes.add(path.group(1).replaceAll("/$", ""));
+        }
+        return routes;
+    }
+
     @Test
     @DisplayName("no page links to a file that is not in the build")
     void internalLinksResolve() throws IOException {
         Pattern ref = Pattern.compile("(?:href|src)=\"([^\"#][^\"]*)\"");
         List<String> broken = new ArrayList<>();
+        Set<String> routes = controllerRoutes();
+        assertThat(routes).as("LegalController's extension-free routes").isNotEmpty();
 
         try (Stream<Path> pages = Files.walk(STATIC)) {
             for (Path page : pages.filter(p -> p.toString().endsWith(".html"))
@@ -282,6 +311,23 @@ class StaticSiteTest {
                     }
                     String path = href.split("[?#]")[0];
                     if (path.isEmpty()) continue;
+
+                    // A controller serves this one; there is no file to find.
+                    if (routes.contains(path.replaceAll("^.*/", ""))
+                            && !path.contains(".")) {
+                        continue;
+                    }
+
+                    // profile.html is served at the PLATFORM ROOT, one level
+                    // above this tree, so its relative links are written from
+                    // there: sdk/x is this tree's x, and apps/x belongs to
+                    // apps-service. Resolving them like any other page's puts
+                    // them at static/sdk/x, which is nothing.
+                    if (page.getFileName().toString().equals("profile.html")
+                            && !path.startsWith("/")) {
+                        if (!path.startsWith("sdk/")) continue;
+                        path = path.substring("sdk/".length());
+                    }
 
                     // An absolute link is a GATEWAY path, not a repo path. The
                     // gateway serves this tree at /messaging-platform/sdk/ and

@@ -12,9 +12,9 @@
  * This module owns the shared keys so the modal and the older RoomDefaults
  * forms cannot drift apart on what "the current channel" means:
  *
- *   localStorage  mp.active.v1   the active channel — { name, source, ts }
- *   localStorage  mp.username    display name, shared across apps
- *   sessionStorage mp.active.pw  its password: a credential, so it dies with
+ *   localStorage  mp.active.v1[.<account>] the active channel — { name, source, ts }
+ *   localStorage  mp.username    display name, shared across guest apps
+ *   sessionStorage mp.active.pw[.<account>] its password: a credential, so it dies with
  *                                the browser session exactly as before
  *
  * The per-app keys are still written, untouched, so this can be rolled back
@@ -32,6 +32,13 @@
     var USERNAME = 'mp.username';
     var PASSWORD = 'mp.active.pw';
 
+    // Guests deliberately share one active room.  Signed-in people must not:
+    // a browser can host two Platform accounts in one session and a room
+    // password is not something the next account should inherit.
+    function scoped(key, accountId) {
+        return accountId ? key + '.' + encodeURIComponent(String(accountId)) : key;
+    }
+
     function get(store, key) {
         try { return store.getItem(key) || ''; } catch (e) { return ''; }
     }
@@ -41,8 +48,8 @@
     }
 
     /** The active channel, or null. Never throws on a corrupt value. */
-    function read() {
-        var raw = get(localStorage, ACTIVE);
+    function read(accountId) {
+        var raw = get(localStorage, scoped(ACTIVE, accountId));
         if (!raw) return null;
         try {
             var v = JSON.parse(raw);
@@ -59,17 +66,17 @@
      * @param {string} name    channel name
      * @param {string} [source] 'invite' | 'saved' | 'generated' | 'typed'
      */
-    function write(name, source) {
+    function write(name, source, accountId) {
         if (!name) return;
-        set(localStorage, ACTIVE, JSON.stringify({
+        set(localStorage, scoped(ACTIVE, accountId), JSON.stringify({
             name: String(name),
             source: source || 'typed',
             ts: Date.now()
         }));
     }
 
-    function readPassword() { return get(sessionStorage, PASSWORD); }
-    function writePassword(pw) { set(sessionStorage, PASSWORD, pw || ''); }
+    function readPassword(accountId) { return get(sessionStorage, scoped(PASSWORD, accountId)); }
+    function writePassword(pw, accountId) { set(sessionStorage, scoped(PASSWORD, accountId), pw || ''); }
 
     function readUsername() { return get(localStorage, USERNAME); }
     function writeUsername(u) { if (u) set(localStorage, USERNAME, u); }
@@ -86,21 +93,21 @@
      * @param {string} prefix the app's legacy storage prefix, e.g. 'whiteboard_'
      * @returns {boolean} whether anything was adopted
      */
-    function seedFromLegacy(prefix) {
-        if (!prefix || read()) return false;
+    function seedFromLegacy(prefix, accountId) {
+        if (!prefix || read(accountId)) return false;
         var name = get(localStorage, prefix + 'channel');
         if (!name) return false;
-        write(name, 'legacy');
+        write(name, 'legacy', accountId);
         var pw = get(sessionStorage, prefix + 'password');
-        if (pw && !readPassword()) writePassword(pw);
+        if (pw && !readPassword(accountId)) writePassword(pw, accountId);
         return true;
     }
 
     /** Forget the active channel. Used by sign-out and shared-device mode. */
-    function clear() {
+    function clear(accountId) {
         try {
-            localStorage.removeItem(ACTIVE);
-            sessionStorage.removeItem(PASSWORD);
+            localStorage.removeItem(scoped(ACTIVE, accountId));
+            sessionStorage.removeItem(scoped(PASSWORD, accountId));
         } catch (e) { /* ignore */ }
     }
 
@@ -113,6 +120,6 @@
         writeUsername: writeUsername,
         seedFromLegacy: seedFromLegacy,
         clear: clear,
-        KEYS: { active: ACTIVE, username: USERNAME, password: PASSWORD }
+        KEYS: { active: ACTIVE, username: USERNAME, password: PASSWORD, scoped: scoped }
     };
 })(window);

@@ -4,19 +4,19 @@
     <meta charset="UTF-8">
     <script src="js/prod-log.js"></script>
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>What the demos measure — Messaging Platform SDK</title>
-    <meta name="description" content="Exactly what the Messaging Platform SDK demos record about a session, what they refuse to record, and how to switch it off.">
+    <title>Privacy Policy — Messaging Platform SDK</title>
+    <meta name="description" content="How the Messaging Platform SDK website, optional Platform account, Google sign-in and Drive backup handle data.">
     <meta name="theme-color" content="#0b1120">
-    <link rel="canonical" href="https://hmdevonline.com/messaging-platform/sdk/privacy.html">
+    <link rel="canonical" href="https://hmdevonline.com/messaging-platform/sdk/privacy">
     <meta property="og:type" content="website">
     <meta property="og:site_name" content="Messaging Platform SDK">
-    <meta property="og:title" content="What the demos measure">
-    <meta property="og:description" content="Four counters, no content. Exactly what the demos record, what they refuse to record, and how to switch it off.">
-    <meta property="og:url" content="https://hmdevonline.com/messaging-platform/sdk/privacy.html">
+    <meta property="og:title" content="Privacy Policy — Messaging Platform SDK">
+    <meta property="og:description" content="How the Messaging Platform SDK website, optional Platform account, Google sign-in and Drive backup handle data.">
+    <meta property="og:url" content="https://hmdevonline.com/messaging-platform/sdk/privacy">
     <meta property="og:image" content="https://hmdevonline.com/messaging-platform/sdk/images/og-image.png">
     <meta name="twitter:card" content="summary_large_image">
-    <meta name="twitter:title" content="What the demos measure">
-    <meta name="twitter:description" content="Four counters, no content. Exactly what the demos record, what they refuse to record, and how to switch it off.">
+    <meta name="twitter:title" content="Privacy Policy — Messaging Platform SDK">
+    <meta name="twitter:description" content="How the Messaging Platform SDK website, optional Platform account, Google sign-in and Drive backup handle data.">
     <meta name="twitter:image" content="https://hmdevonline.com/messaging-platform/sdk/images/og-image.png">
     <link rel="icon" type="image/svg+xml" href="favicon.svg">
     <link rel="stylesheet" href="css/design-tokens.css">
@@ -82,14 +82,39 @@
 
     <main class="wrap" id="content">
         <article class="prose">
-            <h1>What the demos measure</h1>
+            <h1>Privacy Policy</h1>
+            <p class="lede">This policy explains how the Messaging Platform SDK website, optional Platform account, and optional Google Drive backup handle data.</p>
+            <p><strong>Effective: 2 September 2026.</strong> This policy applies to the Messaging Platform SDK at hmdevonline.com and its demos. It does not replace the privacy policies of applications built by other developers with the SDK.</p>
+
+            <h2>What we collect for a Platform account</h2>
+            <p>Creating a Platform account requires an email address, display name and password. If you choose Sign in with Google, we receive the basic identity information necessary to identify your Platform account, including your Google account subject identifier, email address and display name. We use this only to provide account sign-in, account recovery, and saved-channel features.</p>
+            <p>Your Platform account is separate from the Developer Portal account used for API keys. The SDK does not send account data from an app simply because that app uses the SDK.</p>
+
+            <h2>Saved channels and private material</h2>
+            <p>Saved-channel labels and connection metadata are stored in browser storage for the account currently signed in on that browser. Channel passwords and exported key material are protected locally. We do not upload your saved channels or channel secrets to our Platform account service.</p>
+            <p>You can remove saved channels, sign out, or clear browser data from the profile page. Clearing browser data can make locally saved material unrecoverable unless you have made an export or optional backup.</p>
+
+            <h2>Google Drive backup is optional</h2>
+            <p>If you explicitly choose Drive backup, your browser requests Google Drive's <code>drive.appdata</code> permission. It creates or reads one encrypted keyring file in your Google Drive app-specific folder. The browser receives the short-lived Google access token directly; we do not receive a Google Drive refresh token, operate a server-side Drive integration, or keep a credential that can open your Drive backup.</p>
+            <p>You can stop using Drive backup at any time and manage or revoke the permission in your Google account. Google handles information it receives under its own privacy policy.</p>
+
+            <h2>Data shared with service providers</h2>
+            <p>We use Google only when you choose Google sign-in or Drive backup. We do not sell personal information. We disclose data only when needed to provide the requested feature, comply with law, protect the service and its users, or as part of a business transfer if one occurs.</p>
+
+            <h2>Retention and security</h2>
+            <p>Account data is retained while the account is active and for as long as reasonably necessary to operate, secure, resolve disputes, or meet legal obligations. Browser-saved data remains on your device until you remove it. We use reasonable technical measures to protect data, but no online service or device storage can be guaranteed completely secure.</p>
+
+            <h2>Your choices and requests</h2>
+            <p>You can use most SDK demos without an account. You can choose not to use Google sign-in or Drive backup, sign out, remove locally saved channels, and control Google permissions in your Google account. For privacy questions or requests concerning a Platform account, contact the project operator through the <a href="https://github.com/HaithamMubarak/messaging-platform-sdk/issues" target="_blank" rel="noopener noreferrer">Messaging Platform SDK project</a>.</p>
+
+            <h2>Demo measurement</h2>
             <p class="lede">
                 Every demo on this site tells you the server does not see what you send.
                 That claim is only worth something if the page measuring the demos
                 collects less than the demos themselves. Here is the whole of it.
             </p>
 
-            <h2>Four counters</h2>
+            <h2>Four counters, no message content</h2>
             <p>
                 The demo pages record four things, and nothing else. They exist to answer
                 one question — how often a live session actually falls over — so that the
@@ -139,7 +164,7 @@
                 nightly.
             </p>
 
-            <h2>The SDK itself sends nothing</h2>
+            <h2>The SDK itself sends no analytics</h2>
             <p>
                 This applies to the demos on this site only. The published package,
                 <code>@messaging-platform/web-agent-js</code>, contains none of this code
@@ -147,7 +172,7 @@
                 people's applications would be indefensible, so it does not.
             </p>
 
-            <h2>Turning it off</h2>
+            <h2>Turning demo measurement off</h2>
             <p>
                 Do Not Track and Global Privacy Control are honoured before anything is
                 queued — if your browser sends either, these pages have already recorded
@@ -170,6 +195,7 @@
     <div class="wrap">
         <div class="footer-bottom">
             <span>&copy; 2026 Messaging Platform SDK</span>
+            <span><a href="terms">Terms of Service</a></span>
             <span><a href="index.html">Back to the site</a></span>
         </div>
     </div>

@@ -47,7 +47,7 @@ check('a saved channel carries no app state at all', () => {
     const row = K.add('a1', { name: 'room-1', password: 'p' });
     assert.ok(!('apps' in row), 'the channel row grew an app field again: ' + JSON.stringify(row));
     assert.deepStrictEqual(Object.keys(row).sort(),
-        ['createdAt', 'id', 'label', 'lastUsedAt', 'name', 'password']);
+        ['createdAt', 'id', 'label', 'lastUsedAt', 'name', 'password', 'username']);
 });
 
 /*
@@ -67,7 +67,7 @@ check('and a row that arrives from a backup file carries none either', () => {
     assert.ok(!('apps' in row),
         'an imported channel row carried an app field in: ' + JSON.stringify(row));
     assert.deepStrictEqual(Object.keys(row).sort(),
-        ['createdAt', 'id', 'label', 'lastUsedAt', 'name', 'password'],
+        ['createdAt', 'id', 'label', 'lastUsedAt', 'name', 'password', 'username'],
         'importData built a row with a different shape from add()');
 });
 
@@ -98,6 +98,71 @@ check('but a different password is still a different room', () => {
     K.add('a1', { name: 'room', password: 'two' });
     assert.strictEqual(K.list('a1').length, 2,
         'two rooms sharing a name but not a password were merged into one');
+});
+
+check('a saved channel keeps the name used in that channel', () => {
+    const { K } = load();
+    const one = K.add('a1', { name: 'work', password: 'p1', username: 'Amina' });
+    const two = K.add('a1', { name: 'friends', password: 'p2', username: 'Mina' });
+    K.add('a1', { name: 'work', password: 'p1', username: 'Amina (work)' });
+    K.touch('a1', 'friends', 'p2', 'Amina at home');
+
+    const rows = K.list('a1');
+    assert.strictEqual(rows.length, 2, 'updating a channel profile duplicated the room');
+    assert.strictEqual(rows.filter((r) => r.id === one.id)[0].username, 'Amina (work)');
+    assert.strictEqual(rows.filter((r) => r.id === two.id)[0].username, 'Amina at home');
+});
+
+check('a newer backup fills a missing channel name but never overwrites one', () => {
+    const { K } = load();
+    K.add('a1', { name: 'work', password: 'p' });
+    let result = K.importData('a1', { channels: [{
+        name: 'work', password: 'p', username: 'Amina\nfrom work'
+    }] });
+    assert.deepStrictEqual(result, { added: 0, skipped: 1, updated: 1, invalid: 0 });
+    assert.strictEqual(K.list('a1')[0].username, 'Amina from work');
+
+    result = K.importData('a1', { channels: [{
+        name: 'work', password: 'p', username: 'Different person'
+    }] });
+    assert.deepStrictEqual(result, { added: 0, skipped: 1, updated: 0, invalid: 0 });
+    assert.strictEqual(K.list('a1')[0].username, 'Amina from work');
+});
+
+check('a channel alias can be reset to the account default', () => {
+    const { K } = load();
+    const row = K.add('a1', { name: 'work', password: 'p', username: 'Amina' });
+    assert.ok(K.setUsername('a1', row.id, ''));
+    assert.strictEqual(K.list('a1')[0].username, '');
+});
+
+check('a channel alias cannot cross a Platform account boundary', () => {
+    const { K } = load();
+    K.add('a1', { name: 'work', password: 'p', username: 'Amina' });
+    K.add('a2', { name: 'work', password: 'p', username: 'Basil' });
+    assert.strictEqual(K.list('a1')[0].username, 'Amina');
+    assert.strictEqual(K.list('a2')[0].username, 'Basil');
+});
+
+check('the connection picker restores the channel-specific name', () => {
+    const modal = read('connection-modal.js');
+    assert.ok(/recordConnect\(channel, password, username\)/.test(modal),
+        'the connected name is not passed into the saved channel');
+    assert.ok(/if \(userEl\) userEl\.value = joinAs/.test(modal),
+        'choosing a saved channel does not restore its name');
+});
+
+check('legacy rows and failed attempts cannot leak or overwrite an identity', () => {
+    const modal = read('connection-modal.js');
+    assert.ok(/var joinAs = row\.username \|\| accountDefaultName\(\)/.test(modal),
+        'a legacy row keeps the alias selected immediately before it');
+    const attempt = modal.slice(modal.indexOf('function attempt(username)'),
+        modal.indexOf('if (connectBtn && onConnect)', modal.indexOf('function attempt(username)')));
+    assert.ok(attempt.indexOf('persistValues(username, channel, password)')
+        > attempt.indexOf("!modal.classList.contains('active')"),
+        'a failed connection attempt rewrites the persisted identity');
+    assert.ok(/function usernameKey\([\s\S]*accountId/.test(modal),
+        'a signed-in account still uses the browser-global username key');
 });
 
 check('the keyring source never mentions apps', () => {

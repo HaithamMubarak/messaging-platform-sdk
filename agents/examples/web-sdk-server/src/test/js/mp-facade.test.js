@@ -103,6 +103,18 @@ check('connect hands the room to the SDK and returns only what the SDK returns',
         'the SDK still needs the password today; only the CALLER must not get it');
 });
 
+check('connect uses the saved per-channel profile name by default', async () => {
+    const { MP, K } = load(USER);
+    const row = K.add('u_1', {
+        name: 'room-1', password: 'hunter2', username: 'Amina from work'
+    });
+    let handed = null;
+    await MP.channels.connect(row.id, {
+        appId: 'whiteboard', connect: (args) => { handed = args; }
+    });
+    assert.strictEqual(handed.username, 'Amina from work');
+});
+
 check('connect never RETURNS the password to its caller', async () => {
     const { MP, K } = load(USER);
     const row = K.add('u_1', { name: 'room-1', password: 'hunter2' });
@@ -130,6 +142,19 @@ check('connecting records the app against the channel, one way only', async () =
     await MP.channels.connect(row.id, { appId: 'chess', connect: () => 1 });
     assert.deepStrictEqual(C.appsUsing('u_1', row.id), ['chess']);
     assert.ok(!('apps' in K.list('u_1')[0]), 'the channel row grew app state');
+});
+
+check('a failed connect leaves recency, alias and app history untouched', async () => {
+    const { MP, K, C } = load(USER);
+    const row = K.add('u_1', { name: 'room-1', password: 'p', username: 'Before' });
+    const before = K.list('u_1')[0].lastUsedAt;
+    await assert.rejects(() => MP.channels.connect(row.id, {
+        appId: 'chess', username: 'After', connect: () => Promise.reject(new Error('offline'))
+    }), /offline/);
+    const after = K.list('u_1')[0];
+    assert.strictEqual(after.username, 'Before');
+    assert.strictEqual(after.lastUsedAt, before);
+    assert.deepStrictEqual(C.appsUsing('u_1', row.id), []);
 });
 
 check('an app can keep its own settings, keyed by the platform person', async () => {
