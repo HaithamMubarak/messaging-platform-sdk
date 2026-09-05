@@ -224,7 +224,9 @@ processResources.dependsOn(tasks.named('copyUserGuide'))
 // Clean task should remove generated files
 clean {
     delete file('src/main/resources/static/generated-web-agent-js')
+    // All three copyUserGuide outputs, so clean removes what the build wrote.
     delete file('src/main/resources/static/USER-GUIDE.md')
+    delete file('src/main/resources/static/WEB-AGENT-GUIDE.md')
     delete file('src/main/resources/static/DEVELOPER-GUIDE.md')
 }
 

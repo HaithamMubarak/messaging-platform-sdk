@@ -131,4 +131,11 @@ AI/knowledge/cache.json
 *.bak
 
 # Copied into the served folder at build time from the repository root.
+# The three repository-root guides are COPIED into static/ by
+# copyUserGuide on every build, so the copies are build output. All three
+# are ignored, all three are cleaned, and none is committed -- the odd one
+# out used to be WEB-AGENT-GUIDE.md, which was tracked, so every build
+# dirtied the tree and StaticSiteTest read the COMMITTED copy rather than
+# the source it is supposed to be guarding.
 agents/examples/web-sdk-server/src/main/resources/static/DEVELOPER-GUIDE.md
+agents/examples/web-sdk-server/src/main/resources/static/WEB-AGENT-GUIDE.md
