@@ -245,34 +245,34 @@ agent = AgentConnection.with_api_key(
         <li><strong>3. Browser</strong><span>Receives only the temporary key, opens its connection, and never stores the developer key.</span></li>
       </ol>
       <div class="home-key-code-grid">
-        <article class="code-panel home-key-code"><div class="code-panel__bar"><span class="code-panel__name">server.mjs — your backend</span><button class="btn btn--sm btn--ghost code-panel__copy" type="button" data-copy-target="temporary-key-server"><svg class="icon" aria-hidden="true"><use href="#i-copy"></use></svg> Copy</button></div><pre id="temporary-key-server"><code>// The developer key stays here. It may call platform APIs directly.
-// This route mints a temporary key only for an authorised browser connection.
-app.post('/api/messaging-access', requireSignedInUser, async (req, res) =&gt; {
-  const platform = await fetch('https://hmdevonline.com/messaging-platform/api/v1/messaging-service/channels/api-access', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json', 'X-API-Key': process.env.MESSAGING_PLATFORM_API_KEY },
-    body: JSON.stringify({ ttlSeconds: 30, singleUse: true })
+        <article class="code-panel home-key-code"><div class="code-panel__bar"><span class="code-panel__name">server.mjs — your backend</span><button class="btn btn--sm btn--ghost code-panel__copy" type="button" data-copy-target="temporary-key-server"><svg class="icon" aria-hidden="true"><use href="#i-copy"></use></svg> Copy</button></div><pre id="temporary-key-server"><code><span class="tok-com">// The developer key stays here. It may call platform APIs directly.</span>
+<span class="tok-com">// This route mints a temporary key only for an authorised browser connection.</span>
+app.<span class="tok-fn">post</span>(<span class="tok-str">'/api/messaging-access'</span>, requireSignedInUser, <span class="tok-key">async</span> (req, res) =&gt; {
+  <span class="tok-key">const</span> platform = <span class="tok-key">await</span> <span class="tok-fn">fetch</span>(<span class="tok-str">'https://hmdevonline.com/messaging-platform/api/v1/messaging-service/channels/api-access'</span>, {
+    <span class="tok-prop">method</span>: <span class="tok-str">'POST'</span>,
+    <span class="tok-prop">headers</span>: { <span class="tok-str">'Content-Type'</span>: <span class="tok-str">'application/json'</span>, <span class="tok-str">'X-API-Key'</span>: process.<span class="tok-prop">env</span>.<span class="tok-prop">MESSAGING_PLATFORM_API_KEY</span> },
+    <span class="tok-prop">body</span>: JSON.<span class="tok-fn">stringify</span>({ <span class="tok-prop">ttlSeconds</span>: <span class="tok-num">30</span>, <span class="tok-prop">singleUse</span>: <span class="tok-key">true</span> })
   });
-  const body = await platform.json();
-  const access = body.data;
-  if (!platform.ok || !access?.temporaryKey) return res.status(502).json({ error: 'Could not create messaging access.' });
-  res.set('Cache-Control', 'no-store');
-  res.json({ temporaryKey: access.temporaryKey, expiresAt: access.expiresAt });
+  <span class="tok-key">const</span> body = <span class="tok-key">await</span> platform.<span class="tok-fn">json</span>();
+  <span class="tok-key">const</span> access = body.<span class="tok-prop">data</span>;
+  <span class="tok-key">if</span> (!platform.<span class="tok-prop">ok</span> || !access?.<span class="tok-prop">temporaryKey</span>) <span class="tok-key">return</span> res.<span class="tok-fn">status</span>(<span class="tok-num">502</span>).<span class="tok-fn">json</span>({ <span class="tok-prop">error</span>: <span class="tok-str">'Could not create messaging access.'</span> });
+  res.<span class="tok-fn">set</span>(<span class="tok-str">'Cache-Control'</span>, <span class="tok-str">'no-store'</span>);
+  res.<span class="tok-fn">json</span>({ <span class="tok-prop">temporaryKey</span>: access.<span class="tok-prop">temporaryKey</span>, <span class="tok-prop">expiresAt</span>: access.<span class="tok-prop">expiresAt</span> });
 });</code></pre></article>
-        <article class="code-panel home-key-code"><div class="code-panel__bar"><span class="code-panel__name">client.js — browser</span><button class="btn btn--sm btn--ghost code-panel__copy" type="button" data-copy-target="temporary-key-client"><svg class="icon" aria-hidden="true"><use href="#i-copy"></use></svg> Copy</button></div><pre id="temporary-key-client"><code>const access = await fetch('/api/messaging-access', {
-  method: 'POST', credentials: 'same-origin'
-}).then(async response =&gt; {
-  const body = await response.json();
-  if (!response.ok) throw new Error(body.error || 'Access was not granted.');
-  return body;
+        <article class="code-panel home-key-code"><div class="code-panel__bar"><span class="code-panel__name">client.js — browser</span><button class="btn btn--sm btn--ghost code-panel__copy" type="button" data-copy-target="temporary-key-client"><svg class="icon" aria-hidden="true"><use href="#i-copy"></use></svg> Copy</button></div><pre id="temporary-key-client"><code><span class="tok-key">const</span> access = <span class="tok-key">await</span> <span class="tok-fn">fetch</span>(<span class="tok-str">'/api/messaging-access'</span>, {
+  <span class="tok-prop">method</span>: <span class="tok-str">'POST'</span>, <span class="tok-prop">credentials</span>: <span class="tok-str">'same-origin'</span>
+}).<span class="tok-fn">then</span>(<span class="tok-key">async</span> response =&gt; {
+  <span class="tok-key">const</span> body = <span class="tok-key">await</span> response.<span class="tok-fn">json</span>();
+  <span class="tok-key">if</span> (!response.<span class="tok-prop">ok</span>) <span class="tok-key">throw</span> <span class="tok-key">new</span> <span class="tok-fn">Error</span>(body.<span class="tok-prop">error</span> || <span class="tok-str">'Access was not granted.'</span>);
+  <span class="tok-key">return</span> body;
 });
 
-const agent = new AgentConnection();
-agent.connect({
-  api: 'https://hmdevonline.com/messaging-platform/api/v1/messaging-service',
-  apiKey: access.temporaryKey,
-  channelName: 'design-room', channelPassword: 'shared-secret',
-  agentName: 'user-' + crypto.randomUUID(), autoReceive: true
+<span class="tok-key">const</span> agent = <span class="tok-key">new</span> <span class="tok-fn">AgentConnection</span>();
+agent.<span class="tok-fn">connect</span>({
+  <span class="tok-prop">api</span>: <span class="tok-str">'https://hmdevonline.com/messaging-platform/api/v1/messaging-service'</span>,
+  <span class="tok-prop">apiKey</span>: access.<span class="tok-prop">temporaryKey</span>,
+  <span class="tok-prop">channelName</span>: <span class="tok-str">'design-room'</span>, <span class="tok-prop">channelPassword</span>: <span class="tok-str">'shared-secret'</span>,
+  <span class="tok-prop">agentName</span>: <span class="tok-str">'user-'</span> + crypto.<span class="tok-fn">randomUUID</span>(), <span class="tok-prop">autoReceive</span>: <span class="tok-key">true</span>
 });</code></pre></article>
       </div>
       <p class="home-key-rule"><strong>Backend direct access:</strong> use the developer API key from your server environment when your backend creates channels, runs a worker, or calls a platform API itself. Do not create a temporary key for server-to-server calls. Create one only after authorising a frontend user who needs to connect from their browser.</p>
