@@ -203,11 +203,15 @@ const DeveloperAPI = (function () {
     });
     const unlinkPlatform    = () => devApi('/account-link', { method: 'DELETE' });
 
+    /** Exchange statements: units sold per add-on this developer wrote. No amounts until a price exists. */
+    const getExchangeStatements = () => request(ApiConfig.getMessagingServiceUrl() + '/exchange/statements',
+        { method: 'GET' }).then((body) => (body && body.data) || body);
+
     return {
         login, logout, isLoggedIn, changePassword,
         getToken, getProfile, setProfile, getApiKey, clearAuth,
         getStats, getApiKeys, getUsage, getChannels, getChannelMetrics, getApiKeyUsage, revokeApiKey,
         createTemporaryKey, broadcast, recoverMessages, getChannelAgents, deleteChannel,
-        getAccountLink, linkPlatform, unlinkPlatform
+        getAccountLink, linkPlatform, unlinkPlatform, getExchangeStatements
     };
 })();

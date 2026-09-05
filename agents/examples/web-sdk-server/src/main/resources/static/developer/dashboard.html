@@ -57,6 +57,9 @@
             <a class="nav-item" href="#/usage" data-section="usage">
                 <svg class="icon" aria-hidden="true"><use href="#i-bar-chart"></use></svg> Usage &amp; quota
             </a>
+            <a class="nav-item" href="#/sales" data-section="sales">
+                <svg class="icon" aria-hidden="true"><use href="#i-bar-chart"></use></svg> Add-on sales
+            </a>
             <a class="nav-item" href="#/settings" data-section="settings">
                 <svg class="icon" aria-hidden="true"><use href="#i-settings"></use></svg> Settings
             </a>
@@ -465,6 +468,28 @@
             </section>
 
             <!-- ================================================== Settings -->
+            <section class="section" id="section-sales" hidden>
+                <div class="usage-card">
+                    <h3>Add-ons you publish on the Exchange</h3>
+                    <p class="panel__desc">
+                        Units, not money. No add-on is priced and no payment provider is wired,
+                        so a purchase today is a licence an admin issued against an invoice.
+                        Payouts begin when a price and a provider both exist, and will be
+                        announced before they apply. The split shown is the one that will apply.
+                    </p>
+                    <div id="salesSummary" class="field__hint"></div>
+                    <div class="table-scroll">
+                        <table class="table" id="salesTable">
+                            <thead>
+                                <tr><th>Add-on</th><th>Status</th><th>This month</th><th>All time</th></tr>
+                            </thead>
+                            <tbody></tbody>
+                        </table>
+                    </div>
+                    <p class="field__hint" id="salesEmpty" hidden>You have not published an add-on yet.</p>
+                </div>
+                <div id="salesError"></div>
+            </section>
             <section class="section" id="section-settings" hidden>
                 <div class="settings-grid">
                     <div class="panel">

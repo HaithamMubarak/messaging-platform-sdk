@@ -15,6 +15,7 @@
         channels: { title: 'Channels', load: loadChannels },
         tools:    { title: 'Tools',    load: null },
         usage:    { title: 'Usage & quota', load: loadUsage },
+        sales:    { title: 'Add-on sales', load: loadSales },
         settings: { title: 'Settings', load: null }
     };
 
@@ -1011,6 +1012,53 @@
             alert.appendChild(UI.iconNode('alert-circle'));
             alert.appendChild(el('p', { style: 'flex:1', text: err.message || 'Could not load usage data.' }));
             alert.appendChild(el('button', { class: 'btn btn--sm btn--ghost', text: 'Retry', onclick: loadUsage }));
+            errorHost.appendChild(alert);
+        }
+    }
+
+    /* ----------------------------------------------------------------- sales */
+
+    /*
+     * Exchange statements. Everything is textContent: names came from another
+     * service's rows, and this repository has shipped stored XSS before by
+     * interpolating a name into markup.
+     */
+    async function loadSales() {
+        const errorHost = document.getElementById('salesError');
+        errorHost.innerHTML = '';
+        const body = document.querySelector('#salesTable tbody');
+        const empty = document.getElementById('salesEmpty');
+        const summary = document.getElementById('salesSummary');
+        try {
+            const s = await DeveloperAPI.getExchangeStatements();
+            body.textContent = '';
+            const lines = Array.isArray(s.lines) ? s.lines : [];
+            lines.forEach((line) => {
+                const tr = document.createElement('tr');
+                [line.name + ' (' + line.addon + ')',
+                 (line.paid ? 'paid · ' : 'free · ') + line.status,
+                 String(line.unitsThisMonth), String(line.unitsAllTime)].forEach((text) => {
+                    const td = document.createElement('td');
+                    td.textContent = text;
+                    tr.appendChild(td);
+                });
+                body.appendChild(tr);
+            });
+            empty.hidden = lines.length > 0;
+            document.getElementById('salesTable').hidden = lines.length === 0;
+            summary.textContent = lines.length
+                ? s.unitsAllTime + ' unit' + (s.unitsAllTime === 1 ? '' : 's') + ' all time · your share '
+                  + s.authorSharePercent + '% · ' + (s.amount == null ? 'amount: unpriced' : s.amount)
+                : '';
+        } catch (err) {
+            const alert = document.createElement('div');
+            alert.className = 'alert alert--danger';
+            alert.setAttribute('role', 'alert');
+            alert.appendChild(UI.iconNode('alert-circle'));
+            const p = document.createElement('p');
+            p.style.flex = '1';
+            p.textContent = err.message || 'Could not load statements.';
+            alert.appendChild(p);
             errorHost.appendChild(alert);
         }
     }
