@@ -1017,6 +1017,125 @@
 
     /* -------------------------------------------------------------- settings */
 
+    /* ---------------------------------------------------- platform account */
+
+    /*
+     * Link the tenant to the person, and show what the tenant is entitled to
+     * once they are linked.
+     *
+     * Everything here is built with textContent and createElement rather than
+     * innerHTML: the label rendered is an email string that came from another
+     * service, and this repository has already shipped stored XSS once by
+     * interpolating a name into markup.
+     */
+    function initPlatformLink() {
+        const host = document.getElementById('platformLinkState');
+        const errorEl = document.getElementById('platformLinkError');
+        if (!host) return;
+
+        function fail(message) {
+            errorEl.textContent = message || '';
+        }
+
+        function line(text, className) {
+            const p = document.createElement('p');
+            p.className = className || 'panel__desc';
+            p.textContent = text;
+            return p;
+        }
+
+        function button(text, className, onClick) {
+            const b = document.createElement('button');
+            b.type = 'button';
+            b.className = className;
+            b.textContent = text;
+            b.addEventListener('click', onClick);
+            return b;
+        }
+
+        function usageLines(entitlement) {
+            const out = [];
+            if (!entitlement) return out;
+            if (entitlement.developerEmail) {
+                out.push(line('Tenant: ' + entitlement.developerEmail, 'field__hint'));
+            }
+            const usage = entitlement.usage;
+            if (usage && typeof usage === 'object') {
+                // The meter's own field names, whatever they are this month.
+                Object.keys(usage).forEach(function (key) {
+                    const value = usage[key];
+                    if (value === null || typeof value === 'object') return;
+                    out.push(line(key + ': ' + value, 'field__hint'));
+                });
+            } else {
+                out.push(line('Usage is unavailable right now.', 'field__hint'));
+            }
+            return out;
+        }
+
+        function renderLinked(state) {
+            host.textContent = '';
+            const label = state.label || 'your Platform account';
+            host.appendChild(line('Linked to ' + label + '.'));
+            usageLines(state.entitlement).forEach(function (el) { host.appendChild(el); });
+            host.appendChild(button('Unlink', 'btn btn--ghost', async function () {
+                fail('');
+                try {
+                    await DeveloperAPI.unlinkPlatform();
+                    await load();
+                } catch (e) {
+                    fail(e.message);
+                }
+            }));
+        }
+
+        function renderUnlinked() {
+            host.textContent = '';
+            if (!window.MPAccount || !window.MPAccount.signedIn()) {
+                host.appendChild(line('Sign in to your Platform account first, then come back here.'));
+                const a = document.createElement('a');
+                a.className = 'btn btn--ghost';
+                a.href = '/messaging-platform/profile.html';
+                a.textContent = 'Open the Platform account';
+                host.appendChild(a);
+                return;
+            }
+            host.appendChild(button('Link this Platform account', 'btn btn--primary', async function () {
+                fail('');
+                try {
+                    // Minted where the password lives; spent here. If the mint
+                    // fails the session is the problem, and saying so beats a
+                    // generic failure on the link button.
+                    const assertion = await window.MPAccount.linkAssertion();
+                    if (!assertion) throw new Error('Could not prove that Platform account. Sign in again.');
+                    await DeveloperAPI.linkPlatform(assertion);
+                    await load();
+                } catch (e) {
+                    fail(e.message);
+                }
+            }));
+        }
+
+        async function load() {
+            fail('');
+            host.textContent = '';
+            host.appendChild(line('Checking\u2026'));
+            let state;
+            try {
+                const body = await DeveloperAPI.getAccountLink();
+                state = (body && body.data) || body || {};
+            } catch (e) {
+                host.textContent = '';
+                host.appendChild(line('Could not read the link state.'));
+                fail(e.message);
+                return;
+            }
+            if (state.linked) renderLinked(state); else renderUnlinked();
+        }
+
+        load();
+    }
+
     function initPasswordForm() {
         const form = document.getElementById('passwordForm');
         const button = document.getElementById('passwordBtn');
@@ -1069,6 +1188,7 @@
         initChannelControls();
         initTools();
         initPasswordForm();
+        initPlatformLink();
 
         document.getElementById('logoutBtn').addEventListener('click', async function () {
             await DeveloperAPI.logout();

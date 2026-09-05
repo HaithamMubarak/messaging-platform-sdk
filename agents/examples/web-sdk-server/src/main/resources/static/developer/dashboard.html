@@ -23,6 +23,9 @@
     <script src="../js/icons.js" defer></script>
     <script src="../js/ui.js" defer></script>
     <script src="../js/api-config.js" defer></script>
+    <!-- The Platform-account panel mints its proof through MPAccount, which
+         talks to rooms-service. Loaded here and nowhere else in the portal. -->
+    <script src="../js/mp-account.js" defer></script>
     <script src="js/developer-api.js" defer></script>
     <script src="js/dashboard.js" defer></script>
 </head>
@@ -470,8 +473,9 @@
                             Your <strong>Developer Portal account</strong> &mdash; the one that
                             owns API keys. The
                             <a href="/messaging-platform/profile.html">Platform account</a> that
-                            saves your channels is a separate account, and the two are not
-                            linked yet.
+                            saves your channels is a separate account, deliberately. You can
+                            link them below to say they are the same person; linking grants
+                            neither account any power over the other.
                         </p>
                         <div class="field">
                             <label class="field__label" for="settingsEmail">Email</label>
@@ -484,6 +488,26 @@
                         </div>
                     </div>
 
+
+                    <div class="panel" id="platformLinkPanel">
+                        <h3>Platform account</h3>
+                        <p class="panel__desc">
+                            Two accounts, on purpose: this one is a <strong>tenant</strong> that
+                            owns a plan, channels and API keys; the Platform account is a
+                            <strong>person</strong> with saved channels in their own browser.
+                            Merging them would mean a compromised sign-in reached your API keys.
+                        </p>
+                        <p class="panel__desc">
+                            Linking records only that you proved you hold both. Your Platform
+                            password is never sent here &mdash; you prove it where it already
+                            lives, and this page receives a five-minute proof that says who you
+                            are and nothing else.
+                        </p>
+                        <p class="field__error" id="platformLinkError"></p>
+                        <div id="platformLinkState" aria-live="polite">
+                            <p class="panel__desc">Checking&hellip;</p>
+                        </div>
+                    </div>
                     <div class="panel">
                         <h3>Change password</h3>
                         <p class="panel__desc">Use at least 8 characters. You stay signed in after changing it.</p>

@@ -185,10 +185,29 @@ const DeveloperAPI = (function () {
     const deleteChannel = (channelId) =>
         serviceApi('/channels/' + encodeURIComponent(channelId), { method: 'DELETE' });
 
+    /* ---------------------------------------------------- platform account */
+
+    /*
+     * The Platform account and this developer account are separate on purpose:
+     * one is a person, the other is the tenant that owns the plan and the keys.
+     * Linking records that one person holds both, and grants nothing —
+     * every call below still authenticates with the DEVELOPER session.
+     *
+     * The proof comes from Rooms, where the person's password already lives,
+     * so no Platform password is ever handled here.
+     */
+    const getAccountLink    = () => devApi('/account-link');
+    const linkPlatform      = (assertion) => devApi('/account-link', {
+        method: 'POST',
+        body: JSON.stringify({ assertion })
+    });
+    const unlinkPlatform    = () => devApi('/account-link', { method: 'DELETE' });
+
     return {
         login, logout, isLoggedIn, changePassword,
         getToken, getProfile, setProfile, getApiKey, clearAuth,
         getStats, getApiKeys, getUsage, getChannels, getChannelMetrics, getApiKeyUsage, revokeApiKey,
-        createTemporaryKey, broadcast, recoverMessages, getChannelAgents, deleteChannel
+        createTemporaryKey, broadcast, recoverMessages, getChannelAgents, deleteChannel,
+        getAccountLink, linkPlatform, unlinkPlatform
     };
 })();

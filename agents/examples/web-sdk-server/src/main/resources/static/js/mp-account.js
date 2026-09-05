@@ -257,6 +257,25 @@
             return call('/export-key', { method: 'DELETE' });
         },
 
+        /**
+         * A five-minute, single-use proof that the holder is this account.
+         *
+         * For handing to ANOTHER service that wants to record a link -- the
+         * developer portal, Harmony -- so no password ever travels to a
+         * service that does not own it. The proof says who you are and
+         * nothing else: it cannot be used to sign in, it is spent by the
+         * first service that redeems it, and it means nothing after five
+         * minutes.
+         *
+         * Deliberately not cached. A proof that outlives the click that
+         * needed it is a proof lying about.
+         */
+        linkAssertion: function () {
+            if (!token()) return Promise.reject(new Error('Sign in first.'));
+            return call('/auth/link-assertion', { method: 'POST' })
+                .then(function (d) { return d && d.assertion ? d.assertion : null; });
+        },
+
         /** Adopt a session minted elsewhere (the Google callback). */
         adoptToken: function (t) { setToken(t); },
 

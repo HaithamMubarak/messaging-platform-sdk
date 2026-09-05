@@ -215,8 +215,15 @@ check('the Developer Portal door says which account it is, and links to the othe
             page + ' does not name the account it signs you in to');
         assert.ok(t.includes('/messaging-platform/profile.html'),
             page + ' never points at the Platform account, so the two doors stay unrelated');
-        assert.ok(/not linked yet/.test(t),
-            page + ' does not say the two accounts are independent');
+        // This was /not linked yet/, and it stopped being true when the portal
+        // gained a link panel. The promise worth guarding is not that sentence
+        // but the two facts under it: the accounts are separate, and neither
+        // door signs you in to the other. Pin those, so the copy can be
+        // rewritten without the guard either breaking or going quiet.
+        assert.ok(/separate account|separate from|stay separate/.test(t),
+            page + ' does not say the two accounts are separate');
+        assert.ok(/does not sign you in there|nothing more|power over the other/.test(t),
+            page + ' does not say what holding both does NOT give you');
     }
 });
 
