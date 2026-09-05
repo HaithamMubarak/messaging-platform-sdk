@@ -97,18 +97,33 @@
 
 /* --- Stat strip ---------------------------------------------------------- */
 .ap-stats {
-    display: grid;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
+    /* Flex, not grid, and that is the whole point: this row holds THREE stats
+     * on Gatehouse and Fieldstamp and FOUR on Signet, Baton and Screener.
+     * `repeat(4, ...)` gave the three-stat pages an empty bordered cell on a
+     * published landing page, and `auto-fit` is worse — it lays out as many
+     * tracks as fit (five at this width) and leaves the items packed left.
+     *
+     * With flex, N children make N equal columns because each one grows from
+     * the same basis. The 1px gap over a border-coloured background still
+     * draws the hairline dividers; nothing else about the panel changes. */
+    display: flex;
+    flex-wrap: wrap;
     gap: 1px;
     background: var(--border);
     border: 1px solid var(--border);
     border-radius: var(--r-lg);
     overflow: hidden;
 }
-@media (min-width: 720px) {
-    .ap-stats { grid-template-columns: repeat(4, minmax(0, 1fr)); }
-}
+
 .ap-stat {
+    /* A 140px basis, chosen against the two widths that matter rather than
+     * picked round: at 390px the row is ~356px, so two fit and the third
+     * wraps — the same two-up a phone had before. From ~720px every stat
+     * fits on one line, three or four of them, each grown to an equal share.
+     * A 200px basis measured one-per-row on a phone, which was a regression.
+     * min-width:0 so a long label wraps instead of widening its own column. */
+    flex: 1 1 140px;
+    min-width: 0;
     display: flex;
     flex-direction: column;
     gap: 2px;
