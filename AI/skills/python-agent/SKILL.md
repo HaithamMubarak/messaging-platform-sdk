@@ -16,8 +16,8 @@ Key modules:
 | `api/impl/messaging_channel_api.py` | Low-level HTTP transport |
 | `api/impl/udp_client.py` | UDP send/receive |
 | `api/models.py` | `ConnectResponse`, `EventMessageResult`, `AgentInfo`, `ReceiveConfig` |
-| `security/my_security.py` | AES-CTR encrypt/decrypt, RSA |
-| `security/aes/aes_ctr.py` | AES-CTR implementation |
+| `security/my_security.py` | Seal/open messages (AES-CTR + HMAC), channel secrets, RSA |
+| `security/aes_ctr.py` | AES-CTR implementation shared with the Java and JS agents |
 | `util/session_recovery_utility.py` | Last-session recovery helper |
 
 ---

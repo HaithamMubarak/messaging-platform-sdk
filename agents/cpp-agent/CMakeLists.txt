@@ -18,13 +18,6 @@ find_package(OpenSSL REQUIRED)
 # For simplicity, we'll expect it to be installed
 find_package(nlohmann_json 3.10 REQUIRED)
 
-# Include directories
-include_directories(
-    ${CMAKE_CURRENT_SOURCE_DIR}/include
-    ${CURL_INCLUDE_DIRS}
-    ${OPENSSL_INCLUDE_DIR}
-)
-
 # Source files
 set(AGENT_SOURCES
     src/data_models.cpp
@@ -45,10 +38,22 @@ set(AGENT_HEADERS
     include/hmdev/messaging/agent/data_models.h
     include/hmdev/messaging/agent/security.h
     include/hmdev/messaging/util/utils.h
+    include/hmdev/messaging/webrtc/webrtc_signaling.h
 )
 
-# Create library
+# Create library. Consumers link hmdev::messaging-cpp-agent, whether they
+# add_subdirectory() this tree or find_package() an installed copy.
 add_library(messaging-cpp-agent ${AGENT_SOURCES} ${AGENT_HEADERS})
+add_library(hmdev::messaging-cpp-agent ALIAS messaging-cpp-agent)
+
+include(GNUInstallDirs)
+
+# Headers are found under include/ in the source tree and under the install
+# prefix once installed; the imported CURL/OpenSSL/json targets carry their own.
+target_include_directories(messaging-cpp-agent PUBLIC
+    $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
+    $<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}>
+)
 
 # Link libraries
 target_link_libraries(messaging-cpp-agent
@@ -67,20 +72,56 @@ target_link_libraries(messaging-cpp-agent PRIVATE Threads::Threads)
 set_target_properties(messaging-cpp-agent PROPERTIES
     VERSION ${PROJECT_VERSION}
     SOVERSION 1
-    PUBLIC_HEADER "${AGENT_HEADERS}"
+    EXPORT_NAME messaging-cpp-agent
     # On Windows a shared lib only emits a .lib import library if symbols are
     # exported; export them all so consumers (the examples) can link the DLL.
     WINDOWS_EXPORT_ALL_SYMBOLS ON
 )
 
 # Install rules
-include(GNUInstallDirs)
+#
+# The headers are installed as a directory so `#include
+# "hmdev/messaging/api/messaging_channel_api.h"` resolves exactly as it does
+# in the source tree. (PUBLIC_HEADER flattened every header into one folder,
+# which broke every include in the installed copy and silently dropped
+# webrtc/webrtc_signaling.h, which was never in the list.)
+install(DIRECTORY include/ DESTINATION ${CMAKE_INSTALL_INCLUDEDIR})
 
 install(TARGETS messaging-cpp-agent
+    EXPORT messaging-cpp-agentTargets
     LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
     ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR}
     RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}
-    PUBLIC_HEADER DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/hmdev/messaging
+    INCLUDES DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}
+)
+
+# The package a consumer's find_package(messaging-cpp-agent CONFIG) loads:
+# exported targets, the dependencies they need re-found, and a version file.
+# tools/check-cpp-package.sh proves it works from a clean prefix.
+include(CMakePackageConfigHelpers)
+set(PACKAGE_CMAKE_DIR ${CMAKE_INSTALL_LIBDIR}/cmake/messaging-cpp-agent)
+
+install(EXPORT messaging-cpp-agentTargets
+    NAMESPACE hmdev::
+    DESTINATION ${PACKAGE_CMAKE_DIR}
+)
+
+configure_package_config_file(
+    ${CMAKE_CURRENT_SOURCE_DIR}/cmake/messaging-cpp-agentConfig.cmake.in
+    ${CMAKE_CURRENT_BINARY_DIR}/messaging-cpp-agentConfig.cmake
+    INSTALL_DESTINATION ${PACKAGE_CMAKE_DIR}
+)
+
+write_basic_package_version_file(
+    ${CMAKE_CURRENT_BINARY_DIR}/messaging-cpp-agentConfigVersion.cmake
+    VERSION ${PROJECT_VERSION}
+    COMPATIBILITY SameMajorVersion
+)
+
+install(FILES
+    ${CMAKE_CURRENT_BINARY_DIR}/messaging-cpp-agentConfig.cmake
+    ${CMAKE_CURRENT_BINARY_DIR}/messaging-cpp-agentConfigVersion.cmake
+    DESTINATION ${PACKAGE_CMAKE_DIR}
 )
 
 # Build examples
@@ -93,4 +134,3 @@ if(BUILD_TESTS)
     enable_testing()
     add_subdirectory(tests)
 endif()
-

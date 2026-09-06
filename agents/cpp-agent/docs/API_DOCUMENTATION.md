@@ -326,9 +326,13 @@ class GameClient {
 ### CMake (Recommended)
 
 ```cmake
-find_package(messaging-cpp-agent REQUIRED)
-target_link_libraries(my_game PRIVATE messaging-cpp-agent)
+find_package(messaging-cpp-agent CONFIG REQUIRED)
+target_link_libraries(my_game PRIVATE hmdev::messaging-cpp-agent)
 ```
+
+Requires an installed copy (`cmake --install`); pass its prefix as
+`-DCMAKE_PREFIX_PATH` when it is not a system location. The agent has no
+message cipher: `send(..., encrypted=true)` refuses, see README "Features".
 
 ### Manual Linking
 
@@ -344,7 +348,7 @@ g++ -std=c++17 main.cpp \
 ```cmake
 set(BUILD_SHARED_LIBS OFF)
 add_subdirectory(cpp-agent)
-target_link_libraries(my_game PRIVATE messaging-cpp-agent)
+target_link_libraries(my_game PRIVATE hmdev::messaging-cpp-agent)
 ```
 
 ## Testing

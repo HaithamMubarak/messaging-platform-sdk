@@ -22,10 +22,10 @@ public:
                                            const std::string& channelPassword);
 
     /**
-     * Hash password with secret using SHA-256
+     * HMAC-SHA256 of the password keyed by the channel secret, as every other agent computes it
      * @param password Password to hash
      * @param secret Secret key for HMAC
-     * @return Base64-encoded hash
+     * @return Lower-case hex digest (64 characters)
      */
     static std::string hash(const std::string& password, const std::string& secret);
 

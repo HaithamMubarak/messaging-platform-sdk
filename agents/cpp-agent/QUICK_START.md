@@ -44,11 +44,15 @@ make -j$(nproc)
 
 ### CMakeLists.txt
 ```cmake
-find_package(messaging-cpp-agent REQUIRED)
+find_package(messaging-cpp-agent CONFIG REQUIRED)
 
 add_executable(my_game main.cpp)
-target_link_libraries(my_game PRIVATE messaging-cpp-agent)
+target_link_libraries(my_game PRIVATE hmdev::messaging-cpp-agent)
 ```
+
+The package is written by `cmake --install` (see step 2). If you installed to
+a custom prefix, configure your project with `-DCMAKE_PREFIX_PATH=<prefix>`;
+on Windows also pass the same vcpkg toolchain file you built the agent with.
 
 ### main.cpp
 ```cpp
