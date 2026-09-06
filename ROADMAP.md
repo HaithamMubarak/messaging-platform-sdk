@@ -1,5 +1,14 @@
 # Platform Roadmap & Future Work
 
+> **Historical plan, superseded as of 2026-09-06.** The dated proposals below
+> are retained for context, not a current backlog. C++ and WebSocket support,
+> WebRTC media, file transfer and the developer portal now have implementations.
+> Use [README.md](README.md) and the individual agent guides for current APIs.
+> Implementation does not imply every language has identical capabilities or
+> that a feature is proven across networks. Future priorities are safe onboarding,
+> reproducible package releases and cross-language compatibility verification;
+> do not rebuild an existing capability from an unchecked item below.
+
 **Last Updated:** December 30, 2025
 
 ## Current Status (v2.0.0)

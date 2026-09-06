@@ -57,6 +57,11 @@ Real-time messaging SDK for building multiplayer games, collaborative apps, and 
 
 ### Web (JavaScript)
 
+This minimal rendering example requires a short-lived key from your authenticated
+backend. Follow the temporary-key flow in [WEB-AGENT-GUIDE.md](WEB-AGENT-GUIDE.md);
+the backend authorizes access and retains the durable developer key. Do not ship
+the placeholder below or substitute a durable key into the page.
+
 ```html
 <!DOCTYPE html>
 <html>
@@ -78,8 +83,11 @@ Real-time messaging SDK for building multiplayer games, collaborative apps, and 
                 // The same event carries join/leave notices too, as type
                 // 'connect' and 'disconnect'. Text arrives as 'chat-text'.
                 if (!item || item.type !== 'chat-text') return;
-                document.getElementById('messages').innerHTML +=
-                    `<p><b>${item.from}:</b> ${item.content}</p>`;
+                const row = document.createElement('p');
+                const sender = document.createElement('b');
+                sender.textContent = `${item.from}: `;
+                row.append(sender, document.createTextNode(String(item.content)));
+                document.getElementById('messages').append(row);
             });
         });
 
@@ -88,7 +96,9 @@ Real-time messaging SDK for building multiplayer games, collaborative apps, and 
             channelPassword: 'secret123',
             agentName: 'user-' + Math.random().toString(36).substr(2, 5),
             api: 'https://hmdevonline.com/messaging-platform/api/v1/messaging-service',
-            apiKey: 'your-api-key',
+            // Obtain a short-lived temporary key from your backend.
+            // Never put a durable developer API key in browser code.
+            apiKey: 'your-temporary-api-key',
             autoReceive: true
         });
 

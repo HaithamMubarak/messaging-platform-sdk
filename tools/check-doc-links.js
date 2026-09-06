@@ -18,6 +18,7 @@ const SKIP = new Set(['node_modules', 'build', '.git', '.gradle', 'out', 'dist']
 const GENERATED = [
     'agents/examples/web-sdk-server/src/main/resources/static/USER-GUIDE.md',
     'agents/examples/web-sdk-server/src/main/resources/static/DEVELOPER-GUIDE.md',
+    'agents/examples/web-sdk-server/src/main/resources/static/WEB-AGENT-GUIDE.md',
 ];
 
 // Some docs live in the repository root but are READ from the served static
@@ -77,7 +78,11 @@ for (const doc of docs) {
         const resolved = target.startsWith('/')
             ? path.join(ROOT, target)
             : path.resolve(base, target);
-        if (!fs.existsSync(resolved)) {
+        // These exact destinations are populated by copyUserGuide. Validate
+        // their canonical input even before a Gradle build has copied them.
+        const generatedIndex = GENERATED.indexOf(path.relative(ROOT, resolved).split(path.sep).join('/'));
+        const source = generatedIndex >= 0 ? path.join(ROOT, path.basename(resolved)) : resolved;
+        if (!fs.existsSync(source)) {
             broken.push(`${path.relative(ROOT, doc)} -> ${href}`);
         }
     }

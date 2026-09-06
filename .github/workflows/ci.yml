@@ -80,3 +80,5 @@ jobs:
         with:
           node-version: '20'
       - run: node tools/check-doc-links.js
+      - run: node tools/check-doc-links.test.js
+      - run: node tools/quickstart-test.js
