@@ -54,12 +54,13 @@
             if(typeof $plain === 'object'){
                 $plain = JSON.stringify($plain);
             }
-            return AesCtr.encrypt($plain, $key, 128).replace(/[\0]+/g,'');
+            return AesCtr.encrypt($plain, $key, 128);
         },
 
         decrypt : function ($cipher,$key){
             try{
-                return AesCtr.decrypt($cipher, $key, 128).replace(/[\0]+/g,'');
+                // CTR has no padding. Every decoded character belongs to the message.
+                return AesCtr.decrypt($cipher, $key, 128);
             }catch(err){
                 console.log(err);
             }

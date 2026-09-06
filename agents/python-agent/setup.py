@@ -3,17 +3,11 @@ from pathlib import Path
 
 here = Path(__file__).parent
 
-# Read long description from README if available
-long_description = ""
-readme_file = here / "README.md"
-if readme_file.exists():
-    long_description = readme_file.read_text(encoding="utf-8")
+# Required distribution inputs: omission must fail the build, not erase metadata.
+long_description = (here / "README.md").read_text(encoding="utf-8")
 
-# Read install requirements if available
-requirements = []
-req_file = here / "requirements.txt"
-if req_file.exists():
-    requirements = [r.strip() for r in req_file.read_text(encoding="utf-8").splitlines() if r.strip() and not r.strip().startswith("#")]
+requirements = [r.strip() for r in (here / "requirements.txt").read_text(encoding="utf-8").splitlines()
+                if r.strip() and not r.strip().startswith("#")]
 
 setup(
     name="hmdev-messaging-agent",
@@ -25,7 +19,7 @@ setup(
     packages=find_packages(exclude=("tests", "tests.*")),
     include_package_data=True,
     install_requires=requirements,
-    python_requires=">=3.8",
+    python_requires=">=3.10",
     classifiers=[
         "Programming Language :: Python :: 3",
         "License :: OSI Approved :: MIT License",

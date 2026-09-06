@@ -67,6 +67,12 @@ check('an agent name can be generated', () => {
     assert.notStrictEqual(a, b, 'names differ');
 });
 
+check('authenticated messages preserve embedded null characters', () => {
+    const message = 'before\0after\0';
+    const sealed = pkg.MySecurity.encryptAndSign(message, 'compatibility-key');
+    assert.strictEqual(pkg.MySecurity.decryptAndVerify(sealed, 'compatibility-key'), message);
+});
+
 check('a connection object can be constructed', () => {
     assert.strictEqual(typeof pkg.AgentConnection, 'function');
 });
