@@ -4,6 +4,14 @@
    console. Load this first, before any page/theme stylesheet.
    ========================================================================== */
 
+/* The faces. Loaded here, once, so every page and every app that vendors
+   these tokens gets them on refresh. Bricolage Grotesque carries the
+   headings (optical sizes 12..96, so a 64px hero and a 14px card title are
+   cut differently), Source Sans 3 carries the reading, JetBrains Mono the
+   code. Before 2026-09-07 the site named Inter and never loaded it, so every
+   visitor read the system face. */
+@import url('https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,600;12..96,700;12..96,800&family=Source+Sans+3:ital,wght@0,400;0,500;0,600;1,400&family=JetBrains+Mono:wght@400;500&display=swap');
+
 :root {
     color-scheme: dark;
 
@@ -25,17 +33,18 @@
     --text-faint:    #64748b;   /* placeholders / disabled only             */
 
     /* --- Brand ---------------------------------------------------------- */
-    /* #6366f1 (indigo-500) gives white text 4.466:1 — under AA by a hair, on
-       every primary button, active filter chip and filled control on the site.
-       Three percent darker is indistinguishable by eye and clears it at 4.8. */
-    --brand:         #5d60ef;   /* primary actions, active nav (4.8:1 vs #fff) */
-    --brand-hover:   #818cf8;
-    --brand-ink:     #a5b4fc;   /* indigo used AS TEXT on dark (7.9:1)      */
-    --brand-subtle:  rgba(99, 102, 241, 0.12);
-    --accent:        #22d3ee;   /* cyan — links, live indicators            */
-    --accent-ink:    #67e8f9;
-    --accent-subtle: rgba(34, 211, 238, 0.12);
-    --gradient-brand: linear-gradient(120deg, #6366f1, #22d3ee);
+    /* Rust on navy, teal for what is live. Chosen 2026-09-07 to leave the
+       indigo-on-black every generated site wears. White text on --brand is
+       4.6:1 (AA), so every filled control keeps its white label; --brand-ink
+       is the same hue lifted to read AS TEXT on the dark ground (8.1:1). */
+    --brand:         #d9482f;   /* primary actions, active nav (4.6:1 vs #fff) */
+    --brand-hover:   #ef6a52;
+    --brand-ink:     #ffb0a0;   /* rust used AS TEXT on dark (8.1:1)        */
+    --brand-subtle:  rgba(217, 72, 47, 0.14);
+    --accent:        #2dd4bf;   /* teal — links, live indicators            */
+    --accent-ink:    #7ee8dc;
+    --accent-subtle: rgba(45, 212, 191, 0.12);
+    --gradient-brand: linear-gradient(120deg, #d9482f, #f0a030);
 
     /* --- Semantic ------------------------------------------------------- */
     --success:       #34d399;
@@ -51,13 +60,14 @@
     --code-bg:       #0d1526;
 
     /* --- Typography ----------------------------------------------------- */
-    --font-sans: Inter, ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
-    --font-mono: ui-monospace, "JetBrains Mono", "SF Mono", "Cascadia Code", Menlo, Consolas, monospace;
+    --font-display: "Bricolage Grotesque", "Source Sans 3", ui-sans-serif, system-ui, sans-serif;
+    --font-sans: "Source Sans 3", ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    --font-mono: "JetBrains Mono", ui-monospace, "SF Mono", "Cascadia Code", Menlo, Consolas, monospace;
 
     --fs-xs:   0.75rem;    /* 12px — badges, dense meta                     */
     --fs-sm:   0.8125rem;  /* 13px — dense table body, captions             */
     --fs-md:   0.875rem;   /* 14px — UI text                                */
-    --fs-base: 1rem;       /* 16px — prose                                  */
+    --fs-base: 1.0625rem;  /* 17px — prose (Source Sans 3 sits small on the em)  */
     --fs-lg:   1.125rem;   /* 18px — lede                                   */
     --fs-xl:   1.375rem;   /* 22px — card titles                            */
     --fs-2xl:  1.75rem;    /* 28px — section heading (mobile)               */
@@ -89,7 +99,7 @@
     --shadow-3: 0 24px 56px -16px rgba(2, 6, 23, 0.65);
 
     /* --- Focus ---------------------------------------------------------- */
-    --focus-ring: 0 0 0 3px rgba(99, 102, 241, 0.45);
+    --focus-ring: 0 0 0 3px rgba(45, 212, 191, 0.5);
 
     /* --- Motion --------------------------------------------------------- */
     --ease: cubic-bezier(0.2, 0, 0.15, 1);
