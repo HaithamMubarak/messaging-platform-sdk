@@ -68,6 +68,12 @@ section { padding-block: var(--sp-24); }
 .site-nav .btn--ghost { color: var(--text-body); }
 
 .nav-toggle { display: none; margin-left: auto; }
+/* At 320px the brand and the menu button share 288px; Source Sans 3 made the
+   words 4px too wide. The words may shrink, the logo and the button may not. */
+@media (max-width: 380px) {
+    .brand { font-size: 13px; min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+    .site-header__inner { gap: var(--sp-3); }
+}
 
 @media (max-width: 900px) {
     .site-nav {
