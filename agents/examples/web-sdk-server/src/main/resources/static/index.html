@@ -33,6 +33,8 @@
     <script src="js/ui.js" defer></script>
     <script src="js/api-config.js" defer></script>
     <script src="js/landing.js" defer></script>
+    <script src="js/config-loader.js" defer></script>
+    <script src="js/home-presence.js" defer></script>
 </head>
 <body class="sdk-home">
 <a class="skip-link" href="#main">Skip to content</a>
@@ -65,7 +67,11 @@
             <a class="home-image-link" href="apps/whiteboard/app.html" aria-label="Open the collaborative Whiteboard demo"><img src="images/landing/whiteboard.webp" alt="Whiteboard demo workspace with a populated collaborative board and drawing tools" width="1440" height="900" fetchpriority="high" decoding="async"></a>
             <figcaption><span>Demo workspace — sample data</span><a href="apps/whiteboard/app.html">Open Whiteboard <svg class="icon" aria-hidden="true"><use href="#i-arrow-right"></use></svg></a> <a class="image-detail-link" href="images/landing/whiteboard.webp" target="_blank" rel="noopener noreferrer" aria-label="View full-size Whiteboard screenshot (opens in a new tab)">Full-size image <span aria-hidden="true">↗</span></a></figcaption>
           </figure>
-          <div class="home-visual-note"><span class="home-note-line" aria-hidden="true"></span><p>One shared channel. Every participant in the loop.</p></div>
+          <div class="home-presence" id="homePresence" aria-live="polite">
+            <span class="home-presence__faces" data-presence-faces aria-hidden="true"></span>
+            <p><span data-presence-count>One shared channel. Every participant in the loop.</span> <span class="home-presence__rtt" data-presence-rtt></span></p>
+            <span class="home-presence__how">This is the SDK running on this page — a real channel, a temporary key from this site's own server.</span>
+          </div>
         </div>
       </div>
       <div class="home-runtimes" aria-label="Available SDKs"><span class="home-runtimes-label">Your stack. Your interface.</span><span>JavaScript</span><span>Java</span><span>Python</span><span>C++ <small>experimental</small></span><a href="#quickstart">Meet the SDK <svg class="icon" aria-hidden="true"><use href="#i-arrow-right"></use></svg></a></div>
@@ -75,7 +81,8 @@
     <div class="wrap"><div class="home-section-head"><div><p class="home-eyebrow">Small pieces. Shared possibilities.</p><h2 id="features-title">Four primitives, one connection.</h2></div><p>Compose what your app needs without building a separate connection for every feature.</p></div><div class="home-primitives" id="primitivesGrid"><article><div class="home-primitive-top"><span>01</span><svg class="icon" aria-hidden="true"><use href="#i-channel"></use></svg></div><h3>Channels &amp; messaging</h3><p>Broadcast to a room, address one client, or filter delivery. Use ephemeral messages for fast-changing state.</p><span class="home-primitive-detail">WebSocket + HTTP fallback</span></article>
 <article><div class="home-primitive-top"><span>02</span><svg class="icon" aria-hidden="true"><use href="#i-users"></use></svg></div><h3>Presence</h3><p>Know who is connected. Build participant lists, live cursors and join or leave notifications.</p><span class="home-primitive-detail">Peers + connection events</span></article>
 <article><div class="home-primitive-top"><span>03</span><svg class="icon" aria-hidden="true"><use href="#i-video"></use></svg></div><h3>WebRTC signaling &amp; P2P</h3><p>Set up peer connections for calls and data, with hosted TURN/STUN relay support when a direct path is unavailable.</p><span class="home-primitive-detail">Media + data channels</span></article>
-<article><div class="home-primitive-top"><span>04</span><svg class="icon" aria-hidden="true"><use href="#i-database"></use></svg></div><h3>Channel storage</h3><p>Save shared state in a per-channel key-value store so the next participant can pick up where you left off.</p><span class="home-primitive-detail">JavaScript today · other clients in progress</span></article></div></div>
+<article><div class="home-primitive-top"><span>04</span><svg class="icon" aria-hidden="true"><use href="#i-database"></use></svg></div><h3>Channel storage</h3><p>Save shared state in a per-channel key-value store so the next participant can pick up where you left off.</p><span class="home-primitive-detail">JavaScript today · other clients in progress</span></article></div>
+    <p class="home-strip" id="architecture"><span><strong>Your clients, one shared channel.</strong> JavaScript, Java, Python and C++ clients talk to one managed service — channels, presence, storage, signaling — and WebRTC media goes peer to peer with relay fallback.</span><a class="home-text-link" href="docs.html">Explore the architecture <svg class="icon" aria-hidden="true"><use href="#i-arrow-right"></use></svg></a></p></div>
   </section>
 
   <section class="home-section" id="demos" aria-labelledby="demos-title">
@@ -93,6 +100,10 @@
         <article class="home-app-card">
   <figure><a class="home-image-link" href="apps/terminal/index.html" aria-label="Explore Terminal"><img src="images/landing/terminal.webp" alt="Shared Terminal demo showing a browser terminal and its workspace controls" width="1440" height="900" loading="lazy" decoding="async"></a><figcaption><span>Demo workspace — sample data</span> <a class="image-detail-link" href="images/landing/terminal.webp" target="_blank" rel="noopener noreferrer" aria-label="View full-size Shared terminal screenshot (opens in a new tab)">Full-size image <span aria-hidden="true">↗</span></a></figcaption></figure>
   <div class="home-app-copy"><p class="home-card-category">Developer tools</p><h3><a href="apps/terminal/index.html">Bring your terminal along <svg class="icon" aria-hidden="true"><use href="#i-arrow-right"></use></svg></a></h3><p>Open a shared browser terminal connected to your machine through the local service.</p><div class="home-card-foot"><span>Terminal</span><span>Requires local service</span></div></div>
+</article>
+        <article class="home-app-card">
+  <figure><a class="home-image-link" href="apps/mini-games/blockparty/index.html" aria-label="Explore BlockParty"><img src="images/landing/blockparty.webp" alt="BlockParty Old Town demo scene with colorful voxel buildings and trees" width="1200" height="750" loading="lazy" decoding="async"></a><figcaption><span>Demo workspace — sample data</span> <a class="image-detail-link" href="images/landing/blockparty.webp" target="_blank" rel="noopener noreferrer" aria-label="View full-size BlockParty screenshot (opens in a new tab)">Full-size image <span aria-hidden="true">↗</span></a></figcaption></figure>
+  <div class="home-app-copy"><p class="home-card-category">Play</p><h3><a href="playground.html">Shared worlds, same foundation <svg class="icon" aria-hidden="true"><use href="#i-arrow-right"></use></svg></a></h3><p>Seven multiplayer games put live events, presence and shared state to work. Build a voxel world in BlockParty, then explore the rest of the playground.</p><div class="home-card-foot"><span>BlockParty + the playground</span><span>Ephemeral state + presence</span></div></div>
 </article>
       </div>
       <details class="home-demo-directory"><summary><span>Explore all SDK demos</span><span class="home-disclosure-mark" aria-hidden="true">+</span></summary><div class="home-demo-grid"><div><a href="apps/whiteboard/app.html">Whiteboard <svg class="icon" aria-hidden="true"><use href="#i-arrow-right"></use></svg></a><p>Draw and share a live canvas.</p><a class="home-about-link" href="apps/whiteboard/index.html">About Whiteboard</a></div>
@@ -223,22 +234,14 @@ agent = AgentConnection.with_api_key(
       </div>
     </div>
   </section>
-  <section class="home-section home-architecture" id="architecture" aria-labelledby="architecture-title">
-    <div class="wrap home-architecture-grid">
-      <div><p class="home-eyebrow">How it fits together</p><h2 id="architecture-title">Your clients.<br>One shared channel.</h2><p>Your interface stays yours. The managed messaging service connects clients across runtimes and keeps their shared channel in sync.</p><a class="home-text-link" href="docs.html">Explore the architecture <svg class="icon" aria-hidden="true"><use href="#i-arrow-right"></use></svg></a></div>
-      <figure class="home-diagram"><div class="home-diagram-clients"><span>JavaScript</span><span>Java</span><span>Python</span><span>C++ <small>experimental</small></span></div><div class="home-diagram-connector" aria-hidden="true"></div><div class="home-diagram-platform"><span class="home-eyebrow">Managed service</span><strong>Messaging Platform</strong><span>Channels · presence · storage · signaling</span></div><figcaption>WebRTC media and data can travel directly between peers, with relay fallback when needed.</figcaption></figure>
-    </div>
-  </section>
-  <section class="home-security" id="security" aria-labelledby="security-title">
-    <div class="wrap"><h2 id="security-title">Client access, under your control.</h2><div class="home-security-grid">
-      <article><svg class="icon" aria-hidden="true"><use href="#i-key"></use></svg><div><h3>Temporary keys</h3><p>Issue short-lived keys from your server. Keep the long-lived developer credential out of browser bundles.</p></div></article>
-      <article><svg class="icon" aria-hidden="true"><use href="#i-shield-check"></use></svg><div><h3>Channel isolation</h3><p>Private scope separates channels by developer. Public scope lets different developers join a shared room.</p></div></article>
-      <article><svg class="icon" aria-hidden="true"><use href="#i-lock"></use></svg><div><h3>Encrypted transport</h3><p>TLS for API traffic, DTLS for peer connections, and channel passwords hashed before sending.</p></div></article>
-    </div></div>
-  </section>
   <section class="home-section home-key-guide" id="temporary-keys" aria-labelledby="temporary-keys-title">
     <div class="wrap">
       <div class="home-section-head"><div><p class="home-eyebrow">Browser credential handoff</p><h2 id="temporary-keys-title">Your backend keeps the developer key. Your browser gets a temporary one.</h2></div><p>Developers normally have both a frontend and backend. The backend calls the platform directly with its developer API key; it mints a temporary key only when the frontend needs its own platform connection.</p></div>
+<div class="home-security-grid">
+      <article><svg class="icon" aria-hidden="true"><use href="#i-key"></use></svg><div><h3>Temporary keys</h3><p>Issue short-lived keys from your server. Keep the long-lived developer credential out of browser bundles.</p></div></article>
+      <article><svg class="icon" aria-hidden="true"><use href="#i-shield-check"></use></svg><div><h3>Channel isolation</h3><p>Private scope separates channels by developer. Public scope lets different developers join a shared room.</p></div></article>
+      <article><svg class="icon" aria-hidden="true"><use href="#i-lock"></use></svg><div><h3>Encrypted transport</h3><p>TLS for API traffic, DTLS for peer connections, and channel passwords hashed before sending.</p></div></article>
+    </div>
       <ol class="home-key-steps">
         <li><strong>1. Your server</strong><span>Authenticates the signed-in user and calls the platform using the developer key stored in its environment.</span></li>
         <li><strong>2. Messaging Platform</strong><span>Issues a short-lived, optionally single-use temporary key and returns its expiry.</span></li>
@@ -280,20 +283,9 @@ agent.<span class="tok-fn">connect</span>({
       <a class="home-text-link" href="docs.html?doc=WEB-AGENT-GUIDE.md#temporary-api-keys">Read the complete temporary-key guide <svg class="icon" aria-hidden="true"><use href="#i-arrow-right"></use></svg></a>
     </div>
   </section>
-  <section class="home-section home-games" id="featured" aria-labelledby="games-title">
-    <div class="wrap home-games-grid" id="games">
-      <figure class="home-game-shot"><a class="home-image-link" href="apps/mini-games/blockparty/index.html" aria-label="Explore BlockParty"><img src="images/landing/blockparty.webp" alt="BlockParty Old Town demo scene with colorful voxel buildings and trees" width="1200" height="750" loading="lazy" decoding="async"></a><figcaption><span>BlockParty · Demo workspace — sample data</span> <a class="image-detail-link" href="images/landing/blockparty.webp" target="_blank" rel="noopener noreferrer" aria-label="View full-size BlockParty screenshot (opens in a new tab)">Full-size image <span aria-hidden="true">↗</span></a></figcaption></figure>
-      <div><p class="home-eyebrow">There is room to play, too</p><h2 id="games-title">Shared worlds.<br>Same foundation.</h2><p>Seven multiplayer games put live events, presence and shared state to work. Build a voxel world in BlockParty, then explore the rest of the playground.</p><div class="home-actions"><a class="btn btn--ghost" href="apps/mini-games/blockparty/index.html">Explore BlockParty <svg class="icon" aria-hidden="true"><use href="#i-arrow-right"></use></svg></a><a class="btn btn--gradient" href="playground.html">Browse all games <svg class="icon" aria-hidden="true"><use href="#i-arrow-right"></use></svg></a></div></div>
-    </div>
-  </section>
-  <section class="home-section home-beta" id="status" aria-labelledby="status-title">
-    <div class="wrap"><div class="home-beta-top"><div><p class="home-eyebrow"><span class="home-status-dot" aria-hidden="true"></span>Platform status</p><h2 id="status-title">Free during beta.</h2></div><p>The platform is in active pre-production and free for development, testing and prototypes. APIs may change, uptime is not guaranteed, and we do not recommend production workloads today.</p></div>
-      <p class="home-limits-label">Current boundaries</p><div class="home-limits"><div><strong>JavaScript</strong><span>channel storage client</span></div><div><strong>Experimental</strong><span>C++ client support</span></div><div><strong>App-specific</strong><span>file-transfer limits and setup</span></div><div><strong>No SLA</strong><span>uptime is not guaranteed</span></div></div>
-      <a class="home-text-link" href="https://github.com/HaithamMubarak/messaging-platform-sdk" target="_blank" rel="noopener noreferrer">Follow the project on GitHub <svg class="icon" aria-hidden="true"><use href="#i-arrow-right"></use></svg></a>
-    </div>
-  </section>
   <section class="home-section home-start" id="start" aria-labelledby="start-title">
-    <div class="wrap"><p class="home-eyebrow">Make something connected</p><h2 id="start-title">What will you build together?</h2><p>Start with a key. Explore an example. Make it your own.</p><div class="home-actions"><button class="btn btn--lg btn--gradient" type="button" data-open-request>Get a free API key <svg class="icon" aria-hidden="true"><use href="#i-arrow-right"></use></svg></button><a class="btn btn--lg btn--ghost" href="docs.html">Read the docs</a></div></div>
+    <div class="wrap">
+      <div class="home-beta-strip" id="status"><p class="home-eyebrow"><span class="home-status-dot" aria-hidden="true"></span>Free during beta</p><p>Free for development, testing and prototypes. APIs may change, uptime is not guaranteed, and production workloads are not recommended today.</p><div class="home-limits"><div><strong>JavaScript</strong><span>channel storage client</span></div><div><strong>Experimental</strong><span>C++ client support</span></div><div><strong>App-specific</strong><span>file-transfer limits and setup</span></div><div><strong>No SLA</strong><span>uptime is not guaranteed</span></div></div></div><p class="home-eyebrow">Make something connected</p><h2 id="start-title">What will you build together?</h2><p>Start with a key. Explore an example. Make it your own.</p><div class="home-actions"><button class="btn btn--lg btn--gradient" type="button" data-open-request>Get a free API key <svg class="icon" aria-hidden="true"><use href="#i-arrow-right"></use></svg></button><a class="btn btn--lg btn--ghost" href="docs.html">Read the docs</a></div></div>
   </section>
 </main>
 <footer class="site-footer">

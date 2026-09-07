@@ -1,38 +1,24 @@
 /* SDK homepage only. Shared app, portal and playground styles stay unchanged.
    Motion uses design-tokens.css: its reduced-motion !important rules also
    disable the homepage button and disclosure transitions. */
+/* The homepage used to carry its own blue palette here, overriding every
+   token the rest of the site uses — which is why "one design system" was
+   two. Since 2026-09-07 it inherits design-tokens.css; only the width is its own. */
 .sdk-home {
-    --bg: #0a0f1c;
-    --surface-1: #111a2b;
-    --surface-2: #162238;
-    --surface-3: #1d2b43;
-    --border: #26354b;
-    --border-strong: #3b4d68;
-    --text: #f4f7fc;
-    --text-body: #b8c5d7;
-    --text-muted: #a2afc2;
-    --brand: #59b8ff;
-    --brand-hover: #89ccff;
-    --brand-ink: #8bcfff;
-    --brand-subtle: rgba(89,184,255,.1);
-    --accent: #59b8ff;
-    --accent-ink: #8bcfff;
-    --code-bg: #0c1423;
     --container: 1248px;
-    --focus-ring: 0 0 0 3px rgba(89,184,255,.55);
     color-scheme: dark;
 }
 .sdk-home .wrap { max-width: var(--container); padding-inline: 24px; }
 .sdk-home :is(section, [id]) { scroll-margin-top: 100px; }
 .sdk-home .btn { border-radius: 9px; transition: background-color 160ms, border-color 160ms, color 160ms; }
 .sdk-home .btn--lg { min-height: 48px; padding: 14px 19px; font-size: 14px; }
-.sdk-home .btn--gradient { background: var(--accent); background-image: none; color: #071426; border: 1px solid var(--accent); box-shadow: none; font-weight: 700; }
-.sdk-home .btn--gradient:hover { background: #89ccff; border-color: #89ccff; transform: none; }
+.sdk-home .btn--gradient { background: var(--brand); background-image: none; color: #fff; border: 1px solid var(--brand); box-shadow: none; font-weight: 700; }
+.sdk-home .btn--gradient:hover { background: var(--brand-hover); border-color: var(--brand-hover); transform: none; }
 .sdk-home .btn--ghost { border-color: var(--border); color: var(--text); }
-.sdk-home .btn--ghost:hover { background: var(--surface-2); border-color: #51627d; }
+.sdk-home .btn--ghost:hover { background: var(--surface-2); border-color: var(--border-strong); }
 .sdk-home .btn--gradient .icon { width: 16px; height: 16px; }
 .sdk-home :is(a,button,summary,[tabindex]):focus-visible { outline: 2px solid var(--accent); outline-offset: 4px; box-shadow: none; }
-.sdk-home .site-header { background: rgba(10,15,28,.96); border-bottom-color: var(--border); }
+.sdk-home .site-header { background: rgba(11,17,32,.92); border-bottom-color: var(--border); }
 .sdk-home .site-header__inner { height: 76px; gap: 28px; }
 .sdk-home .brand { font-size: 17px; letter-spacing: -.4px; gap: 10px; }
 .sdk-home .brand .logo-mark { width: 28px; height: 28px; }
@@ -198,7 +184,7 @@
 .sdk-home .home-beta { border-bottom: 1px solid var(--border); }
 .sdk-home .home-beta-top { display: grid; grid-template-columns: 1fr 1fr; gap: 64px; align-items: start; }
 .sdk-home .home-beta-top > p { font-size: 13px; line-height: 1.9; color: var(--text-muted); }
-.sdk-home .home-beta .home-eyebrow { color: #e7be6e; margin-bottom: 14px; }
+.sdk-home .home-beta .home-eyebrow { color: var(--warning); margin-bottom: 14px; }
 .sdk-home .home-limits-label { margin-top: 36px; font-size: 11px; text-transform: uppercase; letter-spacing: .09em; color: var(--text-muted); }
 .sdk-home .home-limits { display: grid; grid-template-columns: repeat(4,minmax(0,1fr)); gap: 32px; padding-block: 22px 30px; margin-top: 12px; border-top: 1px solid var(--border); }
 .sdk-home .home-limits > div { display: flex; flex-direction: column; gap: 8px; }
@@ -368,3 +354,32 @@
 .sdk-home .home-app-card figcaption,
 .sdk-home .home-game-shot figcaption { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 6px 12px; }
 .sdk-home .image-detail-link { display: inline-flex; align-items: center; gap: 4px; flex: none; font-size: 11px; }
+
+
+/* --- 2026-09-07: five sections instead of nine ---------------------------- */
+.sdk-home .home-presence { display: grid; grid-template-columns: auto 1fr; gap: 6px 14px; align-items: center; margin-top: 18px; padding: 14px 16px; border: 1px solid var(--border); border-radius: 10px; background: var(--surface-1); }
+.sdk-home .home-presence p { margin: 0; font-size: 13px; color: var(--text-body); }
+.sdk-home .home-presence__faces { display: inline-flex; min-width: 40px; }
+.sdk-home .home-presence__faces:empty::before { content: ''; display: block; width: 12px; height: 12px; border-radius: 50%; background: var(--accent); box-shadow: 0 0 0 4px var(--accent-subtle); }
+.sdk-home .home-presence__face { display: inline-grid; place-items: center; width: 30px; height: 30px; margin-left: -8px; border-radius: 50%; border: 2px solid var(--surface-1); background: var(--surface-3); color: var(--text); font: 600 11px/1 var(--font-display); letter-spacing: .02em; }
+.sdk-home .home-presence__face:first-child { margin-left: 0; }
+.sdk-home .home-presence__face.is-you { background: var(--brand); color: #fff; }
+.sdk-home .home-presence__face.is-more { background: var(--surface-2); color: var(--text-muted); font-size: 10px; }
+.sdk-home .home-presence__rtt { color: var(--accent); font-family: var(--font-mono); font-size: 11px; }
+.sdk-home .home-presence__rtt:empty { display: none; }
+.sdk-home .home-presence__how { grid-column: 1 / -1; font-size: 11px; color: var(--text-muted); }
+.sdk-home .home-presence[data-live="true"] .home-presence__how { color: var(--text-faint); }
+.sdk-home .home-apps-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.sdk-home .home-strip { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px 32px; margin: 28px 0 0; padding: 18px 22px; border: 1px solid var(--border); border-radius: 10px; background: var(--surface-1); font-size: 13px; line-height: 1.7; color: var(--text-muted); }
+.sdk-home .home-strip strong { color: var(--text); font-weight: 600; }
+.sdk-home .home-strip > span { flex: 1 1 520px; }
+.sdk-home .home-key-guide .home-security-grid { margin-bottom: 36px; }
+.sdk-home .home-beta-strip { margin-bottom: 64px; padding: 24px 28px; border: 1px solid var(--border); border-radius: 12px; background: var(--surface-1); text-align: left; }
+.sdk-home .home-beta-strip > p:not(.home-eyebrow) { margin: 6px 0 0; font-size: 13px; line-height: 1.8; color: var(--text-muted); max-width: 760px; }
+.sdk-home .home-beta-strip .home-eyebrow { color: var(--warning); margin-bottom: 0; }
+.sdk-home .home-beta-strip .home-limits { margin-top: 18px; padding-block: 18px 0; }
+@media (max-width: 900px) {
+    .sdk-home .home-apps-grid { grid-template-columns: 1fr; }
+    .sdk-home .home-presence { grid-template-columns: 1fr; }
+    .sdk-home .home-beta-strip .home-limits { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}

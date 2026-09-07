@@ -702,6 +702,14 @@ section[id] { scroll-margin-top: 80px; }
 /* A display name can be anything, so it is allowed to truncate rather than
    push the nav wider than the page. */
 .site-nav .mp-chip__name { max-width: 12ch; overflow: hidden; text-overflow: ellipsis; }
+/* At 320px the injected account chip plus the brand in the new face is 4px
+   too wide for the header row (the live responsive suite, 2026-09-07). The
+   initial stays; the name is what goes. */
+@media (max-width: 380px) {
+    .site-nav .mp-chip__name { display: none; }
+    .site-nav .mp-chip { padding: 6px 8px; }
+    .brand { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+}
 
 /* --- The profile page ----------------------------------------------------- */
 
