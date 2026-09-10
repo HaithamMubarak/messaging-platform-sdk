@@ -1,6 +1,6 @@
 /**
  * Air Hockey Game
- * 2-4 Player multiplayer air hockey using Messaging Platform SDK with BaseGame
+ * 2-4 Player multiplayer air hockey using Messaging Platform Hub with BaseGame
  * Features:
  * - Real-time paddle sync via DataChannel
  * - Physics-based puck movement
@@ -2900,4 +2900,5 @@ function toggleFullscreen() {
 
     console.log('[AirHockey] Fullscreen mode:', isFullscreen);
 }
+
 

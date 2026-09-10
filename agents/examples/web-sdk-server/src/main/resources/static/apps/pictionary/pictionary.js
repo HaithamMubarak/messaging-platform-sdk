@@ -1,6 +1,6 @@
 /**
  * Pictionary - Drawing & Guessing Game
- * Uses Messaging Platform SDK with UserConnectionBase
+ * Uses Messaging Platform Hub with UserConnectionBase
  *
  * The round is host-authoritative. The host alone holds the secret word
  * (plus the artist, who is told it privately), validates every guess,
@@ -1332,3 +1332,4 @@ document.addEventListener('DOMContentLoaded', () => {
         if (modal) modal.classList.add('active');
     }, 200);
 });
+

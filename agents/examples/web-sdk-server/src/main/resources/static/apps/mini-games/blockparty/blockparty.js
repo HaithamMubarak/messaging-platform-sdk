@@ -1,6 +1,6 @@
 /**
  * BlockParty — Co-op Voxel Builder
- * Real-time multiplayer 3D building on the Messaging Platform SDK.
+ * Real-time multiplayer 3D building on the Messaging Platform Hub.
  *
  * - three.js (r128, self-hosted) for rendering
  * - UserConnectionBase for channel messaging + WebRTC P2P
@@ -7666,3 +7666,4 @@
         }, 200);
     });
 })();
+

@@ -1,6 +1,6 @@
 /**
  * Real-Time Collaborative Whiteboard Client
- * Uses Messaging Platform SDK for real-time synchronization
+ * Uses Messaging Platform Hub for real-time synchronization
  * Includes WhiteboardGame framework integration
  */
 const STORAGE_KEY = 'whiteboard-data';
@@ -7677,3 +7677,4 @@ function setRoomBadge(room, online) {
         : 'Not connected to a room — nothing you draw is going anywhere';
     badge.style.color = online ? 'var(--success)' : 'var(--text-muted)';
 }
+

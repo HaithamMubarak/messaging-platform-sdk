@@ -1,5 +1,5 @@
 /**
- * Messaging Platform SDK — icon sprite.
+ * Messaging Platform Hub — icon sprite.
  *
  * Injects a hidden <svg> sprite of <symbol> definitions into the document so
  * pages can render icons with:
@@ -147,3 +147,4 @@
                '<use href="#i-' + name + '"></use></svg>';
     };
 })();
+

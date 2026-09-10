@@ -1,6 +1,7 @@
-# Messaging Platform SDK
+# Messaging Platform Hub
 #
-# The site is served under /messaging-platform/sdk/, not the domain root, so
+# The site is served under /messaging-platform/sdk/ and
+# /messaging-platform/hub/, not the domain root, so
 # every path below carries that prefix — a bare "/admin/" would only cover a
 # console that does not exist at the root. The bare paths are kept as well for
 # any deployment that does serve this tree from the root.
@@ -18,6 +19,11 @@ Disallow: /messaging-platform/sdk/developer/
 Disallow: /messaging-platform/sdk/error/
 Disallow: /messaging-platform/sdk/apps/test-api-key/
 Disallow: /messaging-platform/sdk/apps/turn-stun-test.html
+Disallow: /messaging-platform/hub/admin/
+Disallow: /messaging-platform/hub/developer/
+Disallow: /messaging-platform/hub/error/
+Disallow: /messaging-platform/hub/apps/test-api-key/
+Disallow: /messaging-platform/hub/apps/turn-stun-test.html
 
 Disallow: /admin/
 Disallow: /developer/
@@ -25,4 +31,4 @@ Disallow: /error/
 Disallow: /apps/test-api-key/
 Disallow: /apps/turn-stun-test.html
 
-Sitemap: https://hmdevonline.com/messaging-platform/sdk/sitemap.xml
+Sitemap: https://hmdevonline.com/messaging-platform/hub/sitemap.xml

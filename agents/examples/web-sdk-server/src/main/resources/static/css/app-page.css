@@ -1,5 +1,5 @@
 /* ==========================================================================
-   Messaging Platform SDK — app feature pages
+   Messaging Platform Hub — app feature pages
    --------------------------------------------------------------------------
    The shared frame for a first-party app's own page: Whiteboard, Rooms, the
    shared terminal, BlockParty. Every one of those pages is the same shape —
@@ -308,3 +308,4 @@
 .ap-note .icon { color: var(--warning); flex-shrink: 0; margin-top: 2px; }
 .ap-note p { margin: 0; }
 .ap-note p + p { margin-top: var(--sp-2); }
+

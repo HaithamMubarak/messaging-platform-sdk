@@ -1,5 +1,5 @@
 /* ==========================================================================
-   Messaging Platform SDK — Design Tokens
+   Messaging Platform Hub — Design Tokens
    Single source of truth for the landing page, developer portal and admin
    console. Load this first, before any page/theme stylesheet.
    ========================================================================== */
@@ -128,3 +128,4 @@
         scroll-behavior: auto !important;
     }
 }
+

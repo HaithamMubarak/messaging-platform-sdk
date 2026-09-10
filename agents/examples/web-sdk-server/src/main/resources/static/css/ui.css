@@ -1,5 +1,5 @@
 /* ==========================================================================
-   Messaging Platform SDK — Shared UI components
+   Messaging Platform Hub — Shared UI components
    Requires design-tokens.css. Used by the landing page, developer portal
    and admin console.
    ========================================================================== */
@@ -837,3 +837,4 @@ pre {
     max-width: 100%;
     overflow-x: auto;
 }
+

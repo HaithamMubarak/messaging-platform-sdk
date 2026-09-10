@@ -1,6 +1,6 @@
 {
-  "name": "Messaging Platform SDK",
-  "short_name": "Messaging SDK",
+  "name": "Messaging Platform Hub",
+  "short_name": "Messaging Hub",
   "description": "Real-time channels, WebRTC signaling, presence and per-channel storage.",
   "id": "./",
   "start_url": "./",

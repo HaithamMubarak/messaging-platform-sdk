@@ -102,13 +102,13 @@
 
         const nav = document.createElement('nav');
         nav.className = 'sdk-home-chip';
-        nav.setAttribute('aria-label', 'Messaging Platform SDK');
+        nav.setAttribute('aria-label', 'Messaging Platform Hub');
 
         const home = document.createElement('a');
         home.href = root + 'index.html';
         home.className = 'sdk-home-chip__home';
         home.textContent = 'SDK';
-        home.title = 'Messaging Platform SDK';
+        home.title = 'Messaging Platform Hub';
 
         const more = document.createElement('a');
         more.href = root + 'playground.html';
@@ -138,3 +138,4 @@
     if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', start);
     else start();
 })();
+

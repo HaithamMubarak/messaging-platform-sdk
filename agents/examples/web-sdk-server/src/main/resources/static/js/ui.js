@@ -1,5 +1,5 @@
 /**
- * Messaging Platform SDK — shared UI kit.
+ * Messaging Platform Hub — shared UI kit.
  *
  * Provides the primitives the developer portal, admin console and landing page
  * all need: HTML escaping, toasts, focus-trapped modals, confirm dialogs,
@@ -596,3 +596,4 @@ const UI = (function () {
         initShell, renderBarChart, setMeter
     };
 })();
+

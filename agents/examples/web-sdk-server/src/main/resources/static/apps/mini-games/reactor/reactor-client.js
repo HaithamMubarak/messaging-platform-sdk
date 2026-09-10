@@ -1,6 +1,6 @@
 /**
  * 4-Player Reactor Game
- * Real-time multiplayer reaction speed game using Messaging Platform SDK with BaseGame
+ * Real-time multiplayer reaction speed game using Messaging Platform Hub with BaseGame
  * Features:
  * - Host/Player system with waiting room
  * - DataChannel P2P communication for instant light activation
@@ -2135,3 +2135,4 @@ function disconnect() {
         }
     } catch (e) { /* ignore */ }
 }
+
