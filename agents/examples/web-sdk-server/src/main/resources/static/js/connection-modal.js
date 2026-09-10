@@ -797,16 +797,51 @@
 
         function applyUser(user) {
             currentUser = user;
+            var previousAccount = accountId;
+            if (previousAccount && window.Keyring && window.Keyring.clearAccountKey) {
+                window.Keyring.clearAccountKey(previousAccount);
+            }
             accountId = window.MPAccount ? window.MPAccount.idOf(user) : null;
             if (accountId) {
-                var savedName = loadPersisted().u || accountDefaultName();
-                if (userEl) userEl.value = savedName;
-                if (quickUserEl) quickUserEl.value = savedName;
-                var saved = loadPersisted();
-                var activeForAccount = window.ActiveChannel ? window.ActiveChannel.read(accountId) : null;
-                var activePassword = window.ActiveChannel ? window.ActiveChannel.readPassword(accountId) : '';
-                if (chEl) chEl.value = (activeForAccount && activeForAccount.name) || saved.c || chEl.value;
-                if (pwEl) pwEl.value = activePassword || saved.p || pwEl.value;
+                var renderForUser = function () {
+                    if (accountId !== window.MPAccount.idOf(user)) return;
+                    var savedName = loadPersisted().u || accountDefaultName();
+                    if (userEl) userEl.value = savedName;
+                    if (quickUserEl) quickUserEl.value = savedName;
+                    var saved = loadPersisted();
+                    var activeForAccount = window.ActiveChannel ? window.ActiveChannel.read(accountId) : null;
+                    var activePassword = window.ActiveChannel ? window.ActiveChannel.readPassword(accountId) : '';
+                    if (chEl) chEl.value = (activeForAccount && activeForAccount.name) || saved.c || chEl.value;
+                    if (pwEl) pwEl.value = activePassword || saved.p || pwEl.value;
+                };
+                if (window.Keyring && window.Keyring.setAccountKey && window.Keyring.ensureEncrypted
+                    && window.MPAccount && window.MPAccount.exportKey) {
+                    window.MPAccount.exportKey().then(function (key) {
+                        if (!key || accountId !== window.MPAccount.idOf(user)) {
+                            if (key === null && accountId === window.MPAccount.idOf(user) && window.Keyring.clearAccountKey) {
+                                window.Keyring.clearAccountKey(accountId);
+                            }
+                            return;
+                        }
+                        window.Keyring.setAccountKey(accountId, key);
+                        window.Keyring.ensureEncrypted(accountId);
+                    }).catch(function () {
+                        if (window.Keyring && window.Keyring.clearAccountKey && accountId === window.MPAccount.idOf(user)) {
+                            window.Keyring.clearAccountKey(accountId);
+                        }
+                    }).finally(function () {
+                        renderForUser();
+                        var savedTab = el('tabSaved');
+                        var signinTab = el('tabSignin');
+                        if (savedTab) savedTab.hidden = !accountId;
+                        if (signinTab) signinTab.hidden = !!accountId;
+                        renderSaved();
+                        refreshSaveRow();
+                    });
+                    return;
+                }
+
+                renderForUser();
             }
             var savedTab = el('tabSaved');
             var signinTab = el('tabSignin');

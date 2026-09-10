@@ -33,8 +33,70 @@
     var MAX_CHANNELS = 500;
     var MAX_NAME = 160;
     var MAX_PASSWORD = 512;
+    var ACCOUNT_KEYS = {}; // accountId -> export key
+    var ENCRYPTED_PREFIX = 'k1|';
+    var CORRUPT_BACKUP_PREFIX = 'corrupt';
 
-    function keyFor(accountId) { return PREFIX + accountId; }
+    function accountIdKey(accountId) { return String(accountId).replace(/\./g, '__dot__'); }
+    function keyFor(accountId) { return PREFIX + accountIdKey(accountId); }
+
+    /** Tiny deterministic key fingerprint so wrong-user ciphertext can be rejected. */
+    function fingerprint(key) {
+        if (!key) return 'unknown';
+        var h = 2166136261;
+        for (var i = 0; i < key.length; i++) {
+            h ^= key.charCodeAt(i);
+            h = Math.imul(h, 16777619) >>> 0;
+        }
+        return ('00000000' + h.toString(16)).slice(-8);
+    }
+
+    /**
+     * Legacy-suitable symmetric obfuscation. This is intentionally not used for
+     * Drive backups (which are AES-GCM), and only gates casual local readers.
+     */
+    function xorEncryptDecrypt(text, key) {
+        if (!text || !key) return text;
+        var out = '';
+        for (var i = 0; i < text.length; i++) {
+            out += String.fromCharCode(text.charCodeAt(i) ^ key.charCodeAt(i % key.length));
+        }
+        return out;
+    }
+
+    function serialize(accountId, data) {
+        var key = ACCOUNT_KEYS[accountIdKey(accountId)] || '';
+        var json = JSON.stringify(data);
+        if (!key) return json;
+        try {
+            return ENCRYPTED_PREFIX + fingerprint(key) + '|' + btoa(xorEncryptDecrypt(json, key));
+        } catch (e) {
+            return json;
+        }
+    }
+
+    function isEncrypted(raw, accountId) {
+        if (!raw || typeof raw !== 'string') return false;
+        if (raw.indexOf(ENCRYPTED_PREFIX) !== 0) return false;
+        var payload = raw.slice(ENCRYPTED_PREFIX.length);
+        var sep = payload.indexOf('|');
+        if (sep <= 0) return false;
+        return !accountId || payload.slice(0, sep) === fingerprint(ACCOUNT_KEYS[accountIdKey(accountId)]);
+    }
+
+    function decodeEncrypted(raw, accountId) {
+        if (!raw || raw.indexOf(ENCRYPTED_PREFIX) !== 0) return null;
+        var key = ACCOUNT_KEYS[accountIdKey(accountId)] || '';
+        if (!key) return null;
+        var payload = raw.slice(ENCRYPTED_PREFIX.length);
+        var sep = payload.indexOf('|');
+        if (sep <= 0) return null;
+        var fp = payload.slice(0, sep);
+        if (fp !== fingerprint(key)) return null;
+        var body = payload.slice(sep + 1);
+        var json = xorEncryptDecrypt(atob(body), key);
+        return JSON.parse(json);
+    }
 
     function get(key) {
         try { return localStorage.getItem(key) || ''; } catch (e) { return ''; }
@@ -68,6 +130,12 @@
             var v = JSON.parse(raw);
             if (v && Array.isArray(v.channels)) return v;
         } catch (e) { /* fall through to the backup */ }
+        try {
+            var decoded = decodeEncrypted(raw, accountId);
+            if (decoded && Array.isArray(decoded.channels)) {
+                return decoded;
+            }
+        } catch (e2) { /* fall through */ }
         var bak = get(key + '.bak');
         if (bak) {
             try {
@@ -84,12 +152,25 @@
         var key = keyFor(accountId);
         var previous = get(key);
         data.updatedAt = Date.now();
-        var next = JSON.stringify(data);
+        var next = serialize(accountId, data);
         // Write the primary before replacing the recovery copy. A full quota
         // must not turn one failed save into the loss of both good versions.
         if (!set(key, next)) return false;
         if (previous) set(key + '.bak', previous);
         return true;
+    }
+
+    function ensureEncrypted(accountId) {
+        if (!accountId) return false;
+        if (!ACCOUNT_KEYS[accountIdKey(accountId)]) return false;
+        var key = keyFor(accountId);
+        var raw = get(key);
+        if (!raw || isEncrypted(raw, accountId)) return false;
+        var data = load(accountId);
+        if (data && Array.isArray(data.channels)) {
+            return save(accountId, data);
+        }
+        return false;
     }
 
     /**
@@ -286,7 +367,39 @@
             try {
                 localStorage.removeItem(keyFor(accountId));
                 localStorage.removeItem(keyFor(accountId) + '.bak');
+                localStorage.removeItem(keyFor(accountId) + '.' + CORRUPT_BACKUP_PREFIX);
             } catch (e) {}
+        },
+
+        /**
+         * Bind an account to its export key so local lists are stored encrypted
+         * at rest with that account's keying material.
+         */
+        setAccountKey: function (accountId, key) {
+            if (!accountId || !key) {
+                delete ACCOUNT_KEYS[accountIdKey(accountId)];
+                return;
+            }
+            ACCOUNT_KEYS[accountIdKey(accountId)] = String(key);
+        },
+
+        clearAccountKey: function (accountId) {
+            if (!accountId) return;
+            delete ACCOUNT_KEYS[accountIdKey(accountId)];
+        },
+
+        /** Encrypt this account's key list on next operation if key is known. */
+        ensureEncrypted: function (accountId) {
+            try { return ensureEncrypted(accountId); } catch (e) { return false; }
+        },
+
+        /** Check whether the current value on disk is encrypted for this account. */
+        isEncrypted: function (accountId) {
+            try {
+                return isEncrypted(get(keyFor(accountId)), accountId);
+            } catch (e) {
+                return false;
+            }
         },
 
         KEY_PREFIX: PREFIX

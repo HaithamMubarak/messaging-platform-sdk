@@ -140,15 +140,41 @@
 
     function applyUser(user) {
         var previousAccount = accountId;
+        if (previousAccount && K.clearAccountKey) {
+            K.clearAccountKey(previousAccount);
+        }
         accountId = A.idOf(user);
         if (previousAccount && previousAccount !== accountId && window.DriveBackup) {
             window.DriveBackup.disconnect();
         }
         if (!accountId) { show(false); return; }
-        el('pWho').textContent = (user.displayName || user.email) +
+        var render = function () {
+            if (accountId !== A.idOf(user)) return;
+            el('pWho').textContent = (user.displayName || user.email) +
             (user.email && user.displayName ? ' · ' + user.email : '');
-        show(true);
-        renderList();
+            show(true);
+            renderList();
+        };
+
+        if (!K.setAccountKey || !K.ensureEncrypted || !A.exportKey) {
+            render();
+            return;
+        }
+        A.exportKey().then(function (key) {
+            if (!accountId || accountId !== A.idOf(user)) return;
+            if (key) {
+                K.setAccountKey(accountId, key);
+                K.ensureEncrypted(accountId);
+            } else {
+                K.clearAccountKey(accountId);
+            }
+            render();
+        }).catch(function () {
+            if (accountId === A.idOf(user) && K.clearAccountKey) {
+                K.clearAccountKey(accountId);
+            }
+            render();
+        });
     }
 
     /* ---- sign in / create account ----
