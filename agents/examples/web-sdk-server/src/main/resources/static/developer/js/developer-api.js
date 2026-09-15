@@ -132,6 +132,21 @@ const DeveloperAPI = (function () {
         return body;
     }
 
+    async function loginWithGoogle(assertion) {
+        const response = await fetch(ApiConfig.getDeveloperAuthUrl() + '/google', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ assertion })
+        });
+        const body = await readBody(response);
+        if (!response.ok) {
+            throw new Error((body && (body.error || body.message)) || 'Google sign-in failed.');
+        }
+        setToken(body.sessionToken);
+        setProfile(body);
+        return body;
+    }
+
     async function logout() {
         const token = getToken();
         if (token) {
@@ -208,7 +223,7 @@ const DeveloperAPI = (function () {
         { method: 'GET' }).then((body) => (body && body.data) || body);
 
     return {
-        login, logout, isLoggedIn, changePassword,
+        login, loginWithGoogle, logout, isLoggedIn, changePassword,
         getToken, getProfile, setProfile, getApiKey, clearAuth,
         getStats, getApiKeys, getUsage, getChannels, getChannelMetrics, getApiKeyUsage, revokeApiKey,
         createTemporaryKey, broadcast, recoverMessages, getChannelAgents, deleteChannel,

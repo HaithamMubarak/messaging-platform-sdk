@@ -1,187 +1,164 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-    <title>Messaging Platform Hub — connected apps and SDK</title>
-    <meta name="description" content="Meet, share, collaborate and play with connected apps, or build your own experience with the Messaging Platform SDK.">
-    <meta name="theme-color" content="#0b1120">
-    <meta name="robots" content="index, follow">
-    <link rel="canonical" href="https://hmdevonline.com/messaging-platform/hub/">
-    <meta property="og:type" content="website">
-    <meta property="og:site_name" content="Messaging Platform Hub">
-    <meta property="og:title" content="Messaging Platform Hub">
-    <meta property="og:description" content="Connected apps for real work and play, backed by one SDK.">
-    <meta property="og:url" content="https://hmdevonline.com/messaging-platform/hub/">
-    <meta property="og:image" content="https://hmdevonline.com/messaging-platform/sdk/images/og-image.png">
-    <meta name="twitter:card" content="summary_large_image">
-    <meta name="twitter:title" content="Messaging Platform Hub">
-    <meta name="twitter:description" content="Connected apps for real work and play, backed by one SDK.">
-    <meta name="twitter:image" content="https://hmdevonline.com/messaging-platform/sdk/images/og-image.png">
-
-    <link rel="icon" type="image/svg+xml" href="favicon.svg">
-    <link rel="stylesheet" href="css/design-tokens.css">
-    <link rel="stylesheet" href="css/ui.css">
-    <link rel="stylesheet" href="css/landing.css">
-    <link rel="stylesheet" href="css/hub-navigation.css">
-    <link rel="stylesheet" href="css/hub-refresh.css">
-    <script src="js/prod-log.js" defer></script>
-    <script src="js/icons.js" defer></script>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Messaging Platform Hub | SDK demos and apps</title>
+<meta name="robots" content="index,follow">
+<meta name="color-scheme" content="dark light">
+<script>try{document.documentElement.dataset.theme=localStorage.getItem('hub-theme')||'dark'}catch(e){document.documentElement.dataset.theme='dark'}</script>
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,600;12..96,700&family=Source+Sans+3:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+:root{--paper:#f6f6f2;--white:#fff;--ink:#253632;--muted:#69756f;--line:#dde2da;--green:#225e50;--green-soft:#e9f1e9;--orange:#b54c31;--orange-soft:#faf0e8;--display:'Bricolage Grotesque',sans-serif;--body:'Source Sans 3',sans-serif;--shadow:0 12px 36px #23372d0b}
+*{box-sizing:border-box}body{margin:0;background:var(--paper);color:var(--ink);font:16px/1.5 var(--body)}button,input{font:inherit}button,a{-webkit-tap-highlight-color:transparent}button{color:inherit;cursor:pointer}a{color:inherit}a,button{touch-action:manipulation}button:disabled{cursor:default}svg{display:block;width:20px;height:20px;flex-shrink:0;stroke:currentColor;fill:none;stroke-width:1.65;stroke-linecap:round;stroke-linejoin:round}h1,h2,h3,p{margin:0}h1,h2,h3{font-family:var(--display);font-weight:600}button:focus-visible,a:focus-visible,input:focus-visible{outline:3px solid #bf784d;outline-offset:4px}[hidden]{display:none!important}.skip{position:fixed;left:16px;top:-90px;z-index:100;background:var(--green);color:white;padding:12px}.skip:focus{top:16px}
+.topbar{height:76px;background:#fbfcf8;border-bottom:1px solid var(--line);display:flex;align-items:center;gap:32px;padding:0 30px;position:relative;z-index:10}.brand{display:flex;align-items:center;gap:11px;text-decoration:none;min-width:208px}.brand-mark{background:var(--green);color:#fff;border-radius:12px;width:37px;height:37px;display:grid;place-items:center}.brand-mark svg{width:24px;height:24px}.brand strong{display:block;font:600 16px/1.2 var(--display);letter-spacing:-.3px}.brand small{font-size:12px;color:var(--muted)}.search{display:flex;align-items:center;gap:10px;background:#f1f3ed;border:1px solid #e0e5dc;border-radius:8px;padding:8px 12px;max-width:440px;width:100%;color:#79867e}.search input{min-width:0;width:100%;border:0;background:transparent;font-size:14px;color:var(--ink);outline:0}.search:focus-within{outline:2px solid #7fa89a;outline-offset:2px}.search kbd{font:11px var(--body);border:1px solid #d1d8cf;padding:0 5px;border-radius:4px;white-space:nowrap}.search-clear{background:none;border:0;padding:2px;font-size:18px;line-height:1}.top-actions{margin-left:auto;display:flex;align-items:center;gap:13px;white-space:nowrap;font-size:14px}.top-actions a{text-decoration:none}.text-link:hover{text-decoration:underline;text-underline-offset:4px}.account{display:flex;align-items:center;gap:8px;border:1px solid #cbd6cd;border-radius:7px;padding:8px 12px;background:white}.account svg{width:16px;height:16px}.theme-toggle{display:flex;align-items:center;gap:7px;border:1px solid #cbd6cd;border-radius:7px;padding:8px 10px;background:white;font-size:12px;min-height:38px}.theme-toggle svg{width:16px;height:16px}.theme-sun{display:none}.theme-toggle:hover,.account:hover{border-color:#91aa9e}.menu-toggle{display:none;border:1px solid var(--line);background:white;border-radius:7px;padding:10px}
+.layout{display:grid;grid-template-columns:230px minmax(0,1fr);min-height:calc(100vh - 76px)}.sidebar{padding:31px 20px;border-right:1px solid var(--line);background:#f0f2ec;display:flex;flex-direction:column;gap:30px}.sidebar-label{color:#849087;font-size:10px;letter-spacing:1.7px;font-weight:700;margin:0 12px 12px;text-transform:uppercase}.nav-list{display:grid;gap:5px}.nav-button{display:flex;align-items:center;gap:11px;width:100%;border:1px solid transparent;background:transparent;padding:11px 12px;text-align:left;font-size:14px;border-radius:7px;min-height:44px}.nav-button svg{width:18px;height:18px;color:#7b8980}.nav-button:hover{background:#e7ece2}.nav-button[aria-current=page]{background:#fff;border-color:#dbe2d6;box-shadow:0 2px 3px #263c3205;color:var(--green);font-weight:700}.nav-button[aria-current=page] svg{color:var(--green)}.nav-button .tiny-arrow{margin-left:auto;font-size:15px}.sidebar-links{display:grid;gap:2px}.sidebar-links a{display:flex;align-items:center;justify-content:space-between;padding:9px 12px;min-height:40px;text-decoration:none;font-size:13px;color:#64776b;border-radius:6px}.sidebar-links a:hover{background:#e7ece2}.sidebar-tip{margin-top:auto;padding:17px 14px;border:1px solid #d9e2d4;border-radius:9px;background:linear-gradient(145deg,#fff8ed,#f5f4e9);font-size:13px}.sidebar-tip strong{display:block;font:600 15px var(--display);margin:8px 0}.sidebar-tip p{font-size:12px;color:#7b7868;line-height:1.55}.sidebar-tip a{display:inline-block;margin-top:12px;font-weight:600;text-underline-offset:4px}.review-note{font-size:11px;color:#849087;padding:0 12px}
+main{width:100%;max-width:1320px;padding:28px 42px 30px;margin:auto;align-self:start;min-width:0}.breadcrumb{display:flex;align-items:center;gap:10px;font-size:12px;color:#859087;margin-bottom:30px}.breadcrumb button{border:0;padding:0;background:none;color:#65766a;font-size:12px}.breadcrumb span:last-child{color:#344e42}.page-note{margin-left:auto;display:flex;align-items:center;gap:7px;color:#7d857b!important}.status-dot{width:6px;height:6px;border-radius:50%;background:#548c65;display:inline-block}
+.welcome{display:grid;grid-template-columns:1.15fr .85fr;gap:30px;align-items:center;margin-bottom:30px}.eyebrow{font-size:10px;color:var(--green);letter-spacing:1.7px;font-weight:700;text-transform:uppercase;margin-bottom:10px}.welcome h1{font-size:38px;line-height:1.14;letter-spacing:-1.3px;max-width:520px}.welcome h1 em{font-style:normal;color:#588674}.welcome p{color:var(--muted);font-size:15px;line-height:1.65;max-width:480px;margin-top:13px}.welcome-aside{justify-self:end;max-width:275px;border-left:1px solid #d5ddcf;padding:7px 0 7px 24px}.welcome-aside strong{font:600 14px var(--display)}.welcome-aside p{font-size:13px;margin:8px 0 12px}.welcome-aside a{font-size:13px;font-weight:600;text-decoration:none;display:inline-flex;gap:18px;color:var(--green)}
+.destinations{display:grid;grid-template-columns:1fr 1fr;gap:18px;margin-bottom:34px}.destination{display:block;border:1px solid #d5e0d2;border-radius:10px;background:#edf3e9;padding:23px 24px;text-align:left;text-decoration:none;position:relative;overflow:hidden;transition:border-color .15s,box-shadow .15s}.destination.apps{background:#faf0e7;border-color:#e9dacf}.destination:hover{border-color:#7d9c85;box-shadow:var(--shadow)}.destination.apps:hover{border-color:#c98b71}.destination-top{display:flex;align-items:center;gap:11px;margin-bottom:13px}.destination-icon{width:32px;height:32px;border:1px solid #d4dfce;background:#fff9;border-radius:7px;display:grid;place-items:center;color:var(--green)}.apps .destination-icon{border-color:#eed7c9;color:var(--orange)}.destination-top small{font-size:10px;letter-spacing:1.1px;font-weight:700;text-transform:uppercase;color:#72816f}.apps .destination-top small{color:#a47962}.destination h2{font-size:22px;letter-spacing:-.5px;margin-bottom:6px}.destination p{font-size:14px;color:#677765;max-width:380px;padding-right:25px}.apps p{color:#8d7265}.destination-action{display:flex;align-items:center;justify-content:space-between;margin-top:20px;font-size:13px;font-weight:700;color:var(--green)}.apps .destination-action{color:var(--orange)}.destination-action span:last-child{display:grid;place-items:center;border-radius:50%;border:1px solid #b4c6ae;width:25px;height:25px}.apps .destination-action span:last-child{border-color:#d9b39f}
+.section{margin-top:28px}.section-head{display:flex;align-items:center;justify-content:space-between;gap:16px;margin-bottom:16px}.section-title{display:flex;align-items:center;gap:9px}.section-title h2{font-size:19px;letter-spacing:-.35px}.pill{font-size:10px;letter-spacing:.5px;text-transform:uppercase;color:#708a77;border:1px solid #d8e3d6;border-radius:4px;padding:2px 6px;font-weight:600}.pill.warm{color:#aa7158;border-color:#ead8ca}.section-head>button{background:none;border:0;display:flex;align-items:center;gap:14px;font-size:13px;font-weight:600;color:#547564;min-height:40px}.section-caption{font-size:13px;color:var(--muted);margin:-7px 0 17px}.cards{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:17px}.demo-card{position:relative;display:flex;flex-direction:column;width:100%;padding:0;border:1px solid #dce3d8;border-radius:9px;background:white;overflow:hidden;text-align:left;transition:box-shadow .18s,transform .18s,border-color .18s}.demo-card:hover{box-shadow:var(--shadow);transform:translateY(-3px);border-color:#adc4b3}.card-picture{aspect-ratio:16/10;background:#eaf0e8;padding:13px 13px 0;overflow:hidden;width:100%;border-bottom:1px solid #e2e7df}.card-picture img{display:block;width:100%;height:100%;object-fit:contain;object-position:bottom center;border:1px solid #cbd6ce;border-bottom:0;border-radius:5px 5px 0 0;background:#fff}.card-content{padding:16px 17px 14px;flex:1}.card-title-row{display:flex;align-items:center;justify-content:space-between;gap:8px}.card-title-row h3{font-size:17px;letter-spacing:-.25px}.card-title-row span{color:#729c82;font-size:16px}.card-content p{font-size:13px;line-height:1.55;color:#768076;margin-top:7px}.card-footer{padding:10px 17px;border-top:1px solid #ecede7;display:flex;align-items:center;gap:6px;min-height:43px;font-size:11px;color:#7a887c}.card-footer span+span:before{content:' / ';margin:0 4px;color:#bec8bb}.card-footer b{font-weight:500;margin-left:auto;font-size:10px;color:#809079}.apps-grid{display:grid;grid-template-columns:1.12fr 1fr;gap:17px}.app-card{display:flex;align-items:center;gap:18px;border:1px solid #e3ded5;border-radius:9px;background:white;padding:18px;min-width:0;text-align:left;width:100%;transition:border-color .18s,box-shadow .18s}.app-card:hover{border-color:#ca9c82;box-shadow:var(--shadow)}.app-card>img{width:142px;height:106px;border-radius:6px;object-fit:cover;flex-shrink:0;background:#ecdfd5}.app-card h3{font-size:18px;letter-spacing:-.3px}.app-card p{font-size:13px;color:var(--muted);margin:5px 0 10px;line-height:1.5}.app-card .app-label{font-size:10px;text-transform:uppercase;letter-spacing:1px;color:#a4775f;margin-bottom:4px}.app-card .app-link{font-size:12px;font-weight:700;color:var(--orange)}.app-initial{width:62px;height:62px;background:#f7e8da;display:grid;place-items:center;border-radius:13px;flex-shrink:0;font:600 24px var(--display);color:#ac7655}
+.resource-strip{display:flex;align-items:center;justify-content:space-between;gap:18px;margin-top:30px;padding:19px 22px;border:1px solid var(--line);border-radius:9px;background:#f0f2eb}.resource-strip strong{font:600 15px var(--display)}.resource-strip p{font-size:12px;color:#76816f;margin-top:3px}.resource-links{display:flex;gap:9px;flex-wrap:wrap}.resource-links a{font-size:12px;padding:8px 11px;border:1px solid #d1dacb;border-radius:5px;background:#fff;text-decoration:none;color:#52694e}.resource-links a:hover{border-color:#91aa87}.footer{display:flex;justify-content:space-between;gap:20px;border-top:1px solid var(--line);margin-top:30px;padding-top:18px;font-size:11px;color:#8a9488}.footer nav{display:flex;gap:18px}.footer a{text-decoration:none}.filter-row{display:flex;flex-wrap:wrap;gap:7px;margin:2px 0 24px}.filter-row button{border:1px solid #d9e0d4;border-radius:99px;background:transparent;padding:7px 13px;font-size:12px}.filter-row button[aria-pressed=true]{background:var(--green);border-color:var(--green);color:white}.filter-row button:hover{border-color:#8cab95}.empty{padding:42px 20px;text-align:center;border:1px dashed #c4d0bd;border-radius:10px;background:#f0f3eb;margin:22px 0}.empty h2{font-size:20px}.empty p{margin:8px 0 16px;font-size:14px;color:var(--muted)}.empty button{border:1px solid #b8cbb1;border-radius:6px;padding:8px 15px;background:white;font-size:13px}.results{font-size:13px;color:#61765e;margin-bottom:15px}.screen-reader{position:absolute;width:1px;height:1px;overflow:hidden;clip-path:inset(50%);white-space:nowrap}
+dialog{border:1px solid #d8e2d2;border-radius:15px;padding:0;width:min(710px,calc(100% - 32px));max-height:calc(100dvh - 48px);color:var(--ink);box-shadow:0 30px 90px #182e3144;overscroll-behavior:contain}dialog::backdrop{background:#20352f80;backdrop-filter:blur(4px)}.dialog-top{display:flex;align-items:center;justify-content:space-between;padding:15px 22px;border-bottom:1px solid var(--line);background:#f5f7f0}.dialog-top>span{font-size:11px;text-transform:uppercase;letter-spacing:1px;color:#789071}.close{display:grid;place-items:center;width:34px;height:34px;border:1px solid #d9e3d2;background:white;border-radius:7px}.dialog-image{width:100%;display:block;max-height:320px;object-fit:contain;background:#eaf0e7}.dialog-body{padding:24px}.dialog-body h2{font-size:26px;letter-spacing:-.5px}.dialog-body p{margin:10px 0 18px;font-size:15px;color:var(--muted)}.detail-tags{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:24px}.detail-tags span{background:#eef3e8;padding:5px 9px;border-radius:5px;font-size:12px;color:#6d8462}.dialog-actions{display:flex;align-items:center;gap:18px;flex-wrap:wrap}.launch{display:inline-flex;align-items:center;gap:20px;background:var(--green);color:white;text-decoration:none;padding:11px 17px;border-radius:7px;font-weight:600;font-size:14px}.launch:hover{background:#194b3e}.detail-guide{font-size:13px;color:var(--green);text-underline-offset:4px}.dialog-note{font-size:11px!important;margin:16px 0 0!important}.preview-banner{display:flex;justify-content:center;align-items:center;gap:9px;padding:7px 18px;font-size:11px;background:#e8ede3;color:#6b7b62;border-bottom:1px solid #dce3d5}.preview-banner strong{font-weight:700}.preview-banner span{opacity:.85}
+@media(min-width:1600px){main{padding-block:38px}.welcome{margin-bottom:38px}.destinations{margin-bottom:38px}}
+@media(max-width:1180px){main{padding-inline:28px}.topbar{padding-inline:22px;gap:20px}.top-actions{gap:13px}.layout{grid-template-columns:200px minmax(0,1fr)}.sidebar{padding-inline:13px}.brand{min-width:176px}.cards{gap:12px}.app-card>img{width:112px;height:96px}.apps-grid{grid-template-columns:1fr 1fr}.app-card{gap:12px;padding:15px}.welcome h1{font-size:34px}.welcome{gap:18px}.resource-strip{align-items:flex-start;flex-direction:column}}
+@media(max-width:960px){.layout{grid-template-columns:176px minmax(0,1fr)}.brand{min-width:0}.brand strong{font-size:14px}.top-actions>a:first-child{display:none}.search kbd{display:none}.topbar{gap:18px}.welcome{grid-template-columns:1fr}.welcome-aside{display:none}.cards{grid-template-columns:repeat(2,minmax(0,1fr))}.apps-grid{grid-template-columns:1fr}.app-card>img{width:142px;height:100px}.destinations{gap:12px}.destination{padding:19px}.destination p{padding-right:0}.top-actions{gap:8px}.top-actions .account{font-size:12px}}
+@media(max-width:700px){.topbar{height:auto;min-height:70px;flex-wrap:wrap;padding:14px 18px;gap:12px}.brand{flex:1}.brand strong{font-size:15px}.brand small{font-size:11px}.menu-toggle{display:grid;place-items:center}.top-actions{margin-left:0}.top-actions .account{border:0;padding:8px}.account span{display:none}.top-actions .account svg{width:19px;height:19px}.search{order:4;max-width:none;padding:9px 11px}.layout{display:block;min-height:0}.sidebar{display:none;padding:18px;background:#eef1e8;border-bottom:1px solid var(--line);border-right:0;gap:20px}.sidebar.open{display:flex}.sidebar-tip,.review-note{display:none}.sidebar-label{margin-bottom:6px}.sidebar-links{grid-template-columns:repeat(2,1fr)}main{padding:20px 18px}.breadcrumb{margin-bottom:24px;font-size:11px}.page-note{font-size:10px}.welcome h1{font-size:30px;letter-spacing:-.85px}.welcome p{font-size:14px}.welcome{margin-bottom:23px}.destinations{grid-template-columns:1fr;gap:12px;margin-bottom:26px}.destination{padding:20px}.destination h2{font-size:22px}.destination-top{margin-bottom:9px}.destination-action{margin-top:14px}.section-head{margin-bottom:13px}.section-title h2{font-size:18px}.section-head>button{font-size:12px;gap:7px}.section-title{gap:7px}.cards{gap:12px}.card-picture{padding:8px 8px 0}.card-content{padding:12px}.card-title-row h3{font-size:16px}.card-content p{font-size:12px}.card-footer{padding:8px 12px;flex-wrap:wrap;line-height:1.5}.card-footer b{margin-left:0;width:100%}.pill{font-size:9px}.resource-strip{padding:17px}.footer{font-size:10px;flex-direction:column;gap:11px}.preview-banner{font-size:10px}.dialog-body{padding:20px}.dialog-body h2{font-size:23px}}
+@media(max-width:420px){.cards{grid-template-columns:1fr}.card-picture{aspect-ratio:16/9;padding:12px 12px 0}.card-content{padding:16px}.card-content p{font-size:13px}.card-title-row h3{font-size:18px}.card-footer{padding:9px 16px}.card-footer b{width:auto;margin-left:auto}.app-card>img{width:100px;height:92px}.app-card h3{font-size:16px}.app-card p{font-size:12px}.section-head{gap:6px}.pill{display:none}}
+@media(prefers-reduced-motion:no-preference){.welcome{animation:arrive .35s ease both}.destinations{animation:arrive .45s .05s ease both}.section{animation:arrive .45s .08s ease both}@keyframes arrive{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}}
+@media(prefers-reduced-motion:reduce){*,*:before,*:after{scroll-behavior:auto!important;animation:none!important;transition:none!important}.demo-card:hover{transform:none}}
+[data-theme=dark]{color-scheme:dark;--paper:#0b100e;--white:#111a16;--ink:#e7eee9;--muted:#94a29a;--line:#28342e;--green:#75c5a2;--green-soft:#14231c;--orange:#efa078;--orange-soft:#281b16;--shadow:0 16px 45px #0006}
+[data-theme=dark] body{background:radial-gradient(circle at 76% -15%,#173126 0,transparent 34%),var(--paper)}
+[data-theme=dark] .topbar{background:#0e1612;border-color:var(--line)}
+[data-theme=dark] .brand-mark{background:#74c4a1;color:#09100d;box-shadow:0 0 0 1px #a3e4c233,0 8px 25px #3b9b7430}
+[data-theme=dark] .search{background:#141e19;border-color:#2b3932;color:#829188}
+[data-theme=dark] .search:focus-within{outline-color:#5b9d82}
+[data-theme=dark] .search kbd{border-color:#35443c;color:#91a198;background:#0e1612}
+[data-theme=dark] .theme-toggle,[data-theme=dark] .account,[data-theme=dark] .menu-toggle{background:#141e19;border-color:#334139;color:#dfe9e3}
+[data-theme=dark] .theme-sun{display:block}[data-theme=dark] .theme-moon{display:none}
+[data-theme=dark] .preview-banner{background:#101d17;color:#91b7a5;border-color:#23342c}
+[data-theme=dark] .sidebar{background:#0d1512;border-color:var(--line)}
+[data-theme=dark] .nav-button,[data-theme=dark] .sidebar-links a{color:#9caaa2;text-decoration:none}
+[data-theme=dark] .nav-button:hover,[data-theme=dark] .sidebar-links a:hover{background:#15211b;color:#dce7e0}
+[data-theme=dark] .nav-button[aria-current=page]{background:#18251f;border-color:#30443a;color:#8cd2b3;box-shadow:inset 3px 0 #75c5a2}
+[data-theme=dark] .sidebar-tip{border-color:#354035;background:linear-gradient(145deg,#172019,#1d1914)}
+[data-theme=dark] .sidebar-tip p,[data-theme=dark] .review-note{color:#849188}
+[data-theme=dark] .breadcrumb,[data-theme=dark] .breadcrumb button{color:#839188}
+[data-theme=dark] .breadcrumb span:last-child{color:#b9c8bf}
+[data-theme=dark] .welcome-aside{border-color:#344139}
+[data-theme=dark] .destination{background:linear-gradient(145deg,#14251e,#111b17);border-color:#294338}
+[data-theme=dark] .destination.apps{background:linear-gradient(145deg,#291c17,#181411);border-color:#4b3328}
+[data-theme=dark] .destination:hover{border-color:#5b9078}[data-theme=dark] .destination.apps:hover{border-color:#a96f53}
+[data-theme=dark] .destination-icon{background:#1a2b23;border-color:#365044}[data-theme=dark] .apps .destination-icon{background:#32221b;border-color:#5c3d2f}
+[data-theme=dark] .destination p{color:#91a399}[data-theme=dark] .apps p{color:#b29a8d}
+[data-theme=dark] .destination-action span:last-child{border-color:#426453}[data-theme=dark] .apps .destination-action span:last-child{border-color:#744d3b}
+[data-theme=dark] .pill{border-color:#33483c;color:#8eb49f}[data-theme=dark] .pill.warm{border-color:#593b2f;color:#d79777}
+[data-theme=dark] .demo-card,[data-theme=dark] .app-card{background:#111a16;border-color:#29362f}
+[data-theme=dark] .demo-card:hover{border-color:#4e7965}[data-theme=dark] .app-card:hover{border-color:#855942}
+[data-theme=dark] .card-picture{background:#17241e;border-color:#293931}
+[data-theme=dark] .card-picture img{background:#0d1411;border-color:#34463d}
+[data-theme=dark] .card-footer{border-color:#243029;color:#819087}
+[data-theme=dark] .app-card>img{background:#241a16}
+[data-theme=dark] .resource-strip{background:#101914;border-color:#2a3730}
+[data-theme=dark] .resource-links a,[data-theme=dark] .empty button{background:#17221d;border-color:#35463d;color:#b8cec2}
+[data-theme=dark] .filter-row button{border-color:#34433b;color:#a8b7ae}[data-theme=dark] .filter-row button:hover{border-color:#66957f}[data-theme=dark] .filter-row button[aria-pressed=true]{color:#09110d}
+[data-theme=dark] .empty{background:#101914;border-color:#3a4b42}
+[data-theme=dark] dialog{background:#101814;border-color:#34443b;box-shadow:0 35px 100px #000b}
+[data-theme=dark] dialog::backdrop{background:#020705cc}
+[data-theme=dark] .dialog-top{background:#151f1a;border-color:#2d3b34}
+[data-theme=dark] .close{background:#1b2721;border-color:#3a4b42}
+[data-theme=dark] .dialog-image{background:#0b110e}
+[data-theme=dark] .detail-tags span{background:#1a2921;color:#9cc1ae}
+[data-theme=dark] .launch{color:#08100c}[data-theme=dark] .launch:hover{background:#8ad5b4}
+@media(max-width:700px){[data-theme=dark] .sidebar{background:#0d1512}.top-actions .text-link{display:none}.theme-label{display:none}.theme-toggle{padding:9px}}
+</style>
 </head>
-<body class="hub-home">
-<a class="skip-link" href="#main">Skip to content</a>
-
-<header class="site-header" id="siteHeader">
-    <div class="wrap site-header__inner">
-        <a class="brand" href="/messaging-platform/hub/" aria-label="Messaging Platform Hub home">
-            <svg class="logo-mark" aria-hidden="true"><use href="#i-logo"></use></svg>
-            <span>Messaging Platform Hub</span>
-        </a>
-        <button class="btn btn--ghost btn--icon nav-toggle" id="navToggle" type="button" aria-expanded="false" aria-controls="siteNav" aria-label="Open menu">
-            <svg class="icon" aria-hidden="true"><use href="#i-menu"></use></svg>
-        </button>
-        <nav class="site-nav" id="siteNav" aria-label="Main">
-            <a href="/messaging-platform/hub/" aria-current="page">Hub</a>
-            <a href="/messaging-platform/apps/">Apps</a>
-            <a href="/messaging-platform/apps/party-arcade/">Arcade</a>
-            <a href="/messaging-platform/hub/docs.html">Docs</a>
-            <a class="btn btn--gradient" href="/messaging-platform/hub/sdk-guide.html">Build with the SDK</a>
-        </nav>
-    </div>
+<body>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true"><defs>
+<symbol id="i-hub" viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="2"/><rect x="14" y="3" width="7" height="7" rx="2"/><rect x="3" y="14" width="7" height="7" rx="2"/><rect x="14" y="14" width="7" height="7" rx="2"/></symbol>
+<symbol id="i-demo" viewBox="0 0 24 24"><path d="m8 5-6 7 6 7m8-14 6 7-6 7m-3-16-2 18"/></symbol>
+<symbol id="i-app" viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="16" rx="3"/><path d="M3 10h18M8 5V3m8 2V3"/></symbol>
+<symbol id="i-search" viewBox="0 0 24 24"><circle cx="10.5" cy="10.5" r="6.5"/><path d="m16 16 5 5"/></symbol>
+<symbol id="i-user" viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4 21v-2a8 8 0 0 1 16 0v2"/></symbol>
+<symbol id="i-menu" viewBox="0 0 24 24"><path d="M4 6h16M4 12h16M4 18h16"/></symbol>
+<symbol id="i-close" viewBox="0 0 24 24"><path d="m6 6 12 12M6 18 18 6"/></symbol>
+<symbol id="i-book" viewBox="0 0 24 24"><path d="M12 5C8 2 3 3 3 3v16s5-1 9 2c4-3 9-2 9-2V3s-5-1-9 2Zm0 0v16"/></symbol>
+<symbol id="i-sun" viewBox="0 0 24 24"><circle cx="12" cy="12" r="4"/><path d="M12 2v2m0 16v2M4.9 4.9l1.4 1.4m11.4 11.4 1.4 1.4M2 12h2m16 0h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></symbol>
+<symbol id="i-moon" viewBox="0 0 24 24"><path d="M20 15.1A8.5 8.5 0 0 1 8.9 4a8.5 8.5 0 1 0 11.1 11.1Z"/></symbol>
+</defs></svg>
+<a class="skip" href="#main">Skip to content</a>
+<header class="topbar">
+<a class="brand" href="#overview" aria-label="Messaging Platform Hub overview"><span class="brand-mark"><svg aria-hidden="true"><use href="#i-hub"/></svg></span><span><strong>Messaging Platform</strong><small>Hub &amp; developer playground</small></span></a>
+<label class="search"><svg aria-hidden="true"><use href="#i-search"/></svg><span class="screen-reader">Search demos and apps</span><input id="search" type="search" placeholder="Search demos and apps..." autocomplete="off"><button type="button" id="clear-search" class="search-clear" aria-label="Clear search" hidden>&times;</button><kbd aria-hidden="true">Ctrl K</kbd></label>
+<div class="top-actions"><button class="theme-toggle" id="theme-toggle" type="button"><svg class="theme-sun" aria-hidden="true"><use href="#i-sun"/></svg><svg class="theme-moon" aria-hidden="true"><use href="#i-moon"/></svg><span class="theme-label" id="theme-label">Light mode</span></button><a class="text-link" href="https://hmdevonline.com/messaging-platform/hub/docs.html" target="_blank" rel="noopener">Documentation &nearr;</a><a class="account" href="https://hmdevonline.com/messaging-platform/profile.html" target="_blank" rel="noopener" aria-label="Platform account (opens live site)"><svg aria-hidden="true"><use href="#i-user"/></svg><span>Platform account</span></a></div>
+<button class="menu-toggle" id="menu-toggle" type="button" aria-expanded="false" aria-controls="sidebar" aria-label="Open navigation"><svg aria-hidden="true"><use href="#i-menu"/></svg></button>
 </header>
-
-<main id="main">
-    <section class="hub-hero">
-        <div class="wrap">
-            <div class="hub-hero__copy">
-                <p class="hub-eyebrow">Messaging Platform</p>
-                <h1>Make space for people to <span>work, share and play.</span></h1>
-                <p class="hub-lede">Open a finished app or build your own connected experience. Messaging, presence, shared state and WebRTC live behind one platform.</p>
-                <div class="hub-actions">
-                    <a class="hub-button hub-button--primary" href="/messaging-platform/apps/">Explore apps <svg class="icon" aria-hidden="true"><use href="#i-arrow-right"></use></svg></a>
-                    <a class="hub-text-link" href="/messaging-platform/hub/sdk-guide.html">Start building with the SDK</a>
-                </div>
-            </div>
-
-            <div class="hub-hero__paths" aria-label="Choose where to start">
-                <a href="/messaging-platform/apps/">
-                    <span class="hub-path-number">01 / USE</span>
-                    <h2>Apps for real<br>moments</h2>
-                    <p>Meet, transfer files, run an event or create something together.</p>
-                    <span class="hub-path-link">Browse the app catalog <span aria-hidden="true">&rarr;</span></span>
-                </a>
-                <a href="/messaging-platform/apps/party-arcade/">
-                    <span class="hub-path-number">02 / PLAY</span>
-                    <h2>A whole game<br>night in a link</h2>
-                    <p>Create a private party, share one code and play in the browser.</p>
-                    <span class="hub-path-link">Open Party Arcade <span aria-hidden="true">&rarr;</span></span>
-                </a>
-                <a href="/messaging-platform/hub/sdk-guide.html">
-                    <span class="hub-path-number">03 / BUILD</span>
-                    <h2>One SDK for<br>connected ideas</h2>
-                    <p>Use JavaScript, Java, Python or C++ against the same channel.</p>
-                    <span class="hub-path-link">Read the SDK guide <span aria-hidden="true">&rarr;</span></span>
-                </a>
-            </div>
-        </div>
-    </section>
-
-    <section class="hub-section" id="featured" aria-labelledby="featured-title">
-        <div class="wrap">
-            <div class="hub-section-head">
-                <div>
-                    <p class="hub-eyebrow">Start with a product</p>
-                    <h2 id="featured-title">Useful from the first click.</h2>
-                </div>
-                <a class="hub-text-link" href="/messaging-platform/apps/">See every app <span aria-hidden="true">&rarr;</span></a>
-            </div>
-            <div class="hub-product-grid">
-                <a class="hub-product" href="/messaging-platform/apps/rooms/">
-                    <span class="hub-product__icon"><svg class="icon" aria-hidden="true"><use href="#i-video"></use></svg></span>
-                    <p class="hub-eyebrow">Meet and collaborate</p>
-                    <h3>Room</h3>
-                    <p>Keep faces, conversation, a shared board and live questions in one room.</p>
-                    <span class="hub-product__action">Explore Room <span aria-hidden="true">&rarr;</span></span>
-                </a>
-                <a class="hub-product" href="/messaging-platform/apps/droppro/">
-                    <span class="hub-product__icon"><svg class="icon" aria-hidden="true"><use href="#i-upload"></use></svg></span>
-                    <p class="hub-eyebrow">Share directly</p>
-                    <h3>Drop Pro</h3>
-                    <p>Send a file from one browser to another and verify it on arrival.</p>
-                    <span class="hub-product__action">Explore Drop Pro <span aria-hidden="true">&rarr;</span></span>
-                </a>
-                <a class="hub-product" href="/messaging-platform/apps/coshell/">
-                    <span class="hub-product__icon"><svg class="icon" aria-hidden="true"><use href="#i-terminal"></use></svg></span>
-                    <p class="hub-eyebrow">Solve together</p>
-                    <h3>CoShell</h3>
-                    <p>Work through a problem on the same terminal while the host stays in control.</p>
-                    <span class="hub-product__action">Explore CoShell <span aria-hidden="true">&rarr;</span></span>
-                </a>
-            </div>
-        </div>
-    </section>
-
-    <section class="hub-section hub-arcade" aria-labelledby="arcade-title">
-        <div class="wrap hub-arcade__intro">
-            <div>
-                <p class="hub-eyebrow">Party Arcade</p>
-                <h2 id="arcade-title">One party code.<br>A whole game night.</h2>
-                <p>Twelve browser games spanning arcade action, drawing and strategy. Pick a nickname, create a private party and share the code.</p>
-                <div class="hub-actions">
-                    <a class="hub-button hub-button--primary" href="/messaging-platform/apps/party-arcade/">Play Party Arcade <svg class="icon" aria-hidden="true"><use href="#i-arrow-right"></use></svg></a>
-                    <a class="hub-text-link" href="/messaging-platform/apps/party-arcade/#games">Browse the games</a>
-                </div>
-                <p class="hub-caption">No account required. Touch, mouse and keyboard controls.</p>
-            </div>
-            <a class="hub-arcade__cover" href="/messaging-platform/apps/party-arcade/" aria-label="Open Party Arcade">
-                <img src="/messaging-platform/apps/party-arcade/previews/basketball.png" alt="Street basketball gameplay in Party Arcade" width="1200" height="750" loading="lazy" decoding="async">
-                <span>Twelve games &middot; Play in your browser</span>
-            </a>
-        </div>
-    </section>
-
-    <section class="hub-section hub-build" id="build" aria-labelledby="build-title">
-        <div class="wrap hub-build__grid">
-            <div>
-                <p class="hub-eyebrow">Build on the platform</p>
-                <h2 id="build-title">Your interface.<br>One shared channel.</h2>
-                <p>Connect messaging, presence, channel storage and WebRTC without giving every feature its own service. Start with the SDK guide, then move into the full documentation when you need the details.</p>
-                <div class="hub-actions">
-                    <a class="hub-button hub-button--primary" href="/messaging-platform/hub/sdk-guide.html">Open the SDK guide <svg class="icon" aria-hidden="true"><use href="#i-arrow-right"></use></svg></a>
-                </div>
-            </div>
-            <nav class="hub-resource-list" aria-label="Developer resources">
-                <a href="/messaging-platform/hub/docs.html"><strong>Documentation</strong><span>API concepts, guides and integration details</span></a>
-                <a href="/messaging-platform/hub/developer/index.html"><strong>Developer portal</strong><span>Manage access and temporary browser keys</span></a>
-                <a href="https://github.com/HaithamMubarak/messaging-platform-sdk" target="_blank" rel="noopener noreferrer"><strong>SDK source</strong><span>Review the clients and follow development on GitHub</span></a>
-            </nav>
-        </div>
-    </section>
-
-    <section class="hub-beta">
-        <div class="wrap hub-beta__inner">
-            <div>
-                <p class="hub-eyebrow"><span class="hub-status-dot" aria-hidden="true"></span>Public beta</p>
-                <p>Free for development, testing and prototypes. APIs may change, and production workloads are not recommended yet.</p>
-            </div>
-            <a class="hub-text-link" href="/messaging-platform/apps/status/">View platform status <span aria-hidden="true">&rarr;</span></a>
-        </div>
-    </section>
+<div class="layout">
+<aside class="sidebar" id="sidebar">
+<div><p class="sidebar-label">Discover</p><nav class="nav-list" aria-label="Hub navigation"><a class="nav-button" href="#overview" data-view="overview" aria-current="page"><svg aria-hidden="true"><use href="#i-hub"/></svg>Overview</a><a class="nav-button" href="#demos" data-view="demos"><svg aria-hidden="true"><use href="#i-demo"/></svg>SDK demos<span class="tiny-arrow">&rarr;</span></a><a class="nav-button" href="#apps" data-view="apps"><svg aria-hidden="true"><use href="#i-app"/></svg>Apps<span class="tiny-arrow">&rarr;</span></a></nav></div>
+<div><p class="sidebar-label">For developers</p><nav class="sidebar-links" aria-label="Developer resources"><a href="https://hmdevonline.com/messaging-platform/hub/sdk-guide.html" target="_blank" rel="noopener">SDK guide<span>&nearr;</span></a><a href="https://hmdevonline.com/messaging-platform/hub/docs.html" target="_blank" rel="noopener">Documentation<span>&nearr;</span></a><a href="https://hmdevonline.com/messaging-platform/hub/developer/index.html" target="_blank" rel="noopener">Developer portal<span>&nearr;</span></a></nav></div>
+<div class="sidebar-tip"><svg aria-hidden="true"><use href="#i-book"/></svg><strong>From demo to your app.</strong><p>Find a working example, then use the SDK guide to build your own.</p><a href="https://hmdevonline.com/messaging-platform/hub/sdk-guide.html" target="_blank" rel="noopener">Start with the guide &rarr;</a></div>
+<p class="review-note">Preview collection<br>Connected experiences, in one place.</p>
+</aside>
+<main id="main" tabindex="-1">
+<div class="breadcrumb"><button type="button" id="breadcrumb-home">Platform</button><span>/</span><span id="breadcrumb-current">Overview</span><span class="page-note"><i class="status-dot" aria-hidden="true"></i> Public beta</span></div>
+<section class="welcome" aria-labelledby="page-title"><div><p class="eyebrow" id="page-eyebrow">WELCOME TO THE HUB</p><h1 id="page-title">Explore the platform.<br><em>Find your next starting point.</em></h1><p id="page-description">Try a public SDK demo, discover an app, or start building something of your own.</p></div><aside class="welcome-aside" id="welcome-aside"><strong>One hub, two ways to explore.</strong><p>SDK demos explain how the platform works. Apps bring those capabilities into everyday experiences.</p><a href="https://hmdevonline.com/messaging-platform/hub/sdk-guide.html" target="_blank" rel="noopener">New to the platform? Start here <span>&rarr;</span></a></aside></section>
+<div class="destinations" id="destinations"><a class="destination" href="#demos"><div class="destination-top"><span class="destination-icon"><svg aria-hidden="true"><use href="#i-demo"/></svg></span><small>PLAYGROUND / LEARN &amp; EXPERIMENT</small></div><h2>SDK demos &amp; showcases</h2><p>Public examples for messaging, presence, shared state and more.</p><div class="destination-action"><span>Explore demos</span><span aria-hidden="true">&rarr;</span></div></a><a class="destination apps" href="#apps"><div class="destination-top"><span class="destination-icon"><svg aria-hidden="true"><use href="#i-app"/></svg></span><small>APPS / OPEN &amp; USE</small></div><h2>Apps for real experiences</h2><p>Meet, share, collaborate and play with apps built on the platform.</p><div class="destination-action"><span>Discover apps</span><span aria-hidden="true">&rarr;</span></div></a></div>
+<div class="filter-row" id="filters" role="group" aria-label="Filter collection" hidden></div>
+<p class="results" id="results" role="status" aria-live="polite" hidden></p>
+<section class="section" id="demo-section" aria-labelledby="demo-heading"><div class="section-head"><div class="section-title"><h2 id="demo-heading">Explore SDK demos</h2><span class="pill">Public examples</span></div><button type="button" id="all-demos">View all demos <span>&rarr;</span></button></div><p class="section-caption" id="demo-caption">Working examples. Real screenshots. A useful place to begin.</p><div class="cards" id="demo-grid"></div></section>
+<section class="section" id="apps-section" aria-labelledby="apps-heading"><div class="section-head"><div class="section-title"><h2 id="apps-heading">Built with the platform</h2><span class="pill warm">Apps</span></div><button type="button" id="all-apps">View all apps <span>&rarr;</span></button></div><p class="section-caption">Experiences you can open and use today.</p><div class="apps-grid" id="apps-grid"></div></section>
+<section class="empty" id="empty" hidden><h2>No matches yet</h2><p>Try another name or reset the filters to explore the collection.</p><button id="reset" type="button">Reset search and filters</button></section>
+<div class="resource-strip"><div><strong>Ready to make it your own?</strong><p>Go from a working example to your first integration.</p></div><nav class="resource-links" aria-label="Get started"><a href="https://hmdevonline.com/messaging-platform/hub/sdk-guide.html" target="_blank" rel="noopener">SDK guide &nearr;</a><a href="https://hmdevonline.com/messaging-platform/hub/docs.html" target="_blank" rel="noopener">Read the docs &nearr;</a><a id="full-collection" href="https://hmdevonline.com/messaging-platform/hub/playground.html" target="_blank" rel="noopener">Full Playground &nearr;</a></nav></div>
+<footer class="footer"><p>&copy; 2026 Messaging Platform &middot; SDK demos, apps and developer tools</p><nav aria-label="Footer"><a href="https://hmdevonline.com/messaging-platform/apps/status/" target="_blank" rel="noopener">Status</a><a href="https://hmdevonline.com/messaging-platform/hub/privacy.html" target="_blank" rel="noopener">Privacy</a><a href="https://hmdevonline.com/messaging-platform/hub/terms.html" target="_blank" rel="noopener">Terms</a></nav></footer>
 </main>
-
-<footer class="hub-footer wrap">
-    <p><strong>Messaging Platform Hub</strong><span>Connected apps and tools for building your own.</span></p>
-    <nav aria-label="Footer">
-        <a href="/messaging-platform/apps/">Apps</a>
-        <a href="/messaging-platform/hub/sdk-guide.html">SDK guide</a>
-        <a href="/messaging-platform/hub/docs.html">Documentation</a>
-        <a href="/messaging-platform/hub/privacy.html">Privacy</a>
-        <a href="/messaging-platform/hub/terms.html">Terms</a>
-    </nav>
-</footer>
-
-<script src="js/app-chrome.js"></script>
-<script src="js/mp-account.js"></script>
-<script src="js/profile-chip.js"></script>
+</div>
+<dialog id="detail" aria-labelledby="detail-title"><div class="dialog-top"><span id="detail-kind"></span><button type="button" class="close" id="close-detail" aria-label="Close details"><svg aria-hidden="true"><use href="#i-close"/></svg></button></div><img class="dialog-image" id="detail-image" alt=""><div class="dialog-body"><h2 id="detail-title"></h2><p id="detail-description"></p><div class="detail-tags" id="detail-tags"></div><div class="dialog-actions"><a class="launch" id="detail-launch" target="_blank" rel="noopener">Open experience &nearr;</a><a class="detail-guide" id="detail-guide" target="_blank" rel="noopener">Read more</a></div><p class="dialog-note">Opens the existing live experience in a new tab.</p></div></dialog>
+<script>
+const site='https://hmdevonline.com/messaging-platform/';
+const demos=[
+{id:'whiteboard',name:'Shared Whiteboard',description:'Draw together and see every stroke appear across the room.',detail:'Explore shared drawing, presence and encrypted board storage. Create a board, share the room link and try it with another browser.',tags:['Messaging','Storage'],access:'Try solo',image:'whiteboard.webp',path:'whiteboard/app.html',guide:'whiteboard/index.html'},
+{id:'pulse',name:'Pulse',description:'Live polls and questions, with a history of every response.',detail:'Try a live poll or collect questions in a shared room. Pulse demonstrates broadcast messages, participant presence and versioned results.',tags:['Messaging','Presence'],access:'Try solo',image:'pulse.webp',path:'pulse/index.html',guide:'pulse/index.html'},
+{id:'under-the-hood',name:'Under the Hood',description:'See who is connected and how messages travel between them.',detail:'A technical showcase of participant presence, host election and relay topology. Open it with a second participant to watch the network respond.',tags:['Presence','WebRTC'],access:'Bring a friend',image:'under-the-hood.webp',path:'under-the-hood/app.html',guide:'under-the-hood/index.html'},
+{id:'evidence-chain',name:'Evidence Chain',description:'Follow ordered records, signed receipts and verification.',detail:'Explore stored records with signed receipts and version history. The showcase demonstrates how to inspect a chain and verify its contents.',tags:['Storage'],access:'Try solo',image:'evidence-chain.webp',path:'evidence-chain/app.html',guide:'evidence-chain/index.html'},
+{id:'rewind',name:'Rewind',description:'Move through saved states of a shared whiteboard session.',detail:'Inspect the history of a board through its saved versions. Start with a whiteboard session, save changes, then explore those states in Rewind.',tags:['Storage'],access:'Try solo',image:'rewind.webp',path:'rewind/app.html',guide:'rewind/index.html'},
+{id:'dead-drop',name:'Dead Drop',description:'Leave encrypted notes or files for someone to collect later.',detail:'A public example of asynchronous collaboration using encrypted channel storage. The recipient uses the shared link to collect content later.',tags:['Storage','Messaging'],access:'Try solo',image:'dead-drop.webp',path:'dead-drop/app.html',guide:'dead-drop/index.html'}
+].map(x=>({...x,type:'demo',image:'img/playground/'+x.image,url:site+'sdk/apps/'+x.path,guide:site+'sdk/apps/'+x.guide}));
+const apps=[
+{id:'party-arcade',name:'Party Arcade',description:'One private party code. Twelve browser games.',detail:'Create a party with your nickname and invite friends using its code. Browse 12 games, with mouse, keyboard or touch controls and AI players in supported games. Player counts vary by game.',tags:['Play'],label:'Games for your next get-together',image:'/messaging-platform/apps/party-arcade/previews/basketball.png',url:site+'apps/party-arcade/',guide:site+'apps/party-arcade/'},
+{id:'rooms',name:'Room',description:'Calls, screen sharing and a space to work together.',detail:'A browser-based room for meeting and collaboration. Explore the app introduction for its calling, screen-sharing and shared-workspace features.',tags:['Meet'],label:'Make space for your people',image:'img/playground/rooms.webp',url:site+'apps/rooms/',guide:site+'apps/rooms/'},
+{id:'droppro',name:'Drop Pro',description:'A focused browser experience for sharing files.',detail:'Explore Drop Pro, a file-sharing app built on the Messaging Platform. Open its product page to see the workflow and start a transfer.',tags:['Share'],label:'File sharing',image:'img/playground/drop-pro.webp',url:site+'apps/droppro/',guide:site+'apps/droppro/'},
+{id:'coshell',name:'CoShell',description:'A shared terminal experience for working together.',detail:'Explore a collaborative terminal experience. Its product page explains the available workflow before you open the app.',tags:['Collaborate'],label:'Work together',image:'img/playground/shared-terminal.webp',url:site+'apps/coshell/',guide:site+'apps/coshell/'}
+].map(x=>({...x,type:'app'}));
+const collection=[...demos,...apps],$=id=>document.getElementById(id);
+const themeToggle=$('theme-toggle');
+function syncTheme(){const dark=document.documentElement.dataset.theme==='dark';themeToggle.setAttribute('aria-label',dark?'Switch to light mode':'Switch to dark mode');themeToggle.title=dark?'Switch to light mode':'Switch to dark mode';$('theme-label').textContent=dark?'Light mode':'Dark mode';}
+themeToggle.onclick=()=>{const next=document.documentElement.dataset.theme==='dark'?'light':'dark';document.documentElement.dataset.theme=next;try{localStorage.setItem('hub-theme',next)}catch(e){}syncTheme();};
+syncTheme();
+let view='overview',category='All',opener;
+const labels={overview:'Overview',demos:'SDK demos',apps:'Apps'};
+function node(tag,cls,text){const n=document.createElement(tag);if(cls)n.className=cls;if(text!==undefined)n.textContent=text;return n;}
+function picture(item){const img=node('img');img.src=item.image;img.alt=item.name+' screenshot';img.loading='lazy';img.width=960;img.height=600;return img;}
+function card(item){const b=node('button',item.type==='demo'?'demo-card':'app-card');b.type='button';b.setAttribute('aria-label','View '+item.name+' details');
+if(item.type==='demo'){const frame=node('div','card-picture');frame.append(picture(item));b.append(frame);const body=node('div','card-content'),row=node('div','card-title-row');row.append(node('h3','',item.name),node('span','','↗'));body.append(row,node('p','',item.description));const foot=node('div','card-footer');item.tags.forEach(t=>foot.append(node('span','',t)));foot.append(node('b','',item.access));b.append(body,foot);}
+else{b.append(picture(item));const body=node('div');body.append(node('div','app-label',item.label),node('h3','',item.name),node('p','',item.description),node('span','app-link','Explore app →'));b.append(body);}b.addEventListener('click',()=>openDetail(item,b));return b;}
+function openDetail(item,button){opener=button;$('detail-kind').textContent=item.type==='demo'?'Playground / Public SDK demo':'Apps / Product';$('detail-title').textContent=item.name;$('detail-description').textContent=item.detail;$('detail-image').src=item.image;$('detail-image').alt=item.name+' screenshot';$('detail-tags').replaceChildren(...item.tags.map(t=>node('span','',t)));$('detail-launch').href=item.url;$('detail-launch').textContent=(item.type==='demo'?'Launch demo':'Open app')+' ↗';$('detail-guide').href=item.type==='demo'?item.guide:site+'apps/';$('detail-guide').textContent=item.type==='demo'?'About this demo':'Explore all apps';$('detail').showModal();$('close-detail').focus();}
+function closeMenu(){const toggle=$('menu-toggle');$('sidebar').classList.remove('open');toggle.setAttribute('aria-expanded','false');toggle.setAttribute('aria-label','Open navigation');}
+function filterButtons(){const choices=view==='demos'?['All','Messaging','Presence','Storage','WebRTC']:['All','Play','Meet','Share','Collaborate'];$('filters').replaceChildren(...choices.map(t=>{const b=node('button','',t);b.type='button';b.setAttribute('aria-pressed',String(t===category));b.onclick=()=>{category=t;render();};return b;}));}
+function render(){const query=$('search').value.trim().toLowerCase(),searching=!!query;$('clear-search').hidden=!searching;$('destinations').hidden=view!=='overview'||searching;$('welcome-aside').hidden=view!=='overview';$('filters').hidden=view==='overview';filterButtons();
+const match=item=>(category==='All'||item.tags.includes(category))&&(!query||[item.name,item.description,...item.tags].join(' ').toLowerCase().includes(query));
+const demoItems=view==='apps'?[]:demos.filter(match),appItems=view==='demos'?[]:apps.filter(match);
+const shownDemos=view==='overview'&&!searching?demoItems.slice(0,3):demoItems,shownApps=view==='overview'&&!searching?appItems.slice(0,2):appItems;
+$('demo-grid').replaceChildren(...shownDemos.map(card));$('apps-grid').replaceChildren(...shownApps.map(card));$('demo-section').hidden=!shownDemos.length;$('apps-section').hidden=!shownApps.length;$('all-demos').hidden=view==='demos'||searching;$('all-apps').hidden=view==='apps'||searching;$('empty').hidden=shownDemos.length+shownApps.length>0;
+$('results').hidden=!searching&&view==='overview';$('results').textContent=(demoItems.length+appItems.length)+(view==='overview'?' matching experiences in this preview':view==='demos'?' public demos in this preview':' featured apps in this preview')+(searching?' for “'+$('search').value.trim()+'”':'');
+$('full-collection').href=site+(view==='apps'?'apps/':'hub/playground.html');$('full-collection').textContent=view==='apps'?'Full app catalogue ↗':'Full Playground ↗';}
+function changeView(){const next=location.hash.slice(1);view=Object.hasOwn(labels,next)?next:'overview';category='All';$('breadcrumb-current').textContent=labels[view];document.querySelectorAll('[data-view]').forEach(a=>{if(a.dataset.view===view)a.setAttribute('aria-current','page');else a.removeAttribute('aria-current');});
+const copy={overview:['WELCOME TO THE HUB','Explore the platform.','Find your next starting point.','Try a public SDK demo, discover an app, or start building something of your own.'],demos:['PLAYGROUND / PUBLIC EXAMPLES','Learn by trying.','Explore the SDK in action.','Browse working examples by capability. Preview a demo, learn what it shows, then open the live experience.'],apps:['BUILT WITH MESSAGING PLATFORM','Find an app.','Make something happen together.','Meet, share, collaborate and play. Explore a product, then open its live experience.']}[view];$('page-eyebrow').textContent=copy[0];$('page-title').replaceChildren(document.createTextNode(copy[1]),document.createElement('br'),node('em','',copy[2]));$('page-description').textContent=copy[3];closeMenu();render();window.scrollTo({top:0,behavior:'instant'});}
+function go(to){if(location.hash==='#'+to){changeView();return;}location.hash=to;}
+$('all-demos').onclick=()=>go('demos');$('all-apps').onclick=()=>go('apps');$('breadcrumb-home').onclick=()=>go('overview');$('search').addEventListener('input',render);$('clear-search').onclick=()=>{$('search').value='';render();$('search').focus();};$('reset').onclick=()=>{$('search').value='';category='All';render();};$('close-detail').onclick=()=>$('detail').close();$('detail').addEventListener('close',()=>{if(opener?.isConnected)opener.focus();});$('detail').addEventListener('click',e=>{if(e.target!==$('detail'))return;const r=$('detail').getBoundingClientRect();if(e.clientX<r.left||e.clientX>r.right||e.clientY<r.top||e.clientY>r.bottom)$('detail').close();});
+$('menu-toggle').onclick=()=>{const open=$('sidebar').classList.toggle('open');$('menu-toggle').setAttribute('aria-expanded',String(open));$('menu-toggle').setAttribute('aria-label',open?'Close navigation':'Open navigation');};
+document.addEventListener('keydown',e=>{if((e.ctrlKey||e.metaKey)&&e.key.toLowerCase()==='k'&&!$('detail').open){e.preventDefault();$('search').focus();}if(e.key==='Escape'&&!$('detail').open&&$('sidebar').classList.contains('open')){closeMenu();$('menu-toggle').focus();}});
+window.addEventListener('hashchange',changeView);changeView();
+</script>
 </body>
 </html>
+

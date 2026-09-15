@@ -276,6 +276,19 @@
                 .then(function (d) { return d && d.assertion ? d.assertion : null; });
         },
 
+        /**
+         * A single-use proof for a privileged portal. Unlike linkAssertion(),
+         * Rooms issues this only to an account with a verified Google identity.
+         */
+        googleLoginAssertion: function () {
+            if (!token()) return Promise.reject(new Error('Complete Google sign-in first.'));
+            return call('/auth/google-login-assertion', { method: 'POST' })
+                .then(function (d) {
+                    if (!d || !d.assertion) throw new Error('Google sign-in could not be verified.');
+                    return d.assertion;
+                });
+        },
+
         /** Adopt a session minted elsewhere (the Google callback). */
         adoptToken: function (t) { setToken(t); },
 

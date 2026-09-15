@@ -10,6 +10,9 @@
         const errorBox = document.getElementById('loginError');
         const errorText = document.getElementById('loginErrorText');
         const reveal = document.getElementById('revealPassword');
+        const googleButton = document.getElementById('googleLoginBtn');
+        const googleStatus = document.getElementById('googleStatus');
+        const query = new URLSearchParams(window.location.search);
 
         if (new URLSearchParams(window.location.search).get('expired')) {
             showError('Your session expired. Please sign in again.');
@@ -41,6 +44,44 @@
         function showError(message) {
             errorText.textContent = message;
             errorBox.hidden = false;
+        }
+
+        function clearGoogleReturn() {
+            const url = new URL(window.location.href);
+            url.searchParams.delete('google');
+            history.replaceState(null, '', url.pathname + url.search);
+        }
+
+        async function completeGoogleLogin() {
+            errorBox.hidden = true;
+            googleButton.hidden = false;
+            googleStatus.textContent = 'Verifying your developer access...';
+            googleButton.disabled = true;
+            try {
+                const assertion = await MPAccount.googleLoginAssertion();
+                await DeveloperAPI.loginWithGoogle(assertion);
+                googleStatus.textContent = 'Access verified. Opening your workspace...';
+                window.location.replace('dashboard.html');
+            } catch (err) {
+                googleStatus.textContent = '';
+                googleButton.disabled = false;
+                clearGoogleReturn();
+                showError(err.message || 'Google sign-in could not be completed.');
+            }
+        }
+
+        googleButton.addEventListener('click', function () {
+            googleStatus.textContent = 'Opening Google sign-in...';
+            const returnTo = window.location.pathname + '?google=1';
+            window.location.assign(MPAccount.googleStartUrl(returnTo));
+        });
+
+        MPAccount.googleAvailable().then(function (available) {
+            googleButton.hidden = !available;
+        });
+
+        if (query.get('google') === '1') {
+            completeGoogleLogin();
         }
 
         [email, password].forEach((input) => {

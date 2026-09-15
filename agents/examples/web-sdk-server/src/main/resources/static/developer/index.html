@@ -23,27 +23,45 @@
     <script src="../js/icons.js" defer></script>
     <script src="../js/ui.js" defer></script>
     <script src="../js/api-config.js" defer></script>
+    <script src="../js/mp-account.js" defer></script>
     <script src="js/developer-api.js" defer></script>
     <script src="js/login.js" defer></script>
 </head>
 <body>
 <a class="skip-link" href="#main">Skip to content</a>
 <main class="auth" id="main">
-    <div class="auth__card">
-        <a class="auth__brand" href="../index.html">
-            <svg class="logo-mark" aria-hidden="true"><use href="#i-logo"></use></svg>
-            Messaging Platform Hub
-        </a>
+    <div class="auth-shell">
+        <section class="auth__story" aria-labelledby="portalTitle">
+            <a class="auth__brand" href="../hub.html">
+                <svg class="logo-mark" aria-hidden="true"><use href="#i-logo"></use></svg>
+                Messaging Platform Hub
+            </a>
+            <p class="auth__eyebrow">Developer workspace</p>
+            <h1 id="portalTitle">Build, observe, and ship from one focused console.</h1>
+            <p class="auth__lead">Your keys, channels, usage, integration tools, and account settings stay together.</p>
+            <ul class="auth__benefits">
+                <li><span aria-hidden="true">01</span><strong>Operate safely</strong> with scoped sessions and visible usage.</li>
+                <li><span aria-hidden="true">02</span><strong>Move faster</strong> from API key to live channel inspection.</li>
+                <li><span aria-hidden="true">03</span><strong>Stay connected</strong> to docs, demos, and the Hub.</li>
+            </ul>
+            <nav class="auth__links" aria-label="Developer resources">
+                <a href="../docs.html">Documentation</a>
+                <a href="../playground.html">Playground</a>
+                <a href="../hub.html">Hub</a>
+            </nav>
+        </section>
 
-        <h1>Developer Portal</h1>
-        <p>Manage your API keys, channels and usage.</p>
-        <p class="auth__aside">
-            This is your <strong>Developer Portal account</strong>. It is separate from
-            the <a href="/messaging-platform/profile.html">Platform account</a> that saves
-            your channels, and they stay separate accounts &mdash; signing in here does not
-            sign you in there. If you hold both, you can link them from Settings once
-            you are in, which records that they are the same person and nothing more.
-        </p>
+        <section class="auth__card" aria-labelledby="signInTitle">
+            <span class="auth__kicker">Secure developer access</span>
+            <h2 id="signInTitle">Welcome back</h2>
+            <p>Use your verified Google identity or your developer credentials.</p>
+
+            <button type="button" class="auth__google" id="googleLoginBtn" hidden>
+                <span class="auth__google-mark" aria-hidden="true">G</span>
+                Continue with Google
+            </button>
+            <p class="auth__google-status" id="googleStatus" role="status" aria-live="polite"></p>
+            <div class="auth__divider"><span>or use email</span></div>
 
         <form id="loginForm" novalidate>
             <div class="field">
@@ -72,10 +90,15 @@
             <button type="submit" class="btn btn--primary btn--block" id="loginBtn">Sign in</button>
         </form>
 
+        <p class="auth__aside">
+            Google must match an existing Developer Portal email. It proves who you are;
+            it does not create a tenant or grant new access.
+        </p>
         <div class="auth__footer">
             Don't have an account yet?
             <a href="../index.html#start">Request a free API key</a>
         </div>
+        </section>
     </div>
 </main>
 </body>

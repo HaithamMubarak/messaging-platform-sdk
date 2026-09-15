@@ -14,6 +14,51 @@
     var busy = {};
     var el = function (id) { return document.getElementById(id); };
 
+    function channelKey(row) {
+        return JSON.stringify([row && typeof row.name === 'string' ? row.name : '', row && row.password ? row.password : '']);
+    }
+
+    function compareChannelLists(localRows, driveRows) {
+        var localBuckets = {};
+        (localRows || []).forEach(function (row) {
+            if (!row || typeof row.name !== 'string') return;
+            var key = channelKey(row);
+            localBuckets[key] = (localBuckets[key] || 0) + 1;
+        });
+
+        var localOnly = 0;
+        var remoteOnly = 0;
+        var invalid = 0;
+        var matched = 0;
+
+        (driveRows || []).forEach(function (row) {
+            if (!row || typeof row.name !== 'string') {
+                invalid++;
+                return;
+            }
+            var key = channelKey(row);
+            if ((localBuckets[key] || 0) > 0) {
+                localBuckets[key] -= 1;
+                matched++;
+            } else {
+                remoteOnly++;
+            }
+        });
+
+        Object.keys(localBuckets).forEach(function (key) {
+            if (localBuckets[key] > 0) localOnly += localBuckets[key];
+        });
+
+        return {
+            localCount: (localRows && localRows.length) || 0,
+            remoteCount: (driveRows || []).length,
+            matched: matched,
+            localOnly: localOnly,
+            remoteOnly: remoteOnly,
+            invalid: invalid
+        };
+    }
+
     function withCurrentAccount(work) {
         return A.me(true).then(function (user) {
             var current = A.idOf(user);
@@ -254,6 +299,7 @@
             if (window.ActiveChannel) window.ActiveChannel.clear(leaving);
             showDriveButtons(false);
             el('pDriveNote').hidden = true;
+            el('pDriveVerifyNote').hidden = true;
             show(false);
             if (window.ProfileChip) window.ProfileChip.render(null);
         });
@@ -385,7 +431,14 @@
     function showDriveButtons(connected) {
         el('pDriveBackup').hidden = !connected;
         el('pDriveRestore').hidden = !connected;
+        el('pDriveVerify').hidden = !connected;
         el('pDriveConnect').textContent = connected ? 'Reconnect Google Drive' : 'Connect Google Drive';
+    }
+
+    function setDriveVerifyNote(text) {
+        var n = el('pDriveVerifyNote');
+        n.hidden = false;
+        n.textContent = text;
     }
 
     if (window.DriveBackup) {
@@ -468,6 +521,47 @@
                 driveNote(r.added + ' restored, ' + r.updated + ' profile name(s) filled, '
                     + r.skipped + ' already here, ' + r.invalid + ' invalid.');
             }).catch(function (e) { driveNote(e.message); });
+            }); });
+        });
+
+        el('pDriveVerify').addEventListener('click', function () {
+            singleFlight('driveVerify', ['pDriveVerify'], function () { return withCurrentAccount(function (id) {
+                var localRows = K.list(id);
+                var summary = [
+                    'Checking Google Drive backup and decrypting with your account key…',
+                    'Local storage encrypted: ' + (K.isEncrypted(id) ? 'yes' : 'not yet')
+                ].join('\n');
+                setDriveVerifyNote(summary);
+
+                return Promise.all([window.DriveBackup.get(), A.exportKey()]).then(function (both) {
+                    var remote = both[0];
+                    if (!remote) {
+                        setDriveVerifyNote('No backup found in Google Drive for this account.');
+                        return null;
+                    }
+                    return window.KeyringFile.read(remote, both[1], id).then(function (data) {
+                        var channels = (data && data.channels) || [];
+                        var verify = compareChannelLists(localRows, channels);
+                        var created = data.createdAt ? new Date(data.createdAt).toLocaleString() : null;
+                        var suffix = [];
+                        if (verify.invalid) suffix.push(verify.invalid + ' invalid channel row(s) in backup');
+                        if (verify.localOnly) suffix.push(verify.localOnly + ' local-only channel(s)');
+                        if (verify.remoteOnly) suffix.push(verify.remoteOnly + ' remote-only channel(s)');
+                        var status = verify.localOnly === 0 && verify.remoteOnly === 0 && verify.invalid === 0
+                            ? 'Verification: local list and Drive backup match exactly for saved rooms.'
+                            : 'Verification: lists differ between this device and Drive backup.';
+                        var details = [
+                            'Drive backup decrypt: success.',
+                            'Drive backup channels: ' + verify.remoteCount,
+                            'Local channels: ' + verify.localCount,
+                            'Matches: ' + verify.matched,
+                            'Format: v' + (data.version || 1),
+                            'Owner account id: ' + (data.accountId || '(not present)'),
+                            created ? ('Created: ' + created) : ''
+                        ].concat(suffix.length ? ['Issues: ' + suffix.join(', ')] : []);
+                        setDriveVerifyNote(status + ' ' + details.filter(Boolean).join(' · ') );
+                    });
+                });
             }); });
         });
     }

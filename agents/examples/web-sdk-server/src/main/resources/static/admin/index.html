@@ -22,6 +22,7 @@
     <script src="../js/icons.js" defer></script>
     <script src="../js/ui.js" defer></script>
     <script src="../js/api-config.js" defer></script>
+    <script src="../js/mp-account.js" defer></script>
     <script src="js/admin.js" defer></script>
     <script src="js/login.js" defer></script>
 </head>
@@ -30,19 +31,35 @@
 <div class="privilege-rail" aria-hidden="true"></div>
 
 <main class="auth" id="main">
-    <div class="auth__card">
-        <div class="auth__brand">
-            <svg class="logo-mark" aria-hidden="true"><use href="#i-logo"></use></svg>
-            Messaging Platform
-            <span class="admin-chip">ADMIN</span>
-        </div>
-
-        <h1>Administrator sign-in</h1>
-        <p>This console manages every developer account on the platform.</p>
-
-        <p style="margin-bottom: var(--sp-5)">
+    <div class="auth-shell">
+        <section class="auth__story" aria-labelledby="adminTitle">
+            <a class="auth__brand" href="../hub.html">
+                <svg class="logo-mark" aria-hidden="true"><use href="#i-logo"></use></svg>
+                Messaging Platform
+                <span class="admin-chip">ADMIN</span>
+            </a>
+            <p class="auth__eyebrow">Operator console</p>
+            <h1 id="adminTitle">Platform operations, with privilege made visible.</h1>
+            <p class="auth__lead">Manage developer access, plans, requests, and audit activity from a protected workspace.</p>
             <span class="env-badge" id="envBadge"><span class="dot"></span><span id="envBadgeText">—</span></span>
-        </p>
+            <div class="auth__warning">
+                <strong>Privileged area</strong>
+                Every mutation is attributed to your administrator account and recorded in the audit trail.
+            </div>
+            <a class="auth__site-link" href="../hub.html">Return to Messaging Platform Hub</a>
+        </section>
+
+        <section class="auth__card" aria-labelledby="adminSignInTitle">
+            <span class="auth__kicker">Restricted access</span>
+            <h2 id="adminSignInTitle">Administrator sign-in</h2>
+            <p>Continue with an approved administrator identity.</p>
+
+            <button type="button" class="auth__google" id="googleLoginBtn" hidden>
+                <span class="auth__google-mark" aria-hidden="true">G</span>
+                Continue with Google
+            </button>
+            <p class="auth__google-status" id="googleStatus" role="status" aria-live="polite"></p>
+            <div class="auth__divider"><span>or use admin credentials</span></div>
 
         <form id="loginForm" novalidate>
             <div class="field">
@@ -70,7 +87,8 @@
             <button type="submit" class="btn btn--primary btn--block" id="loginBtn">Sign in</button>
         </form>
 
-        <a class="auth__back" href="../index.html">Back to the site</a>
+        <p class="auth__policy">Google sign-in only works for an existing active account with the administrator role.</p>
+        </section>
     </div>
 </main>
 </body>
