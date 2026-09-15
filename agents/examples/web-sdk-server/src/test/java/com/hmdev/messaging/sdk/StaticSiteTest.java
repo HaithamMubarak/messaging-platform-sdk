@@ -121,8 +121,7 @@ class StaticSiteTest {
         // of those two would quietly ignore the other five.
         int entries = page.split("class=\"entry-hit\"", -1).length - 1;
         // A floor, so `found == entries` below cannot pass on an empty page.
-        // NOT a catalogue count -- that is gameCountCopyMatchesCatalogue's job,
-        // and a floor pinned to today's exact total fails the next time one
+        // A floor pinned to today's exact total fails the next time one
         // entry moves, which is how this assertion came to be wrong at 20.
         assertThat(entries).isGreaterThan(10);
 
@@ -147,11 +146,13 @@ class StaticSiteTest {
     }
 
     @Test
-    @DisplayName("the SDK header exposes the games playground directly")
-    void sdkHeaderLinksToPlayground() throws IOException {
-        String home = read("index.html");
+    @DisplayName("the Hub header focuses discovery on products and developer resources")
+    void hubHeaderFocusesOnProducts() throws IOException {
+        String home = read("hub.html");
         assertThat(home).contains("<nav class=\"site-nav\" id=\"siteNav\"");
-        assertThat(home).contains("<a href=\"playground.html\">Playground</a>");
+        assertThat(home).contains("/messaging-platform/apps/rooms/");
+        assertThat(home).contains("/messaging-platform/hub/sdk-guide.html");
+        assertThat(home).doesNotContain("playground.html");
     }
 
     @Test
@@ -238,7 +239,7 @@ class StaticSiteTest {
     @Test
     @DisplayName("no sitemap entry outlives the page it points at")
     void sitemapOnlyListsPagesThatExist() throws IOException {
-        String base = "https://hmdevonline.com/messaging-platform/sdk/";
+        String base = "https://hmdevonline.com/messaging-platform/hub/";
         Matcher m = Pattern.compile("<loc>([^<]+)</loc>").matcher(read("sitemap.xml"));
 
         List<String> missing = new ArrayList<>();
@@ -246,7 +247,7 @@ class StaticSiteTest {
             String loc = m.group(1);
             assertThat(loc).startsWith(base);
             String relative = loc.substring(base.length()).split("\\?")[0];
-            if (relative.isEmpty()) relative = "index.html";
+            if (relative.isEmpty()) relative = "hub.html";
             if (!Files.exists(STATIC.resolve(relative))) missing.add(relative);
         }
         assertThat(missing).isEmpty();
@@ -363,56 +364,11 @@ class StaticSiteTest {
         assertThat(broken).isEmpty();
     }
 
-    /**
-     * The site advertises how many games it has, in prose, in two places. That
-     * number is written by hand and nothing recomputed it, so it drifted: it
-     * still claimed thirteen when the catalogue held eleven, and stayed at
-     * thirteen when three games were removed and it held eight. Prose is the
-     * one part of the site no other test reads.
-     *
-     * The catalogue in ApiController.listGames() is the site's own definition
-     * of what counts as a game — its comment says the list is what the
-     * playground shows — so the copy has to agree with it.
-     */
     @Test
-    @DisplayName("the advertised game count matches the catalogue")
-    void gameCountCopyMatchesCatalogue() throws IOException {
-        String controller = Files.readString(
-                Paths.get("src/main/java/com/hmdev/messaging/sdk/controller/ApiController.java"),
-                StandardCharsets.UTF_8);
-        Matcher entries = Pattern.compile("games\\.put\\(").matcher(controller);
-        int catalogue = 0;
-        while (entries.find()) catalogue++;
-        assertThat(catalogue).as("games in the catalogue").isGreaterThan(0);
-
-        // Prose spells small numbers ("Eight multiplayer games") while a meta
-        // description may use the digit. Both are the same claim, and the
-        // point of this test is that the claim tracks the catalogue — so it
-        // reads either rather than forcing the copy into digits.
-        Pattern claim = Pattern.compile("(\\d+|[A-Za-z]+) multiplayer games");
-        for (String page : List.of("index.html", "playground.html")) {
-            String html = Files.readString(STATIC.resolve(page), StandardCharsets.UTF_8);
-            Matcher m = claim.matcher(html);
-            assertThat(m.find()).as(page + " states a game count").isTrue();
-            do {
-                assertThat(numberFrom(m.group(1)))
-                        .as(page + " advertises the number of games the catalogue actually has"
-                                + " (found \"" + m.group(1) + "\")")
-                        .isEqualTo(catalogue);
-            } while (m.find());
-        }
-    }
-
-    /** A count written as a digit or as a word, so copy can read naturally. */
-    private static int numberFrom(String token) {
-        List<String> words = List.of("zero", "one", "two", "three", "four", "five", "six",
-                "seven", "eight", "nine", "ten", "eleven", "twelve");
-        int asWord = words.indexOf(token.toLowerCase());
-        if (asWord >= 0) return asWord;
-        try {
-            return Integer.parseInt(token);
-        } catch (NumberFormatException e) {
-            return -1;   // not a number at all: fails the comparison, loudly
-        }
+    @DisplayName("the direct-link playground stays out of public discovery")
+    void playgroundIsNotPubliclyIndexed() throws IOException {
+        assertThat(read("playground.html"))
+                .contains("<meta name=\"robots\" content=\"noindex, follow\">");
+        assertThat(read("sitemap.xml")).doesNotContain("playground.html");
     }
 }

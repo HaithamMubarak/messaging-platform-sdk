@@ -56,11 +56,12 @@
             .ledger__row { grid-template-columns: 1fr; gap: 4px; }
         }
     </style>
+<link rel="stylesheet" href="/messaging-platform/hub/css/hub-navigation.css">
 </head>
 <body class="sdk-home">
 <header class="site-header" id="siteHeader">
         <div class="wrap site-header__inner">
-            <a class="brand" href="sdk/index.html">
+            <a class="brand" href="/messaging-platform/hub/">
                 <svg class="logo-mark" aria-hidden="true"><use href="#i-logo"></use></svg>
                 Messaging Platform Hub
             </a>
@@ -70,14 +71,11 @@
                 <svg class="icon" aria-hidden="true"><use href="#i-menu"></use></svg>
             </button>
 
-            <nav class="site-nav" id="siteNav" aria-label="Main">
-                <a href="sdk/index.html#demos">Demos</a>
-                <a href="sdk/playground.html">Playground</a>
-                <a href="sdk/docs.html">Docs</a>
-                <a href="apps/index.html">Apps</a>
-                <a href="sdk/developer/index.html">Developer Portal</a>
-                <a class="btn btn--gradient" href="sdk/developer/index.html">Get a free API key</a>
-            </nav>
+            <nav class="site-nav" id="siteNav" aria-label="Main"><a href="/messaging-platform/hub/">Hub</a>
+<a href="/messaging-platform/apps/">Apps</a>
+<a href="/messaging-platform/apps/party-arcade/">Arcade</a>
+<a href="/messaging-platform/hub/docs.html">Docs</a>
+<a class="btn btn--gradient" href="sdk/developer/index.html">Get a free API key</a></nav>
         </div>
     </header>
 <main id="main" class="wrap mp-profile">
@@ -194,8 +192,10 @@
         </button>
         <button type="button" id="pDriveBackup" class="btn btn--ghost" hidden>Back up now</button>
         <button type="button" id="pDriveRestore" class="btn btn--ghost" hidden>Restore from Drive</button>
+        <button type="button" id="pDriveVerify" class="btn btn--ghost" hidden>Verify encrypted backup</button>
       </div>
       <p id="pDriveNote" class="mp-profile__lead" hidden></p>
+      <p id="pDriveVerifyNote" class="mp-profile__lead" hidden></p>
     </section>
   </section>
 </main>
@@ -220,4 +220,3 @@
 <script src="sdk/js/profile-chip.js"></script>
 </body>
 </html>
-

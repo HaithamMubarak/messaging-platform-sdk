@@ -3,16 +3,18 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-    <title>Playground — working demos of the Messaging Platform Hub</title>
+    <title>Hub Playground | Test Messaging Platform Features</title>
 
-    <meta name="description" content="Working demos built on the Messaging Platform Hub — whiteboards, file transfer, polls, a shared terminal and seven multiplayer games. Each one demonstrates a different primitive: presence, channel storage, storage versions, WebRTC data channels, directed messaging or broadcast.">
+    <meta name="robots" content="noindex, follow">
+
+    <meta name="description" content="The Messaging Platform Hub Playground: test working demos for presence, messaging, storage, WebRTC and shared experiences, then follow each example into the SDK guide.">
     <meta name="theme-color" content="#0b1120">
-    <link rel="canonical" href="https://hmdevonline.com/messaging-platform/sdk/playground.html">
+    <link rel="canonical" href="/messaging-platform/hub/playground.html">
 
     <meta property="og:type" content="website">
     <meta property="og:site_name" content="Messaging Platform Hub">
-    <meta property="og:title" content="Playground — working demos of the Messaging Platform Hub">
-    <meta property="og:description" content="Open a demo and use it. Every one is a working example of the SDK, and many need nobody but you.">
+    <meta property="og:title" content="Hub Playground | Messaging Platform">
+    <meta property="og:description" content="Try working platform demos, understand the primitive behind each one, and use the SDK guide when you are ready to build.">
     <meta property="og:image" content="https://hmdevonline.com/messaging-platform/sdk/images/og-image.png">
     <meta name="twitter:card" content="summary_large_image">
 
@@ -22,6 +24,7 @@
     <link rel="stylesheet" href="css/design-tokens.css">
     <link rel="stylesheet" href="css/ui.css">
     <link rel="stylesheet" href="css/landing.css">
+    <link rel="stylesheet" href="css/playground-hub.css">
 
     <script src="js/prod-log.js" defer></script>
     <script src="js/icons.js" defer></script>
@@ -29,13 +32,14 @@
     <script src="js/api-config.js" defer></script>
     <script src="js/landing.js" defer></script>
     <script src="js/playground.js" defer></script>
+<link rel="stylesheet" href="/messaging-platform/hub/css/hub-navigation.css">
 </head>
-<body>
+<body class="hub-playground">
 <a class="skip-link" href="#main">Skip to content</a>
 
 <header class="site-header" id="siteHeader">
     <div class="wrap site-header__inner">
-        <a class="brand" href="index.html">
+        <a class="brand" href="/messaging-platform/hub/">
             <svg class="logo-mark" aria-hidden="true"><use href="#i-logo"></use></svg>
             Messaging Platform Hub
         </a>
@@ -44,32 +48,36 @@
             <svg class="icon" aria-hidden="true"><use href="#i-menu"></use></svg>
         </button>
 
-        <nav class="site-nav" id="siteNav" aria-label="Main">
-            <a href="index.html#demos">Demos</a>
-            <a href="playground.html" aria-current="page">Playground</a>
-            <a href="docs.html">Docs</a>
-            <a href="../apps/index.html">Apps</a>
-<a href="developer/index.html">Developer Portal</a>
-            <button class="btn btn--gradient" type="button" data-open-request>Get a free API key</button>
-        </nav>
+        <nav class="site-nav" id="siteNav" aria-label="Main"><a href="/messaging-platform/hub/">Hub</a>
+<a href="/messaging-platform/apps/">Apps</a>
+<a href="/messaging-platform/apps/party-arcade/">Arcade</a>
+<a href="/messaging-platform/hub/docs.html">Docs</a>
+<a href="/messaging-platform/hub/playground.html" aria-current="page">Playground</a>
+<button class="btn btn--gradient" type="button" data-open-request>Get a free API key</button></nav>
     </div>
 </header>
 
 <main id="main">
-    <section class="hero" style="padding-block: var(--sp-16) var(--sp-12)">
-        <div class="wrap">
+    <section class="hero hub-lab-hero">
+        <div class="wrap hub-lab-hero__grid">
             <div class="section-head">
-                <span class="eyebrow">Playground</span>
-                <h1 style="font-size: var(--fs-3xl); margin-bottom: var(--sp-4)">Demos that double as documentation</h1>
+                <span class="eyebrow">Messaging Platform Hub / Playground</span>
+                <h1>Try the platform.<br><span>Then build with it.</span></h1>
                 <p>
-                    Every app below is complete and working, and each one leans on a different primitive. Filter by
-                    the one you are trying to build with, open it, and share the room link. No login required.
+                    This is the hands-on part of the Hub. Open a working example, see which platform primitive it
+                    proves, and follow it into the SDK guide when you are ready to create your own. No login is
+                    required for most demos.
                 </p>
+                <div class="hero__cta">
+                    <a class="btn btn--gradient" href="/messaging-platform/sdk/apps/pulse/index.html">Open Pulse</a>
+                    <a class="btn btn--ghost" href="/messaging-platform/hub/sdk-guide.html#quickstart">Open the SDK guide</a>
+                </div>
             </div>
-            <div class="hero__cta">
-                <a class="btn btn--gradient" href="apps/pulse/index.html">Open Pulse</a>
-                <a class="btn btn--ghost" href="index.html#quickstart">See how it's built</a>
-            </div>
+            <aside class="hub-lab-route" aria-label="How to use the Hub Playground">
+                <span>01</span><div><strong>Choose a primitive</strong><p>Filter by presence, storage, P2P, video or messaging.</p></div>
+                <span>02</span><div><strong>Run a real demo</strong><p>Try it alone or share its room link when it needs more people.</p></div>
+                <span>03</span><div><strong>Build your version</strong><p>Use the guide and source as a practical starting point.</p></div>
+            </aside>
         </div>
     </section>
 
@@ -110,8 +118,8 @@
     <section style="padding-top: 0">
         <div class="wrap">
             <div class="section-head">
-                <span class="eyebrow">Built out in full</span>
-                <h2 style="font-size: var(--fs-2xl)">The ones with a page of their own</h2>
+                <span class="eyebrow">Featured Hub experiments</span>
+                <h2 style="font-size: var(--fs-2xl)">Start with a complete experience</h2>
                 <p>Each of these has been taken past "it demonstrates the primitive" and into something you
                    could hand to somebody — and each has a page explaining what it does and where every
                    screen hides. If you are only opening one thing and you are on your own, use the
@@ -141,7 +149,7 @@
                 </article>
 
                 <article class="card card--interactive game-card entry" data-proves="storage versions" data-solo="true">
-                    <a class="entry-hit" href="apps/rewind/app.html"><span class="sr-only">Open Rewind</span></a>
+                    <a class="entry-hit" href="/messaging-platform/sdk/apps/rewind/app.html"><span class="sr-only">Open Rewind</span></a>
                     <figure class="entry-shot"><img src="img/playground/rewind.webp" width="960" height="600" loading="lazy" decoding="async" alt="Rewind scrubbing a whiteboard channel: frame 2 of 3 saved states, the board as it stood at that moment redrawn above the timeline."></figure>
                     <div class="game-card__head">
                         <span class="tile-icon" style="margin:0"><svg class="icon" aria-hidden="true"><use href="#i-clock"></use></svg></span>
@@ -154,12 +162,12 @@
                         <span class="badge">Read-only</span>
                     </div>
                     <div class="entry-foot">
-                        <a class="btn btn--sm btn--ghost entry-alt" href="apps/rewind/index.html">What it does</a>
+                        <a class="btn btn--sm btn--ghost entry-alt" href="/messaging-platform/sdk/apps/rewind/index.html">What it does</a>
                         <span class="demo-card__link">Open <svg class="icon icon--sm" aria-hidden="true"><use href="#i-arrow-right"></use></svg></span>
                     </div>
                 </article>
                 <article class="card card--interactive game-card entry" data-proves="presence host p2p" data-solo="false">
-                    <a class="entry-hit" href="apps/under-the-hood/app.html"><span class="sr-only">Open Under the Hood</span></a>
+                    <a class="entry-hit" href="/messaging-platform/sdk/apps/under-the-hood/app.html"><span class="sr-only">Open Under the Hood</span></a>
                     <figure class="entry-shot"><img src="img/playground/under-the-hood.webp" width="960" height="600" loading="lazy" decoding="async" alt="Under the Hood with two people in a channel: relay mode p2p-host, who is here, a star diagram of how messages travel, and a log of what just happened."></figure>
                     <div class="game-card__head">
                         <span class="tile-icon" style="margin:0"><svg class="icon" aria-hidden="true"><use href="#i-activity"></use></svg></span>
@@ -172,12 +180,12 @@
                         <span class="badge">Relay topology</span>
                     </div>
                     <div class="entry-foot">
-                        <a class="btn btn--sm btn--ghost entry-alt" href="apps/under-the-hood/index.html">What it does</a>
+                        <a class="btn btn--sm btn--ghost entry-alt" href="/messaging-platform/sdk/apps/under-the-hood/index.html">What it does</a>
                         <span class="demo-card__link">Open <svg class="icon icon--sm" aria-hidden="true"><use href="#i-arrow-right"></use></svg></span>
                     </div>
                 </article>
                 <article class="card card--interactive game-card entry" data-proves="storage versions" data-solo="true">
-                    <a class="entry-hit" href="apps/dead-drop/app.html"><span class="sr-only">Open Dead Drop</span></a>
+                    <a class="entry-hit" href="/messaging-platform/sdk/apps/dead-drop/app.html"><span class="sr-only">Open Dead Drop</span></a>
                     <figure class="entry-shot"><img src="img/playground/dead-drop.webp" width="960" height="600" loading="lazy" decoding="async" alt="Dead Drop with two notes waiting in the box, each encrypted in the browser before it was stored."></figure>
                     <div class="game-card__head">
                         <span class="tile-icon" style="margin:0"><svg class="icon" aria-hidden="true"><use href="#i-lock"></use></svg></span>
@@ -190,7 +198,7 @@
                         <span class="badge">Asynchronous</span>
                     </div>
                     <div class="entry-foot">
-                        <a class="btn btn--sm btn--ghost entry-alt" href="apps/dead-drop/index.html">What it does</a>
+                        <a class="btn btn--sm btn--ghost entry-alt" href="/messaging-platform/sdk/apps/dead-drop/index.html">What it does</a>
                         <span class="demo-card__link">Open <svg class="icon icon--sm" aria-hidden="true"><use href="#i-arrow-right"></use></svg></span>
                     </div>
                 </article>
@@ -214,7 +222,7 @@
                 </article>
 
                 <article class="card card--interactive game-card entry" data-proves="broadcast presence storage versions" data-solo="true">
-                    <a class="entry-hit" href="apps/whiteboard/app.html"><span class="sr-only">Open Whiteboard</span></a>
+                    <a class="entry-hit" href="/messaging-platform/sdk/apps/whiteboard/app.html"><span class="sr-only">Open Whiteboard</span></a>
                     <figure class="entry-shot"><img src="img/playground/whiteboard.webp" width="960" height="600" loading="lazy" decoding="async" alt="The Whiteboard with two people in the room and four thick strokes in black, red, green and blue beside the tool rail."></figure>
                     <div class="game-card__head">
                         <span class="tile-icon" style="margin:0"><svg class="icon" aria-hidden="true"><use href="#i-pen"></use></svg></span>
@@ -227,13 +235,13 @@
                         <span class="badge">Encrypted storage</span>
                     </div>
                     <div class="entry-foot">
-                        <a class="btn btn--sm btn--ghost entry-alt" href="apps/whiteboard/index.html">What it does</a>
+                        <a class="btn btn--sm btn--ghost entry-alt" href="/messaging-platform/sdk/apps/whiteboard/index.html">What it does</a>
                         <span class="demo-card__link">Open <svg class="icon icon--sm" aria-hidden="true"><use href="#i-arrow-right"></use></svg></span>
                     </div>
                 </article>
 
                 <article class="card card--interactive game-card entry" data-proves="versions storage" data-solo="true">
-                    <a class="entry-hit" href="apps/evidence-chain/app.html"><span class="sr-only">Open Evidence Chain</span></a>
+                    <a class="entry-hit" href="/messaging-platform/sdk/apps/evidence-chain/app.html"><span class="sr-only">Open Evidence Chain</span></a>
                     <figure class="entry-shot"><img src="img/playground/evidence-chain.webp" width="960" height="600" loading="lazy" decoding="async" alt="Evidence Chain holding three site-inspection entries, each showing its content hash and the chain hash that covers the one before it — re-derived, and every hash holds."></figure>
                     <div class="game-card__head">
                         <span class="tile-icon" style="margin:0"><svg class="icon" aria-hidden="true"><use href="#i-shield"></use></svg></span>
@@ -246,13 +254,13 @@
                         <span class="badge">Offline verification</span>
                     </div>
                     <div class="entry-foot">
-                        <a class="btn btn--sm btn--ghost entry-alt" href="apps/evidence-chain/index.html">What it does</a>
+                        <a class="btn btn--sm btn--ghost entry-alt" href="/messaging-platform/sdk/apps/evidence-chain/index.html">What it does</a>
                         <span class="demo-card__link">Open <svg class="icon icon--sm" aria-hidden="true"><use href="#i-arrow-right"></use></svg></span>
                     </div>
                 </article>
 
                 <article class="card card--interactive game-card entry" data-proves="directed p2p" data-solo="false">
-                    <a class="entry-hit" href="apps/terminal/app.html"><span class="sr-only">Open Shared terminal</span></a>
+                    <a class="entry-hit" href="/messaging-platform/sdk/apps/terminal/app.html"><span class="sr-only">Open Shared terminal</span></a>
                     <figure class="entry-shot"><img src="img/playground/shared-terminal.webp" width="960" height="600" loading="lazy" decoding="async" alt="The shared terminal joined to a room as AMINA with Remote Share connected, its shell picker along the top and no session started yet."></figure>
                     <div class="game-card__head">
                         <span class="tile-icon" style="margin:0"><svg class="icon" aria-hidden="true"><use href="#i-terminal"></use></svg></span>
@@ -265,7 +273,7 @@
                         <span class="badge badge--warning">Needs a local helper</span>
                     </div>
                     <div class="entry-foot">
-                        <a class="btn btn--sm btn--ghost entry-alt" href="apps/terminal/index.html">What it does</a>
+                        <a class="btn btn--sm btn--ghost entry-alt" href="/messaging-platform/sdk/apps/terminal/index.html">What it does</a>
                         <span class="demo-card__link">Open <svg class="icon icon--sm" aria-hidden="true"><use href="#i-arrow-right"></use></svg></span>
                     </div>
                 </article>
@@ -285,7 +293,7 @@
             <div class="grid-3" id="gameGrid" data-entry-grid>
 
                 <article class="card card--interactive game-card entry" data-proves="binary directed p2p" data-solo="false">
-                    <a class="entry-hit" href="apps/drop/index.html"><span class="sr-only">Open Drop</span></a>
+                    <a class="entry-hit" href="/messaging-platform/sdk/apps/drop/index.html"><span class="sr-only">Open Drop</span></a>
                     <figure class="entry-shot"><img src="img/playground/drop.webp" width="960" height="600" loading="lazy" decoding="async" alt="Drop sending handover-notes.md straight to Dawit over a direct connection — 18 KB, sent, nothing stored."></figure>
                     <div class="game-card__head">
                         <span class="tile-icon" style="margin:0"><svg class="icon" aria-hidden="true"><use href="#i-download"></use></svg></span>
@@ -305,7 +313,7 @@
                 </article>
 
                 <article class="card card--interactive game-card entry" data-proves="directed host" data-solo="true">
-                    <a class="entry-hit" href="apps/mini-games/open-outcry/index.html"><span class="sr-only">Open Open Outcry</span></a>
+                    <a class="entry-hit" href="/messaging-platform/sdk/apps/mini-games/open-outcry/index.html"><span class="sr-only">Open Open Outcry</span></a>
                     <figure class="entry-shot"><img src="img/playground/open-outcry.webp" width="960" height="600" loading="lazy" decoding="async" alt="Open Outcry with the market open on &quot;Iceland has no mosquitoes&quot;: price at 54¢ yes, three trades printed on the tape."></figure>
                     <div class="game-card__head">
                         <span class="tile-icon" style="margin:0"><svg class="icon" aria-hidden="true"><use href="#i-trending-up"></use></svg></span>
@@ -322,7 +330,7 @@
                     </div>
                 </article>
                 <article class="card card--interactive game-card entry" data-proves="directed host" data-solo="false">
-                    <a class="entry-hit" href="apps/mini-games/chorus/index.html"><span class="sr-only">Open the party games</span></a>
+                    <a class="entry-hit" href="/messaging-platform/sdk/apps/mini-games/chorus/index.html"><span class="sr-only">Open the party games</span></a>
                     <figure class="entry-shot"><img src="img/playground/gavel.webp" width="960" height="600" loading="lazy" decoding="async" alt="Gavel&#x27;s chambers with two people present and the bench&#x27;s form for the case, the charge, who is in the dock and which precedent to cite."></figure>
                     <div class="game-card__head">
                         <span class="tile-icon" style="margin:0"><svg class="icon" aria-hidden="true"><use href="#i-users"></use></svg></span>
@@ -337,15 +345,15 @@
                     </div>
                     <div class="entry-foot">
                         <span class="entry-players"><svg class="icon icon--sm" aria-hidden="true"><use href="#i-users"></use></svg>3+</span>
-                        <a class="btn btn--sm btn--ghost entry-alt" href="apps/mini-games/chorus/index.html">Chorus</a>
-                        <a class="btn btn--sm btn--ghost entry-alt" href="apps/mini-games/autocue/index.html">Autocue</a>
-                        <a class="btn btn--sm btn--ghost entry-alt" href="apps/mini-games/gavel/index.html">Gavel</a>
-                        <a class="btn btn--sm btn--ghost entry-alt" href="apps/mini-games/nudge/index.html">Nudge</a>
+                        <a class="btn btn--sm btn--ghost entry-alt" href="/messaging-platform/sdk/apps/mini-games/chorus/index.html">Chorus</a>
+                        <a class="btn btn--sm btn--ghost entry-alt" href="/messaging-platform/sdk/apps/mini-games/autocue/index.html">Autocue</a>
+                        <a class="btn btn--sm btn--ghost entry-alt" href="/messaging-platform/sdk/apps/mini-games/gavel/index.html">Gavel</a>
+                        <a class="btn btn--sm btn--ghost entry-alt" href="/messaging-platform/sdk/apps/mini-games/nudge/index.html">Nudge</a>
                     </div>
                 </article>
 
                 <article class="card card--interactive game-card entry" data-proves="broadcast presence versions" data-solo="true">
-                    <a class="entry-hit" href="apps/pulse/index.html"><span class="sr-only">Open Pulse</span></a>
+                    <a class="entry-hit" href="/messaging-platform/sdk/apps/pulse/index.html"><span class="sr-only">Open Pulse</span></a>
                     <figure class="entry-shot"><img src="img/playground/pulse.webp" width="960" height="600" loading="lazy" decoding="async" alt="Pulse with two people in the room: a live poll at two votes, a question from the floor, and the version history each vote appended."></figure>
                     <div class="game-card__head">
                         <span class="tile-icon" style="margin:0"><svg class="icon" aria-hidden="true"><use href="#i-activity"></use></svg></span>
@@ -364,7 +372,7 @@
                 </article>
 
                 <article class="card card--interactive game-card entry" data-proves="ephemeral p2p" data-solo="false">
-                    <a class="entry-hit" href="apps/mini-games/air-hockey/index.html"><span class="sr-only">Open Air Hockey</span></a>
+                    <a class="entry-hit" href="/messaging-platform/sdk/apps/mini-games/air-hockey/index.html"><span class="sr-only">Open Air Hockey</span></a>
                     <figure class="entry-shot"><img src="img/playground/air-hockey.webp" width="960" height="600" loading="lazy" decoding="async" alt="Air Hockey mid-game with both mallets on the table, the puck in play and the two players on the leaderboard."></figure>
                     <div class="game-card__head">
                         <span class="tile-icon" style="margin:0"><svg class="icon" aria-hidden="true"><use href="#i-zap"></use></svg></span>
@@ -382,7 +390,7 @@
                 </article>
 
                 <article class="card card--interactive game-card entry" data-proves="directed presence" data-solo="false">
-                    <a class="entry-hit" href="apps/mini-games/find-the-liar/index.html"><span class="sr-only">Open Find the Liar</span></a>
+                    <a class="entry-hit" href="/messaging-platform/sdk/apps/mini-games/find-the-liar/index.html"><span class="sr-only">Open Find the Liar</span></a>
                     <figure class="entry-shot"><img src="img/playground/find-the-liar.webp" width="960" height="600" loading="lazy" decoding="async" alt="Find the Liar mid-round: three suspects, the Interrogation phase, a live timer and a multiple-choice question."></figure>
                     <div class="game-card__head">
                         <span class="tile-icon" style="margin:0"><svg class="icon" aria-hidden="true"><use href="#i-eye"></use></svg></span>
@@ -406,7 +414,7 @@
                 
 
                 <article class="card card--interactive game-card entry" data-proves="directed ephemeral" data-solo="true">
-                    <a class="entry-hit" href="apps/mini-games/reactor/reactor-client.html"><span class="sr-only">Open 4-Player Reactor</span></a>
+                    <a class="entry-hit" href="/messaging-platform/sdk/apps/mini-games/reactor/reactor-client.html"><span class="sr-only">Open 4-Player Reactor</span></a>
                     <figure class="entry-shot"><img src="img/playground/4-player-reactor.webp" width="960" height="600" loading="lazy" decoding="async" alt="4-Player Reactor with all four zones taken, Rosa&#x27;s lit for the round."></figure>
                     <div class="game-card__head">
                         <span class="tile-icon" style="margin:0"><svg class="icon" aria-hidden="true"><use href="#i-activity"></use></svg></span>
@@ -424,7 +432,7 @@
                 </article>
 
                 <article class="card card--interactive game-card entry" data-proves="broadcast directed presence" data-solo="false">
-                    <a class="entry-hit" href="apps/pictionary/index.html"><span class="sr-only">Open Pictionary</span></a>
+                    <a class="entry-hit" href="/messaging-platform/sdk/apps/pictionary/index.html"><span class="sr-only">Open Pictionary</span></a>
                     <figure class="entry-shot"><img src="img/playground/pictionary.webp" width="960" height="600" loading="lazy" decoding="async" alt="Pictionary in round 1: Amina is drawing, the guesses panel already has one from Dawit, and the word to draw is on the left."></figure>
                     <div class="game-card__head">
                         <span class="tile-icon" style="margin:0"><svg class="icon" aria-hidden="true"><use href="#i-pen"></use></svg></span>
@@ -446,7 +454,7 @@
                 </article>
 
                 <article class="card card--interactive game-card entry" data-proves="directed host" data-solo="false">
-                    <a class="entry-hit" href="apps/chess/index.html"><span class="sr-only">Open Chess</span></a>
+                    <a class="entry-hit" href="/messaging-platform/sdk/apps/chess/index.html"><span class="sr-only">Open Chess</span></a>
                     <figure class="entry-shot"><img src="img/playground/chess.webp" width="960" height="600" loading="lazy" decoding="async" alt="A chess game between two players after 1.e4 e5 2.Nf3 Nc6 3.Bc4 Bc5, White to move, with the move history and clocks beside the board."></figure>
                     <div class="game-card__head">
                         <span class="tile-icon" style="margin:0"><svg class="icon" aria-hidden="true"><use href="#i-layers"></use></svg></span>
@@ -480,7 +488,7 @@
             <div class="grid-4" id="toolGrid" data-entry-grid>
 
                 <article class="card card--interactive demo-card entry" data-proves="presence storage" data-solo="false">
-                    <a class="entry-hit" href="apps/collab-doc/index.html"><span class="sr-only">Open Collaborative document</span></a>
+                    <a class="entry-hit" href="/messaging-platform/sdk/apps/collab-doc/index.html"><span class="sr-only">Open Collaborative document</span></a>
                     <figure class="entry-shot"><img src="img/playground/collaborative-document.webp" width="960" height="600" loading="lazy" decoding="async" alt="The collaborative document with two people editing one markdown file — the rollout plan, 292 characters, both names in the corner."></figure>
                     <span class="tile-icon"><svg class="icon" aria-hidden="true"><use href="#i-book"></use></svg></span>
                     <h3>Collaborative document</h3>
@@ -491,7 +499,7 @@
                 </article>
 
                 <article class="card card--interactive demo-card entry" data-proves="broadcast presence" data-solo="false">
-                    <a class="entry-hit" href="apps/chat.html"><span class="sr-only">Open Chat</span></a>
+                    <a class="entry-hit" href="/messaging-platform/sdk/apps/chat.html"><span class="sr-only">Open Chat</span></a>
                     <figure class="entry-shot"><img src="img/playground/chat.webp" width="960" height="600" loading="lazy" decoding="async" alt="The chat demo connected with two agents in the channel and three messages exchanged."></figure>
                     <span class="tile-icon"><svg class="icon" aria-hidden="true"><use href="#i-message"></use></svg></span>
                     <h3>Chat</h3>
@@ -502,7 +510,7 @@
                 </article>
 
                 <article class="card card--interactive demo-card entry" data-proves="storage versions" data-solo="true">
-                    <a class="entry-hit" href="apps/storage-demo.html"><span class="sr-only">Open Channel storage</span></a>
+                    <a class="entry-hit" href="/messaging-platform/sdk/apps/storage-demo.html"><span class="sr-only">Open Channel storage</span></a>
                     <figure class="entry-shot"><img src="img/playground/channel-storage.webp" width="960" height="600" loading="lazy" decoding="async" alt="The channel storage demo after a PUT and a GET: the agenda key stored as JSON and read back."></figure>
                     <span class="tile-icon"><svg class="icon" aria-hidden="true"><use href="#i-hard-drive"></use></svg></span>
                     <h3>Channel storage</h3>
@@ -526,9 +534,9 @@
     <div class="wrap">
         <div class="footer-bottom">
             <span>&copy; 2026 Messaging Platform Hub</span>
-            <span><a href="index.html">Back to the overview</a></span>
-            <span><a href="privacy">Privacy Policy</a></span>
-            <span><a href="terms">Terms of Service</a></span>
+            <span><a href="/messaging-platform/hub/">Back to Hub</a></span>
+            <span><a href="/messaging-platform/hub/privacy.html">Privacy Policy</a></span>
+            <span><a href="/messaging-platform/hub/terms.html">Terms of Service</a></span>
         </div>
     </div>
 </footer>
@@ -536,4 +544,3 @@
 <script src="js/profile-chip.js"></script>
 </body>
 </html>
-
