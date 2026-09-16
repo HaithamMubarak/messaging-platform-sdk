@@ -37,12 +37,12 @@
                 Messaging Platform Hub
             </a>
             <p class="auth__eyebrow">Developer workspace</p>
-            <h1 id="portalTitle">Build, observe, and ship from one focused console.</h1>
-            <p class="auth__lead">Your keys, channels, usage, integration tools, and account settings stay together.</p>
+            <h1 id="portalTitle">Everything needed to build on the platform.</h1>
+            <p class="auth__lead">A focused workspace for credentials, live channels, usage, and release tools.</p>
             <ul class="auth__benefits">
-                <li><span aria-hidden="true">01</span><strong>Operate safely</strong> with scoped sessions and visible usage.</li>
-                <li><span aria-hidden="true">02</span><strong>Move faster</strong> from API key to live channel inspection.</li>
-                <li><span aria-hidden="true">03</span><strong>Stay connected</strong> to docs, demos, and the Hub.</li>
+                <li><span aria-hidden="true">01</span><div><strong>Credentials</strong><small>Manage API keys and scoped access.</small></div></li>
+                <li><span aria-hidden="true">02</span><div><strong>Operations</strong><small>Inspect channels, traffic, and quota.</small></div></li>
+                <li><span aria-hidden="true">03</span><div><strong>Resources</strong><small>Move directly into docs and demos.</small></div></li>
             </ul>
             <nav class="auth__links" aria-label="Developer resources">
                 <a href="../docs.html">Documentation</a>
@@ -58,9 +58,17 @@
 
             <button type="button" class="auth__google" id="googleLoginBtn" hidden>
                 <span class="auth__google-mark" aria-hidden="true">G</span>
-                Continue with Google
+                <span id="googleLoginLabel">Continue with Google</span>
             </button>
             <p class="auth__google-status" id="googleStatus" role="status" aria-live="polite"></p>
+            <div class="auth__access-notice" id="platformAccessNotice" hidden>
+                <span class="auth__access-dot" aria-hidden="true"></span>
+                <div>
+                    <strong id="platformAccessTitle">Platform identity found</strong>
+                    <p id="platformAccessText"></p>
+                    <a id="platformAccessLink" href="/messaging-platform/profile.html#pDeveloperCard">Manage developer access</a>
+                </div>
+            </div>
             <div class="auth__divider"><span>or use email</span></div>
 
         <form id="loginForm" novalidate>
@@ -95,8 +103,8 @@
             it does not create a tenant or grant new access.
         </p>
         <div class="auth__footer">
-            Don't have an account yet?
-            <a href="../index.html#start">Request a free API key</a>
+            Need developer access?
+            <a href="/messaging-platform/profile.html#pDeveloperCard">Request it from your profile</a>
         </div>
         </section>
     </div>

@@ -721,7 +721,12 @@ section[id] { scroll-margin-top: 80px; }
 
 .mp-profile { padding: 40px 0 80px; display: flex; flex-direction: column; gap: var(--sp-5); }
 .mp-profile h1 { margin-bottom: var(--sp-2); }
+.mp-profile__intro { max-width: 48rem; margin: calc(var(--sp-4) * -1) 0 var(--sp-2); color: var(--text-muted); font-size: var(--fs-base); }
 .mp-profile__card { display: flex; flex-direction: column; gap: var(--sp-3); }
+.mp-profile__overview { display: grid; grid-template-columns: minmax(15rem, .72fr) minmax(0, 1.28fr); gap: var(--sp-5); }
+.mp-profile__overview .mp-profile__card { height: 100%; }
+.mp-identity-card { background: linear-gradient(145deg, color-mix(in srgb, var(--accent) 6%, transparent), transparent 55%), var(--surface-1); }
+.mp-identity-card .btn { align-self: flex-start; margin-top: auto; }
 .mp-profile__lead { color: var(--text-body); font-size: var(--fs-md); line-height: 1.7; margin: 0; }
 .mp-profile__actions { display: flex; flex-wrap: wrap; gap: var(--sp-3); align-items: center; }
 .mp-profile__error { color: #f87171; font-size: var(--fs-md); margin: 0; }
@@ -779,6 +784,26 @@ section[id] { scroll-margin-top: 80px; }
     background: #4285f4; color: #fff; font-size: 11px; font-weight: 700;
 }
 .mp-profile__ok { color: #4ade80; font-size: var(--fs-md); margin: 0; }
+
+/* Platform and developer identity share one profile surface. Privileged
+   sessions remain separate; this card presents the verified relationship. */
+.mp-developer-access { overflow: hidden; border-color: color-mix(in srgb, var(--accent) 34%, var(--border)); background: radial-gradient(35rem 18rem at 100% 0, color-mix(in srgb, var(--accent) 10%, transparent), transparent 70%), var(--surface-1); }
+.mp-developer-access__head { display: flex; align-items: flex-start; justify-content: space-between; gap: var(--sp-4); }
+.mp-developer-access__head h2 { margin: var(--sp-1) 0 0; }
+.mp-developer-access__eyebrow { color: var(--accent); font-size: var(--fs-xs); font-weight: 700; letter-spacing: .12em; text-transform: uppercase; }
+.mp-access-badge { flex: none; padding: .32rem .65rem; border: 1px solid var(--border); border-radius: 999px; background: var(--surface-2); color: var(--text-muted); font-size: var(--fs-xs); font-weight: 700; letter-spacing: .06em; text-transform: uppercase; }
+.mp-access-badge[data-state="active"] { border-color: color-mix(in srgb, #22c55e 45%, var(--border)); background: color-mix(in srgb, #22c55e 10%, transparent); color: #4ade80; }
+.mp-access-badge[data-state="pending"] { border-color: color-mix(in srgb, #f59e0b 45%, var(--border)); background: color-mix(in srgb, #f59e0b 10%, transparent); color: #fbbf24; }
+.mp-developer-access__meta { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: var(--sp-3); margin: var(--sp-2) 0; }
+.mp-developer-access__meta > div { min-width: 0; display: grid; gap: var(--sp-1); padding: var(--sp-3); border: 1px solid var(--border); border-radius: var(--radius-md, 8px); background: color-mix(in srgb, var(--surface-2) 78%, transparent); }
+.mp-developer-access__meta span { color: var(--text-muted); font-size: var(--fs-xs); text-transform: uppercase; letter-spacing: .08em; }
+.mp-developer-access__meta strong { overflow-wrap: anywhere; color: var(--text); font-size: var(--fs-md); }
+.mp-developer-access__note { min-height: 1.5rem; font-size: var(--fs-sm); }
+@media (max-width: 680px) {
+    .mp-profile__overview { grid-template-columns: 1fr; }
+    .mp-developer-access__head { align-items: flex-start; flex-direction: column; }
+    .mp-developer-access__meta { grid-template-columns: 1fr; }
+}
 
 /* The one control on the profile page that cannot be undone by anybody.
    Boxed and set apart from "Back up now" deliberately: the two do opposite

@@ -147,6 +147,21 @@ const DeveloperAPI = (function () {
         return body;
     }
 
+    /** Read developer access for the currently verified Platform identity. */
+    async function getPlatformAccess(assertion) {
+        const response = await fetch(ApiConfig.getDeveloperApiUrl() + '/account-link/platform-access', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ assertion })
+        });
+        const body = await readBody(response);
+        if (!response.ok || !body || body.status !== 'success') {
+            throw new Error((body && (body.statusMessage || body.error || body.message)) ||
+                'Developer access could not be checked.');
+        }
+        return body.data;
+    }
+
     async function logout() {
         const token = getToken();
         if (token) {
@@ -223,7 +238,7 @@ const DeveloperAPI = (function () {
         { method: 'GET' }).then((body) => (body && body.data) || body);
 
     return {
-        login, loginWithGoogle, logout, isLoggedIn, changePassword,
+        login, loginWithGoogle, getPlatformAccess, logout, isLoggedIn, changePassword,
         getToken, getProfile, setProfile, getApiKey, clearAuth,
         getStats, getApiKeys, getUsage, getChannels, getChannelMetrics, getApiKeyUsage, revokeApiKey,
         createTemporaryKey, broadcast, recoverMessages, getChannelAgents, deleteChannel,

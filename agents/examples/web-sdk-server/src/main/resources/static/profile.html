@@ -76,19 +76,19 @@
 <a href="/messaging-platform/apps/party-arcade/">Arcade</a>
 <a href="/messaging-platform/hub/docs.html">Docs</a>
 <a href="/messaging-platform/hub/playground.html">Playground</a>
-<a class="btn btn--gradient" href="sdk/developer/index.html">Get a free API key</a></nav>
+<a class="btn btn--gradient" id="developerNavAction" href="hub/developer/index.html">Request API access</a></nav>
         </div>
     </header>
 <main id="main" class="wrap mp-profile">
   <h1>Your profile</h1>
+  <p class="mp-profile__intro">One place for your identity, developer access, saved channels, and encrypted backups.</p>
 
   <section id="signedOut" class="card mp-profile__card" hidden>
     <h2>Sign in to your Platform account</h2>
     <p class="mp-profile__lead">
-      This Platform account lets you save channels you want to come back to. It
-      is separate from your Developer Portal account for API keys, deliberately
-      &mdash; and if you hold both, you can now
-      <a href="sdk/developer/dashboard.html#settings">link them from the portal</a>.
+      This account keeps your saved channels and becomes your developer identity
+      when API access is approved. Developer keys remain protected by their own
+      scoped session, but both experiences appear together in your profile.
       You never need either account to join a room &mdash; that stays one click.
     </p>
     <div class="mp-subtabs" role="tablist" aria-label="Sign in to or create a Platform account">
@@ -121,11 +121,38 @@
   </section>
 
   <section id="signedIn" hidden>
-    <section class="card mp-profile__card">
-      <h2>Platform account</h2>
-      <p id="pWho" class="mp-profile__lead"></p>
-      <button type="button" id="pSignOut" class="btn btn--ghost">Sign out</button>
-    </section>
+    <div class="mp-profile__overview">
+      <section class="card mp-profile__card mp-identity-card">
+        <span class="mp-developer-access__eyebrow">Platform identity</span>
+        <h2>Your account</h2>
+        <p id="pWho" class="mp-profile__lead"></p>
+        <p class="mp-profile__lead">Used across Rooms, saved channels, Drive backup, and developer access.</p>
+        <button type="button" id="pSignOut" class="btn btn--ghost">Sign out</button>
+      </section>
+
+      <section class="card mp-profile__card mp-developer-access" id="pDeveloperCard">
+      <div class="mp-developer-access__head">
+        <div>
+          <span class="mp-developer-access__eyebrow">Developer access</span>
+          <h2>Build with your Platform identity</h2>
+        </div>
+        <span class="mp-access-badge" id="pDeveloperStatus">Checking</span>
+      </div>
+      <p class="mp-profile__lead" id="pDeveloperBody">
+        Checking whether this verified identity has developer access&hellip;
+      </p>
+      <div class="mp-developer-access__meta" id="pDeveloperMeta" hidden>
+        <div><span>Name</span><strong id="pDeveloperName">&mdash;</strong></div>
+        <div><span>Email</span><strong id="pDeveloperEmail">&mdash;</strong></div>
+        <div><span>Plan</span><strong id="pDeveloperPlan">&mdash;</strong></div>
+      </div>
+      <div class="mp-profile__actions">
+        <button type="button" id="pDeveloperRequest" class="btn btn--gradient" hidden>Request API access</button>
+        <a id="pDeveloperOpen" class="btn btn--gradient" href="hub/developer/index.html" hidden>Open Developer Portal</a>
+      </div>
+      <p class="mp-profile__lead mp-developer-access__note" id="pDeveloperNote" role="status"></p>
+      </section>
+    </div>
 
     <section class="card mp-profile__card">
       <h2>Saved channels</h2>

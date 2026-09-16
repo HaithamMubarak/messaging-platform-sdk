@@ -11,6 +11,8 @@
 
     var A = window.MPAccount, K = window.Keyring;
     var accountId = null;
+    var profileUser = null;
+    var developerIdentityVerified = false;
     var busy = {};
     var el = function (id) { return document.getElementById(id); };
 
@@ -83,6 +85,142 @@
     function show(signedIn) {
         el('signedIn').hidden = !signedIn;
         el('signedOut').hidden = !!signedIn;
+        if (!signedIn) {
+            var nav = el('developerNavAction');
+            nav.textContent = 'Request API access';
+            nav.href = 'hub/developer/index.html';
+        }
+    }
+
+    function developerCall(path, payload) {
+        return fetch('/messaging-platform/api/v1/developer/account-link' + path, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload || {})
+        }).then(function (response) {
+            return response.json().catch(function () { return {}; }).then(function (body) {
+                if (!response.ok || !body || body.status === 'error' || body.status === 'unauthorized') {
+                    var error = new Error(body.statusMessage || body.error || 'Developer access could not be checked.');
+                    error.status = response.status;
+                    throw error;
+                }
+                return body.data || body;
+            });
+        });
+    }
+
+    function setAccessBadge(label, state) {
+        var badge = el('pDeveloperStatus');
+        badge.textContent = label;
+        if (state) badge.dataset.state = state;
+        else delete badge.dataset.state;
+    }
+
+    function resetDeveloperActions() {
+        el('pDeveloperRequest').hidden = true;
+        el('pDeveloperOpen').hidden = true;
+        el('pDeveloperMeta').hidden = true;
+        el('pDeveloperNote').textContent = '';
+    }
+
+    function setDeveloperNav(label, href) {
+        var nav = el('developerNavAction');
+        nav.textContent = label;
+        nav.href = href;
+    }
+
+    function renderDeveloperState(state) {
+        resetDeveloperActions();
+        var status = state && state.status ? state.status : 'NONE';
+
+        if (status === 'ACTIVE' && state.hasAccess) {
+            setAccessBadge('Active', 'active');
+            el('pDeveloperBody').textContent = 'Your verified Platform identity has developer access. Profile and developer details now live together here.';
+            el('pDeveloperName').textContent = state.developerName || 'Developer';
+            el('pDeveloperEmail').textContent = state.developerEmail || state.verifiedEmail || '';
+            el('pDeveloperPlan').textContent = state.plan || 'Free';
+            el('pDeveloperMeta').hidden = false;
+            el('pDeveloperOpen').hidden = false;
+            setDeveloperNav('Open Developer Portal', 'hub/developer/index.html');
+            return;
+        }
+
+        if (status === 'PENDING') {
+            setAccessBadge('Pending review', 'pending');
+            el('pDeveloperBody').textContent = 'Your API access request is with the platform team. This profile will unlock developer details as soon as it is approved.';
+            el('pDeveloperNote').textContent = 'No duplicate request is needed.';
+            setDeveloperNav('API request pending', '#pDeveloperCard');
+            return;
+        }
+
+        if (status === 'INACTIVE') {
+            setAccessBadge('Inactive');
+            el('pDeveloperBody').textContent = 'Developer access exists for this identity but is currently inactive. Contact platform support to restore it.';
+            setDeveloperNav('Developer access inactive', '#pDeveloperCard');
+            return;
+        }
+
+        setAccessBadge('Not requested');
+        el('pDeveloperBody').textContent = 'Request developer access with this verified identity. Approval creates your developer workspace and initial API key.';
+        el('pDeveloperRequest').hidden = false;
+        setDeveloperNav('Request API access', '#pDeveloperCard');
+    }
+
+    function renderDeveloperUnverified(message) {
+        developerIdentityVerified = false;
+        resetDeveloperActions();
+        setAccessBadge('Identity check');
+        el('pDeveloperBody').textContent = 'Request access or check an existing developer account using the same Google-verified identity.';
+        el('pDeveloperRequest').hidden = false;
+        el('pDeveloperNote').textContent = message || 'Google verification is required before developer status can be shown.';
+        setDeveloperNav('Request API access', '#pDeveloperCard');
+    }
+
+    function requestDeveloperAccess(user) {
+        return singleFlight('developerRequest', ['pDeveloperRequest'], function () {
+            el('pDeveloperNote').textContent = 'Submitting your request...';
+            return A.googleLoginAssertion().then(function (assertion) {
+                return developerCall('/platform-access/request', {
+                    assertion: assertion,
+                    name: user && (user.displayName || user.email),
+                    reason: 'Requested from the unified Platform profile.'
+                });
+            }).then(function (state) {
+                developerIdentityVerified = true;
+                renderDeveloperState(state);
+                el('pDeveloperNote').textContent = state.message || 'Your API access request is pending review.';
+            }).catch(function (error) {
+                el('pDeveloperNote').textContent = error.message || 'The request could not be submitted.';
+            });
+        });
+    }
+
+    function loadDeveloperAccess(user) {
+        profileUser = user;
+        resetDeveloperActions();
+        setAccessBadge('Checking');
+        el('pDeveloperBody').textContent = 'Checking whether this verified identity has developer access...';
+
+        A.googleLoginAssertion().then(function (assertion) {
+            return developerCall('/platform-access', { assertion: assertion });
+        }).then(function (state) {
+            developerIdentityVerified = true;
+            renderDeveloperState(state);
+            var requestAfterGoogle = false;
+            try {
+                requestAfterGoogle = sessionStorage.getItem('mp.developerRequestAfterGoogle') === '1';
+                sessionStorage.removeItem('mp.developerRequestAfterGoogle');
+            } catch (ignore) {}
+            if (requestAfterGoogle && state.status === 'NONE') requestDeveloperAccess(user);
+
+            var url = new URL(window.location.href);
+            if (url.searchParams.has('developer')) {
+                url.searchParams.delete('developer');
+                history.replaceState(null, '', url.pathname + url.search);
+            }
+        }).catch(function (error) {
+            renderDeveloperUnverified(error.message);
+        });
     }
 
     function renderList() {
@@ -199,6 +337,7 @@
             (user.email && user.displayName ? ' · ' + user.email : '');
             show(true);
             renderList();
+            loadDeveloperAccess(user);
         };
 
         if (!K.setAccountKey || !K.ensureEncrypted || !A.exportKey) {
@@ -303,6 +442,15 @@
             show(false);
             if (window.ProfileChip) window.ProfileChip.render(null);
         });
+    });
+
+    el('pDeveloperRequest').addEventListener('click', function () {
+        if (developerIdentityVerified) {
+            requestDeveloperAccess(profileUser);
+            return;
+        }
+        try { sessionStorage.setItem('mp.developerRequestAfterGoogle', '1'); } catch (ignore) {}
+        window.location.href = A.googleStartUrl(window.location.pathname + '?developer=1');
     });
 
     A.googleAvailable().then(function (ok) {

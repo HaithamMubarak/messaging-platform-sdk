@@ -493,14 +493,12 @@
             <section class="section" id="section-settings" hidden>
                 <div class="settings-grid">
                     <div class="panel">
-                        <h3>Profile</h3>
+                        <h3>Unified profile</h3>
                         <p class="panel__desc">
-                            Your <strong>Developer Portal account</strong> &mdash; the one that
-                            owns API keys. The
-                            <a href="/messaging-platform/profile.html">Platform account</a> that
-                            saves your channels is a separate account, deliberately. You can
-                            link them below to say they are the same person; linking grants
-                            neither account any power over the other.
+                            Your Platform identity and approved developer access are presented
+                            together in <a href="/messaging-platform/profile.html">your profile</a>.
+                            API keys still use a separately scoped developer session, so opening
+                            the profile never exposes developer credentials.
                         </p>
                         <div class="field">
                             <label class="field__label" for="settingsEmail">Email</label>
@@ -515,12 +513,12 @@
 
 
                     <div class="panel" id="platformLinkPanel">
-                        <h3>Platform account</h3>
+                        <h3>Identity connection</h3>
                         <p class="panel__desc">
-                            Two accounts, on purpose: this one is a <strong>tenant</strong> that
-                            owns a plan, channels and API keys; the Platform account is a
-                            <strong>person</strong> with saved channels in their own browser.
-                            Merging them would mean a compromised sign-in reached your API keys.
+                            Connect this developer workspace to your Platform identity so your
+                            plan and developer status appear in the unified profile. The
+                            connection records ownership without sharing passwords, sessions,
+                            or API keys.
                         </p>
                         <p class="panel__desc">
                             Linking records only that you proved you hold both. Your Platform

@@ -11,8 +11,14 @@
         const errorText = document.getElementById('loginErrorText');
         const reveal = document.getElementById('revealPassword');
         const googleButton = document.getElementById('googleLoginBtn');
+        const googleLabel = document.getElementById('googleLoginLabel');
         const googleStatus = document.getElementById('googleStatus');
+        const accessNotice = document.getElementById('platformAccessNotice');
+        const accessTitle = document.getElementById('platformAccessTitle');
+        const accessText = document.getElementById('platformAccessText');
+        const accessLink = document.getElementById('platformAccessLink');
         const query = new URLSearchParams(window.location.search);
+        let canContinueCurrentIdentity = false;
 
         if (new URLSearchParams(window.location.search).get('expired')) {
             showError('Your session expired. Please sign in again.');
@@ -71,13 +77,64 @@
         }
 
         googleButton.addEventListener('click', function () {
+            if (canContinueCurrentIdentity) {
+                completeGoogleLogin();
+                return;
+            }
             googleStatus.textContent = 'Opening Google sign-in...';
             const returnTo = window.location.pathname + '?google=1';
             window.location.assign(MPAccount.googleStartUrl(returnTo));
         });
 
+        function showPlatformAccess(state) {
+            accessNotice.hidden = false;
+            accessNotice.dataset.state = String(state.status || 'NONE').toLowerCase();
+            canContinueCurrentIdentity = state.status === 'ACTIVE' && !!state.hasAccess;
+
+            if (canContinueCurrentIdentity) {
+                accessTitle.textContent = 'Developer access active';
+                accessText.textContent = (state.developerEmail || state.verifiedEmail) +
+                    ' · ' + (state.plan || 'Free') + ' plan';
+                googleLabel.textContent = 'Continue as ' + (state.developerName || 'developer');
+                accessLink.textContent = 'View unified profile';
+                return;
+            }
+            if (state.status === 'PENDING') {
+                accessTitle.textContent = 'API request pending';
+                accessText.textContent = 'This identity is waiting for administrator approval.';
+                googleLabel.textContent = 'Use another Google account';
+                accessLink.textContent = 'View request status';
+                return;
+            }
+            if (state.status === 'INACTIVE') {
+                accessTitle.textContent = 'Developer access inactive';
+                accessText.textContent = 'Contact platform support or use another approved account.';
+                googleLabel.textContent = 'Use another Google account';
+                return;
+            }
+            accessTitle.textContent = 'Developer access not requested';
+            accessText.textContent = 'Request approval from your unified Platform profile.';
+            googleLabel.textContent = 'Use another Google account';
+            accessLink.textContent = 'Request API access';
+        }
+
+        function inspectPlatformIdentity() {
+            if (!MPAccount.signedIn()) return Promise.resolve();
+            googleStatus.textContent = 'Checking your Platform identity...';
+            return MPAccount.googleLoginAssertion()
+                .then(function (assertion) { return DeveloperAPI.getPlatformAccess(assertion); })
+                .then(function (state) {
+                    googleStatus.textContent = '';
+                    showPlatformAccess(state);
+                })
+                .catch(function () {
+                    googleStatus.textContent = '';
+                });
+        }
+
         MPAccount.googleAvailable().then(function (available) {
             googleButton.hidden = !available;
+            if (available && query.get('google') !== '1') inspectPlatformIdentity();
         });
 
         if (query.get('google') === '1') {
