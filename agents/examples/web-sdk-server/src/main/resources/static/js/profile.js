@@ -120,7 +120,29 @@
         el('pDeveloperRequest').hidden = true;
         el('pDeveloperOpen').hidden = true;
         el('pDeveloperMeta').hidden = true;
+        el('pAdminAccess').hidden = true;
         el('pDeveloperNote').textContent = '';
+    }
+
+    function loadAdminAccess() {
+        A.googleLoginAssertion().then(function (assertion) {
+            return fetch('/messaging-platform/api/v1/messaging-service/admin/auth/google/status', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ assertion: assertion })
+            });
+        }).then(function (response) {
+            return response.json().catch(function () { return {}; }).then(function (body) {
+                if (!response.ok || !body || !body.data) return null;
+                return body.data;
+            });
+        }).then(function (state) {
+            if (!state || !state.hasAccess) return;
+            el('pAdminIdentity').textContent = state.email || 'Active administrator';
+            el('pAdminAccess').hidden = false;
+        }).catch(function () {
+            el('pAdminAccess').hidden = true;
+        });
     }
 
     function setDeveloperNav(label, href) {
@@ -203,6 +225,7 @@
         }).then(function (state) {
             developerIdentityVerified = true;
             renderDeveloperState(state);
+            loadAdminAccess();
             var requestAfterGoogle = false;
             try {
                 requestAfterGoogle = sessionStorage.getItem('mp.developerRequestAfterGoogle') === '1';
@@ -441,6 +464,19 @@
         });
     });
 
+    el('pSwitchAccount').addEventListener('click', function () {
+        var returnTo = window.location.pathname;
+        sessionStorage.removeItem('developer_token');
+        sessionStorage.removeItem('admin_token');
+        sessionStorage.removeItem('verify_api_key');
+        localStorage.removeItem('developer_token');
+        localStorage.removeItem('admin_token');
+        if (window.DriveBackup) window.DriveBackup.disconnect();
+        A.logout().catch(function () {}).then(function () {
+            window.location.href = A.googleStartUrl(returnTo);
+        });
+    });
+
     el('pDeveloperRequest').addEventListener('click', function () {
         if (developerIdentityVerified) {
             requestDeveloperAccess(profileUser);
@@ -452,6 +488,7 @@
 
     A.googleAvailable().then(function (ok) {
         if (!ok) return;
+        el('pSwitchAccount').hidden = false;
         var b = el('pGoogle');
         b.hidden = false;
         el('pGoogleWrap').hidden = false;

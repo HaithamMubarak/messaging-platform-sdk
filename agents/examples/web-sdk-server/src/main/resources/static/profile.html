@@ -126,7 +126,8 @@
         <span class="mp-developer-access__eyebrow">Platform identity</span>
         <h2>Your account</h2>
         <p id="pWho" class="mp-profile__lead"></p>
-        <p class="mp-profile__lead">Used across Rooms, saved channels, Drive backup, and developer access.</p>
+        <p class="mp-profile__lead">Used across Rooms, saved channels, Drive backup, developer access, and administrator access.</p>
+        <button type="button" id="pSwitchAccount" class="btn btn--gradient" hidden>Switch Google account</button>
         <button type="button" id="pSignOut" class="btn btn--ghost">Sign out</button>
       </section>
 
@@ -151,6 +152,13 @@
         <a id="pDeveloperOpen" class="btn btn--gradient" href="hub/developer/index.html" hidden>Open Developer Portal</a>
       </div>
       <p class="mp-profile__lead mp-developer-access__note" id="pDeveloperNote" role="status"></p>
+      <div class="mp-developer-access__meta" id="pAdminAccess" hidden>
+        <div>
+          <span>Administrator access</span>
+          <strong id="pAdminIdentity">Active</strong>
+        </div>
+        <a class="btn btn--ghost" href="hub/admin/index.html">Open Admin Portal</a>
+      </div>
       </section>
     </div>
 
