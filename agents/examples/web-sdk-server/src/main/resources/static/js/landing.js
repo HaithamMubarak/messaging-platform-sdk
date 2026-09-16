@@ -107,7 +107,8 @@
         return { wrap, input };
     }
 
-    function openRequestDialog() {
+    function openRequestDialog(options) {
+        const config = options && typeof options === 'object' ? options : {};
         UI.openModal((close) => {
             const form = UI.el('form', { id: 'apiKeyRequestForm', novalidate: true });
             const inputs = {};
@@ -122,6 +123,21 @@
                 inputs[spec.id] = built.input;
                 form.appendChild(built.wrap);
             });
+
+            if (config.email) {
+                inputs.email.value = config.email;
+            }
+            if (config.name) {
+                inputs.name.value = config.name;
+            }
+            if (config.lockEmail) {
+                inputs.email.readOnly = true;
+                inputs.email.setAttribute('aria-readonly', 'true');
+                inputs.email.closest('.field').appendChild(UI.el('p', {
+                    class: 'field__hint',
+                    text: 'This verified Platform account email will be used for developer access.'
+                }));
+            }
 
             const reasonWrap = UI.el('div', { class: 'field' });
             const reasonLabel = UI.el('label', { class: 'field__label', for: 'req-reason' });
@@ -194,6 +210,7 @@
 
                         close(true);
                         UI.toast.success('Request received. Watch your inbox for the approval email.', { timeout: 8000 });
+                        if (typeof config.onSuccess === 'function') config.onSuccess(payload);
                     } catch (err) {
                         UI.toast.error(err.message || 'Could not submit your request. Please try again.');
                     }

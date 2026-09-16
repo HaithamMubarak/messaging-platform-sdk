@@ -177,21 +177,18 @@
     }
 
     function requestDeveloperAccess(user) {
-        return singleFlight('developerRequest', ['pDeveloperRequest'], function () {
-            el('pDeveloperNote').textContent = 'Submitting your request...';
-            return A.googleLoginAssertion().then(function (assertion) {
-                return developerCall('/platform-access/request', {
-                    assertion: assertion,
-                    name: user && (user.displayName || user.email),
-                    reason: 'Requested from the unified Platform profile.'
-                });
-            }).then(function (state) {
-                developerIdentityVerified = true;
-                renderDeveloperState(state);
-                el('pDeveloperNote').textContent = state.message || 'Your API access request is pending review.';
-            }).catch(function (error) {
-                el('pDeveloperNote').textContent = error.message || 'The request could not be submitted.';
-            });
+        if (!user || !user.email || typeof window.openApiKeyRequest !== 'function') {
+            el('pDeveloperNote').textContent = 'The developer request form is temporarily unavailable.';
+            return;
+        }
+        window.openApiKeyRequest({
+            email: user.email,
+            name: user.displayName || '',
+            lockEmail: true,
+            onSuccess: function () {
+                el('pDeveloperNote').textContent = 'Your API access request is pending review.';
+                loadDeveloperAccess(user);
+            }
         });
     }
 
