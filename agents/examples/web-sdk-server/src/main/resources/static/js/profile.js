@@ -466,13 +466,26 @@
 
     el('pSwitchAccount').addEventListener('click', function () {
         var returnTo = window.location.pathname;
-        sessionStorage.removeItem('developer_token');
-        sessionStorage.removeItem('admin_token');
-        sessionStorage.removeItem('verify_api_key');
-        localStorage.removeItem('developer_token');
-        localStorage.removeItem('admin_token');
+        var developerToken = sessionStorage.getItem('developer_token');
+        var adminToken = sessionStorage.getItem('admin_token');
+        var revocations = [];
+        if (developerToken) {
+            revocations.push(fetch('/messaging-platform/api/v1/developer/auth/logout', {
+                method: 'POST', headers: { 'Authorization': 'Bearer ' + developerToken }, keepalive: true
+            }).catch(function () {}));
+        }
+        if (adminToken) {
+            revocations.push(fetch('/messaging-platform/api/v1/messaging-service/admin/logout', {
+                method: 'POST', headers: { 'X-Admin-Token': adminToken }, keepalive: true
+            }).catch(function () {}));
+        }
         if (window.DriveBackup) window.DriveBackup.disconnect();
-        A.logout().catch(function () {}).then(function () {
+        revocations.push(A.logout().catch(function () {}));
+        Promise.all(revocations).then(function () {
+            ['developer_token', 'developer_email', 'admin_token', 'admin_info', 'verify_api_key'].forEach(function (key) {
+                sessionStorage.removeItem(key);
+                localStorage.removeItem(key);
+            });
             window.location.href = A.googleStartUrl(returnTo);
         });
     });

@@ -11,8 +11,11 @@
         const errorText = document.getElementById('loginErrorText');
         const reveal = document.getElementById('revealPassword');
         const googleButton = document.getElementById('googleLoginBtn');
+        const googleLabel = document.getElementById('googleLoginLabel');
+        const googleSwitch = document.getElementById('googleSwitchBtn');
         const googleStatus = document.getElementById('googleStatus');
         const query = new URLSearchParams(window.location.search);
+        let canContinueCurrentIdentity = false;
 
         // Make the target environment unmissable before anyone signs in.
         const env = ApiConfig.environment();
@@ -42,6 +45,7 @@
             errorBox.hidden = true;
             googleButton.hidden = false;
             googleButton.disabled = true;
+            googleSwitch.disabled = true;
             googleStatus.textContent = 'Verifying administrator privileges...';
             try {
                 const assertion = await MPAccount.googleLoginAssertion();
@@ -51,19 +55,42 @@
             } catch (err) {
                 googleStatus.textContent = '';
                 googleButton.disabled = false;
+                googleSwitch.disabled = false;
                 clearGoogleReturn();
                 showError(err.message || 'Google sign-in could not be completed.');
             }
         }
 
-        googleButton.addEventListener('click', function () {
+        function openGoogleChooser() {
             googleStatus.textContent = 'Opening Google sign-in...';
             const returnTo = window.location.pathname + '?google=1';
             window.location.assign(MPAccount.googleStartUrl(returnTo));
+        }
+
+        googleButton.addEventListener('click', function () {
+            if (canContinueCurrentIdentity) completeGoogleLogin();
+            else openGoogleChooser();
         });
+
+        googleSwitch.addEventListener('click', openGoogleChooser);
+
+        async function inspectPlatformIdentity() {
+            try {
+                const assertion = await MPAccount.googleLoginAssertion();
+                const status = await AdminAPI.getGoogleStatus(assertion);
+                if (!status || !status.hasAccess) return;
+                canContinueCurrentIdentity = true;
+                googleLabel.textContent = 'Continue as ' + (status.email || 'current administrator');
+                googleSwitch.hidden = false;
+                googleStatus.textContent = 'This Platform identity has administrator access.';
+            } catch (ignore) {
+                canContinueCurrentIdentity = false;
+            }
+        }
 
         MPAccount.googleAvailable().then(function (available) {
             googleButton.hidden = !available;
+            if (available && query.get('google') !== '1') inspectPlatformIdentity();
         });
 
         if (query.get('google') === '1') {

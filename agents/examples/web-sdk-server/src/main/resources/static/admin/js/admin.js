@@ -130,6 +130,26 @@ const AdminAPI = (function () {
         return body.data.admin;
     }
 
+    async function getGoogleStatus(assertion) {
+        let response;
+        try {
+            response = await fetch(ApiConfig.getAdminUrl() + '/auth/google/status', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ assertion })
+            });
+        } catch (e) {
+            throw new Error('Network error — could not check administrator access.');
+        }
+        const text = await response.text();
+        let body = null;
+        if (text) {
+            try { body = JSON.parse(text); } catch (e) { body = null; }
+        }
+        if (!response.ok || !body || body.status !== 'success' || !body.data) return null;
+        return body.data;
+    }
+
     async function logout() {
         try { await request('/logout', { method: 'POST' }); } catch (e) { /* clear locally regardless */ }
         clearAuth();
@@ -192,7 +212,7 @@ const AdminAPI = (function () {
         });
 
     return {
-        login, loginWithGoogle, logout, isLoggedIn, getAdminInfo, clearAuth,
+        login, loginWithGoogle, getGoogleStatus, logout, isLoggedIn, getAdminInfo, clearAuth,
         getStats, getPlans, getAuditLog,
         getDevelopers, getDeveloper, createDeveloper, updateDeveloperPlan, resetDeveloperPassword,
         listAdmins, updateDeveloperRoles, deleteDeveloper,
