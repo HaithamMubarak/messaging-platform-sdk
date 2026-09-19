@@ -87,7 +87,7 @@
     margin-bottom: var(--sp-6);
 }
 .auth__brand:hover { text-decoration: none; }
-.auth__brand .logo-mark { width: 32px; height: 32px; flex: none; }
+.auth__brand .logo-mark { width: 24px; height: 24px; flex: none; }
 .auth__card h1 { font-size: var(--fs-xl); margin-bottom: var(--sp-2); }
 .auth__card > p { color: var(--text-muted); font-size: var(--fs-md); margin-bottom: var(--sp-6); }
 .auth__back { display: block; text-align: center; margin-top: var(--sp-5); font-size: var(--fs-md); }
@@ -122,7 +122,7 @@
 }
 .auth__story {
     position: relative;
-    min-height: 37rem;
+    min-height: 34rem;
     display: flex;
     flex-direction: column;
     padding: clamp(2rem, 5vw, 4.5rem);
@@ -133,19 +133,20 @@
 }
 .auth__story .auth__brand { margin-bottom: auto; }
 .auth__eyebrow, .auth__kicker { color: var(--brand-ink); font-family: var(--font-mono); font-size: var(--fs-xs); font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; }
-.auth__story h1 { max-width: 12ch; margin: var(--sp-3) 0 var(--sp-4); font-size: clamp(2.4rem, 5vw, 4.25rem); line-height: 0.98; letter-spacing: -0.05em; }
-.auth__lead { max-width: 38rem; color: var(--text-muted); font-size: var(--fs-lg); }
+.auth__story h1 { max-width: 14ch; margin: var(--sp-3) 0 var(--sp-4); font-size: clamp(2.1rem, 3.8vw, 3.4rem); line-height: 1.02; letter-spacing: -0.04em; }
+.auth__lead { max-width: 34rem; color: var(--text-muted); font-size: var(--fs-base); line-height: 1.55; }
 .auth__story .env-badge { align-self: flex-start; margin-top: var(--sp-6); }
 .auth__warning { display: grid; gap: var(--sp-1); max-width: 31rem; margin-top: var(--sp-6); padding: var(--sp-4); border: 1px solid rgba(245, 158, 11, 0.35); border-radius: var(--r-lg); background: rgba(245, 158, 11, 0.07); color: var(--text-muted); font-size: var(--fs-sm); }
 .auth__warning strong { color: var(--text); }
 .auth__site-link { margin-top: auto; font-size: var(--fs-sm); }
-.auth__card { width: auto; border: 0; border-left: 1px solid var(--border); border-radius: 0; box-shadow: none; padding: clamp(2rem, 4vw, 3.5rem); }
-.auth__card h2 { margin: var(--sp-3) 0 var(--sp-2); font-size: var(--fs-xl); }
+.auth__card { width: auto; border: 0; border-left: 1px solid var(--border); border-radius: 0; box-shadow: none; padding: clamp(1.75rem, 3vw, 2.75rem); }
+.auth__card h2 { margin: var(--sp-3) 0 var(--sp-2); font-size: var(--fs-lg); letter-spacing: -.02em; }
 .auth__card > p { color: var(--text-muted); font-size: var(--fs-md); }
-.auth__google { width: 100%; min-height: 3rem; display: flex; align-items: center; justify-content: center; gap: var(--sp-3); margin-top: var(--sp-6); border: 1px solid var(--border-strong); border-radius: var(--r-md); background: var(--surface-2); color: var(--text); font: inherit; font-weight: 700; cursor: pointer; }
+.auth__google { width: 100%; min-height: 2.75rem; display: flex; align-items: center; justify-content: center; gap: var(--sp-2); margin-top: var(--sp-5); border: 1px solid var(--border-strong); border-radius: var(--r-md); background: var(--surface-2); color: var(--text); font: inherit; font-size: var(--fs-sm); font-weight: 600; cursor: pointer; }
 .auth__google:hover { border-color: var(--brand); background: var(--brand-subtle); }
 .auth__google:disabled { cursor: wait; opacity: 0.7; }
-.auth__google-mark { width: 1.6rem; height: 1.6rem; display: grid; place-items: center; border-radius: 50%; background: #fff; color: #4285f4; font-weight: 800; }
+.auth__google-mark { width: 1.25rem; height: 1.25rem; display: grid; place-items: center; flex: none; }
+.auth__google-mark svg { display: block; width: 100%; height: 100%; }
 .auth__google-status { min-height: 1.25rem; margin-top: var(--sp-2); text-align: center; font-size: var(--fs-sm) !important; }
 .auth__divider { display: flex; align-items: center; gap: var(--sp-3); margin: var(--sp-4) 0; color: var(--text-muted); font-size: var(--fs-xs); text-transform: uppercase; letter-spacing: 0.08em; }
 .auth__divider::before, .auth__divider::after { content: ''; height: 1px; flex: 1; background: var(--border); }
