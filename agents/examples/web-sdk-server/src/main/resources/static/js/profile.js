@@ -13,6 +13,7 @@
     var accountId = null;
     var profileUser = null;
     var developerIdentityVerified = false;
+    var verifiedAccessEmail = null;
     var busy = {};
     var el = function (id) { return document.getElementById(id); };
 
@@ -124,27 +125,6 @@
         el('pDeveloperNote').textContent = '';
     }
 
-    function loadAdminAccess() {
-        A.googleLoginAssertion().then(function (assertion) {
-            return fetch('/messaging-platform/api/v1/messaging-service/admin/auth/google/status', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ assertion: assertion })
-            });
-        }).then(function (response) {
-            return response.json().catch(function () { return {}; }).then(function (body) {
-                if (!response.ok || !body || !body.data) return null;
-                return body.data;
-            });
-        }).then(function (state) {
-            if (!state || !state.hasAccess) return;
-            el('pAdminIdentity').textContent = state.email || 'Active administrator';
-            el('pAdminAccess').hidden = false;
-        }).catch(function () {
-            el('pAdminAccess').hidden = true;
-        });
-    }
-
     function setDeveloperNav(label, href) {
         var nav = el('developerNavAction');
         nav.textContent = label;
@@ -154,6 +134,10 @@
     function renderDeveloperState(state) {
         resetDeveloperActions();
         var status = state && state.status ? state.status : 'NONE';
+        if (state && state.adminAccess) {
+            el('pAdminIdentity').textContent = state.developerEmail || state.verifiedEmail || 'Active administrator';
+            el('pAdminAccess').hidden = false;
+        }
 
         if (status === 'ACTIVE' && state.hasAccess) {
             setAccessBadge('Active', 'active');
@@ -190,6 +174,7 @@
 
     function renderDeveloperUnverified(message) {
         developerIdentityVerified = false;
+        verifiedAccessEmail = null;
         resetDeveloperActions();
         setAccessBadge('Identity check');
         el('pDeveloperBody').textContent = 'Request access or check an existing developer account using the same Google-verified identity.';
@@ -204,12 +189,24 @@
             return;
         }
         window.openApiKeyRequest({
-            email: user.email,
+            email: verifiedAccessEmail || user.email,
             name: user.displayName || '',
             lockEmail: true,
-            onSuccess: function () {
-                el('pDeveloperNote').textContent = 'Your API access request is pending review.';
-                loadDeveloperAccess(user);
+            submit: function (request) {
+                return A.googleLoginAssertion().then(function (assertion) {
+                    return developerCall('/platform-access/request', {
+                        assertion: assertion,
+                        name: request.name,
+                        company: request.company,
+                        reason: request.reason
+                    });
+                });
+            },
+            onSuccess: function (state) {
+                developerIdentityVerified = true;
+                renderDeveloperState(state || { status: 'PENDING', hasAccess: false });
+                el('pDeveloperNote').textContent =
+                    (state && state.message) || 'Your API access request is pending review.';
             }
         });
     }
@@ -224,8 +221,8 @@
             return developerCall('/platform-access', { assertion: assertion });
         }).then(function (state) {
             developerIdentityVerified = true;
+            verifiedAccessEmail = state.verifiedEmail || user.email;
             renderDeveloperState(state);
-            loadAdminAccess();
             var requestAfterGoogle = false;
             try {
                 requestAfterGoogle = sessionStorage.getItem('mp.developerRequestAfterGoogle') === '1';

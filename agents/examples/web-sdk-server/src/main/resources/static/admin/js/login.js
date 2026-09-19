@@ -75,6 +75,7 @@
         googleSwitch.addEventListener('click', openGoogleChooser);
 
         async function inspectPlatformIdentity() {
+            if (!MPAccount.signedIn()) return;
             try {
                 const assertion = await MPAccount.googleLoginAssertion();
                 const status = await AdminAPI.getGoogleStatus(assertion);

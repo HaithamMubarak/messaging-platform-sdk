@@ -187,25 +187,28 @@
 
                 await UI.withBusy(submit, async () => {
                     try {
-                        const response = await fetch(ApiConfig.getApiKeyRequestUrl(), {
-                            method: 'POST',
-                            headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify({
-                                email: email,
-                                name: inputs.name.value.trim() || null,
-                                company: inputs.company.value.trim() || null,
-                                reason: reason.value.trim() || null
-                            })
-                        });
-
+                        const requestData = {
+                            email: email,
+                            name: inputs.name.value.trim() || null,
+                            company: inputs.company.value.trim() || null,
+                            reason: reason.value.trim() || null
+                        };
                         let payload = null;
-                        try { payload = await response.json(); } catch (e) { /* non-JSON error page */ }
-
-                        if (!response.ok) {
-                            throw new Error(
-                                (payload && (payload.statusMessage || payload.message || payload.error)) ||
-                                'Request failed (' + response.status + '). Please try again shortly.'
-                            );
+                        if (typeof config.submit === 'function') {
+                            payload = await config.submit(requestData);
+                        } else {
+                            const response = await fetch(ApiConfig.getApiKeyRequestUrl(), {
+                                method: 'POST',
+                                headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify(requestData)
+                            });
+                            try { payload = await response.json(); } catch (e) { /* non-JSON error page */ }
+                            if (!response.ok) {
+                                throw new Error(
+                                    (payload && (payload.statusMessage || payload.message || payload.error)) ||
+                                    'Request failed (' + response.status + '). Please try again shortly.'
+                                );
+                            }
                         }
 
                         close(true);

@@ -12,6 +12,7 @@
         const reveal = document.getElementById('revealPassword');
         const googleButton = document.getElementById('googleLoginBtn');
         const googleLabel = document.getElementById('googleLoginLabel');
+        const googleSwitch = document.getElementById('googleSwitchBtn');
         const googleStatus = document.getElementById('googleStatus');
         const accessNotice = document.getElementById('platformAccessNotice');
         const accessTitle = document.getElementById('platformAccessTitle');
@@ -63,6 +64,7 @@
             googleButton.hidden = false;
             googleStatus.textContent = 'Verifying your developer access...';
             googleButton.disabled = true;
+            googleSwitch.disabled = true;
             try {
                 const assertion = await MPAccount.googleLoginAssertion();
                 await DeveloperAPI.loginWithGoogle(assertion);
@@ -71,9 +73,16 @@
             } catch (err) {
                 googleStatus.textContent = '';
                 googleButton.disabled = false;
+                googleSwitch.disabled = false;
                 clearGoogleReturn();
                 showError(err.message || 'Google sign-in could not be completed.');
             }
+        }
+
+        function openGoogleChooser() {
+            googleStatus.textContent = 'Opening Google sign-in...';
+            const returnTo = window.location.pathname + '?google=1';
+            window.location.assign(MPAccount.googleStartUrl(returnTo));
         }
 
         googleButton.addEventListener('click', function () {
@@ -81,21 +90,23 @@
                 completeGoogleLogin();
                 return;
             }
-            googleStatus.textContent = 'Opening Google sign-in...';
-            const returnTo = window.location.pathname + '?google=1';
-            window.location.assign(MPAccount.googleStartUrl(returnTo));
+            openGoogleChooser();
         });
+
+        googleSwitch.addEventListener('click', openGoogleChooser);
 
         function showPlatformAccess(state) {
             accessNotice.hidden = false;
             accessNotice.dataset.state = String(state.status || 'NONE').toLowerCase();
             canContinueCurrentIdentity = state.status === 'ACTIVE' && !!state.hasAccess;
+            googleSwitch.hidden = true;
 
             if (canContinueCurrentIdentity) {
                 accessTitle.textContent = 'Developer access active';
                 accessText.textContent = (state.developerEmail || state.verifiedEmail) +
                     ' · ' + (state.plan || 'Free') + ' plan';
                 googleLabel.textContent = 'Continue as ' + (state.developerName || 'developer');
+                googleSwitch.hidden = false;
                 accessLink.textContent = 'View unified profile';
                 return;
             }
