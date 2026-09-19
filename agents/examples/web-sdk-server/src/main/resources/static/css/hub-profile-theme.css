@@ -187,3 +187,8 @@
     outline-color: var(--accent);
     box-shadow: var(--focus-ring);
 }
+/* Keep every Hub theme on the platform's shared type system. */
+:root {
+  --display: var(--font-display);
+  --body: var(--font-sans);
+}
