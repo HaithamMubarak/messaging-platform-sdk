@@ -77,8 +77,14 @@
                 googleButton.disabled = false;
                 googleSwitch.disabled = false;
                 clearGoogleReturn();
-                if (startMode && (err.selfService === false || err.status === 503)) showSignupClosed();
-                showError(err.message || 'Google sign-in could not be completed.');
+                // 404: a messaging-service older than self-service. To the
+                // visitor that is the same as signup being switched off.
+                const closed = startMode &&
+                    (err.selfService === false || err.status === 503 || err.status === 404);
+                if (closed) showSignupClosed();
+                showError(closed && err.status === 404
+                    ? 'Free signup is not open yet. Request access and we will email your key.'
+                    : err.message || 'Google sign-in could not be completed.');
             }
         }
 
