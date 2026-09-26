@@ -203,6 +203,10 @@
                     </p>
                 </div>
 
+                <div style="display:flex;justify-content:flex-end;margin-bottom:var(--sp-4)">
+                    <button class="btn btn--primary btn--sm" type="button" id="createKeyBtn">Create API key</button>
+                </div>
+
                 <div class="table-card">
                     <div class="table-card__scroll" role="region" aria-label="API keys" tabindex="0">
                         <table class="table">
@@ -462,6 +466,13 @@
                 <div class="usage-card">
                     <h3>Your plan: <span id="currentPlan" style="color:var(--text)">—</span></h3>
                     <div id="planFeatures"></div>
+                    <!-- Billing boundary: no payment provider is wired yet
+                         (/billing/checkout answers 501), so this says so
+                         rather than offering an upgrade button that cannot work. -->
+                    <p class="panel__desc" style="margin-top:var(--sp-4)">
+                        Free during the public beta. Paid plans are planned and not on sale yet;
+                        nothing is charged. <a href="../pricing.html">Compare plans</a>
+                    </p>
                 </div>
 
                 <div id="usageError"></div>

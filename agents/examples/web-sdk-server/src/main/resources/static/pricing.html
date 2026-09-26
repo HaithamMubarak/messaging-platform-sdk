@@ -1,0 +1,68 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Pricing | Messaging Platform</title>
+<meta name="description" content="Messaging Platform pricing. Free during the public beta, no credit card. Planned Starter, Pro, Business and Enterprise plans for applications that grow.">
+<meta name="robots" content="index,follow">
+<link rel="canonical" href="https://hmdevonline.com/messaging-platform/hub/pricing.html">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="Messaging Platform">
+<meta property="og:title" content="Pricing | Messaging Platform">
+<meta property="og:description" content="Start free. Upgrade when your application grows.">
+<meta property="og:image" content="https://hmdevonline.com/messaging-platform/sdk/images/og-image.png">
+<meta name="color-scheme" content="dark light">
+<link rel="icon" type="image/svg+xml" href="favicon.svg">
+<script>try{document.documentElement.dataset.theme=localStorage.getItem('hub-theme')||'dark'}catch(e){document.documentElement.dataset.theme='dark'}</script>
+<link rel="stylesheet" href="css/design-tokens.css">
+<link rel="stylesheet" href="css/hub-product.css">
+<link rel="stylesheet" href="css/hub-profile-theme.css">
+</head>
+<body class="mp-page">
+<header class="mp-top">
+  <a class="mp-brand" href="hub.html"><span class="mp-brand-mark" aria-hidden="true">◆</span>Messaging Platform</a>
+  <nav class="mp-nav" aria-label="Main">
+    <a href="hub.html">Product</a><a href="hub.html#demos">Demos</a><a href="quickstart.html">Quickstart</a><a href="pricing.html" aria-current="page">Pricing</a><a href="docs.html">Docs</a>
+  </nav>
+  <button class="mp-theme" type="button" data-theme-toggle>Light mode</button>
+  <a class="mp-btn mp-btn--primary" href="developer/index.html?start=free">Start free</a>
+</header>
+
+<main class="mp-main" id="main">
+  <p class="mp-eyebrow">Pricing</p>
+  <h1 style="font-size:clamp(30px,5vw,44px);letter-spacing:-1.2px;line-height:1.1">Start free. Upgrade when your application grows.</h1>
+  <p class="mp-lead">Pay for what your app actually uses: connections, messages and media relay. No credit card to start.</p>
+  <p class="mp-note" id="plansNotice" style="margin-top:22px">Every plan is free while the platform is in public beta.</p>
+
+  <div class="mp-plans" id="plans" aria-live="polite"></div>
+  <noscript><p class="mp-note mp-note--warm">This table needs JavaScript. The plan data is published as <a href="data/plans.json">data/plans.json</a>.</p></noscript>
+
+  <section class="mp-section" aria-labelledby="compare-h">
+    <div class="mp-section-head">
+      <h2 id="compare-h">Compare the limits that matter</h2>
+      <p class="mp-lead" id="plansEnforced"></p>
+    </div>
+    <div class="mp-table-scroll" id="compare"></div>
+  </section>
+
+  <section class="mp-section" aria-labelledby="faq-h">
+    <h2 id="faq-h">Questions developers ask first</h2>
+    <div class="mp-grid" style="margin-top:18px">
+      <div class="mp-card"><h3>What happens at a limit?</h3><p>Today, creating a channel past your plan's allowance is refused with a clear error; existing channels keep working. We will warn before any other limit starts being enforced.</p></div>
+      <div class="mp-card"><h3>Is there an SLA?</h3><p>Not during the beta, and we will not claim one until monitoring and capacity support it. Enterprise agreements will carry one.</p></div>
+      <div class="mp-card"><h3>What counts as a message?</h3><p>When message metering ships, a message is each event you send to a channel. Presence heartbeats and reconnects will not count.</p></div>
+      <div class="mp-card"><h3>Can I self-host?</h3><p>Self-hosted and dedicated deployments are an Enterprise option. <a class="mp-link" href="profile.html#pDeveloperCard">Tell us what you need</a>.</p></div>
+      <div class="mp-card"><h3>Do the apps cost extra?</h3><p>Apps built on the platform price themselves: <a class="mp-link" href="/messaging-platform/apps/rooms/#pricing">Rooms</a> has host plans and BlockParty has a Host Pass. Guests and players always join free.</p></div>
+      <div class="mp-card"><h3>How do I start?</h3><p>Sign in with Google, get a key, and send your first message with the <a class="mp-link" href="quickstart.html">five-minute quickstart</a>.</p></div>
+    </div>
+  </section>
+</main>
+
+<footer class="mp-foot">
+  <p>&copy; 2026 Messaging Platform &middot; Public beta</p>
+  <nav aria-label="Footer"><a href="/messaging-platform/apps/status/">Status</a><a href="privacy.html">Privacy</a><a href="terms.html">Terms</a></nav>
+</footer>
+<script src="js/hub-page.js"></script>
+<script src="js/pricing.js"></script>
+</body>
+</html>

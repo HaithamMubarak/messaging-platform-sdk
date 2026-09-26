@@ -23,9 +23,17 @@ export interface ConnectOptions {
 }
 
 export interface SendOptions {
-    msg: unknown;
-    destAgent?: string;
-    encrypted?: boolean;
+    /** A string or any JSON-serialisable value. */
+    content: unknown;
+    /** Send to one agent by name instead of the whole channel. */
+    to?: string;
+    /** A regex over agent names, instead of `to`. */
+    filter?: string;
+    /** Wire type; defaults to 'chat-text'. */
+    type?: string;
+    customType?: string;
+    /** Deliver live only; not stored for replay. */
+    ephemeral?: boolean;
 }
 
 export interface AgentInfo {
@@ -37,9 +45,11 @@ export type AgentEvent =
     | 'connect'
     | 'disconnect'
     | 'message'
-    | 'error'
-    | 'agentConnected'
-    | 'agentDisconnected';
+    | 'agent-connect'
+    | 'agent-disconnect'
+    | 'connection-lost'
+    | 'reconnecting'
+    | 'session-not-found';
 
 export declare class AgentConnection {
     constructor(options?: {
@@ -51,11 +61,21 @@ export declare class AgentConnection {
     connect(options: ConnectOptions): void;
     disconnect(): void;
 
-    sendMessage(options: SendOptions): void;
+    sendMessage(options: SendOptions | string, callback?: (result: any) => void): void;
     getActiveAgents(callback: (agents: AgentInfo[]) => void): void;
 
     addEventListener(event: AgentEvent, handler: (event: any) => void): void;
-    on(event: AgentEvent, handler: (event: any) => void): void;
+    removeEventListener(event: AgentEvent, handler: (event: any) => void): void;
+
+    /** Channel storage: state every client can read and late joiners catch up on. */
+    storagePut(options: { storageKey: string; content: unknown; encrypted?: boolean; metadata?: object },
+               callback?: (result: any) => void): void;
+    storageGet(options: { storageKey: string }, callback: (result: any) => void): void;
+    storageKeys(callback: (result: any) => void): void;
+    storageDeleteByKey(storageKey: string, callback?: (result: any) => void): void;
+
+    isHostAgent(agentName: string): boolean;
+    getHostAgentName(): string | null;
 
     /**
      * Whether leaving the page would lose work. Drives the unload prompt, which

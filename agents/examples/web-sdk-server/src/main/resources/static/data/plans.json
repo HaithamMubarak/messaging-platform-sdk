@@ -1,0 +1,175 @@
+{
+  "_comment": "The ONE place public prices and limits live. pricing.html and the hub teaser render from this file; change a price here and nowhere else. 'available' plans can be used today; 'planned' plans are proposed pricing, not on sale, and nothing is charged. Server-side limits live in the messaging-service `plans` table - keep the two in step when a plan goes on sale.",
+  "currency": "USD",
+  "notice": "Every plan is free while the platform is in public beta. Paid plans are our planned pricing: they are not on sale yet and nothing is charged. Start free today and your account moves to a paid plan only if you choose one.",
+  "enforcedToday": "Marked limits are enforced today. Active channels are counted in channel units: a channel counts as one, plus a little more the longer it lives. Connection, bandwidth and TURN metering is being built; until it ships, unmarked numbers are the plan’s targets rather than hard limits.",
+  "rows": [
+    {
+      "key": "connections",
+      "label": "Concurrent connections",
+      "card": "concurrent connections"
+    },
+    {
+      "key": "messages",
+      "label": "Messages / month",
+      "card": "messages / month"
+    },
+    {
+      "key": "channels",
+      "label": "Active channels",
+      "card": "active channels"
+    },
+    {
+      "key": "projects",
+      "label": "API keys"
+    },
+    {
+      "key": "history",
+      "label": "Message history"
+    },
+    {
+      "key": "storage",
+      "label": "Channel storage"
+    },
+    {
+      "key": "turn",
+      "label": "WebRTC TURN relay",
+      "card": "WebRTC TURN relay"
+    },
+    {
+      "key": "team",
+      "label": "Team members"
+    },
+    {
+      "key": "support",
+      "label": "Support"
+    }
+  ],
+  "plans": [
+    {
+      "id": "free",
+      "name": "Free",
+      "status": "available",
+      "price": 0,
+      "priceLabel": "$0",
+      "period": "forever",
+      "audience": "Evaluate the SDK, learn, and build hobby projects.",
+      "cta": {
+        "label": "Start free",
+        "href": "developer/index.html?start=free"
+      },
+      "limits": {
+        "connections": "100",
+        "messages": "1M",
+        "channels": "50",
+        "projects": "10",
+        "history": "7 days",
+        "storage": "100 MB",
+        "turn": "1 GB",
+        "team": "1",
+        "support": "Community"
+      },
+      "enforced": [
+        "channels",
+        "projects"
+      ]
+    },
+    {
+      "id": "starter",
+      "name": "Starter",
+      "status": "planned",
+      "price": 12,
+      "priceLabel": "$12",
+      "period": "per month",
+      "audience": "Indie developers and prototypes with real users.",
+      "cta": {
+        "label": "Start free, upgrade later",
+        "href": "developer/index.html?start=free"
+      },
+      "limits": {
+        "connections": "1,000",
+        "messages": "10M",
+        "channels": "500",
+        "projects": "10",
+        "history": "30 days",
+        "storage": "1 GB",
+        "turn": "10 GB",
+        "team": "1",
+        "support": "Email"
+      }
+    },
+    {
+      "id": "pro",
+      "name": "Pro",
+      "status": "planned",
+      "featured": true,
+      "price": 39,
+      "priceLabel": "$39",
+      "period": "per month",
+      "audience": "Production applications, startups and small teams.",
+      "cta": {
+        "label": "Start free, upgrade later",
+        "href": "developer/index.html?start=free"
+      },
+      "limits": {
+        "connections": "10,000",
+        "messages": "50M",
+        "channels": "5,000",
+        "projects": "10",
+        "history": "90 days",
+        "storage": "10 GB",
+        "turn": "50 GB",
+        "team": "5",
+        "support": "Priority email"
+      }
+    },
+    {
+      "id": "business",
+      "name": "Business",
+      "status": "planned",
+      "price": 149,
+      "priceLabel": "$149",
+      "period": "per month",
+      "audience": "Growing teams running commercial applications.",
+      "cta": {
+        "label": "Talk to us",
+        "href": "profile.html#pDeveloperCard"
+      },
+      "limits": {
+        "connections": "50,000",
+        "messages": "250M",
+        "channels": "25,000",
+        "projects": "10",
+        "history": "1 year",
+        "storage": "50 GB",
+        "turn": "250 GB",
+        "team": "20",
+        "support": "Priority + onboarding"
+      }
+    },
+    {
+      "id": "enterprise",
+      "name": "Enterprise",
+      "status": "planned",
+      "price": null,
+      "priceLabel": "Custom",
+      "period": "annual agreement",
+      "audience": "Self-hosted or dedicated deployments, custom quotas and compliance.",
+      "cta": {
+        "label": "Contact sales",
+        "href": "profile.html#pDeveloperCard"
+      },
+      "limits": {
+        "connections": "Custom",
+        "messages": "Custom",
+        "channels": "Custom",
+        "projects": "Custom",
+        "history": "Custom",
+        "storage": "Custom",
+        "turn": "Custom",
+        "team": "Unlimited",
+        "support": "Dedicated"
+      }
+    }
+  ]
+}

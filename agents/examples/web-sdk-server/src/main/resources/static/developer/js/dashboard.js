@@ -258,7 +258,7 @@
             UI.tableEmpty(tbody, KEY_COLUMNS, {
                 icon: 'key',
                 title: 'No API keys on this account',
-                body: 'Contact an administrator if you expected a key here.'
+                body: 'Create one with the button above.'
             });
             return;
         }
@@ -333,6 +333,52 @@
         } catch (e) {
             if (cell.isConnected) cell.textContent = '—';
         }
+    }
+
+    /* A key the API returned in full: keep it as the session's key (as a
+       rotation does) and show it once. */
+    function revealNewKey(fullKey, title, description) {
+        const profile = DeveloperAPI.getProfile();
+        if (profile) {
+            profile.apiKey = fullKey;
+            DeveloperAPI.setProfile(profile);
+        }
+        UI.showSecret({
+            title: title,
+            value: fullKey,
+            description: description,
+            meta: 'Next: send your first message with the five-minute quickstart at /messaging-platform/hub/quickstart.html',
+            copyLabel: 'API key copied'
+        });
+    }
+
+    /* A self-served account's first key arrives with the sign-in response and
+       is parked in sessionStorage by DeveloperAPI.startFree; show it once. */
+    function showWelcomeKey() {
+        let key = null;
+        try {
+            key = sessionStorage.getItem('developer_new_key');
+            sessionStorage.removeItem('developer_new_key');
+        } catch (e) { return; }
+        if (!key) return;
+        revealNewKey(key, 'Welcome — here is your API key',
+            'Your Free account is ready. This key is shown once: copy it to your server now. ' +
+            'Browser code should use a temporary key instead (Keys → Temporary keys).');
+    }
+
+    async function createKey() {
+        await UI.confirm({
+            title: 'Create another API key?',
+            body: 'Use one key per app or environment, so a leaked key can be rotated without ' +
+                  'breaking the others. The secret is shown once.',
+            confirmLabel: 'Create key',
+            onConfirm: async () => {
+                const count = document.querySelectorAll('#apiKeysBody tr').length;
+                const response = await DeveloperAPI.createApiKey('API key ' + (count + 1));
+                revealNewKey(response.fullKey, 'Your new API key', null);
+                loadApiKeys();
+            }
+        });
     }
 
     async function revokeKey(key) {
@@ -1237,6 +1283,8 @@
         initTools();
         initPasswordForm();
         initPlatformLink();
+        document.getElementById('createKeyBtn').addEventListener('click', createKey);
+        showWelcomeKey();
 
         document.getElementById('logoutBtn').addEventListener('click', async function () {
             await DeveloperAPI.logout();

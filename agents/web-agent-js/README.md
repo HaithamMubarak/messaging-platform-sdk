@@ -93,63 +93,61 @@ web-agent-js/
 
 ### 1. Install
 
-```bash
-npm i @messaging-platform/web-agent-js
-```
-
-About 80 KB gzipped, with TypeScript definitions included.
-
-```js
-import { AgentConnection, generateRandomAgentName } from '@messaging-platform/web-agent-js';
-// CommonJS:
-// const { AgentConnection } = require('@messaging-platform/web-agent-js');
-```
-
-Or with no build step at all, straight from script tags — load the libraries
-first, since `web-agent.js` expects them as globals:
+In a browser, load two script tags — no build step. `AgentConnection` is then a
+global:
 
 ```html
-<script src="node_modules/@messaging-platform/web-agent-js/js/web-agent.libs.js"></script>
-<script src="node_modules/@messaging-platform/web-agent-js/js/web-agent.js"></script>
+<script src="https://hmdevonline.com/messaging-platform/sdk/generated-web-agent-js/js/web-agent.libs.js"></script>
+<script src="https://hmdevonline.com/messaging-platform/sdk/generated-web-agent-js/js/web-agent.js"></script>
 
 <!-- Optional: peer-to-peer data channels, audio and video -->
-<script src="node_modules/@messaging-platform/web-agent-js/js/web-agent.webrtc.js"></script>
+<script src="https://hmdevonline.com/messaging-platform/sdk/generated-web-agent-js/js/web-agent.webrtc.js"></script>
 ```
+
+In Node 18+, `require()` this directory from an SDK checkout
+(`const { AgentConnection } = require('./agents/web-agent-js')`). The package is
+named `@messaging-platform/web-agent-js` but is **not published to npm yet**.
 
 ### 2. Join a channel and send something
 
 A channel is identified by a name and a password. Everyone who connects with the
-same pair is in the same room; there are no accounts to create.
+same pair is in the same room, and the password also encrypts the payloads.
 
 ```js
 const agent = new AgentConnection();
 
-agent.on('connect', () => {
-    agent.sendMessage({ msg: { hello: 'everyone' } });     // to the whole channel
+agent.addEventListener('connect', (e) => {
+    if (e.response.status !== 'success') return console.error(e.response);
+    agent.sendMessage({ content: 'hello, everyone' });          // to the whole channel
 });
 
-agent.on('message', (event) => {
-    console.log('received', event);
+agent.addEventListener('message', (e) => {
+    e.response.data
+        .filter((m) => m.type === 'chat-text')
+        .forEach((m) => console.log(m.from, 'says', m.content));
 });
 
-agent.on('agentConnected', (event) => console.log('joined:', event));
-agent.on('agentDisconnected', (event) => console.log('left:', event));
+agent.addEventListener('agent-connect', (e) => console.log('joined:', e.agentName));
+agent.addEventListener('agent-disconnect', (e) => console.log('left:', e.agentName));
 
 agent.connect({
     api: 'https://hmdevonline.com/messaging-platform/api/v1/messaging-service',
-    apiKey: 'your-api-key',
-    apiKeyScope: 'public',          // 'public' keys are safe to ship in a browser
+    apiKey: temporaryKey,           // minted by YOUR server; never ship the developer key
     channelName: 'my-room',
     channelPassword: 'a-shared-secret',
     agentName: generateRandomAgentName(),
+    autoReceive: true,              // without it, an HTTP-polling connection receives nothing
 });
 ```
 
 To reach one participant rather than the whole channel, name them:
 
 ```js
-agent.sendMessage({ msg: { deal: 'your card' }, destAgent: 'Priya', encrypted: true });
+agent.sendMessage({ content: { deal: 'your card' }, to: 'Priya' });
 ```
+
+The same program in Python, Java and C++, verified against the live platform,
+is in [`../examples/quickstart`](../examples/quickstart/README.md).
 
 ### 3. Warn before losing work
 
@@ -281,50 +279,46 @@ See the following for complete examples:
 
 ## 🔧 API Reference
 
-### Agent API
+The calls below are the ones `js/web-agent.js` actually defines. The full
+reference is `WEB-AGENT-GUIDE.md` at the repository root.
+
+### Connection and messages
 
 ```javascript
-// Create agent
-const agent = await Agent.create({ apiKey, baseURL });
-
-// Get or create channel
-const channel = await agent.getOrCreateChannel({ 
-    channelName, 
-    channelPassword 
-});
+const agent = new AgentConnection({ useWebsocket: true });   // WebSocket, falls back to HTTP polling
+agent.connect({ api, apiKey, channelName, channelPassword, agentName, autoReceive: true });
+agent.sendMessage({ content, to /* optional agent name */, type /* default 'chat-text' */ });
+agent.addEventListener('message', e => e.response.data /* array of events */);
+agent.disconnect();
 ```
 
-### Channel API
+Events: `connect`, `disconnect`, `message`, `agent-connect`, `agent-disconnect`,
+`connection-lost`, `reconnecting`, `session-not-found`.
+
+### Presence
 
 ```javascript
-// Send message
-channel.sendMessage({ type: 'event', data: {} });
-
-// Listen for messages
-channel.setCustomMessageHandler((msg) => { /* ... */ });
-
-// Storage API
-await channel.storagePut('key', 'value');
-const value = await channel.storageGet('key');
-await channel.storageDelete('key');
-
-// Agent management
-channel.setAgentJoinHandler((agent) => { /* ... */ });
-channel.setAgentLeaveHandler((agentName) => { /* ... */ });
+agent.getActiveAgents(agents => { /* who is connected now */ });
+agent.isHostAgent(name);  agent.getHostAgentName();
 ```
 
-### WebRTC API
+### Shared state (channel storage)
 
 ```javascript
-// Broadcast to all peers
-webrtcHelper.broadcastDataChannel({ type: 'update', data });
+agent.storagePut({ storageKey: 'board', content: board }, done);
+agent.storageGet({ storageKey: 'board' }, result => { /* ... */ });
+agent.storageKeys(keys => { /* ... */ });
+agent.storageDeleteByKey('board', done);
+```
 
-// Listen for data channel messages
-webrtcHelper.setDataChannelHandler((msg) => { /* ... */ });
+### WebRTC (load `web-agent.webrtc.js`)
 
-// Connection handlers
-webrtcHelper.setConnectionEstablishedHandler((peerId) => { /* ... */ });
-webrtcHelper.setConnectionClosedHandler((peerId) => { /* ... */ });
+```javascript
+const rtc = new WebRtcHelper(agent);
+rtc.on('datachannel-message', (peerId, data) => { /* ... */ });
+rtc.broadcastDataChannel({ type: 'update', data });
+rtc.sendData(peerId, data);
+rtc.createStreamOffer(remoteAgent, { audio: true, video: true });
 ```
 
 ---

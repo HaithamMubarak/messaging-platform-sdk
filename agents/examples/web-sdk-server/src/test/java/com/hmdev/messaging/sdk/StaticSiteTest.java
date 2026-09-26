@@ -1,5 +1,7 @@
 package com.hmdev.messaging.sdk;
 
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
@@ -145,14 +147,44 @@ class StaticSiteTest {
         assertThat(found).isEqualTo(entries);
     }
 
+    /*
+     * Re-pinned 2026-09-26. The old pins (a `site-nav` header, no link to the
+     * playground) were written the morning of 2026-09-15 and the hub refresh
+     * that evening deliberately replaced both, without moving the test; it had
+     * been red since. The promise underneath is what is pinned now: the hub
+     * says what the product is and routes a visitor to trying, pricing and
+     * starting — and the flagship apps are one click away.
+     */
     @Test
-    @DisplayName("the Hub header focuses discovery on products and developer resources")
-    void hubHeaderFocusesOnProducts() throws IOException {
+    @DisplayName("the Hub says what the product is, and routes to quickstart, pricing and signup")
+    void hubAnswersTheFirstQuestions() throws IOException {
         String home = read("hub.html");
-        assertThat(home).contains("<nav class=\"site-nav\" id=\"siteNav\"");
+        assertThat(home).contains("Build realtime apps");
+        assertThat(home).contains("href=\"quickstart.html\"");
+        assertThat(home).contains("href=\"pricing.html\"");
+        assertThat(home).contains("href=\"developer/index.html?start=free\"");
         assertThat(home).contains("/messaging-platform/apps/rooms/");
         assertThat(home).contains("/messaging-platform/hub/sdk-guide.html");
-        assertThat(home).doesNotContain("playground.html");
+    }
+
+    /*
+     * The hub may only name SDKs that exist in this repository, and the
+     * experimental one must say so. A language chip is a promise that the
+     * quickstart has a working tab for it.
+     */
+    @Test
+    @DisplayName("the Hub names only real SDKs, each with a quickstart tab")
+    void hubNamesOnlyRealSdks() throws IOException {
+        String home = read("hub.html");
+        String quickstart = read("quickstart.html");
+        Matcher chip = Pattern.compile("class=\"mp-lang\" href=\"quickstart.html#(\\w+)\"").matcher(home);
+        List<String> langs = new ArrayList<>();
+        while (chip.find()) langs.add(chip.group(1));
+        assertThat(langs).containsExactly("js", "python", "java", "cpp");
+        for (String lang : langs) {
+            assertThat(quickstart).contains("data-tab=\"" + lang + "\"");
+        }
+        assertThat(home).contains("C++ <small>experimental</small>");
     }
 
     @Test
@@ -239,14 +271,19 @@ class StaticSiteTest {
     @Test
     @DisplayName("no sitemap entry outlives the page it points at")
     void sitemapOnlyListsPagesThatExist() throws IOException {
-        String base = "https://hmdevonline.com/messaging-platform/hub/";
+        // This tree is served at both /hub/ and /sdk/ (demos keep their /sdk/
+        // URLs); /apps/ is apps-service, whose pages this build cannot see.
+        String root = "https://hmdevonline.com/messaging-platform/";
         Matcher m = Pattern.compile("<loc>([^<]+)</loc>").matcher(read("sitemap.xml"));
 
         List<String> missing = new ArrayList<>();
         while (m.find()) {
             String loc = m.group(1);
-            assertThat(loc).startsWith(base);
-            String relative = loc.substring(base.length()).split("\\?")[0];
+            assertThat(loc).startsWith(root);
+            String path = loc.substring(root.length());
+            if (path.startsWith("apps/")) continue;
+            assertThat(path).as(loc).matches("(hub|sdk)/.*");
+            String relative = path.substring(4).split("\\?")[0];
             if (relative.isEmpty()) relative = "hub.html";
             if (!Files.exists(STATIC.resolve(relative))) missing.add(relative);
         }
@@ -364,11 +401,80 @@ class StaticSiteTest {
         assertThat(broken).isEmpty();
     }
 
+    /*
+     * Re-pinned 2026-09-26: the 2026-09-15 evening hub refresh made the
+     * playground public on purpose (indexed, in the sitemap, linked as "Full
+     * Playground"); this test still asserted the morning's opposite and had
+     * been red since. Pin the decision that shipped.
+     */
     @Test
-    @DisplayName("the direct-link playground stays out of public discovery")
-    void playgroundIsNotPubliclyIndexed() throws IOException {
-        assertThat(read("playground.html"))
-                .contains("<meta name=\"robots\" content=\"noindex, follow\">");
-        assertThat(read("sitemap.xml")).doesNotContain("playground.html");
+    @DisplayName("the playground is a public, indexed page the hub links to")
+    void playgroundIsPublic() throws IOException {
+        assertThat(read("playground.html")).doesNotContain("noindex");
+        assertThat(read("sitemap.xml")).contains("/messaging-platform/hub/playground.html");
+        assertThat(read("hub.html")).contains("hub/playground.html");
+    }
+
+    // ------------------------------------------------------------- pricing
+
+    /*
+     * Prices live in data/plans.json and nowhere else, and a plan that cannot
+     * be bought must say so. These are the two ways a pricing page lies:
+     * a number that disagrees with the source, or a "Buy" on something not
+     * for sale.
+     */
+    @Test
+    @DisplayName("every plan in plans.json is well-formed, and only Free is sold today")
+    void plansAreHonest() throws IOException {
+        JsonNode data = new ObjectMapper().readTree(read("data/plans.json"));
+        List<String> rowKeys = new ArrayList<>();
+        data.get("rows").forEach(r -> rowKeys.add(r.get("key").asText()));
+
+        List<String> names = new ArrayList<>();
+        for (JsonNode plan : data.get("plans")) {
+            names.add(plan.get("name").asText());
+            for (String key : rowKeys) {
+                assertThat(plan.get("limits").hasNonNull(key)).as(plan.get("id") + " limit " + key).isTrue();
+            }
+            String status = plan.get("status").asText();
+            assertThat(status).isIn("available", "planned");
+            if (!plan.get("id").asText().equals("free")) {
+                assertThat(status).as(plan.get("id") + " is not on sale yet").isEqualTo("planned");
+            }
+            String href = plan.get("cta").get("href").asText();
+            assertThat(Files.exists(STATIC.resolve(href.split("[?#]")[0])))
+                    .as(plan.get("id") + " CTA " + href).isTrue();
+        }
+        assertThat(names).containsExactly("Free", "Starter", "Pro", "Business", "Enterprise");
+        assertThat(data.get("notice").asText()).contains("not on sale");
+    }
+
+    @Test
+    @DisplayName("the pricing page renders from plans.json rather than restating prices")
+    void pricingPageReadsThePlanFile() throws IOException {
+        String page = read("pricing.html");
+        assertThat(page).contains("js/pricing.js");
+        assertThat(read("js/pricing.js")).contains("data/plans.json");
+        // A price typed into the page would drift from the file the day it changes.
+        assertThat(page).doesNotContainPattern("\\$\\d");
+    }
+
+    // ---------------------------------------------------------- quickstart
+
+    /*
+     * The quickstart's snippets were run against the live platform before
+     * publishing (agents/examples/quickstart/README.md). These pin the three
+     * details that silently break a first run.
+     */
+    @Test
+    @DisplayName("the quickstart keeps the details a first run depends on")
+    void quickstartKeepsFirstRunDetails() throws IOException {
+        String page = read("quickstart.html");
+        assertThat(page).contains("autoReceive: <span class=\"k\">true</span>");
+        assertThat(page).contains("<span class=\"s\">'chat-text'</span>");
+        assertThat(page).contains("EventMessage.EventType.CHAT_TEXT");
+        assertThat(page).contains("/channels/api-access");
+        // The npm package is not published; the page must not tell anyone to install it.
+        assertThat(page).doesNotContain("npm i @messaging-platform").doesNotContain("npm install @messaging-platform");
     }
 }

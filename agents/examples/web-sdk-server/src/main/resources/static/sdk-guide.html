@@ -123,10 +123,10 @@
       <div class="home-quickstart-copy">
         <p class="home-eyebrow">Start building</p><h2 id="quickstart-title">Your first<br>shared channel.</h2>
         <p>Connect with a room name and password. Listen for messages. Give another client the same room details and start building together.</p>
-        <div class="home-install"><span class="home-install-label">JavaScript package</span><div><code id="qs-snippet-1">npm i @messaging-platform/web-agent-js</code><button class="btn btn--sm btn--ghost btn--icon" type="button" data-copy-target="qs-snippet-1" aria-label="Copy npm install command"><svg class="icon" aria-hidden="true"><use href="#i-copy"></use></svg></button></div></div>
+        <div class="home-install"><span class="home-install-label">Load the SDK: two script tags, no build step</span><a class="home-text-link" href="quickstart.html">Five-minute quickstart in four languages <svg class="icon" aria-hidden="true"><use href="#i-arrow-right"></use></svg></a></div>
         <p class="home-key-note"><svg class="icon" aria-hidden="true"><use href="#i-key"></use></svg><span>Your backend uses the developer API key directly. Browser code uses a temporary key issued by that backend.</span></p>
         <a class="home-text-link" href="docs.html">Read the complete setup guide <svg class="icon" aria-hidden="true"><use href="#i-arrow-right"></use></svg></a>
-        <details class="home-script-setup"><summary>Prefer a script tag?</summary><p>Load these in order, then use the JavaScript example without its import line.</p><pre id="browser-setup"><code>&lt;script src=<span class="tok-str">&quot;https://hmdevonline.com/messaging-platform/sdk/generated-web-agent-js/js/web-agent.libs.js&quot;</span>&gt;&lt;/script&gt;
+        <details class="home-script-setup" open><summary>Script tags</summary><p>Load these in order; <code>AgentConnection</code> is then a global. (The npm package is not published yet.)</p><pre id="browser-setup"><code>&lt;script src=<span class="tok-str">&quot;https://hmdevonline.com/messaging-platform/sdk/generated-web-agent-js/js/web-agent.libs.js&quot;</span>&gt;&lt;/script&gt;
 &lt;script src=<span class="tok-str">&quot;https://hmdevonline.com/messaging-platform/sdk/generated-web-agent-js/js/web-agent.js&quot;</span>&gt;&lt;/script&gt;</code></pre><button class="btn btn--sm btn--ghost" type="button" data-copy-target="browser-setup"><svg class="icon" aria-hidden="true"><use href="#i-copy"></use></svg> Copy script tags</button></details>
       </div>
       <div class="home-code-wrap">
@@ -138,7 +138,7 @@
         </div>
         <div class="code-panel home-code-panel" role="tabpanel" id="panel-js" aria-labelledby="tab-js" tabindex="0">
   <div class="code-panel__bar"><span class="code-panel__name">shared-room.js</span><button class="btn btn--sm btn--ghost code-panel__copy" type="button" data-copy-target="heroSnippet"><svg class="icon" aria-hidden="true"><use href="#i-copy"></use></svg> Copy</button></div>
-  <pre id="heroSnippet"><code id="qs-snippet-2"><span class="tok-key">import</span> { AgentConnection } <span class="tok-key">from</span> <span class="tok-str">&#39;@messaging-platform/web-agent-js&#39;</span>;
+  <pre id="heroSnippet"><code id="qs-snippet-2"><span class="tok-com">// AgentConnection is a global once the two script tags have loaded.</span>
 
 <span class="tok-key">const</span> api = <span class="tok-str">&#39;https://hmdevonline.com/messaging-platform/api/v1/messaging-service&#39;</span>;
 <span class="tok-key">const</span> agent = <span class="tok-key">new</span> AgentConnection();

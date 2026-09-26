@@ -1,0 +1,186 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Quickstart | Messaging Platform</title>
+<meta name="description" content="Send your first realtime message in five minutes: install the SDK, connect, join a channel, send and receive. JavaScript, Python, Java and C++.">
+<meta name="robots" content="index,follow">
+<link rel="canonical" href="https://hmdevonline.com/messaging-platform/hub/quickstart.html">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="Messaging Platform">
+<meta property="og:title" content="Quickstart | Messaging Platform">
+<meta property="og:description" content="From API key to two clients talking in five minutes.">
+<meta property="og:image" content="https://hmdevonline.com/messaging-platform/sdk/images/og-image.png">
+<meta name="color-scheme" content="dark light">
+<link rel="icon" type="image/svg+xml" href="favicon.svg">
+<script>try{document.documentElement.dataset.theme=localStorage.getItem('hub-theme')||'dark'}catch(e){document.documentElement.dataset.theme='dark'}</script>
+<link rel="stylesheet" href="css/design-tokens.css">
+<link rel="stylesheet" href="css/hub-product.css">
+<link rel="stylesheet" href="css/hub-profile-theme.css">
+</head>
+<body class="mp-page">
+<header class="mp-top">
+  <a class="mp-brand" href="hub.html"><span class="mp-brand-mark" aria-hidden="true">◆</span>Messaging Platform</a>
+  <nav class="mp-nav" aria-label="Main">
+    <a href="hub.html">Product</a><a href="hub.html#demos">Demos</a><a href="quickstart.html" aria-current="page">Quickstart</a><a href="pricing.html">Pricing</a><a href="docs.html">Docs</a>
+  </nav>
+  <button class="mp-theme" type="button" data-theme-toggle>Light mode</button>
+  <a class="mp-btn mp-btn--primary" href="developer/index.html?start=free">Start free</a>
+</header>
+
+<main class="mp-main" id="main">
+  <p class="mp-eyebrow">Quickstart · about five minutes</p>
+  <h1 style="font-size:clamp(30px,5vw,44px);letter-spacing:-1.2px;line-height:1.1">Your first realtime message.</h1>
+  <p class="mp-lead">Install the SDK, connect, join a channel, send, receive. Run the same program twice, or in two languages, and watch them talk.</p>
+
+  <div class="mp-tabs" role="tablist" aria-label="Language">
+    <button type="button" role="tab" data-tab="js">JavaScript</button>
+    <button type="button" role="tab" data-tab="python">Python</button>
+    <button type="button" role="tab" data-tab="java">Java</button>
+    <button type="button" role="tab" data-tab="cpp">C++ <small>(experimental)</small></button>
+  </div>
+
+  <section class="mp-qs-step" aria-labelledby="s0"><b>0</b><div>
+    <h2 id="s0">Get an API key</h2>
+    <p>Sign in with Google in the developer portal. Your first key is shown once: copy it somewhere safe.</p>
+    <p data-lang="js">For a browser tab, use a <strong>temporary key</strong> from the dashboard (Keys → Temporary keys) instead: it expires in minutes, so it is safe to paste into page code while you try things. In your app, your server mints it (see below).</p>
+    <div class="mp-actions" style="margin-top:0"><a class="mp-btn mp-btn--primary" href="developer/index.html?start=free">Start free with Google</a><span class="mp-fineprint" style="margin:0">No credit card. During the beta, a new account may need a quick approval.</span></div>
+  </div></section>
+
+  <section class="mp-qs-step" aria-labelledby="s1"><b>1</b><div>
+    <h2 id="s1">Install</h2>
+    <div data-lang="js">
+<pre class="mp-code">&lt;script src="https://hmdevonline.com/messaging-platform/sdk/generated-web-agent-js/js/web-agent.libs.js"&gt;&lt;/script&gt;
+&lt;script src="https://hmdevonline.com/messaging-platform/sdk/generated-web-agent-js/js/web-agent.js"&gt;&lt;/script&gt;</pre>
+      <p class="mp-code-caption">Two script tags; no build step. The npm package is not published yet. In Node, <code>require()</code> <code>agents/web-agent-js</code> from the <a class="mp-link" href="https://github.com/HaithamMubarak/messaging-platform-sdk">SDK repository</a>.</p>
+    </div>
+    <div data-lang="python">
+<pre class="mp-code">pip install "git+https://github.com/HaithamMubarak/messaging-platform-sdk.git@develop#subdirectory=agents/python-agent"</pre>
+      <p class="mp-code-caption">Python 3.10+. Installs <code>hmdev-messaging-agent</code> from the public repository; PyPI publishing is planned.</p>
+    </div>
+    <div data-lang="java">
+<pre class="mp-code">git clone https://github.com/HaithamMubarak/messaging-platform-sdk.git
+cd messaging-platform-sdk
+./gradlew :agents:examples:java-agent-chat:build</pre>
+      <p class="mp-code-caption">Java 17. Built from source for now; depend on it with <code>implementation project(':agents:java-agent')</code>, as <code>agents/examples/java-agent-chat</code> does. Maven Central publishing is planned.</p>
+    </div>
+    <div data-lang="cpp">
+<pre class="mp-code">git clone https://github.com/HaithamMubarak/messaging-platform-sdk.git
+cmake -S messaging-platform-sdk/agents/cpp-agent -B build
+cmake --build build &amp;&amp; cmake --install build --prefix ./sdk
+
+# your CMakeLists.txt
+find_package(messaging-cpp-agent CONFIG REQUIRED)
+target_link_libraries(my_app PRIVATE hmdev::messaging-cpp-agent)</pre>
+      <p class="mp-code-caption">Needs curl, OpenSSL and nlohmann_json. The C++ client is experimental: HTTP polling only, and no payload encryption yet, so on a password-protected channel it can join but cannot read the other SDKs' messages.</p>
+    </div>
+  </div></section>
+
+  <section class="mp-qs-step" aria-labelledby="s2"><b>2</b><div>
+    <h2 id="s2">Connect</h2>
+    <p>Create a connection with the platform's API address and your key.</p>
+<pre class="mp-code" data-lang="js"><span class="k">const</span> agent = <span class="k">new</span> AgentConnection();</pre>
+<pre class="mp-code" data-lang="python"><span class="k">from</span> hmdev.messaging.agent.core.agent_connection <span class="k">import</span> AgentConnection
+
+agent = AgentConnection.with_api_key(
+    <span class="s">"https://hmdevonline.com/messaging-platform/api/v1/messaging-service"</span>,
+    os.environ[<span class="s">"MESSAGING_PLATFORM_API_KEY"</span>])</pre>
+<pre class="mp-code" data-lang="java">AgentConnection agent = <span class="k">new</span> AgentConnection(
+        <span class="s">"https://hmdevonline.com/messaging-platform/api/v1/messaging-service"</span>,
+        System.getenv(<span class="s">"MESSAGING_PLATFORM_API_KEY"</span>));</pre>
+<pre class="mp-code" data-lang="cpp">MessagingChannelApi api(<span class="s">"https://hmdevonline.com/messaging-platform/api/v1/messaging-service"</span>, apiKey);</pre>
+  </div></section>
+
+  <section class="mp-qs-step" aria-labelledby="s3"><b>3</b><div>
+    <h2 id="s3">Join a channel</h2>
+    <p>A channel is created the first time anyone joins it. Everyone with its name and password is in the same room; the password also encrypts the messages.</p>
+<pre class="mp-code" data-lang="js">agent.connect({
+  api: <span class="s">'https://hmdevonline.com/messaging-platform/api/v1/messaging-service'</span>,
+  apiKey: <span class="s">'paste-a-temporary-key'</span>,
+  channelName: <span class="s">'quickstart-room'</span>,
+  channelPassword: <span class="s">'channel-password'</span>,
+  agentName: <span class="s">'browser-user'</span>,
+  autoReceive: <span class="k">true</span>,   <span class="c">// without this, a polling connection receives nothing</span>
+});</pre>
+<pre class="mp-code" data-lang="python">agent.connect(<span class="s">"quickstart-room"</span>, <span class="s">"channel-password"</span>, <span class="s">"python-agent"</span>)</pre>
+<pre class="mp-code" data-lang="java">agent.connect(ConnectConfig.of(<span class="s">"quickstart-room"</span>, <span class="s">"channel-password"</span>, <span class="s">"java-agent"</span>));</pre>
+<pre class="mp-code" data-lang="cpp">ConnectResponse r = api.connect(<span class="s">"quickstart-room"</span>, <span class="s">"channel-password"</span>, <span class="s">"cpp-agent"</span>);</pre>
+  </div></section>
+
+  <section class="mp-qs-step" aria-labelledby="s4"><b>4</b><div>
+    <h2 id="s4">Send a message</h2>
+<pre class="mp-code" data-lang="js">agent.addEventListener(<span class="s">'connect'</span>, e =&gt; {
+  <span class="k">if</span> (e.response.status === <span class="s">'success'</span>) agent.sendMessage({ content: <span class="s">'Hello from the browser!'</span> });
+});</pre>
+<pre class="mp-code" data-lang="python">agent.send_message(<span class="s">"Hello from Python!"</span>)</pre>
+<pre class="mp-code" data-lang="java">agent.sendMessage(<span class="s">"Hello from Java!"</span>);</pre>
+<pre class="mp-code" data-lang="cpp">api.send(EventType::CHAT_TEXT, <span class="s">"Hello from C++!"</span>, <span class="s">"*"</span>, r.sessionId, <span class="k">false</span>);</pre>
+  </div></section>
+
+  <section class="mp-qs-step" aria-labelledby="s5"><b>5</b><div>
+    <h2 id="s5">Receive</h2>
+    <p>Every client on the channel gets every message, in order.</p>
+<pre class="mp-code" data-lang="js">agent.addEventListener(<span class="s">'message'</span>, e =&gt; {
+  e.response.data.filter(m =&gt; m.type === <span class="s">'chat-text'</span>)
+    .forEach(m =&gt; console.log(m.from, <span class="s">'says'</span>, m.content));
+});</pre>
+<pre class="mp-code" data-lang="python"><span class="k">class</span> Printer(AgentConnectionEventHandler):
+    <span class="k">def</span> on_message_events(self, events):
+        <span class="k">for</span> e <span class="k">in</span> events:
+            <span class="k">if</span> e.get(<span class="s">"type"</span>) == <span class="s">"chat-text"</span>:
+                print(e.get(<span class="s">"from"</span>), <span class="s">"says"</span>, e.get(<span class="s">"content"</span>), flush=<span class="k">True</span>)
+
+agent.receive_async(Printer())</pre>
+<pre class="mp-code" data-lang="java">agent.receiveAsync(events -&gt; events.stream()
+        .filter(e -&gt; e.getType() == EventMessage.EventType.CHAT_TEXT)
+        .forEach(e -&gt; System.out.println(e.getFrom() + <span class="s">" says "</span> + e.getContent())));</pre>
+<pre class="mp-code" data-lang="cpp">ReceiveConfig config;
+config.globalOffset = r.globalOffset;
+config.localOffset = r.localOffset;
+<span class="k">while</span> (running) {
+    EventMessageResult result = api.receive(r.sessionId, config);
+    <span class="k">for</span> (<span class="k">const auto</span>&amp; msg : result.messages) std::cout &lt;&lt; msg.from &lt;&lt; <span class="s">": "</span> &lt;&lt; msg.content &lt;&lt; std::endl;
+    config.globalOffset = result.globalOffset;
+    config.localOffset = result.localOffset;
+    std::this_thread::sleep_for(std::chrono::milliseconds(500));
+}</pre>
+    <p class="mp-note" style="margin-top:14px">Run it twice, or once in two languages. Each client prints the other's greeting. These exact programs were run together against the live platform before this page was published; the full files are in <a class="mp-link" href="https://github.com/HaithamMubarak/messaging-platform-sdk/tree/develop/agents/examples/quickstart"><code>agents/examples/quickstart</code></a>.</p>
+  </div></section>
+
+  <section class="mp-section" aria-labelledby="server-h">
+    <div class="mp-section-head">
+      <p class="mp-eyebrow">Before you ship a web app</p>
+      <h2 id="server-h">Keep your API key on your server</h2>
+      <p class="mp-lead">Your server signs in the visitor, asks the platform for a short-lived key, and hands only that to the browser.</p>
+    </div>
+<pre class="mp-code"><span class="c">// server.mjs: runs on your server, never in a browser bundle</span>
+app.post(<span class="s">'/api/messaging-access'</span>, requireSignedInUser, <span class="k">async</span> (req, res) =&gt; {
+  <span class="k">const</span> r = <span class="k">await</span> fetch(<span class="s">'https://hmdevonline.com/messaging-platform/api/v1/messaging-service/channels/api-access'</span>, {
+    method: <span class="s">'POST'</span>,
+    headers: { <span class="s">'Content-Type'</span>: <span class="s">'application/json'</span>, <span class="s">'X-API-Key'</span>: process.env.MESSAGING_PLATFORM_API_KEY },
+    body: JSON.stringify({ ttlSeconds: 30, singleUse: <span class="k">true</span> }),
+  });
+  <span class="k">const</span> { data } = <span class="k">await</span> r.json();
+  res.set(<span class="s">'Cache-Control'</span>, <span class="s">'no-store'</span>).json({ temporaryKey: data.temporaryKey });
+});</pre>
+    <p class="mp-code-caption">The browser then passes <code>temporaryKey</code> as <code>apiKey</code> to <code>agent.connect</code>. The full pattern, with error handling, is in the <a class="mp-link" href="docs.html?doc=WEB-AGENT-GUIDE.md">web agent guide</a>.</p>
+  </section>
+
+  <section class="mp-section" aria-labelledby="next-h">
+    <h2 id="next-h">Next: the rest of the channel</h2>
+    <div class="mp-grid" style="margin-top:18px">
+      <a class="mp-card" href="sdk-guide.html"><span class="mp-tag">Presence</span><h3>Who is here</h3><p><code>getActiveAgents</code> and the <code>agent-connect</code> / <code>agent-disconnect</code> events.</p><span class="mp-card-go">SDK guide →</span></a>
+      <a class="mp-card" href="/messaging-platform/sdk/apps/storage-demo.html"><span class="mp-tag">Shared state</span><h3>Channel storage</h3><p><code>storagePut</code> / <code>storageGet</code>: state every client can read and late joiners catch up on.</p><span class="mp-card-go">Try the demo →</span></a>
+      <a class="mp-card" href="/messaging-platform/sdk/apps/under-the-hood/app.html"><span class="mp-tag">WebRTC</span><h3>Peer-to-peer</h3><p><code>new WebRtcHelper(agent)</code>: data channels and media, signaled over the same channel.</p><span class="mp-card-go">See it live →</span></a>
+      <a class="mp-card" href="docs.html?doc=WEB-AGENT-GUIDE.md"><span class="mp-tag">Reference</span><h3>Web agent guide</h3><p>Every method, event and option of the JavaScript SDK.</p><span class="mp-card-go">Read the guide →</span></a>
+    </div>
+  </section>
+</main>
+
+<footer class="mp-foot">
+  <p>&copy; 2026 Messaging Platform &middot; Public beta</p>
+  <nav aria-label="Footer"><a href="pricing.html">Pricing</a><a href="/messaging-platform/apps/status/">Status</a><a href="privacy.html">Privacy</a><a href="terms.html">Terms</a></nav>
+</footer>
+<script src="js/hub-page.js"></script>
+</body>
+</html>

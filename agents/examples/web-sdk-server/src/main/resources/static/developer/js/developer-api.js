@@ -147,6 +147,34 @@ const DeveloperAPI = (function () {
         return body;
     }
 
+    /**
+     * Start free: sign in with a verified Google identity, creating a Free
+     * account first if there is none. A new account's key is in this response
+     * only (it is stored hashed), so it is parked in sessionStorage for the
+     * dashboard to show once. The error carries the status, and
+     * selfService === false when the server has self-service switched off.
+     */
+    async function startFree(assertion) {
+        const response = await fetch(ApiConfig.getDeveloperAuthUrl() + '/google/start-free', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ assertion })
+        });
+        const body = await readBody(response);
+        if (!response.ok) {
+            const err = new Error((body && (body.error || body.message)) || 'Could not start your free account.');
+            err.status = response.status;
+            err.selfService = body ? body.selfService : undefined;
+            throw err;
+        }
+        setToken(body.sessionToken);
+        setProfile(body);
+        if (body.fullApiKey) {
+            try { sessionStorage.setItem('developer_new_key', body.fullApiKey); } catch (e) { /* shown by the caller instead */ }
+        }
+        return body;
+    }
+
     /** Read developer access for the currently verified Platform identity. */
     async function getPlatformAccess(assertion) {
         const response = await fetch(ApiConfig.getDeveloperApiUrl() + '/account-link/platform-access', {
@@ -191,6 +219,7 @@ const DeveloperAPI = (function () {
     const getChannelMetrics = (id) => devApi('/channels/' + encodeURIComponent(id) + '/metrics');
     const getApiKeyUsage    = (id) => devApi('/api-keys/' + encodeURIComponent(id) + '/usage');
     const revokeApiKey      = (id) => devApi('/api-keys/' + encodeURIComponent(id) + '/revoke', { method: 'POST' });
+    const createApiKey      = (description) => devApi('/api-keys', { method: 'POST', body: JSON.stringify({ description }) });
 
     /* ----------------------------------------------------------------- tools */
 
@@ -238,9 +267,9 @@ const DeveloperAPI = (function () {
         { method: 'GET' }).then((body) => (body && body.data) || body);
 
     return {
-        login, loginWithGoogle, getPlatformAccess, logout, isLoggedIn, changePassword,
+        login, loginWithGoogle, startFree, getPlatformAccess, logout, isLoggedIn, changePassword,
         getToken, getProfile, setProfile, getApiKey, clearAuth,
-        getStats, getApiKeys, getUsage, getChannels, getChannelMetrics, getApiKeyUsage, revokeApiKey,
+        getStats, getApiKeys, getUsage, getChannels, getChannelMetrics, getApiKeyUsage, revokeApiKey, createApiKey,
         createTemporaryKey, broadcast, recoverMessages, getChannelAgents, deleteChannel,
         getAccountLink, linkPlatform, unlinkPlatform, getExchangeStatements
     };

@@ -19,6 +19,7 @@
         const accessText = document.getElementById('platformAccessText');
         const accessLink = document.getElementById('platformAccessLink');
         const query = new URLSearchParams(window.location.search);
+        const startMode = query.get('start') === 'free';
         let canContinueCurrentIdentity = false;
 
         if (new URLSearchParams(window.location.search).get('expired')) {
@@ -67,7 +68,8 @@
             googleSwitch.disabled = true;
             try {
                 const assertion = await MPAccount.googleLoginAssertion();
-                await DeveloperAPI.loginWithGoogle(assertion);
+                if (startMode) await DeveloperAPI.startFree(assertion);
+                else await DeveloperAPI.loginWithGoogle(assertion);
                 googleStatus.textContent = 'Access verified. Opening your workspace...';
                 window.location.replace('dashboard.html');
             } catch (err) {
@@ -75,14 +77,37 @@
                 googleButton.disabled = false;
                 googleSwitch.disabled = false;
                 clearGoogleReturn();
+                if (startMode && (err.selfService === false || err.status === 503)) showSignupClosed();
                 showError(err.message || 'Google sign-in could not be completed.');
             }
         }
 
         function openGoogleChooser() {
             googleStatus.textContent = 'Opening Google sign-in...';
-            const returnTo = window.location.pathname + '?google=1';
+            const returnTo = window.location.pathname + '?google=1' + (startMode ? '&start=free' : '');
             window.location.assign(MPAccount.googleStartUrl(returnTo));
+        }
+
+        /* "Start free" arrives as ?start=free from the hub, pricing and the
+           quickstart. Same card, same Google button — it just creates the Free
+           account when there is none, where plain sign-in would refuse. */
+        function applyStartMode() {
+            document.getElementById('signInTitle').textContent = 'Create your free account';
+            document.getElementById('signInLead').textContent =
+                'Sign in with Google. We open a developer account on the Free plan and show your first API key.';
+            googleLabel.textContent = 'Start free with Google';
+            document.getElementById('authAside').textContent =
+                'Free during the public beta. No credit card. Already have an account? Google signs you straight in.';
+        }
+
+        /* The server has self-service switched off (or hit its daily cap): the
+           request-and-approve path still works, so point at it. */
+        function showSignupClosed() {
+            accessNotice.hidden = false;
+            accessNotice.dataset.state = 'none';
+            accessTitle.textContent = 'Free signup is not open right now';
+            accessText.textContent = 'Request access instead and we will email your key.';
+            accessLink.textContent = 'Request API access';
         }
 
         googleButton.addEventListener('click', function () {
@@ -143,9 +168,15 @@
                 });
         }
 
+        if (startMode) applyStartMode();
+
         MPAccount.googleAvailable().then(function (available) {
             googleButton.hidden = !available;
-            if (available && query.get('google') !== '1') inspectPlatformIdentity();
+            // In start mode every outcome of the identity check is "continue",
+            // so its "not requested" wording would only mislead.
+            if (available && !startMode && query.get('google') !== '1') inspectPlatformIdentity();
+            // Start free is Google-only; without it, say so and offer the request path.
+            if (!available && startMode) showSignupClosed();
         });
 
         if (query.get('google') === '1') {
