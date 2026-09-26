@@ -752,7 +752,8 @@
         const stats = el('div', { class: 'plan-stats' });
         [['Price', price], ['Channel units', UI.fmtNumber(plan.channelUnits)],
          ['Bandwidth / min', UI.fmtNumber(plan.bandwidthPerMinute)],
-         ['API keys', plan.maxApiKeys == null ? '10 (default)' : UI.fmtNumber(plan.maxApiKeys)]]
+         ['API keys', plan.maxApiKeys == null ? '10 (default)' : UI.fmtNumber(plan.maxApiKeys)],
+         ['Developers', UI.fmtNumber(plan.developerCount || 0)]]
             .forEach((pair) => {
                 const stat = el('div', { class: 'plan-stat' });
                 stat.appendChild(el('strong', { text: String(pair[1]) }));
@@ -764,6 +765,10 @@
         const caps = el('div', { class: 'plan-caps' });
         (plan.capabilities || []).forEach((cap) => caps.appendChild(el('span', { class: 'badge badge--brand', text: String(cap) })));
         card.appendChild(caps);
+
+        const edit = el('button', { class: 'btn btn--ghost btn--sm', type: 'button', text: 'Edit plan' });
+        edit.addEventListener('click', () => PlanEditor.open(plan, loadPlans));
+        card.appendChild(edit);
         return card;
     }
 

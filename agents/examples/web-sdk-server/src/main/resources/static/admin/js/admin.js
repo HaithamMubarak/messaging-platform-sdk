@@ -160,6 +160,10 @@ const AdminAPI = (function () {
     const getStats = () => request('/stats');
     const getPlans = () => request('/plans');
 
+    /** Only the changed fields; the server refuses unknown ones (PlanAdminService). */
+    const updatePlan = (id, changes) =>
+        request('/plans/' + encodeURIComponent(id), { method: 'PUT', body: JSON.stringify(changes) });
+
     const getDevelopers = (page, size, sort, dir, query) =>
         request('/developers?page=' + (page || 0) + '&size=' + (size || 20) +
                 '&sort=' + (sort || 'createdAt') + '&dir=' + (dir || 'desc') +
@@ -228,6 +232,6 @@ const AdminAPI = (function () {
         getDevelopers, getDeveloper, createDeveloper, updateDeveloperPlan, resetDeveloperPassword,
         listAdmins, updateDeveloperRoles, deleteDeveloper,
         getApiRequests, getPendingRequestCount, approveApiRequest, rejectApiRequest,
-        getPlanRequests, decidePlanRequest
+        getPlanRequests, decidePlanRequest, updatePlan
     };
 })();
