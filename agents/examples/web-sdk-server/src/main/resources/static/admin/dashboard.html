@@ -260,10 +260,17 @@
             <section class="section" id="section-plans" hidden>
                 <div class="section-header">
                     <h2 class="visually-hidden">Plans</h2>
-                    <span class="badge">Read-only</span>
+                    <span class="badge">Ladder from the plans table</span>
                 </div>
+                <h3 style="margin:0 0 var(--sp-3)">Upgrade requests</h3>
                 <p class="field__hint">
-                    Plans are defined server-side. Assign one to a developer from their detail panel.
+                    No payment provider is connected: invoice the developer, then approve. Approving moves
+                    the developer, their keys on the old plan and their subscription record together.
+                </p>
+                <div class="plans-grid" id="planRequests"></div>
+                <h3 style="margin:var(--sp-6) 0 var(--sp-3)">Plans</h3>
+                <p class="field__hint">
+                    Plans are defined server-side (migration V21). Assign one directly from a developer's detail panel.
                 </p>
                 <div class="plans-grid" id="plansGrid"></div>
             </section>

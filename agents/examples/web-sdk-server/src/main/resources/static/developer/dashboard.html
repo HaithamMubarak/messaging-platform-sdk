@@ -27,6 +27,8 @@
          talks to rooms-service. Loaded here and nowhere else in the portal. -->
     <script src="../js/mp-account.js" defer></script>
     <script src="js/developer-api.js" defer></script>
+    <script src="../js/plan-format.js" defer></script>
+    <script src="js/plan-panel.js" defer></script>
     <script src="js/dashboard.js" defer></script>
 </head>
 <body>
@@ -466,13 +468,15 @@
                 <div class="usage-card">
                     <h3>Your plan: <span id="currentPlan" style="color:var(--text)">—</span></h3>
                     <div id="planFeatures"></div>
+                    <div id="planLimits"></div>
                     <!-- Billing boundary: no payment provider is wired yet
-                         (/billing/checkout answers 501), so this says so
-                         rather than offering an upgrade button that cannot work. -->
+                         (/billing/checkout answers 501). A plan change is a
+                         request an operator invoices and confirms. -->
                     <p class="panel__desc" style="margin-top:var(--sp-4)">
-                        Free during the public beta. Paid plans are planned and not on sale yet;
-                        nothing is charged. <a href="../pricing.html">Compare plans</a>
+                        "Enforced" limits are checked today; "target" limits are what the plan
+                        promises once metering ships. <a href="../pricing.html">Compare plans</a>
                     </p>
+                    <div id="planUpgrade"></div>
                 </div>
 
                 <div id="usageError"></div>

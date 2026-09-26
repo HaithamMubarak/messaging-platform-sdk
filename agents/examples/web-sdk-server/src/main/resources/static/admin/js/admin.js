@@ -211,11 +211,23 @@ const AdminAPI = (function () {
             method: 'POST', body: JSON.stringify({ reason: reason || null })
         });
 
+    /* -------------------------------------------------------- plan requests
+       Approving moves the developer, their keys pinned to the old plan and
+       their subscription together (server-side PlanChangeService). */
+
+    const getPlanRequests = (status) => request('/plan-requests' + (status ? '?status=' + encodeURIComponent(status) : ''));
+
+    const decidePlanRequest = (id, approve, note) =>
+        request('/plan-requests/' + encodeURIComponent(id) + (approve ? '/approve' : '/reject'), {
+            method: 'POST', body: JSON.stringify({ note: note || null })
+        });
+
     return {
         login, loginWithGoogle, getGoogleStatus, logout, isLoggedIn, getAdminInfo, clearAuth,
         getStats, getPlans, getAuditLog,
         getDevelopers, getDeveloper, createDeveloper, updateDeveloperPlan, resetDeveloperPassword,
         listAdmins, updateDeveloperRoles, deleteDeveloper,
-        getApiRequests, getPendingRequestCount, approveApiRequest, rejectApiRequest
+        getApiRequests, getPendingRequestCount, approveApiRequest, rejectApiRequest,
+        getPlanRequests, decidePlanRequest
     };
 })();

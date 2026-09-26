@@ -450,11 +450,14 @@ class StaticSiteTest {
     }
 
     @Test
-    @DisplayName("the pricing page renders from plans.json rather than restating prices")
+    @DisplayName("the pricing page renders the service's plans rather than restating prices")
     void pricingPageReadsThePlanFile() throws IOException {
         String page = read("pricing.html");
         assertThat(page).contains("js/pricing.js");
-        assertThat(read("js/pricing.js")).contains("data/plans.json");
+        // Live plans from the service; plans.json only as the outage snapshot.
+        assertThat(page).contains("js/plan-format.js");
+        assertThat(read("js/plan-format.js")).contains("/billing/plans").contains("data/plans.json");
+        assertThat(read("js/pricing.js")).contains("PlanFormat.load");
         // A price typed into the page would drift from the file the day it changes.
         assertThat(page).doesNotContainPattern("\\$\\d");
     }

@@ -1,6 +1,7 @@
 /*
- * Renders the pricing page from data/plans.json — the one place prices and
- * limits live. Anything a plan is not sure of says so: 'planned' plans are
+ * Renders the pricing page from the plans messaging-service serves
+ * (GET /billing/plans, via js/plan-format.js), falling back to the snapshot in
+ * data/plans.json only when the service cannot be reached. Anything a plan is not sure of says so: 'planned' plans are
  * labelled as not on sale, and only limits listed in a plan's `enforced`
  * array are marked as enforced today.
  */
@@ -70,10 +71,13 @@
         document.getElementById('plans').replaceChildren.apply(
             document.getElementById('plans'), data.plans.map(function (p) { return card(p, data.rows); }));
         document.getElementById('compare').replaceChildren(table(data));
+        if (data.source === 'snapshot') {
+            document.getElementById('plansEnforced').textContent +=
+                ' (Showing a saved copy of the plans: the live list could not be loaded.)';
+        }
     }
 
-    fetch('data/plans.json', { cache: 'no-cache' })
-        .then(function (r) { if (!r.ok) throw new Error(r.status); return r.json(); })
+    window.PlanFormat.load('')
         .then(render)
         .catch(function () {
             document.getElementById('plans').textContent =

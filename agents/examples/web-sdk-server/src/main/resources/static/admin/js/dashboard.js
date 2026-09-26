@@ -719,47 +719,90 @@
                 grid.appendChild(card);
             }
         }
+        loadPlanRequests();
 
         try {
-            const plans = await AdminAPI.getPlans();
-            state.plans = Array.isArray(plans) ? plans : [];
+            const data = await AdminAPI.getPlans();
+            // The endpoint answers {plans: [...]}; an array is accepted too.
+            const plans = Array.isArray(data) ? data : (data && data.plans) || [];
+            state.plans = plans.slice().sort((a, b) => (a.publicPlan === b.publicPlan ? 0 : a.publicPlan ? -1 : 1));
             grid.innerHTML = '';
-
             if (!state.plans.length) {
                 grid.appendChild(el('p', { class: 'field__hint', text: 'No plans are configured on the server.' }));
                 return;
             }
-
-            state.plans.forEach((plan) => {
-                const card = el('div', { class: 'plan-card' + (plan.isDefault ? ' plan-card--default' : '') });
-                const head = el('div', { class: 'plan-card__head' });
-                head.appendChild(el('h3', { text: plan.name }));
-                if (plan.isDefault) head.appendChild(el('span', { class: 'badge badge--warning', text: 'Default' }));
-                card.appendChild(head);
-
-                card.appendChild(el('p', { class: 'plan-card__desc', text: plan.description || 'No description.' }));
-
-                const stats = el('div', { class: 'plan-stats' });
-                [['Channel units', plan.channelUnits], ['Bandwidth / min', plan.bandwidthPerMinute]]
-                    .forEach((pair) => {
-                        const stat = el('div', { class: 'plan-stat' });
-                        stat.appendChild(el('strong', { text: UI.fmtNumber(pair[1]) }));
-                        stat.appendChild(el('span', { text: pair[0] }));
-                        stats.appendChild(stat);
-                    });
-                card.appendChild(stats);
-
-                const caps = el('div', { class: 'plan-caps' });
-                (plan.capabilities || []).forEach((cap) => {
-                    caps.appendChild(el('span', { class: 'badge badge--brand', text: String(cap) }));
-                });
-                card.appendChild(caps);
-                grid.appendChild(card);
-            });
+            state.plans.forEach((plan) => grid.appendChild(planCard(plan)));
         } catch (err) {
             grid.innerHTML = '';
             grid.appendChild(errorAlert(err.message || 'Could not load plans.', loadPlans));
         }
+    }
+
+    function planCard(plan) {
+        const card = el('div', { class: 'plan-card' + (plan.isDefault ? ' plan-card--default' : '') });
+        const head = el('div', { class: 'plan-card__head' });
+        head.appendChild(el('h3', { text: plan.name }));
+        if (plan.isDefault) head.appendChild(el('span', { class: 'badge badge--warning', text: 'Default' }));
+        head.appendChild(el('span', { class: 'badge' + (plan.saleStatus === 'available' ? ' badge--success' : ''),
+            text: plan.publicPlan ? (plan.saleStatus || 'planned') : 'hidden' }));
+        card.appendChild(head);
+        card.appendChild(el('p', { class: 'plan-card__desc', text: plan.description || 'No description.' }));
+
+        const price = plan.priceMonthlyCents == null ? 'Custom' : '$' + plan.priceMonthlyCents / 100 + ' / mo';
+        const stats = el('div', { class: 'plan-stats' });
+        [['Price', price], ['Channel units', UI.fmtNumber(plan.channelUnits)],
+         ['Bandwidth / min', UI.fmtNumber(plan.bandwidthPerMinute)],
+         ['API keys', plan.maxApiKeys == null ? '10 (default)' : UI.fmtNumber(plan.maxApiKeys)]]
+            .forEach((pair) => {
+                const stat = el('div', { class: 'plan-stat' });
+                stat.appendChild(el('strong', { text: String(pair[1]) }));
+                stat.appendChild(el('span', { text: pair[0] }));
+                stats.appendChild(stat);
+            });
+        card.appendChild(stats);
+
+        const caps = el('div', { class: 'plan-caps' });
+        (plan.capabilities || []).forEach((cap) => caps.appendChild(el('span', { class: 'badge badge--brand', text: String(cap) })));
+        card.appendChild(caps);
+        return card;
+    }
+
+    /* Upgrade requests: no payment provider, so an operator approves after invoicing. */
+    async function loadPlanRequests() {
+        const host = document.getElementById('planRequests');
+        host.innerHTML = '';
+        try {
+            const rows = await AdminAPI.getPlanRequests('pending');
+            if (!rows || !rows.length) {
+                host.appendChild(el('p', { class: 'field__hint', text: 'No upgrade requests are waiting.' }));
+                return;
+            }
+            rows.forEach((r) => host.appendChild(planRequestRow(r)));
+        } catch (err) {
+            host.appendChild(errorAlert(err.message || 'Could not load plan requests.', loadPlanRequests));
+        }
+    }
+
+    function planRequestRow(r) {
+        const row = el('div', { class: 'plan-card' });
+        row.appendChild(el('h3', { text: (r.developerName || r.developerEmail || ('Developer ' + r.developerId)) +
+            ': ' + (r.currentPlan || 'no plan') + ' → ' + r.planName }));
+        row.appendChild(el('p', { class: 'plan-card__desc', text: [r.developerEmail, r.billingCycle,
+            r.createdAt ? UI.fmtDate(r.createdAt) : null, r.note].filter(Boolean).join(' · ') }));
+        const actions = el('div', { class: 'toolbar' });
+        [['Approve', true, 'btn btn--primary btn--sm'], ['Reject', false, 'btn btn--ghost btn--sm']].forEach((a) => {
+            const b = el('button', { class: a[2], type: 'button', text: a[0] });
+            b.addEventListener('click', () => UI.withBusy(b, async () => {
+                try {
+                    await AdminAPI.decidePlanRequest(r.id, a[1], null);
+                    UI.toast.success(a[1] ? 'Plan changed to ' + r.planName + '.' : 'Request rejected.');
+                    loadPlans();
+                } catch (err) { UI.toast.error(err.message); }
+            }));
+            actions.appendChild(b);
+        });
+        row.appendChild(actions);
+        return row;
     }
 
 

@@ -1040,6 +1040,8 @@
             } else {
                 features.appendChild(el('p', { class: 'field__hint', text: 'No plan details published for this plan.' }));
             }
+            DeveloperPlanPanel.renderLimits(document.getElementById('planLimits'), usage.planDetail);
+            DeveloperPlanPanel.renderUpgrade(document.getElementById('planUpgrade'), usage.planDetail);
 
             const series = (usage.apiCallsSeries || []).map((point) => {
                 const date = new Date(point.date + 'T00:00:00');

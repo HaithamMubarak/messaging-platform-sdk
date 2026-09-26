@@ -221,6 +221,18 @@ const DeveloperAPI = (function () {
     const revokeApiKey      = (id) => devApi('/api-keys/' + encodeURIComponent(id) + '/revoke', { method: 'POST' });
     const createApiKey      = (description) => devApi('/api-keys', { method: 'POST', body: JSON.stringify({ description }) });
 
+    /* ------------------------------------------------------------ plans */
+
+    // Billing endpoints live on the messaging service but authenticate with the
+    // developer session, not the API key.
+    const billingApi = (path, options) => request(ApiConfig.getMessagingServiceUrl('/billing') + path, options);
+    const getBillingPlans   = () => billingApi('/plans').then((b) => (b && b.data && b.data.plans) || []);
+    const getMyPlanRequest  = () => billingApi('/plan-requests/mine').then((b) => (b ? b.data : null));
+    const requestPlan       = (plan, billingCycle, note) => billingApi('/plan-requests', {
+        method: 'POST', body: JSON.stringify({ plan, billingCycle, note })
+    }).then((b) => b.data);
+    const cancelPlanRequest = () => billingApi('/plan-requests/mine', { method: 'DELETE' }).then((b) => b.data);
+
     /* ----------------------------------------------------------------- tools */
 
     const createTemporaryKey = (ttlSeconds, singleUse) => serviceApi('/channels/api-access', {
@@ -270,6 +282,7 @@ const DeveloperAPI = (function () {
         login, loginWithGoogle, startFree, getPlatformAccess, logout, isLoggedIn, changePassword,
         getToken, getProfile, setProfile, getApiKey, clearAuth,
         getStats, getApiKeys, getUsage, getChannels, getChannelMetrics, getApiKeyUsage, revokeApiKey, createApiKey,
+        getBillingPlans, getMyPlanRequest, requestPlan, cancelPlanRequest,
         createTemporaryKey, broadcast, recoverMessages, getChannelAgents, deleteChannel,
         getAccountLink, linkPlatform, unlinkPlatform, getExchangeStatements
     };
