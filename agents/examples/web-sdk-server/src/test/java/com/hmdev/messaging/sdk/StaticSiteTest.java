@@ -37,7 +37,6 @@ class StaticSiteTest {
 
     /** The pages people actually share a room link to. */
     private static final List<String> SHAREABLE = List.of(
-            "apps/mini-games/blockparty/index.html",
             "apps/mini-games/air-hockey/index.html",
             "apps/mini-games/find-the-liar/index.html",
             "apps/mini-games/reactor/reactor-client.html",
@@ -51,6 +50,8 @@ class StaticSiteTest {
             "apps/dead-drop/index.html",
             "apps/under-the-hood/index.html",
             "apps/rewind/index.html");
+    // apps/mini-games/blockparty/ is absent too: BlockParty moved to the apps
+    // catalogue and what is left here is a noindex redirect.
     // apps/quickshare/quickshare.html is deliberately absent: QuickShare was
     // retired to a noindex redirect at Drop, and a redirect has nothing to
     // unfurl.

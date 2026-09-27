@@ -1,7 +1,6 @@
 package com.hmdev.messaging.sdk.controller;
 
 import com.fasterxml.jackson.core.type.TypeReference;
-import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.hmdev.messaging.sdk.service.MessagingServiceClient;
 import org.junit.jupiter.api.BeforeEach;
@@ -10,7 +9,6 @@ import org.junit.jupiter.api.Test;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 
-import java.util.Iterator;
 import java.util.Map;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -21,14 +19,13 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 /**
- * Both endpoints here are public and unauthenticated, and both have a rule that
- * is easy to break without noticing:
+ * /health is public and unauthenticated, and has a rule that is easy to break
+ * without noticing: it must say whether the backend is reachable but never
+ * which backend. It used to return the configured messaging service URL, which
+ * on a normal deployment is an internal hostname and port.
  *
- *  - /health must say whether the backend is reachable but never which backend.
- *    It used to return the configured messaging service URL, which on a normal
- *    deployment is an internal hostname and port.
- *  - /games must hand out RELATIVE urls. The site is served from
- *    /messaging-platform/sdk/, so a leading slash points at nothing.
+ * (/games was removed 2026-09-27: nothing consumed it, and it was a fourth
+ * catalogue that disagreed with the other three.)
  */
 class ApiControllerTest {
 
@@ -83,59 +80,5 @@ class ApiControllerTest {
                 .andExpect(jsonPath("$.version").isNotEmpty());
     }
 
-    // ---------------------------------------------------------------- games
 
-    @Test
-    @DisplayName("every game url is relative, because the site is not at the domain root")
-    void gameUrlsAreRelative() throws Exception {
-        JsonNode games = games();
-        assertThat(games).isNotEmpty();
-
-        for (Iterator<String> it = games.fieldNames(); it.hasNext(); ) {
-            String key = it.next();
-            String url = games.get(key).get("url").asText();
-            assertThat(url).as("url for %s", key).doesNotStartWith("/").doesNotStartWith("http");
-        }
-    }
-
-    @Test
-    @DisplayName("every listed game carries the metadata the catalogue promises")
-    void gamesAreFullyDescribed() throws Exception {
-        JsonNode games = games();
-
-        for (Iterator<String> it = games.fieldNames(); it.hasNext(); ) {
-            String key = it.next();
-            JsonNode game = games.get(key);
-            for (String field : new String[] { "name", "icon", "description", "url",
-                                               "players", "duration", "difficulty" }) {
-                assertThat(game.hasNonNull(field)).as("%s.%s present", key, field).isTrue();
-                assertThat(game.get(field).asText()).as("%s.%s non-blank", key, field).isNotBlank();
-            }
-        }
-    }
-
-    @Test
-    @DisplayName("the catalogue lists the games that were previously unreachable")
-    void gamesIncludeTheOnesNothingUsedToLinkTo() throws Exception {
-        JsonNode games = games();
-        assertThat(games.has("pictionary")).isTrue();
-        assertThat(games.has("chess")).isTrue();
-    }
-
-    @Test
-    @DisplayName("the catalogue does not advertise the demos this site does not publish")
-    void gamesExcludeUnpublishedDemos() throws Exception {
-        JsonNode games = games();
-        assertThat(games.has("party-physics")).isFalse();
-        assertThat(games.has("race-balls")).isFalse();
-        assertThat(games.has("fall-guys")).isFalse();
-    }
-
-    private JsonNode games() throws Exception {
-        String body = mvc.perform(get("/app/api/games"))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.status").value("success"))
-                .andReturn().getResponse().getContentAsString();
-        return json.readTree(body).get("data");
-    }
 }
