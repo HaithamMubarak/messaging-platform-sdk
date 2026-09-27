@@ -950,6 +950,14 @@ function initializeConnectionModal() {
         onConnect: function (username, channel, password) {
             connectOpenOutcry(username, channel, password);
         },
+        partyLobby: {
+            players: "3 or more players; practise on your own",
+            howTo: [
+                "Each round the room trades one claim: buy YES to push the price up, NO to push it down.",
+                "Every trade prints on the tape, but never who made it.",
+                "One player was dealt the truth. When the market closes, name the insider.",
+            ],
+        },
     });
 }
 
