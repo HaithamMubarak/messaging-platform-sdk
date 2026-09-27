@@ -29,6 +29,21 @@
         return root.AgentConnection && root.AgentConnection.Till;
     }
 
+    /*
+     * The messaging service URL. api-config.js declares `const ApiConfig` at
+     * the top of a classic script: a global BINDING, not a property of window.
+     * Every app that asked `window.ApiConfig ? … : null` therefore got null,
+     * and until 2026-09-27 the licence check in Baton, Signet, Screener and
+     * Turnstile answered "no key" without ever asking Till. Look the binding
+     * up by name first; an explicit `api` option wins over both.
+     */
+    function serviceUrl(explicit) {
+        if (explicit) return explicit;
+        /* global ApiConfig */
+        const cfg = typeof ApiConfig !== 'undefined' ? ApiConfig : root.ApiConfig;
+        return cfg && cfg.getMessagingServiceUrl ? cfg.getMessagingServiceUrl() : null;
+    }
+
     function describe(verdict) {
         if (!verdict) return 'Unlicensed · no key';
         if (verdict.valid) {
@@ -59,7 +74,7 @@
         /** Claim a seat with this key. Resolves the verdict; never rejects. */
         gate.check = async function (key) {
             const t = till();
-            const api = root.ApiConfig ? root.ApiConfig.getMessagingServiceUrl() : null;
+            const api = serviceUrl(opts.api);
             const k = String(key || '').trim();
             if (!t || !api || !k) return settle({ valid: false, reason: k ? 'unavailable' : 'no_key' });
             t.configure(api);

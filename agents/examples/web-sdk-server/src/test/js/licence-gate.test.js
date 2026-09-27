@@ -128,6 +128,22 @@ const pill = () => ({ textContent: '', className: '' });
         assert.strictEqual(calls.find((c) => c[0] === 'claimSeat')[1].key, 'ts-typed');
     });
 
+    await check('ApiConfig as a global binding (not on window) is found — the production shape', async () => {
+        // api-config.js is `const ApiConfig = …` in a classic script: reachable
+        // by name, absent from window. Until 2026-09-27 every app looked on
+        // window, found nothing, and never asked Till.
+        const saved = global.window.ApiConfig;
+        global.window.ApiConfig = undefined;
+        global.ApiConfig = { getMessagingServiceUrl: () => 'https://api.example/by-binding' };
+        answer = { valid: true };
+        calls.length = 0;
+        const v = await LicenceGate.create({ app: 'baton', seatRef: 'home' }).check('bt-1');
+        delete global.ApiConfig;
+        global.window.ApiConfig = saved;
+        assert.strictEqual(v.valid, true);
+        assert.deepStrictEqual(calls.find((c) => c[0] === 'configure'), ['configure', 'https://api.example/by-binding']);
+    });
+
     await check('an app slug is required', async () => {
         assert.throws(() => LicenceGate.create({}), /app slug/);
     });
