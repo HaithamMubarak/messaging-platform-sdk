@@ -391,13 +391,12 @@
 
         _loadFromStorage() {
             var self = this;
-            this.channel.storageGet({ storageKey: Q_KEY }, function (res) {
-                var data = res && res.status === 'success' ? (res.data && res.data.data ? res.data.data : res.data) : null;
+            this.channel.storageRead(Q_KEY).then(function (data) {
                 if (data && Array.isArray(data.questions)) {
                     self.questions = data.questions;
                     self.render();
                 }
-            });
+            }, function (e) { console.warn('[Pulse] could not read the questions:', e.message); });
             this._loadVersions();
         }
 

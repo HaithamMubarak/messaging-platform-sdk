@@ -76,16 +76,13 @@ class GavelGame extends PartyKit.PartyGame {
 
     loadCaseLaw() {
         if (!this.channel) return;
-        this.channel.storageGetList(this.lawKey(), (res) => {
-            if (!res || res.status !== 'success') return;
-            const rows = PartyKit.storedVersions(res)
-                .map(PartyKit.decodeStored)
-                .filter(r => r && r.title);
+        this.channel.storageReadList(this.lawKey()).then((versions) => {
+            const rows = versions.filter(r => r && r.title);
             rows.sort((a, b) => (a.no || 0) - (b.no || 0));
             this.caseLaw = rows;
             this.caseNo = rows.length ? Math.max(...rows.map(r => r.no || 0)) : 0;
             this.renderCaseLaw();
-        });
+        }, (e) => console.warn('[Gavel] could not read case law:', e.message));
     }
 
     recordVerdict(record) {

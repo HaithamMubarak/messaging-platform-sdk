@@ -71,6 +71,10 @@ export declare class AgentConnection {
     storagePut(options: { storageKey: string; content: unknown; encrypted?: boolean; metadata?: object },
                callback?: (result: any) => void): void;
     storageGet(options: { storageKey: string }, callback: (result: any) => void): void;
+    /** The value as written (JSON parsed back); null when nothing is stored. Rejects on any failure. */
+    storageRead<T = unknown>(storageKey: string): Promise<T | null>;
+    /** Every version of an append-only key, decoded (and decrypted), newest first. Rejects on any failure. */
+    storageReadList<T = unknown>(storageKey: string): Promise<T[]>;
     storageKeys(callback: (result: any) => void): void;
     storageDeleteByKey(storageKey: string, callback?: (result: any) => void): void;
 

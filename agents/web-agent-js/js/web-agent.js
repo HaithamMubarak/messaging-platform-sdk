@@ -2657,7 +2657,7 @@
                 try {
                     // Decode response
                     const text = new TextDecoder('utf-8').decode(xhr.response);
-                    let data = JSON.parse(text);
+                    let data = storageParse(text);   // a plain-text value is text, not an error
 
                     // Check if encrypted
                     const isEncrypted = xhr.getResponseHeader('X-Storage-Encrypted') === 'true';
@@ -2679,10 +2679,14 @@
                         console.warn('[Storage] Content encrypted but no channel secret available');
                     }
 
+                    // A missing key is a 200 with "{}"; only a stored value
+                    // carries X-Storage-Key. Without this, "nothing stored"
+                    // and "an empty object stored" are the same answer.
                     typeof callback === 'function' && callback({
                         status: 'success',
                         data: data,
-                        encrypted: isEncrypted
+                        encrypted: isEncrypted,
+                        found: !!xhr.getResponseHeader('X-Storage-Key')
                     });
                 } catch(e) {
                     console.error('[Storage] Failed to parse/decrypt:', e);
@@ -2694,7 +2698,8 @@
             } else if (xhr.status === 404) {
                 typeof callback === 'function' && callback({
                     status: 'error',
-                    data: 'Storage key not found'
+                    data: 'Storage key not found',
+                    notFound: true
                 });
             } else {
                 typeof callback === 'function' && callback({
@@ -2744,11 +2749,7 @@
                 return;
             }
 
-            // The versions sit a couple of levels down, and the shape varies.
-            let payload = response.data && response.data.data ? response.data.data : response.data;
-            const versions = payload && Array.isArray(payload.versions)
-                ? payload.versions
-                : (Array.isArray(payload) ? payload : null);
+            const versions = storageVersions(response);
 
             if (versions && _self._channelSecret) {
                 versions.forEach(function (entry) {
@@ -2759,6 +2760,7 @@
                         const plain = MySecurity.decryptAndVerify(envelope, _self._channelSecret);
                         if (plain === null || plain === undefined) return;
                         entry.encrypted = false;
+                        entry.decrypted = true;
                         try {
                             entry.content = JSON.parse(plain);
                         } catch (e) {
@@ -2773,6 +2775,74 @@
             }
 
             typeof callback === 'function' && callback(response);
+        });
+    }
+
+    /** The versions sit a couple of levels down, and the shape varies. */
+    function storageVersions(response){
+        const payload = response.data && response.data.data ? response.data.data : response.data;
+        return payload && Array.isArray(payload.versions)
+            ? payload.versions
+            : (Array.isArray(payload) ? payload : null);
+    }
+
+    /** A stored value as the app wrote it: JSON parsed back, anything else as text. */
+    function storageParse(text){
+        if(typeof text !== 'string') return text;
+        try { return JSON.parse(text); } catch(e) { return text; }
+    }
+
+    /** One list version: base64 of the UTF-8 the writer stored, unless already decrypted. */
+    function storageVersionValue(entry){
+        if(entry.decrypted || typeof entry.content !== 'string') return entry.content;
+        const bin = atob(entry.content);
+        const bytes = new Uint8Array(bin.length);
+        for(let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+        return storageParse(new TextDecoder('utf-8').decode(bytes));
+    }
+
+    /**
+     * The value under a key, as a promise: what was written, not the envelope.
+     *
+     * Every app that used storageGet wrote the same unwrapping of its callback
+     * (`res.data.data ? … : …`), and most of them read a failure as "empty".
+     * This resolves the value itself, parsed back from JSON when it was JSON.
+     * A key with nothing stored resolves null. Anything else -- not ready, a
+     * network failure, a server error -- REJECTS, so a failed read is never
+     * mistaken for an empty one and then written over.
+     * @param {string} storageKey
+     * @returns {Promise<*>}
+     */
+    AgentConnection.prototype.storageRead = function(storageKey){
+        const _self = this;
+        return new Promise(function(resolve, reject){
+            _self.storageGet({storageKey : storageKey}, function(res){
+                if(res && res.status === 'success') return resolve(res.found === false ? null : storageParse(res.data));
+                if(res && res.notFound) return resolve(null);   // servers that answered 404
+                reject(new Error((res && res.data) || 'Storage read failed'));
+            });
+        });
+    }
+
+    /**
+     * Every version of an append-only key, as a promise, each decoded to what
+     * was written (decrypted when it was encrypted), NEWEST FIRST, as the server
+     * returns them. A key with no versions resolves []. A version that cannot
+     * be read (written under another channel password) is left out rather
+     * than returned as ciphertext. Failures reject, as storageRead's do.
+     * @param {string} storageKey
+     * @returns {Promise<Array<*>>}
+     */
+    AgentConnection.prototype.storageReadList = function(storageKey){
+        const _self = this;
+        return new Promise(function(resolve, reject){
+            _self.storageGetList(storageKey, function(res){
+                if(!res || res.status !== 'success'){
+                    return reject(new Error((res && res.data) || 'Storage read failed'));
+                }
+                const versions = storageVersions(res) || [];
+                resolve(versions.filter(function(v){ return v && !v.unreadable; }).map(storageVersionValue));
+            });
         });
     }
 
