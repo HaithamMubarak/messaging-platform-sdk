@@ -254,6 +254,7 @@
                 title: config.title,
                 collapsedTitle: config.collapsedTitle || config.title,
                 onConnect: connect,
+                partyLobby: config.partyLobby,
             });
 
             if (window.MiniGameUtils && typeof MiniGameUtils.processSharedLinkAndAutoConnect === 'function') {

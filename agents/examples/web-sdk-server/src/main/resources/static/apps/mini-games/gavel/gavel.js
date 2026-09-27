@@ -587,4 +587,11 @@ PartyKit.boot({
     channelPrefix: 'gavel-',
     title: 'Enter chambers',
     collapsedTitle: 'Gavel',
+    partyLobby: {
+        howTo: [
+            "Testimony is anonymous, and the bench decides what is admitted.",
+            "The jury votes in sealed booths; you never sit on your own jury.",
+            "Every sentence goes on a record nobody can quietly edit, and later trials cite it.",
+        ],
+    },
 });

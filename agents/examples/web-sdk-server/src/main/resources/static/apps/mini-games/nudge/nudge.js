@@ -482,4 +482,12 @@ PartyKit.boot({
     channelPrefix: 'nudge-',
     title: 'Sit down at the table',
     collapsedTitle: 'Nudge',
+    partyLobby: {
+        players: "3 or more players, best with 8",
+        howTo: [
+            "Every phone is dealt a secret mission: make somebody else do something.",
+            "Two people are told they have no mission, and everybody knows those cards exist.",
+            "Keep your phone face-down on the table between turns.",
+        ],
+    },
 });

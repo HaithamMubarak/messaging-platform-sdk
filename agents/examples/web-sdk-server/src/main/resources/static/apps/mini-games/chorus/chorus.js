@@ -640,4 +640,12 @@ PartyKit.boot({
     channelPrefix: 'chorus-',
     title: 'Join Chorus',
     collapsedTitle: 'Chorus',
+    partyLobby: {
+        players: "Built for big groups",
+        howTo: [
+            "Each round builds something out of slots: a headline, a recipe, an apology.",
+            "You are handed one slot and three options.",
+            "When the cue reaches your slot, tap. Miss it and the hole has your name on it.",
+        ],
+    },
 });

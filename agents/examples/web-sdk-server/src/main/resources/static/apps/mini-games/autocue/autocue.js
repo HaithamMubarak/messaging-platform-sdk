@@ -623,4 +623,12 @@ PartyKit.boot({
     channelPrefix: 'autocue-',
     title: 'Join Autocue',
     collapsedTitle: 'Autocue',
+    partyLobby: {
+        players: "3 or more players",
+        howTo: [
+            "One of you gives the speech: prop your phone up and read whatever appears.",
+            "Everyone else writes it, one line at a time.",
+            "The name of whoever wrote each line appears a beat after it lands.",
+        ],
+    },
 });

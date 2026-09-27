@@ -2797,6 +2797,14 @@ function initializeConnectionModal() {
         channelPrefix: 'hockey-',
         title: 'Join Air Hockey',
         collapsedTitle: 'Air Hockey',
+        partyLobby: {
+            players: '2–6 players',
+            howTo: [
+                'Move your mallet with the mouse, or drag with a finger.',
+                "Knock the puck into the other side's goal.",
+                'Players join the left and right teams as they arrive.',
+            ],
+        },
         onConnect: function(username, channel, password) {
             connectAirHockey(username, channel, password);
         }

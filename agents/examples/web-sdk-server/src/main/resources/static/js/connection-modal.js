@@ -234,6 +234,10 @@
 
         // Initialize
         window.initConnectionModal(config);
+
+        // A game can lead with a party lobby (start / join with a code) and keep
+        // this form under "Advanced". See js/party-lobby.js.
+        if (config.partyLobby && window.PartyLobby) window.PartyLobby.attach(config);
     };
 
     /**
