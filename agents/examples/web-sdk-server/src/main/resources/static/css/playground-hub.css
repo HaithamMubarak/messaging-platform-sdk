@@ -17,3 +17,10 @@
 @media(max-width:900px){.hub-lab-hero__grid{grid-template-columns:1fr;gap:34px}.hub-lab-hero{padding-block:48px 40px}.hub-playground .filter-bar{position:static}.hub-lab-route{grid-template-columns:38px 1fr}}
 @media(max-width:560px){.hub-lab-hero h1{font-size:42px;letter-spacing:-1.7px}.hub-lab-hero .section-head>p{font-size:16px}.hub-lab-route{padding:12px 18px}.hub-lab-hero .hero__cta{align-items:stretch}.hub-lab-hero .hero__cta .btn{justify-content:center}}
 @media(prefers-reduced-motion:reduce){.hub-playground *{scroll-behavior:auto!important}}
+/* Rendered from data/catalogue.json: a template's pattern and player count, and what left the gallery. */
+.hub-playground .game-card p.entry-facts{flex:none;font-size:var(--fs-sm);color:var(--text-muted);margin:0}
+.hub-playground .moved-title{font-size:var(--fs-lg);margin:0 0 var(--sp-3)}
+.hub-playground .moved-list{margin:0;padding-left:1.2em;color:var(--text-body);display:grid;gap:var(--sp-2)}
+.hub-playground .moved-list a{color:var(--accent-ink)}
+.hub-playground .entry-foot{flex-wrap:wrap}
+.hub-playground .entry-foot .demo-card__link{margin-left:auto}

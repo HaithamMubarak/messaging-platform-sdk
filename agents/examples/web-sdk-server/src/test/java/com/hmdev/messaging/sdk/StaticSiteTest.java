@@ -79,74 +79,10 @@ class StaticSiteTest {
         return Files.readString(path, StandardCharsets.UTF_8);
     }
 
-    @Test
-    @DisplayName("a playground heading that counts its entries counts them correctly")
-    void playgroundHeadingsDoNotClaimAStaleCount() throws IOException {
-        String page = read("playground.html");
-
-        // "The four with a page of their own" sat above eight of them. A
-        // heading that names a number is a claim a reader can check in one
-        // glance, and it goes stale the moment somebody adds an entry -- so
-        // check it here instead of hoping.
-        Map<String, Integer> words = new LinkedHashMap<>();
-        String[] names = {"two", "three", "four", "five", "six", "seven", "eight",
-                          "nine", "ten", "eleven", "twelve"};
-        for (int i = 0; i < names.length; i++) words.put(names[i], i + 2);
-
-        // Split on the section headings, so each chunk holds one heading and
-        // the entries that follow it.
-        String[] sections = page.split("(?=<h2)");
-        for (String section : sections) {
-            Matcher h = Pattern.compile("<h2[^>]*>(.*?)</h2>", Pattern.DOTALL).matcher(section);
-            if (!h.find()) continue;
-            String heading = h.group(1).replaceAll("<[^>]*>", "").toLowerCase();
-            int entries = section.split("class=\"entry-hit\"", -1).length - 1;
-            if (entries == 0) continue;
-
-            for (Map.Entry<String, Integer> w : words.entrySet()) {
-                if (heading.matches(".*\\b" + w.getKey() + "\\b.*")) {
-                    assertThat(entries)
-                            .as("heading \"" + heading.trim() + "\" says " + w.getKey()
-                                + " but " + entries + " entries follow it")
-                            .isEqualTo(w.getValue());
-                }
-            }
-        }
-    }
-
-    @Test
-    @DisplayName("every playground entry shows a screenshot of itself, and the file is there")
-    void playgroundEntriesCarryScreenshots() throws IOException {
-        String page = read("playground.html");
-
-        // The card-wide link is what makes something an entry — games and the
-        // plain demos below them use different card classes, so counting one
-        // of those two would quietly ignore the other five.
-        int entries = page.split("class=\"entry-hit\"", -1).length - 1;
-        // A floor, so `found == entries` below cannot pass on an empty page.
-        // A floor pinned to today's exact total fails the next time one
-        // entry moves, which is how this assertion came to be wrong at 20.
-        assertThat(entries).isGreaterThan(10);
-
-        Matcher m = Pattern.compile(
-                "<figure class=\"entry-shot\"><img src=\"(img/playground/[^\"]+)\"[^>]*alt=\"([^\"]*)\">")
-                .matcher(page);
-        int found = 0;
-        while (m.find()) {
-            found++;
-            Path shot = STATIC.resolve(m.group(1));
-            assertThat(Files.exists(shot))
-                    .as("screenshot referenced by the playground is missing: " + m.group(1))
-                    .isTrue();
-            // A thumbnail with no description is a thumbnail a screen reader
-            // cannot report; "Screenshot" would pass a presence check and say
-            // nothing, so require a real sentence.
-            assertThat(m.group(2).length())
-                    .as("alt text too short for " + m.group(1))
-                    .isGreaterThan(30);
-        }
-        assertThat(found).isEqualTo(entries);
-    }
+    // The Playground's cards are rendered from data/catalogue.json since
+    // 2026-09-27, so the two guards that read hand-written cards here (a
+    // heading's count, and a screenshot with a real description per card)
+    // now live where the cards do: src/test/js/catalogue.test.js.
 
     /*
      * Re-pinned 2026-09-26. The old pins (a `site-nav` header, no link to the
