@@ -3097,8 +3097,34 @@ window.whiteboardVersions = {
  *
  * The listing and restore functions existed without any way to reach them,
  * which is a feature nobody can use. This is the way in: open it, see when each
- * version was saved and by whom, and put one back.
+ * version was saved and by whom, scrub or play through them (what the Rewind
+ * viewer used to be for), and put one back.
+ *
+ * The preview is read-only and draws on its own canvas (board-replay.js): the
+ * live board is never touched until Restore, which saves a NEW version.
  */
+let historyPlayerInstance = null;
+
+function historyPlayer() {
+    if (historyPlayerInstance || typeof BoardReplay === 'undefined') return historyPlayerInstance;
+    historyPlayerInstance = BoardReplay.player({
+        canvas: document.getElementById('historyPreview'),
+        slider: document.getElementById('historyScrub'),
+        playBtn: document.getElementById('historyPlay'),
+        position: document.getElementById('historyPos'),
+        time: document.getElementById('historyWhen'),
+        stepMs: 700,
+        // The row being previewed is marked in the list, so the scrubber and
+        // the list are one thing rather than two.
+        onSeek: function (frame) {
+            document.querySelectorAll('#historyList .wb-history__row').forEach(function (row) {
+                row.classList.toggle('wb-history__row--previewed', !!frame && row.dataset.versionId === String(frame.id));
+            });
+        }
+    });
+    return historyPlayerInstance;
+}
+
 function openHistory() {
     const modal = document.getElementById('historyModal');
     const list = document.getElementById('historyList');
@@ -3108,6 +3134,8 @@ function openHistory() {
     modal.style.display = 'flex';
     list.innerHTML = '';
     state.textContent = "Reading the board's history…";
+    const player = historyPlayer();
+    if (player) player.load([]);
 
     listBoardVersions(function (versions) {
         if (!versions.length) {
@@ -3115,62 +3143,72 @@ function openHistory() {
                 + 'so come back after a few changes.';
             return;
         }
-        state.textContent = versions.length + ' version(s). Restoring one saves it as a NEW '
-            + 'version, so going back is itself something you can undo.';
+        state.textContent = versions.length + ' version(s). Scrub or play through them; restoring one '
+            + 'saves it as a NEW version, so going back is itself something you can undo.';
+        versions.forEach(function (version, index) { list.appendChild(historyRow(version, index)); });
+        if (player) player.load(BoardReplay.framesOf(versions));
+    });
+}
 
-        versions.forEach(function (version, index) {
-            const meta = version.metadata || {};
-            const savedAt = meta.savedAt || (version.createdAt ? Date.parse(version.createdAt) : 0);
+/** One version in the list: when, by whom, preview it, and Restore. */
+function historyRow(version, index) {
+    const meta = version.metadata || {};
+    const savedAt = meta.savedAt || (version.createdAt ? Date.parse(version.createdAt) : 0);
 
-            const row = document.createElement('div');
-            row.className = 'wb-history__row' + (index === 0 ? ' wb-history__row--current' : '');
+    const row = document.createElement('div');
+    row.className = 'wb-history__row' + (index === 0 ? ' wb-history__row--current' : '');
+    row.dataset.versionId = String(version.id);
 
-            const when = document.createElement('span');
-            when.className = 'wb-history__when';
-            when.textContent = savedAt ? new Date(savedAt).toLocaleString() : 'unknown time';
+    const when = document.createElement('button');
+    when.type = 'button';
+    when.className = 'wb-history__when';
+    when.title = 'Preview this version';
+    when.textContent = savedAt ? new Date(savedAt).toLocaleString() : 'unknown time';
+    when.addEventListener('click', function () {
+        const player = historyPlayer();
+        if (!player) return;
+        player.pause();
+        player.seek(player.frames.findIndex(function (f) { return f.id === version.id; }));
+    });
 
-            const who = document.createElement('span');
-            who.className = 'wb-history__who';
-            who.textContent = index === 0 ? 'current' : (meta.by ? 'by ' + meta.by : '');
+    const who = document.createElement('span');
+    who.className = 'wb-history__who';
+    who.textContent = index === 0 ? 'current' : (meta.by ? 'by ' + meta.by : '');
 
-            row.appendChild(when);
-            row.appendChild(who);
+    row.appendChild(when);
+    row.appendChild(who);
+    if (index !== 0) row.appendChild(historyRestoreButton(version, when.textContent));
+    return row;
+}
 
-            if (index !== 0) {
-                const restore = document.createElement('button');
-                restore.className = 'wb-btn';
-                restore.type = 'button';
+function historyRestoreButton(version, whenText) {
+    const restore = document.createElement('button');
+    restore.className = 'wb-btn';
+    restore.type = 'button';
+    restore.textContent = 'Restore';
+    restore.addEventListener('click', function () {
+        restore.disabled = true;
+        restore.textContent = 'Restoring…';
+        restoreBoardVersion(version.id, function (ok) {
+            if (ok) {
+                closeHistory();
+                if (typeof showToast === 'function') showToast('Restored the version from ' + whenText, 'success');
+                // Save it forward, so the restore is itself a version.
+                if (typeof saveBoardStateToStorage === 'function') saveBoardStateToStorage();
+            } else {
+                restore.disabled = false;
                 restore.textContent = 'Restore';
-                restore.addEventListener('click', function () {
-                    restore.disabled = true;
-                    restore.textContent = 'Restoring…';
-                    restoreBoardVersion(version.id, function (ok) {
-                        if (ok) {
-                            closeHistory();
-                            if (typeof showToast === 'function') {
-                                showToast('Restored the version from ' + when.textContent, 'success');
-                            }
-                            // Save it forward, so the restore is itself a version.
-                            if (typeof saveBoardStateToStorage === 'function') saveBoardStateToStorage();
-                        } else {
-                            restore.disabled = false;
-                            restore.textContent = 'Restore';
-                            if (typeof showToast === 'function') {
-                                showToast('Could not restore that version', 'error');
-                            }
-                        }
-                    });
-                });
-                row.appendChild(restore);
+                if (typeof showToast === 'function') showToast('Could not restore that version', 'error');
             }
-            list.appendChild(row);
         });
     });
+    return restore;
 }
 
 function closeHistory() {
     const modal = document.getElementById('historyModal');
     if (modal) modal.style.display = 'none';
+    if (historyPlayerInstance) historyPlayerInstance.pause();
 }
 
 window.openHistory = openHistory;

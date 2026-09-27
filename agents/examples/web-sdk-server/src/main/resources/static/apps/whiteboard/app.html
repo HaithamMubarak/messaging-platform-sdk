@@ -1759,6 +1759,13 @@
             color: var(--text-muted, #8a97ab);
         }
 
+        .wb-replay { display: grid; gap: 8px; margin: 8px 0 12px; }
+        .wb-replay__stage { width: 100%; height: auto; aspect-ratio: 16 / 9; background: #fff; border-radius: 8px; border: 1px solid rgba(255,255,255,.12); }
+        .wb-replay__controls { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+        .wb-replay__scrub { flex: 1 1 140px; min-width: 0; }
+        .wb-replay__pos, .wb-replay__when { font-size: 12px; opacity: .8; }
+        .wb-history__when { background: none; border: 0; padding: 0; color: inherit; font: inherit; text-align: left; cursor: pointer; text-decoration: underline dotted; }
+        .wb-history__row--previewed { outline: 2px solid #7ee8dc; outline-offset: -2px; }
         .wb-history__row--current {
             outline: 1px solid var(--brand, #5d60ef);
         }
@@ -2364,6 +2371,17 @@
                 Earlier versions
             </h2>
             <p id="historyState">Reading the board's history…</p>
+            <div class="wb-replay">
+                <canvas id="historyPreview" class="wb-replay__stage" width="640" height="360"
+                        role="img" aria-label="Preview of the selected version of the board"></canvas>
+                <div class="wb-replay__controls">
+                    <button id="historyPlay" class="wb-btn" type="button" disabled>Play</button>
+                    <input id="historyScrub" class="wb-replay__scrub" type="range" min="0" max="0" value="0" step="1"
+                           disabled aria-label="Scrub through the board's history">
+                    <span id="historyPos" class="wb-replay__pos"></span>
+                    <span id="historyWhen" class="wb-replay__when"></span>
+                </div>
+            </div>
             <div id="historyList" class="wb-history"></div>
             <div class="sync-mode-modal-actions">
                 <button class="wb-btn" onclick="closeHistory()">Close</button>
@@ -2706,6 +2724,7 @@
     <script src="../../js/UserConnectionBase.js"></script>
 
     <!-- Whiteboard Client (includes framework integration) -->
+    <script src="board-replay.js"></script>
     <script src="whiteboard-client.js"></script>
     <!-- Shapes, text and sticky notes, spoken in the segments the board already
          understands. Loaded after the client, whose globals it borrows. -->
