@@ -138,9 +138,9 @@ class OpenOutcryGame extends UserConnectionBase {
     /** Client -> host. Always addressed, never broadcast. */
     toHost(msg) {
         if (this.isHost()) { this.hostReceive(this.username, msg); return 1; }
-        const host = this._getHostName();
-        if (!host) { console.warn('[OpenOutcry] no host yet'); return 0; }
-        return this.sendData(msg, host);
+        const sent = super.toHost(msg);
+        if (!sent) console.warn('[OpenOutcry] no host yet');
+        return sent;
     }
 
     /** Host -> everyone. _fromHost is stamped by the base class. */

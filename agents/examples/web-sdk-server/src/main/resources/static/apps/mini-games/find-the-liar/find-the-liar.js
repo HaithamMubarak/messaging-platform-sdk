@@ -655,21 +655,17 @@ class FindTheLiarGame extends UserConnectionBase {
      * game that is the whole secret, handed out before the reveal.
      *
      * An addressed send goes peer to peer and is relayed to nobody, so every
-     * client -> host message must name the host. This mirrors toHost() in
-     * shared/party-kit.js, which was extracted from this game precisely
-     * because getting it wrong here is invisible: the UI looks right, and the
-     * leak is only in the other players' devtools.
+     * client -> host message goes through UserConnectionBase.toHost(), which
+     * was lifted out of this game and Party Kit precisely because getting it
+     * wrong here is invisible: the UI looks right, and the leak is only in
+     * the other players' devtools.
      *
      * The host calls its own handler directly — there is nobody to send to.
      */
     _toHost(msg) {
-        const host = typeof this._getHostName === 'function' ? this._getHostName() : null;
-        if (!host) {
-            console.warn('[FindTheLiar] No host yet, dropping', msg && msg.type);
-            return 0;
-        }
-        if (host === this.username) return 0;
-        return this.sendData(msg, host);
+        const sent = this.toHost(msg);
+        if (!sent && !this.isHost()) console.warn('[FindTheLiar] No host yet, dropping', msg && msg.type);
+        return sent;
     }
 
     onDataChannelMessage(peerId, data) {

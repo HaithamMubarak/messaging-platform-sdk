@@ -895,6 +895,25 @@ class UserConnectionBase {
     }
 
     /**
+     * Send to the host and to NOBODY ELSE.
+     *
+     * A plain sendData(data) from a client in host mode is wrapped with
+     * _needsRelay and the host rebroadcasts it to every other client, so a
+     * vote, an answer or a hidden role sent that way lands in every
+     * opponent's browser. An addressed send is relayed to nobody. Games that
+     * learned this each wrote their own copy; this is the one to call.
+     *
+     * Returns 1 when sent, 0 when there is no host yet or this IS the host:
+     * a host handles its own action directly, and what that means is the
+     * app's business, so nothing is looped back here.
+     */
+    toHost(data) {
+        const host = this._getHostName();
+        if (!host || host === this.username) return 0;
+        return this.sendData(data, host);
+    }
+
+    /**
      * Send data to host (for clients in host mode)
      * @private
      */

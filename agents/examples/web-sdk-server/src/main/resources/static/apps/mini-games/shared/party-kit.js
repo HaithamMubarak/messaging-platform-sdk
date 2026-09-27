@@ -49,9 +49,9 @@
         /** Client -> host. Never a broadcast: these games are made of secrets. */
         toHost(msg) {
             if (this.isHost()) { this.hostReceive(this.username, msg); return 1; }
-            const host = this._getHostName();
-            if (!host) { console.warn('[PartyKit] no host yet'); return 0; }
-            return this.sendData(msg, host);
+            const sent = super.toHost(msg);
+            if (!sent) console.warn('[PartyKit] no host yet');
+            return sent;
         }
 
         /** Host -> everyone. The base class stamps _fromHost on a broadcast. */
