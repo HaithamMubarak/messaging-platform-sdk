@@ -78,8 +78,21 @@
                 this.cam.getTracks().forEach((t) => t.stop());
                 this.cam = null;
             } else {
-                this.cam = await navigator.mediaDevices.getUserMedia({ video: { width: 640, height: 480 }, audio: true });
+                const cam = await navigator.mediaDevices.getUserMedia({ video: { width: 640, height: 480 }, audio: true });
+                // A camera can end without the page asking: unplugged, taken by
+                // another app, a privacy switch. Without this the tile freezes
+                // and the room is still told the camera is on.
+                cam.getVideoTracks().forEach((t) => t.addEventListener('ended', () => this._cameraLost(cam)));
+                this.cam = cam;
             }
+            this._publish();
+        }
+
+        _cameraLost(cam) {
+            if (this.cam !== cam) return;   // already switched off, or replaced
+            UI.toast('Your camera stopped. It may have been unplugged or taken by another app.', 'error', 6000);
+            cam.getTracks().forEach((t) => t.stop());
+            this.cam = null;
             this._publish();
         }
 
