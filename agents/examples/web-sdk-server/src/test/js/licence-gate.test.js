@@ -105,6 +105,29 @@ const pill = () => ({ textContent: '', className: '' });
         assert.strictEqual(calls.length, 0);
     });
 
+    await check('seats are shown when Till reports them (Signet showed "seat 2/5")', async () => {
+        answer = { valid: true, plan: 'clinic', seats: 5, seatsUsed: 2 };
+        const p = pill();
+        await LicenceGate.create({ app: 'signet', seatRef: 'chair', pill: p }).check('sg-2');
+        assert.strictEqual(p.textContent, 'Licensed · clinic · seat 2/5');
+    });
+
+    await check('restore() fills the key field, and the button checks what is typed', async () => {
+        answer = { valid: true };
+        store.turnstile = 'ts-remembered';
+        const listeners = {};
+        const input = { value: '' };
+        const button = { addEventListener: (ev, fn) => { listeners[ev] = fn; } };
+        const gate = LicenceGate.create({ app: 'turnstile', seatRef: 'gate', input, button });
+        await gate.restore();
+        assert.strictEqual(input.value, 'ts-remembered');
+        calls.length = 0;
+        input.value = ' ts-typed ';
+        listeners.click();
+        await new Promise((r) => setTimeout(r, 0));
+        assert.strictEqual(calls.find((c) => c[0] === 'claimSeat')[1].key, 'ts-typed');
+    });
+
     await check('an app slug is required', async () => {
         assert.throws(() => LicenceGate.create({}), /app slug/);
     });

@@ -11,6 +11,8 @@
  *       app: 'gatehouse',                  // the Till app slug
  *       seatRef: () => siteName,           // what one seat is: a site, a home…
  *       pill: document.getElementById('licencePill'),
+ *       input: document.getElementById('licenceKey'),    // optional: filled on restore
+ *       button: document.getElementById('licenceBtn'),   // optional: checks input's key
  *       onChange: (verdict) => { … }       // verdict.valid decides behaviour
  *   });
  *   gate.restore();                        // a remembered key, if any
@@ -29,7 +31,10 @@
 
     function describe(verdict) {
         if (!verdict) return 'Unlicensed · no key';
-        if (verdict.valid) return 'Licensed' + (verdict.plan ? ' · ' + verdict.plan : '');
+        if (verdict.valid) {
+            return 'Licensed' + (verdict.plan ? ' · ' + verdict.plan : '')
+                + (verdict.seats ? ' · seat ' + verdict.seatsUsed + '/' + verdict.seats : '');
+        }
         return 'Unlicensed · ' + String(verdict.reason || 'no key').replace(/_/g, ' ');
     }
 
@@ -69,9 +74,13 @@
             const t = till();
             const key = t ? t.recall(opts.app) : null;
             if (!key) { gate.render(); return Promise.resolve(null); }
+            if (opts.input) opts.input.value = key;
             return gate.check(key);
         };
 
+        if (opts.button && opts.input) {
+            opts.button.addEventListener('click', function () { gate.check(opts.input.value); });
+        }
         gate.render();
         return gate;
     }
