@@ -531,7 +531,14 @@
             font-size: 12px;
             color: var(--text-muted);
         }
-    </style>
+    /* Touch: a finger needs about 44px (Apple HIG, Material). Only on coarse
+   pointers, so a desktop layout is unchanged. Checked by e2e/suites/tap-targets-test.js. */
+@media (pointer: coarse) {
+            .copy-btn, .toggle-visibility { min-width: 44px; min-height: 44px; }
+            .back-link { display: inline-flex; align-items: center; min-height: 44px; }
+            label:has(> input[type="checkbox"]) { display: flex; align-items: center; min-height: 44px; }
+        }
+</style>
 </head>
 <body>
     <div class="container">

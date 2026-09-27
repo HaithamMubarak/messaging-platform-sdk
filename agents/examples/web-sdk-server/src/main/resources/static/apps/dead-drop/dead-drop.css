@@ -133,3 +133,9 @@
     box-shadow: var(--shadow-2, 0 8px 24px -8px rgba(2, 6, 23, .55));
     z-index: 60;
 }
+
+/* Touch: a finger needs about 44px (Apple HIG, Material). Only on coarse
+   pointers, so a desktop layout is unchanged. Checked by e2e/suites/tap-targets-test.js. */
+@media (pointer: coarse) {
+    label[for="readOnce"] { display: inline-flex; align-items: center; min-height: 44px; }
+}

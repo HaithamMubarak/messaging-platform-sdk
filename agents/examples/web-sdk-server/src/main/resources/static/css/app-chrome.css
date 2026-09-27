@@ -216,3 +216,9 @@ body:has(#mobileControls:not(.hidden)) > .share-btn,
 body:has(#mobileControls:not(.hidden)) > .connection-status {
     display: none !important;
 }
+
+/* Touch: a finger needs about 44px (Apple HIG, Material). Only on coarse
+   pointers, so a desktop layout is unchanged. Checked by e2e/suites/tap-targets-test.js. */
+@media (pointer: coarse) {
+    .sdk-home-chip a { display: inline-flex; align-items: center; min-height: 44px; }
+}

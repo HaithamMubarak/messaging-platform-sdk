@@ -284,3 +284,9 @@ textarea.pro-field { resize: vertical; min-height: 84px; font-family: 'JetBrains
     .pro-toast, .pro-pop, .pro-enter { animation: none !important; }
     .pro-btn, .pro-card { transition: none !important; }
 }
+
+/* Touch: a finger needs about 44px (Apple HIG, Material). Only on coarse
+   pointers, so a desktop layout is unchanged. Checked by e2e/suites/tap-targets-test.js. */
+@media (pointer: coarse) {
+    .pro-btn, .pro-copy { min-height: 44px; }
+}

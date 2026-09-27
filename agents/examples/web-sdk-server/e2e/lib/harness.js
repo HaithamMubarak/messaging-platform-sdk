@@ -21,12 +21,15 @@ fs.mkdirSync(SHOTS, { recursive: true });
  */
 const LAUNCH = {
     headless: false,
+    // PW_CHANNEL=msedge where Playwright's own Chromium is not installed (a Windows
+    // desktop); PW_OFFSCREEN keeps the headed window out of the way there.
+    channel: process.env.PW_CHANNEL || undefined,
     args: [
         '--no-sandbox',
         '--enable-unsafe-swiftshader',
         '--use-gl=angle',
         '--use-angle=swiftshader'
-    ]
+    ].concat(process.env.PW_OFFSCREEN ? ['--window-position=-32000,-32000'] : [])
 };
 
 /** Media suites need a camera and microphone that do not exist on a server. */

@@ -28,7 +28,7 @@
     display: flex;
     align-items: center;
     gap: var(--sp-5);
-    padding-block: var(--sp-3);
+    padding-block: 0;
     overflow-x: auto;
     scrollbar-width: none;
 }
@@ -40,6 +40,10 @@
     white-space: nowrap;
 }
 .ap-jump a {
+    /* The link is the target: 44px tall, where the strip used to carry the padding. */
+    display: inline-flex;
+    align-items: center;
+    min-height: 44px;
     font-size: var(--fs-sm);
     color: var(--text-muted);
     text-decoration: none;

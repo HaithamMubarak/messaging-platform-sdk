@@ -1096,7 +1096,12 @@
         .agents-modal .empty { text-align:center;color:var(--muted);padding:18px 6px }
         @keyframes pop { from { transform: translate(-50%, -54%) scale(.99); opacity:0 } to { transform: translate(-50%, -50%) scale(1); opacity:1 } }
 
-    </style>
+    /* Touch: a finger needs about 44px (Apple HIG, Material). Only on coarse
+   pointers, so a desktop layout is unchanged. Checked by e2e/suites/tap-targets-test.js. */
+@media (pointer: coarse) {
+            .icon-btn-small, .events-toggle { min-width: 44px; min-height: 44px; }
+        }
+</style>
 
     <!-- Load configuration from backend (secure API key management) -->
     <script src="../js/api-config.js"></script>

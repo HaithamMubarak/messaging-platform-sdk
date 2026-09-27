@@ -71,3 +71,9 @@
 .rw-time { font-size: var(--fs-xs, .75rem); color: var(--text-muted, #8a97ab); }
 .rw-state { font-size: var(--fs-sm, .8125rem); color: var(--text-muted, #8a97ab); line-height: var(--lh-body, 1.65); }
 .rw-note { font-size: var(--fs-xs, .75rem); color: var(--text-muted, #8a97ab); line-height: var(--lh-body, 1.65); }
+
+/* Touch: a finger needs about 44px (Apple HIG, Material). Only on coarse
+   pointers, so a desktop layout is unchanged. Checked by e2e/suites/tap-targets-test.js. */
+@media (pointer: coarse) {
+    .rw-scrub { height: 44px; }
+}

@@ -318,7 +318,11 @@
         @media (max-width: 560px) {
             .content { padding: 20px 16px; }
         }
-    </style>
+            /* Touch: a finger needs about 44px. Coarse pointers only. Checked by e2e/suites/mobile.js. */
+        @media (pointer: coarse) { .sidebar-link { display: flex; align-items: center; min-height: 44px; } }
+        /* A list of links in a guide (its table of contents) is navigation, not prose. */
+        @media (pointer: coarse) { .markdown-body li > a:only-child { display: inline-flex; align-items: center; min-height: 44px; } }
+</style>
 <link rel="stylesheet" href="/messaging-platform/hub/css/hub-navigation.css">
 </head>
 <body>

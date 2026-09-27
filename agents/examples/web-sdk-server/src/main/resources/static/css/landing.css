@@ -823,3 +823,10 @@ section[id] { scroll-margin-top: 80px; }
     color: var(--danger, #b3261e);
 }
 .mp-danger .btn { min-height: 44px; }
+
+/* Touch: a finger needs about 44px (Apple HIG, Material). Only on coarse
+   pointers, so a desktop layout is unchanged. Checked by e2e/suites/tap-targets-test.js. */
+@media (pointer: coarse) {
+    .footer-bottom a { display: inline-flex; align-items: center; min-height: 44px; }
+    .filter-solo { min-height: 44px; }
+}

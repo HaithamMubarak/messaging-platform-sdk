@@ -70,6 +70,11 @@ dialog{border:1px solid #d8e2d2;border-radius:15px;padding:0;width:min(710px,cal
 [data-theme=dark] .detail-tags span{background:#1a2921;color:#9cc1ae}
 [data-theme=dark] .launch{color:#08100c}[data-theme=dark] .launch:hover{background:#8ad5b4}
 @media(max-width:700px){[data-theme=dark] .sidebar{background:#0d1512}.top-actions .text-link{display:none}.theme-label{display:none}.theme-toggle{padding:9px}}
+
+/* Touch: a finger needs about 44px. Coarse pointers only, so desktop is unchanged. Checked by e2e/suites/tap-targets-test.js. */
+@media (pointer:coarse){.footer a,.breadcrumb button,.mp-link{display:inline-flex;align-items:center;justify-content:center;min-height:44px;min-width:44px}.footer nav{flex-wrap:wrap;gap:0 16px}.footer a{white-space:nowrap}}
+/* Phones: nothing under 11px (e2e/suites/mobile.js). The micro-labels stay small, not unreadable. */
+@media (max-width:640px){.sidebar-label,.mp-tag,.pill,.card-footer b,.app-card .app-label,.footer p,.footer a{font-size:11px}}
 </style>
 <link rel="stylesheet" href="/messaging-platform/sdk/css/hub-profile-theme.css">
 </head>

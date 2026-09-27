@@ -2349,7 +2349,14 @@
                 min-width: 45px;
             }
         }
-    </style>
+    /* Touch: a finger needs about 44px (Apple HIG, Material). Only on coarse
+   pointers, so a desktop layout is unchanged. Checked by e2e/suites/tap-targets-test.js. */
+/* The history scrubber: a thin track, but the input itself is the target. */
+        /* The track stays 6px (painted in the content box only); the padding is
+           the touch area. Same specificity as the page's input[type="range"], later. */
+        input[type="range"].wb-replay__scrub { box-sizing: border-box; height: 32px; padding-block: 13px; background-clip: content-box; }
+        @media (pointer: coarse) { input[type="range"].wb-replay__scrub { height: 44px; padding-block: 19px; } }
+</style>
 
     <!-- Last, deliberately: this file is the app's chrome and has to outrank
          the three older generations of rules in the <style> block above, which
