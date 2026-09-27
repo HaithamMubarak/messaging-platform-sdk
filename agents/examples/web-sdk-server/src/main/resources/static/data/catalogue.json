@@ -16,7 +16,7 @@
     "binary":    { "label": "Files",             "hub": "WebRTC",    "evidence": "sendFile\\s*\\(|ArrayBuffer|arrayBuffer\\s*\\(|binaryType|FileReader" }
   },
   "shelves": {
-    "learn":     { "title": "Learn the SDK", "lead": "Eight demos, each the clearest example of one part of the SDK. Open one, then read its source." },
+    "learn":     { "title": "Learn the SDK", "lead": "Nine demos, each the clearest example of one part of the SDK. Open one, then read its source." },
     "templates": { "title": "Build a game", "lead": "Three games that are also templates: each is the reference for one multiplayer pattern. Read the source, then build yours on it." },
     "games":     { "title": "More party games", "lead": "Phone games on the same host-as-referee spine as Gavel: every player-to-host message is addressed, and nobody sees state they are not entitled to." },
     "products":  { "title": "Built on the SDK", "lead": "Finished apps, not demos. Each is a product in the apps catalogue." }
@@ -103,6 +103,16 @@
       "badges": ["Binary transfer", "P2P data channels", "Directed messages"],
       "links": [{ "label": "The product: Drop Pro", "url": "/messaging-platform/apps/droppro/" }],
       "source": ["apps/drop/drop.js"]
+    },
+    {
+      "id": "call", "name": "Call", "audience": "learn", "shelf": "learn", "status": "live",
+      "primitives": ["video", "p2p", "presence"], "solo": false,
+      "url": "/messaging-platform/sdk/apps/call/index.html",
+      "image": "img/playground/call.webp", "imageAlt": "A call between two people, Ana and Bo, each tile showing a live test-pattern camera, with the Camera, Microphone and Share screen buttons below.", "icon": "i-video",
+      "blurb": "Camera, microphone and screen share, straight between browsers.",
+      "text": "The demo of WebRtcHelper's media side. The channel carries who is here and what they have switched on; camera and screen go peer to peer. Sharing your screen replaces your camera rather than adding a stream, and a camera switched off mid-negotiation never shows up late.",
+      "badges": ["WebRTC media", "Screen share", "Mesh"],
+      "source": ["apps/call/call.js"]
     },
     {
       "id": "air-hockey", "name": "Air Hockey", "audience": "play", "shelf": "templates", "status": "live",
