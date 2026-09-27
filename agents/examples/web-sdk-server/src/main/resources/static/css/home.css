@@ -242,7 +242,7 @@
     .sdk-home .home-app-copy h3 { font-size: 17px; }
     .sdk-home .home-app-copy > p:not(.home-card-category) { font-size: 12px; }
     .sdk-home .home-demo-grid { grid-template-columns: repeat(2,minmax(0,1fr)); }
-    .sdk-home .home-quickstart-grid { grid-template-columns: 1fr; gap: 36px; }
+    .sdk-home .home-quickstart-grid { grid-template-columns: minmax(0,1fr); gap: 36px; }
     .sdk-home .home-quickstart-copy { max-width: 570px; }
     .sdk-home .home-quickstart-copy h2 br { display: none; }
     .sdk-home .home-install { max-width: 360px; }
