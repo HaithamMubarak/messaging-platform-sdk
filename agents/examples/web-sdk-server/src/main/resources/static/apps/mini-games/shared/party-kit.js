@@ -201,7 +201,18 @@
 
         onUserJoin()        { if (this.isHost()) this.broadcastState(); this.renderAll(); }
         onUserLeave()       { if (this.isHost()) this.broadcastState(); this.renderAll(); }
-        onDataChannelOpen() { if (this.isHost()) this.broadcastState(); this.renderAll(); }
+        /*
+         * A client's hello is how a player who refreshed gets their role, hand
+         * or mission back. The one onConnect sends goes out before any data
+         * channel is open and is dropped (seen live: toHost -> 0, no open
+         * peers), so it is sent again the moment the host's channel opens.
+         * Handlers are idempotent: a second hello re-sends the same state.
+         */
+        onDataChannelOpen(peerId) {
+            if (this.isHost()) this.broadcastState();
+            else if (peerId === this._getHostName()) this.toHost({ t: 'hello' });
+            this.renderAll();
+        }
 
         // Subclasses override these four.
         hostReceive(_from, _msg) {}

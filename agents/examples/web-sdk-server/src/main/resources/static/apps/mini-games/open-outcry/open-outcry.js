@@ -123,10 +123,14 @@ class OpenOutcryGame extends UserConnectionBase {
         this.renderAll();
     }
 
-    onDataChannelOpen() {
+    onDataChannelOpen(peerId) {
         if (this.isHost()) {
             this.ensureTrader(null);
             this.broadcastState();
+        } else if (peerId === this._getHostName()) {
+            // The hello onConnect sends is dropped when no channel is open
+            // yet; this one reaches the host, and brings the wallet back.
+            this.toHost({ t: 'hello' });
         }
         this.renderAll();
     }
