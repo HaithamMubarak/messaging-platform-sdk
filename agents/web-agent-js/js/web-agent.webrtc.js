@@ -146,6 +146,193 @@
     }
 
     // =========================================================================
+    // PeerFiles: sendFile / receive, over the peer's own data channel
+    // =========================================================================
+    //
+    // Six apps each carried a file transfer of their own: three JSON+base64
+    // (a third bigger on the wire, no backpressure, no integrity check) and
+    // three raw-binary copies of one engine that had to take over the data
+    // channel's onmessage, because this helper JSON-parsed every frame and
+    // dropped the binary ones. This is that engine, in the helper:
+    //
+    //   {__mpFile:'start', id, name, size, mime, sha256}   JSON, sender -> receiver
+    //   <8-byte id><bytes>                                  binary, one per chunk
+    //   {__mpFile:'end', id}                                JSON
+    //   {__mpFile:'done', id, ok, reason}                   JSON, receiver -> sender
+    //
+    // It needs the channel to be ordered and reliable, because the control
+    // messages and the chunks share it and a lost chunk is a corrupt file; it
+    // refuses to send on any other. The sender waits on bufferedAmount rather
+    // than a timer, and the promise resolves only when the RECEIVER has
+    // checked the SHA-256 and said so -- "sent" is not "arrived".
+
+    const FILE_ID_BYTES = 8;
+    const FILE_HIGH_WATER = 1024 * 1024;
+    const FILE_LOW_WATER = 256 * 1024;
+    const FILE_ACK_TIMEOUT_MS = 60000;
+
+    async function fileSha256Hex(bytes) {
+        const digest = await crypto.subtle.digest('SHA-256', bytes);
+        return Array.from(new Uint8Array(digest), (b) => b.toString(16).padStart(2, '0')).join('');
+    }
+
+    function fileId() {
+        let id = '';
+        while (id.length < FILE_ID_BYTES) id += Math.random().toString(36).slice(2);
+        return id.slice(0, FILE_ID_BYTES);
+    }
+
+    class PeerFiles {
+        constructor(helper) {
+            this.helper = helper;
+            this.maxBytes = 256 * 1024 * 1024;   // largest file this side accepts
+            this.outgoing = new Map();           // id -> {peerId, resolve, reject, timer}
+            this.incoming = new Map();           // id -> {peerId, meta, parts, got}
+        }
+
+        /** Reliable and ordered, or a file cannot survive the trip. */
+        _channelFor(peerId) {
+            const dc = this.helper.dataChannels.get(peerId);
+            if (!dc || dc.readyState !== 'open') throw new Error('No open data channel with ' + peerId + '.');
+            const reliable = dc.ordered !== false && dc.maxRetransmits == null && dc.maxPacketLifeTime == null;
+            if (!reliable) throw new Error('The data channel with ' + peerId + ' is not reliable and ordered.');
+            return dc;
+        }
+
+        _control(dc, msg) {
+            dc.send(JSON.stringify(Object.assign({ __mpFile: true }, msg)));
+        }
+
+        /** Resolve when the channel has room again; reject if it closes first. */
+        _drain(dc) {
+            if (dc.bufferedAmount <= FILE_HIGH_WATER) return Promise.resolve();
+            dc.bufferedAmountLowThreshold = FILE_LOW_WATER;
+            return new Promise((resolve, reject) => {
+                const done = (ok) => () => {
+                    dc.removeEventListener('bufferedamountlow', onLow);
+                    dc.removeEventListener('close', onClose);
+                    ok ? resolve() : reject(new Error('The data channel closed mid-transfer.'));
+                };
+                const onLow = done(true), onClose = done(false);
+                dc.addEventListener('bufferedamountlow', onLow);
+                dc.addEventListener('close', onClose);
+            });
+        }
+
+        async send(peerId, file, options) {
+            const opts = options || {};
+            const dc = this._channelFor(peerId);
+            const chunk = Math.max(1024, opts.chunkBytes || 16 * 1024);
+            const bytes = new Uint8Array(await file.arrayBuffer());
+            const id = fileId();
+            const meta = { id, name: opts.name || file.name || 'file', size: bytes.length,
+                mime: file.type || 'application/octet-stream', sha256: await fileSha256Hex(bytes) };
+            const arrived = this._awaitDone(id, peerId);
+            // A refusal can land while chunks are still going out, before
+            // anything awaits this; it is awaited below, so it is not lost.
+            arrived.catch(() => {});
+            try {
+                this._control(dc, Object.assign({ phase: 'start' }, meta));
+                await this._pump(dc, id, bytes, chunk, opts.onProgress);
+                if (this.outgoing.has(id)) this._control(dc, { phase: 'end', id });
+            } catch (e) {
+                this._settle(id, false, e.message);
+            }
+            this._armTimeout(id);
+            await arrived;
+            return meta;
+        }
+
+        /** The chunks, paced by the channel's buffer; stops if the receiver said no. */
+        async _pump(dc, id, bytes, chunk, onProgress) {
+            const tag = new TextEncoder().encode(id);
+            for (let at = 0; at < bytes.length && this.outgoing.has(id); at += chunk) {
+                await this._drain(dc);
+                const part = bytes.subarray(at, Math.min(at + chunk, bytes.length));
+                const frame = new Uint8Array(FILE_ID_BYTES + part.length);
+                frame.set(tag, 0);
+                frame.set(part, FILE_ID_BYTES);
+                dc.send(frame.buffer);
+                if (onProgress) onProgress({ id, sent: at + part.length, size: bytes.length });
+            }
+        }
+
+        _awaitDone(id, peerId) {
+            return new Promise((resolve, reject) => this.outgoing.set(id, { peerId, resolve, reject, timer: null }));
+        }
+
+        _armTimeout(id) {
+            const out = this.outgoing.get(id);
+            if (!out) return;
+            out.timer = setTimeout(() => this._settle(id, false, 'no_answer'), FILE_ACK_TIMEOUT_MS);
+        }
+
+        _settle(id, ok, reason) {
+            const out = this.outgoing.get(id);
+            if (!out) return;
+            this.outgoing.delete(id);
+            clearTimeout(out.timer);
+            ok ? out.resolve() : out.reject(new Error('The file did not arrive: ' + (reason || 'refused') + '.'));
+        }
+
+        /** A JSON frame with __mpFile. Returns true when it was ours. */
+        onControl(peerId, msg) {
+            if (msg.phase === 'start') this._start(peerId, msg);
+            else if (msg.phase === 'end') this._finish(peerId, msg.id);
+            else if (msg.phase === 'done') this._settle(msg.id, !!msg.ok, msg.reason);
+            return true;
+        }
+
+        _start(peerId, meta) {
+            if (!(meta.size <= this.maxBytes)) {
+                this._reply(peerId, meta.id, false, 'too_large');
+                return;
+            }
+            const info = { id: meta.id, name: meta.name, size: meta.size, mime: meta.mime, sha256: meta.sha256 };
+            this.incoming.set(meta.id, { peerId, meta: info, parts: [], got: 0 });
+            this.helper.emit('file-start', peerId, info);
+        }
+
+        onChunk(peerId, buffer) {
+            const id = new TextDecoder().decode(new Uint8Array(buffer, 0, FILE_ID_BYTES));
+            const entry = this.incoming.get(id);
+            if (!entry || entry.peerId !== peerId) return;   // refused, or not from its sender
+            const part = buffer.slice(FILE_ID_BYTES);
+            entry.parts.push(part);
+            entry.got += part.byteLength;
+            this.helper.emit('file-progress', peerId, { id, received: entry.got, size: entry.meta.size });
+        }
+
+        async _finish(peerId, id) {
+            const entry = this.incoming.get(id);
+            if (!entry || entry.peerId !== peerId) return;
+            this.incoming.delete(id);
+            const blob = new Blob(entry.parts, { type: entry.meta.mime });
+            const whole = entry.got === entry.meta.size;
+            const intact = whole && await fileSha256Hex(new Uint8Array(await blob.arrayBuffer())) === entry.meta.sha256;
+            const reason = !whole ? 'incomplete' : (intact ? null : 'corrupt');
+            this._reply(peerId, id, intact, reason);
+            if (intact) this.helper.emit('file', peerId, Object.assign({ blob }, entry.meta));
+            else this.helper.emit('file-failed', peerId, { id, name: entry.meta.name, reason });
+        }
+
+        _reply(peerId, id, ok, reason) {
+            try { this._control(this._channelFor(peerId), { phase: 'done', id, ok, reason }); }
+            catch (e) { /* the sender times out; nothing more honest to do */ }
+        }
+
+        /** The channel to a peer closed: everything in flight with it failed. */
+        dropPeer(peerId) {
+            this.outgoing.forEach((out, id) => { if (out.peerId === peerId) this._settle(id, false, 'channel_closed'); });
+            this.incoming.forEach((entry, id) => {
+                if (entry.peerId !== peerId) return;
+                this.incoming.delete(id);
+                this.helper.emit('file-failed', peerId, { id, name: entry.meta.name, reason: 'channel_closed' });
+            });
+        }
+    }
+
+    // =========================================================================
     // WebRtcHelper Class
     // =========================================================================
 
@@ -167,6 +354,7 @@
             this.dataChannelStartTimes = new Map(); // peerId -> timestamp when DataChannel creation started
             this.streamStartTimes = new Map();      // streamId -> timestamp when stream creation started
             this.peerConnectionStartTimes = new Map(); // streamId -> timestamp when peer connection was created
+            this.files = new PeerFiles(this);         // sendFile / 'file' events over the data channels
 
             // For Node.js SFU compatibility
             this.ready = _RTCPeerConnection !== null;
@@ -777,6 +965,8 @@
          * @param {RTCPeerConnection} pc - The peer connection (for state validation)
          */
         _setupDataChannelHandlers(dataChannel, peerId, pc) {
+            // Binary frames are file chunks; as a Blob they could not be read in order.
+            dataChannel.binaryType = 'arraybuffer';
             dataChannel.onopen = () => {
                 // Calculate connection time
                 const startTime = this.dataChannelStartTimes.get(peerId);
@@ -796,6 +986,7 @@
             dataChannel.onclose = () => {
                 console.log(`[WebRTC DataChannel] CLOSED with ${peerId}`);
                 this.dataChannels.delete(peerId);
+                this.files.dropPeer(peerId);
                 this.emit('datachannel-close', peerId);
             };
 
@@ -814,12 +1005,19 @@
             };
 
             dataChannel.onmessage = (event) => {
+                if (typeof event.data !== 'string') {
+                    this.files.onChunk(peerId, event.data);
+                    return;
+                }
+                let data;
                 try {
-                    const data = JSON.parse(event.data);
-                    this.emit('datachannel-message', peerId, data);
+                    data = JSON.parse(event.data);
                 } catch (e) {
                     console.warn('[WebRTC DataChannel] Failed to parse message:', e);
+                    return;
                 }
+                if (data && data.__mpFile) this.files.onControl(peerId, data);
+                else this.emit('datachannel-message', peerId, data);
             };
         }
 
@@ -847,6 +1045,29 @@
             } catch (e) {
                 console.error(`[WebRTC DataChannel] Failed to send data to ${peerId}:`, e);
                 return false;
+            }
+        }
+
+        /**
+         * Send a File or Blob to one peer over its data channel.
+         *
+         * Resolves {id, name, size, mime, sha256} once the RECEIVER has checked
+         * the SHA-256; rejects if it refused (too large), found it corrupt or
+         * incomplete, the channel closed, or no answer came. The channel must
+         * be ordered and reliable. The receiver gets a 'file' event with
+         * (peerId, {id, name, size, mime, sha256, blob}); 'file-start',
+         * 'file-progress' and 'file-failed' say what happened on the way.
+         * files.maxBytes (256 MB) is the largest file this side will accept.
+         * @param {string} peerId
+         * @param {Blob} file
+         * @param {object} [options] - {name, chunkBytes = 16384, onProgress({id, sent, size})}
+         * @returns {Promise<object>}
+         */
+        sendFile(peerId, file, options) {
+            try {
+                return this.files.send(peerId, file, options);
+            } catch (e) {
+                return Promise.reject(e);
             }
         }
 

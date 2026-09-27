@@ -327,6 +327,7 @@ class UserConnectionBase {
             if (typeof WebRtcHelper !== 'undefined') {
                 this.webrtcHelper = new WebRtcHelper(this.channel);
                 this._setupWebRtcEvents();
+                this._setupFileEvents();
                 // A reconnect builds a new helper, so anything a subclass
                 // listens for has to be attached here rather than once after
                 // the first connect — otherwise the app comes back deaf.
@@ -911,6 +912,30 @@ class UserConnectionBase {
         const host = this._getHostName();
         if (!host || host === this.username) return 0;
         return this.sendData(data, host);
+    }
+
+    /**
+     * Send a File or Blob to one peer, peer to peer.
+     *
+     * Resolves once the receiver has checked its SHA-256; rejects when it did
+     * not arrive intact (see WebRtcHelper.sendFile). Never relayed: a file
+     * goes to the peer named and to nobody else, in every relay mode that has
+     * a data channel. The receiver's onFile(peerId, file) gets
+     * {id, name, size, mime, sha256, blob}.
+     */
+    sendFile(peerId, file, options) {
+        if (!this.webrtcHelper) return Promise.reject(new Error('Files need a WebRTC data channel.'));
+        return this.webrtcHelper.sendFile(peerId, file, options);
+    }
+
+    /** Files arrive through the helper's own protocol, never as app messages. */
+    _setupFileEvents() {
+        this.webrtcHelper.on('file', (peerId, file) => {
+            if (typeof this.onFile === 'function') this.onFile(peerId, file);
+        });
+        ['file-start', 'file-progress', 'file-failed'].forEach((event) => {
+            this.webrtcHelper.on(event, (peerId, info) => this.emit(event, peerId, info));
+        });
     }
 
     /**
@@ -1715,6 +1740,9 @@ class UserConnectionBase {
 
     // Called when DataChannel closes (WebRTC)
     onDataChannelClose(peerId) {}
+
+    /** A file arrived intact: {id, name, size, mime, sha256, blob}. */
+    onFile(peerId, file) {}
 
     // Called when WebRTC stream is ready (WebRTC)
     onStreamReady(streamId, remoteAgent, connectionTimeMs) {}
