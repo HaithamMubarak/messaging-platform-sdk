@@ -4531,6 +4531,10 @@
      *
      *     const res = await channel.knockSubscribe({swPath : '/knock-sw.js'});
      *     if(!res.ok) explain(res.reason);
+     *
+     * swScope narrows the worker to one app's directory, so one shared
+     * worker file can serve several apps and a click on the notice opens the
+     * app that asked (the worker opens its own scope) rather than the site root.
      */
     AgentConnection.prototype.knockSubscribe = async function(options){
         const _self = this;
@@ -4568,7 +4572,9 @@
         }
 
         try {
-            const registration = await navigator.serviceWorker.register(swPath);
+            const registration = opts.swScope
+                ? await navigator.serviceWorker.register(swPath, {scope : opts.swScope})
+                : await navigator.serviceWorker.register(swPath);
             await navigator.serviceWorker.ready;
 
             const permission = await window.Notification.requestPermission();

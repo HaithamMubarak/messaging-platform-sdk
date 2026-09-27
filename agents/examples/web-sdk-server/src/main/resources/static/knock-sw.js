@@ -41,12 +41,17 @@ self.addEventListener('notificationclick', (event) => {
     event.notification.close();
     event.waitUntil((async () => {
         const all = await self.clients.matchAll({ type: 'window', includeUncontrolled: true });
-        // Focus a tab that is already open before making another one.
+        // Focus a tab of THIS app that is already open before making another
+        // one. includeUncontrolled lists every tab on the origin, so without the
+        // scope check a doorbell click could focus somebody's Rooms tab.
+        const scope = self.registration.scope || '';
         for (const client of all) {
-            if ('focus' in client) return client.focus();
+            if ('focus' in client && client.url.startsWith(scope)) return client.focus();
         }
+        // The worker's own scope is the app that subscribed (knockSubscribe's
+        // swScope), which is where the person expects to land -- not the site root.
         if (self.clients.openWindow) {
-            return self.clients.openWindow('/');
+            return self.clients.openWindow(self.registration.scope || '/');
         }
     })());
 });

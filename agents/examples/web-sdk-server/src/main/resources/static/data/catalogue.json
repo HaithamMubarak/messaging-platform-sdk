@@ -11,12 +11,13 @@
     "versions":  { "label": "Storage versions",  "hub": "Storage",   "evidence": "storage(Add|GetList|ReadList)\\s*\\(" },
     "attest":    { "label": "Attest receipts",   "hub": "Storage",   "evidence": "\\.attest\\s*\\(|attestExport\\s*\\(|attestVerify" },
     "vault":     { "label": "Vault",             "hub": "Storage",   "evidence": "vaultPut\\s*\\(|vaultGet\\s*\\(" },
+    "knock":     { "label": "Knock push",        "hub": "Messaging", "evidence": "\\.knock\\s*\\(|knockSubscribe\\s*\\(" },
     "p2p":       { "label": "P2P data",          "hub": "WebRTC",    "evidence": "sendData\\s*\\(|webrtcHelper|dataChannel" },
     "video":     { "label": "Video",             "hub": "WebRTC",    "evidence": "getUserMedia|getDisplayMedia|createStreamOffer" },
     "binary":    { "label": "Files",             "hub": "WebRTC",    "evidence": "sendFile\\s*\\(|ArrayBuffer|arrayBuffer\\s*\\(|binaryType|FileReader" }
   },
   "shelves": {
-    "learn":     { "title": "Learn the SDK", "lead": "Nine demos, each the clearest example of one part of the SDK. Open one, then read its source." },
+    "learn":     { "title": "Learn the SDK", "lead": "Ten demos, each the clearest example of one part of the SDK. Open one, then read its source." },
     "templates": { "title": "Build a game", "lead": "Three games that are also templates: each is the reference for one multiplayer pattern. Read the source, then build yours on it." },
     "games":     { "title": "More party games", "lead": "Phone games on the same host-as-referee spine as Gavel: every player-to-host message is addressed, and nobody sees state they are not entitled to." },
     "products":  { "title": "Built on the SDK", "lead": "Finished apps, not demos. Each is a product in the apps catalogue." }
@@ -113,6 +114,16 @@
       "text": "The demo of WebRtcHelper's media side. The channel carries who is here and what they have switched on; camera and screen go peer to peer. Sharing your screen replaces your camera rather than adding a stream, and a camera switched off mid-negotiation never shows up late.",
       "badges": ["WebRTC media", "Screen share", "Mesh"],
       "source": ["apps/call/call.js"]
+    },
+    {
+      "id": "doorbell", "name": "Doorbell", "audience": "learn", "shelf": "learn", "status": "live",
+      "primitives": ["knock", "storage", "versions"], "solo": false,
+      "url": "/messaging-platform/sdk/apps/doorbell/index.html",
+      "image": "img/playground/doorbell.webp", "imageAlt": "Doorbell after a ring: Ana listed as reachable on one device, and the page reporting that no knock was sent because her push service refused it.", "icon": "i-send",
+      "blurb": "Knock: reach somebody whose page is closed.",
+      "text": "Let a browser ring, close the tab, and have somebody ring it. The knock carries nothing — not who rang, not why; that goes into channel storage and the page reads it when it is opened. The page says only what is true: a knock was sent, or it was not.",
+      "badges": ["Knock push", "Content-free", "Service worker"],
+      "source": ["apps/doorbell/doorbell.js"]
     },
     {
       "id": "air-hockey", "name": "Air Hockey", "audience": "play", "shelf": "templates", "status": "live",

@@ -1,0 +1,15 @@
+/* Doorbell: three plain cards, one per job. */
+.bell-card {
+    border: 1px solid var(--border);
+    border-radius: var(--radius-md, 12px);
+    padding: var(--sp-4);
+    margin-bottom: var(--sp-3);
+    display: grid;
+    gap: var(--sp-2);
+    justify-items: start;
+}
+.bell-card h2 { font-size: var(--fs-lg); margin: 0; }
+.bell-card p { margin: 0; }
+.bell-list { list-style: none; margin: 0; padding: 0; display: grid; gap: var(--sp-2); width: 100%; }
+.bell-list li { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: var(--sp-2); overflow-wrap: anywhere; }
+.bell-sent { color: var(--accent-ink); }
