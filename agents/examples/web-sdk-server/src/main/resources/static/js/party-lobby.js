@@ -15,7 +15,7 @@
  * Opt in from loadConnectionModal (connection-modal.js calls attach()):
  *
  *   loadConnectionModal({ title, channelPrefix, onConnect,
- *       partyLobby: { players: '2–6', minutes: 3,
+ *       partyLobby: { title: 'Air Hockey', players: '2–6 players', minutes: 3,
  *                     howTo: ['Drag your mallet', 'First to 7 wins'],
  *                     solo: null } });
  *
@@ -74,7 +74,7 @@
             'phones or laptops'].filter(Boolean).join(' · ');
         const how = el('details', { class: 'pl-how' }, [el('summary', { text: 'How to play' }),
             el('ol', {}, (lobby.howTo || []).map((line) => el('li', { text: line })))]);
-        return [el('h1', { class: 'pl-title', text: config.collapsedTitle || config.title || 'Play' }),
+        return [el('h1', { class: 'pl-title', text: lobby.title || config.collapsedTitle || config.title || 'Play' }),
             el('p', { class: 'pl-meta', text: meta }), lobby.howTo && lobby.howTo.length ? how : ''];
     }
 
