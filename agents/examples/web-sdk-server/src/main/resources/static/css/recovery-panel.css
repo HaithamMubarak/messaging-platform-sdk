@@ -1,0 +1,14 @@
+/* RecoveryPanel (js/recovery-panel.js): the recovery phrase card and its dialog. */
+.rc-status { margin: 0 0 var(--sp-3, 12px); color: var(--text-muted); font-size: var(--fs-sm, .875rem); }
+.rc-actions { display: flex; flex-wrap: wrap; gap: var(--sp-2, 8px); margin-bottom: var(--sp-3, 12px); }
+.rc-open summary { cursor: pointer; font-weight: 600; margin-bottom: var(--sp-2, 8px); }
+.rc-open .field { display: block; margin-bottom: var(--sp-3, 12px); }
+.rc-result { min-height: 1.4em; font-size: var(--fs-sm, .875rem); overflow-wrap: anywhere; }
+.rc-record { max-height: 320px; overflow: auto; white-space: pre-wrap; overflow-wrap: anywhere;
+    font: var(--fs-xs, .75rem)/1.5 var(--font-mono, monospace); padding: var(--sp-3, 12px);
+    border: 1px solid var(--border); border-radius: 8px; }
+.rc-modal { max-width: min(520px, calc(100vw - 32px)); border: 1px solid var(--border-strong); border-radius: 12px;
+    background: var(--surface-1, Canvas); color: var(--text); padding: var(--sp-5, 20px); }
+.rc-modal::backdrop { background: rgba(0, 0, 0, .55); }
+.rc-phrase { font: 600 clamp(16px, 4.2vw, 22px)/1.5 var(--font-mono, monospace); letter-spacing: .04em;
+    overflow-wrap: anywhere; padding: var(--sp-3, 12px); border: 1px dashed var(--border-strong); border-radius: 8px; }
