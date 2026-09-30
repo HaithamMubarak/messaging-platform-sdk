@@ -676,6 +676,10 @@ section[id] { scroll-margin-top: 80px; }
     .demo-card__foot { flex-wrap: wrap; }
     .entry-foot .btn,
     .demo-card__foot .btn { min-width: 0; }
+
+    /* A button is nowrap, so a long hero action (Baton's "See Signet, the same
+       evidence chain at the chair") ran 53px off a 320px phone. */
+    .hero__actions .btn { white-space: normal; max-width: 100%; text-align: center; }
 }
 
 /* --- The account chip, injected into every landing nav by profile-chip.js -- */
@@ -825,8 +829,9 @@ section[id] { scroll-margin-top: 80px; }
 .mp-danger .btn { min-height: 44px; }
 
 /* Touch: a finger needs about 44px (Apple HIG, Material). Only on coarse
-   pointers, so a desktop layout is unchanged. Checked by e2e/suites/tap-targets-test.js. */
+   pointers, so a desktop layout is unchanged. */
 @media (pointer: coarse) {
-    .footer-bottom a { display: inline-flex; align-items: center; min-height: 44px; }
+    .footer-bottom a,
+    .site-footer nav a { display: inline-flex; align-items: center; min-height: 44px; }
     .filter-solo { min-height: 44px; }
 }

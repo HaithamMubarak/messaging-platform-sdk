@@ -761,6 +761,8 @@ button[id*="disconnect"]:hover,
 }
 
 .connection-modal .mp-save-row input[disabled] { cursor: not-allowed; }
+/* The whole row is the tap target (it is the label); 23px tall missed thumbs. */
+@media (pointer: coarse) { .connection-modal .mp-save-row { min-height: 44px; } }
 .connection-modal .mp-save-row:has(input[disabled]) { color: #94a3b8; cursor: default; }
 .connection-modal .mp-save-note { margin-top: 4px; }
 .connection-modal .mp-google { width: 100%; margin-bottom: 12px; }

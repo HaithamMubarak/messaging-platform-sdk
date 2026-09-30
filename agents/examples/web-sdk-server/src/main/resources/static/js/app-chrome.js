@@ -13,6 +13,9 @@
 (function () {
     'use strict';
 
+    /** Where the deployed site lives: the SDK, the hub and the apps catalogue. */
+    const PLATFORM = '/messaging-platform/';
+
     function relocate() {
         // Collaboration apps expose a dedicated action row; the mini-games put
         // everything straight into a single top bar. Both are valid anchors.
@@ -91,27 +94,41 @@
      * A small fixed chip rather than a header item, because these apps lay out
      * their own headers and half of them have none at all.
      */
-    function addHomeChip() {
-        if (document.querySelector('.sdk-home-chip')) return;
-        // How deep this page sits under the site root, so the link works from
-        // /apps/x.html and /apps/mini-games/y/index.html alike.
+    /** Where the chip's two links go: { home, more }. */
+    function hubLinks() {
         const path = location.pathname;
+        if (path.startsWith(PLATFORM)) {
+            // Deployed: the hub has one address. Counting "../" from "/apps/"
+            // sent every app in the /messaging-platform/apps/ catalogue to
+            // /messaging-platform/index.html, a 404 (2026-09-30).
+            return { home: PLATFORM + 'hub/', more: PLATFORM + 'hub/playground.html' };
+        }
+        // Served on its own (local): how deep this page sits under the site
+        // root, so /apps/x.html and /apps/mini-games/y/index.html both work.
         const cut = path.indexOf('/apps/');
         const depth = cut < 0 ? 1 : path.slice(cut + 6).split('/').length;
         const root = '../'.repeat(depth);
+        return { home: root + 'index.html', more: root + 'playground.html' };
+    }
+
+    function addHomeChip() {
+        if (document.querySelector('.sdk-home-chip')) return;
+        // A landing page has the site header, which already routes everywhere.
+        if (document.querySelector('.site-header')) return;
+        const links = hubLinks();
 
         const nav = document.createElement('nav');
         nav.className = 'sdk-home-chip';
         nav.setAttribute('aria-label', 'Messaging Platform Hub');
 
         const home = document.createElement('a');
-        home.href = root + 'index.html';
+        home.href = links.home;
         home.className = 'sdk-home-chip__home';
         home.textContent = 'SDK';
         home.title = 'Messaging Platform Hub';
 
         const more = document.createElement('a');
-        more.href = root + 'playground.html';
+        more.href = links.more;
         more.className = 'sdk-home-chip__more';
         more.textContent = 'More demos';
 
