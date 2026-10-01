@@ -765,6 +765,12 @@ button[id*="disconnect"]:hover,
 @media (pointer: coarse) { .connection-modal .mp-save-row { min-height: 44px; } }
 .connection-modal .mp-save-row:has(input[disabled]) { color: #94a3b8; cursor: default; }
 .connection-modal .mp-save-note { margin-top: 4px; }
+/* The sign-in link sits in a sentence, so it cannot be 44px tall without
+   breaking the line. Padding widens what a thumb can hit; the equal negative
+   margin keeps the text exactly where it was. It measured 17px. */
+@media (pointer: coarse) {
+    .connection-modal .mp-save-note a { display: inline-block; padding-block: 12px; margin-block: -12px; }
+}
 .connection-modal .mp-google { width: 100%; margin-bottom: 12px; }
 
 /* Sign in / create, laid out like the Rooms gate this shares an account with. */
