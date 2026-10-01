@@ -92,7 +92,7 @@ a.mp-card:hover { border-color: var(--green); box-shadow: var(--shadow); }
 .mp-card p { font-size: 14px; color: var(--muted); margin-top: 6px; line-height: 1.5; }
 .mp-card .mp-card-go { display: inline-block; margin-top: 10px; font-size: 13px; font-weight: 700; color: var(--green); }
 .mp-tag {
-    display: inline-block; font-size: 10px; letter-spacing: .6px; text-transform: uppercase; font-weight: 700;
+    display: inline-block; font-size: 11px; letter-spacing: .6px; text-transform: uppercase; font-weight: 700;
     color: var(--green); border: 1px solid var(--line); border-radius: 4px; padding: 2px 6px; margin-bottom: 8px;
 }
 .mp-tag--warm { color: var(--orange); }
@@ -119,6 +119,12 @@ a.mp-card:hover { border-color: var(--green); box-shadow: var(--shadow); }
 .mp-copy {
     position: absolute; top: 8px; right: 8px; font: 600 12px var(--body); padding: 5px 9px; border-radius: 6px;
     border: 1px solid #ffffff26; background: #ffffff14; color: var(--code-ink); cursor: pointer;
+}
+/* Touch: the footer links were 19px tall and the copy button 29px. Only on
+   coarse pointers, so a desktop layout is unchanged. */
+@media (pointer: coarse) {
+    .mp-foot nav a { display: inline-flex; align-items: center; min-height: 44px; }
+    .mp-copy { min-height: 36px; min-width: 56px; }
 }
 .mp-code-caption { font-size: 13px; color: var(--muted); margin-top: 8px; }
 
