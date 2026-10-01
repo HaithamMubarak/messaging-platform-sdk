@@ -724,7 +724,9 @@ section[id] { scroll-margin-top: 80px; }
    signed-in one. Restate it, narrowly, before anything sets display. */
 .mp-profile [hidden] { display: none !important; }
 
-.mp-profile { padding: 32px 0 72px; display: flex; flex-direction: column; gap: var(--sp-4); }
+/* padding-block, not padding: the shorthand zeroed .wrap's side gutter, so on a
+   phone the profile ran edge to edge. */
+.mp-profile { padding-block: 32px 72px; display: flex; flex-direction: column; gap: var(--sp-4); }
 .mp-profile h1 { margin-bottom: var(--sp-2); font-size: clamp(28px, 3vw, 34px); letter-spacing: -.025em; }
 .mp-profile__intro { max-width: 44rem; margin: calc(var(--sp-4) * -1) 0 var(--sp-2); color: var(--text-muted); font-size: var(--fs-md); line-height: 1.55; }
 .mp-profile__card { display: flex; flex-direction: column; gap: var(--sp-3); }
