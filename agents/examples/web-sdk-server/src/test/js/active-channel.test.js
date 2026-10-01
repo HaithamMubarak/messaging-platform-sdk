@@ -181,7 +181,17 @@ check('every page with a nav gets the profile chip, and the account client with 
         'these landing pages would have no way to sign in: ' + wrong.join(', '));
 });
 
-check('the two separate account doors are labelled consistently', () => {
+/*
+ * Re-pinned 2026-10-01. These two checks guarded "two separate accounts,
+ * neither signs you in to the other". The portal was unified with the Platform
+ * identity on purpose (303cd91, 6be0160): your Platform account becomes your
+ * developer identity once API access is approved. What still holds, and is
+ * worth guarding, is the boundary: being signed in to the Platform account
+ * never opens developer keys, which keep their own scoped session, and the
+ * portal says which ways in it accepts. Each assertion below went red when
+ * the phrase it pins was removed.
+ */
+check('the account doors are labelled, and the profile states the developer boundary', () => {
     const chip = fs.readFileSync(path.join(STATIC, 'js', 'profile-chip.js'), 'utf8');
     assert.ok(chip.includes("a.textContent = 'Platform account'"),
         'the shared account entry no longer says which account it opens');
@@ -195,9 +205,11 @@ check('the two separate account doors are labelled consistently', () => {
     assert.deepStrictEqual(ambiguousPortal, [],
         'these pages still hide the Developer Portal behind an ambiguous label: ' + ambiguousPortal.join(', '));
 
-    const profile = fs.readFileSync(path.join(STATIC, 'profile.html'), 'utf8');
-    assert.ok(profile.includes('separate from your Developer Portal account'),
-        'the profile page does not explain that the two accounts are independent');
+    const profile = fs.readFileSync(path.join(STATIC, 'profile.html'), 'utf8').replace(/\s+/g, ' ');
+    assert.ok(profile.includes('when API access is approved'),
+        'the profile page no longer says developer access depends on approval');
+    assert.ok(/own scoped session/.test(profile),
+        'the profile page no longer says developer keys stay behind their own session');
 });
 
 /*
@@ -206,24 +218,21 @@ check('the two separate account doors are labelled consistently', () => {
  * modal is the platform-account door that a visitor is far more likely to meet
  * first -- it is on every demo page, where profile.html is on none of them.
  */
-check('the Developer Portal door says which account it is, and links to the other one', () => {
-    for (const page of ['developer/index.html', 'developer/dashboard.html']) {
-        // Normalised: this copy is prose in an indented HTML block, so where the
-        // lines happen to wrap must not decide whether the check passes.
-        const t = fs.readFileSync(path.join(STATIC, page), 'utf8').replace(/\s+/g, ' ');
-        assert.ok(/Developer Portal account/.test(t),
-            page + ' does not name the account it signs you in to');
+check('the Developer Portal says how you get in, and keeps keys apart from the Platform session', () => {
+    // Normalised: this copy is prose in an indented HTML block, so where the
+    // lines happen to wrap must not decide whether the check passes.
+    const read = (page) => fs.readFileSync(path.join(STATIC, page), 'utf8').replace(/\s+/g, ' ');
+    const signIn = read('developer/index.html');
+    assert.ok(/Google identity/.test(signIn) && /developer credentials/.test(signIn),
+        'the portal sign-in page does not say which ways in it accepts');
+    const dash = read('developer/dashboard.html');
+    assert.ok(/separately scoped developer session/.test(dash),
+        'the dashboard no longer says API keys keep their own session');
+    assert.ok(/without sharing passwords, sessions, or API keys/.test(dash),
+        'the dashboard no longer says what linking the identity does NOT share');
+    for (const [page, t] of [['developer/index.html', signIn], ['developer/dashboard.html', dash]]) {
         assert.ok(t.includes('/messaging-platform/profile.html'),
-            page + ' never points at the Platform account, so the two doors stay unrelated');
-        // This was /not linked yet/, and it stopped being true when the portal
-        // gained a link panel. The promise worth guarding is not that sentence
-        // but the two facts under it: the accounts are separate, and neither
-        // door signs you in to the other. Pin those, so the copy can be
-        // rewritten without the guard either breaking or going quiet.
-        assert.ok(/separate account|separate from|stay separate/.test(t),
-            page + ' does not say the two accounts are separate');
-        assert.ok(/does not sign you in there|nothing more|power over the other/.test(t),
-            page + ' does not say what holding both does NOT give you');
+            page + ' never points at the Platform profile, so the two doors stay unrelated');
     }
 });
 
