@@ -150,6 +150,8 @@
 .auth__benefits strong { color: var(--text); font-size: var(--fs-md); }
 .auth__benefits small { color: var(--text-muted); font-size: var(--fs-sm); line-height: 1.45; }
 .auth__links { display: flex; gap: var(--sp-5); flex-wrap: wrap; margin-top: auto; font-size: var(--fs-sm); }
+/* Touch: these were 21px tall on a phone. */
+@media (pointer: coarse) { .auth__links a { display: inline-flex; align-items: center; min-height: 44px; } }
 .auth__card { width: auto; border: 0; border-left: 1px solid var(--border); border-radius: 0; box-shadow: none; padding: clamp(2rem, 4vw, 3.5rem); }
 .auth__card h2 { margin: var(--sp-3) 0 var(--sp-2); font-size: var(--fs-xl); }
 .auth__card > p { color: var(--text-muted); font-size: var(--fs-md); }
