@@ -201,7 +201,7 @@
       "source": ["apps/mini-games/open-outcry/open-outcry.js"]
     },
     {
-      "id": "rooms", "name": "Room", "audience": "use", "shelf": "products", "status": "live",
+      "id": "rooms", "name": "Rooms", "audience": "use", "shelf": "products", "status": "live",
       "primitives": ["presence", "video", "host"], "solo": false, "category": "Meet",
       "label": "Flagship app · free, with host plans",
       "url": "/messaging-platform/apps/rooms/", "about": "/messaging-platform/apps/rooms/index.html",
