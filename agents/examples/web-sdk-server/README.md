@@ -554,7 +554,7 @@ This project follows the **same pattern** as `web-agent`:
 
 - [Messaging Platform SDK](../../README.md)
 - Web Agent Example
-- [Game Examples](../GAMES-README.md)
+- [Demos and games](https://hmdevonline.com/messaging-platform/hub/playground.html)
 - Temporary Keys Guide
 
 ---

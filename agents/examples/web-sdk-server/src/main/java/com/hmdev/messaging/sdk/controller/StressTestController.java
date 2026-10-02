@@ -7,6 +7,7 @@ import com.hmdev.messaging.common.data.MessageReceiveRequest;
 import com.hmdev.messaging.sdk.dto.JsonResponse;
 import lombok.Data;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.http.*;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.client.RestTemplate;
@@ -19,8 +20,14 @@ import java.util.concurrent.atomic.AtomicLong;
 /**
  * Stress Test Controller for testing channel operations (connect/pull/disconnect).
  * Tests multiple channels concurrently to stress test the messaging service.
+ *
+ * Off unless web-demos.stress-test.enabled=true (2026-10-03): it takes no credential and creates
+ * channels with the site's own API key, so on the public server anyone could fill the demo
+ * account's channel quota with it (the 2026-09-27 outage, guidelines 6.21). Turn it on for a
+ * local load test only.
  */
 @RestController
+@ConditionalOnProperty(name = "web-demos.stress-test.enabled", havingValue = "true")
 @RequestMapping("/app/api/stress-test")
 @Slf4j
 public class StressTestController {

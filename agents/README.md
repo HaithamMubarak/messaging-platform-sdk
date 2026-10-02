@@ -181,22 +181,6 @@ Example notes
 
 ---
 
-## Selenium tests (automation)
-
-There is a pytest-based Selenium test suite in `sdk/agents/selenium-tests` for automating basic connect flows and simple integration checks. Quick run:
-
-```
-cd sdk/agents/selenium-tests
-python -m pytest -q
-```
-
-Prerequisites
-- Python 3.8+
-- Install test dependencies (`requirements.txt`) and a browser driver (e.g. `chromedriver`) on PATH.
-- Messaging service reachable (tests assume local defaults, or adjust environment variables).
-
----
-
 ## Developer notes & where to look
 - For service URLs and run instructions see the root `README.md` and `services/README.md`.
 - For Docker-based local setup and SSH tunnel helpers see `docker/README.md`.

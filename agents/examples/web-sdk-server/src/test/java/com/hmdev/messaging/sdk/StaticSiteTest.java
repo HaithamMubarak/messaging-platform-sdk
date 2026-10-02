@@ -100,8 +100,15 @@ class StaticSiteTest {
         assertThat(home).contains("href=\"quickstart.html\"");
         assertThat(home).contains("href=\"pricing.html\"");
         assertThat(home).contains("href=\"developer/index.html?start=free\"");
-        assertThat(home).contains("/messaging-platform/apps/rooms/");
-        assertThat(home).contains("/messaging-platform/hub/sdk-guide.html");
+        // Re-pinned 2026-10-03 (hub consolidation, phase 1): the "Video & audio calls" card now opens the
+        // Call demo, so Rooms is no longer a hand-written link. The flagship apps are still one click
+        // away - the "Built with the platform" strip renders the catalogue's products shelf, Rooms first.
+        assertThat(home).contains("Catalogue.shelf(cat,'products')");
+        String catalogue = read("data/catalogue.json");
+        assertThat(catalogue).contains("\"url\": \"/messaging-platform/apps/rooms/\"");
+        // Our own pages open in the same tab, by relative link (not the production URL in a new tab).
+        assertThat(home).contains("href=\"sdk-guide.html\"");
+        assertThat(home).doesNotContain("target=\"_blank\"");
     }
 
     /*

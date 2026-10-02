@@ -23,9 +23,6 @@
   <url><loc>https://hmdevonline.com/messaging-platform/sdk/apps/mini-games/autocue/index.html</loc><priority>0.6</priority></url>
   <url><loc>https://hmdevonline.com/messaging-platform/sdk/apps/mini-games/gavel/index.html</loc><priority>0.6</priority></url>
   <url><loc>https://hmdevonline.com/messaging-platform/sdk/apps/mini-games/nudge/index.html</loc><priority>0.6</priority></url>
-  <url><loc>https://hmdevonline.com/messaging-platform/sdk/apps/mini-games/find-the-liar/index.html</loc><priority>0.6</priority></url>
-  <url><loc>https://hmdevonline.com/messaging-platform/sdk/apps/mini-games/reactor/reactor-client.html</loc><priority>0.6</priority></url>
-  <url><loc>https://hmdevonline.com/messaging-platform/sdk/apps/pictionary/index.html</loc><priority>0.6</priority></url>
   <url><loc>https://hmdevonline.com/messaging-platform/sdk/apps/chess/index.html</loc><priority>0.6</priority></url>
 
   <!-- Demos -->
@@ -37,7 +34,6 @@
   <url><loc>https://hmdevonline.com/messaging-platform/sdk/apps/doorbell/index.html</loc><priority>0.6</priority></url>
   <url><loc>https://hmdevonline.com/messaging-platform/sdk/apps/pulse/index.html</loc><priority>0.6</priority></url>
   <url><loc>https://hmdevonline.com/messaging-platform/sdk/apps/chat.html</loc><priority>0.6</priority></url>
-  <url><loc>https://hmdevonline.com/messaging-platform/sdk/apps/collab-doc/index.html</loc><priority>0.5</priority></url>
   <url><loc>https://hmdevonline.com/messaging-platform/sdk/apps/terminal/index.html</loc><priority>0.7</priority></url>
   <url><loc>https://hmdevonline.com/messaging-platform/sdk/apps/terminal/app.html</loc><priority>0.5</priority></url>
   <url><loc>https://hmdevonline.com/messaging-platform/sdk/apps/storage-demo.html</loc><priority>0.5</priority></url>
@@ -48,11 +44,6 @@
     </url>
     <url>
         <loc>https://hmdevonline.com/messaging-platform/sdk/apps/under-the-hood/index.html</loc>
-        <changefreq>monthly</changefreq>
-        <priority>0.7</priority>
-    </url>
-    <url>
-        <loc>https://hmdevonline.com/messaging-platform/sdk/apps/rewind/index.html</loc>
         <changefreq>monthly</changefreq>
         <priority>0.7</priority>
     </url>

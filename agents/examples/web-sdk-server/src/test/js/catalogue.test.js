@@ -129,5 +129,35 @@ check('the hub has no inline demo or app list: it renders the catalogue', () => 
     assert.ok(/js\/catalogue\.js/.test(page), 'hub.html does not load js/catalogue.js');
 });
 
+/** The folder a demo lives in ("apps/rewind/"), so its index and app pages count as the same demo. */
+const folderOf = (url) => { const rel = sdkFile(url); return rel ? rel.replace(/[^/]*$/, '') : null; };
+const movedFolders = cat.entries.filter((e) => e.status === 'moved').map((e) => folderOf(e.url)).filter(Boolean);
+
+// Hub consolidation, phase 1 (2026-10-03): the hand-written "What you can build" grid linked to two
+// moved demos (collab-doc, rewind) for a week while every catalogue check stayed green.
+check('every hub capability card that opens an SDK page opens a live demo', () => {
+    const live = new Set(cat.entries.filter((e) => e.status !== 'moved').map((e) => folderOf(e.url)).filter(Boolean));
+    const cards = [...read('hub.html').matchAll(/<a class="mp-card" href="([^"]+)"/g)].map((m) => m[1]);
+    assert.ok(cards.length >= 6, 'found only ' + cards.length + ' capability cards');
+    for (const href of cards.filter((h) => h.startsWith(SDK))) {
+        assert.ok(live.has(folderOf(href)), href + ' is not a live catalogue entry');
+    }
+});
+
+check('the sitemap lists no moved demo', () => {
+    const map = read('sitemap.xml');
+    for (const folder of movedFolders) assert.ok(!map.includes(SDK + folder), 'sitemap.xml still lists ' + folder);
+});
+
+check('no live page links to a moved demo', () => {
+    for (const page of ['hub.html', 'sdk-guide.html', 'quickstart.html', 'built-with.html', 'playground.html', 'apps/pulse/index.html']) {
+        const html = read(page);
+        for (const folder of movedFolders) {
+            const name = folder.replace(/^apps\//, '');
+            assert.ok(!html.includes(SDK + folder) && !html.includes('../' + name), page + ' links to moved ' + folder);
+        }
+    }
+});
+
 console.log(failed ? '\n' + failed + ' failed' : '\nall passed');
 process.exitCode = failed ? 1 : 0;

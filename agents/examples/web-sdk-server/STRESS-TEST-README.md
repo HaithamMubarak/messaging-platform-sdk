@@ -32,12 +32,16 @@ cd C:\Users\admin\dev\messaging\messaging-platform-sdk\agents\examples\web-sdk-s
 gradlew.bat bootRun
 ```
 
-### 2. Access the Stress Test UI
+### 2. Turn the endpoint on (local only)
 
-Open your browser to:
+The stress endpoint is off by default: it takes no credential and creates channels with
+the server's own API key. Start the server with it enabled, and never on a public server:
+
 ```
-http://localhost:8083/stress-test.html
+gradlew.bat bootRun --args="--web-demos.stress-test.enabled=true"
 ```
+
+There is no web page for it; call the API below (section "API").
 
 ### 3. Configure Test Parameters
 
@@ -354,10 +358,7 @@ web-sdk-server/src/main/java/com/hmdev/messaging/sdk/controller/
 ```
 
 ### Frontend
-```
-web-sdk-server/src/main/resources/static/
-└── stress-test.html               (Web UI for stress testing)
-```
+(No web UI: the API only.)
 
 ### Documentation
 ```
