@@ -38,29 +38,22 @@ class StaticSiteTest {
     /** The pages people actually share a room link to. */
     private static final List<String> SHAREABLE = List.of(
             "apps/mini-games/air-hockey/index.html",
-            "apps/mini-games/find-the-liar/index.html",
-            "apps/mini-games/reactor/reactor-client.html",
-            "apps/pictionary/index.html",
             "apps/chess/index.html",
             "apps/whiteboard/index.html",
             "apps/chat.html",
             // The feature page is shareable; app.html is not — it carries noindex,
             // because a log is opened from a link somebody was given.
             "apps/evidence-chain/index.html",
-            "apps/dead-drop/index.html",
             "apps/under-the-hood/index.html",
-            "apps/rewind/index.html");
-    // apps/mini-games/blockparty/ is absent too: BlockParty moved to the apps
-    // catalogue and what is left here is a noindex redirect.
-    // apps/quickshare/quickshare.html is deliberately absent: QuickShare was
-    // retired to a noindex redirect at Drop, and a redirect has nothing to
-    // unfurl.
+            "apps/pulse/index.html",
+            "apps/drop/index.html",
+            "apps/call/index.html");
+    // Hub consolidation phase 4 (2026-10-03) deleted the retired demos (Rewind, Dead Drop,
+    // Pictionary, Find the Liar, Reactor and the redirect stubs); the gateway 301s their URLs.
 
     /** Pages that must never be indexed, whether or not robots.txt is fetched. */
     private static final List<String> PRIVATE_PAGES = List.of(
-            "apps/rewind/app.html",
             "apps/under-the-hood/app.html",
-            "apps/dead-drop/app.html",
             "apps/evidence-chain/app.html",
             "admin/index.html",
             "admin/dashboard.html",

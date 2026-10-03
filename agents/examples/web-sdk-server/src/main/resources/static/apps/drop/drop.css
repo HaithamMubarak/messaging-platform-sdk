@@ -100,3 +100,14 @@
 .peer__name { font-size: var(--fs-md); font-weight: 600; color: var(--text); }
 .peer__link { font-family: var(--font-mono); font-size: var(--fs-xs); color: var(--warning); }
 .peer__link.is-direct { color: var(--success); }
+
+/* Send now | Leave for later (Dead Drop folded in, hub phase 4, 2026-10-03). */
+.drop-modes { display: flex; gap: var(--sp-2); flex: none; }
+.drop-modes [role="tab"] {
+    min-height: 40px; padding: 0 var(--sp-4); font: inherit; font-weight: 600; cursor: pointer;
+    color: var(--text-muted); background: transparent; border: 1px solid var(--border); border-radius: var(--r-md);
+}
+.drop-modes [role="tab"][aria-selected="true"] { color: var(--text); background: var(--brand-subtle); border-color: var(--brand); }
+.drop-modes [role="tab"]:focus-visible { outline: none; box-shadow: var(--focus-ring); }
+.drop-mode { display: flex; flex-direction: column; gap: var(--sp-3); min-height: 0; flex: 1; }
+.drop-mode[hidden] { display: none; }

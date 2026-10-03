@@ -15,14 +15,10 @@
   <url><loc>https://hmdevonline.com/messaging-platform/hub/docs.html?doc=USER-GUIDE.md</loc><priority>0.7</priority></url>
   <url><loc>https://hmdevonline.com/messaging-platform/hub/docs.html?doc=WEB-AGENT-GUIDE.md</loc><priority>0.7</priority></url>
 
-  <!-- Games -->
+  <!-- Games (the party games are in Party Arcade, listed under apps) -->
   <url><loc>https://hmdevonline.com/messaging-platform/apps/blockparty/</loc><priority>0.8</priority></url>
   <url><loc>https://hmdevonline.com/messaging-platform/sdk/apps/mini-games/air-hockey/index.html</loc><priority>0.6</priority></url>
-  <url><loc>https://hmdevonline.com/messaging-platform/sdk/apps/mini-games/open-outcry/index.html</loc><priority>0.6</priority></url>
-  <url><loc>https://hmdevonline.com/messaging-platform/sdk/apps/mini-games/chorus/index.html</loc><priority>0.6</priority></url>
-  <url><loc>https://hmdevonline.com/messaging-platform/sdk/apps/mini-games/autocue/index.html</loc><priority>0.6</priority></url>
   <url><loc>https://hmdevonline.com/messaging-platform/sdk/apps/mini-games/gavel/index.html</loc><priority>0.6</priority></url>
-  <url><loc>https://hmdevonline.com/messaging-platform/sdk/apps/mini-games/nudge/index.html</loc><priority>0.6</priority></url>
   <url><loc>https://hmdevonline.com/messaging-platform/sdk/apps/chess/index.html</loc><priority>0.6</priority></url>
 
   <!-- Demos -->
@@ -31,17 +27,10 @@
   <url><loc>https://hmdevonline.com/messaging-platform/sdk/apps/evidence-chain/index.html</loc><priority>0.8</priority></url>
   <url><loc>https://hmdevonline.com/messaging-platform/sdk/apps/drop/index.html</loc><priority>0.6</priority></url>
   <url><loc>https://hmdevonline.com/messaging-platform/sdk/apps/call/index.html</loc><priority>0.6</priority></url>
-  <url><loc>https://hmdevonline.com/messaging-platform/sdk/apps/doorbell/index.html</loc><priority>0.6</priority></url>
   <url><loc>https://hmdevonline.com/messaging-platform/sdk/apps/pulse/index.html</loc><priority>0.6</priority></url>
   <url><loc>https://hmdevonline.com/messaging-platform/sdk/apps/chat.html</loc><priority>0.6</priority></url>
   <url><loc>https://hmdevonline.com/messaging-platform/sdk/apps/terminal/index.html</loc><priority>0.7</priority></url>
   <url><loc>https://hmdevonline.com/messaging-platform/sdk/apps/terminal/app.html</loc><priority>0.5</priority></url>
-  <url><loc>https://hmdevonline.com/messaging-platform/sdk/apps/storage-demo.html</loc><priority>0.5</priority></url>
-    <url>
-        <loc>https://hmdevonline.com/messaging-platform/sdk/apps/dead-drop/index.html</loc>
-        <changefreq>monthly</changefreq>
-        <priority>0.7</priority>
-    </url>
     <url>
         <loc>https://hmdevonline.com/messaging-platform/sdk/apps/under-the-hood/index.html</loc>
         <changefreq>monthly</changefreq>

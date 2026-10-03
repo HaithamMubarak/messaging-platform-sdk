@@ -26,6 +26,7 @@
     <link rel="stylesheet" href="../../css/connection-modal.css">
     <link rel="stylesheet" href="../../css/share-modal.css">
     <link rel="stylesheet" href="drop.css">
+    <link rel="stylesheet" href="mailbox.css">
 
     <script src="../../js/prod-log.js"></script>
 </head>
@@ -56,6 +57,12 @@
 
 <main class="sdk-stage">
     <div class="sdk-main">
+        <div class="drop-modes" role="tablist" aria-label="How to send">
+            <button type="button" role="tab" data-drop-mode="now" aria-controls="modeNow" aria-selected="true">Send now</button>
+            <button type="button" role="tab" data-drop-mode="later" aria-controls="modeLater" aria-selected="false">Leave for later</button>
+        </div>
+
+        <div class="drop-mode" id="modeNow" role="tabpanel">
         <button class="dropzone" id="dropZone" type="button">
             <span class="dropzone__mark">
                 <svg class="icon" aria-hidden="true"><use href="#i-download"></use></svg>
@@ -73,6 +80,41 @@
             <span id="transferSummary" style="font-weight:500; text-transform:none; letter-spacing:0; font-family:var(--font-mono)"></span>
         </div>
         <div class="sdk-scroll transfers" id="transfers"></div>
+        </div>
+
+        <!-- Leave for later: the mailbox that was the Dead Drop demo (mailbox.js). No peer needed. -->
+        <section class="drop-mode dd-wrap" id="modeLater" role="tabpanel" aria-label="Leave for later" hidden>
+            <p class="dd-intro">Leave something in <span id="boxName" class="dd-box-name">this box</span>. Whoever has the
+               room's link collects it later: you do not both have to be here.</p>
+            <section class="dd-leave">
+                <label for="noteText" class="sr-only">What to leave</label>
+                <textarea id="noteText" maxlength="4000"
+                          placeholder="Write a note. It is encrypted in your browser before it is stored."></textarea>
+                <div class="dd-row">
+                    <label for="mbFile" class="btn btn--sm btn--ghost" style="cursor:pointer">
+                        Attach a file
+                        <input id="mbFile" type="file" style="display:none">
+                    </label>
+                    <span id="fileState" class="dd-file-state"></span>
+                    <span class="dd-spacer"></span>
+                    <label for="readOnce"><input type="checkbox" id="readOnce"> Read once</label>
+                    <button id="leaveBtn" class="btn btn--primary" type="button">Leave it</button>
+                </div>
+                <p class="dd-note">
+                    The room password encrypts every drop in your browser. The server keeps ciphertext it
+                    cannot read. Files over 512 KB go to Vault instead: the encrypted bytes are stored there
+                    and only the key stays with you, and the card says which applies.
+                </p>
+            </section>
+            <div class="dd-list-head">
+                <h2>In this box</h2>
+                <span id="boxState" class="dd-state"></span>
+                <span class="dd-spacer"></span>
+                <button id="refreshBtn" class="btn btn--sm btn--ghost" type="button">Check again</button>
+            </div>
+            <div id="mbDrops" class="dd-drops"></div>
+        </section>
+        <div id="mbToast" class="dd-toast" hidden role="status" aria-live="polite"></div>
     </div>
 
     <aside class="sdk-side">
@@ -105,6 +147,7 @@
 <script src="../../js/UserConnectionBase.js"></script>
 <script src="../../js/companion.js"></script>
 <script src="drop.js"></script>
+<script src="mailbox.js"></script>
 </body>
 </html>
 

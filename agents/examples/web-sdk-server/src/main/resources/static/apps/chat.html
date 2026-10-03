@@ -25,6 +25,7 @@
     <link rel="stylesheet" href="../css/common.css"/>
     <link rel="stylesheet" href="../css/icons.css"/>
     <link rel="stylesheet" href="../css/share-modal.css"/>
+    <link rel="stylesheet" href="chat-knock.css"/>
 
     <style>
         /* Adopted modern admin chat style for web-agent page (keeps IDs for compatibility) */
@@ -1181,6 +1182,7 @@
                 </button>
                 <button id="disconnect-quick" class="btn ghost" style="flex:1;padding:8px;font-size:12px;">Disconnect</button>
             </div>
+            <button id="knock-open" class="btn ghost" type="button" style="padding:8px;font-size:12px;">Ring me when I'm away</button>
         </div>
 
         <!-- Connection form: shown by default, hidden when connected -->
@@ -2640,6 +2642,36 @@
 
     })();
 </script>
+<!-- Knock: ring me when I'm away (was the Doorbell demo; chat-knock.js). -->
+<dialog class="knock" id="knockDialog" aria-labelledby="knockTitle">
+    <div class="knock__head">
+        <h2 id="knockTitle">Ring me when I'm away</h2>
+        <button type="button" class="btn ghost" id="knockClose" aria-label="Close">Close</button>
+    </div>
+    <section class="knock__card">
+        <h3>Be the door</h3>
+        <p id="knockSelf">This browser will not ring yet.</p>
+        <button type="button" class="btn" id="knockSubscribe">Let this browser ring</button>
+        <p class="knock__note">Your browser asks for permission once. Then you can close this tab: a ring still shows a
+           notice, and tapping it opens Chat.</p>
+    </section>
+    <section class="knock__card">
+        <h3>Ring somebody</h3>
+        <ul class="knock__list" id="knockPeople"></ul>
+        <p class="knock__note" id="knockNobody">Nobody in this channel can be rung yet. Share the channel to another device
+           and press <em>Let this browser ring</em> there.</p>
+        <p class="knock__sent" id="knockSent" role="status" hidden></p>
+    </section>
+    <section class="knock__card">
+        <h3>Who rang for you</h3>
+        <ul class="knock__list" id="knockRings"></ul>
+        <p class="knock__note" id="knockNoRings">Nobody yet.</p>
+    </section>
+    <p class="knock__note">A knock carries <strong>nothing</strong>: not who rang, not why. The push service learns that
+       something happened and never what. Who rang is saved to this channel's storage, and Chat reads it when you open
+       this. On an iPhone it only works from a page added to the Home Screen.</p>
+</dialog>
+<script src="chat-knock.js"></script>
 <script src="../js/active-channel.js"></script>
 <script src="../js/room-defaults.js"></script>
 <script>RoomDefaults.apply({ prefix: 'chat_', channelPrefix: 'chat-', sharedDefaults: ['default'] });</script>

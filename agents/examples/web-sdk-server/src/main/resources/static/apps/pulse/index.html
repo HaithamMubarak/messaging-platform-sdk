@@ -56,6 +56,12 @@
 
 <main class="sdk-stage">
     <div class="sdk-main">
+        <div class="pulse-tabs" role="tablist" aria-label="Pulse views">
+            <button type="button" role="tab" data-pulse-tab="poll" aria-controls="tabPoll" aria-selected="true">Poll</button>
+            <button type="button" role="tab" data-pulse-tab="raw" aria-controls="tabRaw" aria-selected="false">Raw storage</button>
+        </div>
+
+        <div class="pulse-tab" id="tabPoll" role="tabpanel">
         <section class="card poll" id="poll" aria-label="Live poll"></section>
 
         <div class="sdk-side__title" style="margin-top: var(--sp-2)">
@@ -73,6 +79,25 @@
         </form>
 
         <div class="sdk-scroll questions" id="questions"></div>
+        </div>
+
+        <!-- The calls underneath the poll, bare (was the Channel storage demo). -->
+        <section class="card pulse-tab raw" id="tabRaw" role="tabpanel" aria-label="Raw storage" hidden>
+            <p class="sdk-note">The same channel, without the poll: <code>storagePut</code> replaces a key, <code>storageAdd</code> appends a version, and the read calls bring them back. Anyone in the room sees what you store.</p>
+            <label class="raw__label" for="rawKey">Key</label>
+            <input class="ask__input" id="rawKey" type="text" value="demo-notes" autocomplete="off">
+            <label class="raw__label" for="rawValue">Value (JSON)</label>
+            <textarea class="ask__input raw__value" id="rawValue" rows="4">{"note": "first entry"}</textarea>
+            <div class="raw__ops">
+                <button class="btn btn--primary" type="button" data-raw-op="put">Put (replace)</button>
+                <button class="btn" type="button" data-raw-op="add">Add a version</button>
+                <button class="btn" type="button" data-raw-op="get">Get latest</button>
+                <button class="btn" type="button" data-raw-op="history">History</button>
+                <button class="btn" type="button" data-raw-op="keys">List keys</button>
+                <button class="btn btn--ghost" type="button" data-raw-op="del">Delete key</button>
+            </div>
+            <pre class="raw__out" id="rawOut" aria-live="polite">Connect, then try Put and Get.</pre>
+        </section>
     </div>
 
     <aside class="sdk-side">
@@ -114,6 +139,7 @@
 <script src="../../js/UserConnectionBase.js"></script>
 <script src="../../js/sdk-wire.js"></script>
 <script src="pulse.js"></script>
+<script src="raw-storage.js"></script>
 </body>
 </html>
 

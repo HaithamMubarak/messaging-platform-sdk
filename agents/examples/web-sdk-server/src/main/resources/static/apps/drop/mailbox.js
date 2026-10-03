@@ -1,5 +1,11 @@
 /**
- * Dead Drop — leave something encrypted, collected later.
+ * Drop, "Leave for later" — leave something encrypted, collected later.
+ *
+ * This was the Dead Drop demo until hub consolidation phase 4 (2026-10-03) made
+ * it the second mode of Drop: "Send now" streams a file to whoever is here,
+ * this leaves one for whoever comes next. It no longer opens its own
+ * connection; it uses the room Drop joined (window.dropApp), and drop.js calls
+ * onConnect when that room opens.
  *
  * Every other app on this site needs everyone present at once: a whiteboard
  * with nobody drawing on it is nothing, a room with one person is silent. This
@@ -75,19 +81,18 @@
         return Math.floor(secs / 86400) + ' days ago';
     }
 
-    class DeadDrop extends UserConnectionBase {
+    class Mailbox {
         constructor() {
-            super({
-                storagePrefix: 'deaddrop_',
-                customType: 'deaddrop',
-                autoCreateDataChannel: false    // there is nobody to talk to
-            });
             this.drops = [];
             this.pending = null;   // a file chosen but not yet left
         }
 
+        // Drop's connection: the mailbox is the same channel, read through storage instead of peers.
+        get channel() { return window.dropApp ? window.dropApp.channel : null; }
+        get channelName() { return window.dropApp ? window.dropApp.channelName : ''; }
+        get username() { return window.dropApp ? window.dropApp.username : ''; }
+
         onConnect() {
-            if (window.ConnectionModal && window.ConnectionModal.hide) window.ConnectionModal.hide();
             el('boxName').textContent = this.channelName || 'this box';
             this.refresh();
         }
@@ -103,6 +108,7 @@
          */
         refresh() {
             var self = this;
+            if (!this.channel) { el('boxState').textContent = 'Join a room to open its box.'; return; }
             el('boxState').textContent = 'Opening…';
 
             this.channel.storageGetList(BOX_KEY, function (response) {
@@ -170,6 +176,7 @@
         // ---- leaving something ----------------------------------------------
 
         leaveNote() {
+            if (!this.channel) { this.say('Join a room first: the box is the room.'); return; }
             var text = (el('noteText').value || '').trim().slice(0, MAX_NOTE_CHARS);
             if (!text && !this.pending) {
                 this.say('Write something, or attach a file.');
@@ -231,7 +238,7 @@
                 this.pending = null;
                 this._pendingBlob = null;
                 el('fileState').textContent = '';
-                el('fileInput').value = '';
+                el('mbFile').value = '';
                 this.say('Left in the box. You can close this tab.');
                 this.refresh();
             }.bind(this));
@@ -268,7 +275,7 @@
             if (file.size > MAX_VAULT_BYTES) {
                 this.say('That file is ' + Math.round(file.size / 1024 / 1024) + 'MB. The limit is '
                     + Math.round(MAX_VAULT_BYTES / 1024 / 1024) + 'MB.');
-                el('fileInput').value = '';
+                el('mbFile').value = '';
                 return;
             }
 
@@ -278,7 +285,7 @@
             if (file.size > INLINE_FILE_BYTES) {
                 if (typeof self.channel.vaultPut !== 'function') {
                     self.say('That file is too large for this box, and this server has no vault.');
-                    el('fileInput').value = '';
+                    el('mbFile').value = '';
                     return;
                 }
                 self.pending = {
@@ -364,7 +371,7 @@
         }
 
         say(message) {
-            var node = el('toast');
+            var node = el('mbToast');
             node.textContent = message;
             node.hidden = false;
             clearTimeout(this._toastTimer);
@@ -374,7 +381,7 @@
         // ---- rendering -------------------------------------------------------
 
         render() {
-            var host = el('drops');
+            var host = el('mbDrops');
             host.innerHTML = '';
             var self = this;
 
@@ -458,25 +465,11 @@
     }
 
     document.addEventListener('DOMContentLoaded', function () {
-        var app = new DeadDrop();
-        window.deadDropApp = app;
+        var app = new Mailbox();
+        window.dropMailbox = app;
 
         el('leaveBtn').addEventListener('click', function () { app.leaveNote(); });
         el('refreshBtn').addEventListener('click', function () { app.refresh(); });
-        el('fileInput').addEventListener('change', function (e) { app.chooseFile(e.target.files[0]); });
-
-        window.loadConnectionModal({
-            localStoragePrefix: 'deaddrop_',
-            channelPrefix: 'box-',
-            title: 'Open a drop box',
-            collapsedTitle: 'Dead Drop',
-            onConnect: async function (username, channel, password) {
-                await app.initialize();
-                await app.connect({
-                    username: username, channelName: channel, channelPassword: password
-                });
-                app.start();
-            }
-        });
+        el('mbFile').addEventListener('change', function (e) { app.chooseFile(e.target.files[0]); });
     });
 })();

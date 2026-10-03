@@ -196,3 +196,22 @@
     opacity: .5;
     border-style: dashed;
 }
+
+/* Poll | Raw storage (the Channel storage demo folded in, 2026-10-03). */
+.pulse-tabs { display: flex; gap: var(--sp-2); flex: none; }
+.pulse-tabs [role="tab"] {
+    min-height: 40px; padding: 0 var(--sp-4); font: inherit; font-weight: 600; cursor: pointer;
+    color: var(--text-muted); background: transparent; border: 1px solid var(--border); border-radius: var(--r-md);
+}
+.pulse-tabs [role="tab"][aria-selected="true"] { color: var(--text); background: var(--brand-subtle); border-color: var(--brand); }
+.pulse-tabs [role="tab"]:focus-visible { outline: none; box-shadow: var(--focus-ring); }
+.pulse-tab { display: flex; flex-direction: column; gap: var(--sp-3); min-height: 0; }
+.pulse-tab[hidden] { display: none; }
+.raw__label { font-size: var(--fs-xs); font-weight: 600; color: var(--text-muted); }
+.raw__value { font-family: var(--font-mono); min-height: 96px; resize: vertical; }
+.raw__ops { display: flex; flex-wrap: wrap; gap: var(--sp-2); }
+.raw__out {
+    margin: 0; padding: var(--sp-3); min-height: 120px; max-height: 320px; overflow: auto;
+    font-family: var(--font-mono); font-size: var(--fs-xs); white-space: pre-wrap; overflow-wrap: anywhere;
+    background: var(--surface-2); border: 1px solid var(--border); border-radius: var(--r-md);
+}

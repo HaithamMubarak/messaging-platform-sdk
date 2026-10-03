@@ -649,6 +649,7 @@
             }
             app.render();
             app.renderPeers();
+            if (window.dropMailbox) window.dropMailbox.onConnect();   // "Leave for later" reads the same room
 
             // Drop is the one demo that proves nothing on your own: without a
             // second person there is no one to offer a file to. The companion
@@ -679,8 +680,25 @@
         }
     }
 
+    /** Send now | Leave for later. ?mode=later opens the mailbox (the old Dead Drop address lands there). */
+    function wireModes() {
+        var tabs = document.querySelectorAll('[data-drop-mode]');
+        function select(name) {
+            tabs.forEach(function (tab) {
+                var on = tab.getAttribute('data-drop-mode') === name;
+                tab.setAttribute('aria-selected', on ? 'true' : 'false');
+                document.getElementById(tab.getAttribute('aria-controls')).hidden = !on;
+            });
+        }
+        tabs.forEach(function (tab) {
+            tab.addEventListener('click', function () { select(tab.getAttribute('data-drop-mode')); });
+        });
+        if (new URLSearchParams(location.search).get('mode') === 'later') select('later');
+    }
+
     document.addEventListener('DOMContentLoaded', function () {
         wire();
+        wireModes();
         window.loadConnectionModal({
             localStoragePrefix: 'drop_',
             channelPrefix: 'drop-',

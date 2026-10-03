@@ -17,21 +17,20 @@
     "binary":    { "label": "Files",             "hub": "WebRTC",    "evidence": "sendFile\\s*\\(|ArrayBuffer|arrayBuffer\\s*\\(|binaryType|FileReader" }
   },
   "shelves": {
-    "learn":     { "title": "Learn the SDK", "lead": "Ten demos, each the clearest example of one part of the SDK. Open one, then read its source." },
+    "learn":     { "title": "Learn the SDK", "lead": "Seven demos, each the clearest example of one part of the SDK. Open one, then read its source." },
     "templates": { "title": "Build a game", "lead": "Three games that are also templates: each is the reference for one multiplayer pattern. Read the source, then build yours on it." },
-    "games":     { "title": "More party games", "lead": "Phone games on the same host-as-referee spine as Gavel: every player-to-host message is addressed, and nobody sees state they are not entitled to." },
     "products":  { "title": "Built on the SDK", "lead": "Finished apps, not demos. Each is a product in the apps catalogue." }
   },
   "entries": [
     {
       "id": "chat", "name": "Chat", "audience": "learn", "shelf": "learn", "status": "live",
-      "primitives": ["broadcast", "presence"], "solo": false,
+      "primitives": ["broadcast", "presence", "knock", "storage", "versions"], "solo": false,
       "url": "/messaging-platform/sdk/apps/chat.html",
       "image": "img/playground/chat.webp", "imageAlt": "The chat demo connected with two agents in the channel and three messages exchanged.", "icon": "i-message",
       "blurb": "The raw connection API: channels, presence and encrypted messages.",
-      "text": "The only demo on the raw connection API rather than the wrapper: connect by channel ID, resume a session after a reload, and approve another agent's key before they can join.",
-      "badges": ["Raw AgentConnection", "Presence"],
-      "source": ["apps/chat.html"]
+      "text": "The only demo on the raw connection API rather than the wrapper: connect by channel ID, resume a session after a reload, and approve another agent's key before they can join. \"Ring me when I'm away\" adds Knock: a content-free push that reaches somebody whose page is closed.",
+      "badges": ["Raw AgentConnection", "Presence", "Knock push"],
+      "source": ["apps/chat.html", "apps/chat-knock.js"]
     },
     {
       "id": "under-the-hood", "name": "Under the Hood", "audience": "learn", "shelf": "learn", "status": "live",
@@ -44,14 +43,9 @@
       "source": ["apps/under-the-hood/under-the-hood.js"]
     },
     {
-      "id": "storage-demo", "name": "Channel storage", "audience": "learn", "shelf": "learn", "status": "live",
-      "primitives": ["storage", "versions"], "solo": true,
-      "url": "/messaging-platform/sdk/apps/storage-demo.html",
-      "image": "img/playground/channel-storage.webp", "imageAlt": "The channel storage demo after a PUT and a GET: the agenda key stored as JSON and read back.", "icon": "i-hard-drive",
-      "blurb": "Read, write and version a channel's key-value store.",
-      "text": "Read, write and watch a channel's key-value store from the browser — put and get a value, list the keys, then append versions and read the history back.",
-      "badges": ["Key-value store", "Versions"],
-      "source": ["apps/storage-demo.html"]
+      "id": "storage-demo", "name": "Channel storage", "audience": "learn", "status": "moved", "movedTo": "pulse",
+      "note": "Its calls are now the Raw storage tab in Pulse.",
+      "url": "/messaging-platform/sdk/apps/storage-demo.html"
     },
     {
       "id": "pulse", "name": "Pulse", "audience": "learn", "shelf": "learn", "status": "live",
@@ -59,9 +53,9 @@
       "url": "/messaging-platform/sdk/apps/pulse/index.html",
       "image": "img/playground/pulse.webp", "imageAlt": "Pulse with two people in the room: a live poll at two votes, a question from the floor, and the version history each vote appended.", "icon": "i-activity",
       "blurb": "Live polls and questions, with a history of every response.",
-      "text": "Live questions and polls for a room or a talk. Every vote appends a version rather than overwriting one, so the result has a history you can scrub back through.",
+      "text": "Live questions and polls for a room or a talk. Every vote appends a version rather than overwriting one, so the result has a history you can scrub back through. The Raw storage tab is the same calls with the poll taken away: put, add, read, list and delete on the room you are in.",
       "badges": ["Storage versions", "Broadcast", "Presence"],
-      "source": ["apps/pulse/pulse.js"]
+      "source": ["apps/pulse/pulse.js", "apps/pulse/raw-storage.js"]
     },
     {
       "id": "whiteboard", "name": "Whiteboard", "audience": "learn", "shelf": "learn", "status": "live",
@@ -71,7 +65,6 @@
       "blurb": "Draw together and see every stroke appear across the room.",
       "text": "A shared drawing surface — pen, shapes, text and sticky notes. Every stroke reaches the room as it is made, undo reaches everybody, and the board is still there when you come back — stored encrypted, so the server keeps a board it cannot read. Every save is a version, and History scrubs or plays back through them without touching the board.",
       "badges": ["Broadcast", "Presence", "Encrypted storage"],
-      "links": [{ "label": "Read-only viewer (Rewind)", "url": "/messaging-platform/sdk/apps/rewind/app.html" }],
       "source": ["apps/whiteboard/whiteboard-client.js", "apps/whiteboard/whiteboard-tools.js", "apps/whiteboard/board-replay.js"]
     },
     {
@@ -85,25 +78,20 @@
       "source": ["apps/evidence-chain/evidence-chain.js"]
     },
     {
-      "id": "dead-drop", "name": "Dead Drop", "audience": "learn", "shelf": "learn", "status": "live",
-      "primitives": ["storage", "vault"], "solo": true,
-      "url": "/messaging-platform/sdk/apps/dead-drop/app.html", "about": "/messaging-platform/sdk/apps/dead-drop/index.html",
-      "image": "img/playground/dead-drop.webp", "imageAlt": "Dead Drop with two notes waiting in the box, each encrypted in the browser before it was stored.", "icon": "i-lock",
-      "blurb": "Vault: leave encrypted notes or files for someone to collect later.",
-      "text": "Leave an encrypted note or file in a channel and close the tab. Whoever has the link collects it later. Nothing is live and nobody has to be online — notes go to channel storage, files to the Vault.",
-      "badges": ["Vault for files", "Encrypted storage", "Asynchronous"],
-      "source": ["apps/dead-drop/dead-drop.js"]
+      "id": "dead-drop", "name": "Dead Drop", "audience": "learn", "status": "moved", "movedTo": "drop",
+      "note": "Now the \"Leave for later\" mode of Drop.",
+      "url": "/messaging-platform/sdk/apps/dead-drop/app.html"
     },
     {
       "id": "drop", "name": "Drop", "audience": "learn", "shelf": "learn", "status": "live",
-      "primitives": ["binary", "directed", "p2p"], "solo": false,
+      "primitives": ["binary", "directed", "p2p", "storage", "vault"], "solo": false,
       "url": "/messaging-platform/sdk/apps/drop/index.html",
       "image": "img/playground/drop.webp", "imageAlt": "Drop sending handover-notes.md straight to Dawit over a direct connection — 18 KB, sent, nothing stored.", "icon": "i-download",
-      "blurb": "Send a file straight between browsers.",
-      "text": "Send a file to whoever is in the room. It travels in chunks over the data channel, straight between browsers — nothing is uploaded and nothing is stored.",
-      "badges": ["Binary transfer", "P2P data channels", "Directed messages"],
+      "blurb": "Send a file now, or leave one encrypted for later.",
+      "text": "Two ways to hand somebody a file. Send now streams it in chunks over the data channel, straight between browsers: nothing is uploaded and nothing is stored. Leave for later encrypts a note or file in your browser and stores it in the room, notes in channel storage and larger files in the Vault, for whoever opens the link next.",
+      "badges": ["Binary transfer", "P2P data channels", "Encrypted storage", "Vault"],
       "links": [{ "label": "The product: Drop Pro", "url": "/messaging-platform/apps/droppro/" }],
-      "source": ["apps/drop/drop.js"]
+      "source": ["apps/drop/drop.js", "apps/drop/mailbox.js"]
     },
     {
       "id": "call", "name": "Call", "audience": "learn", "shelf": "learn", "status": "live",
@@ -116,14 +104,9 @@
       "source": ["apps/call/call.js"]
     },
     {
-      "id": "doorbell", "name": "Doorbell", "audience": "learn", "shelf": "learn", "status": "live",
-      "primitives": ["knock", "storage", "versions"], "solo": false,
-      "url": "/messaging-platform/sdk/apps/doorbell/index.html",
-      "image": "img/playground/doorbell.webp", "imageAlt": "Doorbell after a ring: Ana listed as reachable on one device, and the page reporting that no knock was sent because her push service refused it.", "icon": "i-send",
-      "blurb": "Knock: reach somebody whose page is closed.",
-      "text": "Let a browser ring, close the tab, and have somebody ring it. The knock carries nothing — not who rang, not why; that goes into channel storage and the page reads it when it is opened. The page says only what is true: a knock was sent, or it was not.",
-      "badges": ["Knock push", "Content-free", "Service worker"],
-      "source": ["apps/doorbell/doorbell.js"]
+      "id": "doorbell", "name": "Doorbell", "audience": "learn", "status": "moved", "movedTo": "chat",
+      "note": "Knock is now \"Ring me when I'm away\" in Chat.",
+      "url": "/messaging-platform/sdk/apps/doorbell/index.html"
     },
     {
       "id": "air-hockey", "name": "Air Hockey", "audience": "play", "shelf": "templates", "status": "live",
@@ -161,44 +144,24 @@
       "source": ["apps/chess/chess-game.js"]
     },
     {
-      "id": "chorus", "name": "Chorus", "audience": "play", "shelf": "games", "status": "live",
-      "primitives": ["directed", "host"], "solo": false,
-      "url": "/messaging-platform/sdk/apps/mini-games/chorus/index.html",
-      "image": "img/playground/chorus.webp", "imageAlt": "Chorus in its lobby with two players: each round builds something out of slots, and every player is handed one slot to fill.", "icon": "i-users",
-      "blurb": "Everyone holds one piece of something nobody can see whole.",
-      "text": "Chorus hands everyone one piece of something nobody can see whole. Each piece is private: the host deals it to one player, and nobody else receives it.",
-      "badges": ["Private state", "Host authority"],
-      "source": ["apps/mini-games/chorus/chorus.js", "apps/mini-games/shared/party-kit.js"]
+      "id": "chorus", "name": "Chorus", "audience": "play", "status": "moved", "movedTo": "party-arcade",
+      "note": "Now a game in Party Arcade, refereed by its server.",
+      "url": "/messaging-platform/sdk/apps/mini-games/chorus/index.html"
     },
     {
-      "id": "autocue", "name": "Autocue", "audience": "play", "shelf": "games", "status": "live",
-      "primitives": ["directed", "host"], "solo": false,
-      "url": "/messaging-platform/sdk/apps/mini-games/autocue/index.html",
-      "image": "img/playground/autocue.webp", "imageAlt": "Autocue in its lobby with two players: the editor picks a format, a speaker and how many lines the room will write.", "icon": "i-users",
-      "blurb": "A room writes a speech through a vetting editor.",
-      "text": "Autocue makes a room write a speech through a vetting editor. Roles are private: the host tells each player theirs, addressed to them alone.",
-      "badges": ["Private roles", "Host authority"],
-      "source": ["apps/mini-games/autocue/autocue.js", "apps/mini-games/shared/party-kit.js"]
+      "id": "autocue", "name": "Autocue", "audience": "play", "status": "moved", "movedTo": "party-arcade",
+      "note": "Now a game in Party Arcade, refereed by its server.",
+      "url": "/messaging-platform/sdk/apps/mini-games/autocue/index.html"
     },
     {
-      "id": "nudge", "name": "Nudge", "audience": "play", "shelf": "games", "status": "live",
-      "primitives": ["directed", "host"], "solo": false, "players": "3 or more players",
-      "url": "/messaging-platform/sdk/apps/mini-games/nudge/index.html",
-      "image": "img/playground/nudge.webp", "imageAlt": "Nudge at the table with two players, before the missions are dealt; the dealer notes it needs three people at least.", "icon": "i-users",
-      "blurb": "Secret missions — and two people are told they have none.",
-      "text": "Nudge deals secret missions and tells two people they have none. Each mission goes to one player; nobody else ever receives it.",
-      "badges": ["Secret missions", "Host authority"],
-      "source": ["apps/mini-games/nudge/nudge.js", "apps/mini-games/shared/party-kit.js"]
+      "id": "nudge", "name": "Nudge", "audience": "play", "status": "moved", "movedTo": "party-arcade",
+      "note": "Now a game in Party Arcade, refereed by its server.",
+      "url": "/messaging-platform/sdk/apps/mini-games/nudge/index.html"
     },
     {
-      "id": "open-outcry", "name": "Open Outcry", "audience": "play", "shelf": "games", "status": "live",
-      "primitives": ["directed", "host"], "solo": true,
-      "url": "/messaging-platform/sdk/apps/mini-games/open-outcry/index.html",
-      "image": "img/playground/open-outcry.webp", "imageAlt": "Open Outcry with the market open on \"Iceland has no mosquitoes\": price at 54¢ yes, three trades printed on the tape.", "icon": "i-trending-up",
-      "blurb": "The room trades a claim instead of answering it.",
-      "text": "The room trades a claim instead of answering it. One player has been dealt the truth in private and has to make money without the tape giving them away.",
-      "badges": ["Addressed messaging", "Host authority"],
-      "source": ["apps/mini-games/open-outcry/open-outcry.js"]
+      "id": "open-outcry", "name": "Open Outcry", "audience": "play", "status": "moved", "movedTo": "party-arcade",
+      "note": "Now a game in Party Arcade, refereed by its server.",
+      "url": "/messaging-platform/sdk/apps/mini-games/open-outcry/index.html"
     },
     {
       "id": "rooms", "name": "Rooms", "audience": "use", "shelf": "products", "status": "live",
@@ -226,9 +189,9 @@
       "label": "Games for your next get-together",
       "url": "/messaging-platform/apps/party-arcade/",
       "image": "/messaging-platform/apps/party-arcade/previews/basketball.png", "imageAlt": "SkyJam street basketball in Party Arcade: two against two on a sunset court, with the score, the clock and a super meter.", "icon": "i-users",
-      "blurb": "One private party code. Twelve browser games.",
-      "text": "Create a party with your nickname and invite friends using its code. Twelve games — including Reactor, Pictionary, Find the Liar, Chess and Air Hockey — with mouse, keyboard or touch controls and AI players in supported games. Player counts vary by game.",
-      "badges": ["One party code", "12 games"]
+      "blurb": "One private party code. Sixteen browser games.",
+      "text": "Create a party with your nickname and invite friends using its code. Sixteen games, including Reactor, Pictionary, Find the Liar, Chess, Air Hockey and the party games Chorus, Autocue, Nudge and Open Outcry, with mouse, keyboard or touch controls and AI players in supported games. Player counts vary by game.",
+      "badges": ["One party code", "16 games"]
     },
     {
       "id": "droppro", "name": "Drop Pro", "audience": "use", "shelf": "products", "status": "live",
@@ -253,7 +216,7 @@
     },
     {
       "id": "rewind", "name": "Rewind", "audience": "learn", "status": "moved", "movedTo": "whiteboard",
-      "note": "Its playback is now in the whiteboard's History panel; this page stays as a read-only viewer.",
+      "note": "Its playback is now in the whiteboard's History panel.",
       "url": "/messaging-platform/sdk/apps/rewind/app.html"
     },
     {
