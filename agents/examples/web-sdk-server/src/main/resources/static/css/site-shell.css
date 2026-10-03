@@ -32,9 +32,10 @@
 .site-header .site-nav > a:hover { color: var(--text, #eef2f8); background: var(--surface-2, #16203a); text-decoration: none; }
 .site-header .site-nav > a[aria-current="page"] { color: var(--accent, #2dd4bf); }
 .site-header .site-nav > a.site-nav__cta {
-    margin-left: 8px; padding: 0 18px; background: var(--brand, #d9482f); color: #fff;
+    margin-left: 8px; padding: 0 18px; background: var(--accent, #2dd4bf); color: #0b1120;
 }
-.site-header .site-nav > a.site-nav__cta:hover { background: color-mix(in srgb, var(--brand, #d9482f) 85%, #fff); color: #fff; }
+/* Teal, like every page's own primary button (was the token rust, the one orange button on a teal site). */
+.site-header .site-nav > a.site-nav__cta:hover { background: color-mix(in srgb, var(--accent, #2dd4bf) 85%, #fff); color: #0b1120; }
 .site-header .nav-toggle {
     display: none; align-items: center; justify-content: center; margin-left: auto;
     width: 44px; height: 44px; flex: 0 0 44px; border-radius: 8px; cursor: pointer;
