@@ -1,0 +1,61 @@
+/*
+ * The hub home page (hub consolidation phase 3, 2026-10-03): the parts hub-product.css does not
+ * already style - the hero, the three doors, the capability cards with their screenshots and the
+ * product strip. Everything else on the page is the same .mp-* system pricing and quickstart use.
+ */
+.home-hero { display: grid; grid-template-columns: minmax(0, 1.05fr) minmax(0, 1fr); gap: 48px; align-items: center; padding: 24px 0 8px; }
+.home-hero h1 { font-size: clamp(34px, 5.4vw, 60px); letter-spacing: -1.6px; line-height: 1.04; }
+.home-hero h1 em { font-style: normal; color: var(--accent, #2dd4bf); }
+.home-hero .mp-lead { margin-top: 18px; max-width: 34rem; font-size: 18px; }
+.home-hero .mp-actions { margin-top: 26px; }
+.home-hero .mp-langs { margin-top: 22px; }
+.home-shot {
+    margin: 0; border: 1px solid var(--border-strong, rgba(148, 163, 184, .28)); border-radius: 14px; overflow: hidden;
+    background: var(--surface-1, #101827); box-shadow: 0 30px 80px rgba(0, 0, 0, .35);
+}
+.home-shot figcaption { display: flex; align-items: center; gap: 8px; padding: 10px 14px; font-size: 13px; color: var(--text-muted, #8a97ab); border-bottom: 1px solid var(--border, rgba(148, 163, 184, .14)); }
+.home-shot figcaption i { width: 9px; height: 9px; border-radius: 50%; background: var(--surface-3, #1e2a3d); }
+.home-shot figcaption span { margin-left: 6px; }
+.home-shot img { display: block; width: 100%; height: auto; aspect-ratio: 16 / 10; object-fit: cover; }
+
+.home-doors { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; margin-top: 56px; }
+.home-door {
+    display: flex; flex-direction: column; gap: 8px; padding: 24px; border-radius: 14px; text-decoration: none;
+    border: 1px solid var(--border, rgba(148, 163, 184, .14)); background: var(--surface-1, #101827);
+}
+.home-door:hover { border-color: var(--accent, #2dd4bf); }
+.home-door .mp-eyebrow { margin: 0; }
+.home-door h2 { font-size: 22px; }
+.home-door p { color: var(--text-muted, #8a97ab); }
+.home-door span:last-child { margin-top: auto; padding-top: 8px; color: var(--accent, #2dd4bf); font-weight: 600; }
+
+.home-caps { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; }
+.home-caps .mp-card { display: flex; flex-direction: column; padding: 0; overflow: hidden; }
+.home-caps .mp-card img { display: block; width: 100%; height: auto; object-position: top; aspect-ratio: 16 / 10; object-fit: cover; border-bottom: 1px solid var(--border, rgba(148, 163, 184, .14)); background: var(--surface-2, #16203a); }
+.home-caps .mp-card > div { display: flex; flex-direction: column; gap: 6px; padding: 16px 18px 18px; flex: 1; }
+.home-caps .mp-card-go { margin-top: auto; padding-top: 6px; }
+
+.home-products { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; }
+.home-product {
+    display: flex; flex-direction: column; overflow: hidden; border-radius: 14px; text-decoration: none;
+    border: 1px solid var(--border, rgba(148, 163, 184, .14)); background: var(--surface-1, #101827);
+}
+.home-product:hover { border-color: var(--accent, #2dd4bf); }
+.home-product img { display: block; width: 100%; height: auto; object-position: top; aspect-ratio: 16 / 10; object-fit: cover; background: var(--surface-2, #16203a); }
+.home-product div { display: flex; flex-direction: column; gap: 6px; padding: 16px 18px 18px; }
+.home-product small { font-size: 12px; letter-spacing: .6px; text-transform: uppercase; color: var(--text-muted, #8a97ab); }
+.home-product h3 { font-size: 20px; }
+.home-product p { color: var(--text-muted, #8a97ab); }
+
+@media (max-width: 980px) {
+    .home-hero { grid-template-columns: minmax(0, 1fr); gap: 32px; }
+    .home-caps, .home-products { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+@media (max-width: 680px) {
+    .home-doors, .home-caps, .home-products { grid-template-columns: minmax(0, 1fr); }
+    .home-doors { margin-top: 40px; }
+}
+
+/* The skip link: off screen until a keyboard user reaches it. */
+.sr-only { position: absolute; left: -9999px; top: 8px; z-index: 60; padding: 10px 16px; border-radius: 8px; background: var(--brand, #d9482f); color: #fff; }
+.sr-only:focus { left: 16px; }

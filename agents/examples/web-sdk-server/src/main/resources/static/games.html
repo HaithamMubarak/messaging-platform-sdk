@@ -1,22 +1,24 @@
 <!doctype html>
-<html lang="en">
+<html lang="en" data-theme="dark">
 <head>
 <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Pricing | Messaging Platform</title>
-<meta name="description" content="Messaging Platform pricing. Free during the public beta, no credit card. Planned Starter, Pro, Business and Enterprise plans for applications that grow.">
+<title>Games | Messaging Platform</title>
+<meta name="description" content="Browser party games built on Messaging Platform: Party Arcade and BlockParty for game night, and open game templates to build your own.">
+<link rel="canonical" href="https://hmdevonline.com/messaging-platform/hub/games.html">
 <meta name="robots" content="index,follow">
-<link rel="canonical" href="https://hmdevonline.com/messaging-platform/hub/pricing.html">
+<meta name="color-scheme" content="dark">
 <meta property="og:type" content="website">
 <meta property="og:site_name" content="Messaging Platform">
-<meta property="og:title" content="Pricing | Messaging Platform">
-<meta property="og:description" content="Start free. Upgrade when your application grows.">
+<meta property="og:title" content="Games | Messaging Platform">
+<meta property="og:description" content="One code, everyone joins from their own browser. Play, or build your own from a template.">
+<meta property="og:url" content="https://hmdevonline.com/messaging-platform/hub/games.html">
 <meta property="og:image" content="https://hmdevonline.com/messaging-platform/sdk/images/og-image.png">
-<meta name="color-scheme" content="dark light">
-<link rel="icon" type="image/svg+xml" href="favicon.svg">
-<script>try{document.documentElement.dataset.theme='dark'}catch(e){document.documentElement.dataset.theme='dark'}</script>
-<link rel="stylesheet" href="css/design-tokens.css">
-<link rel="stylesheet" href="css/hub-product.css">
-<link rel="stylesheet" href="css/hub-profile-theme.css">
+<meta name="twitter:card" content="summary_large_image">
+<link rel="icon" type="image/svg+xml" href="/messaging-platform/hub/favicon.svg">
+<link rel="stylesheet" href="/messaging-platform/hub/css/design-tokens.css">
+<link rel="stylesheet" href="/messaging-platform/hub/css/hub-product.css">
+<link rel="stylesheet" href="/messaging-platform/hub/css/hub-profile-theme.css">
+<link rel="stylesheet" href="/messaging-platform/hub/css/hub-home.css">
 <link rel="stylesheet" href="/messaging-platform/hub/css/site-shell.css">
 </head>
 <body class="mp-page">
@@ -29,45 +31,34 @@
             <a href="/messaging-platform/hub/">Product</a>
             <a href="/messaging-platform/hub/playground.html">Demos</a>
             <a href="/messaging-platform/apps/">Apps</a>
-            <a href="/messaging-platform/hub/games.html">Games</a>
+            <a href="/messaging-platform/hub/games.html" aria-current="page">Games</a>
             <a href="/messaging-platform/hub/docs.html">Docs</a>
-            <a href="/messaging-platform/hub/pricing.html" aria-current="page">Pricing</a>
+            <a href="/messaging-platform/hub/pricing.html">Pricing</a>
             <a class="site-nav__cta btn--gradient" href="/messaging-platform/hub/developer/index.html?start=free">Start free</a>
         </nav>
     </div>
 </header>
 <!-- /site-shell:header -->
-
+<a class="sr-only" href="#main">Skip to content</a>
 <main class="mp-main" id="main">
-  <p class="mp-eyebrow">Pricing</p>
-  <h1 style="font-size:clamp(30px,5vw,44px);letter-spacing:-1.2px;line-height:1.1">Start free. Upgrade when your application grows.</h1>
-  <p class="mp-lead">Pay for what your app actually uses: connections, messages and media relay. No credit card to start.</p>
-  <p class="mp-note" id="plansNotice" style="margin-top:22px">Every plan is free while the platform is in public beta.</p>
 
-  <div class="mp-plans" id="plans" aria-live="polite"></div>
-  <noscript><p class="mp-note mp-note--warm">This table needs JavaScript. The plan data is published as <a href="data/plans.json">data/plans.json</a>.</p></noscript>
+<section aria-labelledby="page-title">
+<p class="mp-eyebrow">Games</p>
+<h1 id="page-title" style="font-size:clamp(32px,5vw,52px);letter-spacing:-1.4px;line-height:1.06">Play together in the browser.</h1>
+<p class="mp-lead" style="margin-top:14px;max-width:40rem">One code, and everyone joins from their own phone or laptop. No installs, no accounts for players. Every game here runs on the same channels the SDK gives you.</p>
+</section>
 
-  <section class="mp-section" aria-labelledby="compare-h">
-    <div class="mp-section-head">
-      <h2 id="compare-h">Compare the limits that matter</h2>
-      <p class="mp-lead" id="plansEnforced"></p>
-    </div>
-    <div class="mp-table-scroll" id="compare"></div>
-  </section>
+<section class="mp-section" aria-labelledby="play-h"><div class="mp-section-head"><p class="mp-eyebrow">Game night</p><h2 id="play-h">Ready to play.</h2></div>
+<div class="home-products" id="play" data-shelf="products" data-ids="party-arcade,blockparty"></div></section>
 
-  <section class="mp-section" aria-labelledby="faq-h">
-    <h2 id="faq-h">Questions developers ask first</h2>
-    <div class="mp-grid" style="margin-top:18px">
-      <div class="mp-card"><h3>What happens at a limit?</h3><p>Today, creating a channel past your plan's allowance is refused with a clear error; existing channels keep working. We will warn before any other limit starts being enforced.</p></div>
-      <div class="mp-card"><h3>Is there an SLA?</h3><p>Not during the beta, and we will not claim one until monitoring and capacity support it. Enterprise agreements will carry one.</p></div>
-      <div class="mp-card"><h3>What counts as a message?</h3><p>When message metering ships, a message is each event you send to a channel. Presence heartbeats and reconnects will not count.</p></div>
-      <div class="mp-card"><h3>Can I self-host?</h3><p>Self-hosted and dedicated deployments are an Enterprise option. <a class="mp-link" href="profile.html#pDeveloperCard">Tell us what you need</a>.</p></div>
-      <div class="mp-card"><h3>Do the apps cost extra?</h3><p>Apps built on the platform price themselves: <a class="mp-link" href="/messaging-platform/apps/rooms/#pricing">Rooms</a> has host plans and BlockParty has a Host Pass. Guests and players always join free.</p></div>
-      <div class="mp-card"><h3>How do I start?</h3><p>Sign in with Google, get a key, and send your first message with the <a class="mp-link" href="quickstart.html">five-minute quickstart</a>.</p></div>
-    </div>
-  </section>
+<section class="mp-section" aria-labelledby="build-h"><div class="mp-section-head"><p class="mp-eyebrow">Build a game</p><h2 id="build-h">Start from a template.</h2><p class="mp-lead">Three patterns most multiplayer games need: real-time physics, a host who referees, and turns. Open one, then read its source.</p></div>
+<div class="home-products" id="templates" data-shelf="templates"></div></section>
+
+<section class="mp-section" aria-labelledby="more-h"><div class="mp-section-head"><p class="mp-eyebrow">More party games</p><h2 id="more-h">Host-refereed games for a group.</h2><p class="mp-lead">Each player holds something private; the host decides what everyone sees.</p></div>
+<div class="home-products" id="more" data-shelf="games"></div></section>
+
+<noscript><p class="mp-note">The games list loads from the catalogue. Without JavaScript, open <a href="/messaging-platform/apps/party-arcade/">Party Arcade</a> or <a href="playground.html">the demo gallery</a>.</p></noscript>
 </main>
-
 <!-- site-shell:footer (tools/site-shell.cjs; do not edit here) -->
 <footer class="site-shell-footer">
     <div class="site-shell-footer__inner">
@@ -84,9 +75,25 @@
     </div>
 </footer>
 <!-- /site-shell:footer -->
-<script src="js/hub-page.js"></script>
-<script src="js/plan-format.js"></script>
-<script src="js/pricing.js"></script>
+<script src="/messaging-platform/hub/js/catalogue.js"></script>
+<script>
+// Every card comes from data/catalogue.json (the one list; test/js/catalogue.test.js checks it against the code).
+Catalogue.load().then(function (cat) {
+  document.querySelectorAll('[data-shelf]').forEach(function (box) {
+    var ids = (box.dataset.ids || '').split(',').filter(Boolean);
+    var items = Catalogue.shelf(cat, box.dataset.shelf).filter(function (e) { return !ids.length || ids.indexOf(e.id) >= 0; });
+    if (ids.length) items.sort(function (a, b) { return ids.indexOf(a.id) - ids.indexOf(b.id); });
+    items.forEach(function (e) {
+      var a = document.createElement('a'); a.className = 'home-product'; a.href = e.url;
+      var img = document.createElement('img'); img.src = e.image; img.alt = Catalogue.imageAlt(e); img.loading = 'lazy'; img.width = 800; img.height = 500;
+      var body = document.createElement('div');
+      [['small', e.label || (e.players ? e.players : '')], ['h3', e.name], ['p', e.blurb || '']].forEach(function (p) {
+        if (!p[1]) return; var n = document.createElement(p[0]); n.textContent = p[1]; body.appendChild(n); });
+      a.appendChild(img); a.appendChild(body); box.appendChild(a);
+    });
+  });
+}).catch(function () {});
+</script>
 <script src="/messaging-platform/hub/js/site-shell.js" defer></script>
 <script src="/messaging-platform/hub/js/mp-account.js" defer></script>
 <script src="/messaging-platform/hub/js/profile-chip.js" defer></script>

@@ -17,7 +17,7 @@
 (function () {
     'use strict';
 
-    var LANDING = 'https://hmdevonline.com/messaging-platform/hub/built-with.html';
+    var LANDING = 'https://hmdevonline.com/messaging-platform/hub/#built-with';   // built-with.html folded into the home page (2026-10-03)
     var STYLE_ID = 'mp-powered-style';
 
     function injectStyle() {

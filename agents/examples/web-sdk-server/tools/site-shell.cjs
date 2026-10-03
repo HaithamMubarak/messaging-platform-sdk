@@ -23,12 +23,12 @@ const STATIC = path.join(__dirname, '..', 'src', 'main', 'resources', 'static');
 const HUB = '/messaging-platform/hub/';
 const GITHUB = 'https://github.com/HaithamMubarak/messaging-platform-sdk';
 
-/** Top nav: section id, label, href. "Games" is Party Arcade until the hub has a Games page (phase 3). */
+/** Top nav: section id, label, href. */
 const NAV = [
     ['product', 'Product', HUB],
     ['demos', 'Demos', HUB + 'playground.html'],
     ['apps', 'Apps', '/messaging-platform/apps/'],
-    ['games', 'Games', '/messaging-platform/apps/party-arcade/'],
+    ['games', 'Games', HUB + 'games.html'],
     ['docs', 'Docs', HUB + 'docs.html'],
     ['pricing', 'Pricing', HUB + 'pricing.html'],
 ];
@@ -39,15 +39,15 @@ const FOOTER = [
     ['Developers', [['Documentation', HUB + 'docs.html'], ['SDK guide', HUB + 'sdk-guide.html'],
         ['Developer portal', HUB + 'developer/index.html'], ['GitHub', GITHUB]]],
     ['Explore', [['Demos', HUB + 'playground.html'], ['Apps', '/messaging-platform/apps/'],
-        ['Games', '/messaging-platform/apps/party-arcade/'], ['Built with the SDK', HUB + 'built-with.html']]],
+        ['Games', HUB + 'games.html'], ['Party Arcade', '/messaging-platform/apps/party-arcade/']]],
     ['Legal', [['Privacy', HUB + 'privacy.html'], ['Terms', HUB + 'terms.html'], ['Support', GITHUB + '/issues']]],
 ];
 
 /** The SDK site's shell pages and the nav section each belongs to ('' = none lit). The error pages are
  *  not here: they are self-contained on purpose (rendered at any depth, under any prefix; see error/404.html). */
 const PAGES = {
-    'playground.html': 'demos', 'docs.html': 'docs', 'sdk-guide.html': 'docs', 'quickstart.html': 'docs',
-    'pricing.html': 'pricing', 'built-with.html': 'product', 'privacy.html': '', 'terms.html': '',
+    'hub.html': 'product', 'games.html': 'games', 'playground.html': 'demos', 'docs.html': 'docs', 'sdk-guide.html': 'docs', 'quickstart.html': 'docs',
+    'pricing.html': 'pricing', 'privacy.html': '', 'terms.html': '',
     'profile.html': '',
     'apps/dead-drop/index.html': 'demos', 'apps/evidence-chain/index.html': 'demos', 'apps/terminal/index.html': 'demos',
     'apps/under-the-hood/index.html': 'demos', 'apps/whiteboard/index.html': 'demos',

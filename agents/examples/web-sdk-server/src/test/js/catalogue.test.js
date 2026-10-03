@@ -150,7 +150,7 @@ check('the sitemap lists no moved demo', () => {
 });
 
 check('no live page links to a moved demo', () => {
-    for (const page of ['hub.html', 'sdk-guide.html', 'quickstart.html', 'built-with.html', 'playground.html', 'apps/pulse/index.html']) {
+    for (const page of ['hub.html', 'sdk-guide.html', 'quickstart.html', 'games.html', 'playground.html', 'apps/pulse/index.html']) {
         const html = read(page);
         for (const folder of movedFolders) {
             const name = folder.replace(/^apps\//, '');

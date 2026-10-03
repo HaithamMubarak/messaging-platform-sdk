@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-    <title>SDK developer guide | Messaging Platform Hub</title>
+    <title>SDK guide | Messaging Platform</title>
     <meta name="description" content="Build connected apps with messaging, presence, WebRTC and channel storage. Explore real collaboration tools and SDKs for JavaScript, Java, Python and C++. Free during beta.">
     <meta name="author" content="hmdev">
     <meta name="theme-color" content="#0a0f1c">
@@ -34,8 +34,7 @@
     <script src="js/api-config.js" defer></script>
     <script src="js/landing.js" defer></script>
     <script src="js/config-loader.js" defer></script>
-    <script src="js/home-presence.js" defer></script>
-<link rel="stylesheet" href="/messaging-platform/hub/css/hub-navigation.css">
+    <link rel="stylesheet" href="/messaging-platform/hub/css/hub-navigation.css">
 <link rel="stylesheet" href="/messaging-platform/hub/css/site-shell.css">
 </head>
 <body class="sdk-home">
@@ -49,7 +48,7 @@
             <a href="/messaging-platform/hub/">Product</a>
             <a href="/messaging-platform/hub/playground.html">Demos</a>
             <a href="/messaging-platform/apps/">Apps</a>
-            <a href="/messaging-platform/apps/party-arcade/">Games</a>
+            <a href="/messaging-platform/hub/games.html">Games</a>
             <a href="/messaging-platform/hub/docs.html" aria-current="page">Docs</a>
             <a href="/messaging-platform/hub/pricing.html">Pricing</a>
             <a class="site-nav__cta btn--gradient" href="/messaging-platform/hub/developer/index.html?start=free">Start free</a>
@@ -58,30 +57,12 @@
 </header>
 <!-- /site-shell:header -->
 <main id="main">
-  <section class="home-hero" aria-labelledby="hero-title">
+  <section class="home-section" aria-labelledby="guide-title">
     <div class="wrap">
-      <div class="home-hero-grid">
-        <div class="home-hero-copy">
-          <p class="home-eyebrow"><span class="home-status-dot" aria-hidden="true"></span>The SDK for connected experiences</p>
-          <h1 id="hero-title">Build apps that work together <span>in real time.</span></h1>
-          <p class="home-lede">Shared workspaces. Live conversations. Connected devices. Bring them together with messaging, presence, WebRTC and channel storage.</p>
-          <div class="home-actions"><button class="btn btn--lg btn--gradient" type="button" data-open-request>Get a free API key <svg class="icon" aria-hidden="true"><use href="#i-arrow-right"></use></svg></button><a class="btn btn--lg btn--ghost" href="../apps/index.html">Explore the apps</a></div>
-          <p class="home-trust">Free during beta <span aria-hidden="true">·</span> No credit card <span aria-hidden="true">·</span> Open-source SDKs</p>
-        </div>
-        <div class="home-hero-visual">
-          <figure class="home-browser">
-            <div class="home-browser-bar"><span class="home-window-dots" aria-hidden="true"><i></i><i></i><i></i></span><span>Whiteboard / shared workspace</span><span class="home-browser-label">Built with the SDK</span></div>
-            <a class="home-image-link" href="/messaging-platform/sdk/apps/whiteboard/app.html" aria-label="Open the collaborative Whiteboard demo"><img src="images/landing/whiteboard.webp" alt="Whiteboard demo workspace with a populated collaborative board and drawing tools" width="1440" height="900" fetchpriority="high" decoding="async"></a>
-            <figcaption><span>Demo workspace — sample data</span><a href="/messaging-platform/sdk/apps/whiteboard/app.html">Open Whiteboard <svg class="icon" aria-hidden="true"><use href="#i-arrow-right"></use></svg></a> <a class="image-detail-link" href="images/landing/whiteboard.webp" target="_blank" rel="noopener noreferrer" aria-label="View full-size Whiteboard screenshot (opens in a new tab)">Full-size image <span aria-hidden="true">↗</span></a></figcaption>
-          </figure>
-          <div class="home-presence" id="homePresence" aria-live="polite">
-            <span class="home-presence__faces" data-presence-faces aria-hidden="true"></span>
-            <p><span data-presence-count>One shared channel. Every participant in the loop.</span> <span class="home-presence__rtt" data-presence-rtt></span></p>
-            <span class="home-presence__how">This is the SDK running on this page — a real channel, a temporary key from this site's own server.</span>
-          </div>
-        </div>
-      </div>
-      <div class="home-runtimes" aria-label="Available SDKs"><span class="home-runtimes-label">Your stack. Your interface.</span><span>JavaScript</span><span>Java</span><span>Python</span><span>C++ <small>experimental</small></span><a href="#quickstart">Meet the SDK <svg class="icon" aria-hidden="true"><use href="#i-arrow-right"></use></svg></a></div>
+      <p class="home-eyebrow">Developers</p>
+      <h1 id="guide-title">SDK guide</h1>
+      <p class="home-lede">How the SDK is put together, your first shared room, and how a browser gets a key without ever seeing yours. New here? Start with the <a href="quickstart.html">five-minute quickstart</a>; the full API reference is in the <a href="docs.html">documentation</a>.</p>
+      <nav class="home-runtimes" aria-label="On this page"><span class="home-runtimes-label">On this page</span><a href="#features">Four primitives</a><a href="#architecture">Architecture</a><a href="#api">The API at a glance</a><a href="#quickstart">Your first room</a><a href="#temporary-keys">Temporary keys</a></nav>
     </div>
   </section>
   <section class="home-section" id="features" aria-labelledby="features-title">
@@ -92,36 +73,18 @@
     <p class="home-strip" id="architecture"><span><strong>Your clients, one shared channel.</strong> JavaScript, Java, Python and C++ clients talk to one managed service — channels, presence, storage, signaling — and WebRTC media goes peer to peer with relay fallback.</span><a class="home-text-link" href="docs.html">Explore the architecture <svg class="icon" aria-hidden="true"><use href="#i-arrow-right"></use></svg></a></p></div>
   </section>
 
-  <section class="home-section" id="demos" aria-labelledby="demos-title">
-    <div class="wrap">
-      <div class="home-section-head"><div><p class="home-eyebrow">Built with the SDK</p><h2 id="demos-title">See what one connection can do.</h2></div><p>These are working applications, built on the same primitives you can use in your own product.</p></div>
-      <div class="home-apps-grid">
-        <article class="home-app-card">
-  <figure><a class="home-image-link" href="../apps/rooms/" aria-label="Explore Rooms"><img src="images/landing/rooms.webp" alt="Rooms demo workspace showing its call and collaboration interface" width="1440" height="900" loading="lazy" decoding="async"></a><figcaption><span>Demo workspace — sample data</span> <a class="image-detail-link" href="images/landing/rooms.webp" target="_blank" rel="noopener noreferrer" aria-label="View full-size Rooms screenshot (opens in a new tab)">Full-size image <span aria-hidden="true">↗</span></a></figcaption></figure>
-  <div class="home-app-copy"><p class="home-card-category">Communication</p><h3><a href="../apps/rooms/">A room for working together <svg class="icon" aria-hidden="true"><use href="#i-arrow-right"></use></svg></a></h3><p>Bring a call, a shared board and your teammates into one workspace.</p><div class="home-card-foot"><span>Rooms</span><span>Presence + WebRTC</span></div></div>
-</article>
-        <article class="home-app-card">
-  <figure><a class="home-image-link" href="../apps/droppro/" aria-label="Explore Drop Pro"><img src="images/landing/droppro.webp" alt="Drop Pro demo interface for sharing files between connected devices" width="1440" height="900" loading="lazy" decoding="async"></a><figcaption><span>Demo workspace — sample data</span> <a class="image-detail-link" href="images/landing/droppro.webp" target="_blank" rel="noopener noreferrer" aria-label="View full-size Drop Pro screenshot (opens in a new tab)">Full-size image <span aria-hidden="true">↗</span></a></figcaption></figure>
-  <div class="home-app-copy"><p class="home-card-category">File transfer</p><h3><a href="../apps/droppro/">Move files between devices <svg class="icon" aria-hidden="true"><use href="#i-arrow-right"></use></svg></a></h3><p>Connect your devices and send files through a peer-to-peer data channel.</p><div class="home-card-foot"><span>Drop Pro</span><span>WebRTC + messaging</span></div></div>
-</article>
-        <article class="home-app-card">
-  <figure><a class="home-image-link" href="/messaging-platform/sdk/apps/terminal/index.html" aria-label="Explore Terminal"><img src="images/landing/terminal.webp" alt="Shared Terminal demo showing a browser terminal and its workspace controls" width="1440" height="900" loading="lazy" decoding="async"></a><figcaption><span>Demo workspace — sample data</span> <a class="image-detail-link" href="images/landing/terminal.webp" target="_blank" rel="noopener noreferrer" aria-label="View full-size Shared terminal screenshot (opens in a new tab)">Full-size image <span aria-hidden="true">↗</span></a></figcaption></figure>
-  <div class="home-app-copy"><p class="home-card-category">Developer tools</p><h3><a href="/messaging-platform/sdk/apps/terminal/index.html">Bring your terminal along <svg class="icon" aria-hidden="true"><use href="#i-arrow-right"></use></svg></a></h3><p>Open a shared browser terminal connected to your machine through the local service.</p><div class="home-card-foot"><span>Terminal</span><span>Requires local service</span></div></div>
-</article>
-        <article class="home-app-card">
-  <figure><a class="home-image-link" href="/messaging-platform/apps/blockparty/" aria-label="Explore BlockParty"><img src="images/landing/blockparty.webp" alt="BlockParty Old Town demo scene with colorful voxel buildings and trees" width="1200" height="750" loading="lazy" decoding="async"></a><figcaption><span>Product · Social games</span> <a class="image-detail-link" href="images/landing/blockparty.webp" target="_blank" rel="noopener noreferrer" aria-label="View full-size BlockParty screenshot (opens in a new tab)">Full-size image <span aria-hidden="true">↗</span></a></figcaption></figure>
-  <div class="home-app-copy"><p class="home-card-category">Play</p><h3><a href="/messaging-platform/apps/blockparty/">Shared worlds, one guided party <svg class="icon" aria-hidden="true"><use href="#i-arrow-right"></use></svg></a></h3><p>Party Night turns the SDK’s presence, storage and host relay into a polished social game with 15 modes and persistent worlds.</p><div class="home-card-foot"><span>BlockParty</span><span>Product · Free + Host Pass</span></div></div>
-</article>
-      </div>
-      <details class="home-demo-directory"><summary><span>Explore all SDK demos</span><span class="home-disclosure-mark" aria-hidden="true">+</span></summary><div class="home-demo-grid"><div><a href="/messaging-platform/sdk/apps/whiteboard/app.html">Whiteboard <svg class="icon" aria-hidden="true"><use href="#i-arrow-right"></use></svg></a><p>Draw and share a live canvas.</p><a class="home-about-link" href="/messaging-platform/sdk/apps/whiteboard/index.html">About Whiteboard</a></div>
-<div><a href="/messaging-platform/sdk/apps/chat.html">Real-time chat <svg class="icon" aria-hidden="true"><use href="#i-arrow-right"></use></svg></a><p>Messages and presence in one channel.</p></div>
-<div><a href="/messaging-platform/sdk/apps/drop/index.html">Drop <svg class="icon" aria-hidden="true"><use href="#i-arrow-right"></use></svg></a><p>A focused peer-to-peer file demo.</p></div>
-<div><a href="/messaging-platform/sdk/apps/evidence-chain/app.html">Evidence Chain <svg class="icon" aria-hidden="true"><use href="#i-arrow-right"></use></svg></a><p>Append a record that cannot be quietly rewritten.</p><a class="home-about-link" href="/messaging-platform/sdk/apps/evidence-chain/index.html">About Evidence Chain</a></div>
-<div><a href="/messaging-platform/sdk/apps/dead-drop/app.html">Dead Drop <svg class="icon" aria-hidden="true"><use href="#i-arrow-right"></use></svg></a><p>Leave something for the next participant.</p><a class="home-about-link" href="/messaging-platform/sdk/apps/dead-drop/index.html">About Dead Drop</a></div>
-<div><a href="/messaging-platform/sdk/apps/under-the-hood/app.html">Under the Hood <svg class="icon" aria-hidden="true"><use href="#i-arrow-right"></use></svg></a><p>Inspect the connection as it happens.</p><a class="home-about-link" href="/messaging-platform/sdk/apps/under-the-hood/index.html">About Under the Hood</a></div>
-<div><a href="/messaging-platform/sdk/apps/whiteboard/app.html">Whiteboard history <svg class="icon" aria-hidden="true"><use href="#i-arrow-right"></use></svg></a><p>Explore the saved versions of a board.</p><a class="home-about-link" href="/messaging-platform/sdk/apps/whiteboard/index.html">About the Whiteboard</a></div>
-<div><a href="playground.html">The playground <svg class="icon" aria-hidden="true"><use href="#i-arrow-right"></use></svg></a><p>Explore games and interactive examples.</p></div></div></details>
-      <p class="home-section-link"><a href="../apps/index.html">Browse all Messaging Platform apps <svg class="icon" aria-hidden="true"><use href="#i-arrow-right"></use></svg></a></p>
+  <section class="home-section" id="api" aria-labelledby="api-title">
+    <div class="wrap"><div class="home-section-head"><div><p class="home-eyebrow">The API at a glance</p><h2 id="api-title">One channel carries everything.</h2></div><p>Join a channel once. Messages, presence, state, history and WebRTC signaling all travel over it.</p></div>
+      <div class="table-card"><div class="table-card__scroll"><table class="table"><thead><tr><th>Capability</th><th>JavaScript API</th><th>Also in</th></tr></thead><tbody>
+<tr><td>Messages &amp; events</td><td><code>sendMessage({ content, to })</code> &middot; <code>'message'</code> event</td><td>Python, Java, C++</td></tr>
+<tr><td>History &amp; replay</td><td><code>receive({ globalOffset, limit })</code></td><td>Python, Java, C++</td></tr>
+<tr><td>Presence</td><td><code>getActiveAgents()</code> &middot; <code>'agent-connect'</code> / <code>'agent-disconnect'</code></td><td>Python, Java, C++ (list)</td></tr>
+<tr><td>Shared state</td><td><code>storagePut</code> &middot; <code>storageGet</code> &middot; <code>storageKeys</code></td><td>&mdash;</td></tr>
+<tr><td>WebRTC data &amp; media</td><td><code>new WebRtcHelper(agent)</code>: data channels, streams, TURN</td><td>Java (media), C++ (signaling)</td></tr>
+<tr><td>Files</td><td><code>agent.fileSystem.put</code> &middot; <code>download</code></td><td>&mdash;</td></tr>
+<tr><td>End-to-end payload encryption</td><td>set a <code>channelPassword</code></td><td>Python, Java</td></tr>
+<tr><td>Browser credentials</td><td>your server calls <code>POST /channels/api-access</code></td><td>any server</td></tr>
+</tbody></table></div></div>
     </div>
   </section>
   <section class="home-section home-section--tint" id="quickstart" aria-labelledby="quickstart-title">
@@ -290,10 +253,6 @@ agent.<span class="tok-fn">connect</span>({
       <a class="home-text-link" href="docs.html?doc=WEB-AGENT-GUIDE.md#temporary-api-keys">Read the complete temporary-key guide <svg class="icon" aria-hidden="true"><use href="#i-arrow-right"></use></svg></a>
     </div>
   </section>
-  <section class="home-section home-start" id="start" aria-labelledby="start-title">
-    <div class="wrap">
-      <div class="home-beta-strip" id="status"><p class="home-eyebrow"><span class="home-status-dot" aria-hidden="true"></span>Free during beta</p><p>Free for development, testing and prototypes. APIs may change, uptime is not guaranteed, and production workloads are not recommended today.</p><div class="home-limits"><div><strong>JavaScript</strong><span>channel storage client</span></div><div><strong>Experimental</strong><span>C++ client support</span></div><div><strong>App-specific</strong><span>file-transfer limits and setup</span></div><div><strong>No SLA</strong><span>uptime is not guaranteed</span></div></div></div><p class="home-eyebrow">Make something connected</p><h2 id="start-title">What will you build together?</h2><p>Start with a key. Explore an example. Make it your own.</p><div class="home-actions"><button class="btn btn--lg btn--gradient" type="button" data-open-request>Get a free API key <svg class="icon" aria-hidden="true"><use href="#i-arrow-right"></use></svg></button><a class="btn btn--lg btn--ghost" href="docs.html">Read the docs</a></div></div>
-  </section>
 </main>
 <!-- site-shell:footer (tools/site-shell.cjs; do not edit here) -->
 <footer class="site-shell-footer">
@@ -303,7 +262,7 @@ agent.<span class="tok-fn">connect</span>({
                 <p>Realtime infrastructure for developers: messaging, presence, shared state and WebRTC through one SDK.</p></div>
             <div><h2>Product</h2><ul><li><a href="/messaging-platform/hub/">Overview</a></li><li><a href="/messaging-platform/hub/pricing.html">Pricing</a></li><li><a href="/messaging-platform/hub/quickstart.html">Quickstart</a></li><li><a href="/messaging-platform/apps/status/">Status</a></li></ul></div>
             <div><h2>Developers</h2><ul><li><a href="/messaging-platform/hub/docs.html">Documentation</a></li><li><a href="/messaging-platform/hub/sdk-guide.html">SDK guide</a></li><li><a href="/messaging-platform/hub/developer/index.html">Developer portal</a></li><li><a href="https://github.com/HaithamMubarak/messaging-platform-sdk">GitHub</a></li></ul></div>
-            <div><h2>Explore</h2><ul><li><a href="/messaging-platform/hub/playground.html">Demos</a></li><li><a href="/messaging-platform/apps/">Apps</a></li><li><a href="/messaging-platform/apps/party-arcade/">Games</a></li><li><a href="/messaging-platform/hub/built-with.html">Built with the SDK</a></li></ul></div>
+            <div><h2>Explore</h2><ul><li><a href="/messaging-platform/hub/playground.html">Demos</a></li><li><a href="/messaging-platform/apps/">Apps</a></li><li><a href="/messaging-platform/hub/games.html">Games</a></li><li><a href="/messaging-platform/apps/party-arcade/">Party Arcade</a></li></ul></div>
             <div><h2>Legal</h2><ul><li><a href="/messaging-platform/hub/privacy.html">Privacy</a></li><li><a href="/messaging-platform/hub/terms.html">Terms</a></li><li><a href="https://github.com/HaithamMubarak/messaging-platform-sdk/issues">Support</a></li></ul></div>
         </div>
         <div class="site-shell-footer__legal"><span>&copy; 2026 Messaging Platform</span>

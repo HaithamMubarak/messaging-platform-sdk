@@ -106,9 +106,11 @@ class StaticSiteTest {
         assertThat(home).contains("Catalogue.shelf(cat,'products')");
         String catalogue = read("data/catalogue.json");
         assertThat(catalogue).contains("\"url\": \"/messaging-platform/apps/rooms/\"");
-        // Our own pages open in the same tab, by relative link (not the production URL in a new tab).
-        assertThat(home).contains("href=\"sdk-guide.html\"");
+        // Our own pages open in the same tab (not the production URL in a new tab). Phase 3 (2026-10-03):
+        // the SDK guide is linked from the one site shell's footer, root-absolute like every shell link.
+        assertThat(home).contains("href=\"/messaging-platform/hub/sdk-guide.html\"");
         assertThat(home).doesNotContain("target=\"_blank\"");
+        assertThat(home).doesNotContain("https://hmdevonline.com/messaging-platform/hub/sdk-guide.html");
     }
 
     /*
