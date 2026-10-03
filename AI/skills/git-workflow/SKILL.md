@@ -1,6 +1,6 @@
 ---
 name: git-workflow
-description: Git remote setup and branching workflow for both repos. SDK has two remotes (private origin + public); services has private only. Working branch is develop.
+description: Git remote setup and branching workflow for both repos. both have a single remote, origin (the sdk-private repo was retired 2026-10-03). Working branch is develop.
 when_to_use: Use when pushing, pulling, syncing remotes, or explaining the git setup for either repo.
 ---
 
@@ -21,21 +21,16 @@ git pull origin develop
 
 ### SDK Repo (`messaging-platform-sdk`)
 
-Two remotes:
+One remote only (the `-private` repo was retired 2026-10-03):
 
 | Remote | URL | Purpose |
 |--------|-----|---------|
-| `origin` | `git@github.com:HaithamMubarak/messaging-platform-sdk-private.git` | **Private** — default for day-to-day push/pull |
-| `public` | `git@github.com:HaithamMubarak/messaging-platform-sdk.git` | **Public** — push releases and public-facing changes |
+| `origin` | `git@github.com:HaithamMubarak/messaging-platform-sdk.git` | Public — the only remote |
 
-**Default remote is `origin` (private).** All regular work goes here.
+**Default remote is `origin`.** All work goes here.
 
 ```bash
-# Regular push (private, default)
 git push origin develop
-
-# Push to public repo (releases / public updates only)
-git push public develop
 ```
 
 ### Services Repo (`messaging-platform-services`)
