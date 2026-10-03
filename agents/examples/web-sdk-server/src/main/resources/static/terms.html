@@ -33,21 +33,27 @@
         .effective { margin-top: 20px; font-size: 14px; color: var(--text-muted); }
     </style>
 <link rel="stylesheet" href="/messaging-platform/hub/css/hub-navigation.css">
+<link rel="stylesheet" href="/messaging-platform/hub/css/site-shell.css">
 </head>
 <body>
 <a class="skip-link" href="#content">Skip to the content</a>
+<!-- site-shell:header (tools/site-shell.cjs; do not edit here) -->
 <header class="site-header" id="siteHeader">
-    <div class="wrap site-header__inner">
-        <a class="brand" href="/messaging-platform/hub/"><svg class="logo-mark" aria-hidden="true"><use href="#i-logo"></use></svg>Messaging Platform Hub</a>
-        <button class="btn btn--ghost btn--icon nav-toggle" id="navToggle" aria-expanded="false" aria-controls="siteNav" aria-label="Open menu"><svg class="icon" aria-hidden="true"><use href="#i-menu"></use></svg></button>
-        <nav class="site-nav" id="siteNav" aria-label="Main"><a href="/messaging-platform/hub/">Hub</a>
-<a href="/messaging-platform/apps/">Apps</a>
-<a href="/messaging-platform/apps/party-arcade/">Arcade</a>
-<a href="/messaging-platform/hub/docs.html">Docs</a>
-<a href="/messaging-platform/hub/playground.html">Playground</a>
-<a class="btn btn--gradient" href="developer/index.html">Get a free API key</a></nav>
+    <div class="site-header__inner">
+        <a class="brand" href="/messaging-platform/hub/"><svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><rect width="24" height="24" rx="6" fill="#14b8a6"/><path d="M6 9.5A2.5 2.5 0 0 1 8.5 7h7A2.5 2.5 0 0 1 18 9.5v3a2.5 2.5 0 0 1-2.5 2.5H11l-3.2 2.4A.5.5 0 0 1 7 17V15h-.5A.5.5 0 0 1 6 14.5z" fill="#fff"/><circle cx="9.6" cy="11" r="1" fill="#0b1120"/><circle cx="12" cy="11" r="1" fill="#0b1120"/><circle cx="14.4" cy="11" r="1" fill="#0b1120"/></svg><span>Messaging Platform</span></a>
+        <button class="nav-toggle" id="navToggle" type="button" aria-expanded="false" aria-controls="siteNav" aria-label="Open menu"><svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M4 6h16M4 12h16M4 18h16"/></svg></button>
+        <nav class="site-nav" id="siteNav" aria-label="Main">
+            <a href="/messaging-platform/hub/">Product</a>
+            <a href="/messaging-platform/hub/playground.html">Demos</a>
+            <a href="/messaging-platform/apps/">Apps</a>
+            <a href="/messaging-platform/apps/party-arcade/">Games</a>
+            <a href="/messaging-platform/hub/docs.html">Docs</a>
+            <a href="/messaging-platform/hub/pricing.html">Pricing</a>
+            <a class="site-nav__cta btn--gradient" href="/messaging-platform/hub/developer/index.html?start=free">Start free</a>
+        </nav>
     </div>
 </header>
+<!-- /site-shell:header -->
 <main class="wrap" id="content">
     <article class="prose">
         <h1>Terms of Service</h1>
@@ -80,7 +86,22 @@
         <p>For questions about these terms, privacy, or a Platform account, contact the project operator through the <a href="https://github.com/HaithamMubarak/messaging-platform-sdk/issues" target="_blank" rel="noopener noreferrer">Messaging Platform Hub project</a>.</p>
     </article>
 </main>
-<footer class="site-footer"><div class="wrap"><div class="footer-bottom"><span>&copy; 2026 Messaging Platform Hub</span><span><a href="privacy">Privacy Policy</a></span><span><a href="index.html">Back to the site</a></span></div></div></footer>
+<!-- site-shell:footer (tools/site-shell.cjs; do not edit here) -->
+<footer class="site-shell-footer">
+    <div class="site-shell-footer__inner">
+        <div class="site-shell-footer__cols">
+            <div class="site-shell-footer__about"><a class="brand" href="/messaging-platform/hub/"><svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><rect width="24" height="24" rx="6" fill="#14b8a6"/><path d="M6 9.5A2.5 2.5 0 0 1 8.5 7h7A2.5 2.5 0 0 1 18 9.5v3a2.5 2.5 0 0 1-2.5 2.5H11l-3.2 2.4A.5.5 0 0 1 7 17V15h-.5A.5.5 0 0 1 6 14.5z" fill="#fff"/><circle cx="9.6" cy="11" r="1" fill="#0b1120"/><circle cx="12" cy="11" r="1" fill="#0b1120"/><circle cx="14.4" cy="11" r="1" fill="#0b1120"/></svg><span>Messaging Platform</span></a>
+                <p>Realtime infrastructure for developers: messaging, presence, shared state and WebRTC through one SDK.</p></div>
+            <div><h2>Product</h2><ul><li><a href="/messaging-platform/hub/">Overview</a></li><li><a href="/messaging-platform/hub/pricing.html">Pricing</a></li><li><a href="/messaging-platform/hub/quickstart.html">Quickstart</a></li><li><a href="/messaging-platform/apps/status/">Status</a></li></ul></div>
+            <div><h2>Developers</h2><ul><li><a href="/messaging-platform/hub/docs.html">Documentation</a></li><li><a href="/messaging-platform/hub/sdk-guide.html">SDK guide</a></li><li><a href="/messaging-platform/hub/developer/index.html">Developer portal</a></li><li><a href="https://github.com/HaithamMubarak/messaging-platform-sdk">GitHub</a></li></ul></div>
+            <div><h2>Explore</h2><ul><li><a href="/messaging-platform/hub/playground.html">Demos</a></li><li><a href="/messaging-platform/apps/">Apps</a></li><li><a href="/messaging-platform/apps/party-arcade/">Games</a></li><li><a href="/messaging-platform/hub/built-with.html">Built with the SDK</a></li></ul></div>
+            <div><h2>Legal</h2><ul><li><a href="/messaging-platform/hub/privacy.html">Privacy</a></li><li><a href="/messaging-platform/hub/terms.html">Terms</a></li><li><a href="https://github.com/HaithamMubarak/messaging-platform-sdk/issues">Support</a></li></ul></div>
+        </div>
+        <div class="site-shell-footer__legal"><span>&copy; 2026 Messaging Platform</span>
+            <span>Public beta: APIs may still change, and there is no uptime guarantee yet.</span></div>
+    </div>
+</footer>
+<!-- /site-shell:footer -->
 <script src="js/mp-account.js"></script>
 <script src="js/profile-chip.js"></script>
 </body>

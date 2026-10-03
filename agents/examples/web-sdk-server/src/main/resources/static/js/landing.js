@@ -15,7 +15,9 @@
     function initNav() {
         const header = document.getElementById('siteHeader');
         const toggle = document.getElementById('navToggle');
-        if (!header || !toggle) return;
+        // site-shell.js binds the same toggle on pages without this file; whichever runs first owns it.
+        if (!header || !toggle || toggle.hasAttribute('data-shell-bound')) return;
+        toggle.setAttribute('data-shell-bound', '');
 
         const setOpen = (open) => {
             header.dataset.open = open ? 'true' : 'false';

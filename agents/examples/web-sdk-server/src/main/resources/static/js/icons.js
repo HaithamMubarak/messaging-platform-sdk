@@ -112,11 +112,11 @@
     var LOGO = '<symbol id="i-logo" viewBox="0 0 24 24" fill="none" stroke="none">' +
         '<rect width="24" height="24" rx="6" fill="url(#logoGradient)"/>' +
         '<path d="M6 9.5A2.5 2.5 0 0 1 8.5 7h7A2.5 2.5 0 0 1 18 9.5v3a2.5 2.5 0 0 1-2.5 2.5H11l-3.2 2.4A.5.5 0 0 1 7 17V15h-.5A.5.5 0 0 1 6 14.5z" fill="#fff" fill-opacity=".95"/>' +
-        '<circle cx="9.6" cy="11" r="1" fill="#4338ca"/><circle cx="12" cy="11" r="1" fill="#4338ca"/><circle cx="14.4" cy="11" r="1" fill="#4338ca"/></symbol>';
+        '<circle cx="9.6" cy="11" r="1" fill="#0b1120"/><circle cx="12" cy="11" r="1" fill="#0b1120"/><circle cx="14.4" cy="11" r="1" fill="#0b1120"/></symbol>';
 
     function build() {
         var parts = ['<defs><linearGradient id="logoGradient" x1="0" y1="0" x2="1" y2="1">' +
-            '<stop offset="0%" stop-color="#6366f1"/><stop offset="100%" stop-color="#22d3ee"/>' +
+            '<stop offset="0%" stop-color="#14b8a6"/><stop offset="100%" stop-color="#14b8a6"/>' +
             '</linearGradient></defs>', LOGO, GITHUB];
 
         Object.keys(ICONS).forEach(function (name) {

@@ -10,7 +10,7 @@
 :root {
     --paper: #f6f6f2; --white: #fff; --ink: #253632; --muted: #69756f; --line: #dde2da;
     --green: #225e50; --green-soft: #e9f1e9; --orange: #b54c31; --orange-soft: #faf0e8;
-    --display: 'Bricolage Grotesque', sans-serif; --body: 'Source Sans 3', sans-serif;
+    --display: 'Manrope', ui-sans-serif, system-ui, sans-serif; --body: 'Manrope', ui-sans-serif, system-ui, sans-serif; /* phase 2: the one face design-tokens.css loads */
     --shadow: 0 12px 36px #23372d0b;
     --code-bg: #0f1a17; --code-ink: #d8e6de; --code-muted: #7f978b; --code-key: #7fd1ae; --code-str: #f0b48f;
 }

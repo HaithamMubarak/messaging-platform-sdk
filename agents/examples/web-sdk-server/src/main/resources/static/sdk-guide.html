@@ -36,21 +36,27 @@
     <script src="js/config-loader.js" defer></script>
     <script src="js/home-presence.js" defer></script>
 <link rel="stylesheet" href="/messaging-platform/hub/css/hub-navigation.css">
+<link rel="stylesheet" href="/messaging-platform/hub/css/site-shell.css">
 </head>
 <body class="sdk-home">
 <a class="skip-link" href="#main">Skip to content</a>
+<!-- site-shell:header (tools/site-shell.cjs; do not edit here) -->
 <header class="site-header" id="siteHeader">
-  <div class="wrap site-header__inner">
-    <a class="brand" href="/messaging-platform/hub/" aria-label="Messaging Platform Hub home"><svg class="logo-mark" aria-hidden="true"><use href="#i-logo"></use></svg><span>Messaging Platform Hub</span></a>
-    <button class="btn btn--ghost btn--icon nav-toggle" id="navToggle" aria-expanded="false" aria-controls="siteNav" aria-label="Open menu"><svg class="icon" aria-hidden="true"><use href="#i-menu"></use></svg></button>
-    <nav class="site-nav" id="siteNav" aria-label="Main"><a href="/messaging-platform/hub/">Hub</a>
-<a href="/messaging-platform/apps/">Apps</a>
-<a href="/messaging-platform/apps/party-arcade/">Arcade</a>
-<a href="/messaging-platform/hub/docs.html">Docs</a>
-<a href="/messaging-platform/hub/playground.html">Playground</a>
-<button class="btn btn--gradient" type="button" data-open-request>Get a free API key <svg class="icon" aria-hidden="true"><use href="#i-arrow-right"></use></svg></button></nav>
-  </div>
+    <div class="site-header__inner">
+        <a class="brand" href="/messaging-platform/hub/"><svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><rect width="24" height="24" rx="6" fill="#14b8a6"/><path d="M6 9.5A2.5 2.5 0 0 1 8.5 7h7A2.5 2.5 0 0 1 18 9.5v3a2.5 2.5 0 0 1-2.5 2.5H11l-3.2 2.4A.5.5 0 0 1 7 17V15h-.5A.5.5 0 0 1 6 14.5z" fill="#fff"/><circle cx="9.6" cy="11" r="1" fill="#0b1120"/><circle cx="12" cy="11" r="1" fill="#0b1120"/><circle cx="14.4" cy="11" r="1" fill="#0b1120"/></svg><span>Messaging Platform</span></a>
+        <button class="nav-toggle" id="navToggle" type="button" aria-expanded="false" aria-controls="siteNav" aria-label="Open menu"><svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M4 6h16M4 12h16M4 18h16"/></svg></button>
+        <nav class="site-nav" id="siteNav" aria-label="Main">
+            <a href="/messaging-platform/hub/">Product</a>
+            <a href="/messaging-platform/hub/playground.html">Demos</a>
+            <a href="/messaging-platform/apps/">Apps</a>
+            <a href="/messaging-platform/apps/party-arcade/">Games</a>
+            <a href="/messaging-platform/hub/docs.html" aria-current="page">Docs</a>
+            <a href="/messaging-platform/hub/pricing.html">Pricing</a>
+            <a class="site-nav__cta btn--gradient" href="/messaging-platform/hub/developer/index.html?start=free">Start free</a>
+        </nav>
+    </div>
 </header>
+<!-- /site-shell:header -->
 <main id="main">
   <section class="home-hero" aria-labelledby="hero-title">
     <div class="wrap">
@@ -289,14 +295,22 @@ agent.<span class="tok-fn">connect</span>({
       <div class="home-beta-strip" id="status"><p class="home-eyebrow"><span class="home-status-dot" aria-hidden="true"></span>Free during beta</p><p>Free for development, testing and prototypes. APIs may change, uptime is not guaranteed, and production workloads are not recommended today.</p><div class="home-limits"><div><strong>JavaScript</strong><span>channel storage client</span></div><div><strong>Experimental</strong><span>C++ client support</span></div><div><strong>App-specific</strong><span>file-transfer limits and setup</span></div><div><strong>No SLA</strong><span>uptime is not guaranteed</span></div></div></div><p class="home-eyebrow">Make something connected</p><h2 id="start-title">What will you build together?</h2><p>Start with a key. Explore an example. Make it your own.</p><div class="home-actions"><button class="btn btn--lg btn--gradient" type="button" data-open-request>Get a free API key <svg class="icon" aria-hidden="true"><use href="#i-arrow-right"></use></svg></button><a class="btn btn--lg btn--ghost" href="docs.html">Read the docs</a></div></div>
   </section>
 </main>
-<footer class="site-footer">
-  <div class="wrap"><div class="footer-grid">
-    <div class="footer-col footer-about"><a class="brand" href="/messaging-platform/hub/"><svg class="logo-mark" aria-hidden="true"><use href="#i-logo"></use></svg>Messaging Platform</a><p>Tools for building apps that work together.</p><span class="home-footer-beta">SDK · Free during beta</span></div>
-    <div class="footer-col"><h3>Platform</h3><ul><li><a href="/messaging-platform/hub/">Hub</a></li><li><a href="../apps/index.html">Apps</a></li><li><a href="#demos">Demos</a></li><li><a href="playground.html">Playground</a></li></ul></div>
-    <div class="footer-col"><h3>Developers</h3><ul><li><a href="docs.html">Documentation</a></li><li><a href="#architecture">Architecture</a></li><li><a href="developer/index.html">Developer portal</a></li><li><a href="/messaging-platform/sdk/apps/test-api-key/index.html">Test your key</a></li></ul></div>
-    <div class="footer-col"><h3>Project</h3><ul><li><a href="https://github.com/HaithamMubarak/messaging-platform-sdk" target="_blank" rel="noopener noreferrer">GitHub &amp; roadmap</a></li><li><a href="#status">Beta status</a></li><li><button class="home-footer-request" type="button" data-open-request>Request an API key</button></li></ul></div>
-  </div><div class="footer-bottom"><span>&copy; 2026 Messaging Platform</span><span>Beta · APIs may change</span><a href="privacy">Privacy Policy</a><a href="terms">Terms of Service</a></div></div>
+<!-- site-shell:footer (tools/site-shell.cjs; do not edit here) -->
+<footer class="site-shell-footer">
+    <div class="site-shell-footer__inner">
+        <div class="site-shell-footer__cols">
+            <div class="site-shell-footer__about"><a class="brand" href="/messaging-platform/hub/"><svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><rect width="24" height="24" rx="6" fill="#14b8a6"/><path d="M6 9.5A2.5 2.5 0 0 1 8.5 7h7A2.5 2.5 0 0 1 18 9.5v3a2.5 2.5 0 0 1-2.5 2.5H11l-3.2 2.4A.5.5 0 0 1 7 17V15h-.5A.5.5 0 0 1 6 14.5z" fill="#fff"/><circle cx="9.6" cy="11" r="1" fill="#0b1120"/><circle cx="12" cy="11" r="1" fill="#0b1120"/><circle cx="14.4" cy="11" r="1" fill="#0b1120"/></svg><span>Messaging Platform</span></a>
+                <p>Realtime infrastructure for developers: messaging, presence, shared state and WebRTC through one SDK.</p></div>
+            <div><h2>Product</h2><ul><li><a href="/messaging-platform/hub/">Overview</a></li><li><a href="/messaging-platform/hub/pricing.html">Pricing</a></li><li><a href="/messaging-platform/hub/quickstart.html">Quickstart</a></li><li><a href="/messaging-platform/apps/status/">Status</a></li></ul></div>
+            <div><h2>Developers</h2><ul><li><a href="/messaging-platform/hub/docs.html">Documentation</a></li><li><a href="/messaging-platform/hub/sdk-guide.html">SDK guide</a></li><li><a href="/messaging-platform/hub/developer/index.html">Developer portal</a></li><li><a href="https://github.com/HaithamMubarak/messaging-platform-sdk">GitHub</a></li></ul></div>
+            <div><h2>Explore</h2><ul><li><a href="/messaging-platform/hub/playground.html">Demos</a></li><li><a href="/messaging-platform/apps/">Apps</a></li><li><a href="/messaging-platform/apps/party-arcade/">Games</a></li><li><a href="/messaging-platform/hub/built-with.html">Built with the SDK</a></li></ul></div>
+            <div><h2>Legal</h2><ul><li><a href="/messaging-platform/hub/privacy.html">Privacy</a></li><li><a href="/messaging-platform/hub/terms.html">Terms</a></li><li><a href="https://github.com/HaithamMubarak/messaging-platform-sdk/issues">Support</a></li></ul></div>
+        </div>
+        <div class="site-shell-footer__legal"><span>&copy; 2026 Messaging Platform</span>
+            <span>Public beta: APIs may still change, and there is no uptime guarantee yet.</span></div>
+    </div>
 </footer>
+<!-- /site-shell:footer -->
 <script src="js/mp-account.js"></script>
 <script src="js/profile-chip.js"></script>
 </body>

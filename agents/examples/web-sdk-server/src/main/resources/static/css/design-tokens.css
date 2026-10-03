@@ -5,11 +5,10 @@
    ========================================================================== */
 
 /* The faces. Loaded here, once, so every page and every app that vendors
-   these tokens gets them on refresh. Bricolage Grotesque carries the
-   headings (optical sizes 12..96, so a 64px hero and a 14px card title are
-   cut differently), Source Sans 3 carries the reading, JetBrains Mono the
-   code. Before 2026-09-07 the site named Inter and never loaded it, so every
-   visitor read the system face. */
+   these tokens gets them on refresh: Manrope for headings and reading,
+   JetBrains Mono for code. (Hub consolidation phase 2, 2026-10-03: this said
+   Bricolage Grotesque and Source Sans 3, which nothing loaded; pages that
+   named them read the system face.) */
 @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500&family=Manrope:wght@400;500;600;700;800&display=swap');
 
 :root {

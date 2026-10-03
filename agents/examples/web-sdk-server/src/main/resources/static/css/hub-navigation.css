@@ -1,6 +1,4 @@
-/* Canonical Hub navigation across product and developer landing pages. */
-.site-nav>a[aria-current="page"]{color:var(--accent,#2dd4bf);text-decoration:underline;text-underline-offset:7px}
-.site-nav a,.nav-toggle{min-height:44px}.site-nav a{display:inline-flex;align-items:center}
-.site-header .brand{min-width:0}.site-header .brand span{overflow-wrap:anywhere}.site-header .brand>svg{width:28px;height:28px;flex:0 0 28px}
-@media(max-width:1100px){.site-header .site-header__inner{flex-wrap:wrap;height:auto;min-height:72px;padding-top:12px;padding-bottom:12px;gap:12px}.site-header .nav-toggle{display:inline-flex;align-items:center;justify-content:center;margin-left:auto;width:44px;flex-shrink:0}.site-header .site-nav{display:none;position:static;width:100%;flex-basis:100%;background:var(--bg,#0b1120);padding:12px;border:1px solid rgba(148,163,184,.22);border-radius:12px;gap:6px;flex-direction:column;align-items:stretch}.site-header[data-open="true"] .site-nav{display:flex}.site-header .site-nav>a{padding:10px 14px}.site-header .brand{font-size:clamp(13px,3.6vw,17px);gap:8px}.site-header .brand svg{width:26px;height:26px;flex-shrink:0}}
+/* Canonical Hub navigation: since hub consolidation phase 2 (2026-10-03) this is site-shell.css.
+   Kept as a name because the app landings in messaging-platform-apps load it live from the hub. */
+@import url('site-shell.css');
 @media(prefers-reduced-motion:reduce){html{scroll-behavior:auto!important}}

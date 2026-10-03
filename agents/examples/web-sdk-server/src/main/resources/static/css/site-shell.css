@@ -1,0 +1,93 @@
+/*
+ * The one site shell: the header and footer every public page wears (hub consolidation phase 2,
+ * 2026-10-03). The markup is written into each page by tools/site-shell.cjs; this is its only
+ * stylesheet. Self-contained on purpose: the apps catalogue and some pages load no design tokens,
+ * so every token has its design-tokens.css value as the fallback. Served at
+ * /messaging-platform/hub/css/site-shell.css; hub-navigation.css imports it for the app landings.
+ */
+@import url('https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap');
+
+.site-header {
+    position: sticky; top: 0; z-index: 50;
+    background: color-mix(in srgb, var(--bg, #0b1120) 88%, transparent);
+    backdrop-filter: saturate(140%) blur(10px);
+    border-bottom: 1px solid var(--border, rgba(148, 163, 184, .14));
+    font-family: 'Manrope', system-ui, -apple-system, 'Segoe UI', sans-serif;
+}
+.site-header .site-header__inner {
+    display: flex; align-items: center; gap: 24px;
+    max-width: 1200px; margin: 0 auto; padding: 0 24px; min-height: 64px;
+}
+.site-header .brand {
+    display: inline-flex; align-items: center; gap: 10px; min-width: 0;
+    color: var(--text, #eef2f8); font-weight: 800; font-size: 17px; letter-spacing: -.2px; text-decoration: none;
+}
+.site-header .brand:hover { text-decoration: none; color: var(--text, #eef2f8); }
+.site-header .brand svg { width: 28px; height: 28px; flex: 0 0 28px; }
+.site-header .site-nav { display: flex; align-items: center; gap: 4px; margin-left: auto; }
+.site-header .site-nav > a {
+    display: inline-flex; align-items: center; min-height: 44px; padding: 0 12px; border-radius: 8px;
+    color: var(--text-body, #c4cede); font-size: 15px; font-weight: 600; text-decoration: none;
+}
+.site-header .site-nav > a:hover { color: var(--text, #eef2f8); background: var(--surface-2, #16203a); text-decoration: none; }
+.site-header .site-nav > a[aria-current="page"] { color: var(--accent, #2dd4bf); }
+.site-header .site-nav > a.site-nav__cta {
+    margin-left: 8px; padding: 0 18px; background: var(--brand, #d9482f); color: #fff;
+}
+.site-header .site-nav > a.site-nav__cta:hover { background: color-mix(in srgb, var(--brand, #d9482f) 85%, #fff); color: #fff; }
+.site-header .nav-toggle {
+    display: none; align-items: center; justify-content: center; margin-left: auto;
+    width: 44px; height: 44px; flex: 0 0 44px; border-radius: 8px; cursor: pointer;
+    background: transparent; color: var(--text, #eef2f8); border: 1px solid var(--border-strong, rgba(148, 163, 184, .28));
+}
+.site-header .nav-toggle svg { width: 22px; height: 22px; stroke: currentColor; stroke-width: 2; fill: none; stroke-linecap: round; }
+
+@media (max-width: 1000px) {
+    .site-header .site-header__inner { flex-wrap: wrap; padding-top: 10px; padding-bottom: 10px; gap: 12px; }
+    .site-header .nav-toggle { display: inline-flex; }
+    .site-header .site-nav {
+        display: none; flex-basis: 100%; flex-direction: column; align-items: stretch; gap: 4px; margin: 0;
+        padding: 10px; border: 1px solid var(--border-strong, rgba(148, 163, 184, .28)); border-radius: 12px;
+        background: var(--surface-1, #101827);
+    }
+    .site-header[data-open="true"] .site-nav { display: flex; }
+    .site-header .site-nav > a.site-nav__cta { margin: 6px 0 0; justify-content: center; }
+}
+@media (max-width: 360px) {
+    .site-header .site-header__inner { padding-left: 16px; padding-right: 16px; }
+    .site-header .brand { font-size: 15px; }
+}
+
+.site-shell-footer {
+    margin-top: 64px; border-top: 1px solid var(--border, rgba(148, 163, 184, .14));
+    background: var(--bg, #0b1120); color: var(--text-muted, #8a97ab);
+    font-family: 'Manrope', system-ui, -apple-system, 'Segoe UI', sans-serif; font-size: 14px;
+}
+.site-shell-footer .site-shell-footer__inner { max-width: 1200px; margin: 0 auto; padding: 48px 24px 28px; }
+.site-shell-footer .site-shell-footer__cols {
+    display: grid; grid-template-columns: minmax(0, 1.4fr) repeat(4, minmax(0, 1fr)); gap: 32px;
+}
+.site-shell-footer .brand {
+    display: inline-flex; align-items: center; gap: 10px; color: var(--text, #eef2f8);
+    font-weight: 800; font-size: 16px; text-decoration: none;
+}
+.site-shell-footer .brand svg { width: 26px; height: 26px; flex: 0 0 26px; }
+.site-shell-footer .site-shell-footer__about p { margin: 12px 0 0; max-width: 32ch; line-height: 1.55; }
+.site-shell-footer h2 {
+    margin: 0 0 10px; font-size: 12px; font-weight: 700; letter-spacing: 1.2px; text-transform: uppercase;
+    color: var(--text, #eef2f8);
+}
+.site-shell-footer ul { list-style: none; margin: 0; padding: 0; }
+.site-shell-footer li a {
+    display: inline-flex; align-items: center; min-height: 36px; color: var(--text-muted, #8a97ab); text-decoration: none;
+}
+.site-shell-footer li a:hover { color: var(--text, #eef2f8); text-decoration: underline; text-underline-offset: 4px; }
+.site-shell-footer .site-shell-footer__legal {
+    display: flex; flex-wrap: wrap; justify-content: space-between; gap: 8px 24px;
+    margin-top: 36px; padding-top: 20px; border-top: 1px solid var(--border, rgba(148, 163, 184, .14)); font-size: 13px;
+}
+@media (max-width: 900px) {
+    .site-shell-footer .site-shell-footer__cols { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .site-shell-footer .site-shell-footer__about { grid-column: 1 / -1; }
+}
+@media (pointer: coarse) { .site-shell-footer li a { min-height: 44px; } }
