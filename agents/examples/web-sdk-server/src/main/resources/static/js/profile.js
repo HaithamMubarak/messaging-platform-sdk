@@ -87,9 +87,7 @@
         el('signedIn').hidden = !signedIn;
         el('signedOut').hidden = !!signedIn;
         if (!signedIn) {
-            var nav = el('developerNavAction');
-            nav.textContent = 'Request API access';
-            nav.href = 'hub/developer/index.html';
+            setDeveloperNav('Request API access', 'hub/developer/index.html');
         }
     }
 
@@ -125,8 +123,11 @@
         el('pDeveloperNote').textContent = '';
     }
 
+    /** The header's call to action speaks to this visitor. Since the one site shell (2026-10-03) it is the shell's
+     *  .site-nav__cta; the old page-own #developerNavAction is still honoured if a page has one. */
     function setDeveloperNav(label, href) {
-        var nav = el('developerNavAction');
+        var nav = el('developerNavAction') || document.querySelector('.site-nav__cta');
+        if (!nav) return;
         nav.textContent = label;
         nav.href = href;
     }
