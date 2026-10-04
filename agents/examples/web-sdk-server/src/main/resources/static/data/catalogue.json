@@ -1,6 +1,6 @@
 {
-  "about": "The one list of what the platform shows and ships. hub.html and playground.html render it; test/js/catalogue.test.js fails if an entry claims a primitive its source never calls, if a link or image is missing, or if a page grows a hand-written card again. Paths in `source` are relative to static/. Apps whose code lives in the apps repo have no `source`, so their claims are checked there, not here.",
-  "highlights": ["whiteboard", "pulse", "under-the-hood", "rooms", "blockparty"],
+  "about": "The one list of what the platform shows and ships. hub.html and playground.html render it, with the products merged in from the apps catalogue's products.json (js/catalogue.js); test/js/catalogue.test.js fails if an entry claims a primitive its source never calls, if a link or image is missing, or if a page grows a hand-written card again. Paths in `source` are relative to static/. Apps whose code lives in the apps repo have no `source`, so their claims are checked there, not here.",
+  "highlights": ["whiteboard", "pulse", "under-the-hood"],
   "built": ["rooms", "blockparty", "party-arcade", "proof"],
   "start": [{ "id": "chat", "what": "messages and presence" }, { "id": "pulse", "what": "storage with history" }, { "id": "whiteboard", "what": "shared state" }],
   "primitives": {
@@ -172,77 +172,6 @@
       "id": "open-outcry", "name": "Open Outcry", "audience": "play", "status": "moved", "movedTo": "party-arcade",
       "note": "Now a game in Party Arcade, refereed by its server.",
       "url": "/messaging-platform/sdk/apps/mini-games/open-outcry/index.html"
-    },
-    {
-      "id": "rooms", "name": "Rooms", "audience": "use", "shelf": "products", "status": "live",
-      "primitives": ["presence", "video", "host"], "solo": false, "category": "Meet",
-      "label": "Flagship app · free, with host plans",
-      "url": "/messaging-platform/apps/rooms/", "about": "/messaging-platform/apps/rooms/index.html",
-      "image": "img/playground/rooms.webp", "imageAlt": "The Rooms page: \"One link carries the whole room\", with Start a room and the counts underneath — one link, one channel, no media servers.", "icon": "i-video",
-      "blurb": "Calls, screen sharing and a space to work together.",
-      "text": "Sign in, make a room, send one link. Camera, screen share, a shared whiteboard, live quizzes and the graphs from them — all on screen at once. Streams go straight to the people watching them; the channel carries only who is here.",
-      "badges": ["WebRTC streaming", "Screen share", "Presence", "Host relay"]
-    },
-    {
-      "id": "blockparty", "name": "BlockParty", "audience": "play", "shelf": "products", "status": "live",
-      "primitives": ["host", "presence", "storage"], "solo": true, "category": "Play",
-      "label": "Flagship game · free to play, Host Pass for hosts",
-      "url": "/messaging-platform/apps/blockparty/play.html", "about": "/messaging-platform/apps/blockparty/",
-      "image": "img/playground/blockparty.webp", "imageAlt": "BlockParty with 64 bricks built on the ground plane and the brick-size and colour palette along the bottom.", "icon": "i-database",
-      "blurb": "Party games in a shared voxel world. Players join free.",
-      "text": "A shared 3D voxel world you build together in real time, pinned to real coordinates on Earth. The world persists, so it is still there when you come back. Party nights of three games are free; a host can buy a Host Pass for five-game events. Players never pay.",
-      "badges": ["Channel storage", "Presence", "Host relay"]
-    },
-    {
-      "id": "party-arcade", "name": "Party Arcade", "audience": "play", "shelf": "products", "status": "live",
-      "primitives": ["presence", "host"], "solo": false, "category": "Play",
-      "label": "Games for your next get-together",
-      "url": "/messaging-platform/apps/party-arcade/",
-      "image": "/messaging-platform/apps/party-arcade/previews/basketball.png", "imageAlt": "SkyJam street basketball in Party Arcade: two against two on a sunset court, with the score, the clock and a super meter.", "icon": "i-users",
-      "blurb": "One private party code. Sixteen browser games.",
-      "text": "Create a party with your nickname and invite friends using its code. Sixteen games, including Reactor, Pictionary, Find the Liar, Chess, Air Hockey and the party games Chorus, Autocue, Nudge and Open Outcry, with mouse, keyboard or touch controls and AI players in supported games. Player counts vary by game.",
-      "badges": ["One party code", "16 games"]
-    },
-    {
-      "id": "proof",
-      "name": "Proof",
-      "audience": "use",
-      "shelf": "products",
-      "status": "live",
-      "primitives": [
-        "attest",
-        "vault"
-      ],
-      "solo": true,
-      "category": "Prove",
-      "label": "Product · records nobody can quietly rewrite",
-      "url": "/messaging-platform/apps/proof/",
-      "about": "/messaging-platform/apps/proof/",
-      "image": "/messaging-platform/apps/assets/images/proof.png",
-      "imageAlt": "Proof: a chain of three sealed entries, verified offline",
-      "blurb": "Records nobody can quietly rewrite.",
-      "text": "One product for consent, handovers, inspections, screenings and doors: sealed in your browser, verifiable by anyone, readable only by you."
-    },
-    {
-      "id": "droppro", "name": "Drop Pro", "audience": "use", "shelf": "products", "status": "live",
-      "primitives": ["binary", "p2p"], "solo": false, "category": "Share",
-      "label": "File sharing",
-      "url": "/messaging-platform/apps/droppro/",
-      "image": "img/playground/drop-pro.webp", "imageAlt": "The Drop Pro page: your file never touches our server, with 0 bytes stored, 16 KB chunks, SHA-256 on both ends and a 1.5 GB ceiling.", "icon": "i-download",
-      "blurb": "Send large files straight between browsers.",
-      "text": "Drop, taken all the way to a product: files go straight between browsers, checked end to end with SHA-256, with progress and a receive limit.",
-      "badges": ["Binary transfer", "Integrity check"]
-    },
-    {
-      "id": "terminal", "name": "Shared terminal", "audience": "use", "shelf": "products", "status": "live",
-      "primitives": ["directed", "p2p"], "solo": false, "category": "Collaborate",
-      "label": "CoShell · work together",
-      "url": "/messaging-platform/sdk/apps/terminal/app.html", "about": "/messaging-platform/apps/coshell/",
-      "image": "img/playground/shared-terminal.webp", "imageAlt": "The shared terminal joined to a room as AMINA with Remote Share connected, its shell picker along the top and no session started yet.", "icon": "i-terminal",
-      "blurb": "A real terminal in the browser, shared one tab at a time.",
-      "text": "A real terminal in the browser, shared one tab at a time. Whoever you invite watches read-only until you say otherwise, and that permission is enforced on your machine rather than theirs. Needs a small local helper.",
-      "badges": ["Directed messages", "Per-person permissions", "Needs a local helper"],
-      "source": ["apps/terminal/terminal.js", "apps/terminal/terminal-sharing.js"]
     },
     {
       "id": "rewind", "name": "Rewind", "audience": "learn", "status": "moved", "movedTo": "whiteboard",

@@ -43,7 +43,25 @@ function sdkFile(url) {
 
 const live = cat.entries.filter((e) => e.status === 'live');
 
+/*
+ * The products are not in catalogue.json since 2026-10-05 (plan P1): apps-service publishes
+ * products.json, written from each app's app.json, and js/catalogue.js merges it. When the
+ * services checkout sits beside this one its ids count as live; the public build has none.
+ */
+const PRODUCTS_JSON = path.join(APPS_DIR, '..', 'messaging-platform-services', 'docker', 'apps-service', 'products.json');
+const productIds = fs.existsSync(PRODUCTS_JSON) ? JSON.parse(fs.readFileSync(PRODUCTS_JSON, 'utf8')).products.map((p) => p.id) : null;
+const liveId = (id) => live.some((l) => l.id === id) || (productIds ? productIds.includes(id) : true);
+
 console.log('catalogue');
+
+check('catalogue.json describes no product: they come from the apps catalogue', () => {
+    assert.deepStrictEqual(cat.entries.filter((e) => e.shelf === 'products').map((e) => e.id), []);
+});
+
+check('every product the hub features is one the apps catalogue publishes', () => {
+    if (!productIds) { console.log('    (skipped: no services checkout beside this one)'); return; }
+    assert.deepStrictEqual((cat.built || []).filter((id) => !productIds.includes(id)), []);
+});
 
 check('every live entry has the fields the pages render', () => {
     const bad = live.filter((e) => !e.id || !e.name || !e.url || !e.image || !e.blurb || !e.text
@@ -139,7 +157,7 @@ check('every "Product:" link names a published app', () => {
 
 check('a moved entry says where it went, and that place is a live entry', () => {
     const bad = cat.entries.filter((e) => e.status === 'moved')
-        .filter((e) => !e.note || (e.movedTo && !live.some((l) => l.id === e.movedTo)));
+        .filter((e) => !e.note || (e.movedTo && !liveId(e.movedTo)));
     assert.deepStrictEqual(bad.map((e) => e.id), []);
 });
 

@@ -17,12 +17,30 @@
 
     let pending = null;
 
-    /** The catalogue, fetched once per page. Relative: hub/ and sdk/ both serve data/. */
+    /*
+     * The products come from the apps catalogue (2026-10-05, plan P1): apps-service publishes
+     * products.json, written from each app's app.json, so a product is described once. This
+     * file only says which of them the hub features (`built`). Without the apps catalogue
+     * (a public SDK checkout on its own) the product shelves are simply empty.
+     */
+    const PRODUCTS = '/messaging-platform/apps/products.json';
+
+    function products() {
+        return fetch(PRODUCTS, { cache: 'no-cache' })
+            .then((r) => (r.ok ? r.json() : { products: [] }))
+            .then((p) => p.products || [], () => []);
+    }
+
+    /** The catalogue with the products merged in, fetched once per page. Relative: hub/ and sdk/ both serve data/. */
     function load() {
         if (!pending) {
-            pending = fetch('data/catalogue.json', { cache: 'no-cache' }).then((r) => {
+            const own = fetch('data/catalogue.json', { cache: 'no-cache' }).then((r) => {
                 if (!r.ok) throw new Error('catalogue ' + r.status);
                 return r.json();
+            });
+            pending = Promise.all([own, products()]).then(([cat, prods]) => {
+                cat.entries = cat.entries.filter((e) => e.shelf !== 'products').concat(prods);
+                return cat;
             });
         }
         return pending;
