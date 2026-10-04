@@ -1231,6 +1231,14 @@ class UserConnectionBase {
                     }
                 }
             }
+
+            // An arrival can change the host too. A joiner that counted itself host before
+            // the real host was in its list latched wasHost = true, and with no re-check
+            // here the real host's later departure produced no "became host" edge, so
+            // host_lost was never sent (test/js/host-lost.test.js, 2026-10-05).
+            setTimeout(() => {
+                this._checkHostChange();
+            }, 100);
         });
 
         // Agent disconnect event
