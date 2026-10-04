@@ -5,7 +5,7 @@
  * so a finished game left nothing behind, and there was no sense of how long
  * anyone had been thinking.
  */
-const { BASE } = require('../lib/harness');
+const { BASE, LAUNCH } = require('../lib/harness');
 const { chromium } = require('playwright');
 const { useChannelForm } = require('../lib/party-room');
 const pass = [], fail = [];
@@ -30,8 +30,7 @@ async function join(b, room, name) {
 }
 
 (async () => {
-    const b = await chromium.launch({ headless: false,
-        args: ['--no-sandbox', '--enable-unsafe-swiftshader', '--use-gl=angle', '--use-angle=swiftshader'] });
+    const b = await chromium.launch(LAUNCH);   // the harness's browser (Edge where Playwright's Chromium is not installed)
 
     const room = 'cf' + Math.floor(Date.now() / 1000);
     const white = await join(b, room, 'White');

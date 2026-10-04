@@ -10,7 +10,7 @@
  * participant and asserts the first one ignores it. The forgeries are sent with
  * the app's own send path, so nothing here depends on a private API.
  */
-const { BASE, SHOTS } = require('../lib/harness');
+const { BASE, SHOTS, LAUNCH } = require('../lib/harness');
 const { chromium } = require('playwright');
 const { useChannelForm } = require('../lib/party-room');
 const pass = [], fail = [];
@@ -40,8 +40,7 @@ async function join(b, path, name, room, ready) {
 }
 
 (async () => {
-    const b = await chromium.launch({ headless: false,
-        args: ['--no-sandbox', '--enable-unsafe-swiftshader', '--use-gl=angle', '--use-angle=swiftshader'] });
+    const b = await chromium.launch(LAUNCH);   // the harness's browser (Edge where Playwright's Chromium is not installed)
 
     // ---- pulse: one person voting as many ---------------------------------
     {
