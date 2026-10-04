@@ -54,6 +54,16 @@ const liveId = (id) => live.some((l) => l.id === id) || (productIds ? productIds
 
 console.log('catalogue');
 
+// Plan P4 (2026-10-05): the Demos page's Source buttons open GitHub at cat.github + source[0].
+// The base must be this repo (the shell's GitHub link), its develop branch (what production
+// runs), and the static folder these source paths are relative to, or every link 404s.
+check('the Source links open this repo on GitHub, at the files the catalogue names', () => {
+    const repo = require('../../../tools/site-shell.cjs').footer().match(/href="(https:\/\/github\.com\/[^"/]+\/[^"/]+)"/)[1];
+    assert.strictEqual(cat.github, repo + '/blob/develop/agents/examples/web-sdk-server/src/main/resources/static/');
+    const rel = path.relative(path.join(__dirname, '..', '..', '..', '..', '..', '..'), STATIC).split(path.sep).join('/');
+    assert.ok(cat.github.endsWith('/blob/develop/' + rel + '/'), 'the GitHub path is not where static/ lives in this repo: ' + rel);
+});
+
 check('catalogue.json describes no product: they come from the apps catalogue', () => {
     assert.deepStrictEqual(cat.entries.filter((e) => e.shelf === 'products').map((e) => e.id), []);
 });

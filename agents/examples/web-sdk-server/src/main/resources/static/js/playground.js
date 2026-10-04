@@ -70,10 +70,11 @@
     }
 
     /** Two clear actions, then the links: Open, Source (or Details), then the product it became. */
-    function actions(entry) {
+    function actions(cat, entry) {
         var f = el('div', 'media-card__actions');
         f.appendChild(link(entry.url, 'btn-primary', 'Open'));
-        if (entry.source) f.appendChild(link('/messaging-platform/sdk/' + entry.source[0], 'btn-secondary', 'Source'));
+        // On GitHub (plan P4): highlighted, with history, and the file beside it. The served copy is the fallback.
+        if (entry.source) f.appendChild(link((cat.github || '/messaging-platform/sdk/') + entry.source[0], 'btn-secondary', 'Source'));
         else if (entry.about && entry.about !== entry.url) f.appendChild(link(entry.about, 'btn-secondary', 'Details'));
         if (entry.product) f.appendChild(link(entry.product.url, 'btn-secondary', 'Product: ' + entry.product.name));
         (entry.links || []).forEach(function (l) { f.appendChild(link(l.url, 'btn-secondary', l.label)); });
@@ -91,7 +92,7 @@
         body.append(el('p', 'media-card__meta', entry.pattern || entry.category || (entry.badges || []).slice(0, 3).join(' · ')),
             el('h3', '', entry.name), el('p', 'media-card__lead', entry.blurb));
         if (entry.call) body.appendChild(el('code', 'media-card__call', entry.call));
-        body.append(tags(entry), actions(entry));
+        body.append(tags(entry), actions(cat, entry));
         a.append(art, body);
         return a;
     }

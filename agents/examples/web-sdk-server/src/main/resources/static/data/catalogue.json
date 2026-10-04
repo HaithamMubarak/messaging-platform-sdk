@@ -2,6 +2,7 @@
   "about": "The one list of what the platform shows and ships. hub.html and playground.html render it, with the products merged in from the apps catalogue's products.json (js/catalogue.js); test/js/catalogue.test.js fails if an entry claims a primitive its source never calls, if a link or image is missing, or if a page grows a hand-written card again. Paths in `source` are relative to static/. Apps whose code lives in the apps repo have no `source`, so their claims are checked there, not here.",
   "highlights": ["whiteboard", "pulse", "under-the-hood"],
   "built": ["rooms", "blockparty", "party-arcade", "proof"],
+  "github": "https://github.com/HaithamMubarak/messaging-platform-sdk/blob/develop/agents/examples/web-sdk-server/src/main/resources/static/",
   "start": [{ "id": "chat", "what": "messages and presence" }, { "id": "pulse", "what": "storage with history" }, { "id": "whiteboard", "what": "shared state" }],
   "primitives": {
     "presence":  { "label": "Presence",          "hub": "Presence",  "evidence": "onUserJoin|onUserLeave|getConnectedUsers|connectedAgents|getActiveAgents|agent-connect" },
