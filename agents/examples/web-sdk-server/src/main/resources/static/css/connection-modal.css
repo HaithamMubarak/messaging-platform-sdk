@@ -139,8 +139,8 @@
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    background: linear-gradient(135deg, #6965db 0%, #7c3aed 100%);
-    color: white;
+    background: var(--brand, #2dd4bf);
+    color: var(--on-brand, #04201c);
     border: none;
     border-radius: 8px;
     cursor: pointer;
@@ -149,7 +149,7 @@
 
 .connection-modal .quick-connect-btn button:hover {
     transform: translateY(-1px);
-    box-shadow: 0 4px 8px rgba(105, 101, 219, 0.3);
+    box-shadow: 0 4px 8px rgba(45, 212, 191, 0.3);
 }
 
 /* Old quick-connect styles (keep for backward compatibility) */
@@ -181,8 +181,8 @@
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    background: linear-gradient(135deg, #6965db 0%, #7c3aed 100%);
-    color: white;
+    background: var(--brand, #2dd4bf);
+    color: var(--on-brand, #04201c);
     border: none;
     border-radius: 6px;
     cursor: pointer;
@@ -191,7 +191,7 @@
 
 .connection-modal .quick-connect button:hover {
     transform: translateY(-1px);
-    box-shadow: 0 4px 8px rgba(105, 101, 219, 0.3);
+    box-shadow: 0 4px 8px rgba(45, 212, 191, 0.3);
 }
 
 .connection-modal .quick-connect button svg {
@@ -322,8 +322,8 @@
 .connection-modal input[type="email"]:focus,
 .connection-modal input[type="password"]:focus {
     outline: none;
-    border-color: #6965db;
-    box-shadow: 0 0 0 3px rgba(105, 101, 219, 0.1);
+    border-color: var(--brand, #2dd4bf);
+    box-shadow: 0 0 0 3px rgba(45, 212, 191, 0.1);
 }
 
 .connection-modal input[type="text"]:read-only,
@@ -378,12 +378,12 @@
 }
 
 .connection-modal .btn-primary {
-    background: #6965db;
-    color: white;
+    background: var(--brand, #2dd4bf);
+    color: var(--on-brand, #04201c);
 }
 
 .connection-modal .btn-primary:hover {
-    background: #5753c6;
+    background: var(--brand-hover, #5eead4);
 }
 
 .connection-modal .ghost {
@@ -537,8 +537,8 @@ button[id*="disconnect"]:hover,
 .connection-modal #quickConnectBtn,
 #connectBtn,
 #quickConnectBtn {
-    background: #6965db;
-    color: #ffffff;
+    background: var(--brand, #2dd4bf);
+    color: var(--on-brand, #04201c);
     border: none;
     border-radius: 8px;
     font-size: 14px;
@@ -562,7 +562,7 @@ button[id*="disconnect"]:hover,
 .connection-modal #quickConnectBtn:hover,
 #connectBtn:hover,
 #quickConnectBtn:hover {
-    background: #5753c6;
+    background: var(--brand-hover, #5eead4);
     transform: translateY(-1px);
     box-shadow: 0 2px 6px rgba(0, 0, 0, 0.15);
 }

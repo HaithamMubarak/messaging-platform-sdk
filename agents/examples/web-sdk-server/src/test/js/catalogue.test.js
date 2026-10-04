@@ -144,10 +144,13 @@ const movedFolders = cat.entries.filter((e) => e.status === 'moved').map((e) => 
 
 // Hub consolidation, phase 1 (2026-10-03): the hand-written "What you can build" grid linked to two
 // moved demos (collab-doc, rewind) for a week while every catalogue check stayed green.
-check('every hub capability card that opens an SDK page opens a live demo', () => {
+// Landing redesign L2 (2026-10-04): the cards became six primitive tabs, each with one "Open the
+// ... demo" button. The promise moves with them: every primitive opens a live demo.
+check('every hub primitive tab opens a live demo', () => {
     const live = new Set(cat.entries.filter((e) => e.status !== 'moved').map((e) => folderOf(e.url)).filter(Boolean));
-    const cards = [...read('hub.html').matchAll(/<a class="mp-card" href="([^"]+)"/g)].map((m) => m[1]);
-    assert.ok(cards.length >= 6, 'found only ' + cards.length + ' capability cards');
+    const panels = read('hub.html').split('class="home-tab" role="tabpanel"').slice(1);
+    const cards = panels.map((p) => (p.match(/<a class="mp-btn mp-btn--primary" href="([^"]+)"/) || [])[1]).filter(Boolean);
+    assert.ok(cards.length >= 6, 'found only ' + cards.length + ' primitive tabs with a demo');
     for (const href of cards.filter((h) => h.startsWith(SDK))) {
         assert.ok(live.has(folderOf(href)), href + ' is not a live catalogue entry');
     }
@@ -208,6 +211,35 @@ check('no app page links to a moved demo', () => {
         for (const folder of movedFolders) {
             if (html.includes(SDK + folder) || html.includes('/sdk/' + folder)) bad.push(path.relative(apps, page) + ' -> ' + folder);
         }
+    }
+    assert.deepStrictEqual(bad, []);
+});
+
+/*
+ * The hub and the Games page state counts the SDK cannot see: products (the apps catalogue's
+ * cards, rendered from app.json) and Party Arcade's games (its catalog.ts). Plan 4.8: counts
+ * come from data. They are written as text and checked here against that data when the
+ * sibling checkouts are present, the way verify-catalogue checks the catalogue's own prose.
+ */
+const WORDS = { one: 1, two: 2, three: 3, four: 4, five: 5, six: 6, seven: 7, eight: 8, nine: 9, ten: 10, eleven: 11, twelve: 12,
+    thirteen: 13, fourteen: 14, fifteen: 15, sixteen: 16, seventeen: 17, eighteen: 18, nineteen: 19, twenty: 20 };
+const SERVICES_INDEX = path.join(APPS_DIR, '..', 'messaging-platform-services', 'docker', 'apps-service', 'index.html');
+const PA_CATALOG = path.join(APPS_DIR, 'apps', 'party-arcade', 'src', 'shared', 'catalog.ts');
+
+function claims(page, noun) {
+    const text = read(page).replace(/<[^>]+>/g, ' ');
+    return [...text.matchAll(new RegExp('\\b(\\d+|' + Object.keys(WORDS).join('|') + ')\\s+' + noun, 'gi'))]
+        .map((m) => [m[0], /^\d/.test(m[1]) ? +m[1] : WORDS[m[1].toLowerCase()]]);
+}
+
+check('the hub and Games page count products and games from the data', () => {
+    if (!fs.existsSync(SERVICES_INDEX) || !fs.existsSync(PA_CATALOG)) { console.log('    (skipped: no apps/services checkout beside this one)'); return; }
+    const products = (fs.readFileSync(SERVICES_INDEX, 'utf8').match(/data-card="/g) || []).length;
+    const games = (fs.readFileSync(PA_CATALOG, 'utf8').match(/\{\s*id:\s*'[^']+'/g) || []).length;
+    const bad = [];
+    for (const [said, n] of claims('hub.html', 'products')) if (n !== products) bad.push(`hub.html says "${said}", the catalogue has ${products}`);
+    for (const page of ['hub.html', 'games.html']) {
+        for (const [said, n] of claims(page, 'games')) if (n !== games) bad.push(`${page} says "${said}", Party Arcade has ${games}`);
     }
     assert.deepStrictEqual(bad, []);
 });

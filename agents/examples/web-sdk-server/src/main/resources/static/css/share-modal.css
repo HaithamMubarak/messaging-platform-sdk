@@ -129,8 +129,8 @@
 .modal .btn-success,
 #share-modal button,
 #decrypt-modal button {
-    background: #6965db;
-    color: white;
+    background: var(--brand, #2dd4bf);
+    color: var(--on-brand, #04201c);
     border: none;
     padding: 10px 16px;
     border-radius: 8px;
@@ -150,9 +150,9 @@
 .modal .btn-primary:hover,
 #share-modal button:hover,
 #decrypt-modal button:hover {
-    background: #5753c6;
+    background: var(--brand-hover, #5eead4);
     transform: translateY(-1px);
-    box-shadow: 0 4px 8px rgba(105, 101, 219, 0.3);
+    box-shadow: 0 4px 8px rgba(45, 212, 191, 0.3);
 }
 
 .modal button:not(.color-btn):active,
@@ -224,8 +224,8 @@
 #share-modal input:focus,
 #decrypt-modal input:focus {
     outline: none;
-    border-color: #6965db;
-    box-shadow: 0 0 0 4px rgba(105, 101, 219, 0.2);
+    border-color: var(--brand, #2dd4bf);
+    box-shadow: 0 0 0 4px rgba(45, 212, 191, 0.2);
     background: rgba(255, 255, 255, 0.08);
 }
 
@@ -243,18 +243,18 @@
 .modal .copy-btn,
 #share-modal .copy-btn {
     background: transparent;
-    border: 1px solid rgba(105, 101, 219, 0.5);
-    color: #6965db;
+    border: 1px solid rgba(45, 212, 191, 0.5);
+    color: var(--brand, #2dd4bf);
     padding: 8px 12px;
     font-size: 13px;
 }
 
 .modal .copy-btn:hover,
 #share-modal .copy-btn:hover {
-    background: rgba(105, 101, 219, 0.1);
-    border-color: #6965db;
+    background: rgba(45, 212, 191, 0.1);
+    border-color: var(--brand, #2dd4bf);
     color: #7c73e8;
-    box-shadow: 0 2px 6px rgba(105, 101, 219, 0.2);
+    box-shadow: 0 2px 6px rgba(45, 212, 191, 0.2);
 }
 
 /* Close button (if any) */

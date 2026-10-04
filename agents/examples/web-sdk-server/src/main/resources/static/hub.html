@@ -20,9 +20,7 @@
 (function(){var h=location.hash;if(h==='#demos')location.replace('playground.html');else if(h==='#apps')location.replace('/messaging-platform/apps/');})();
 </script>
 <link rel="stylesheet" href="/messaging-platform/hub/css/design-tokens.css">
-<link rel="stylesheet" href="/messaging-platform/hub/css/hub-product.css">
-<link rel="stylesheet" href="/messaging-platform/hub/css/hub-profile-theme.css">
-<link rel="stylesheet" href="/messaging-platform/hub/css/hub-home.css">
+<link rel="stylesheet" href="/messaging-platform/hub/css/site.css">
 <link rel="stylesheet" href="/messaging-platform/hub/css/site-shell.css">
 </head>
 <body class="mp-page">
@@ -48,85 +46,82 @@
 
 <section class="home-hero" aria-labelledby="page-title">
 <div>
-<p class="mp-eyebrow">Realtime infrastructure for developers</p>
+<p class="home-badge"><i aria-hidden="true"></i>Public beta · free while it lasts</p>
 <h1 id="page-title">Build realtime apps<br><em>without building realtime infrastructure.</em></h1>
-<p class="mp-lead">Messaging, presence, shared state and WebRTC through one SDK and a managed backend. Connect browsers, servers, AI agents and games in minutes.</p>
-<div class="mp-actions"><a class="mp-btn mp-btn--primary" href="developer/index.html?start=free">Start free</a><a class="mp-btn" href="playground.html">See the demos</a><a class="mp-link" href="quickstart.html">View quickstart &rarr;</a></div>
+<p class="mp-lead">Messaging, presence, shared state and WebRTC through one SDK and a managed backend. Browsers, servers, AI agents and games on one channel.</p>
+<div class="mp-actions"><a class="mp-btn mp-btn--primary" href="developer/index.html?start=free">Start free</a><a class="mp-btn" href="playground.html">Try a live demo</a></div>
 <div class="mp-langs"><span>SDKs for</span><a class="mp-lang" href="quickstart.html#js">JavaScript</a><a class="mp-lang" href="quickstart.html#python">Python</a><a class="mp-lang" href="quickstart.html#java">Java</a><a class="mp-lang" href="quickstart.html#cpp">C++ <small>experimental</small></a></div>
 </div>
-<figure class="home-shot"><figcaption><i></i><i></i><i></i><span>Whiteboard, built with the SDK</span></figcaption>
-<img src="img/playground/whiteboard.webp" alt="The Whiteboard demo: several people drawing on one shared board, every stroke synced over one channel" width="1280" height="800" fetchpriority="high"></figure>
+<figure class="home-mock" aria-label="A live room: three people, one of them an AI agent, on one channel">
+<figcaption><i></i><i></i><i></i><span>room-123 · 3 here</span><b>live</b></figcaption>
+<div class="home-mock__body">
+<ol class="home-mock__chat">
+<li><span class="home-mock__who">AN</span><p>Board is saved, joining the call now</p></li>
+<li class="is-agent"><span class="home-mock__who">AI</span><p>Summary ready: 3 decisions, 2 owners</p></li>
+<li class="is-me"><p>ship it</p></li>
+</ol>
+<aside class="home-mock__here"><p>Here now</p><ul><li><span>AN</span>Ana <small>host</small></li><li><span>BO</span>Bo</li><li><span>AI</span>assistant.py</li></ul></aside>
+</div>
+<pre class="home-mock__code"><span class="c">// that whole room is</span>
+agent.connect({ channelName: <span class="s">'room-123'</span>, apiKey });</pre>
+</figure>
 </section>
 
-<nav class="home-doors" aria-label="Where to start">
-<a class="home-door" href="quickstart.html"><p class="mp-eyebrow">Build</p><h2>Ship your first realtime feature</h2><p>Five steps from an API key to two clients talking, in JavaScript, Python, Java or C++.</p><span>Open the quickstart &rarr;</span></a>
-<a class="home-door" href="/messaging-platform/apps/"><p class="mp-eyebrow">Use</p><h2>Open an app built on it</h2><p>Rooms for meetings, Drop Pro for files, Signet and Baton for records nobody can quietly rewrite, and more.</p><span>Browse the apps &rarr;</span></a>
-<a class="home-door" href="games.html"><p class="mp-eyebrow">Play</p><h2>Start a game night</h2><p>Party Arcade and BlockParty: one code, everyone joins from their own browser.</p><span>See the games &rarr;</span></a>
-</nav>
+<ul class="home-trust" aria-label="What the platform handles">
+<li>WebSocket, with HTTP fallback</li>
+<li>Channels encrypted by their password</li>
+<li>Peer-to-peer media, TURN handled</li>
+<li>SDKs in four languages</li>
+</ul>
 
-<section class="mp-section" aria-labelledby="build-h"><div class="mp-section-head"><p class="mp-eyebrow">What you can build</p><h2 id="build-h">One platform. Many realtime experiences.</h2><p class="mp-lead">Each card opens a working demo built on the same SDK. All of them are in <a class="mp-link" href="playground.html">the demo gallery</a>.</p></div>
-<div class="home-caps">
-<a class="mp-card" href="/messaging-platform/sdk/apps/chat.html"><img src="img/playground/chat.webp" alt="The Chat demo: a channel with messages and the people present" loading="lazy" width="800" height="500"><div><span class="mp-tag">Messaging</span><h3>Chat</h3><p>Channels, presence and room sharing, encrypted by the channel password.</p><span class="mp-card-go">Open demo &rarr;</span></div></a>
-<a class="mp-card" href="/messaging-platform/sdk/apps/under-the-hood/index.html"><img src="img/playground/under-the-hood.webp" alt="Under the Hood: who is connected, who hosts, and how messages travel" loading="lazy" width="800" height="500"><div><span class="mp-tag">Presence</span><h3>Presence</h3><p>Who is here, who just left, and who is hosting.</p><span class="mp-card-go">Open demo &rarr;</span></div></a>
-<a class="mp-card" href="/messaging-platform/sdk/apps/whiteboard/index.html"><img src="img/playground/whiteboard.webp" alt="The Whiteboard demo with shapes, notes and a history scrubber" loading="lazy" width="800" height="500"><div><span class="mp-tag">Shared state</span><h3>Whiteboards</h3><p>Every stroke on every screen, saved for whoever joins later.</p><span class="mp-card-go">Open demo &rarr;</span></div></a>
-<a class="mp-card" href="/messaging-platform/sdk/apps/drop/index.html"><img src="img/playground/drop.webp" alt="The Drop demo sending a file from one browser to another" loading="lazy" width="800" height="500"><div><span class="mp-tag">Files</span><h3>File transfer</h3><p>Send a file straight to another browser, in chunks, peer to peer.</p><span class="mp-card-go">Open demo &rarr;</span></div></a>
-<a class="mp-card" href="/messaging-platform/sdk/apps/call/index.html"><img src="img/playground/call.webp" alt="The Call demo: cameras and a shared screen between browsers" loading="lazy" width="800" height="500"><div><span class="mp-tag">WebRTC</span><h3>Video &amp; audio calls</h3><p>Signaling and TURN handled; media flows peer-to-peer.</p><span class="mp-card-go">Open demo &rarr;</span></div></a>
-<a class="mp-card" href="/messaging-platform/sdk/apps/evidence-chain/index.html"><img src="img/playground/evidence-chain.webp" alt="Evidence Chain: a hash-chained log with signed receipts" loading="lazy" width="800" height="500"><div><span class="mp-tag">Proof</span><h3>Tamper-evident logs</h3><p>A hash-chained record with signed receipts; change one entry and verification fails.</p><span class="mp-card-go">Open demo &rarr;</span></div></a>
+<section class="mp-section" aria-labelledby="doors-h"><div class="mp-section-head"><p class="mp-eyebrow">Where do you want to start?</p><h2 id="doors-h">Pick the door that fits.</h2></div>
+<nav class="home-doors" aria-label="Where to start">
+<a class="home-door" href="quickstart.html"><span class="home-door__icon" aria-hidden="true">&lt;/&gt;</span><p class="mp-eyebrow">Build</p><h3>Ship your first realtime feature</h3><p>An API key to two clients talking, in five steps.</p><span class="home-door__go">Quickstart &rarr;</span></a>
+<a class="home-door" href="playground.html"><span class="home-door__icon" aria-hidden="true">&#9673;</span><p class="mp-eyebrow">Learn</p><h3>See each primitive work</h3><p>One idea per demo, its source one click away.</p><span class="home-door__go"><span data-count="learn">7</span> demos &rarr;</span></a>
+<a class="home-door" href="/messaging-platform/apps/"><span class="home-door__icon" aria-hidden="true">&#9638;</span><p class="mp-eyebrow">Use</p><h3>Open a finished app</h3><p>Rooms, Drop Pro, Proof and more, ready today.</p><span class="home-door__go">9 products &rarr;</span></a>
+<a class="home-door" href="games.html"><span class="home-door__icon" aria-hidden="true">&#9654;</span><p class="mp-eyebrow">Play</p><h3>Start a game night</h3><p>One party code, everyone on their own phone.</p><span class="home-door__go">16 games &rarr;</span></a>
+</nav></section>
+
+<section class="mp-section" aria-labelledby="build-h"><div class="mp-section-head"><p class="mp-eyebrow">What you can build</p><h2 id="build-h">Six primitives. One connection.</h2><p class="mp-lead">Pick one to see the call, then open the demo that teaches it.</p></div>
+<div class="home-tabs" data-tabs>
+<div class="home-tabs__list" role="tablist" aria-label="Primitives">
+<button role="tab" id="tab-msg" aria-controls="pane-msg" aria-selected="true">Messaging</button>
+<button role="tab" id="tab-presence" aria-controls="pane-presence" aria-selected="false">Presence</button>
+<button role="tab" id="tab-state" aria-controls="pane-state" aria-selected="false">Shared state</button>
+<button role="tab" id="tab-files" aria-controls="pane-files" aria-selected="false">Files</button>
+<button role="tab" id="tab-calls" aria-controls="pane-calls" aria-selected="false">Calls</button>
+<button role="tab" id="tab-proof" aria-controls="pane-proof" aria-selected="false">Proof</button>
+</div>
+<div class="home-tab" role="tabpanel" id="pane-msg" aria-labelledby="tab-msg"><div><h3>Messages and events</h3><p>Broadcast to a room, address one person, or send fast-changing state as ephemeral messages.</p><pre class="mp-code">agent.sendMessage({ content: <span class="s">'hello, room'</span> });</pre><div class="mp-actions"><a class="mp-btn mp-btn--primary" href="/messaging-platform/sdk/apps/chat.html">Open the Chat demo</a><a class="mp-btn" href="docs.html">Read the docs</a></div></div><img src="img/playground/chat.webp" alt="The Chat demo: a channel with messages and the people present" loading="lazy" width="800" height="500"></div>
+<div class="home-tab" role="tabpanel" id="pane-presence" aria-labelledby="tab-presence"><div><h3>Who is here</h3><p>Joins, leaves, and the ones that vanish without saying goodbye; who hosts, and who takes over.</p><pre class="mp-code">agent.addEventListener(<span class="s">'agent-connect'</span>, e =&gt; showOnline(e.agentName));</pre><div class="mp-actions"><a class="mp-btn mp-btn--primary" href="/messaging-platform/sdk/apps/under-the-hood/index.html">Open Under the Hood</a><a class="mp-btn" href="docs.html">Read the docs</a></div></div><img src="img/playground/under-the-hood.webp" alt="Under the Hood: who is connected, who hosts, and how messages travel" loading="lazy" width="800" height="500"></div>
+<div class="home-tab" role="tabpanel" id="pane-state" aria-labelledby="tab-state"><div><h3>Shared state</h3><p>Every stroke on every screen, stored on the channel for whoever joins later.</p><pre class="mp-code">agent.storagePut({ storageKey: <span class="s">'board'</span>, content: board });</pre><div class="mp-actions"><a class="mp-btn mp-btn--primary" href="/messaging-platform/sdk/apps/whiteboard/index.html">Open the Whiteboard</a><a class="mp-btn" href="docs.html">Read the docs</a></div></div><img src="img/playground/whiteboard.webp" alt="The Whiteboard demo with shapes, notes and a history scrubber" loading="lazy" width="800" height="500"></div>
+<div class="home-tab" role="tabpanel" id="pane-files" aria-labelledby="tab-files"><div><h3>Files, browser to browser</h3><p>Send a file straight to another browser, in chunks, peer to peer, checked on arrival.</p><pre class="mp-code">rtc.sendFile(peerId, file);</pre><div class="mp-actions"><a class="mp-btn mp-btn--primary" href="/messaging-platform/sdk/apps/drop/index.html">Open the Drop demo</a><a class="mp-btn" href="docs.html">Read the docs</a></div></div><img src="img/playground/drop.webp" alt="The Drop demo sending a file from one browser to another" loading="lazy" width="800" height="500"></div>
+<div class="home-tab" role="tabpanel" id="pane-calls" aria-labelledby="tab-calls"><div><h3>Video and audio calls</h3><p>Signalling and TURN handled; the media flows peer to peer.</p><pre class="mp-code">rtc.createStreamOffer(peerId, { stream });</pre><div class="mp-actions"><a class="mp-btn mp-btn--primary" href="/messaging-platform/sdk/apps/call/index.html">Open the Call demo</a><a class="mp-btn" href="docs.html">Read the docs</a></div></div><img src="img/playground/call.webp" alt="The Call demo: cameras and a shared screen between browsers" loading="lazy" width="800" height="500"></div>
+<div class="home-tab" role="tabpanel" id="pane-proof" aria-labelledby="tab-proof"><div><h3>Records nobody can rewrite</h3><p>A hash-chained log with signed receipts; change one entry and verification names it.</p><pre class="mp-code">agent.attest({ chainKey, kind, contentHash }, keepReceipt);</pre><div class="mp-actions"><a class="mp-btn mp-btn--primary" href="/messaging-platform/sdk/apps/evidence-chain/index.html">Open Evidence Chain</a><a class="mp-btn" href="docs.html">Read the docs</a></div></div><img src="img/playground/evidence-chain.webp" alt="Evidence Chain: a hash-chained log with signed receipts" loading="lazy" width="800" height="500"></div>
 </div></section>
 
-<section class="mp-section" aria-labelledby="skip-h"><div class="mp-section-head"><p class="mp-eyebrow">Why not build it yourself?</p><h2 id="skip-h">You could. Here is what you would be building.</h2><p class="mp-lead">Messaging Platform gives you these as one SDK and a managed backend, so you spend the time on your application.</p></div>
-<div class="mp-split"><div class="mp-panel"><h3>Without Messaging Platform</h3><ul class="mp-checklist">
-<li>A WebSocket service, with a polling fallback for networks that block it</li><li>Authentication, API keys and short-lived browser credentials</li><li>Reconnect and resume without losing or duplicating messages</li><li>Channels, rooms and who may join them</li><li>Persistence, ordering and replay from an offset</li><li>Presence: joins, leaves, and noticing the ones that never say goodbye</li><li>Shared state that late joiners can catch up on</li><li>WebRTC signaling, plus STUN/TURN for the peers that cannot connect directly</li><li>Rate limits, quotas and usage metering</li><li>Client libraries for every language you ship</li></ul></div>
-<div class="mp-panel"><h3>With Messaging Platform</h3>
-<pre class="mp-code"><span class="k">const</span> agent = <span class="k">new</span> AgentConnection();
+<section class="mp-section" aria-labelledby="skip-h"><div class="mp-section-head"><p class="mp-eyebrow">Why not build it yourself?</p><h2 id="skip-h">You could. Here is the list.</h2></div>
+<ul class="home-checks">
+<li>A WebSocket service, with a fallback for networks that block it</li>
+<li>API keys and short-lived browser credentials</li>
+<li>Reconnect and resume without losing or duplicating messages</li>
+<li>Presence, including the ones who never say goodbye</li>
+<li>Ordering, persistence and replay from an offset</li>
+<li>WebRTC signalling, plus STUN/TURN for the peers that need it</li>
+</ul>
+<p class="home-more">…plus rate limits, metering and client libraries for every language you ship. <a class="mp-link" href="quickstart.html">Run your first one &rarr;</a></p></section>
 
-<span class="c">// messages and events</span>
-agent.addEventListener(<span class="s">'message'</span>, e =&gt; render(e.response.data));
-<span class="c">// presence</span>
-agent.addEventListener(<span class="s">'agent-connect'</span>, e =&gt; showOnline(e.agentName));
-agent.addEventListener(<span class="s">'connect'</span>, () =&gt; {
-  agent.sendMessage({ content: <span class="s">'hello, room'</span> });
-  <span class="c">// shared state that late joiners catch up on</span>
-  agent.storagePut({ storageKey: <span class="s">'board'</span>, content: board });
-});
+<section class="mp-section home-ai" id="ai" aria-labelledby="ai-h"><div><p class="mp-eyebrow">AI agents</p><h2 id="ai-h">Put your agent on the same channel as your users.</h2><p class="mp-lead">Stream answers as they generate, ask a person to approve, report tool progress. Bring your own model; the channel is the realtime layer around it.</p><div class="mp-actions"><a class="mp-btn" href="quickstart.html#python">Python agent quickstart</a></div></div>
+<div class="mp-flow" aria-label="Browser to channel to Python agent to your backend"><span>Browser</span><span class="hub">Channel</span><span>Python agent</span><span>Your backend</span></div></section>
 
-agent.connect({ api, apiKey, channelName: <span class="s">'room-123'</span>,
-                channelPassword, agentName, autoReceive: <span class="k">true</span> });
-
-<span class="c">// peer-to-peer media and data over the same channel</span>
-<span class="k">const</span> rtc = <span class="k">new</span> WebRtcHelper(agent);</pre>
-<p class="mp-code-caption">Real SDK calls, not pseudocode. <a class="mp-link" href="quickstart.html">Run your first one &rarr;</a></p></div></div></section>
-
-
-<section class="mp-section" id="ai" aria-labelledby="ai-h"><div class="mp-section-head"><p class="mp-eyebrow">Realtime infrastructure for AI agents</p><h2 id="ai-h">Put your agent on the same channel as your users.</h2><p class="mp-lead">Bring your own model. Messaging Platform is the realtime layer around it: the browser, the agent and your backend talk over one channel, with no polling endpoints and no WebSocket server of your own.</p></div>
-<div class="mp-flow" aria-label="Browser to channel to Python agent to backend and back"><span>Browser</span><i>&rarr;</i><span class="hub">Messaging Platform channel</span><i>&rarr;</i><span>Python AI agent</span><i>&rarr;</i><span>Your backend (Java)</span><i>&rarr;</i><span>Browser</span></div>
-<div class="mp-split"><div class="mp-panel"><h3>What it is for</h3><ul class="mp-checklist mp-checklist--yes"><li>Streaming an agent's answer to the browser as it is generated</li><li>Human approval: the agent asks, a person approves, the agent continues</li><li>Tool progress and status events while long work runs</li><li>Several agents, and several people, in one room</li><li>A Python agent and a Java service exchanging work without a queue to run</li></ul></div>
-<div class="mp-panel"><h3>An agent in a few lines of Python</h3>
-<pre class="mp-code">agent = AgentConnection.with_api_key(
-    API, os.environ[<span class="s">"MESSAGING_PLATFORM_API_KEY"</span>])
-agent.connect(<span class="s">"support-room"</span>, ROOM_PASSWORD, <span class="s">"assistant"</span>)
-
-<span class="k">class</span> Assistant(AgentConnectionEventHandler):
-    <span class="k">def</span> on_message_events(self, events):
-        <span class="k">for</span> e <span class="k">in</span> events:
-            <span class="k">if</span> e.get(<span class="s">"from"</span>) == <span class="s">"assistant"</span>:
-                <span class="k">continue</span>  <span class="c"># skip our own replies</span>
-            <span class="k">if</span> e.get(<span class="s">"type"</span>) == <span class="s">"chat-text"</span>:
-                reply = answer(e.get(<span class="s">"content"</span>))  <span class="c"># your model</span>
-                agent.send_message(reply)
-
-agent.receive_async(Assistant())</pre>
-<p class="mp-code-caption">Messaging Platform is not a model provider; it is the channel your model talks through.</p></div></div></section>
-
-<section class="mp-section" id="built-with" aria-labelledby="products-h"><div class="mp-section-head"><p class="mp-eyebrow">Built with the platform</p><h2 id="products-h">Products you can open today.</h2><p class="mp-lead">Built on the same SDK and channels you get. <a class="mp-link" href="/messaging-platform/apps/">All apps &rarr;</a></p></div>
+<section class="mp-section" id="built-with" aria-labelledby="products-h"><div class="mp-section-head mp-section-head--row"><div><p class="mp-eyebrow">Built with the platform</p><h2 id="products-h">Products you can open today.</h2></div><a class="mp-link" href="/messaging-platform/apps/">All apps &rarr;</a></div>
 <div class="home-products" id="products"><p>The products load from the catalogue: <a class="mp-link" href="/messaging-platform/apps/">see all apps</a>.</p></div></section>
 
-<section class="mp-section" aria-labelledby="five-h"><div class="mp-section-head"><p class="mp-eyebrow">Try it now</p><h2 id="five-h">From API key to two clients talking in five minutes.</h2></div>
-<ol class="mp-steps"><li><strong>Sign in</strong><span>With Google, in the developer portal.</span></li><li><strong>Get a key</strong><span>Shown once; keep it on your server.</span></li><li><strong>Install</strong><span>Script tag, pip, Gradle or CMake.</span></li><li><strong>Join a channel</strong><span>Created on first use.</span></li><li><strong>Send &amp; receive</strong><span>Run it twice and watch them talk.</span></li></ol>
-<div class="mp-actions"><a class="mp-btn mp-btn--primary" href="quickstart.html">Open the quickstart</a><a class="mp-btn" href="developer/index.html?start=free">Start free</a></div></section>
-
-<section class="mp-section" aria-labelledby="price-h"><div class="mp-section-head"><p class="mp-eyebrow">Pricing</p><h2 id="price-h">Start free. Upgrade when your application grows.</h2><p class="mp-lead">Everything is free during the public beta, with no credit card. Paid plans for production apps, teams and dedicated deployments are planned and priced in the open.</p></div>
-<div class="mp-actions" style="margin-top:0"><a class="mp-btn" href="pricing.html">Compare plans</a></div></section>
+<section class="mp-section" aria-labelledby="start-h"><div class="home-cta">
+<div><h2 id="start-h">Two clients talking in five minutes.</h2><p>Free during the public beta, no card. Paid plans are priced in the open before they apply.</p></div>
+<div><ol class="home-cta__steps"><li>Sign in and get a key</li><li>Install and connect</li><li>Run it twice, watch them talk</li></ol>
+<div class="mp-actions"><a class="mp-btn mp-btn--primary" href="quickstart.html">Open the quickstart</a><a class="mp-btn" href="pricing.html">Compare plans</a></div></div>
+</div></section>
 
 </main>
 <!-- site-shell:footer (tools/site-shell.cjs; do not edit here) -->
@@ -147,19 +142,45 @@ agent.receive_async(Assistant())</pre>
 <!-- /site-shell:footer -->
 <script src="/messaging-platform/hub/js/catalogue.js"></script>
 <script>
-// The product strip: the catalogue's products shelf, in its highlight order, first three.
+// The product strip: the catalogue's products shelf, in its "built" order (Rooms, BlockParty,
+// Party Arcade, Proof). The Learn door counts the live demos the Playground teaches with.
 Catalogue.load().then(function (cat) {
-  var rank = function (e) { var i = (cat.highlights || []).indexOf(e.id); return i < 0 ? 99 : i; };
-  var items = Catalogue.shelf(cat,'products').sort(function (a, b) { return rank(a) - rank(b); }).slice(0, 3);
+  var built = cat.built || cat.highlights || [];
+  var items = Catalogue.shelf(cat,'products').filter(function (e) { return built.indexOf(e.id) >= 0; })
+    .sort(function (a, b) { return built.indexOf(a.id) - built.indexOf(b.id); });
   var box = document.getElementById('products'); box.textContent = '';
   items.forEach(function (e) {
     var a = document.createElement('a'); a.className = 'home-product'; a.href = e.about || e.url;
     var img = document.createElement('img'); img.src = e.image; img.alt = Catalogue.imageAlt(e); img.loading = 'lazy'; img.width = 800; img.height = 500;
     var body = document.createElement('div');
-    [['small', e.label || ''], ['h3', e.name], ['p', e.blurb || '']].forEach(function (p) { var n = document.createElement(p[0]); n.textContent = p[1]; body.appendChild(n); });
+    [['small', e.category || ''], ['h3', e.name], ['p', e.blurb || '']].forEach(function (p) { var n = document.createElement(p[0]); n.textContent = p[1]; body.appendChild(n); });
     a.appendChild(img); a.appendChild(body); box.appendChild(a);
   });
+  var learn = Catalogue.shelf(cat, 'learn').length;
+  document.querySelectorAll('[data-count="learn"]').forEach(function (n) { if (learn) n.textContent = learn; });
 }).catch(function () {});
+
+// The primitive tabs: one panel at a time, arrow keys move between tabs.
+(function () {
+  var box = document.querySelector('[data-tabs]'); if (!box) return;
+  var tabs = Array.prototype.slice.call(box.querySelectorAll('[role="tab"]'));
+  function select(tab, focus) {
+    tabs.forEach(function (t) {
+      var on = t === tab;
+      t.setAttribute('aria-selected', String(on)); t.tabIndex = on ? 0 : -1;
+      document.getElementById(t.getAttribute('aria-controls')).hidden = !on;
+    });
+    if (focus) tab.focus();
+  }
+  tabs.forEach(function (t, i) {
+    t.addEventListener('click', function () { select(t); });
+    t.addEventListener('keydown', function (e) {
+      var d = e.key === 'ArrowRight' ? 1 : e.key === 'ArrowLeft' ? -1 : 0;
+      if (d) { e.preventDefault(); select(tabs[(i + d + tabs.length) % tabs.length], true); }
+    });
+  });
+  select(tabs[0]);
+})();
 </script>
 <script src="/messaging-platform/hub/js/site-shell.js" defer></script>
 <script src="/messaging-platform/hub/js/mp-account.js" defer></script>

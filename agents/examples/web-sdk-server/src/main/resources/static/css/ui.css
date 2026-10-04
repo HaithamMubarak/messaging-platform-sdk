@@ -119,14 +119,14 @@ img, svg { max-width: 100%; }
 .btn--primary {
     background: var(--brand);
     border-color: transparent;
-    color: #fff;
+    color: var(--on-brand, #04201c);
 }
 .btn--primary:hover:not(:disabled) { background: var(--brand-hover); }
 
 .btn--gradient {
     background: var(--gradient-brand);
     border-color: transparent;
-    color: #fff;
+    color: var(--on-brand, #04201c);
 }
 .btn--gradient:hover:not(:disabled) { filter: brightness(1.08); }
 

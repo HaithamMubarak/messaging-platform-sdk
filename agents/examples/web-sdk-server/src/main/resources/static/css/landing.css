@@ -491,7 +491,7 @@ section { padding-block: var(--sp-24); }
 .filter-chip.is-on {
     background: var(--brand);
     border-color: transparent;
-    color: #fff;
+    color: var(--on-brand, #04201c);
 }
 
 /* A count is content, not a placeholder — --text-faint is below AA at 13px. */

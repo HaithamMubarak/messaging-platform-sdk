@@ -44,10 +44,10 @@ body.wb .unified-footer {
     --success:       #34d399;
     --warning:       #fbbf24;
     --accent:        #22d3ee;
-    --brand:         #5d60ef;
-    --brand-hover:   #818cf8;
-    --brand-ink:     #a5b4fc;
-    --brand-subtle:  rgba(99, 102, 241, 0.18);
+    --brand:         #2dd4bf;   /* the site's one primary (landing redesign L2) */
+    --brand-hover:   #5eead4;
+    --brand-ink:     #7ee8dc;
+    --brand-subtle:  rgba(45, 212, 191, 0.16);
     color: var(--text-body);
 }
 
@@ -175,7 +175,7 @@ body.wb .canvas-container {
     color: var(--brand-ink);
 }
 
-.wb-btn--primary { background: var(--brand); color: #fff; }
+.wb-btn--primary { background: var(--brand); color: var(--on-brand, #04201c); }
 .wb-btn--primary:hover:not(:disabled) { background: var(--brand-hover); color: #fff; }
 .wb-btn--danger { color: var(--danger); }
 .wb-btn--danger:hover:not(:disabled) { background: var(--danger-bg); color: var(--danger); }
@@ -452,7 +452,7 @@ body.wb .footer-title,
 body.wb .chat-indicator { color: var(--text-body); display: flex; align-items: center; gap: var(--sp-2); }
 body.wb .footer-title .icon,
 body.wb .chat-indicator .icon { color: var(--text-muted); }
-body.wb .user-count-badge { background: var(--brand); color: #fff; }
+body.wb .user-count-badge { background: var(--brand); color: var(--on-brand, #04201c); }
 
 body.wb .users-section { border-right: 1px solid var(--border); }
 body.wb .users-section-title { color: var(--text-faint); }
@@ -468,7 +468,7 @@ body.wb .chat-input {
 }
 body.wb .chat-input::placeholder { color: var(--text-faint); }
 body.wb .chat-input:focus { border-color: var(--brand); box-shadow: var(--focus-ring); outline: none; }
-body.wb .chat-send-btn { background: var(--brand); color: #fff; border: 0; }
+body.wb .chat-send-btn { background: var(--brand); color: var(--on-brand, #04201c); border: 0; }
 body.wb .chat-send-btn:hover { background: var(--brand-hover); }
 
 .chat-unread {
@@ -476,7 +476,7 @@ body.wb .chat-send-btn:hover { background: var(--brand-hover); }
     padding: 0 6px;
     border-radius: var(--r-pill);
     background: var(--brand);
-    color: #fff;
+    color: var(--on-brand, #04201c);
     font-size: var(--fs-xs);
     font-weight: 700;
     text-align: center;
@@ -578,7 +578,7 @@ body.wb .chat-messages { background: var(--bg); }
     --text-muted:  #8a97ab;
     --surface-1:   #101827;
     --border:      rgba(148, 163, 184, 0.20);
-    --brand:       #5d60ef;
+    --brand:         #2dd4bf;   /* the site's one primary (landing redesign L2) */
 
     position: fixed;
     inset: 0;

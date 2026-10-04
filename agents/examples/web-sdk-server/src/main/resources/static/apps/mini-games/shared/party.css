@@ -167,7 +167,7 @@
     font-size: var(--fs-2xl);
     letter-spacing: .04em;
     background: var(--brand);
-    color: #fff;
+    color: var(--on-brand, #04201c);
     transition: transform var(--dur-fast) var(--ease), filter var(--dur-fast) var(--ease);
     touch-action: manipulation;
     -webkit-user-select: none;

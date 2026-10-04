@@ -48,8 +48,67 @@ check('the shell nav has the six sections and one call to action', () => {
 check('the shell styles load the face they name', () => {
     const css = fs.readFileSync(path.join(shell.STATIC, 'css', 'site-shell.css'), 'utf8');
     assert.ok(/family=Manrope/.test(css) && /'Manrope'/.test(css));
-    assert.ok(!/Bricolage|Source Sans/.test(fs.readFileSync(path.join(shell.STATIC, 'css', 'hub-product.css'), 'utf8')),
-        'hub-product.css names a face nothing loads');
+});
+
+/*
+ * One type system (landing redesign L2): no public page's stylesheets name a face
+ * other than Manrope and JetBrains Mono, or a system fallback. The catalogue kept
+ * Bricolage + Source Sans for weeks after the rest of the site moved, because no
+ * check looked past the SDK. Pages are found, not listed: the shell's pages, and
+ * when the sibling repos are present, the apps catalogue and every landing that
+ * wears the shell. Each page's own <link rel="stylesheet"> tags say what to read.
+ */
+const FACES = /^(manrope|jetbrains mono|ui-sans-serif|ui-monospace|system-ui|-apple-system|blinkmacsystemfont|segoe ui|roboto|helvetica neue|helvetica|arial|sans-serif|monospace|sf mono|sfmono-regular|liberation mono|cascadia code|menlo|consolas|courier new|inherit|initial|apple color emoji|segoe ui emoji|noto color emoji)$/;
+const DEV = path.join(shell.STATIC, '..', '..', '..', '..', '..', '..', '..', '..');
+
+function publicPages() {
+    const pages = Object.keys(shell.PAGES || {}).map((p) => path.join(shell.STATIC, p));
+    const catalogue = path.join(DEV, 'messaging-platform-services', 'docker', 'apps-service', 'index.html');
+    if (fs.existsSync(catalogue)) pages.push(catalogue);
+    const apps = path.join(DEV, 'messaging-platform-apps', 'apps');
+    if (fs.existsSync(apps)) {
+        for (const a of fs.readdirSync(apps)) {
+            const f = path.join(apps, a, 'index.html');
+            if (fs.existsSync(f) && fs.readFileSync(f, 'utf8').includes('site-shell:header')) pages.push(f);
+        }
+    }
+    return pages.filter((p) => fs.existsSync(p));
+}
+
+/** A stylesheet href as a file on disk; null for one we cannot see (another host). */
+function sheetFile(page, href) {
+    if (/^https?:/.test(href)) return null;
+    const m = href.match(/^\/messaging-platform\/(?:hub|sdk)\/(.+)$/);
+    return m ? path.join(shell.STATIC, m[1]) : path.resolve(path.dirname(page), href.split('?')[0]);
+}
+
+function facesIn(css) {
+    const named = [];
+    for (const m of css.matchAll(/font-family\s*:\s*([^;}]+)/g)) {
+        for (const f of m[1].replace(/var\([^)]*\)/g, '').split(',')) {   // a var() fallback is the token's
+            const face = f.trim().replace(/^['"]|['"]$/g, '').replace(/\s*!important$/, '').toLowerCase();
+            if (face && !face.startsWith('var(') && !FACES.test(face)) named.push(face);
+        }
+    }
+    for (const m of css.matchAll(/family=([A-Za-z+]+)/g)) {
+        const face = m[1].replace(/\+/g, ' ').toLowerCase();
+        if (!FACES.test(face)) named.push(face + ' (loaded)');
+    }
+    return named;
+}
+
+check('no public page names a face other than Manrope or JetBrains Mono', () => {
+    const bad = [];
+    for (const page of publicPages()) {
+        const html = fs.readFileSync(page, 'utf8');
+        const sheets = [...html.matchAll(/<link[^>]+rel="stylesheet"[^>]+href="([^"]+)"/g)].map((m) => m[1]);
+        const css = [html.match(/<style[\s\S]*?<\/style>/g) || []].flat().join('\n')
+            + sheets.map((h) => sheetFile(page, h)).filter((f) => f && fs.existsSync(f)).map((f) => fs.readFileSync(f, 'utf8')).join('\n')
+            + sheets.filter((h) => /^https?:/.test(h)).join('\n');
+        const faces = [...new Set(facesIn(css))];
+        if (faces.length) bad.push(path.basename(path.dirname(page)) + '/' + path.basename(page) + ': ' + faces.join(', '));
+    }
+    assert.deepStrictEqual(bad, []);
 });
 
 console.log(failed ? '\n' + failed + ' failed' : '\nall passed');

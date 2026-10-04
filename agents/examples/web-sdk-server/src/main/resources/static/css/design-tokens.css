@@ -32,18 +32,22 @@
     --text-faint:    #64748b;   /* placeholders / disabled only             */
 
     /* --- Brand ---------------------------------------------------------- */
-    /* Rust on navy, teal for what is live. Chosen 2026-09-07 to leave the
-       indigo-on-black every generated site wears. White text on --brand is
-       4.6:1 (AA), so every filled control keeps its white label; --brand-ink
-       is the same hue lifted to read AS TEXT on the dark ground (8.1:1). */
-    --brand:         #d9482f;   /* primary actions, active nav (4.6:1 vs #fff) */
-    --brand-hover:   #ef6a52;
-    --brand-ink:     #ffb0a0;   /* rust used AS TEXT on dark (8.1:1)        */
-    --brand-subtle:  rgba(217, 72, 47, 0.14);
+    /* Teal on navy: ONE primary colour across the site. Until 2026-10-04 the
+       brand was rust (chosen 2026-09-07 to leave indigo-on-black), but the
+       shell's Start free and the hub were already teal, so a visitor met four
+       primary buttons (teal, rust, a rust gradient, Party Arcade's orange).
+       The landing redesign (plan 4.9, owner-approved) made teal the primary.
+       Teal is light, so text ON it is dark: --on-brand (11:1), never white.
+       --brand-ink is teal lifted to read AS TEXT on the dark ground. */
+    --brand:         #2dd4bf;   /* primary actions, active nav (text on it: --on-brand) */
+    --brand-hover:   #5eead4;
+    --brand-ink:     #7ee8dc;   /* teal used AS TEXT on dark                */
+    --brand-subtle:  rgba(45, 212, 191, 0.14);
+    --on-brand:      #04201c;   /* text and icons on a --brand fill         */
     --accent:        #2dd4bf;   /* teal — links, live indicators            */
     --accent-ink:    #7ee8dc;
     --accent-subtle: rgba(45, 212, 191, 0.12);
-    --gradient-brand: linear-gradient(120deg, #d9482f, #f0a030);
+    --gradient-brand: linear-gradient(120deg, #2dd4bf, #14b8a6);
 
     /* --- Semantic ------------------------------------------------------- */
     --success:       #34d399;

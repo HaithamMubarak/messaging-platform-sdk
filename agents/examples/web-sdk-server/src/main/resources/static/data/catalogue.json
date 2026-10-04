@@ -1,6 +1,7 @@
 {
   "about": "The one list of what the platform shows and ships. hub.html and playground.html render it; test/js/catalogue.test.js fails if an entry claims a primitive its source never calls, if a link or image is missing, or if a page grows a hand-written card again. Paths in `source` are relative to static/. Apps whose code lives in the apps repo have no `source`, so their claims are checked there, not here.",
   "highlights": ["whiteboard", "pulse", "under-the-hood", "rooms", "blockparty"],
+  "built": ["rooms", "blockparty", "party-arcade", "proof"],
   "primitives": {
     "presence":  { "label": "Presence",          "hub": "Presence",  "evidence": "onUserJoin|onUserLeave|getConnectedUsers|connectedAgents|getActiveAgents|agent-connect" },
     "broadcast": { "label": "Broadcast",         "hub": "Messaging", "evidence": "sendMessage\\s*\\(|sendCustomEventMessage\\s*\\(|broadcastDataChannel\\s*\\(|toRoom\\s*\\(|broadcastState\\s*\\(" },
@@ -192,6 +193,26 @@
       "blurb": "One private party code. Sixteen browser games.",
       "text": "Create a party with your nickname and invite friends using its code. Sixteen games, including Reactor, Pictionary, Find the Liar, Chess, Air Hockey and the party games Chorus, Autocue, Nudge and Open Outcry, with mouse, keyboard or touch controls and AI players in supported games. Player counts vary by game.",
       "badges": ["One party code", "16 games"]
+    },
+    {
+      "id": "proof",
+      "name": "Proof",
+      "audience": "use",
+      "shelf": "products",
+      "status": "live",
+      "primitives": [
+        "attest",
+        "vault"
+      ],
+      "solo": true,
+      "category": "Prove",
+      "label": "Product · records nobody can quietly rewrite",
+      "url": "/messaging-platform/apps/proof/",
+      "about": "/messaging-platform/apps/proof/",
+      "image": "/messaging-platform/apps/assets/images/proof.png",
+      "imageAlt": "Proof: a chain of three sealed entries, verified offline",
+      "blurb": "Records nobody can quietly rewrite.",
+      "text": "One product for consent, handovers, inspections, screenings and doors: sealed in your browser, verifiable by anyone, readable only by you."
     },
     {
       "id": "droppro", "name": "Drop Pro", "audience": "use", "shelf": "products", "status": "live",
