@@ -48,7 +48,7 @@ const FOOTER = [
 const PAGES = {
     'hub.html': 'product', 'games.html': 'games', 'playground.html': 'demos', 'docs.html': 'docs', 'sdk-guide.html': 'docs', 'quickstart.html': 'docs',
     'pricing.html': 'pricing', 'privacy.html': '', 'terms.html': '',
-    'profile.html': '',
+    'profile.html': '', 'changes.html': '',
     'apps/evidence-chain/index.html': 'demos', 'apps/terminal/index.html': 'demos',
     'apps/under-the-hood/index.html': 'demos', 'apps/whiteboard/index.html': 'demos',
 };
