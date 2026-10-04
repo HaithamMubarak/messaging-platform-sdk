@@ -56,10 +56,14 @@
            It gets the site header's appearance without its position. */
         .site-header { position: static; flex-shrink: 0; }
 
+        /* clip, not hidden: a hidden box can still be scrolled by script, find-in-page, an
+           anchor or a selection drag, and once anything inside was briefly wider than the
+           window the whole sidebar and page sat 20px off the left edge (2026-10-04). */
         .main-container {
             display: flex;
             flex: 1;
-            overflow: hidden;
+            min-height: 0;   /* a clip box keeps its content height in a flex column; hidden did not */
+            overflow: clip;
         }
 
         .sidebar-wrap {
@@ -69,10 +73,11 @@
             flex-shrink: 0;
             display: flex;
             flex-direction: column;
-            overflow: hidden;
+            min-height: 0;
+            overflow: clip;
         }
 
-        .sidebar { flex: 1; overflow-y: auto; }
+        .sidebar { flex: 1; overflow-y: auto; overflow-x: hidden; }
 
         /* On a phone the heading list is collapsed behind a summary; on a wide
            screen the disclosure is forced open and its summary is hidden, so
