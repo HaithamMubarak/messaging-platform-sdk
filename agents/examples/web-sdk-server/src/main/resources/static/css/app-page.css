@@ -315,3 +315,8 @@
 .ap-note p { margin: 0; }
 .ap-note p + p { margin-top: var(--sp-2); }
 
+
+/* "Part of Proof": a landing that is one use of a larger product says so under its hero. */
+.ap-ribbon { display: flex; flex-wrap: wrap; align-items: center; gap: var(--sp-2) var(--sp-3); margin-block: 0 var(--sp-8); color: var(--text-muted); font-size: var(--fs-sm); }
+.ap-ribbon a { display: inline-flex; align-items: center; min-height: 44px; padding: 0 var(--sp-3); border: 1px solid var(--border-strong); border-radius: var(--r-pill); color: var(--text); font-weight: 700; text-decoration: none; }
+.ap-ribbon a:hover { border-color: var(--brand); }
