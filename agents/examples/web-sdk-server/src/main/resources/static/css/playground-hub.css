@@ -1,26 +1,57 @@
-/* Hub-owned treatment for the working-demo catalogue. */
-.hub-playground{background:radial-gradient(ellipse at 78% 0,rgba(45,212,191,.11),transparent 34%),#0b1120}
-.hub-lab-hero{padding-block:72px 54px;border-bottom:1px solid rgba(148,163,184,.18)}
-.hub-lab-hero__grid{display:grid;grid-template-columns:minmax(0,1.15fr) minmax(320px,.85fr);gap:72px;align-items:center}
-.hub-lab-hero .section-head{max-width:720px}
-.hub-lab-hero h1{font-family:var(--font-display,ui-sans-serif,sans-serif);font-size:clamp(42px,6vw,74px);line-height:1.02;letter-spacing:-3px;margin:18px 0 24px;color:var(--text,#eef2f8)}
-.hub-lab-hero h1 span{color:var(--accent,#2dd4bf)}
-.hub-lab-hero .section-head>p{max-width:650px;font-size:18px;line-height:1.7;color:var(--muted,#a8b5c8)}
-.hub-lab-route{display:grid;grid-template-columns:44px 1fr;padding:24px 28px;border:1px solid rgba(148,163,184,.24);border-radius:16px;background:rgba(16,24,39,.82);box-shadow:0 24px 70px rgba(0,0,0,.2)}
-.hub-lab-route>span,.hub-lab-route>div{padding-block:18px;border-bottom:1px solid rgba(148,163,184,.18)}
-.hub-lab-route>span:nth-last-of-type(1),.hub-lab-route>div:last-child{border-bottom:0}
-.hub-lab-route>span{font:800 12px/1.5 var(--font-display,ui-sans-serif,sans-serif);letter-spacing:1px;color:var(--accent,#2dd4bf)}
-.hub-lab-route strong{display:block;font-family:var(--font-display,ui-sans-serif,sans-serif);font-size:20px;color:var(--text,#eef2f8)}
-.hub-lab-route p{margin:6px 0 0;color:var(--muted,#a8b5c8);font-size:14px;line-height:1.55}
-.hub-playground .filter-bar{position:sticky;top:84px;z-index:5;box-shadow:0 12px 35px rgba(0,0,0,.2)}
-.hub-playground .entry-shot img{background:#080f1b}
-@media(max-width:900px){.hub-lab-hero__grid{grid-template-columns:1fr;gap:34px}.hub-lab-hero{padding-block:48px 40px}.hub-playground .filter-bar{position:static}.hub-lab-route{grid-template-columns:38px 1fr}}
-@media(max-width:560px){.hub-lab-hero h1{font-size:42px;letter-spacing:-1.7px}.hub-lab-hero .section-head>p{font-size:16px}.hub-lab-route{padding:12px 18px}.hub-lab-hero .hero__cta{align-items:stretch}.hub-lab-hero .hero__cta .btn{justify-content:center}}
+/* The Demos page (landing redesign L4, plan 4.3 + 4.10). Cards are site.css's media-card. */
+.hub-playground{background:radial-gradient(ellipse at 78% 0,rgba(45,212,191,.11),transparent 34%),var(--bg,#0b1120)}
+
+/* ---------- compact hero, with the three to start with beside it ---------- */
+.hub-lab-hero{padding-block:56px 32px}
+.hub-lab-hero__grid{display:grid;grid-template-columns:minmax(0,1.1fr) minmax(0,.9fr);gap:56px;align-items:center}
+.hub-lab-hero .eyebrow{color:var(--warning,#fbbf24);font-size:12px;font-weight:800;letter-spacing:.12em;text-transform:uppercase}
+.hub-lab-hero h1{font-family:var(--font-display,ui-sans-serif,sans-serif);font-size:clamp(34px,4.4vw,52px);line-height:1.05;letter-spacing:-.03em;margin:14px 0 16px;color:var(--text,#eef2f8);max-width:15ch}
+.hub-lab-hero .section-head>p{max-width:560px;font-size:17px;line-height:1.6;color:var(--text-body,#a8b5c8)}
+.hub-lab-hero .hero__cta{margin-top:22px}
+.hub-start__title{font-size:12px;font-weight:800;letter-spacing:.12em;text-transform:uppercase;color:var(--text-muted,#8a97ab);margin:0 0 12px}
+.hub-start__list{list-style:none;margin:0;padding:0;display:grid;gap:10px;counter-reset:start}
+.hub-start__list li{counter-increment:start}
+.hub-start__item{display:flex;align-items:center;gap:12px;min-height:56px;padding:10px 16px;border:1px solid var(--border,rgba(148,163,184,.2));border-radius:var(--r-md,12px);background:var(--surface-1,#101827);color:var(--text-body,#a8b5c8)}
+.hub-start__item::before{content:counter(start);flex:none;display:inline-grid;place-items:center;width:28px;height:28px;border-radius:50%;background:var(--warning,#fbbf24);color:#1a1205;font-weight:800;font-size:14px}
+.hub-start__item strong{color:var(--text,#eef2f8)}
+.hub-start__item:hover{border-color:var(--brand,#2dd4bf)}
+
+/* ---------- sticky filter with a live count ---------- */
+.hub-filter{position:sticky;top:var(--shell-h,64px);z-index:5;padding-block:12px;background:color-mix(in srgb,var(--bg,#0b1120) 92%,transparent);backdrop-filter:blur(8px);border-bottom:1px solid var(--border,rgba(148,163,184,.18))}
+.hub-filter .filter-bar{margin:0;flex-wrap:wrap}
+.filter-bar__count{margin-left:auto;color:var(--text-muted,#8a97ab);font-size:var(--fs-sm,14px);font-variant-numeric:tabular-nums}
+
+/* ---------- shelves ---------- */
+.hub-shelf{padding-block:40px 8px}
+.hub-shelf__head{display:flex;flex-wrap:wrap;align-items:flex-end;justify-content:space-between;gap:12px 24px;margin-bottom:20px}
+.hub-shelf__head h2{font-size:var(--fs-2xl,28px)}
+.hub-shelf__head p{margin-top:6px;max-width:640px;color:var(--text-body,#a8b5c8)}
+.hub-shelf__more{display:inline-flex;align-items:center;min-height:44px;color:var(--brand-ink,#7ee8dc);font-weight:700;text-decoration:underline;text-underline-offset:3px}
+.hub-playground .media-card__art{margin:0}
+.hub-playground .media-card__art img{background:#080f1b}
+.media-card__call{display:block;overflow-x:auto;white-space:nowrap;padding:8px 10px;border-radius:var(--r-sm,8px);background:var(--surface-2,#16203a);color:var(--brand-ink,#7ee8dc);font-family:var(--font-mono,ui-monospace,monospace);font-size:13px}
+.media-card__tags{display:flex;flex-wrap:wrap;gap:6px}
+.tag{padding:3px 10px;border-radius:var(--r-pill,999px);background:var(--surface-3,#1e293b);color:var(--text-body,#a8b5c8);font-size:12px;font-weight:700}
+.tag--solo{background:var(--brand-subtle,rgba(45,212,191,.14));color:var(--brand-ink,#7ee8dc)}
+.hub-shelf--products .media-card__lead{font-size:var(--fs-sm,14px)}
+
+/* ---------- the end: build your own, and the retired demos folded away ---------- */
+.hub-end{padding-block:48px 64px}
+.hub-end__grid{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:24px;align-items:start}
+.hub-end__cta{grid-template-columns:minmax(0,1fr)}
+.hub-end .hero__cta{display:flex;flex-wrap:wrap;gap:8px;margin-top:16px}
+.hub-moved{border:1px solid var(--border,rgba(148,163,184,.2));border-radius:var(--r-lg,16px);background:var(--surface-1,#101827)}
+.hub-moved summary{display:flex;align-items:center;min-height:56px;padding:0 20px;cursor:pointer;font-weight:700;color:var(--text,#eef2f8)}
+.hub-moved .moved-list{margin:0;padding:0 20px 20px 2.4em;color:var(--text-body,#a8b5c8);display:grid;gap:var(--sp-2,8px)}
+.hub-moved .moved-list a{color:var(--brand-ink,#7ee8dc)}
+
+@media(max-width:900px){
+  .hub-lab-hero__grid,.hub-end__grid{grid-template-columns:minmax(0,1fr);gap:28px}
+  .hub-lab-hero{padding-block:36px 24px}
+}
+@media(max-width:560px){
+  .hub-filter{position:static}
+  .hub-lab-hero h1{font-size:34px}
+  .hub-lab-hero .section-head>p{font-size:16px}
+}
 @media(prefers-reduced-motion:reduce){.hub-playground *{scroll-behavior:auto!important}}
-/* Rendered from data/catalogue.json: a template's pattern and player count, and what left the gallery. */
-.hub-playground .game-card p.entry-facts{flex:none;font-size:var(--fs-sm);color:var(--text-muted);margin:0}
-.hub-playground .moved-title{font-size:var(--fs-lg);margin:0 0 var(--sp-3)}
-.hub-playground .moved-list{margin:0;padding-left:1.2em;color:var(--text-body);display:grid;gap:var(--sp-2)}
-.hub-playground .moved-list a{color:var(--accent-ink)}
-.hub-playground .entry-foot{flex-wrap:wrap}
-.hub-playground .entry-foot .demo-card__link{margin-left:auto}

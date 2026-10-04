@@ -22,6 +22,7 @@
     <link rel="stylesheet" href="css/design-tokens.css">
     <link rel="stylesheet" href="css/ui.css">
     <link rel="stylesheet" href="css/landing.css">
+    <link rel="stylesheet" href="css/site.css">
     <link rel="stylesheet" href="css/playground-hub.css">
 
     <script src="js/prod-log.js" defer></script>
@@ -56,46 +57,38 @@
 <!-- /site-shell:header -->
 
 <main id="main">
-    <section class="hero hub-lab-hero">
+    <section class="hub-lab-hero">
         <div class="wrap hub-lab-hero__grid">
             <div class="section-head">
-                <span class="eyebrow">Demos</span>
-                <h1>Try the platform.<br><span>Then build with it.</span></h1>
-                <p>
-                    This is the hands-on part of the Hub. Open a working example, see which platform primitive it
-                    proves, and follow it into the SDK guide when you are ready to create your own. No login is
-                    required for most demos.
-                </p>
+                <span class="eyebrow">Demos · learn the SDK</span>
+                <h1>See each primitive work, then read how.</h1>
+                <p>Seven demos and three game templates. Each proves one primitive, shows the call that does it,
+                    and has its source one click away. No sign-in for most.</p>
                 <div class="hero__cta">
-                    <a class="btn btn--gradient" href="/messaging-platform/sdk/apps/pulse/index.html">Open Pulse</a>
-                    <a class="btn btn--ghost" href="/messaging-platform/hub/sdk-guide.html#quickstart">Open the SDK guide</a>
+                    <a class="btn-primary" href="/messaging-platform/hub/quickstart.html">Open the quickstart</a>
                 </div>
             </div>
-            <aside class="hub-lab-route" aria-label="How to use the demos">
-                <span>01</span><div><strong>Choose a primitive</strong><p>Filter by presence, storage, P2P, video or messaging.</p></div>
-                <span>02</span><div><strong>Run a real demo</strong><p>Try it alone or share its room link when it needs more people.</p></div>
-                <span>03</span><div><strong>Build your version</strong><p>Use the guide and source as a practical starting point.</p></div>
+            <!-- Rendered from catalogue.json "start" (js/playground.js). -->
+            <aside class="hub-start" aria-labelledby="startTitle">
+                <h2 id="startTitle" class="hub-start__title">New here? Start with these three</h2>
+                <ol class="hub-start__list" id="startList"></ol>
             </aside>
         </div>
     </section>
 
-    <section style="padding-top: 0; padding-bottom: var(--sp-6)">
+    <div class="hub-filter">
         <div class="wrap">
             <div class="filter-bar" id="filterBar" role="group" aria-label="Filter by SDK primitive">
-                <span class="filter-bar__label">
-                    <svg class="icon icon--sm" aria-hidden="true"><use href="#i-list"></use></svg>
-                    Show me
-                </span>
                 <button type="button" class="filter-chip is-on" data-filter="all" aria-pressed="true">Everything<span class="filter-chip__n" data-count="all"></span></button>
                 <label class="filter-solo">
                     <input type="checkbox" id="soloOnly">
-                    <svg class="icon icon--sm" aria-hidden="true"><use href="#i-users"></use></svg>
-                    Playable alone
+                    Works alone
                 </label>
+                <span class="filter-bar__count" id="filterCount" aria-live="polite"></span>
             </div>
             <p class="filter-empty" id="filterEmpty" hidden>Nothing here proves that one yet.</p>
         </div>
-    </section>
+    </div>
 
     <!-- Every card below is rendered from data/catalogue.json (js/playground.js),
          the same file the hub reads; test/js/catalogue.test.js checks each
@@ -107,6 +100,22 @@
         <a href="/messaging-platform/sdk/apps/whiteboard/app.html">the whiteboard</a> or
         <a href="/messaging-platform/sdk/apps/chat.html">Chat</a>.</p></div></section>
     </noscript>
+
+    <section class="hub-end">
+        <div class="wrap hub-end__grid">
+            <div class="home-cta hub-end__cta">
+                <div>
+                    <h2>Ready to build your own?</h2>
+                    <p>Five steps from an API key to two clients talking.</p>
+                    <div class="hero__cta">
+                        <a class="btn-secondary" href="/messaging-platform/hub/quickstart.html">Open the quickstart</a>
+                        <a class="btn-secondary" href="/messaging-platform/hub/docs.html">Docs</a>
+                    </div>
+                </div>
+            </div>
+            <div id="movedRoot"></div>
+        </div>
+    </section>
 </main>
 
 <!-- site-shell:footer (tools/site-shell.cjs; do not edit here) -->

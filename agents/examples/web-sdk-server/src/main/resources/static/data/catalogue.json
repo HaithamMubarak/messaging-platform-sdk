@@ -2,6 +2,7 @@
   "about": "The one list of what the platform shows and ships. hub.html and playground.html render it; test/js/catalogue.test.js fails if an entry claims a primitive its source never calls, if a link or image is missing, or if a page grows a hand-written card again. Paths in `source` are relative to static/. Apps whose code lives in the apps repo have no `source`, so their claims are checked there, not here.",
   "highlights": ["whiteboard", "pulse", "under-the-hood", "rooms", "blockparty"],
   "built": ["rooms", "blockparty", "party-arcade", "proof"],
+  "start": [{ "id": "chat", "what": "messages and presence" }, { "id": "pulse", "what": "storage with history" }, { "id": "whiteboard", "what": "shared state" }],
   "primitives": {
     "presence":  { "label": "Presence",          "hub": "Presence",  "evidence": "onUserJoin|onUserLeave|getConnectedUsers|connectedAgents|getActiveAgents|agent-connect" },
     "broadcast": { "label": "Broadcast",         "hub": "Messaging", "evidence": "sendMessage\\s*\\(|sendCustomEventMessage\\s*\\(|broadcastDataChannel\\s*\\(|toRoom\\s*\\(|broadcastState\\s*\\(" },
@@ -19,8 +20,10 @@
   },
   "shelves": {
     "learn":     { "title": "Learn the SDK", "lead": "Seven demos, each the clearest example of one part of the SDK. Open one, then read its source." },
-    "templates": { "title": "Build a game", "lead": "Three games that are also templates: each is the reference for one multiplayer pattern. Read the source, then build yours on it." },
-    "products":  { "title": "Built on the SDK", "lead": "Finished apps, not demos. Each is a product in the apps catalogue." }
+    "templates": { "title": "Build a game", "lead": "Three games that are also templates: each is the reference for one multiplayer pattern. Read the source, then build yours on it.",
+      "more": { "label": "Or just play: Party Arcade", "url": "/messaging-platform/apps/party-arcade/" } },
+    "products":  { "title": "Built on the SDK", "lead": "Finished apps, not demos. Each is a product in the apps catalogue.",
+      "more": { "label": "Browse all apps", "url": "/messaging-platform/apps/" } }
   },
   "entries": [
     {
@@ -31,6 +34,7 @@
       "blurb": "The raw connection API: channels, presence and encrypted messages.",
       "text": "The only demo on the raw connection API rather than the wrapper: connect by channel ID, resume a session after a reload, and approve another agent's key before they can join. \"Ring me when I'm away\" adds Knock: a content-free push that reaches somebody whose page is closed.",
       "badges": ["Raw AgentConnection", "Presence", "Knock push"],
+      "call": "channel.sendMessage(text, done)",
       "source": ["apps/chat.html", "apps/chat-knock.js"]
     },
     {
@@ -41,6 +45,7 @@
       "blurb": "See who is connected and how messages travel between them.",
       "text": "Presence, the elected host and the shape of the relay, drawn live. Press \"step aside\" and watch host migration happen — the part of the system every app depends on and none of them shows.",
       "badges": ["Host election", "Presence", "Relay topology"],
+      "call": "onBecomeHost() { /* you are the relay now */ }",
       "source": ["apps/under-the-hood/under-the-hood.js"]
     },
     {
@@ -56,6 +61,7 @@
       "blurb": "Live polls and questions, with a history of every response.",
       "text": "Live questions and polls for a room or a talk. Every vote appends a version rather than overwriting one, so the result has a history you can scrub back through. The Raw storage tab is the same calls with the poll taken away: put, add, read, list and delete on the room you are in.",
       "badges": ["Storage versions", "Broadcast", "Presence"],
+      "call": "agent.storageAdd({ storageKey, content })", "product": { "name": "SponsorPulse", "url": "/messaging-platform/apps/sponsorpulse/" },
       "source": ["apps/pulse/pulse.js", "apps/pulse/raw-storage.js"]
     },
     {
@@ -66,6 +72,7 @@
       "blurb": "Draw together and see every stroke appear across the room.",
       "text": "A shared drawing surface — pen, shapes, text and sticky notes. Every stroke reaches the room as it is made, undo reaches everybody, and the board is still there when you come back — stored encrypted, so the server keeps a board it cannot read. Every save is a version, and History scrubs or plays back through them without touching the board.",
       "badges": ["Broadcast", "Presence", "Encrypted storage"],
+      "call": "agent.storagePut({ storageKey: 'board', content })", "product": { "name": "Rooms", "url": "/messaging-platform/apps/rooms/" },
       "source": ["apps/whiteboard/whiteboard-client.js", "apps/whiteboard/whiteboard-tools.js", "apps/whiteboard/board-replay.js"]
     },
     {
@@ -76,6 +83,7 @@
       "blurb": "Attest: signed, ordered receipts you can verify offline.",
       "text": "The demo of attest: the note goes to channel storage, its hash goes to the platform, which orders it, signs it and welds it to the record before. Alter an entry or delete one yourself — verification re-derives the chain and checks every signature without asking the platform whether the platform is honest, then names where it broke.",
       "badges": ["Attest receipts", "Signed chain", "Offline verification"],
+      "call": "channel.attest({ chainKey, kind, contentHash })", "product": { "name": "Proof", "url": "/messaging-platform/apps/proof/" },
       "source": ["apps/evidence-chain/evidence-chain.js"]
     },
     {
@@ -91,7 +99,7 @@
       "blurb": "Send a file now, or leave one encrypted for later.",
       "text": "Two ways to hand somebody a file. Send now streams it in chunks over the data channel, straight between browsers: nothing is uploaded and nothing is stored. Leave for later encrypts a note or file in your browser and stores it in the room, notes in channel storage and larger files in the Vault, for whoever opens the link next.",
       "badges": ["Binary transfer", "P2P data channels", "Encrypted storage", "Vault"],
-      "links": [{ "label": "The product: Drop Pro", "url": "/messaging-platform/apps/droppro/" }],
+      "call": "this.sendData(chunk, peerId)", "product": { "name": "Drop Pro", "url": "/messaging-platform/apps/droppro/" },
       "source": ["apps/drop/drop.js", "apps/drop/mailbox.js"]
     },
     {
@@ -102,6 +110,7 @@
       "blurb": "Camera, microphone and screen share, straight between browsers.",
       "text": "The demo of WebRtcHelper's media side. The channel carries who is here and what they have switched on; camera and screen go peer to peer. Sharing your screen replaces your camera rather than adding a stream, and a camera switched off mid-negotiation never shows up late.",
       "badges": ["WebRTC media", "Screen share", "Mesh"],
+      "call": "rtc.createStreamOffer(peer, { stream })",
       "source": ["apps/call/call.js"]
     },
     {

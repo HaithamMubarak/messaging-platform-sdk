@@ -23,6 +23,9 @@ const STATIC = path.join(__dirname, '..', '..', 'main', 'resources', 'static');
 const read = (rel) => fs.readFileSync(path.join(STATIC, rel), 'utf8');
 const cat = JSON.parse(read('data/catalogue.json'));
 const SDK = '/messaging-platform/sdk/';
+// The private apps repo, when a checkout sits beside this one (the public build has none).
+const APPS_DIR = process.env.SIBLING_APPS_DIR
+    || path.join(__dirname, '..', '..', '..', '..', '..', '..', '..', 'messaging-platform-apps');
 
 let failed = 0;
 function check(name, fn) {
@@ -104,6 +107,34 @@ check('a shelf that counts its entries counts them correctly', () => {
 
 check('every highlight names a live entry', () => {
     assert.deepStrictEqual((cat.highlights || []).filter((id) => !live.some((e) => e.id === id)), []);
+});
+
+// Landing redesign L4 (2026-10-04): each Demos card shows the SDK call it teaches. A call on a
+// card that the demo never makes would teach the wrong thing, so its method must be called in
+// the entry's own source; and "Start with these three" may only name demos on the Learn shelf.
+check('every Learn card shows a call its own source makes', () => {
+    const bad = live.filter((e) => e.shelf === 'learn').filter((e) => {
+        const method = ((e.call || '').match(/(\w+)\s*\(/) || [])[1];
+        return !method || !new RegExp('\\b' + method + '\\s*\\(').test(e.source.map(read).join('\n'));
+    }).map((e) => e.id + ': ' + (e.call || 'no call'));
+    assert.deepStrictEqual(bad, []);
+});
+
+check('"Start with these three" names three Learn demos', () => {
+    const learn = live.filter((e) => e.shelf === 'learn').map((e) => e.id);
+    assert.strictEqual((cat.start || []).length, 3);
+    assert.deepStrictEqual(cat.start.map((s) => s.id).filter((id) => !learn.includes(id)), []);
+});
+
+// A "Product: X" link goes to an app the apps repo publishes (checked when it is beside us).
+check('every "Product:" link names a published app', () => {
+    const apps = path.join(APPS_DIR, 'apps');
+    if (!fs.existsSync(apps)) return;
+    const bad = live.filter((e) => e.product).filter((e) => {
+        const m = e.product.url.match(/^\/messaging-platform\/apps\/([a-z0-9-]+)\/$/);
+        return !m || !fs.existsSync(path.join(apps, m[1], 'index.html'));
+    }).map((e) => e.id + ': ' + e.product.url);
+    assert.deepStrictEqual(bad, []);
 });
 
 check('a moved entry says where it went, and that place is a live entry', () => {
@@ -190,8 +221,6 @@ check('no live page links to a moved demo', () => {
  * Drop through a redirect for a phase (landing redesign L1, 2026-10-04). The apps repo is
  * private, so the public build skips this when no checkout sits beside it.
  */
-const APPS_DIR = process.env.SIBLING_APPS_DIR
-    || path.join(__dirname, '..', '..', '..', '..', '..', '..', '..', 'messaging-platform-apps');
 
 function appPages(dir) {
     return fs.readdirSync(dir, { withFileTypes: true }).flatMap((d) => {
@@ -241,6 +270,16 @@ check('the hub and Games page count products and games from the data', () => {
     for (const page of ['hub.html', 'games.html']) {
         for (const [said, n] of claims(page, 'games')) if (n !== games) bad.push(`${page} says "${said}", Party Arcade has ${games}`);
     }
+    assert.deepStrictEqual(bad, []);
+});
+
+check('the Demos page counts its demos and templates from the data', () => {
+    const shelf = (name) => live.filter((e) => e.shelf === name).length;
+    const bad = [];
+    for (const [noun, n] of [['demos', shelf('learn')], ['templates', shelf('templates')]]) {
+        for (const [said, k] of claims('playground.html', noun)) if (k !== n) bad.push(`playground.html says "${said}", the catalogue has ${n}`);
+    }
+    assert.ok(claims('playground.html', 'demos').length, 'playground.html no longer says how many demos it has');
     assert.deepStrictEqual(bad, []);
 });
 

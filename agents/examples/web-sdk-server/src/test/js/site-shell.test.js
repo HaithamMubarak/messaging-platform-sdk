@@ -97,15 +97,29 @@ function facesIn(css) {
     return named;
 }
 
+/*
+ * Party Arcade imports its CSS from script (a Vite app), so its sheets are read
+ * from src/client. The owner kept its display face for the hero (plan section 7,
+ * Q1): Space Grotesk and the Georgia italic in the headline; Trebuchet MS is
+ * the in-game map HUD, and two symbol fonts are glyph fallbacks.
+ */
+const ALLOWED = { 'party-arcade': ['space grotesk', 'space grotesk (loaded)', 'georgia', 'serif', 'trebuchet ms', 'segoe ui symbol', 'noto sans symbols 2'] };
+
+function pageCss(page, html) {
+    const sheets = [...html.matchAll(/<link[^>]+rel="stylesheet"[^>]+href="([^"]+)"/g)].map((m) => m[1]);
+    const own = path.join(path.dirname(page), 'src', 'client');
+    const bundled = fs.existsSync(own) ? fs.readdirSync(own).filter((f) => f.endsWith('.css')).map((f) => path.join(own, f)) : [];
+    return [html.match(/<style[\s\S]*?<\/style>/g) || []].flat().join('\n')
+        + sheets.map((h) => sheetFile(page, h)).filter((f) => f && fs.existsSync(f)).concat(bundled).map((f) => fs.readFileSync(f, 'utf8')).join('\n')
+        + sheets.filter((h) => /^https?:/.test(h)).join('\n');
+}
+
 check('no public page names a face other than Manrope or JetBrains Mono', () => {
     const bad = [];
     for (const page of publicPages()) {
         const html = fs.readFileSync(page, 'utf8');
-        const sheets = [...html.matchAll(/<link[^>]+rel="stylesheet"[^>]+href="([^"]+)"/g)].map((m) => m[1]);
-        const css = [html.match(/<style[\s\S]*?<\/style>/g) || []].flat().join('\n')
-            + sheets.map((h) => sheetFile(page, h)).filter((f) => f && fs.existsSync(f)).map((f) => fs.readFileSync(f, 'utf8')).join('\n')
-            + sheets.filter((h) => /^https?:/.test(h)).join('\n');
-        const faces = [...new Set(facesIn(css))];
+        const allowed = ALLOWED[path.basename(path.dirname(page))] || [];
+        const faces = [...new Set(facesIn(pageCss(page, html)))].filter((f) => !allowed.includes(f));
         if (faces.length) bad.push(path.basename(path.dirname(page)) + '/' + path.basename(page) + ': ' + faces.join(', '));
     }
     assert.deepStrictEqual(bad, []);

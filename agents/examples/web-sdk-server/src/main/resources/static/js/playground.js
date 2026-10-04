@@ -7,7 +7,7 @@
  * data/catalogue.json through js/catalogue.js, and the filter chips come from
  * the same file, so a chip cannot exist without a primitive behind it.
  *
- * The filter is a chip row plus a "playable alone" toggle, and the state
+ * The filter is a chip row plus a "works alone" toggle and a live count, and the state
  * rides in the URL hash so a filtered view can be linked to and survives a
  * reload — "here are the storage ones" is a sendable thing. Entries are
  * hidden with the `hidden` attribute so the auto-fit grid re-packs itself.
@@ -26,16 +26,6 @@
         if (cls) n.className = cls;
         if (text !== undefined) n.textContent = text;
         return n;
-    }
-
-    function icon(name, extra) {
-        var svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
-        svg.setAttribute('class', 'icon' + (extra ? ' ' + extra : ''));
-        svg.setAttribute('aria-hidden', 'true');
-        var use = document.createElementNS('http://www.w3.org/2000/svg', 'use');
-        use.setAttribute('href', '#' + name);
-        svg.appendChild(use);
-        return svg;
     }
 
     function link(href, cls, text) {
@@ -59,51 +49,62 @@
         });
     }
 
-    /** What sits under the text: facts first (players, pattern), then links, then "Open". */
-    function foot(entry) {
-        var f = el('div', 'entry-foot');
-        if (entry.about) f.appendChild(link(entry.about, 'btn btn--sm btn--ghost entry-alt', 'What it does'));
-        (entry.links || []).forEach(function (l) { f.appendChild(link(l.url, 'btn btn--sm btn--ghost entry-alt', l.label)); });
-        if (entry.source && entry.shelf === 'templates') {
-            f.appendChild(link('/messaging-platform/sdk/' + entry.source[0], 'btn btn--sm btn--ghost entry-alt', 'Read the source'));
-        }
-        var open = el('span', 'demo-card__link', 'Open ');
-        open.appendChild(icon('i-arrow-right', 'icon--sm'));
-        f.appendChild(open);
+    /** "New here?": three Learn demos, in order, each with what it teaches. */
+    function startHere(cat) {
+        var list = document.getElementById('startList');
+        if (!list) return;
+        (cat.start || []).forEach(function (s) {
+            var e = Catalogue.byId(cat, s.id), li = el('li'), a = link(e.url, 'hub-start__item');
+            a.append(el('strong', '', e.name), document.createTextNode(' · ' + s.what));
+            li.appendChild(a);
+            list.appendChild(li);
+        });
+    }
+
+    /** Who it needs: a Learn demo works alone or wants a second person; a template says its players. */
+    function tags(entry) {
+        var t = el('div', 'media-card__tags');
+        if (entry.shelf === 'learn') t.appendChild(el('span', entry.solo ? 'tag tag--solo' : 'tag', entry.solo ? 'Works alone' : 'Best with 2'));
+        else if (entry.players) t.appendChild(el('span', 'tag', entry.players));
+        return t;
+    }
+
+    /** Two clear actions, then the links: Open, Source (or Details), then the product it became. */
+    function actions(entry) {
+        var f = el('div', 'media-card__actions');
+        f.appendChild(link(entry.url, 'btn-primary', 'Open'));
+        if (entry.source) f.appendChild(link('/messaging-platform/sdk/' + entry.source[0], 'btn-secondary', 'Source'));
+        else if (entry.about && entry.about !== entry.url) f.appendChild(link(entry.about, 'btn-secondary', 'Details'));
+        if (entry.product) f.appendChild(link(entry.product.url, 'btn-secondary', 'Product: ' + entry.product.name));
+        (entry.links || []).forEach(function (l) { f.appendChild(link(l.url, 'btn-secondary', l.label)); });
         return f;
     }
 
     function card(cat, entry) {
-        var a = el('article', 'card card--interactive game-card entry');
+        var a = el('article', 'media-card entry');
         a.setAttribute('data-proves', (entry.primitives || []).join(' '));
         a.setAttribute('data-solo', entry.solo ? 'true' : 'false');
-        var hit = link(entry.url, 'entry-hit');
-        hit.appendChild(el('span', 'sr-only', 'Open ' + entry.name));
-        var shot = el('figure', 'entry-shot'), img = el('img');
+        var art = el('figure', 'media-card__art'), img = el('img');
         Object.assign(img, { src: entry.image, width: 960, height: 600, loading: 'lazy', decoding: 'async', alt: Catalogue.imageAlt(entry) });
-        shot.appendChild(img);
-        var head = el('div', 'game-card__head'), tile = el('span', 'tile-icon');
-        tile.style.margin = '0';
-        tile.appendChild(icon(entry.icon || 'i-layers'));
-        head.append(tile, el('h3', '', entry.name));
-        var facts = [entry.pattern, entry.players, entry.label].filter(Boolean);
-        var badges = el('div', 'game-card__proves');
-        (entry.badges || []).forEach(function (b, i) { badges.appendChild(el('span', i ? 'badge' : 'badge badge--brand', b)); });
-        a.append(hit, shot, head);
-        if (facts.length) a.appendChild(el('p', 'entry-facts', facts.join(' · ')));
-        a.append(el('p', '', entry.text), badges, foot(entry));
+        art.appendChild(img);
+        var body = el('div', 'media-card__body');
+        body.append(el('p', 'media-card__meta', entry.pattern || entry.category || (entry.badges || []).slice(0, 3).join(' · ')),
+            el('h3', '', entry.name), el('p', 'media-card__lead', entry.blurb));
+        if (entry.call) body.appendChild(el('code', 'media-card__call', entry.call));
+        body.append(tags(entry), actions(entry));
+        a.append(art, body);
         return a;
     }
 
     function section(cat, name) {
         var entries = Catalogue.shelf(cat, name);
         if (!entries.length) return null;
-        var s = el('section'), wrap = el('div', 'wrap'), head = el('div', 'section-head');
-        s.style.paddingTop = '0';
-        var h = el('h2', '', cat.shelves[name].title);
-        h.style.fontSize = 'var(--fs-2xl)';
-        head.append(h, el('p', '', cat.shelves[name].lead));
-        var grid = el('div', 'grid-3');
+        var shelf = cat.shelves[name], s = el('section', 'hub-shelf hub-shelf--' + name), wrap = el('div', 'wrap');
+        var head = el('div', 'hub-shelf__head'), text = el('div');
+        text.append(el('h2', '', shelf.title), el('p', '', shelf.lead));
+        head.appendChild(text);
+        if (shelf.more) head.appendChild(link(shelf.more.url, 'hub-shelf__more', shelf.more.label + ' →'));
+        var grid = el('div', 'card-grid');
         grid.setAttribute('data-entry-grid', '');
         entries.forEach(function (e) { grid.appendChild(card(cat, e)); });
         wrap.append(head, grid);
@@ -111,32 +112,30 @@
         return s;
     }
 
-    /** What left the gallery says where it went, rather than silently vanishing. */
+    /** What left the gallery says where it went, folded away: no dead ends, little noise. */
     function movedNote(cat) {
-        var gone = Catalogue.moved(cat);
-        if (!gone.length) return null;
-        var s = el('section'), wrap = el('div', 'wrap'), list = el('ul', 'moved-list');
-        s.style.paddingTop = '0';
-        wrap.appendChild(el('h2', 'moved-title', 'Moved'));
+        var gone = Catalogue.moved(cat), box = document.getElementById('movedRoot');
+        if (!gone.length || !box) return;
+        var d = el('details', 'hub-moved'), list = el('ul', 'moved-list');
+        d.appendChild(el('summary', '', 'Looking for an older demo? (' + gone.length + ' moved)'));
         gone.forEach(function (e) {
             var li = el('li'), to = e.movedTo && Catalogue.byId(cat, e.movedTo);
             li.append(link(e.url, '', e.name), document.createTextNode(' — ' + e.note + ' '));
             if (to) li.appendChild(link(to.url, '', 'Open ' + to.name));
             list.appendChild(li);
         });
-        wrap.appendChild(list);
-        s.appendChild(wrap);
-        return s;
+        d.appendChild(list);
+        box.appendChild(d);
     }
 
     function render(cat) {
         chips(cat);
+        startHere(cat);
         Object.keys(cat.shelves).forEach(function (name) {
             var s = section(cat, name);
             if (s) rootEl.appendChild(s);
         });
-        var m = movedNote(cat);
-        if (m) rootEl.appendChild(m);
+        movedNote(cat);
     }
 
     // ------------------------------------------------------------- filter
@@ -144,6 +143,7 @@
     var chipEls = [], entries = [], state = { proves: 'all', solo: false };
     var soloBox = document.getElementById('soloOnly');
     var empty = document.getElementById('filterEmpty');
+    var countEl = document.getElementById('filterCount');
 
     function has(node, key) {
         return (' ' + (node.getAttribute('data-proves') || '') + ' ').indexOf(' ' + key + ' ') !== -1;
@@ -177,6 +177,7 @@
         });
         if (soloBox) soloBox.checked = state.solo;
         if (empty) empty.hidden = shown !== 0;
+        if (countEl) countEl.textContent = shown + ' shown';
         // A shelf with nothing left in it hides its heading too.
         rootEl.querySelectorAll('[data-entry-grid]').forEach(function (grid) {
             var any = Array.prototype.some.call(grid.children, function (c) { return !c.hidden; });
