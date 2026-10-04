@@ -365,8 +365,8 @@ a.mp-card:hover { border-color: var(--green); box-shadow: var(--shadow); }
 .home-presence__face:first-child { margin-left: 0; }
 .home-presence__face.is-you { background: var(--brand); color: var(--on-brand, #04201c); }
 .home-presence__face.is-more { background: var(--surface-2); color: var(--text-muted); }
-.home-presence__rtt { color: var(--brand-ink); font-family: var(--font-mono); font-size: 12px; justify-self: end; }
-.home-presence__count { grid-column: 1 / -1; color: var(--text-body); font-size: 14px; line-height: 1.45; }
+.home-presence__rtt { grid-row: 1; grid-column: 2; color: var(--brand-ink); font-family: var(--font-mono); font-size: 12px; justify-self: end; }
+.home-presence__count { grid-row: 2; grid-column: 1 / -1; color: var(--text-body); font-size: 14px; line-height: 1.45; }
 .home-mock { position: relative; margin: 0 0 28px; border: 1px solid var(--border-strong); border-radius: 14px; background: var(--surface-1); box-shadow: 0 30px 80px rgba(0, 0, 0, .35); }
 .home-mock figcaption { display: flex; align-items: center; gap: 8px; padding: 10px 14px; font-size: 13px; color: var(--text-muted); border-bottom: 1px solid var(--border); }
 .home-mock figcaption i { width: 9px; height: 9px; border-radius: 50%; background: var(--surface-3); }
