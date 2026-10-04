@@ -60,6 +60,16 @@
     .site-header .brand { font-size: 15px; }
 }
 
+/* The demo <-> product strip above the footer (site-shell.cjs pairStrip, plan P2). */
+.site-shell-pair {
+    margin-top: 48px; border-top: 1px solid var(--border, rgba(148, 163, 184, .14));
+    background: var(--surface-1, #101827); color: var(--text-body, #c4cede);
+    font-family: 'Manrope', 'Manrope Fallback', system-ui, -apple-system, 'Segoe UI', sans-serif; font-size: 15px;
+}
+.site-shell-pair__inner { max-width: 1200px; margin: 0 auto; padding: 18px 24px; }
+.site-shell-pair p { margin: 0; }
+.site-shell-pair a { display: inline-flex; align-items: center; min-height: 44px; min-width: 44px; color: var(--brand-ink, #7ee8dc); font-weight: 700; text-decoration: underline; text-underline-offset: 3px; }
+.site-shell-pair + * .site-shell-footer, .site-shell-pair + .site-shell-footer { margin-top: 0; }
 .site-shell-footer {
     margin-top: 64px; border-top: 1px solid var(--border, rgba(148, 163, 184, .14));
     background: var(--bg, #0b1120); color: var(--text-muted, #8a97ab);

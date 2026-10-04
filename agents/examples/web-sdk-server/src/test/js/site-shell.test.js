@@ -20,7 +20,7 @@ const pages = Object.entries(shell.PAGES).map(([rel, section]) => {
 });
 
 check('every shell page wears the current header and footer (run node tools/site-shell.cjs)', () => {
-    const stale = pages.filter((p) => shell.apply(p.html, p.section) !== p.html).map((p) => p.rel);
+    const stale = pages.filter((p) => shell.apply(p.html, p.section, shell.pairFor(p.rel)) !== p.html).map((p) => p.rel);
     assert.deepStrictEqual(stale, []);
 });
 

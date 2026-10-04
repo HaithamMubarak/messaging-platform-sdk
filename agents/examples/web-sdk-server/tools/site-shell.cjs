@@ -128,8 +128,34 @@ function placeAssets(html) {
     return add('profile-chip.js', `<script src="${HUB}js/profile-chip.js" defer></script>`, '</body>');
 }
 
-function apply(html, section) {
-    return placeAssets(placeBlock(placeBlock(html, 'header', header(section)), 'footer', footer()));
+/*
+ * The demo <-> product strip (plan P2, 2026-10-05): one line above the footer that says
+ * "this is the demo, the product is X" on a demo's about page, and "the open demo of the
+ * same idea is Y" on a product's landing. pair = { lead, label, href }, or null for none.
+ * Written between its own markers so --check keeps it in step with its data.
+ */
+const PAIR = ['<!-- site-shell:pair (tools/site-shell.cjs; do not edit here) -->', '<!-- /site-shell:pair -->'];
+
+function pairStrip(pair) {
+    return `${PAIR[0]}\n<aside class="site-shell-pair" aria-label="${pair.aria}"><div class="site-shell-pair__inner">`
+        + `<p>${pair.lead} <a href="${pair.href}">${pair.label}</a></p></div></aside>\n${PAIR[1]}`;
+}
+
+function placePair(html, pair) {
+    const i = html.indexOf(PAIR[0]);
+    if (i >= 0) html = html.slice(0, i) + html.slice(html.indexOf(PAIR[1], i) + PAIR[1].length).replace(/^\n/, '');
+    return pair ? html.replace(MARK.footer[0], () => `${pairStrip(pair)}\n${MARK.footer[0]}`) : html;
+}
+
+/** An SDK page's pair, from data/catalogue.json: a demo whose about page this is, and its product. */
+function pairFor(rel) {
+    const cat = JSON.parse(fs.readFileSync(path.join(STATIC, 'data', 'catalogue.json'), 'utf8'));
+    const e = cat.entries.find((x) => x.status === 'live' && x.product && x.about === '/messaging-platform/sdk/' + rel);
+    return e ? { aria: 'The product', lead: `This is the ${e.name} demo. The product built on it:`, label: e.product.name, href: e.product.url } : null;
+}
+
+function apply(html, section, pair) {
+    return placePair(placeAssets(placeBlock(placeBlock(html, 'header', header(section)), 'footer', footer())), pair);
 }
 
 function run(files, check) {
@@ -138,7 +164,7 @@ function run(files, check) {
         const raw = fs.readFileSync(file, 'utf8');
         const crlf = raw.includes('\r\n');
         const lf = raw.replace(/\r\n/g, '\n');
-        const out = apply(lf, section);
+        const out = apply(lf, section, pairFor(path.relative(STATIC, file).split(path.sep).join('/')));
         if (out === lf) continue;
         if (check) { bad++; console.log(`  differs from the shell: ${file}`); continue; }
         fs.writeFileSync(file, crlf ? out.replace(/\n/g, '\r\n') : out);
@@ -160,4 +186,4 @@ if (require.main === module) {
     process.exitCode = bad ? 1 : 0;
 }
 
-module.exports = { apply, header, footer, PAGES, NAV, STATIC };
+module.exports = { apply, pairFor, header, footer, PAGES, NAV, STATIC };
