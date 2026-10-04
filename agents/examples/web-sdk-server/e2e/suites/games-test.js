@@ -7,7 +7,8 @@
  * static check, so each game is asked the same question: host presses start,
  * does the guest end up in a running game.
  */
-const { BASE, SHOTS } = require('../lib/harness');
+const { BASE, SHOTS, LAUNCH } = require('../lib/harness');
+const { useChannelForm } = require('../lib/party-room');
 const { chromium } = require('playwright');
 const pass = [], fail = [];
 const check = (ok, w) => (ok ? pass : fail).push(w);
@@ -25,6 +26,7 @@ async function join(b, path, name, room) {
   // normally shows its connect button in under a second past a 25s wait. That
   // is the harness being starved, not the game being broken, so the join is
   // given room and one retry. A page that is genuinely broken still fails both.
+  await useChannelForm(p);   // a game's party lobby covers the form
   await p.waitForSelector('#usernameInput', { timeout: 60000 });
   await p.fill('#usernameInput', name);
   await p.fill('#channelInput', room);
@@ -105,12 +107,11 @@ async function game(b, label, path, start, playing, minPlayers) {
 }
 
 (async () => {
-  const b = await chromium.launch({ headless: false,
-    args: ['--no-sandbox', '--enable-unsafe-swiftshader', '--use-gl=angle', '--use-angle=swiftshader'] });
+  const b = await chromium.launch(LAUNCH);
 
   await game(b, 'air-hockey',    'air-hockey/index.html',    () => window.startGame(), /Blue \d+ Red \d+/);
-  await game(b, 'reactor',       'reactor/index.html',       () => window.startGame(), /Round: \d+\/\d+/);
-  await game(b, 'find-the-liar', 'find-the-liar/index.html', () => window.liarGame.requestNewRound(), /Round \d+\/\d+/, 3);
+  // Reactor and Find the Liar left for Party Arcade in hub phases 1 and 4;
+  // Gavel's start-to-verdict path is gavel-test.js.
 
   console.log('\nPASS (' + pass.length + ')'); pass.forEach(x => console.log('  ✓ ' + x));
   console.log('\nFAIL (' + fail.length + ')'); fail.forEach(x => console.log('  ✗ ' + x));

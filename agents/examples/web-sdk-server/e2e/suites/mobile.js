@@ -18,7 +18,7 @@ const { BASE, SHOTS, LAUNCH } = require('../lib/harness');
 const { chromium } = require('playwright');
 
 const ROOT = BASE + '/';
-const SITE_PAGES = ['index.html', 'playground.html', 'hub.html', 'docs.html', 'apps/chat.html', 'apps/storage-demo.html',
+const SITE_PAGES = ['index.html', 'playground.html', 'hub.html', 'docs.html', 'apps/chat.html',
   'apps/terminal/index.html', 'apps/test-api-key/index.html'];
 const MIN_TAP = 32;
 
@@ -27,7 +27,8 @@ async function pagesToCheck() {
   const res = await fetch(ROOT + 'data/catalogue.json');
   const cat = await res.json();
   const sdk = /^\/messaging-platform\/sdk\//;
-  const fromCatalogue = cat.entries.filter((e) => e.status === 'live' || e.status === 'moved')   // moved pages are still served
+  // Live only: hub phase 4 deleted every moved demo's files, and the gateway 301s them.
+  const fromCatalogue = cat.entries.filter((e) => e.status === 'live')
     .flatMap((e) => [e.url, e.about]).filter((u) => u && sdk.test(u)).map((u) => u.replace(sdk, ''));
   return [...new Set(SITE_PAGES.concat(fromCatalogue))];
 }

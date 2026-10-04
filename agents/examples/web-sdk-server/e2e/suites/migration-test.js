@@ -9,7 +9,8 @@
  * Two survivors, so promotion has a choice to make and the surviving pair
  * still has somebody to talk to.
  */
-const { BASE, SHOTS } = require('../lib/harness');
+const { BASE, SHOTS, LAUNCH } = require('../lib/harness');
+const { useChannelForm } = require('../lib/party-room');
 const { chromium } = require('playwright');
 const pass = [], fail = [];
 const check = (ok, w) => (ok ? pass : fail).push(w);
@@ -23,6 +24,7 @@ async function join(b, path, name, room) {
   p.on('console', m => { if (m.type() === 'error') errs.push(m.text().slice(0, 95)); });
   p.errs = errs; p.ctx = ctx;
   await p.goto(BASE + '/apps/' + path, { waitUntil: 'domcontentloaded', timeout: 30000 });
+  await useChannelForm(p);   // a game's party lobby covers the form
   await p.waitForSelector('#usernameInput', { timeout: 25000 });
   await p.fill('#usernameInput', name);
   await p.fill('#channelInput', room);
@@ -34,9 +36,7 @@ async function join(b, path, name, room) {
 
 /** Which of these pages thinks it is the host? */
 const AM_I_HOST = () => {
-  for (const k of ['pictionaryGame', 'airHockeyGame', 'reactorGame',
-                   'pulseApp', 'liarGame', 'quizGame',
-                   'mindMapApp', 'pixelArtApp', 'collabDoc', 'dropApp']) {
+  for (const k of ['gavelGame', 'airHockeyGame', 'chessGame', 'pulseApp', 'dropApp']) {
     const g = window[k];
     if (g && typeof g.isHost === 'function') { try { return { app: k, host: g.isHost() }; } catch (e) {} }
   }
@@ -126,16 +126,14 @@ async function migrate(b, label, path, after) {
 }
 
 (async () => {
-  const b = await chromium.launch({ headless: false,
-    args: ['--no-sandbox', '--enable-unsafe-swiftshader', '--use-gl=angle', '--use-angle=swiftshader'] });
-  // The new host starts a round; the other player must see it begin.
-  await migrate(b, 'pictionary', 'pictionary/index.html', async (h, o) => {
+  const b = await chromium.launch(LAUNCH);
+  // The new host opens a case; the other player must see the court sit.
+  await migrate(b, 'gavel', 'mini-games/gavel/index.html', async (h, o) => {
     await h.bringToFront();
-    await h.evaluate(() => window.pictionaryGame.startGame());
-    await h.waitForTimeout(7000);
-    await o.bringToFront(); await o.waitForTimeout(5000);
-    return o.evaluate(() => /_|Round\s*1/i.test(
-      document.getElementById('currentWordDisplay').innerText + document.body.innerText));
+    await h.evaluate(() => window.gavelGame.hostOpenCase({ title: 'Opened after the host left' }));
+    await h.waitForTimeout(3000);
+    await o.bringToFront(); await o.waitForTimeout(3000);
+    return o.evaluate(() => window.gavelGame.phase === 'plea' && window.gavelGame.title === 'Opened after the host left');
   });
 
   await migrate(b, 'air-hockey', 'mini-games/air-hockey/index.html', async (h, o) => {
@@ -148,13 +146,6 @@ async function migrate(b, label, path, after) {
     return o.evaluate(() => /CONTROLS[\s\S]*LEADERBOARD/.test(document.body.innerText));
   });
 
-  await migrate(b, 'reactor', 'mini-games/reactor/index.html', async (h, o) => {
-    await h.bringToFront();
-    await h.evaluate(() => window.startGame && window.startGame());
-    await h.waitForTimeout(7000);
-    await o.bringToFront(); await o.waitForTimeout(5000);
-    return o.evaluate(() => /Round:\s*1\/\d/.test(document.body.innerText));
-  });
 
   // Content apps: a change made by either survivor must still reach the other.
   await migrate(b, 'pulse', 'pulse/index.html', async (h, o) => {
@@ -168,14 +159,6 @@ async function migrate(b, label, path, after) {
     return now > before;
   });
 
-  await migrate(b, 'collab-doc', 'collab-doc/index.html', async (h, o) => {
-    await h.bringToFront();
-    await h.evaluate(() => window.collabDoc.editor.setValue('written after the host left'));
-    await h.waitForTimeout(3000);
-    await o.bringToFront(); await o.waitForTimeout(5000);
-    return /written after the host left/.test(
-      await o.evaluate(() => window.collabDoc.editor.getValue()));
-  });
   console.log('\nPASS (' + pass.length + ')'); pass.forEach(x => console.log('  ✓ ' + x));
   console.log('\nFAIL (' + fail.length + ')'); fail.forEach(x => console.log('  ✗ ' + x));
   await b.close();

@@ -5,7 +5,7 @@
  * person's screen to another's, so each one performs its characteristic
  * action on client A and asks client B whether it arrived.
  */
-const { BASE, SHOTS } = require('../lib/harness');
+const { BASE, SHOTS, LAUNCH } = require('../lib/harness');
 const { chromium } = require('playwright');
 const pass = [], fail = [];
 const check = (ok, w) => (ok ? pass : fail).push(w);
@@ -51,14 +51,7 @@ async function pair(b, label, path, act, read, expect) {
 }
 
 (async () => {
-  const b = await chromium.launch({ headless: false,
-    args: ['--no-sandbox', '--enable-unsafe-swiftshader', '--use-gl=angle', '--use-angle=swiftshader'] });
-
-  // collab-doc: typing reaches the other editor
-  await pair(b, 'collab-doc', 'collab-doc/index.html',
-    () => window.collabDoc.editor.setValue('hello from alpha'),
-    () => (window.collabDoc.editor.getValue() || '').slice(0, 40),
-    (x, y) => /hello from alpha/.test(y));
+  const b = await chromium.launch(LAUNCH);
 
   // pulse: a vote is counted for everyone
   await pair(b, 'pulse', 'pulse/index.html',

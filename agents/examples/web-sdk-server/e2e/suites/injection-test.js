@@ -15,7 +15,7 @@
  * Layer 1 is what makes today safe; layer 2 is what keeps it safe when a name
  * arrives from somewhere the checker never saw. This asserts both.
  */
-const { BASE, SHOTS } = require('../lib/harness');
+const { BASE, SHOTS, LAUNCH } = require('../lib/harness');
 const { chromium } = require('playwright');
 
 const HOSTILE_NAMES = [
@@ -35,10 +35,7 @@ const pass = [], fail = [];
 const check = (ok, what) => (ok ? pass : fail).push(what);
 
 (async () => {
-    const b = await chromium.launch({
-        headless: false,
-        args: ['--no-sandbox', '--enable-unsafe-swiftshader', '--use-gl=angle', '--use-angle=swiftshader']
-    });
+    const b = await chromium.launch(LAUNCH);
 
     // ---- layer 1: the platform refuses hostile agent names ------------------
     for (const name of HOSTILE_NAMES) {
@@ -75,28 +72,25 @@ const check = (ok, what) => (ok ? pass : fail).push(what);
     const p = await b.newPage();
     const FILES = [
         'apps/mini-games/air-hockey/air-hockey.js',
-        'apps/mini-games/find-the-liar/find-the-liar.js',
-        'apps/mini-games/reactor/reactor-client.js',
+        'apps/mini-games/gavel/gavel.js',
+        'apps/whiteboard/whiteboard-client.js',
         // apps/quickshare/QuickShare.js is gone — QuickShare was retired to a
         // redirect, since Drop is the same demonstration with a consent step.
         // apps/mini-games/quiz-battle is gone too — it was retired when the
         // host-authoritative quiz it demonstrated moved into an events product.
-        'apps/chess/chess-game.js',
-        'apps/pictionary/pictionary.js',
-        'apps/collab-doc/collab-doc.js'
+        'apps/chess/chess-game.js'
+        // Pictionary, Find the Liar, Reactor and collab-doc left the SDK in hub
+        // phases 1 and 4. Drop, its mailbox, Pulse, Call, Evidence Chain and the
+        // Knock dialog put remote text in with textContent, never innerHTML
+        // (read 2026-10-04), so they have no escaper to look for.
     ];
     for (const f of FILES) {
         const src = await p.evaluate(async (u) => (await fetch(u)).text(),
             BASE + '/' + f);
-        const hasEscaper = /escapeHtml|escapeMarkdownHtml|MiniGameUtils\.escapeHtml|UI\.esc/.test(src);
+        const hasEscaper = /escapeHtml|escapeMarkdownHtml|MiniGameUtils\.escapeHtml|UI\.esc|PartyKit\.esc/.test(src);
         check(hasEscaper, `${f.split('/').pop()} ships an escaper`);
     }
 
-    // find-the-liar's inline onclick carrying a name must be gone entirely.
-    const liar = await p.evaluate(async (u) => (await fetch(u)).text(),
-        BASE + '/apps/mini-games/find-the-liar/find-the-liar.js');
-    check(!/onclick="liarGame\.submitVote\('\$\{/.test(liar),
-        'find-the-liar no longer builds an onclick around a player name');
 
     // chat.html must not put the room password in localStorage.
     const chat = await p.evaluate(async (u) => (await fetch(u)).text(),

@@ -12,7 +12,7 @@
  * Requests are intercepted at the browser rather than counted in the database,
  * so the assertion is on the bytes that actually left the page.
  */
-const { BASE, gotoStable, results, waitForService } = require('../lib/harness');
+const { BASE, gotoStable, results, waitForService, LAUNCH } = require('../lib/harness');
 const { chromium } = require('playwright');
 
 // Report through the shared reporter, so run-all.js counts this suite like
@@ -65,20 +65,19 @@ async function join(b, room, name, { optOut = false } = {}) {
         });
     }
     const seen = trap(page);
-    await gotoStable(page, BASE + '/apps/dead-drop/app.html');
+    await gotoStable(page, BASE + '/apps/drop/index.html');
     await page.waitForSelector('#usernameInput', { timeout: 45000 });
     await page.fill('#usernameInput', name);
     await page.fill('#channelInput', room);
     await page.fill('#passwordInput', 'pw12345');
     await page.click('#connectBtn');
-    await page.waitForFunction(() => window.deadDropApp && window.deadDropApp.connected, { timeout: 45000 })
+    await page.waitForFunction(() => window.dropApp && window.dropApp.connected, { timeout: 45000 })
         .catch(() => {});
     return { ctx, page, seen };
 }
 
 (async () => {
-    const b = await chromium.launch({ headless: false,
-        args: ['--no-sandbox', '--enable-unsafe-swiftshader', '--use-gl=angle', '--use-angle=swiftshader'] });
+    const b = await chromium.launch(LAUNCH);
 
     const stamp = Math.floor(Date.now() / 1000);
 
@@ -115,7 +114,7 @@ async function join(b, room, name, { optOut = false } = {}) {
         check(extras.length === 0,
             `an event carries only the five declared fields${extras.length ? ' — EXTRA ' + extras.join(', ') : ''}`);
         const started = evs.find(e => e.event === 'session_started') || {};
-        check(started.app === 'dead-drop' || started.app === 'deaddrop' || started.app === 'app',
+        check(started.app === 'drop',
             `app is the demo folder, not free text — got ${JSON.stringify(started.app)}`);
         check(['phone', 'tablet', 'desktop'].includes(started.device),
             `device is one of the three classes — got ${JSON.stringify(started.device)}`);
@@ -136,7 +135,7 @@ async function join(b, room, name, { optOut = false } = {}) {
         await off.page.waitForTimeout(7000);
         check(off.seen.length === 0,
             `an opted-out page sends nothing at all — saw ${off.seen.length} request(s)`);
-        check(await off.page.evaluate(() => window.deadDropApp && window.deadDropApp.connected),
+        check(await off.page.evaluate(() => window.dropApp && window.dropApp.connected),
             'and it still connects normally with the beacon off');
 
         // ---- 6. losing the host is reported by whoever is promoted ----------

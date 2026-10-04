@@ -6,7 +6,7 @@
  * The test drops one client's network, brings it back, and asks the question
  * that matters: is that person in the room again, and can they still work?
  */
-const { BASE, SHOTS } = require('../lib/harness');
+const { BASE, SHOTS, LAUNCH } = require('../lib/harness');
 const { chromium } = require('playwright');
 const pass = [], fail = [];
 const check = (ok, w) => (ok ? pass : fail).push(w);
@@ -107,15 +107,19 @@ async function blip(b, label, path, work) {
 }
 
 (async () => {
-  const b = await chromium.launch({ headless: false,
-    args: ['--no-sandbox', '--enable-unsafe-swiftshader', '--use-gl=angle', '--use-angle=swiftshader'] });
+  const b = await chromium.launch(LAUNCH);
 
-  await blip(b, 'collab-doc', 'collab-doc/index.html', async (a, c) => {
+  // collab-doc carried this until hub phase 1; a Pulse vote is the same
+  // question: does a change made after the wifi came back reach the other side?
+  await blip(b, 'pulse', 'pulse/index.html', async (a, c) => {
+    const votes = (p) => p.evaluate(() => Number((document.body.innerText.match(/(\d+) votes?/) || [])[1] || 0));
+    const before = await votes(a);
     await c.bringToFront();
-    await c.evaluate(() => window.collabDoc.editor.setValue('typed after the wifi came back'));
+    await c.evaluate(() => { const el = document.querySelector('[data-option]');
+      window.pulseApp.vote(el.getAttribute('data-option')); });
     await c.waitForTimeout(3000);
     await a.bringToFront(); await a.waitForTimeout(5000);
-    return /typed after the wifi came back/.test(await a.evaluate(() => window.collabDoc.editor.getValue()));
+    return (await votes(a)) > before;
   });
 
   await blip(b, 'chat', 'chat.html', null);

@@ -1,10 +1,10 @@
 /*
- * Vault: encrypted blobs past dead-drop's 512 KB line.
+ * Vault: encrypted blobs past the mailbox's 512 KB line (Drop, "Leave for later").
  *
  *     xvfb-run -a node suites/vault-test.js
  *
  * The claim being tested is narrow and worth stating exactly: the server holds
- * ciphertext it cannot read. Not "nothing is on a server" — that is Dead Drop's
+ * ciphertext it cannot read. Not "nothing is on a server" — that is Drop's mailbox's
  * promise and Vault does not make it.
  *
  * So the assertions that matter are:
@@ -61,7 +61,7 @@ function check(ok, label, extra) {
             quota.data && (quota.data.usedBytes + '/' + quota.data.quotaBytes));
 
         // ---- 2. a round trip, past the old 512 KB line ---------------------
-        console.log('\n[2] 2 MB in, 2 MB out — four times dead-drop\'s ceiling');
+        console.log('\n[2] 2 MB in, 2 MB out — four times the mailbox\'s ceiling');
         const trip = await page.evaluate(async () => {
             const ch = window.ecApp.channel;
             // Deterministic content, so a mismatch is diagnosable rather than

@@ -7,14 +7,12 @@
  * sighted user, silent to a screen reader. Nothing on this site had ever
  * looked for that.
  */
-const { BASE, SHOTS } = require('../lib/harness');
+const { BASE, SHOTS, LAUNCH } = require('../lib/harness');
+const { discoverPages } = require('../lib/pages');
 const { chromium } = require('playwright');
-const PAGES = ['index.html','playground.html','docs.html','apps/chat.html','apps/storage-demo.html',
- 'apps/turn-stun-test.html','apps/test-api-key/index.html',
- 'apps/whiteboard/index.html','apps/whiteboard/app.html','apps/terminal/index.html','apps/terminal/app.html','apps/chess/index.html','apps/pictionary/index.html',
- 'apps/collab-doc/index.html','apps/pulse/index.html','apps/rewind/index.html','apps/rewind/app.html','apps/under-the-hood/index.html','apps/under-the-hood/app.html','apps/dead-drop/index.html','apps/dead-drop/app.html','apps/evidence-chain/index.html','apps/evidence-chain/app.html',
- 'apps/drop/index.html',
- 'apps/mini-games/air-hockey/index.html','apps/mini-games/find-the-liar/index.html','apps/mini-games/reactor/reactor-client.html'];
+// Every published page, found on disk (lib/pages.js): a hand-kept list here
+// went on asking for demos that had been deleted.
+const PAGES = discoverPages();
 
 const AUDIT = () => {
   // The accessible name a browser would compute, near enough for this purpose.
@@ -76,8 +74,7 @@ const AUDIT = () => {
 };
 
 (async () => {
-  const b = await chromium.launch({ headless: false,
-    args: ['--no-sandbox', '--enable-unsafe-swiftshader', '--use-gl=angle', '--use-angle=swiftshader'] });
+  const b = await chromium.launch(LAUNCH);
   const rows = [];
   for (const path of PAGES) {
     const p = await b.newPage({ viewport: { width: 1280, height: 900 } });

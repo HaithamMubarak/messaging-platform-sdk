@@ -6,16 +6,16 @@
  * controls people would reach. A keyboard user who cannot see where they are
  * is stuck, however good the tokens are.
  */
-const { BASE, SHOTS } = require('../lib/harness');
+const { BASE, SHOTS, LAUNCH } = require('../lib/harness');
 const { chromium } = require('playwright');
 const PAGES = ['index.html','playground.html','docs.html','apps/chat.html',
  'apps/whiteboard/index.html','apps/terminal/index.html',
- 'apps/pictionary/index.html','apps/drop/index.html','apps/pulse/index.html',
+ 'apps/mini-games/gavel/index.html','apps/drop/index.html','apps/pulse/index.html',
+ 'apps/call/index.html',
  ];
 
 (async () => {
-  const b = await chromium.launch({ headless: false,
-    args: ['--no-sandbox', '--enable-unsafe-swiftshader', '--use-gl=angle', '--use-angle=swiftshader'] });
+  const b = await chromium.launch(LAUNCH);
   let bad = 0, checked = 0;
   for (const path of PAGES) {
     const p = await b.newPage({ viewport: { width: 1280, height: 900 } });

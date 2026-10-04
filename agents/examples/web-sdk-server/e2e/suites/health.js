@@ -2,28 +2,17 @@
  * Boot health across every page on the site: does it load, does it error, does
  * it ask for anything that 404s, and does it show a connect card?
  */
-const { BASE, SHOTS } = require('../lib/harness');
+const { BASE, SHOTS, LAUNCH } = require('../lib/harness');
+const { discoverPages } = require('../lib/pages');
 const { chromium } = require('playwright');
 const ROOT = BASE + '/';
 
-const PAGES = [
-    'index.html', 'playground.html', 'docs.html', 'privacy.html',
-    'developer/index.html', 'developer/dashboard.html', 'admin/index.html', 'admin/dashboard.html',
-    'error/404.html', 'error/5xx.html',
-    'apps/whiteboard/index.html', 'apps/whiteboard/app.html',
-    'apps/terminal/index.html', 'apps/terminal/app.html',
-    
-    'apps/chess/index.html', 'apps/collab-doc/index.html', 'apps/pictionary/index.html', 'apps/pulse/index.html', 'apps/rewind/index.html', 'apps/rewind/app.html', 'apps/under-the-hood/index.html', 'apps/under-the-hood/app.html', 'apps/dead-drop/index.html', 'apps/dead-drop/app.html', 'apps/evidence-chain/index.html', 'apps/evidence-chain/app.html',
-    'apps/drop/index.html', 'apps/quickshare/index.html',
-    'apps/chat.html', 'apps/storage-demo.html', 'apps/turn-stun-test.html', 'apps/cloud-connection-demo.html', 'apps/test-api-key/index.html',
-    'apps/mini-games/air-hockey/index.html', 'apps/mini-games/find-the-liar/index.html', 'apps/mini-games/reactor/index.html'
-];
+// Every published page, found on disk (lib/pages.js): a hand-kept list here
+// went on asking for demos that had been deleted.
+const PAGES = discoverPages();
 
 (async () => {
-    const b = await chromium.launch({
-        headless: false,
-        args: ['--no-sandbox', '--enable-unsafe-swiftshader', '--use-gl=angle', '--use-angle=swiftshader']
-    });
+    const b = await chromium.launch(LAUNCH);
     const rows = [];
     for (const path of PAGES) {
         const p = await b.newPage({ viewport: { width: 1280, height: 800 } });

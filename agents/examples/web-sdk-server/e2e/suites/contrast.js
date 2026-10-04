@@ -3,20 +3,17 @@
  * renders white-on-white for anyone whose system is in dark mode. Chromium here
  * reports dark, so this sweep sees exactly what those visitors see.
  */
-const { BASE, SHOTS } = require('../lib/harness');
+const { BASE, SHOTS, LAUNCH } = require('../lib/harness');
+const { discoverPages } = require('../lib/pages');
 const { chromium } = require('playwright');
-const PAGES = ['index.html','playground.html','docs.html','apps/chat.html','apps/storage-demo.html',
- 'apps/turn-stun-test.html','apps/test-api-key/index.html',
- 'apps/whiteboard/index.html','apps/whiteboard/app.html','apps/terminal/index.html','apps/terminal/app.html','apps/chess/index.html','apps/pictionary/index.html',
- 'apps/collab-doc/index.html','apps/pulse/index.html','apps/rewind/index.html','apps/under-the-hood/index.html','apps/dead-drop/index.html','apps/evidence-chain/index.html','apps/evidence-chain/app.html',
- 'apps/drop/index.html','apps/mini-games/air-hockey/index.html',
- 'apps/mini-games/find-the-liar/index.html',
- 'apps/mini-games/reactor/reactor-client.html'];
+// Every published page, found on disk (lib/pages.js): a hand-kept list here
+// went on asking for demos that had been deleted.
+const PAGES = discoverPages();
 const lum = (c) => { const m=c.match(/\d+/g); if(!m) return null;
   const [r,g,b]=m.map(Number).map(v=>{v/=255; return v<=0.03928?v/12.92:Math.pow((v+0.055)/1.055,2.4);});
   return 0.2126*r+0.7152*g+0.0722*b; };
 (async()=>{
-  const b=await chromium.launch({headless:false,args:['--no-sandbox','--enable-unsafe-swiftshader','--force-dark-mode']});
+  const b=await chromium.launch({...LAUNCH,args:[...LAUNCH.args,'--force-dark-mode']});
   const ctx=await b.newContext({colorScheme:'dark', viewport:{width:1280,height:860}});
   let bad=0;
   for(const path of PAGES){

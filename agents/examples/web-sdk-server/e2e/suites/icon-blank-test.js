@@ -4,7 +4,8 @@
  * clickable and shows nothing. So every icon slot is asked whether it renders,
  * in the lobby AND after the state changes.
  */
-const { BASE, SHOTS } = require('../lib/harness');
+const { BASE, SHOTS, LAUNCH } = require('../lib/harness');
+const { discoverPages } = require('../lib/pages');
 const { chromium } = require('playwright');
 const OUT = SHOTS + '/';
 const pass = [], fail = [];
@@ -71,33 +72,22 @@ async function look(b, url, label, after) {
 }
 
 (async () => {
-  const b = await chromium.launch({ headless: false,
-    args: ['--no-sandbox', '--enable-unsafe-swiftshader', '--use-gl=angle', '--use-angle=swiftshader'] });
+  const b = await chromium.launch(LAUNCH);
   const H = BASE + '/apps/';
 
-  // Every page that draws from the sprite, so a dangling #i- reference or a
-  // slot that collapsed to nothing shows up wherever it happens.
-  const ALL = ['../index.html', '../playground.html', '../docs.html',
-    'whiteboard/index.html', 'whiteboard/app.html', 'rooms/index.html', 'rooms/app.html',
-    'terminal/index.html', 'terminal/app.html', 'chat.html',
-    'chess/index.html', 'collab-doc/index.html', 'pulse/index.html', 'drop/index.html',
-    'turn-stun-test.html', 'test-api-key/index.html',
-    'mini-games/air-hockey/index.html', 'mini-games/find-the-liar/index.html',
-    'mini-games/reactor/index.html'];
-  for (const page of ALL) {
-    try { await look(b, H + page, page.replace('../', '')); }
+  // Every published page (lib/pages.js), so a dangling #i- reference or a slot
+  // that collapsed to nothing shows up wherever it happens. The hand-kept list
+  // this replaced still named Rooms, which left this site long ago.
+  for (const page of discoverPages()) {
+    try { await look(b, BASE + '/' + page, page); }
     catch (e) { check(false, `${page}: page loaded (${e.message.slice(0, 50)})`); }
   }
 
-  await look(b, H + 'pictionary/index.html', 'pictionary lobby');
-  await look(b, H + 'mini-games/find-the-liar/index.html', 'find-the-liar panels', async (p) => {
+  // A game's in-play panels start hidden, so they are shown before the scan.
+  await look(b, H + 'mini-games/gavel/index.html', 'gavel panels', async (p) => {
     await p.evaluate(() => document.querySelectorAll('.hidden, [style*="display: none"], [style*="display:none"]')
       .forEach(e => { e.classList.remove('hidden'); e.style.display = ''; }));
     await p.waitForTimeout(900);
-  });
-  await look(b, H + 'pictionary/index.html', 'pictionary in-game panels', async (p) => {
-    await p.evaluate(() => document.querySelectorAll('.hidden').forEach(e => e.classList.remove('hidden')));
-    await p.waitForTimeout(800);
   });
   console.log('\nPASS (' + pass.length + ')'); pass.forEach(x => console.log('  ✓ ' + x));
   console.log('\nFAIL (' + fail.length + ')'); fail.forEach(x => console.log('  ✗ ' + x));

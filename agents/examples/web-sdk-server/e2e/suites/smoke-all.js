@@ -5,16 +5,16 @@
  * clients connect, each sees the other, nothing throws — because anything
  * failing that is broken for real users.
  */
-const { BASE, SHOTS } = require('../lib/harness');
+const { BASE, SHOTS, LAUNCH } = require('../lib/harness');
+const { useChannelForm } = require('../lib/party-room');
 const { chromium } = require('playwright');
 const APPS = [
   ['chess',        'chess/index.html'],
-  ['collab-doc',   'collab-doc/index.html'],
   ['drop',         'drop/index.html'],
       ['pulse',        'pulse/index.html'],
   ['air-hockey',   'mini-games/air-hockey/index.html'],
-  ['find-the-liar','mini-games/find-the-liar/index.html'],
-    ['reactor',      'mini-games/reactor/index.html']
+  ['gavel',        'mini-games/gavel/index.html']
+  // Chat has no roster API for this sweep to ask; chat-test.js drives it.
 ];
 const ROOT = BASE + '/apps/';
 
@@ -26,6 +26,7 @@ async function join(b, url, name, room) {
   p.on('console', m => { if (m.type() === 'error') errs.push(m.text().slice(0, 90)); });
   p.errs = errs; p.ctx = ctx;
   await p.goto(url, { waitUntil: 'domcontentloaded', timeout: 30000 });
+  await useChannelForm(p);   // a game's party lobby covers the form
   await p.waitForSelector('#usernameInput, #agentName, #playerName', { timeout: 90000 });
   const fill = async (sels, val) => {
     for (const s of sels) { const el = await p.$(s); if (el) { await el.fill(val); return s; } }
@@ -51,8 +52,7 @@ async function join(b, url, name, room) {
 }
 
 (async () => {
-  const b = await chromium.launch({ headless: false,
-    args: ['--no-sandbox', '--enable-unsafe-swiftshader', '--use-gl=angle', '--use-angle=swiftshader'] });
+  const b = await chromium.launch(LAUNCH);
   const rows = [];
   for (const [name, path] of APPS) {
     const room = 'sm' + Math.floor(Math.random() * 99999);
