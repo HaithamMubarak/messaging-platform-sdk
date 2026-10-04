@@ -119,13 +119,13 @@
 
         const nav = document.createElement('nav');
         nav.className = 'sdk-home-chip';
-        nav.setAttribute('aria-label', 'Messaging Platform Hub');
+        nav.setAttribute('aria-label', 'Messaging Platform');
 
         const home = document.createElement('a');
         home.href = links.home;
         home.className = 'sdk-home-chip__home';
         home.textContent = 'SDK';
-        home.title = 'Messaging Platform Hub';
+        home.title = 'Messaging Platform';
 
         const more = document.createElement('a');
         more.href = links.more;

@@ -64,7 +64,7 @@
     var CTA = {
         available: { label: 'Start free', href: 'developer/index.html?start=free' },
         planned: { label: 'Start free, upgrade later', href: 'developer/index.html?start=free' },
-        contact: { label: 'Contact sales', href: 'profile.html#pDeveloperCard' }
+        contact: { label: 'Contact sales', href: '/messaging-platform/profile.html#pDeveloperCard' }   // absolute: the dashboard loads this too, a folder deeper
     };
 
     /* A /billing/plans entry in the shape the pricing page renders. */

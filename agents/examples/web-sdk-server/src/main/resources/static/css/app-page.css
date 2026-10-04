@@ -44,6 +44,8 @@
     display: inline-flex;
     align-items: center;
     min-height: 44px;
+    min-width: 44px;   /* a one-word item ("Files") was 30px wide */
+    justify-content: center;
     font-size: var(--fs-sm);
     color: var(--text-muted);
     text-decoration: none;

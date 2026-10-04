@@ -4,19 +4,19 @@
     <meta charset="UTF-8">
     <script src="js/prod-log.js"></script>
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Documentation — Messaging Platform Hub</title>
-    <meta name="description" content="Developer user guide for the Messaging Platform Hub: getting started, channels, messaging, WebRTC, and channel storage.">
+    <title>Documentation — Messaging Platform</title>
+    <meta name="description" content="Developer user guide for the Messaging Platform: getting started, channels, messaging, WebRTC, and channel storage.">
     <meta name="theme-color" content="#0b1120">
     <link rel="canonical" href="/messaging-platform/hub/docs.html">
     <meta property="og:type" content="website">
-    <meta property="og:site_name" content="Messaging Platform Hub">
+    <meta property="og:site_name" content="Messaging Platform">
     <meta property="og:title" content="Documentation">
-    <meta property="og:description" content="Developer user guide for the Messaging Platform Hub: getting started, channels, messaging, WebRTC, and channel storage.">
+    <meta property="og:description" content="Developer user guide for the Messaging Platform: getting started, channels, messaging, WebRTC, and channel storage.">
     <meta property="og:url" content="https://hmdevonline.com/messaging-platform/hub/docs.html">
     <meta property="og:image" content="https://hmdevonline.com/messaging-platform/sdk/images/og-image.png">
     <meta name="twitter:card" content="summary_large_image">
     <meta name="twitter:title" content="Documentation">
-    <meta name="twitter:description" content="Developer user guide for the Messaging Platform Hub: getting started, channels, messaging, WebRTC, and channel storage.">
+    <meta name="twitter:description" content="Developer user guide for the Messaging Platform: getting started, channels, messaging, WebRTC, and channel storage.">
     <meta name="twitter:image" content="https://hmdevonline.com/messaging-platform/sdk/images/og-image.png">
     <link rel="icon" type="image/svg+xml" href="favicon.svg">
     <link rel="stylesheet" href="css/design-tokens.css">
@@ -364,7 +364,7 @@
                 <!-- Static fallback content - shown if JavaScript fails to load documentation -->
                 <noscript>
                     <div style="padding: 40px;">
-                        <h1>Messaging Platform Hub — user guide</h1>
+                        <h1>Messaging Platform — user guide</h1>
                         <p style="margin-top: 16px; color: var(--muted);">JavaScript is required to render the full documentation.</p>
                         <p style="margin-top: 16px; color: var(--muted);">Alternatively, view the documentation directly:</p>
                         <ul style="margin-top: 16px; color: var(--muted);">
@@ -496,7 +496,7 @@
                 const html = marked.parse(markdown);
                 document.getElementById('content').innerHTML = html;
 
-                document.title = (DOCS.find(d => d.file === file) || {}).title + ' — Messaging Platform Hub docs';
+                document.title = (DOCS.find(d => d.file === file) || {}).title + ' — Messaging Platform docs';
 
                 rewriteDocLinks();
                 wrapTables();

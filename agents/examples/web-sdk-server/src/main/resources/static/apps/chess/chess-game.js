@@ -585,7 +585,7 @@ class ChessGame extends UserConnectionBase {
         // chess.js writes the movetext; the headers say where it came from.
         const headers = [
             '[Event "Casual game"]',
-            '[Site "Messaging Platform Hub"]',
+            '[Site "Messaging Platform"]',
             '[Date "' + stamp + '"]',
             '[White "' + (this.players && this.players.white ? this.players.white : 'White') + '"]',
             '[Black "' + (this.players && this.players.black ? this.players.black : 'Black') + '"]',

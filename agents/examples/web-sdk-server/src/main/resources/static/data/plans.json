@@ -133,7 +133,7 @@
       "audience": "Growing teams running commercial applications.",
       "cta": {
         "label": "Talk to us",
-        "href": "profile.html#pDeveloperCard"
+        "href": "/messaging-platform/profile.html#pDeveloperCard"
       },
       "limits": {
         "connections": "50,000",
@@ -157,7 +157,7 @@
       "audience": "Self-hosted or dedicated deployments, custom quotas and compliance.",
       "cta": {
         "label": "Contact sales",
-        "href": "profile.html#pDeveloperCard"
+        "href": "/messaging-platform/profile.html#pDeveloperCard"
       },
       "limits": {
         "connections": "Custom",

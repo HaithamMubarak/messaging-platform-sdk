@@ -81,6 +81,7 @@
 .auth__brand {
     display: flex;
     align-items: center;
+    min-height: 44px;
     gap: var(--sp-3);
     color: var(--text);
     font-weight: 700;
@@ -138,7 +139,7 @@
 .auth__story .env-badge { align-self: flex-start; margin-top: var(--sp-6); }
 .auth__warning { display: grid; gap: var(--sp-1); max-width: 31rem; margin-top: var(--sp-6); padding: var(--sp-4); border: 1px solid rgba(245, 158, 11, 0.35); border-radius: var(--r-lg); background: rgba(245, 158, 11, 0.07); color: var(--text-muted); font-size: var(--fs-sm); }
 .auth__warning strong { color: var(--text); }
-.auth__site-link { margin-top: auto; font-size: var(--fs-sm); }
+.auth__site-link { margin-top: auto; font-size: var(--fs-sm); display: inline-flex; align-items: center; min-height: 44px; }
 .auth__card { width: auto; border: 0; border-left: 1px solid var(--border); border-radius: 0; box-shadow: none; padding: clamp(1.75rem, 3vw, 2.75rem); }
 .auth__card h2 { margin: var(--sp-3) 0 var(--sp-2); font-size: var(--fs-lg); letter-spacing: -.02em; }
 .auth__card > p { color: var(--text-muted); font-size: var(--fs-md); }

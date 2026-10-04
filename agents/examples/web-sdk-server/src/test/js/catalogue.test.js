@@ -182,5 +182,35 @@ check('no live page links to a moved demo', () => {
     assert.deepStrictEqual(bad, []);
 });
 
+/*
+ * The apps link SDK demos too, and nothing here looked: Drop Pro pointed at the retired Dead
+ * Drop through a redirect for a phase (landing redesign L1, 2026-10-04). The apps repo is
+ * private, so the public build skips this when no checkout sits beside it.
+ */
+const APPS_DIR = process.env.SIBLING_APPS_DIR
+    || path.join(__dirname, '..', '..', '..', '..', '..', '..', '..', 'messaging-platform-apps');
+
+function appPages(dir) {
+    return fs.readdirSync(dir, { withFileTypes: true }).flatMap((d) => {
+        if (/^(vendor|node_modules|test|tests|dist|libs)$/.test(d.name)) return [];
+        const full = path.join(dir, d.name);
+        if (d.isDirectory()) return appPages(full);
+        return d.name.endsWith('.html') ? [full] : [];
+    });
+}
+
+check('no app page links to a moved demo', () => {
+    const apps = path.join(APPS_DIR, 'apps');
+    if (!fs.existsSync(apps)) { console.log('    (skipped: no apps checkout at ' + APPS_DIR + ')'); return; }
+    const bad = [];
+    for (const page of appPages(apps)) {
+        const html = fs.readFileSync(page, 'utf8');
+        for (const folder of movedFolders) {
+            if (html.includes(SDK + folder) || html.includes('/sdk/' + folder)) bad.push(path.relative(apps, page) + ' -> ' + folder);
+        }
+    }
+    assert.deepStrictEqual(bad, []);
+});
+
 console.log(failed ? '\n' + failed + ' failed' : '\nall passed');
 process.exitCode = failed ? 1 : 0;

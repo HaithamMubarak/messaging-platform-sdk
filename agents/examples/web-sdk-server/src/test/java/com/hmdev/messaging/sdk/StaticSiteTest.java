@@ -261,6 +261,25 @@ class StaticSiteTest {
         return routes;
     }
 
+    /**
+     * A path as the gateway serves it, mapped back to a file in this tree; null
+     * when another service owns it. The gateway serves this tree at both
+     * /messaging-platform/sdk/ and /messaging-platform/hub/ (whose root is
+     * hub.html), the profile at the platform root, and the key tester under an
+     * alias. /hub/apps/ is rewritten to apps-service and is not ours.
+     */
+    private static String gatewayToRepo(String path) {
+        if (path.equals("/messaging-platform/hub/developer/key-verifier/")) return "apps/test-api-key/index.html";
+        if (path.equals("/messaging-platform/profile.html")) return "profile.html";
+        if (path.startsWith("/messaging-platform/sdk/")) return path.substring("/messaging-platform/sdk/".length());
+        if (path.startsWith("/messaging-platform/hub/") && !path.startsWith("/messaging-platform/hub/apps/")) {
+            String rest = path.substring("/messaging-platform/hub/".length());
+            return rest.isEmpty() ? "hub.html" : rest;
+        }
+        if (path.startsWith("/messaging-platform/")) return null;
+        return path.startsWith("/") ? path.substring(1) : path;
+    }
+
     @Test
     @DisplayName("no page links to a file that is not in the build")
     void internalLinksResolve() throws IOException {
@@ -311,17 +330,8 @@ class StaticSiteTest {
                     // the profile at the platform root, so map both back rather
                     // than exempting them -- an unresolvable absolute link is
                     // still a 404 for a real visitor.
-                    String repoPath = path;
-                    if (repoPath.startsWith("/messaging-platform/sdk/")) {
-                        repoPath = repoPath.substring("/messaging-platform/sdk/".length());
-                    } else if (repoPath.equals("/messaging-platform/profile.html")) {
-                        repoPath = "profile.html";
-                    } else if (repoPath.startsWith("/messaging-platform/")) {
-                        // Another service owns it (apps, rooms-api). Not ours to check.
-                        continue;
-                    } else if (repoPath.startsWith("/")) {
-                        repoPath = repoPath.substring(1);
-                    }
+                    String repoPath = gatewayToRepo(path);
+                    if (repoPath == null) continue;   // another service owns it (apps, rooms-api)
 
                     Path target = path.startsWith("/")
                             ? STATIC.resolve(repoPath)
@@ -381,7 +391,8 @@ class StaticSiteTest {
                 assertThat(status).as(plan.get("id") + " is not on sale yet").isEqualTo("planned");
             }
             String href = plan.get("cta").get("href").asText();
-            assertThat(Files.exists(STATIC.resolve(href.split("[?#]")[0])))
+            String file = gatewayToRepo(href.split("[?#]")[0]);
+            assertThat(file != null && Files.exists(STATIC.resolve(file)))
                     .as(plan.get("id") + " CTA " + href).isTrue();
         }
         assertThat(names).containsExactly("Free", "Starter", "Pro", "Business", "Enterprise");

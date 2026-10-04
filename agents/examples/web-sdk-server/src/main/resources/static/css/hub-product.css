@@ -58,6 +58,8 @@
 .mp-eyebrow { font-size: 11px; letter-spacing: 1.6px; font-weight: 700; text-transform: uppercase; color: var(--green); margin-bottom: 10px; }
 .mp-lead { color: var(--muted); font-size: 17px; line-height: 1.6; max-width: 640px; margin-top: 12px; }
 .mp-actions { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 22px; align-items: center; }
+/* A link beside the buttons is a target too; in a sentence, .mp-link stays inline. */
+.mp-actions .mp-link { display: inline-flex; align-items: center; min-height: 44px; }
 .mp-btn {
     display: inline-flex; align-items: center; gap: 8px; min-height: 44px; padding: 10px 18px;
     border-radius: 8px; font-weight: 700; font-size: 15px; text-decoration: none;
