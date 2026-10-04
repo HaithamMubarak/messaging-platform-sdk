@@ -42,28 +42,23 @@
             font-family: var(--font-sans);
             background: var(--bg);
             color: var(--text);
-            display: flex;
-            flex-direction: column;
-            height: 100vh;
-            height: 100dvh;
-            overflow: hidden;
         }
 
-        .docs-footer { flex-shrink: 0; padding-block: var(--sp-4); }
 
-        /* The docs shell is the one page on the site that scrolls its middle
-           rather than its body, so the shared sticky header would fight it.
-           It gets the site header's appearance without its position. */
-        .site-header { position: static; flex-shrink: 0; }
+        /* The page scrolls like every other page (2026-10-04). It used to scroll only its
+           middle inside a 100vh body, and the site footer then took ~320px of every
+           window: in a 700px window the guide had 248px and the lower sidebar links were
+           clipped where nothing could scroll to them. Now the sidebar sticks under the
+           shared sticky header and scrolls on its own; the footer follows the guide. */
+        :root { --docs-top: 65px; }   /* the site header's height */
 
         /* clip, not hidden: a hidden box can still be scrolled by script, find-in-page, an
            anchor or a selection drag, and once anything inside was briefly wider than the
            window the whole sidebar and page sat 20px off the left edge (2026-10-04). */
         .main-container {
             display: flex;
-            flex: 1;
-            min-height: 0;   /* a clip box keeps its content height in a flex column; hidden did not */
-            overflow: clip;
+            align-items: flex-start;
+            overflow: clip;   /* clip does not stop the sidebar sticking; hidden would */
         }
 
         .sidebar-wrap {
@@ -71,13 +66,13 @@
             background: var(--sidebar-bg);
             border-right: 1px solid var(--border);
             flex-shrink: 0;
-            display: flex;
-            flex-direction: column;
-            min-height: 0;
-            overflow: clip;
+            position: sticky;
+            top: var(--docs-top);
+            height: calc(100vh - var(--docs-top));
+            overflow-y: auto;
+            overflow-x: hidden;
+            overscroll-behavior: contain;
         }
-
-        .sidebar { flex: 1; overflow-y: auto; overflow-x: hidden; }
 
         /* On a phone the heading list is collapsed behind a summary; on a wide
            screen the disclosure is forced open and its summary is hidden, so
@@ -116,6 +111,9 @@
             .main-container { flex-direction: column; }
             .sidebar-wrap {
                 width: 100%;
+                position: static;
+                height: auto;
+                overflow: visible;
                 max-height: none;
                 border-right: 0;
                 border-bottom: 1px solid var(--border);
@@ -154,7 +152,7 @@
                 transition: transform .15s ease;
             }
             .nav-disclosure[open] > summary::after { transform: rotate(180deg); }
-            .nav-disclosure .sidebar { max-height: 45vh; }
+            .nav-disclosure .sidebar { max-height: 45vh; overflow-y: auto; }
 
             .content { padding: 24px 20px; }
         }
@@ -191,12 +189,13 @@
 
         .sidebar-link.active {
             background: var(--accent);
-            color: white;
+            color: var(--on-brand, #04201c);   /* white on teal fails contrast */
         }
 
         .content {
             flex: 1;
-            overflow-y: auto;
+            min-width: 0;
+            min-height: calc(100vh - var(--docs-top));   /* the guide is fetched: hold a screen, or the footer is drawn first */
             padding: 40px 60px;
         }
 
@@ -211,6 +210,8 @@
             line-height: var(--lh-body);
         }
 
+        /* A heading reached from the sidebar lands below the sticky header, not under it. */
+        .markdown-body h1, .markdown-body h2, .markdown-body h3 { scroll-margin-top: calc(var(--docs-top) + 16px); }
         .markdown-body h1, .markdown-body h2, .markdown-body h3,
         .markdown-body h4, .markdown-body h5, .markdown-body h6 {
             color: var(--text) !important;
@@ -390,9 +391,7 @@
         </main>
     </div>
 
-    <!-- Every other page on the site closes with this. The docs shell is the
-         one page whose middle scrolls rather than its body, so the footer sits
-         outside the scrolling area and stays put. -->
+    <!-- The footer follows the guide, as on every other page. -->
     <!-- site-shell:footer (tools/site-shell.cjs; do not edit here) -->
 <footer class="site-shell-footer">
     <div class="site-shell-footer__inner">
@@ -639,8 +638,7 @@
             });
 
             // Highlight current section on scroll
-            const content = document.querySelector('.content');
-            content.addEventListener('scroll', () => {
+            window.addEventListener('scroll', () => {
                 const headings = document.querySelectorAll('.markdown-body h1, .markdown-body h2');
                 let current = null;
 
