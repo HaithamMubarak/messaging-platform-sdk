@@ -52,6 +52,7 @@
 <p class="mp-lead">Messaging, presence, shared state and WebRTC through one SDK and a managed backend. Browsers, servers, AI agents and games on one channel.</p>
 <div class="mp-actions"><a class="mp-btn mp-btn--primary" href="developer/index.html?start=free">Start free</a><a class="mp-btn" href="playground.html">Try a live demo</a></div>
 <div class="mp-langs"><span>SDKs for</span><a class="mp-lang" href="quickstart.html#js">JavaScript</a><a class="mp-lang" href="quickstart.html#python">Python</a><a class="mp-lang" href="quickstart.html#java">Java</a><a class="mp-lang" href="quickstart.html#cpp">C++ <small>experimental</small></a></div>
+<p class="home-presence" id="homePresence" aria-live="polite"><span class="home-presence__faces" data-presence-faces></span><span class="home-presence__count" data-presence-count>This page joins one live channel; whoever else is reading it appears here.</span><span class="home-presence__rtt" data-presence-rtt></span></p>
 </div>
 <figure class="home-mock" aria-label="A live room: three people, one of them an AI agent, on one channel">
 <figcaption><i></i><i></i><i></i><span>room-123 · 3 here</span><b>live</b></figcaption>
@@ -141,6 +142,7 @@ agent.connect({ channelName: <span class="s">'room-123'</span>, apiKey });</pre>
     </div>
 </footer>
 <!-- /site-shell:footer -->
+<script src="/messaging-platform/hub/js/home-presence.js" defer></script>
 <script src="/messaging-platform/hub/js/catalogue.js"></script>
 <script>
 // The product strip: the catalogue's products shelf, in its "built" order (Rooms, BlockParty,

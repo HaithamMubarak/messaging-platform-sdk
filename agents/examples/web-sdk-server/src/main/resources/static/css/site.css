@@ -355,6 +355,18 @@ a.mp-card:hover { border-color: var(--green); box-shadow: var(--shadow); }
 .home-badge i { width: 8px; height: 8px; border-radius: 50%; background: var(--brand); box-shadow: 0 0 0 4px var(--brand-subtle); }
 
 /* The hero's live room: a still picture of what one channel carries (plan 4.10). */
+/* The hero's live line (js/home-presence.js, plan P3): who else is reading this page, from one
+   shared channel. Faces and the join time sit on the first row, the sentence on the second; the
+   box holds both rows from the start so connecting never moves the hero. */
+.home-presence { display: grid; grid-template-columns: auto 1fr; grid-template-rows: 30px auto; gap: 8px 12px; align-items: center; min-height: 92px; margin: 20px 0 0; padding: 12px 14px; border: 1px solid var(--border); border-radius: 10px; background: var(--surface-1); }
+.home-presence__faces { display: inline-flex; min-width: 30px; }
+.home-presence__faces:empty::before { content: ''; display: block; width: 12px; height: 12px; margin: 9px; border-radius: 50%; background: var(--brand); box-shadow: 0 0 0 4px var(--brand-subtle); }
+.home-presence__face { display: inline-grid; place-items: center; width: 30px; height: 30px; margin-left: -8px; border-radius: 50%; border: 2px solid var(--surface-1); background: var(--surface-3); color: var(--text); font: 700 11px/1 var(--font-display); }
+.home-presence__face:first-child { margin-left: 0; }
+.home-presence__face.is-you { background: var(--brand); color: var(--on-brand, #04201c); }
+.home-presence__face.is-more { background: var(--surface-2); color: var(--text-muted); }
+.home-presence__rtt { color: var(--brand-ink); font-family: var(--font-mono); font-size: 12px; justify-self: end; }
+.home-presence__count { grid-column: 1 / -1; color: var(--text-body); font-size: 14px; line-height: 1.45; }
 .home-mock { position: relative; margin: 0 0 28px; border: 1px solid var(--border-strong); border-radius: 14px; background: var(--surface-1); box-shadow: 0 30px 80px rgba(0, 0, 0, .35); }
 .home-mock figcaption { display: flex; align-items: center; gap: 8px; padding: 10px 14px; font-size: 13px; color: var(--text-muted); border-bottom: 1px solid var(--border); }
 .home-mock figcaption i { width: 9px; height: 9px; border-radius: 50%; background: var(--surface-3); }

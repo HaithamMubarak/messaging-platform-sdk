@@ -19,7 +19,6 @@ const APPS = process.env.SIBLING_APPS_DIR
 
 // Kept on purpose, each with its reason. An entry here is a decision, not a hiding place.
 const KEPT = {
-    'home-presence.js': 'the live "who is here" widget; plan section 6 P3 (a live hub hero) decides its fate',
 };
 
 function files(dir, keep) {

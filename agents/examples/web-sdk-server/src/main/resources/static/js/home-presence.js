@@ -13,10 +13,15 @@
 
     const CHANNEL = 'sdk-home-presence';
     const PASSWORD = 'everyone-is-welcome-here';
-    const SCRIPTS = ['generated-web-agent-js/js/web-agent.libs.js', 'generated-web-agent-js/js/web-agent.js'];
+    // Absolute, and the page's own helpers first: the hub loads none of them (plan P3, 2026-10-05).
+    const SDK = '/messaging-platform/hub/';
+    const SCRIPTS = ['js/api-config.js', 'js/config-loader.js', 'generated-web-agent-js/js/web-agent.libs.js',
+        'generated-web-agent-js/js/web-agent.js'].map((s) => SDK + s);
 
     const root = document.getElementById('homePresence');
     if (!root) return;
+    // 350 KB of SDK for one line of presence: not for a visitor who asked to save data.
+    if (navigator.connection && navigator.connection.saveData) return;
     const count = root.querySelector('[data-presence-count]');
     const faces = root.querySelector('[data-presence-faces]');
     const rtt = root.querySelector('[data-presence-rtt]');
