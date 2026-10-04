@@ -45,9 +45,16 @@ check('the shell nav has the six sections and one call to action', () => {
         ['Product', 'Demos', 'Apps', 'Games', 'Docs', 'Pricing', 'Start free']);
 });
 
+// The faces are served from this site since 2026-10-05 (css/fonts.css), so the promise is no
+// longer "imports Google's Manrope": the shell imports fonts.css, which declares Manrope from a
+// file that exists, and every shell page preloads that file.
 check('the shell styles load the face they name', () => {
     const css = fs.readFileSync(path.join(shell.STATIC, 'css', 'site-shell.css'), 'utf8');
-    assert.ok(/family=Manrope/.test(css) && /'Manrope'/.test(css));
+    assert.ok(/@import url\('\/messaging-platform\/hub\/css\/fonts\.css'\)/.test(css) && /'Manrope'/.test(css), 'site-shell.css does not import fonts.css');
+    const fonts = fs.readFileSync(path.join(shell.STATIC, 'css', 'fonts.css'), 'utf8');
+    const face = fonts.match(/font-family:\s*"Manrope";[\s\S]*?url\("\/messaging-platform\/hub\/([^"]+)"\)/);
+    assert.ok(face && fs.existsSync(path.join(shell.STATIC, face[1])), 'fonts.css declares no Manrope from a file that exists');
+    for (const p of pages) assert.ok(p.html.includes(`href="/messaging-platform/hub/${face[1]}" as="font"`), p.rel + ' does not preload ' + face[1]);
 });
 
 /*

@@ -5,7 +5,7 @@
  * so every token has its design-tokens.css value as the fallback. Served at
  * /messaging-platform/hub/css/site-shell.css; hub-navigation.css imports it for the app landings.
  */
-@import url('https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap');
+@import url('/messaging-platform/hub/css/fonts.css');
 
 .site-header {
     position: sticky; top: 0; z-index: 50;

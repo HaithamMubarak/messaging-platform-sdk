@@ -4,25 +4,12 @@
    console. Load this first, before any page/theme stylesheet.
    ========================================================================== */
 
-/* The faces. Loaded here, once, so every page and every app that vendors
+/* The faces. Loaded here, once (css/fonts.css), so every page and every app that vendors
    these tokens gets them on refresh: Manrope for headings and reading,
    JetBrains Mono for code. (Hub consolidation phase 2, 2026-10-03: this said
    Bricolage Grotesque and Source Sans 3, which nothing loaded; pages that
    named them read the system face.) */
-@import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500&family=Manrope:wght@400;500;600;700;800&display=swap');
-
-/* Text drawn before Manrope arrives uses Arial sized to Manrope's metrics, so the swap
-   does not re-wrap lines (L5: sdk-guide shifted 0.11 at 320px when Manrope landed).
-   Measured: Manrope is 1.019x Arial's width at 400 (0.988 at 600, 1.004 at 700);
-   ascent 1.07em, descent 0.30em. Overrides are divided by size-adjust. */
-@font-face {
-    font-family: "Manrope Fallback";
-    src: local("Arial"), local("Helvetica Neue"), local("Helvetica");
-    size-adjust: 102%;
-    ascent-override: 104.9%;
-    descent-override: 29.4%;
-    line-gap-override: 0%;
-}
+@import url('/messaging-platform/hub/css/fonts.css');   /* served here, preloaded, no swap (2026-10-05) */
 
 :root {
     color-scheme: dark;

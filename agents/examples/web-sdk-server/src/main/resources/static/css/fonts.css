@@ -1,0 +1,61 @@
+/* ==========================================================================
+   The site's two faces, served from this site (landing redesign follow-up,
+   2026-10-05). They came from Google Fonts through an @import chain (page ->
+   stylesheet -> fonts.googleapis.com -> fonts.gstatic.com): three round trips
+   before any text could settle, LCP 3.0-3.7 s on Lighthouse's phone, and the
+   swap when Manrope landed moved the catalogue's hero (CLS 0.16).
+
+   Now: one variable file per face and script (every weight in one file), the
+   Latin one preloaded by every page that wears the shell (tools/site-shell.cjs),
+   and font-display: optional, so a face that is not ready at first paint is
+   not swapped in later; that page view keeps the metric-matched fallback below.
+   Manrope and JetBrains Mono are SIL OFL 1.1 (fonts/OFL-*.txt), from
+   Fontsource's variable packages 5.3.0. Paths are absolute so the copies the
+   apps vendor (design-tokens.css imports this) resolve to the same files.
+   ========================================================================== */
+
+@font-face {
+    font-family: "Manrope";
+    font-style: normal;
+    font-weight: 200 800;
+    font-display: optional;
+    src: url("/messaging-platform/hub/fonts/manrope-latin-wght-normal.woff2") format("woff2");
+    unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+@font-face {
+    font-family: "Manrope";
+    font-style: normal;
+    font-weight: 200 800;
+    font-display: optional;
+    src: url("/messaging-platform/hub/fonts/manrope-latin-ext-wght-normal.woff2") format("woff2");
+    unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF;
+}
+@font-face {
+    font-family: "JetBrains Mono";
+    font-style: normal;
+    font-weight: 100 800;
+    font-display: optional;
+    src: url("/messaging-platform/hub/fonts/jetbrains-mono-latin-wght-normal.woff2") format("woff2");
+    unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+@font-face {
+    font-family: "JetBrains Mono";
+    font-style: normal;
+    font-weight: 100 800;
+    font-display: optional;
+    src: url("/messaging-platform/hub/fonts/jetbrains-mono-latin-ext-wght-normal.woff2") format("woff2");
+    unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF;
+}
+
+/* Text drawn without Manrope uses Arial sized to Manrope's metrics, so the two set the
+   same lines (L5: sdk-guide shifted 0.11 at 320px when Manrope landed).
+   Measured: Manrope is 1.019x Arial's width at 400 (0.988 at 600, 1.004 at 700);
+   ascent 1.07em, descent 0.30em. Overrides are divided by size-adjust. */
+@font-face {
+    font-family: "Manrope Fallback";
+    src: local("Arial"), local("Helvetica Neue"), local("Helvetica");
+    size-adjust: 102%;
+    ascent-override: 104.9%;
+    descent-override: 29.4%;
+    line-gap-override: 0%;
+}
