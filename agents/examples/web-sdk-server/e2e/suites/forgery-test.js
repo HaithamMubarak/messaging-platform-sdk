@@ -12,6 +12,7 @@
  */
 const { BASE, SHOTS } = require('../lib/harness');
 const { chromium } = require('playwright');
+const { useChannelForm } = require('../lib/party-room');
 const pass = [], fail = [];
 const check = (ok, w) => (ok ? pass : fail).push(w);
 
@@ -20,7 +21,10 @@ async function join(b, path, name, room, ready) {
     const p = await ctx.newPage();
     p.on('pageerror', e => check(false, `${name} threw: ${e.message.split('\n')[0].slice(0, 70)}`));
     await p.goto(BASE + path, { waitUntil: 'domcontentloaded' });
-    await p.waitForSelector('#usernameInput', { timeout: 45000 });
+    // The channel form sits behind the party lobby's "Advanced" door since 2026-09-27;
+    // waiting for #usernameInput to be visible timed out on every run until this.
+    await p.waitForSelector('#connectionModal.active', { timeout: 45000 });
+    await useChannelForm(p);
     await p.fill('#usernameInput', name);
     await p.fill('#channelInput', room);
     await p.fill('#passwordInput', 'pw12345');
