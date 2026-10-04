@@ -12,7 +12,7 @@
     background: color-mix(in srgb, var(--bg, #0b1120) 88%, transparent);
     backdrop-filter: saturate(140%) blur(10px);
     border-bottom: 1px solid var(--border, rgba(148, 163, 184, .14));
-    font-family: 'Manrope', system-ui, -apple-system, 'Segoe UI', sans-serif;
+    font-family: 'Manrope', 'Manrope Fallback', system-ui, -apple-system, 'Segoe UI', sans-serif;
 }
 .site-header .site-header__inner {
     display: flex; align-items: center; gap: 24px;
@@ -63,7 +63,7 @@
 .site-shell-footer {
     margin-top: 64px; border-top: 1px solid var(--border, rgba(148, 163, 184, .14));
     background: var(--bg, #0b1120); color: var(--text-muted, #8a97ab);
-    font-family: 'Manrope', system-ui, -apple-system, 'Segoe UI', sans-serif; font-size: 14px;
+    font-family: 'Manrope', 'Manrope Fallback', system-ui, -apple-system, 'Segoe UI', sans-serif; font-size: 14px;
 }
 .site-shell-footer .site-shell-footer__inner { max-width: 1200px; margin: 0 auto; padding: 48px 24px 28px; }
 .site-shell-footer .site-shell-footer__cols {
@@ -81,7 +81,9 @@
 }
 .site-shell-footer ul { list-style: none; margin: 0; padding: 0; }
 .site-shell-footer li a {
-    display: inline-flex; align-items: center; min-height: 36px; color: var(--text-muted, #8a97ab); text-decoration: none;
+    display: inline-flex; align-items: center; min-height: 36px; min-width: 44px; color: var(--text-muted, #8a97ab); text-decoration: none;
+    /* min-width: "Apps" was 32.7px in Manrope and under 32px in the system face, on a view where
+       Manrope missed first paint (font-display: optional), 2026-10-05. */
 }
 .site-shell-footer li a:hover { color: var(--text, #eef2f8); text-decoration: underline; text-underline-offset: 4px; }
 .site-shell-footer .site-shell-footer__legal {
