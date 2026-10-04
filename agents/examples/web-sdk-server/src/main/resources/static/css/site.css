@@ -363,7 +363,7 @@ a.mp-card:hover { border-color: var(--green); box-shadow: var(--shadow); }
 .home-mock__chat p { margin: 0; padding: 7px 12px; border: 1px solid var(--border); border-radius: 10px; background: var(--surface-2); color: var(--text-body); font-size: 13px; }
 .home-mock__chat li.is-agent p { border-color: color-mix(in srgb, var(--brand) 45%, var(--border)); }
 .home-mock__chat li.is-me p { background: var(--brand); border-color: var(--brand); color: var(--on-brand); font-weight: 600; }
-.home-mock__who, .home-mock__here span { display: inline-grid; place-items: center; width: 26px; height: 26px; border-radius: 50%; background: var(--surface-3); color: var(--text); font-size: 10px; font-weight: 700; flex: none; }
+.home-mock__who, .home-mock__here span { display: inline-grid; place-items: center; width: 28px; height: 28px; border-radius: 50%; background: var(--surface-3); color: var(--text); font-size: 11px; font-weight: 700; flex: none; }
 .is-agent .home-mock__who, .home-mock__here li:last-child span { background: #f5b94a; color: #2a1a00; }
 .home-mock__here { padding: 14px; border-left: 1px solid var(--border); font-size: 13px; }
 .home-mock__here p { margin: 0 0 10px; color: var(--text-muted); font-size: 11px; font-weight: 700; letter-spacing: .1em; text-transform: uppercase; }
