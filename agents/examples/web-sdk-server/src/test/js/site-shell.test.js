@@ -58,7 +58,8 @@ check('the shell styles load the face they name', () => {
  * when the sibling repos are present, the apps catalogue and every landing that
  * wears the shell. Each page's own <link rel="stylesheet"> tags say what to read.
  */
-const FACES = /^(manrope|jetbrains mono|ui-sans-serif|ui-monospace|system-ui|-apple-system|blinkmacsystemfont|segoe ui|roboto|helvetica neue|helvetica|arial|sans-serif|monospace|sf mono|sfmono-regular|liberation mono|cascadia code|menlo|consolas|courier new|inherit|initial|apple color emoji|segoe ui emoji|noto color emoji)$/;
+// "Manrope Fallback" is Arial sized to Manrope's metrics (design-tokens.css, L5), not another face.
+const FACES = /^(manrope|manrope fallback|jetbrains mono|ui-sans-serif|ui-monospace|system-ui|-apple-system|blinkmacsystemfont|segoe ui|roboto|helvetica neue|helvetica|arial|sans-serif|monospace|sf mono|sfmono-regular|liberation mono|cascadia code|menlo|consolas|courier new|inherit|initial|apple color emoji|segoe ui emoji|noto color emoji)$/;
 const DEV = path.join(shell.STATIC, '..', '..', '..', '..', '..', '..', '..', '..');
 
 function publicPages() {

@@ -11,6 +11,19 @@
    named them read the system face.) */
 @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500&family=Manrope:wght@400;500;600;700;800&display=swap');
 
+/* Text drawn before Manrope arrives uses Arial sized to Manrope's metrics, so the swap
+   does not re-wrap lines (L5: sdk-guide shifted 0.11 at 320px when Manrope landed).
+   Measured: Manrope is 1.019x Arial's width at 400 (0.988 at 600, 1.004 at 700);
+   ascent 1.07em, descent 0.30em. Overrides are divided by size-adjust. */
+@font-face {
+    font-family: "Manrope Fallback";
+    src: local("Arial"), local("Helvetica Neue"), local("Helvetica");
+    size-adjust: 102%;
+    ascent-override: 104.9%;
+    descent-override: 29.4%;
+    line-gap-override: 0%;
+}
+
 :root {
     color-scheme: dark;
 
@@ -63,8 +76,8 @@
     --code-bg:       #0d1526;
 
     /* --- Typography ----------------------------------------------------- */
-  --font-display: "Manrope", ui-sans-serif, system-ui, sans-serif;
-  --font-sans: "Manrope", ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  --font-display: "Manrope", "Manrope Fallback", ui-sans-serif, system-ui, sans-serif;
+  --font-sans: "Manrope", "Manrope Fallback", ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
     --font-mono: "JetBrains Mono", ui-monospace, "SF Mono", "Cascadia Code", Menlo, Consolas, monospace;
 
     --fs-xs:   0.75rem;    /* 12px — badges, dense meta                     */

@@ -19,7 +19,7 @@
 :root {
     --paper: #f6f6f2; --white: #fff; --ink: #253632; --muted: #69756f; --line: #dde2da;
     --green: #225e50; --green-soft: #e9f1e9; --orange: #b54c31; --orange-soft: #faf0e8;
-    --display: 'Manrope', ui-sans-serif, system-ui, sans-serif; --body: 'Manrope', ui-sans-serif, system-ui, sans-serif; /* phase 2: the one face design-tokens.css loads */
+    --display: 'Manrope', 'Manrope Fallback', ui-sans-serif, system-ui, sans-serif; --body: 'Manrope', 'Manrope Fallback', ui-sans-serif, system-ui, sans-serif; /* phase 2: the one face design-tokens.css loads */
     --shadow: 0 12px 36px #23372d0b;
     --code-bg: #0f1a17; --code-ink: #d8e6de; --code-muted: #7f978b; --code-key: #7fd1ae; --code-str: #f0b48f;
 }
@@ -171,6 +171,11 @@ a.mp-card:hover { border-color: var(--green); box-shadow: var(--shadow); }
 
 /* ------------------------------------------------------------- pricing */
 .mp-plans { display: grid; gap: 14px; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); margin-top: 24px; }
+/* Plans and the comparison are rendered from plans.json: hold their room until then, or the
+   sections below show first and are pushed away (layout shift 0.45 on a phone, L5). */
+.mp-plans:empty { min-height: 480px; }
+.mp-table-scroll:empty { min-height: 420px; }
+@media (max-width: 900px) { .mp-plans:empty { min-height: 100vh; } }
 .mp-plan {
     border: 1px solid var(--line); border-radius: 12px; background: var(--white); padding: 20px;
     display: flex; flex-direction: column; gap: 10px; min-width: 0; position: relative;
@@ -447,6 +452,10 @@ a.mp-card:hover { border-color: var(--green); box-shadow: var(--shadow); }
 .home-product p { color: var(--text-muted, #8a97ab); }
 @media (max-width: 980px) { .home-products { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
 @media (max-width: 680px) { .home-products { grid-template-columns: minmax(0, 1fr); } }
+/* Games and the hub render these from the catalogue: hold their room until then, or the
+   footer shows first and is pushed away (Lighthouse CLS 0.31 on games.html, L5). */
+.home-products[data-shelf]:empty { min-height: 360px; }
+@media (max-width: 680px) { .home-products[data-shelf]:empty { min-height: 720px; } }
 
 /* The skip link: off screen until a keyboard user reaches it. */
 .sr-only { position: absolute; left: -9999px; top: 8px; z-index: 60; padding: 10px 16px; border-radius: 8px; background: var(--brand, #2dd4bf); color: var(--on-brand, #04201c); }

@@ -9,6 +9,7 @@
 .hub-lab-hero .section-head>p{max-width:560px;font-size:17px;line-height:1.6;color:var(--text-body,#a8b5c8)}
 .hub-lab-hero .hero__cta{margin-top:22px}
 .hub-start__title{font-size:12px;font-weight:800;letter-spacing:.12em;text-transform:uppercase;color:var(--text-muted,#8a97ab);margin:0 0 12px}
+.hub-start__list:empty{min-height:188px} /* three 56px items + gaps, until playground.js fills it (L5) */
 .hub-start__list{list-style:none;margin:0;padding:0;display:grid;gap:10px;counter-reset:start}
 .hub-start__list li{counter-increment:start}
 .hub-start__item{display:flex;align-items:center;gap:12px;min-height:56px;padding:10px 16px;border:1px solid var(--border,rgba(148,163,184,.2));border-radius:var(--r-md,12px);background:var(--surface-1,#101827);color:var(--text-body,#a8b5c8)}
@@ -55,3 +56,7 @@
   .hub-lab-hero .section-head>p{font-size:16px}
 }
 @media(prefers-reduced-motion:reduce){.hub-playground *{scroll-behavior:auto!important}}
+
+/* Reserve the cards' room until playground.js renders them: without it the footer
+   shows first and is pushed away (Lighthouse CLS 0.59 on a phone, L5). */
+#catalogueRoot:empty{min-height:100vh}

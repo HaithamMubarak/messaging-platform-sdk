@@ -498,7 +498,7 @@ section { padding-block: var(--sp-24); }
 .filter-chip__n { color: var(--text-muted); font-variant-numeric: tabular-nums; }
 /* Full white, as the chip's own label is: dimming it was worth 0.2 of a
    contrast point and cost the count its legibility. */
-.filter-chip.is-on .filter-chip__n { color: #fff; }
+.filter-chip.is-on .filter-chip__n { color: inherit; }   /* white on teal failed contrast (L5) */
 /* A primitive nothing proves is still worth showing — greyed, not hidden, so
    the gap in coverage stays visible rather than being quietly tidied away. */
 .filter-chip.is-empty { opacity: 0.45; }
@@ -727,6 +727,9 @@ section[id] { scroll-margin-top: 80px; }
 /* padding-block, not padding: the shorthand zeroed .wrap's side gutter, so on a
    phone the profile ran edge to edge. */
 .mp-profile { padding-block: 32px 72px; display: flex; flex-direction: column; gap: var(--sp-4); }
+/* The account panels are shown by script; the page holds a screen until then so the footer is
+   not drawn first and pushed away (layout shift 0.52 on a phone, L5). */
+.mp-profile { min-height: calc(100vh - 64px); }
 .mp-profile h1 { margin-bottom: var(--sp-2); font-size: clamp(28px, 3vw, 34px); letter-spacing: -.025em; }
 .mp-profile__intro { max-width: 44rem; margin: calc(var(--sp-4) * -1) 0 var(--sp-2); color: var(--text-muted); font-size: var(--fs-md); line-height: 1.55; }
 .mp-profile__card { display: flex; flex-direction: column; gap: var(--sp-3); }
