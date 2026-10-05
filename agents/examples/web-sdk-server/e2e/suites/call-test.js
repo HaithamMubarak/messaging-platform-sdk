@@ -58,7 +58,8 @@ async function join(browser, name, room) {
     page.on('pageerror', e => errors.push(e.message.split('\n')[0]));
     await page.goto(`${BASE}/apps/call/index.html`, { waitUntil: 'domcontentloaded' });
     await useChannelForm(page);
-    await page.waitForSelector('#usernameInput', { timeout: 30000 });
+    await page.waitForSelector('#usernameInput', { state: 'attached', timeout: 30000 });
+    await page.evaluate(() => document.getElementById('tabCustom')?.click());
     await page.fill('#usernameInput', name);
     await page.fill('#channelInput', room);
     await page.fill('#passwordInput', 'pw12345');

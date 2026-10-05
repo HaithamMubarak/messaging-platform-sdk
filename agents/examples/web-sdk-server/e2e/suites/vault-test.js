@@ -41,7 +41,8 @@ function check(ok, label, extra) {
         page.on('pageerror', e => console.log('  (pageerror) ' + e.message.split('\n')[0].slice(0, 120)));
         await gotoStable(page, `${BASE}/apps/evidence-chain/app.html?debug`,
             { waitUntil: 'domcontentloaded' });
-        await page.waitForSelector('#usernameInput', { timeout: 45000 });
+        await page.waitForSelector('#usernameInput', { state: 'attached', timeout: 45000 });
+        await page.evaluate(() => document.getElementById('tabCustom')?.click());
         await page.fill('#usernameInput', 'Keeper');
         await page.fill('#channelInput', room);
         await page.fill('#passwordInput', 'vault-pw-1');
@@ -235,7 +236,8 @@ function check(ok, label, extra) {
         otherPage.setDefaultTimeout(60000);
         await gotoStable(otherPage, `${BASE}/apps/evidence-chain/app.html?debug`,
             { waitUntil: 'domcontentloaded' });
-        await otherPage.waitForSelector('#usernameInput', { timeout: 45000 });
+        await otherPage.waitForSelector('#usernameInput', { state: 'attached', timeout: 45000 });
+        await otherPage.evaluate(() => document.getElementById('tabCustom')?.click());
         await otherPage.fill('#usernameInput', 'Stranger');
         await otherPage.fill('#channelInput', room + '-elsewhere');
         await otherPage.fill('#passwordInput', 'vault-pw-2');

@@ -45,6 +45,7 @@ async function openAlone(browser, path, room) {
     page.setDefaultTimeout(60000);
     await gotoStable(page, `${BASE}${path}?debug`, { waitUntil: 'domcontentloaded' });
     await page.waitForSelector('#connectionModal.active', { timeout: 30000 });
+    await page.evaluate(() => document.getElementById('tabCustom')?.click());
     await page.fill('#usernameInput', 'Solo');
     await page.fill('#channelInput', room);
     await page.fill('#passwordInput', 'comp-pass-' + Math.random().toString(36).slice(2, 8));

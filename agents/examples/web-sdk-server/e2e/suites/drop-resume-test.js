@@ -18,7 +18,8 @@ async function join(b, room, name) {
     const p = await ctx.newPage();
     p.on('pageerror', e => check(false, `${name} threw: ${e.message.split('\n')[0].slice(0, 70)}`));
     await p.goto(BASE + '/apps/drop/index.html', { waitUntil: 'domcontentloaded' });
-    await p.waitForSelector('#usernameInput', { timeout: 45000 });
+    await p.waitForSelector('#usernameInput', { state: 'attached', timeout: 45000 });
+    await p.evaluate(() => document.getElementById('tabCustom')?.click());
     await p.fill('#usernameInput', name);
     await p.fill('#channelInput', room);
     await p.fill('#passwordInput', 'pw12345');

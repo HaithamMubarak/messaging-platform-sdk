@@ -6,7 +6,8 @@ async function join(ctx,url,name,room){
   const p=await ctx.newPage();
   const errs=[]; p.on('pageerror',e=>errs.push(e.message.split('\n')[0])); p.errs=errs;
   await p.goto(url,{waitUntil:'domcontentloaded'});
-  await p.waitForSelector('#usernameInput',{timeout:20000});
+  await p.waitForSelector('#usernameInput',{ state: 'attached',timeout:20000});
+  await p.evaluate(() => document.getElementById('tabCustom')?.click());
   await p.fill('#usernameInput',name); await p.fill('#channelInput',room);
   const pw=await p.$('#passwordInput'); if(pw) await p.fill('#passwordInput','pw12345');
   await p.click('#connectBtn'); await p.waitForTimeout(7000); return p;

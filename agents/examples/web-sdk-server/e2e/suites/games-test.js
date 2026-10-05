@@ -27,7 +27,8 @@ async function join(b, path, name, room) {
   // is the harness being starved, not the game being broken, so the join is
   // given room and one retry. A page that is genuinely broken still fails both.
   await useChannelForm(p);   // a game's party lobby covers the form
-  await p.waitForSelector('#usernameInput', { timeout: 60000 });
+  await p.waitForSelector('#usernameInput', { state: 'attached', timeout: 60000 });
+  await p.evaluate(() => document.getElementById('tabCustom')?.click());
   await p.fill('#usernameInput', name);
   await p.fill('#channelInput', room);
   await p.fill('#passwordInput', 'pw12345');

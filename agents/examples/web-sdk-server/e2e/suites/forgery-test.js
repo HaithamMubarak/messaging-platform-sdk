@@ -25,6 +25,7 @@ async function join(b, path, name, room, ready) {
     // waiting for #usernameInput to be visible timed out on every run until this.
     await p.waitForSelector('#connectionModal.active', { timeout: 45000 });
     await useChannelForm(p);
+    await p.evaluate(() => document.getElementById('tabCustom')?.click());
     await p.fill('#usernameInput', name);
     await p.fill('#channelInput', room);
     await p.fill('#passwordInput', 'pw12345');

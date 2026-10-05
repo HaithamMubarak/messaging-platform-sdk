@@ -19,7 +19,8 @@ const check = (ok, w) => (ok ? pass : fail).push(w);
 
     const room = 'wbh' + Math.floor(Date.now() / 1000);
     await p.goto(BASE + '/apps/whiteboard/app.html', { waitUntil: 'domcontentloaded' });
-    await p.waitForSelector('#usernameInput', { timeout: 45000 });
+    await p.waitForSelector('#usernameInput', { state: 'attached', timeout: 45000 });
+    await p.evaluate(() => document.getElementById('tabCustom')?.click());
     await p.fill('#usernameInput', 'Artist');
     await p.fill('#channelInput', room);
     await p.fill('#passwordInput', 'pw12345');

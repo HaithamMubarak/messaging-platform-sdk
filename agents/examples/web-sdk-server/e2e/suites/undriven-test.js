@@ -39,7 +39,8 @@ async function join(b, path, name, room, fill) {
     const room = 'st' + Math.floor(Math.random() * 99999);
     const fill = async (p, name, room) => {
       p.on('dialog', d => d.accept());   // Delete asks first, for everyone on the channel
-      await p.waitForSelector('#usernameInput', { timeout: 25000 });
+      await p.waitForSelector('#usernameInput', { state: 'attached', timeout: 25000 });
+      await p.evaluate(() => document.getElementById('tabCustom')?.click());
       await p.fill('#usernameInput', name);
       await p.fill('#channelInput', room);
       await p.fill('#passwordInput', 'pw12345');

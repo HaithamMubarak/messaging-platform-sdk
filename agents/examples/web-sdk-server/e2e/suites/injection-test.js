@@ -41,7 +41,8 @@ const check = (ok, what) => (ok ? pass : fail).push(what);
     for (const name of HOSTILE_NAMES) {
         const p = await b.newPage({ viewport: { width: 1000, height: 700 } });
         await p.goto(BASE + '/apps/pulse/index.html', { waitUntil: 'domcontentloaded' });
-        await p.waitForSelector('#usernameInput', { timeout: 20000 });
+        await p.waitForSelector('#usernameInput', { state: 'attached', timeout: 20000 });
+        await p.evaluate(() => document.getElementById('tabCustom')?.click());
         await p.fill('#usernameInput', name);
         await p.fill('#channelInput', 'probe' + Math.floor(Math.random() * 99999));
         await p.fill('#passwordInput', 'pw12345');

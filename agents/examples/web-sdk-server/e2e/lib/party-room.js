@@ -63,6 +63,7 @@ async function joinOne(browser, path, globalName, room, name, pass) {
     }
     await page.waitForSelector('#connectionModal.active', { timeout: 30000 });
     await useChannelForm(page);
+    await page.evaluate(() => document.getElementById('tabCustom')?.click());
     await page.fill('#usernameInput', name);
     await page.fill('#channelInput', room);
     await page.fill('#passwordInput', pass);

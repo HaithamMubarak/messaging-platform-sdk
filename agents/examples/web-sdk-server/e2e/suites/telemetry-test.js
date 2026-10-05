@@ -66,7 +66,8 @@ async function join(b, room, name, { optOut = false } = {}) {
     }
     const seen = trap(page);
     await gotoStable(page, BASE + '/apps/drop/index.html');
-    await page.waitForSelector('#usernameInput', { timeout: 45000 });
+    await page.waitForSelector('#usernameInput', { state: 'attached', timeout: 45000 });
+    await page.evaluate(() => document.getElementById('tabCustom')?.click());
     await page.fill('#usernameInput', name);
     await page.fill('#channelInput', room);
     await page.fill('#passwordInput', 'pw12345');

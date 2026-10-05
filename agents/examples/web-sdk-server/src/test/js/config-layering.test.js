@@ -148,7 +148,8 @@ check('the connection picker restores the channel-specific name', () => {
     const modal = read('connection-modal.js');
     assert.ok(/recordConnect\(channel, password, username\)/.test(modal),
         'the connected name is not passed into the saved channel');
-    assert.ok(/if \(userEl\) userEl\.value = joinAs/.test(modal),
+    // setName writes every name field (Channel, Code, quick card) -- userEl among them.
+    assert.ok(/setName\(joinAs\)/.test(modal) && /const nameEls = \[userEl, /.test(modal),
         'choosing a saved channel does not restore its name');
 });
 

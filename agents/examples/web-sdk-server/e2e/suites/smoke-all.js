@@ -27,7 +27,8 @@ async function join(b, url, name, room) {
   p.errs = errs; p.ctx = ctx;
   await p.goto(url, { waitUntil: 'domcontentloaded', timeout: 30000 });
   await useChannelForm(p);   // a game's party lobby covers the form
-  await p.waitForSelector('#usernameInput, #agentName, #playerName', { timeout: 90000 });
+  await p.waitForSelector('#usernameInput, #agentName, #playerName', { state: 'attached', timeout: 90000 });
+  await p.evaluate(() => document.getElementById('tabCustom')?.click());   // the modal opens on its Code tab
   const fill = async (sels, val) => {
     for (const s of sels) { const el = await p.$(s); if (el) { await el.fill(val); return s; } }
     return null;

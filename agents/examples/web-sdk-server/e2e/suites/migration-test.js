@@ -25,7 +25,8 @@ async function join(b, path, name, room) {
   p.errs = errs; p.ctx = ctx;
   await p.goto(BASE + '/apps/' + path, { waitUntil: 'domcontentloaded', timeout: 30000 });
   await useChannelForm(p);   // a game's party lobby covers the form
-  await p.waitForSelector('#usernameInput', { timeout: 25000 });
+  await p.waitForSelector('#usernameInput', { state: 'attached', timeout: 25000 });
+  await p.evaluate(() => document.getElementById('tabCustom')?.click());
   await p.fill('#usernameInput', name);
   await p.fill('#channelInput', room);
   await p.fill('#passwordInput', 'pw12345');

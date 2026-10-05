@@ -27,27 +27,35 @@
 (function () {
     'use strict';
 
-    // No 0/O, 1/I/L: a code read aloud across a room has to survive it.
-    const ALPHABET = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789';
-    const CODE_LENGTH = 6;
+    // A party code is the modal's room code (PartyCode in connection-modal.js):
+    // twelve digits that check themselves and belong to one game. The 6-letter
+    // codes this lobby used to make still join the rooms they always did, so an
+    // invite already sent keeps working. No 0/O, 1/I/L in those.
+    const LEGACY_ALPHABET = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789';
+    const LEGACY_LENGTH = 6;
     const STYLE_ID = 'party-lobby-style';
 
-    function newCode() {
-        const bytes = new Uint8Array(CODE_LENGTH);
-        (window.crypto || window.msCrypto).getRandomValues(bytes);
-        return Array.from(bytes, (b) => ALPHABET[b % ALPHABET.length]).join('');
+    const appIdOf = (config) => window.PartyCode.appIdOf(config);
+
+    function newCode(config) {
+        return window.PartyCode.newCode(appIdOf(config));
     }
 
-    /** A typed code, cleaned; null unless it is a whole code. */
-    function normalize(input) {
-        const code = String(input || '').toUpperCase().replace(/[^A-Z0-9]/g, '');
-        const valid = code.length === CODE_LENGTH && [...code].every((c) => ALPHABET.includes(c));
-        return valid ? code : null;
+    /** A typed code, cleaned: a 12-digit code of this game, an old 6-letter code, or null. */
+    function normalize(config, input) {
+        const digits = window.PartyCode.digitsOf(input);
+        if (window.PartyCode.isValid(appIdOf(config), digits)) return digits;
+        const legacy = String(input || '').toUpperCase().replace(/[^A-Z0-9]/g, '');
+        const valid = legacy.length === LEGACY_LENGTH && [...legacy].every((c) => LEGACY_ALPHABET.includes(c));
+        return valid ? legacy : null;
     }
+
+    const isLegacy = (code) => !/^\d+$/.test(code);
 
     /** Where a code leads: one channel and password per game and code. */
-    function roomFor(channelPrefix, code) {
-        const prefix = String(channelPrefix || 'party-');
+    function roomFor(config, code) {
+        if (!isLegacy(code)) return window.PartyCode.roomFor(appIdOf(config), code);
+        const prefix = String(config.channelPrefix || 'party-');
         return { channel: prefix + 'p-' + code.toLowerCase(), password: 'party-' + code + '-' + prefix };
     }
 
@@ -82,8 +90,9 @@
         return {
             name: el('input', { class: 'pl-input', id: 'plName', maxlength: '24', autocomplete: 'nickname', value: name }),
             start: el('button', { class: 'pl-btn pl-btn--primary', type: 'button', text: 'Start a party' }),
-            code: el('input', { class: 'pl-input pl-code', id: 'plCode', maxlength: '8', autocomplete: 'off',
-                autocapitalize: 'characters', spellcheck: 'false', placeholder: 'CODE', value: prefillCode || '',
+            code: el('input', { class: 'pl-input pl-code', id: 'plCode', autocomplete: 'off', inputmode: 'numeric',
+                spellcheck: 'false', placeholder: '0000 0000 0000',
+                value: prefillCode ? (isLegacy(prefillCode) ? prefillCode : window.PartyCode.format(prefillCode)) : '',
                 'aria-label': 'Party code' }),
             join: el('button', { class: 'pl-btn', type: 'button', text: 'Join' }),
             error: el('p', { class: 'pl-error', role: 'alert' }),
@@ -123,14 +132,16 @@
 
     /** Fill the modal's own fields and press its own Connect. */
     function enter(code, name) {
-        const room = roomFor(current.config.channelPrefix, code);
+        const room = roomFor(current.config, code);
         setField('usernameInput', name);
         setField('quickUsernameInput', name);
         setField('channelInput', room.channel);
         setField('passwordInput', room.password);
         try { localStorage.setItem((current.config.localStoragePrefix || '') + 'username', name); } catch (e) { /* private mode */ }
         const url = new URL(location.href);
-        url.searchParams.set('party', code);
+        // `?code=` is the modal's own invite parameter; an old code keeps `?party=`.
+        url.searchParams.delete(isLegacy(code) ? 'code' : 'party');
+        url.searchParams.set(isLegacy(code) ? 'party' : 'code', code);
         history.replaceState(null, '', url.pathname + url.search + location.hash);
         close();
         // Connect with the form collapsed, as the shared-link path does, so the
@@ -140,7 +151,8 @@
         if (modal) modal.classList.add('active', 'collapsed');
         const connect = document.getElementById('connectBtn');
         if (connect) connect.click();
-        whenJoined(modal, () => showChip(code, room));
+        // A 12-digit room gets the modal's own code chip once it is joined.
+        if (isLegacy(code)) whenJoined(modal, () => showChip(code, room));
     }
 
     /*
@@ -168,13 +180,25 @@
             f.name.focus();
             return true;
         };
-        f.start.addEventListener('click', () => { if (!needName()) enter(newCode(), nameOf()); });
+        f.start.addEventListener('click', () => { if (!needName()) enter(newCode(current.config), nameOf()); });
         const join = () => {
             if (needName()) return;
-            const code = normalize(f.code.value);
-            if (!code) { f.error.textContent = 'A party code is 6 letters and numbers.'; f.code.focus(); return; }
+            const code = normalize(current.config, f.code.value);
+            if (!code) {
+                const short = window.PartyCode.digitsOf(f.code.value).length < window.PartyCode.LENGTH;
+                f.error.textContent = short ? 'A party code is ' + window.PartyCode.LENGTH + ' digits.'
+                    : 'That code isn’t right. Check the digits, and that it is for this game.';
+                f.code.focus();
+                return;
+            }
             enter(code, nameOf());
         };
+        f.code.addEventListener('input', () => {
+            if (f.code.selectionStart === f.code.value.length && /^[\d\s]*$/.test(f.code.value)) {
+                f.code.value = window.PartyCode.format(f.code.value);
+            }
+            f.error.textContent = '';
+        });
         f.join.addEventListener('click', join);
         f.code.addEventListener('keydown', (e) => { if (e.key === 'Enter') join(); });
         f.advanced.addEventListener('click', close);
@@ -206,7 +230,8 @@
         if (!config || !config.partyLobby || openedFromSharedLink()) return false;
         injectStyle();
         current = { config: config };
-        const code = normalize(new URLSearchParams(location.search).get('party'));
+        const params = new URLSearchParams(location.search);
+        const code = normalize(config, params.get('code') || params.get('party'));
         const f = form(code, defaultName(config));
         document.body.append(layout(config, config.partyLobby, f));
         wire(f);
@@ -227,7 +252,7 @@
             '.pl-how ol{margin:6px 0 0;padding-left:20px;color:var(--text-body,#d1d5db);font-size:14px;line-height:1.6}',
             '.pl-label{font-size:13px;color:var(--text-muted,#9ca3af)}',
             '.pl-input{width:100%;box-sizing:border-box;min-height:44px;padding:10px 12px;border-radius:10px;border:1px solid var(--border-strong,#374151);background:var(--bg,#0b1120);color:inherit;font:inherit;font-size:16px}',
-            '.pl-code{text-transform:uppercase;letter-spacing:.3em;font-family:var(--font-mono,monospace);text-align:center}',
+            '.pl-code{letter-spacing:.06em;font-family:var(--font-mono,monospace);text-align:center}',
             '.pl-btn{min-height:48px;border-radius:10px;border:1px solid var(--border-strong,#374151);background:transparent;color:inherit;font:inherit;font-weight:700;font-size:16px;cursor:pointer;padding:0 18px}',
             '.pl-btn--primary{background:var(--accent,#2dd4bf);border-color:var(--accent,#2dd4bf);color:#07110c}',
             '.pl-or{text-align:center;color:var(--text-muted,#9ca3af);font-size:13px}',
@@ -238,10 +263,12 @@
             '.pl-chip{position:fixed;top:12px;left:50%;transform:translateX(-50%);z-index:100005;display:flex;align-items:center;gap:8px;padding:6px 6px 6px 14px;border-radius:999px;background:var(--surface-2,#1f2937);color:var(--text,#e5e7eb);border:1px solid var(--border-strong,#374151);font:14px var(--font-sans,system-ui,sans-serif);box-shadow:0 6px 20px #0006}',
             '.pl-chip strong{letter-spacing:.15em;font-family:var(--font-mono,monospace)}',
             '.pl-chip__btn{min-height:32px;padding:0 12px;border-radius:999px;border:0;background:var(--accent,#2dd4bf);color:#07110c;font-weight:700;cursor:pointer}',
-            '.pl-chip__x{min-width:32px;min-height:32px;border:0;background:none;color:inherit;font-size:18px;cursor:pointer}'
+            '.pl-chip__x{min-width:32px;min-height:32px;border:0;background:none;color:inherit;font-size:18px;cursor:pointer}',
+            // Last, so it wins over .pl-join above: beside Join a 12-digit code was clipped on a phone.
+            '@media (max-width:420px){.pl-join{grid-template-columns:minmax(0,1fr)}}'
         ].join('\n');
         document.head.appendChild(s);
     }
 
-    window.PartyLobby = { attach: attach, normalize: normalize, roomFor: roomFor, newCode: newCode, ALPHABET: ALPHABET };
+    window.PartyLobby = { attach: attach, normalize: normalize, roomFor: roomFor, newCode: newCode, LEGACY_ALPHABET: LEGACY_ALPHABET };
 })();

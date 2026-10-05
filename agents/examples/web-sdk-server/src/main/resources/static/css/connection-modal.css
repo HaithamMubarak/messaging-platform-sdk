@@ -917,3 +917,61 @@ button[id*="disconnect"]:hover,
 
 /* The save row is a 32px target at every width (44 on touch screens, above). */
 .connection-modal.connection-modal .mp-save-row { min-height: 32px; }
+
+/* --- The Code tab and the room-code chip (2026-10-05) ----------------------
+   A room as twelve digits (PartyCode in connection-modal.js). The field reads
+   like a phone number: monospaced, spaced in fours, centred. Its two icon
+   buttons are quiet squares beside it; Join is the one teal action. */
+.connection-modal.connection-modal .mp-code-row { display: flex; gap: 6px; align-items: stretch; }
+.connection-modal.connection-modal input.mp-code-input {
+    flex: 1 1 auto; min-width: 0; min-height: 52px; margin: 0; padding: 0 10px;
+    font: 600 22px/1 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; letter-spacing: 1px;
+    text-align: center;
+}
+.connection-modal.connection-modal input.mp-code-input[aria-invalid="true"] { border-color: #dc2626; }
+.connection-modal.connection-modal button.mp-icon-btn {
+    display: inline-flex; align-items: center; justify-content: center; flex: 0 0 48px;
+    width: 48px; min-width: 48px; min-height: 52px; margin: 0; padding: 0;
+    border: 1px solid #cbd5e1; border-radius: 10px; background: #fff; box-shadow: none; color: #334155;
+}
+.connection-modal.connection-modal button.mp-icon-btn:hover { background: #f8fafc; border-color: #94a3b8; color: #0f172a; }
+.connection-modal.connection-modal button.mp-icon-btn:focus-visible { outline: 3px solid var(--brand, #2dd4bf); outline-offset: 2px; }
+.connection-modal .mp-code-msg { min-height: 20px; margin: 6px 0 4px; font-size: 13px; line-height: 1.5; color: #64748b; }
+.connection-modal .mp-code-msg[data-state="ok"] { color: #0f766e; }
+.connection-modal .mp-code-msg[data-state="bad"] { color: #b91c1c; }
+.connection-modal #panelCode .modal-buttons button { flex: 1; }
+.connection-modal .mp-saved-badge {
+    display: inline-block; margin-left: 8px; padding: 1px 8px; border-radius: 6px; vertical-align: 1px;
+    background: #ccfbf1; color: #115e59; font-size: 11px; font-weight: 600;
+}
+
+/* Four tabs on a 320px phone: tighter, so "Channel" never breaks or overflows. */
+@media (max-width: 420px) {
+    .connection-modal.connection-modal button.mp-tab { padding: 0 6px; font-size: 14px; }
+    /* Beside two buttons the field was 140px and clipped the code ("3 1903 4398"):
+       the code takes the whole row, the buttons share the next. */
+    .connection-modal.connection-modal .mp-code-row { flex-wrap: wrap; }
+    .connection-modal.connection-modal input.mp-code-input { flex-basis: 100%; font-size: 20px; }
+    .connection-modal.connection-modal button.mp-icon-btn { flex: 1 1 0; width: auto; min-height: 44px; }
+}
+
+/* The chip: on the page once the room is joined, top centre, above the app. */
+.mp-code-chip.mp-code-chip {
+    position: fixed; top: 12px; left: 50%; transform: translateX(-50%); z-index: 100005;
+    display: flex; align-items: center; gap: 6px; max-width: calc(100vw - 24px); box-sizing: border-box;
+    padding: 5px 5px 5px 14px; border-radius: 999px; border: 1px solid #cbd5e1;
+    background: #fff; color: #0f172a; box-shadow: 0 6px 20px rgba(15, 23, 42, .18);
+    font: 14px/1 var(--font-sans, system-ui, sans-serif);
+}
+.mp-code-chip.mp-code-chip .mp-code-chip__label { color: #64748b; font-size: 13px; }
+.mp-code-chip.mp-code-chip .mp-code-chip__code {
+    font: 700 15px/1 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; letter-spacing: .5px; white-space: nowrap;
+}
+.mp-code-chip.mp-code-chip button {
+    min-width: 32px; min-height: 32px; margin: 0; padding: 0 12px; border-radius: 999px;
+    border: 1px solid #cbd5e1; background: #fff; color: #334155; box-shadow: none;
+    font: 600 13px/1 var(--font-sans, system-ui, sans-serif); cursor: pointer;
+}
+.mp-code-chip.mp-code-chip button:hover { background: #f1f5f9; }
+.mp-code-chip.mp-code-chip button:last-child { padding: 0; border: 0; font-size: 18px; color: #64748b; }
+@media (max-width: 380px) { .mp-code-chip.mp-code-chip .mp-code-chip__label { display: none; } }

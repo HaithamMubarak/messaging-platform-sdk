@@ -21,9 +21,10 @@ async function join(b, path, name, room) {
   p.errs = errs; p.ctx = ctx;
   await p.goto(BASE + '/apps/' + path, { waitUntil: 'domcontentloaded', timeout: 30000 });
   // chat.html predates the shared connection modal and has its own field ids.
-  await p.waitForSelector('#usernameInput, #agentName', { timeout: 25000 });
+  await p.waitForSelector('#usernameInput, #agentName', { state: 'attached', timeout: 25000 });
   const shared = await p.$('#usernameInput');
   if (shared) {
+    await p.evaluate(() => document.getElementById('tabCustom')?.click());
     await p.fill('#usernameInput', name);
     await p.fill('#channelInput', room);
     await p.fill('#passwordInput', 'pw12345');

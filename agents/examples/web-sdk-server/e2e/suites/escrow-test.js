@@ -42,7 +42,8 @@ const PHRASE = 'seventeen rusty lanterns above the harbour';
         page.on('pageerror', e => console.log('  (pageerror) ' + e.message.split('\n')[0].slice(0, 120)));
         await gotoStable(page, `${BASE}/apps/evidence-chain/app.html?debug`,
             { waitUntil: 'domcontentloaded' });
-        await page.waitForSelector('#usernameInput', { timeout: 45000 });
+        await page.waitForSelector('#usernameInput', { state: 'attached', timeout: 45000 });
+        await page.evaluate(() => document.getElementById('tabCustom')?.click());
         await page.fill('#usernameInput', 'Registrar');
         await page.fill('#channelInput', room);
         await page.fill('#passwordInput', 'escrow-pw-1');

@@ -45,12 +45,41 @@
         </div>
 
         <div class="mp-tabs" role="tablist" aria-label="How to join">
-            <button type="button" class="mp-tab is-active" id="tabCustom" role="tab"
-                    aria-selected="true" aria-controls="panelCustom">Channel</button>
+            <button type="button" class="mp-tab is-active" id="tabCode" role="tab"
+                    aria-selected="true" aria-controls="panelCode">Code</button>
+            <button type="button" class="mp-tab" id="tabCustom" role="tab"
+                    aria-selected="false" aria-controls="connectionForm">Channel</button>
             <button type="button" class="mp-tab" id="tabSaved" role="tab"
                     aria-selected="false" aria-controls="panelSaved" hidden>Saved</button>
             <button type="button" class="mp-tab" id="tabSignin" role="tab"
                     aria-selected="false" aria-controls="panelSignin">Sign in</button>
+        </div>
+
+        <!-- Code: the everyday way in. Twelve digits name a room in this app
+             (see PartyCode below); the Channel tab is the same room spelled
+             out, for developers and custom rooms. -->
+        <div id="panelCode" class="mp-panel" role="tabpanel" aria-labelledby="tabCode">
+            <label for="codeNameInput" class="form-label-visible">Your Name</label>
+            <input type="text" id="codeNameInput" placeholder="Your name" autocomplete="nickname">
+
+            <label for="partyCodeInput" class="form-label-visible">Room code</label>
+            <div class="mp-code-row">
+                <input type="text" id="partyCodeInput" class="mp-code-input" inputmode="numeric"
+                       autocomplete="off" spellcheck="false" placeholder="0000 0000 0000"
+                       aria-describedby="partyCodeMsg">
+                <button type="button" id="codeNewBtn" class="mp-icon-btn" aria-label="New code" title="New code">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12a9 9 0 1 1-2.64-6.36L21 8"/><path d="M21 3v5h-5"/></svg>
+                </button>
+                <button type="button" id="codeCopyBtn" class="mp-icon-btn" aria-label="Copy code" title="Copy code">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+                </button>
+            </div>
+            <p id="partyCodeMsg" class="mp-code-msg" role="status"></p>
+
+            <div class="modal-buttons">
+                <button type="button" id="codeJoinBtn" class="btn-primary">Join</button>
+            </div>
+            <p class="mp-note">Share the code. Anyone who types it here joins you.</p>
         </div>
 
         <!-- Saved: only ever rendered for a signed-in person. -->
@@ -69,10 +98,8 @@
              should not be the second option on the screen. -->
         <div id="panelSignin" class="mp-panel" role="tabpanel" aria-labelledby="tabSignin" hidden>
             <p class="mp-note mp-signin__lead">
-                Sign in to your <strong>Platform account</strong> to save channels you
-                want to come back to. It is a different account from the Developer
-                Portal, where API keys live; the two are not linked yet. You do not
-                need either to join a room &mdash; that stays one click.
+                Sign in to your <strong>Platform account</strong> (not the Developer
+                Portal one) to save rooms. You do not need either to join a room.
             </p>
 
             <div class="mp-subtabs" role="tablist" aria-label="Sign in to or create a Platform account">
@@ -110,15 +137,13 @@
             <p id="signinOk" class="mp-note mp-signin__ok" role="status" hidden></p>
         </div>
 
-        <form id="connectionForm" class="mp-panel" role="tabpanel" aria-labelledby="tabCustom" onsubmit="return false;">
+        <form id="connectionForm" class="mp-panel" role="tabpanel" aria-labelledby="tabCustom" onsubmit="return false;" hidden>
             <label for="usernameInput" class="form-label-visible">Your Name</label>
             <input type="text" id="usernameInput" placeholder="Your name" autocomplete="nickname">
 
             <div class="connection-info-note" style="margin-top: 8px;">
-                <p><strong>Tip:</strong> The channel name and password are yours to invent — pick anything.
-                Everyone who wants to be in the same room has to type <strong>both</strong> exactly the same,
-                because a different password is a different room, and you will simply find yourself alone in it.
-                Sharing the link afterwards carries both for you.</p>
+                <p>For custom rooms: pick any channel name and password. Everyone who joins has to type
+                <strong>both</strong> exactly the same, or open the link you share, which carries both.</p>
             </div>
 
             <div id="sharedLinkWarning" class="connection-info-note" style="display: none; background: #fff3cd; border-left: 4px solid #ffc107; margin-top: 8px;">
@@ -156,14 +181,123 @@
                 <button type="button" id="regenerateBtn" class="ghost">Regenerate</button>
             </div>
 
-            <div id="connectError" class="connect-error" role="alert" hidden>
-                <p id="connectErrorText"></p>
-                <button type="button" id="connectFixBtn" class="btn-primary" hidden></button>
-            </div>
         </form>
+
+        <!-- Outside the form so a failed Join on the Code tab is seen too. -->
+        <div id="connectError" class="connect-error" role="alert" hidden>
+            <p id="connectErrorText"></p>
+            <button type="button" id="connectFixBtn" class="btn-primary" hidden></button>
+        </div>
     </div>
 </div>
 `;
+
+    /*
+     * PartyCode -- a room as twelve digits you can read across a room.
+     *
+     * Three groups of four. In each group three digits are random and the
+     * fourth is a check: a hash (FNV-1a, then mixed) of the group's number, the
+     * app's id and ALL nine random digits. Every check covers every digit, so
+     * one wrong digit anywhere has to beat three checks at once, not only the
+     * checks after it (that left the last group 1-in-10). So a typo, two
+     * swapped digits or a code made in another app is
+     * refused before it connects -- a wrong code would otherwise open an empty
+     * room of its own and spend a channel on the shared demo quota. About 1 in
+     * 1000 random numbers pass. The rule is in this public file, so it stops
+     * mistakes and guessing, not someone who reads it; the password half still
+     * encrypts the room.
+     *
+     * Room: `<appId>-<first six digits>`, password: the last six.
+     */
+    const PartyCode = (function () {
+        const GROUPS = 3, RANDOM = 3, GROUP = RANDOM + 1, LENGTH = GROUPS * GROUP;
+
+        function fnv(text) {
+            let h = 0x811c9dc5;
+            for (let i = 0; i < text.length; i++) {
+                h ^= text.charCodeAt(i);
+                h = Math.imul(h, 0x01000193) >>> 0;
+            }
+            return h;
+        }
+
+        // MurmurHash3's finaliser. Without it the three checks, whose inputs
+        // differ only in the group number, moved together: 2.6% of one-digit
+        // typos passed all three (party-code.test.js measured it).
+        function mix(h) {
+            h ^= h >>> 16; h = Math.imul(h, 0x85ebca6b) >>> 0;
+            h ^= h >>> 13; h = Math.imul(h, 0xc2b2ae35) >>> 0;
+            return (h ^ (h >>> 16)) >>> 0;
+        }
+
+        /** The code a run of random digits makes in this app. */
+        function build(appId, random) {
+            let code = '';
+            for (let g = 0; g < GROUPS; g++) {
+                code += random.slice(g * RANDOM, (g + 1) * RANDOM);
+                code += String(mix(fnv(g + ':' + appId + ':' + random)) % 10);
+            }
+            return code;
+        }
+
+        function secureDigits(n) {
+            const out = [];
+            const bytes = new Uint8Array(n * 2);
+            while (out.length < n) {
+                window.crypto.getRandomValues(bytes);
+                // 250 is the largest multiple of 10 under 256: no digit is favoured.
+                for (let i = 0; i < bytes.length && out.length < n; i++) {
+                    if (bytes[i] < 250) out.push(bytes[i] % 10);
+                }
+            }
+            return out.join('');
+        }
+
+        function digitsOf(input) { return String(input == null ? '' : input).replace(/\D/g, ''); }
+
+        /** What is wrong with a typed code: 'short', 'long', 'wrong', or null when it is a code. */
+        function problem(appId, input) {
+            const d = digitsOf(input);
+            if (d.length < LENGTH) return 'short';
+            if (d.length > LENGTH) return 'long';
+            let random = '';
+            for (let g = 0; g < GROUPS; g++) random += d.slice(g * GROUP, g * GROUP + RANDOM);
+            return build(appId, random) === d ? null : 'wrong';
+        }
+
+        function roomFor(appId, code) {
+            const d = digitsOf(code);
+            return { channel: appId + '-' + d.slice(0, LENGTH / 2), password: d.slice(LENGTH / 2) };
+        }
+
+        /** The code a channel and password were made from, or null when they are not a code room. */
+        function codeFor(appId, channel, password) {
+            const prefix = appId + '-';
+            const name = String(channel || ''), pw = String(password || '');
+            if (name.indexOf(prefix) !== 0) return null;
+            const half = /^\d{6}$/;
+            const head = name.slice(prefix.length);
+            if (!half.test(head) || !half.test(pw)) return null;
+            return problem(appId, head + pw) === null ? head + pw : null;
+        }
+
+        return {
+            LENGTH: LENGTH,
+            newCode: function (appId) { return build(appId, secureDigits(GROUPS * RANDOM)); },
+            problem: problem,
+            isValid: function (appId, input) { return problem(appId, input) === null; },
+            roomFor: roomFor,
+            codeFor: codeFor,
+            digitsOf: digitsOf,
+            format: function (code) { return digitsOf(code).replace(/(\d{4})(?=\d)/g, '$1 '); },
+            /** The one app id the modal and the party lobby both derive rooms from. */
+            appIdOf: function (config) {
+                const c = config || {};
+                return c.appId || String(c.channelPrefix || 'channel-').replace(/-$/, '') || 'app';
+            }
+        };
+    })();
+    window.PartyCode = PartyCode;
 
     // Helper functions
     function randomDigits(length) {
@@ -217,6 +351,124 @@
         return Promise.resolve(window.confirm(opts.body));
     }
 
+    function codeMessage(appId, digits, strict) {
+        const problem = PartyCode.problem(appId, digits);
+        if (!problem) return { state: 'ok', text: 'Room ' + PartyCode.roomFor(appId, digits).channel + ' is ready to join.' };
+        if (problem === 'short' && !strict) {
+            const left = PartyCode.LENGTH - digits.length;
+            return { state: '', text: digits.length ? 'Keep going: ' + left + ' more digit' + (left === 1 ? '' : 's') + '.'
+                : 'Enter the ' + PartyCode.LENGTH + '-digit code.' };
+        }
+        if (problem === 'short') return { state: 'bad', text: 'A room code is ' + PartyCode.LENGTH + ' digits.' };
+        if (problem === 'long') return { state: 'bad', text: 'That is more than ' + PartyCode.LENGTH + ' digits.' };
+        return { state: 'bad', text: 'That code isn’t right. Check the digits, and that it is for this app.' };
+    }
+
+    /**
+     * The Code tab: another view of the room in the Channel form. A valid code
+     * is written into that form's fields, so Join, Connect, Save and the quick
+     * card all act on the one room the code names.
+     * @param {object} o {appId, chEl, pwEl, onRoom(), join()}
+     */
+    function wireCodeTab(o) {
+        const input = document.getElementById('partyCodeInput');
+        const msg = document.getElementById('partyCodeMsg');
+        if (!input || !msg) return { set: function () {}, fromRoom: function () {} };
+
+        function render(strict) {
+            const m = codeMessage(o.appId, PartyCode.digitsOf(input.value), strict);
+            msg.textContent = m.text;
+            msg.setAttribute('data-state', m.state);
+            input.setAttribute('aria-invalid', m.state === 'bad' ? 'true' : 'false');
+            return m.state === 'ok';
+        }
+        function intoRoom() {
+            if (!PartyCode.isValid(o.appId, input.value)) return;
+            const room = PartyCode.roomFor(o.appId, input.value);
+            if (o.chEl) o.chEl.value = room.channel;
+            if (o.pwEl) o.pwEl.value = room.password;
+            o.onRoom();
+        }
+        /** Show a code; `keepRoom` leaves the Channel form's room as it is. */
+        function set(code, keepRoom) {
+            input.value = PartyCode.format(code);
+            render(false);
+            if (!keepRoom) intoRoom();
+        }
+        input.addEventListener('input', function () {
+            // Re-space only while typing at the end, so editing a middle digit keeps the caret.
+            if (input.selectionStart === input.value.length) input.value = PartyCode.format(input.value);
+            render(false);
+            intoRoom();
+        });
+        input.addEventListener('keydown', function (e) { if (e.key === 'Enter') join(); });
+        function join() {
+            if (!render(true)) { input.focus(); return; }
+            intoRoom();
+            o.join();
+        }
+        const btn = function (id, fn) { const b = document.getElementById(id); if (b) b.addEventListener('click', fn); };
+        btn('codeJoinBtn', join);
+        btn('codeNewBtn', function () { set(PartyCode.newCode(o.appId)); });
+        btn('codeCopyBtn', function () {
+            copyText(PartyCode.format(input.value)).then(function (ok) {
+                msg.textContent = ok ? 'Copied.' : 'Select the code and copy it.';
+            });
+        });
+        return {
+            set: set,
+            /** Mirror the Channel form when it holds a code room of this app. */
+            fromRoom: function () {
+                const code = PartyCode.codeFor(o.appId, o.chEl && o.chEl.value.trim(), o.pwEl && o.pwEl.value.trim());
+                if (code) set(code, true);
+                return code;
+            }
+        };
+    }
+
+    function copyText(text) {
+        if (!navigator.clipboard || !navigator.clipboard.writeText) return Promise.resolve(false);
+        return navigator.clipboard.writeText(text).then(function () { return true; }, function () { return false; });
+    }
+
+    /* The room's code, on the page once it is joined: read it out, copy it, or invite. */
+    const CodeChip = {
+        remove: function () {
+            const chip = document.getElementById('partyCodeChip');
+            if (chip) chip.remove();
+        },
+        show: function (code, channel, password) {
+            CodeChip.remove();
+            if (!code) return;
+            const chip = document.createElement('div');
+            chip.id = 'partyCodeChip';
+            chip.className = 'mp-code-chip';
+            const label = document.createElement('span');
+            label.className = 'mp-code-chip__label';
+            label.textContent = 'Code';
+            const value = document.createElement('strong');
+            value.className = 'mp-code-chip__code';
+            value.textContent = PartyCode.format(code);
+            chip.append(label, value);
+            const add = function (text, aria, fn) {
+                const b = document.createElement('button');
+                b.type = 'button';
+                b.textContent = text;
+                if (aria) b.setAttribute('aria-label', aria);
+                b.addEventListener('click', function () { fn(b); });
+                chip.appendChild(b);
+            };
+            add('Copy', 'Copy room code', function (b) {
+                copyText(PartyCode.format(code)).then(function (ok) { if (ok) b.textContent = 'Copied'; });
+            });
+            if (window.ShareModal && window.ShareModal.show) {
+                add('Invite', null, function () { window.ShareModal.show(channel, password); });
+            }
+            add('×', 'Hide room code', CodeChip.remove);
+            document.body.appendChild(chip);
+        }
+    };
+
     window.loadConnectionModal = function(config) {
         // Use embedded template - no fetch needed!
         const collapsedTitle = config.collapsedTitle || config.title || 'Connect';
@@ -260,6 +512,18 @@
         const pwEl = document.getElementById('passwordInput');
         const userEl = document.getElementById('usernameInput');
         const quickUserEl = document.getElementById('quickUsernameInput');
+        // The name is asked for in three places (quick card, Code, Channel) and
+        // is one name: setting it sets all three.
+        const nameEls = [userEl, quickUserEl, document.getElementById('codeNameInput')].filter(Boolean);
+        function setName(value) { nameEls.forEach(function (el) { el.value = value; }); }
+        // Rooms are scoped to the app; a code names a room in this app only.
+        var appId = PartyCode.appIdOf(config);
+        const codesOn = config.partyCode !== false;
+        /** A new room to offer: a code room, or a random channel where an app opts out. */
+        function freshRoom() {
+            return codesOn ? PartyCode.roomFor(appId, PartyCode.newCode(appId))
+                : { channel: channelPrefix + randomDigits(8), password: generatePassword() };
+        }
         // Declared here because persistence is set up before account discovery
         // completes. Once known, an account gets its own fallback identity.
         var currentUser = null;
@@ -338,7 +602,7 @@
                     : _generateRandomAgentNameBase();
                 userEl.value = base + '-' + randomDigits(4);
             }
-            if (quickUserEl) quickUserEl.value = userEl ? userEl.value : '';
+            setName(userEl ? userEl.value : '');
         }
 
         // Load persisted values
@@ -396,6 +660,17 @@
             console.warn('[ConnectionModal] Failed to parse URL hash:', e);
         }
 
+        // A `?code=` link is an invite too, below a hash invite. A code that is
+        // not for this app is not guessed at: it is shown on the Code tab with
+        // what is wrong with it.
+        let urlCode = null;
+        try { urlCode = new URLSearchParams(window.location.search).get('code'); } catch (e) { /* no URL */ }
+        if (urlCode && codesOn && !urlChannel && !urlPassword && PartyCode.isValid(appId, urlCode)) {
+            const invited = PartyCode.roomFor(appId, urlCode);
+            urlChannel = invited.channel;
+            urlPassword = invited.password;
+        }
+
         // Priority 2: ALWAYS restore username from localStorage if it exists
         if (persisted.u && userEl) {
             userEl.value = persisted.u;
@@ -415,8 +690,7 @@
             userEl.disabled = false;
         }
 
-        // Update quick username input
-        if (quickUserEl) quickUserEl.value = userEl ? userEl.value : '';
+        setName(userEl ? userEl.value : '');
 
         // Priority 3: channel and password.
         //
@@ -429,9 +703,11 @@
         var active = window.ActiveChannel ? window.ActiveChannel.read() : null;
         var activePw = window.ActiveChannel ? window.ActiveChannel.readPassword() : '';
 
+        // Nothing to come back to: offer a new room. With codes on it is a code
+        // room, so the room a first-time visitor connects to has a code to share.
+        var fresh = freshRoom();
         if (chEl) {
-            chEl.value = urlChannel || (active && active.name) || persisted.c
-                || (channelPrefix + randomDigits(8));
+            chEl.value = urlChannel || (active && active.name) || persisted.c || fresh.channel;
         }
         if (pwEl) {
             // Only pair the shared password with the shared channel: carrying
@@ -439,7 +715,7 @@
             // not open.
             var pwForActive = (!urlChannel && active && chEl && chEl.value === active.name)
                 ? activePw : '';
-            pwEl.value = urlPassword || pwForActive || persisted.p || generatePassword();
+            pwEl.value = urlPassword || pwForActive || persisted.p || fresh.password;
         }
 
         // Draft values do not become the active channel until an app confirms
@@ -507,18 +783,12 @@
             });
         }
 
-        // Sync quick username input with main username input
-        if (userEl && quickUserEl) {
-            // Sync userEl -> quickUserEl
-            userEl.addEventListener('input', () => {
-                quickUserEl.value = userEl.value;
+        // Typing in any of the name fields types in all of them.
+        nameEls.forEach(function (source) {
+            source.addEventListener('input', function () {
+                nameEls.forEach(function (el) { if (el !== source) el.value = source.value; });
             });
-            
-            // Sync quickUserEl -> userEl
-            quickUserEl.addEventListener('input', () => {
-                userEl.value = quickUserEl.value;
-            });
-        }
+        });
 
         /**
          * Everything a connect attempt can do to the form lives here.
@@ -575,8 +845,7 @@
                 const suggestion = free + randomDigits(3);
                 message = 'Somebody is already in this channel under that name. Pick another one.';
                 action = { label: 'Use “' + suggestion + '”', run: function () {
-                    if (userEl) userEl.value = suggestion;
-                    if (quickUserEl) quickUserEl.value = suggestion;
+                    setName(suggestion);
                     clearError();
                     attempt(suggestion);
                 } };
@@ -631,6 +900,9 @@
                         // means it will not be remembered. Say so explicitly.
                         window.setTimeout(function () { window.alert(e.message || 'This browser could not save the channel.'); }, 0);
                     }
+                    if (codesOn && config.codeChip !== false) {
+                        CodeChip.show(PartyCode.codeFor(appId, channel, password), channel, password);
+                    }
                 }
             }, 300);
             const deadline = setTimeout(function () {
@@ -679,7 +951,7 @@
                     showError(new Error('Enter the name you want to be known by.'));
                     return;
                 }
-                if (userEl) userEl.value = username;
+                setName(username);
                 attempt(username);
             };
         }
@@ -729,12 +1001,10 @@
          * survives the arrival of tabs. An account gates SAVING, never
          * connecting.
          * --------------------------------------------------------------- */
-        var appId = (config.appId || channelPrefix.replace(/-$/, '') || 'app');
-
         function el(id) { return document.getElementById(id); }
 
         function showTab(name) {
-            [['Custom', 'connectionForm'], ['Saved', 'panelSaved'], ['Signin', 'panelSignin']]
+            [['Code', 'panelCode'], ['Custom', 'connectionForm'], ['Saved', 'panelSaved'], ['Signin', 'panelSignin']]
                 .forEach(function (pair) {
                     var tab = el('tab' + pair[0]);
                     var panel = el(pair[1]);
@@ -745,6 +1015,28 @@
                     }
                     if (panel) panel.hidden = !on;
                 });
+        }
+
+        var codeTab = wireCodeTab({
+            appId: appId, chEl: chEl, pwEl: pwEl,
+            onRoom: function () { refreshSaveRow(); },
+            join: function () {
+                var username = (el('codeNameInput') ? el('codeNameInput').value : '').trim();
+                if (!username) { showError(new Error('Enter the name you want to be known by.')); return; }
+                setName(username);
+                attempt(username);
+            }
+        });
+
+        /**
+         * Show the tab that holds the room Connect would join: Code when it is
+         * a code room of this app, Channel otherwise (an invite, or a room
+         * carried over from another app). Leaves Saved and Sign in alone.
+         */
+        function showRoomTab() {
+            var onRoomTab = !(el('panelCode') || {}).hidden || !(el('connectionForm') || {}).hidden;
+            if (!onRoomTab) return;
+            showTab(codesOn && codeTab.fromRoom() ? 'code' : 'custom');
         }
 
         function renderSaved() {
@@ -762,11 +1054,20 @@
                 var label = document.createElement('span');
                 label.className = 'mp-saved-label';
                 label.textContent = row.label;          // textContent: a label is user input
+                // A code room is shown, and filled in, as its code: that is
+                // what people read out. Other apps' code rooms are channels here.
+                var code = codesOn ? PartyCode.codeFor(appId, row.name, row.password) : null;
                 var name = document.createElement('span');
                 name.className = 'mp-saved-name';
-                name.textContent = row.name;
+                name.textContent = code ? PartyCode.format(code) : row.name;
                 item.appendChild(label);
                 item.appendChild(name);
+                if (code) {
+                    var badge = document.createElement('span');
+                    badge.className = 'mp-saved-badge';
+                    badge.textContent = 'Code';
+                    label.appendChild(badge);
+                }
                 item.addEventListener('click', function () {
                     // Fill the fields and hand over -- Connect stays the one
                     // verb that connects, so nothing happens behind your back.
@@ -776,9 +1077,8 @@
                     // account's default instead of carrying another row's
                     // alias across to a different room.
                     var joinAs = row.username || accountDefaultName();
-                    if (userEl) userEl.value = joinAs;
-                    if (quickUserEl) quickUserEl.value = joinAs;
-                    showTab('custom');
+                    setName(joinAs);
+                    showTab(codeTab.fromRoom() ? 'code' : 'custom');
                     refreshSaveRow();
                 });
                 list.appendChild(item);
@@ -810,13 +1110,13 @@
                 var renderForUser = function () {
                     if (accountId !== window.MPAccount.idOf(user)) return;
                     var savedName = loadPersisted().u || accountDefaultName();
-                    if (userEl) userEl.value = savedName;
-                    if (quickUserEl) quickUserEl.value = savedName;
+                    setName(savedName);
                     var saved = loadPersisted();
                     var activeForAccount = window.ActiveChannel ? window.ActiveChannel.read(accountId) : null;
                     var activePassword = window.ActiveChannel ? window.ActiveChannel.readPassword(accountId) : '';
                     if (chEl) chEl.value = (activeForAccount && activeForAccount.name) || saved.c || chEl.value;
                     if (pwEl) pwEl.value = activePassword || saved.p || pwEl.value;
+                    showRoomTab();
                 };
                 if (window.Keyring && window.Keyring.setAccountKey && window.Keyring.ensureEncrypted
                     && window.MPAccount && window.MPAccount.exportKey) {
@@ -872,7 +1172,7 @@
             });
         }
 
-        ['Custom', 'Saved', 'Signin'].forEach(function (n) {
+        ['Code', 'Custom', 'Saved', 'Signin'].forEach(function (n) {
             var t = el('tab' + n);
             if (t) t.addEventListener('click', function () { showTab(n.toLowerCase()); });
         });
@@ -880,8 +1180,23 @@
         if (saveLink) saveLink.addEventListener('click', function (e) {
             e.preventDefault(); showTab('signin');
         });
-        if (chEl) chEl.addEventListener('input', refreshSaveRow);
-        if (pwEl) pwEl.addEventListener('input', refreshSaveRow);
+        [chEl, pwEl].forEach(function (field) {
+            if (!field) return;
+            field.addEventListener('input', refreshSaveRow);
+            field.addEventListener('input', function () { codeTab.fromRoom(); });
+        });
+
+        // The first tab. A code the URL carried that is not this app's is shown
+        // with what is wrong with it; otherwise the Code tab keeps a new code
+        // ready even while the room on offer is a channel.
+        if (!codesOn) {
+            ['tabCode', 'panelCode'].forEach(function (id) { if (el(id)) el(id).hidden = true; });
+            showTab('custom');
+        } else if (!codeTab.fromRoom()) {
+            var badCode = !!urlCode && !hasHashAuth;
+            codeTab.set(badCode ? urlCode : PartyCode.newCode(appId), true);
+            showTab(badCode ? 'code' : 'custom');
+        }
 
         // Sign in / create an account: two tabs over one set of fields.
         var registerMode = false;
@@ -937,7 +1252,8 @@
             var name = el('signinName').value.trim();
             var done = function (user) {
                 applyUser(user);
-                showTab(window.Keyring && window.Keyring.list(accountId).length ? 'saved' : 'custom');
+                if (window.Keyring && window.Keyring.list(accountId).length) showTab('saved');
+                else { showTab('custom'); showRoomTab(); }
             };
             var fail = function (e) {
                 if (err) { err.hidden = false; err.textContent = e.message || 'That did not work.'; }
@@ -1001,6 +1317,7 @@
             },
             show: function() {
                 const modal = document.getElementById('connectionModal');
+                CodeChip.remove();   // the chip names the room you are in; back at the form you are in none
                 if (modal) {
                     modal.classList.add('active');
                     console.log('[ConnectionModal] Shown');
