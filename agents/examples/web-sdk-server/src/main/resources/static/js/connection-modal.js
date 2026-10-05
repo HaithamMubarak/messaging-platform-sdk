@@ -48,7 +48,8 @@
             <button type="button" class="mp-tab is-active" id="tabCode" role="tab"
                     aria-selected="true" aria-controls="panelCode">Code</button>
             <button type="button" class="mp-tab" id="tabCustom" role="tab"
-                    aria-selected="false" aria-controls="connectionForm">Channel</button>
+                    aria-selected="false" aria-controls="connectionForm"
+                    title="For developers: a channel by its exact name and password">Advanced</button>
             <button type="button" class="mp-tab" id="tabSaved" role="tab"
                     aria-selected="false" aria-controls="panelSaved" hidden>Saved</button>
             <button type="button" class="mp-tab" id="tabSignin" role="tab"
@@ -138,11 +139,19 @@
         </div>
 
         <form id="connectionForm" class="mp-panel" role="tabpanel" aria-labelledby="tabCustom" onsubmit="return false;" hidden>
+            <!-- Advanced: the platform's own terms, for developers and experts. A
+                 room code is the same thing underneath (see PartyCode). -->
+            <p class="mp-dev-lead">
+                <span class="mp-dev-badge">For developers</span>
+                A channel by its exact name and password, as the platform names it.
+                For everyday use, the Code tab is simpler.
+            </p>
+
             <label for="usernameInput" class="form-label-visible">Your Name</label>
             <input type="text" id="usernameInput" placeholder="Your name" autocomplete="nickname">
 
             <div class="connection-info-note" style="margin-top: 8px;">
-                <p>For custom rooms: pick any channel name and password. Everyone who joins has to type
+                <p>Pick any channel name and password. Everyone who joins has to type
                 <strong>both</strong> exactly the same, or open the link you share, which carries both.</p>
             </div>
 

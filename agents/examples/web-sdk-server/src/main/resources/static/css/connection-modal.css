@@ -986,3 +986,11 @@ button[id*="disconnect"]:hover,
 /* Phones keep taller tool bars at the bottom (Whiteboard's is ~90px). */
 @media (max-width: 600px) { #partyCodeChip.mp-code-chip { bottom: 104px; right: 12px; } }
 @media (max-width: 380px) { #partyCodeChip .mp-code-chip__label { display: none; } }
+
+/* Advanced (the Channel form): marked as the developers' door, so a visitor
+   who wandered in knows the Code tab is the everyday way in. */
+.connection-modal .mp-dev-lead { margin: 0 0 14px; font-size: 13px; line-height: 1.55; color: #475569; }
+.connection-modal .mp-dev-badge {
+    display: inline-block; margin-right: 6px; padding: 2px 8px; border-radius: 6px; vertical-align: 1px;
+    background: #ede9fe; color: #5b21b6; font-size: 11px; font-weight: 700; letter-spacing: .2px;
+}
