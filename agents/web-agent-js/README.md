@@ -321,35 +321,6 @@ rtc.sendData(peerId, data);
 rtc.createStreamOffer(remoteAgent, { audio: true, video: true });
 ```
 
-**Camera to screen share without renegotiating.** Swap what an existing
-connection sends; it resolves `false` when the connection was never set up to
-send that kind (say, an audio-only call turning video on), and then you close
-and offer as before:
-
-```javascript
-const sid = await rtc.createStreamOffer(peer, { stream: camera });
-if (!(await rtc.replaceStream(sid, screen))) {
-    rtc.closeStream(sid);                       // tells the peer ('bye')
-    await rtc.createStreamOffer(peer, { stream: screen });
-}
-```
-
-A stream you pass in stays yours: closing a connection never stops its tracks.
-
-**Reconnecting is automatic.** A connection that drops (Wi-Fi to mobile, a
-blip, the peer's tab reloading) is brought back by the side that offered it,
-under the same stream id: first an ICE restart, then a new connection, up to
-`rtc.reconnect.maxAttempts`. While the device is offline nothing is spent;
-coming back online reconnects at once. `rtc.restartStream(sid)` does it on
-demand.
-
-```javascript
-rtc.on('stream-reconnecting', (sid, peer, attempt) => showBadge(peer, 'reconnecting'));
-rtc.on('stream-recovered', (sid, peer) => showBadge(peer, null));
-rtc.on('stream-failed', (sid, peer) => showBadge(peer, 'lost'));      // gave up
-rtc.on('stream-closed', (sid, peer, reason) => dropTile(sid));         // local | remote | failed
-```
-
 ---
 
 ## 🔒 Security

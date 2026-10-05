@@ -52,24 +52,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-### Added
-- WebRTC reconnects: a broken connection is restarted (ICE restart, then a new
-  connection under the same stream id) by the side that offered it, waits while
-  the device is offline, and resumes on `online`. Events `stream-reconnecting`,
-  `stream-recovered`, `stream-failed`, `stream-closed`; `restartStream(id)`.
-- `replaceStream(id, stream)`: camera to screen share on the same connection,
-  from either side, with no renegotiation.
-- `closeStream` sends a `bye`, so the other side closes its end at once.
-
-### Fixed
-- Closing a stream stopped the tracks of a stream the caller passed in: turning
-  on screen share in the Call demo turned the camera off for good.
-- An offer for a stream id already in use left the old connection running.
-- A replaced data channel's late close event deleted its replacement.
-- `pc.close()` closes data channels without a close event; they stayed in the
-  map and nobody heard they had gone.
-- A connection whose answer never came stayed in `new` for ever.
-
 ### Planned
 - TypeScript definitions (.d.ts files)
 - npm package publishing

@@ -516,13 +516,6 @@ class UserConnectionBase {
         this._reconnectAttempt = 0;
         clearTimeout(this._reconnectTimer);
 
-        // Close the peer connections BEFORE the socket, so each peer gets a
-        // 'bye' and drops its end now. Leaving used to keep every P2P link
-        // (camera, screen, data) running until the browser noticed by itself.
-        try {
-            if (this.webrtcHelper && this.webrtcHelper.destroy) this.webrtcHelper.destroy();
-        } catch (e) { /* best effort */ }
-
         if (this.channel) {
             this.channel.disconnect();
         }
@@ -673,10 +666,9 @@ class UserConnectionBase {
         // Peer connections belong to the session that just died. Left alone
         // they pile up one set per outage.
         try {
-            // destroy() also drops the helper's 'online' listener, which would
-            // otherwise keep every replaced helper alive for the page's life.
-            if (this.webrtcHelper && this.webrtcHelper.destroy) this.webrtcHelper.destroy();
-            else if (this.webrtcHelper && this.webrtcHelper.closeAllStreams) this.webrtcHelper.closeAllStreams();
+            if (this.webrtcHelper && this.webrtcHelper.closeAllStreams) {
+                this.webrtcHelper.closeAllStreams();
+            }
         } catch (e) { /* it is already gone */ }
 
         // Tell the server the old session is finished, so it does not sit
