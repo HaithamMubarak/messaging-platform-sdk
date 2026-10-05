@@ -999,3 +999,9 @@ button[id*="disconnect"]:hover,
 .connection-modal .mp-name-row { margin: 0 0 14px; }
 .connection-modal .mp-name-row[hidden] { display: none; }
 .connection-modal .mp-name-row input { margin-bottom: 0; }
+/* The shared-link warning, with the name above the tabs: it is true on every tab. */
+.connection-modal .mp-shared-note {
+    margin: 0 0 12px; padding: 10px 12px; border-radius: 0; border-left: 4px solid #f59e0b;
+    background: #fffbeb; color: #78350f; font-size: 13px; line-height: 1.5;
+}
+.connection-modal .mp-shared-note p { margin: 0; }

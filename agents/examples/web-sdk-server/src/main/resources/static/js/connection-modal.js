@@ -47,6 +47,12 @@
         <!-- One name for every way in (Code, Advanced, Saved), so it sits above
              the tabs. Hidden on Sign in, where it does not apply. -->
         <div id="nameRow" class="mp-name-row">
+            <!-- True of every tab, so it sits with the name, above them. Its own
+                 class: the code finds the default tip as the FIRST .connection-info-note. -->
+            <div id="sharedLinkWarning" class="mp-shared-note" role="note" style="display: none;">
+                <p><strong>Shared link:</strong> you're set to join the room shared with you.
+                A different code, channel name or password is a different room.</p>
+            </div>
             <label for="usernameInput" class="form-label-visible">Your Name</label>
             <input type="text" id="usernameInput" placeholder="Your name" autocomplete="nickname">
         </div>
@@ -154,10 +160,6 @@
             <div class="connection-info-note" style="margin-top: 8px;">
                 <p>Pick any channel name and password. Everyone who joins has to type
                 <strong>both</strong> exactly the same, or open the link you share, which carries both.</p>
-            </div>
-
-            <div id="sharedLinkWarning" class="connection-info-note" style="display: none; background: #fff3cd; border-left: 4px solid #ffc107; margin-top: 8px;">
-                <p><strong>Shared link active:</strong> You're using a shared link. Changing the channel name or password will connect you to a different channel than the one shared with you.</p>
             </div>
 
             <label for="channelInput" class="form-label-visible">Channel Name</label>
