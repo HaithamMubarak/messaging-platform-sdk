@@ -465,6 +465,13 @@
                 add('Invite', null, function () { window.ShareModal.show(channel, password); });
             }
             add('×', 'Hide room code', CodeChip.remove);
+            // Out of the app's way after a few seconds: the code alone, a tap brings the buttons back.
+            chip.addEventListener('click', function (e) {
+                if (!chip.classList.contains('is-compact')) return;
+                chip.classList.remove('is-compact');
+                e.stopPropagation();
+            });
+            setTimeout(function () { chip.classList.add('is-compact'); }, 10000);
             document.body.appendChild(chip);
         }
     };
