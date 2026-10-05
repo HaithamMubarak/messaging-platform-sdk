@@ -44,6 +44,13 @@
             <button id="modalToggleBtn2" class="modal-toggle-btn" aria-label="Toggle form"><svg class="chev" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg></button>
         </div>
 
+        <!-- One name for every way in (Code, Advanced, Saved), so it sits above
+             the tabs. Hidden on Sign in, where it does not apply. -->
+        <div id="nameRow" class="mp-name-row">
+            <label for="usernameInput" class="form-label-visible">Your Name</label>
+            <input type="text" id="usernameInput" placeholder="Your name" autocomplete="nickname">
+        </div>
+
         <div class="mp-tabs" role="tablist" aria-label="How to join">
             <button type="button" class="mp-tab is-active" id="tabCode" role="tab"
                     aria-selected="true" aria-controls="panelCode">Code</button>
@@ -60,9 +67,6 @@
              (see PartyCode below); the Channel tab is the same room spelled
              out, for developers and custom rooms. -->
         <div id="panelCode" class="mp-panel" role="tabpanel" aria-labelledby="tabCode">
-            <label for="codeNameInput" class="form-label-visible">Your Name</label>
-            <input type="text" id="codeNameInput" placeholder="Your name" autocomplete="nickname">
-
             <label for="partyCodeInput" class="form-label-visible">Room code</label>
             <div class="mp-code-row">
                 <input type="text" id="partyCodeInput" class="mp-code-input" inputmode="numeric"
@@ -146,9 +150,6 @@
                 A channel by its exact name and password, as the platform names it.
                 For everyday use, the Code tab is simpler.
             </p>
-
-            <label for="usernameInput" class="form-label-visible">Your Name</label>
-            <input type="text" id="usernameInput" placeholder="Your name" autocomplete="nickname">
 
             <div class="connection-info-note" style="margin-top: 8px;">
                 <p>Pick any channel name and password. Everyone who joins has to type
@@ -528,9 +529,9 @@
         const pwEl = document.getElementById('passwordInput');
         const userEl = document.getElementById('usernameInput');
         const quickUserEl = document.getElementById('quickUsernameInput');
-        // The name is asked for in three places (quick card, Code, Channel) and
-        // is one name: setting it sets all three.
-        const nameEls = [userEl, quickUserEl, document.getElementById('codeNameInput')].filter(Boolean);
+        // The name is asked for twice (the quick card, and above the tabs) and
+        // is one name: setting it sets both.
+        const nameEls = [userEl, quickUserEl].filter(Boolean);
         function setName(value) { nameEls.forEach(function (el) { el.value = value; }); }
         // Rooms are scoped to the app; a code names a room in this app only.
         var appId = PartyCode.appIdOf(config);
@@ -1031,13 +1032,16 @@
                     }
                     if (panel) panel.hidden = !on;
                 });
+            // The name is for joining a room; Sign in asks for its own.
+            var nameRow = el('nameRow');
+            if (nameRow) nameRow.hidden = name === 'signin';
         }
 
         var codeTab = wireCodeTab({
             appId: appId, chEl: chEl, pwEl: pwEl,
             onRoom: function () { refreshSaveRow(); },
             join: function () {
-                var username = (el('codeNameInput') ? el('codeNameInput').value : '').trim();
+                var username = userEl ? userEl.value.trim() : '';
                 if (!username) { showError(new Error('Enter the name you want to be known by.')); return; }
                 setName(username);
                 attempt(username);

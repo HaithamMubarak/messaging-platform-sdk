@@ -994,3 +994,8 @@ button[id*="disconnect"]:hover,
     display: inline-block; margin-right: 6px; padding: 2px 8px; border-radius: 6px; vertical-align: 1px;
     background: #ede9fe; color: #5b21b6; font-size: 11px; font-weight: 700; letter-spacing: .2px;
 }
+
+/* The one name field, above the tabs (it is the same name on every way in). */
+.connection-modal .mp-name-row { margin: 0 0 14px; }
+.connection-modal .mp-name-row[hidden] { display: none; }
+.connection-modal .mp-name-row input { margin-bottom: 0; }
