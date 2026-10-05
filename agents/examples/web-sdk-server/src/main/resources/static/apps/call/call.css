@@ -33,5 +33,8 @@
     font-size: var(--fs-sm);
     overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
 }
+/* The connection to this person dropped; the SDK is bringing it back. */
+.call-tile.is-reconnecting video { opacity: .45; }
+.call-tile.is-reconnecting figcaption { background: var(--warning, #fbbf24); color: #1c1400; }
 .call-controls { display: flex; flex-wrap: wrap; gap: var(--sp-2); margin-top: var(--sp-3); }
 .call-controls [aria-pressed="true"] { outline: 2px solid var(--accent-ink); }

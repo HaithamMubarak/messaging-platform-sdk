@@ -30,6 +30,7 @@
             this.screen = null;         // MediaStream from getDisplayMedia
             this.outgoing = new Map();  // peer -> stream id of what we are sending them
             this.remote = new Map();    // peer -> {stream, cam, screen, mic}
+            this.linkDown = new Map();  // stream id -> peer, while that connection is down
             this._wiredHelper = null;
         }
 
@@ -65,6 +66,8 @@
         _wireHelper() {
             if (!this.webrtcHelper || this._wiredHelper === this.webrtcHelper) return;
             this._wiredHelper = this.webrtcHelper;
+            this.linkDown.clear();
+            this._wireLinkState(this.webrtcHelper);
             this.webrtcHelper.on('remote-stream', (sid, stream, peer) => {
                 const r = this.remote.get(peer) || {};
                 this.remote.set(peer, Object.assign(r, { stream, sid }));
@@ -76,6 +79,32 @@
                 const r = this.remote.get(peer);
                 if (r && r.sid === sid) { r.stream = null; r.sid = null; this.render(); }
             });
+        }
+
+        /**
+         * Which peers' connections are down and being brought back. The helper
+         * reconnects by itself (ICE restart, then a new connection); this only
+         * says so on the tile, so a frozen picture reads as "reconnecting"
+         * instead of as a hang. Both ends see it: the offerer through the
+         * helper's reconnect events, the answerer through the connection state.
+         */
+        _wireLinkState(h) {
+            const mark = (sid, peer) => {
+                if (peer) this.linkDown.set(sid, peer); else this.linkDown.delete(sid);
+                this.render();
+            };
+            h.on('connection-state', (sid, state) => {
+                if (state === 'connected') mark(sid, null);
+                else if (state === 'disconnected' || state === 'failed') mark(sid, (h.streamSessions.get(sid) || {}).remoteAgent);
+            });
+            h.on('stream-reconnecting', (sid, peer) => mark(sid, peer));
+            h.on('stream-recovered', (sid) => mark(sid, null));
+            h.on('stream-closed', (sid) => mark(sid, null));
+        }
+
+        isReconnecting(peer) {
+            for (const p of this.linkDown.values()) if (p === peer) return true;
+            return false;
         }
 
         // ---- what is on --------------------------------------------------------
@@ -221,7 +250,8 @@
          */
         _remoteTile(peer) {
             const r = this.remote.get(peer) || {};
-            return { name: peer, stream: (r.cam || r.screen) ? r.stream || null : null, screen: !!r.screen, mic: !!r.mic };
+            return { name: peer, stream: (r.cam || r.screen) ? r.stream || null : null, screen: !!r.screen, mic: !!r.mic,
+                     reconnecting: this.isReconnecting(peer) };
         }
 
         _tile(grid, w) {
@@ -238,8 +268,10 @@
             if (video.srcObject !== (w.stream || null)) video.srcObject = w.stream || null;
             el.classList.toggle('is-empty', !w.stream);
             el.classList.toggle('is-screen', !!w.screen);
+            el.classList.toggle('is-reconnecting', !!w.reconnecting);
             el.querySelector('figcaption').textContent = w.name + (w.me ? ' (you)' : '')
-                + (w.screen ? ' · sharing screen' : '') + (w.stream && !w.mic ? ' · muted' : '');
+                + (w.screen ? ' · sharing screen' : '') + (w.stream && !w.mic ? ' · muted' : '')
+                + (w.reconnecting ? ' · reconnecting…' : '');
         }
     }
 
