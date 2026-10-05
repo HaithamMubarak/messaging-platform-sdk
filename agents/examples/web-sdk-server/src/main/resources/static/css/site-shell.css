@@ -105,3 +105,21 @@
     .site-shell-footer .site-shell-footer__about { grid-column: 1 / -1; }
 }
 @media (pointer: coarse) { .site-shell-footer li a { min-height: 44px; } }
+
+/* --- The account chip (js/profile-chip.js), which the shell puts on every page --------------------
+   Was in landing.css, which the hub, Games and Pricing do not load, so there the initial and the name
+   ran together unstyled ("Hhaitham..."); it lives with the shell that injects it (2026-10-05). */
+.site-nav .mp-chip { display: inline-flex; align-items: center; gap: 8px; white-space: nowrap; }
+.site-nav .mp-chip__initial {
+    display: inline-flex; align-items: center; justify-content: center; flex: none;
+    width: 24px; height: 24px; border-radius: 50%;
+    background: var(--brand-subtle, rgba(45, 212, 191, .14)); color: var(--brand-ink, #7ee8dc);
+    font-size: 12px; font-weight: 700; line-height: 1;
+}
+/* A display name can be anything, so it truncates rather than push the nav wider than the page. */
+.site-nav .mp-chip__name { max-width: 12ch; overflow: hidden; text-overflow: ellipsis; }
+/* At 320px the chip plus the brand is too wide for the header row: the initial stays, the name goes. */
+@media (max-width: 380px) {
+    .site-nav .mp-chip__name { display: none; }
+    .site-nav .mp-chip { padding: 6px 8px; }
+}

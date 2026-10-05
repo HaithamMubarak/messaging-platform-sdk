@@ -682,37 +682,9 @@ section[id] { scroll-margin-top: 80px; }
     .hero__actions .btn { white-space: normal; max-width: 100%; text-align: center; }
 }
 
-/* --- The account chip, injected into every landing nav by profile-chip.js -- */
-.site-nav .mp-chip {
-    display: inline-flex;
-    align-items: center;
-    gap: 8px;
-    white-space: nowrap;
-}
-
-.site-nav .mp-chip__initial {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    width: 24px;
-    height: 24px;
-    border-radius: 50%;
-    background: var(--brand-subtle, rgba(99, 102, 241, 0.16));
-    color: var(--accent-ink, #818cf8);
-    font-size: 12px;
-    font-weight: 700;
-    line-height: 1;
-}
-
-/* A display name can be anything, so it is allowed to truncate rather than
-   push the nav wider than the page. */
-.site-nav .mp-chip__name { max-width: 12ch; overflow: hidden; text-overflow: ellipsis; }
-/* At 320px the injected account chip plus the brand in the new face is 4px
-   too wide for the header row (the live responsive suite, 2026-09-07). The
-   initial stays; the name is what goes. */
+/* The account chip's styles moved to site-shell.css (2026-10-05): the shell puts the chip on every
+   page, and pages that load only site.css (the hub, Games, Pricing) showed it unstyled, "Hhaitham...". */
 @media (max-width: 380px) {
-    .site-nav .mp-chip__name { display: none; }
-    .site-nav .mp-chip { padding: 6px 8px; }
     .brand { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
 }
 
