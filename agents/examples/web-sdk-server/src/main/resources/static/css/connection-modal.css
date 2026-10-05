@@ -1067,3 +1067,8 @@ button[id*="disconnect"]:hover,
 @media (pointer: coarse) { .connection-modal.connection-modal .modal-buttons button { min-height: 36px; } }
 /* #connectBtn carries an id-level rule above (12px padding); meet it, or Connect stays 38px. */
 .connection-modal.connection-modal .modal-buttons button#connectBtn { padding: 0 14px; }
+/* The row never pushes a button out: Connect takes what is left (an older rule gave it
+   width:100%, which only flex-shrink was holding back), Regenerate keeps its own width. */
+.connection-modal.connection-modal #connectionForm .modal-buttons { display: flex; gap: 8px; flex-wrap: nowrap; }
+.connection-modal.connection-modal #connectionForm .modal-buttons button#connectBtn { flex: 1 1 auto; width: auto; min-width: 0; }
+.connection-modal.connection-modal #connectionForm .modal-buttons button#regenerateBtn { flex: 0 0 auto; width: auto; white-space: nowrap; }
