@@ -134,7 +134,6 @@
     function enter(code, name) {
         const room = roomFor(current.config, code);
         setField('usernameInput', name);
-        setField('quickUsernameInput', name);
         setField('channelInput', room.channel);
         setField('passwordInput', room.password);
         try { localStorage.setItem((current.config.localStoragePrefix || '') + 'username', name); } catch (e) { /* private mode */ }
@@ -144,11 +143,10 @@
         url.searchParams.set(isLegacy(code) ? 'party' : 'code', code);
         history.replaceState(null, '', url.pathname + url.search + location.hash);
         close();
-        // Connect with the form collapsed, as the shared-link path does, so the
-        // player never sees the channel form. A failure re-expands it with the
-        // error (connection-modal.js showError).
+        // Connect through the modal's own button, so a failure shows its error
+        // there (connection-modal.js showError). The modal no longer collapses.
         const modal = document.getElementById('connectionModal');
-        if (modal) modal.classList.add('active', 'collapsed');
+        if (modal) modal.classList.add('active');
         const connect = document.getElementById('connectBtn');
         if (connect) connect.click();
         // A 12-digit room gets the modal's own code chip once it is joined.

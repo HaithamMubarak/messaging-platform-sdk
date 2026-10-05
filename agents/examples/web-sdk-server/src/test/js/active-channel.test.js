@@ -251,33 +251,42 @@ check('the connection modal names the Platform account rather than "an account"'
 /*
  * Rule 5: an account gates SAVING, never CONNECTING.
  *
- * The collapsed quick card -- a name and one Connect button -- is what a
- * first-time, signed-out visitor meets, and it has to stay one click. Nothing
- * asserted this. The entire quick card could be deleted, or its handler could
- * grow an "if (!accountId) return showSignin()", and all seven suites stayed
- * green while the front door of every demo quietly closed.
+ * What a first-time, signed-out visitor meets has to stay one click. Nothing
+ * asserted this once: the whole front door could be deleted, or its handler
+ * could grow an "if (!accountId) return showSignin()", and all seven suites
+ * stayed green while every demo quietly closed.
+ *
+ * The door was a collapsed quick card (a name and Connect) until 2026-10-05,
+ * when the dialog stopped collapsing. It is now the name above the tabs and
+ * the Code tab's Join, with a new room's code already filled in. These two
+ * checks moved with it; the promise is the same.
  */
-check('the one-click quick card an anonymous visitor meets still exists', () => {
+check('the one-click way in an anonymous visitor meets still exists', () => {
     const modal = fs.readFileSync(path.join(STATIC, 'js', 'connection-modal.js'), 'utf8');
-    for (const needle of ['id="quickConnectBtn"', 'id="quickUsernameInput"', 'class="collapsed-header"']) {
-        assert.ok(modal.includes(needle),
-            'the collapsed quick card lost ' + needle + ', so the one-click path is gone');
+    for (const needle of ['id="usernameInput"', 'id="partyCodeInput"', 'id="codeJoinBtn"']) {
+        assert.ok(modal.includes(needle), 'the Code tab lost ' + needle + ', so the one-click path is gone');
     }
+    // A first visit is offered a room, so Join works before anything is typed.
+    assert.ok(/var fresh = freshRoom\(\);/.test(modal) && /chEl\.value = .*\|\| fresh\.channel/.test(modal),
+        'a first visit is no longer offered a room to join');
 });
 
-check('and connecting from it is not gated on an account', () => {
+check('and joining from it is not gated on an account', () => {
     const modal = fs.readFileSync(path.join(STATIC, 'js', 'connection-modal.js'), 'utf8');
-    const start = modal.indexOf('quickConnectBtn.onclick');
-    assert.ok(start > 0, 'the quick Connect button no longer has a handler');
-    // The handler body, up to the end of its function.
-    const body = modal.slice(start, modal.indexOf('\n        }', start));
-
-    assert.ok(/attempt\(/.test(body),
-        'the quick Connect button no longer actually connects');
-    for (const gate of ['accountId', 'MPAccount', 'signedIn', 'panelSignin', 'showTab']) {
-        assert.ok(!body.includes(gate),
-            'quick connect now consults ' + gate + ' -- an account has started gating '
-          + 'CONNECTING, which rule 5 forbids; it may gate saving only');
+    // Both halves of Join: the tab's click handler and the modal's join callback.
+    const bodies = [['function join() {', '\n        }'], ['join: function () {', '\n            }']].map(([from, to]) => {
+        const start = modal.indexOf(from);
+        assert.ok(start > 0, 'Join no longer has a handler (' + from + ')');
+        return modal.slice(start, modal.indexOf(to, start));
+    });
+    assert.ok(bodies.some((b) => /attempt\(/.test(b)) && bodies.some((b) => /o\.join\(\)/.test(b)),
+        'Join no longer actually connects');
+    for (const body of bodies) {
+        for (const gate of ['accountId', 'MPAccount', 'signedIn', 'panelSignin', 'showTab']) {
+            assert.ok(!body.includes(gate),
+                'Join now consults ' + gate + ' -- an account has started gating '
+              + 'CONNECTING, which rule 5 forbids; it may gate saving only');
+        }
     }
 });
 

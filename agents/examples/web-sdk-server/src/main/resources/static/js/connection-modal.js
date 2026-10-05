@@ -19,29 +19,12 @@
     const HTML_TEMPLATE = `
 <!-- Connection Modal HTML Template -->
 <div id="connectionModal" class="connection-modal active">
-    <div class="collapsed-header" aria-expanded="false">
-        <div class="ch-header-row">
-            <div class="ch-left">
-                <div class="ch-title">{{COLLAPSED_TITLE}}</div>
-            </div>
-            <button id="modalToggleBtn" class="modal-toggle-btn" aria-label="Toggle connection form"><svg class="chev" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg></button>
-        </div>
-        <div id="sharedLinkNote" class="shared-link-note" style="display: none;">
-            <p>Saved or shared channel — enter your name to connect</p>
-        </div>
-        <label for="quickUsernameInput" class="quick-username-label">Your Name</label>
-        <div class="quick-username">
-            <input id="quickUsernameInput" type="text" placeholder="Your name" aria-label="Your name" autocomplete="nickname" />
-        </div>
-        <div class="quick-connect-btn">
-            <button id="quickConnectBtn" type="button" class="btn-primary" aria-label="Quick connect">Connect</button>
-        </div>
-    </div>
-
+    <!-- No collapsed quick card and no expand/collapse (2026-10-05): the dialog is
+         always whole, and the Code tab's prefilled code plus Join is the one-click
+         way in. Callers that still add .collapsed change nothing (see the CSS). -->
     <div class="modal-content">
         <div class="modal-header-row">
             <h2>{{MODAL_TITLE}}</h2>
-            <button id="modalToggleBtn2" class="modal-toggle-btn" aria-label="Toggle form"><svg class="chev" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg></button>
         </div>
 
         <!-- One name for every way in (Code, Advanced, Saved), so it sits above
@@ -343,7 +326,6 @@
      * @param {string} config.localStoragePrefix - Prefix for localStorage keys (e.g., 'whiteboard_')
      * @param {string} config.channelPrefix - Prefix for channel names (e.g., 'whiteboard-')
      * @param {string} config.title - Modal title (e.g., '🎨 Join Whiteboard')
-     * @param {string} config.collapsedTitle - Collapsed header title (optional, defaults to title)
      * @param {Function} config.onConnect - Callback when user clicks connect: function(username, channel, password)
      * @param {Function} config.onHideModal - Callback to hide modal after connection (optional)
      */
@@ -490,12 +472,10 @@
 
     window.loadConnectionModal = function(config) {
         // Use embedded template - no fetch needed!
-        const collapsedTitle = config.collapsedTitle || config.title || 'Connect';
         const modalTitle = config.title || 'Connect to a channel';
 
         // Replace placeholders in template
         let html = HTML_TEMPLATE;
-        html = html.replace('{{COLLAPSED_TITLE}}', collapsedTitle);
         html = html.replace('{{MODAL_TITLE}}', modalTitle);
 
         // Insert into page
@@ -530,10 +510,9 @@
         const chEl = document.getElementById('channelInput');
         const pwEl = document.getElementById('passwordInput');
         const userEl = document.getElementById('usernameInput');
-        const quickUserEl = document.getElementById('quickUsernameInput');
-        // The name is asked for twice (the quick card, and above the tabs) and
-        // is one name: setting it sets both.
-        const nameEls = [userEl, quickUserEl].filter(Boolean);
+        // One name field, above the tabs. setName stays the one way the name is
+        // written (a saved channel restores its own).
+        const nameEls = [userEl].filter(Boolean);
         function setName(value) { nameEls.forEach(function (el) { el.value = value; }); }
         // Rooms are scoped to the app; a code names a room in this app only.
         var appId = PartyCode.appIdOf(config);
@@ -747,32 +726,10 @@
         // Show/hide appropriate info notes based on shared link detection
         const defaultInfoNote = document.querySelector('.connection-info-note');
         const sharedLinkWarning = document.getElementById('sharedLinkWarning');
-        const sharedLinkNote = document.getElementById('sharedLinkNote');
 
-        if (hasHashAuth) {
-            // Hide default tip, show shared link warning and note
-            if (defaultInfoNote) defaultInfoNote.style.display = 'none';
-            if (sharedLinkWarning) sharedLinkWarning.style.display = 'block';
-            if (sharedLinkNote) sharedLinkNote.style.display = 'flex';
-        } else {
-            // Show default tip, hide shared link warning and note
-            if (defaultInfoNote) defaultInfoNote.style.display = 'block';
-            if (sharedLinkWarning) sharedLinkWarning.style.display = 'none';
-            if (sharedLinkNote) sharedLinkNote.style.display = 'none';
-        }
-
-        // Collapse modal if hash auth detected (shared link) - same behavior for PC and mobile
-        if (hasHashAuth) {
-            const modal = document.getElementById('connectionModal');
-            if (modal) {
-                modal.classList.add('collapsed');
-                const header = modal.querySelector('.collapsed-header');
-                if (header) {
-                    header.setAttribute('aria-expanded', 'true');
-                }
-                console.log('[ConnectionModal] Collapsed - shared link detected');
-            }
-        }
+        // A shared link shows its warning in place of the default tip.
+        if (defaultInfoNote) defaultInfoNote.style.display = hasHashAuth ? 'none' : 'block';
+        if (sharedLinkWarning) sharedLinkWarning.style.display = hasHashAuth ? 'block' : 'none';
 
         // Wire regenerate button
         const regenBtn = document.getElementById('regenerateBtn');
@@ -820,7 +777,7 @@
          * how a connect fails.
          */
         function setBusy(on) {
-            [connectBtn, quickConnectBtn].forEach(function (b) {
+            [connectBtn, codeJoinBtn].forEach(function (b) {
                 if (!b) return;
                 if (on) {
                     b.dataset.label = b.dataset.label || b.textContent;
@@ -852,9 +809,6 @@
             const text = document.getElementById('connectErrorText');
             const fix = document.getElementById('connectFixBtn');
             if (!box || !text) return;
-
-            const modal = document.getElementById('connectionModal');
-            if (modal) modal.classList.remove('collapsed');   // a collapsed form hides its own error
 
             let message = raw, action = null;
 
@@ -947,7 +901,7 @@
         _reportFailure = showError;
 
         const connectBtn = document.getElementById('connectBtn');
-        const quickConnectBtn = document.getElementById('quickConnectBtn');
+        const codeJoinBtn = document.getElementById('codeJoinBtn');
 
         if (connectBtn && onConnect) {
             connectBtn.onclick = function() {
@@ -963,19 +917,7 @@
             };
         }
 
-        if (quickConnectBtn && onConnect) {
-            quickConnectBtn.onclick = function() {
-                const username = quickUserEl ? quickUserEl.value.trim() : '';
-                if (!username) {
-                    showError(new Error('Enter the name you want to be known by.'));
-                    return;
-                }
-                setName(username);
-                attempt(username);
-            };
-        }
-
-        [userEl, quickUserEl, chEl, pwEl].forEach(function (el) {
+        [userEl, chEl, pwEl].forEach(function (el) {
             if (el) el.addEventListener('input', clearError);
         });
 
@@ -988,28 +930,6 @@
         };
 
         if (userEl) userEl.addEventListener('click', cancelAutoConnect);
-        if (quickUserEl) quickUserEl.addEventListener('click', cancelAutoConnect);
-
-        // Toggle modal collapse/expand
-        function toggleModal() {
-            const modal = document.getElementById('connectionModal');
-            if (modal) {
-                modal.classList.toggle('collapsed');
-                const header = modal.querySelector('.collapsed-header');
-                if (header) {
-                    const isCollapsed = modal.classList.contains('collapsed');
-                    header.setAttribute('aria-expanded', !isCollapsed);
-                }
-            }
-        }
-
-        const toggleBtn = document.getElementById('modalToggleBtn');
-        const toggleBtn2 = document.getElementById('modalToggleBtn2');
-
-        // Only toggle when clicking the buttons, not the entire header
-        if (toggleBtn) toggleBtn.addEventListener('click', toggleModal);
-        if (toggleBtn2) toggleBtn2.addEventListener('click', toggleModal);
-        // Removed: collapsedHeader click handler - expand only via button
 
         /* ---------------------------------------------------------------
          * Tabs, sign-in and the saved list.
@@ -1345,20 +1265,10 @@
                     console.log('[ConnectionModal] Shown');
                 }
             },
-            collapse: function() {
-                const modal = document.getElementById('connectionModal');
-                if (modal) {
-                    modal.classList.add('collapsed');
-                    console.log('[ConnectionModal] Collapsed');
-                }
-            },
-            expand: function() {
-                const modal = document.getElementById('connectionModal');
-                if (modal) {
-                    modal.classList.remove('collapsed');
-                    console.log('[ConnectionModal] Expanded');
-                }
-            }
+            // The dialog no longer collapses (2026-10-05). Kept so an app that
+            // still calls them does not throw; they do nothing.
+            collapse: function() {},
+            expand: function() {}
         };
 
         console.log('[ConnectionModal] Initialized with prefix:', localStoragePrefix);

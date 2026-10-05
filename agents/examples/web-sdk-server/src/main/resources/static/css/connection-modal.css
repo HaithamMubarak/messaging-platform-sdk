@@ -1005,3 +1005,58 @@ button[id*="disconnect"]:hover,
     background: #fffbeb; color: #78350f; font-size: 13px; line-height: 1.5;
 }
 .connection-modal .mp-shared-note p { margin: 0; }
+
+/* --- No collapse, and a compact dialog (2026-10-05) -------------------------
+   The dialog is always whole. Shared links, the party lobby and two SDK helpers
+   still add .collapsed; it changes nothing now. Everything comes down a size so
+   the Code tab fits a phone without scrolling: a 380px card, 40px fields and
+   buttons, 34px tabs. Text fields stay 16px on touch screens, because iOS zooms
+   the page into any field set smaller. Placed last, so it wins over the rules above. */
+.connection-modal.collapsed { align-items: center; padding-top: 0; }
+.connection-modal.collapsed .modal-content { display: block; }
+.connection-modal .collapsed-header,
+.connection-modal.collapsed .collapsed-header { display: none; }
+
+.connection-modal.connection-modal .modal-content { width: 380px; padding: 18px; border-radius: 12px; }
+.connection-modal.connection-modal .modal-header-row { margin-bottom: 12px; }
+.connection-modal.connection-modal .modal-content h2 { font-size: 17px; line-height: 1.3; }
+.connection-modal.connection-modal .form-label-visible { font-size: 12px; margin: 2px 0 4px; }
+.connection-modal.connection-modal input[type="text"],
+.connection-modal.connection-modal input[type="password"],
+.connection-modal.connection-modal input[type="email"] { min-height: 40px; padding: 8px 12px; font-size: 14px; }
+.connection-modal.connection-modal .mp-name-row { margin-bottom: 12px; }
+.connection-modal.connection-modal .mp-tabs { margin-bottom: 12px; padding: 3px; border-radius: 10px; }
+.connection-modal.connection-modal button.mp-tab { min-height: 34px; font-size: 14px; border-radius: 8px; }
+.connection-modal.connection-modal input.mp-code-input { min-height: 46px; font-size: 20px; }
+.connection-modal.connection-modal button.mp-icon-btn { flex: 0 0 44px; width: 44px; min-width: 44px; min-height: 46px; }
+.connection-modal.connection-modal .mp-code-msg { margin: 4px 0 2px; font-size: 12px; }
+.connection-modal.connection-modal .modal-buttons { margin-top: 10px; }
+.connection-modal.connection-modal .modal-buttons button { min-height: 40px; font-size: 14px; border-radius: 9px; }
+.connection-modal.connection-modal .mp-note { font-size: 12px; margin-top: 6px; line-height: 1.5; }
+.connection-modal.connection-modal .connection-info-note { padding: 8px 10px; margin-bottom: 6px; }
+.connection-modal.connection-modal .connection-info-note p,
+.connection-modal.connection-modal .mp-dev-lead,
+.connection-modal.connection-modal .mp-shared-note { font-size: 12px; }
+.connection-modal.connection-modal .mp-dev-lead { margin-bottom: 10px; }
+.connection-modal.connection-modal .mp-shared-note { padding: 8px 10px; margin-bottom: 10px; }
+.connection-modal.connection-modal .mp-save-row { margin-top: 10px; font-size: 13px; }
+
+@media (pointer: coarse) {
+    .connection-modal.connection-modal input[type="text"]:not(.mp-code-input),
+    .connection-modal.connection-modal input[type="password"],
+    .connection-modal.connection-modal input[type="email"] { font-size: 16px; }
+}
+
+/* A phone: a little narrower margin and padding, and the code stays on one row
+   with its two buttons (18px digits fit 320px beside two 40px buttons). */
+@media (max-width: 420px) {
+    .connection-modal.connection-modal .modal-content { width: calc(100% - 20px); max-width: none; padding: 14px; }
+    .connection-modal.connection-modal .mp-code-row { flex-wrap: nowrap; }
+    .connection-modal.connection-modal input.mp-code-input { flex: 1 1 auto; flex-basis: auto; font-size: 18px; padding: 0 6px; }
+    .connection-modal.connection-modal button.mp-icon-btn { flex: 0 0 40px; width: 40px; min-width: 40px; min-height: 46px; }
+    .connection-modal.connection-modal button.mp-tab { padding: 0 4px; font-size: 13px; }
+}
+@media (orientation: portrait) and (max-width: 768px) {
+    .connection-modal, .connection-modal.collapsed { align-items: flex-start; padding-top: 3vh; }
+    .connection-modal .modal-content { max-height: 92vh; max-height: 92dvh; }
+}
