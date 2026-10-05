@@ -1060,3 +1060,10 @@ button[id*="disconnect"]:hover,
     .connection-modal, .connection-modal.collapsed { align-items: flex-start; padding-top: 3vh; }
     .connection-modal .modal-content { max-height: 92vh; max-height: 92dvh; }
 }
+/* The shared-link note, one short line and quieter than the form it sits above. */
+.connection-modal.connection-modal .mp-shared-note { padding: 6px 10px; margin-bottom: 10px; border-left-width: 3px; font-size: 11px; line-height: 1.45; }
+/* Join, Connect and Regenerate: smaller, so the actions do not outweigh the form. */
+.connection-modal.connection-modal .modal-buttons button { min-height: 34px; padding: 0 14px; font-size: 13px; border-radius: 8px; }
+@media (pointer: coarse) { .connection-modal.connection-modal .modal-buttons button { min-height: 36px; } }
+/* #connectBtn carries an id-level rule above (12px padding); meet it, or Connect stays 38px. */
+.connection-modal.connection-modal .modal-buttons button#connectBtn { padding: 0 14px; }

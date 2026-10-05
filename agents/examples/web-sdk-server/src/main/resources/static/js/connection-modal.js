@@ -33,8 +33,7 @@
             <!-- True of every tab, so it sits with the name, above them. Its own
                  class: the code finds the default tip as the FIRST .connection-info-note. -->
             <div id="sharedLinkWarning" class="mp-shared-note" role="note" style="display: none;">
-                <p><strong>Shared link:</strong> you're set to join the room shared with you.
-                A different code, channel name or password is a different room.</p>
+                <p><strong>Shared link.</strong> Change the code or channel and you join a different room.</p>
             </div>
             <label for="usernameInput" class="form-label-visible">Your Name</label>
             <input type="text" id="usernameInput" placeholder="Your name" autocomplete="nickname">
