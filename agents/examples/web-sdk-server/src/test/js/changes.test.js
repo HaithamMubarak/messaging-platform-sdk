@@ -22,8 +22,11 @@ check('changes.html shows every release tag and nothing else (run node tools/cha
     assert.ok(changes.apply(page, tags) === page, 'the page differs from the ' + tags.length + ' release tag(s)');
 });
 
-check('until a release is tagged, the page stays out of search', () => {
-    if (!tags.length) assert.ok(/<meta name="robots" content="noindex">/.test(page));
+check('untagged, the page stays out of search; once a release exists it is indexable and linked', () => {
+    const hidden = /<meta name="robots" content="noindex">/.test(page);
+    if (!tags.length) { assert.ok(hidden, 'no release yet, so the page must be noindex'); return; }
+    assert.ok(!hidden, 'there are releases, so the page must not be noindex');
+    assert.ok(require('../../../tools/site-shell.cjs').footer().includes('changes.html'), 'the shell footer does not link it');
 });
 
 console.log(failed ? '\n' + failed + ' failed' : '\nall passed');

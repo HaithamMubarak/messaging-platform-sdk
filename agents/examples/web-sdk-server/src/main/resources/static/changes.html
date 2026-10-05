@@ -5,8 +5,6 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>What changed — Messaging Platform</title>
     <meta name="description" content="Releases of the Messaging Platform SDK and site, newest first, written from the repository's release tags.">
-    <!-- noindex until the first release is tagged and the page is linked (plan P5). -->
-    <meta name="robots" content="noindex">
     <meta name="theme-color" content="#0b1120">
     <link rel="canonical" href="https://hmdevonline.com/messaging-platform/hub/changes.html">
     <link rel="icon" type="image/svg+xml" href="favicon.svg">
@@ -49,8 +47,10 @@
     <h1>What changed</h1>
     <p>Releases of the SDK and this site, newest first. Each entry is a release tag in the public repository, so this page and the code cannot disagree.</p>
         <!-- changes:begin (tools/changes.cjs; do not edit here) -->
-        <p class="changes-empty">Nothing has been tagged as a release yet. Until the first one, the
-            <a href="https://github.com/HaithamMubarak/messaging-platform-sdk/commits/develop">commit history on GitHub</a> is the record.</p>
+        <ol class="changes">
+            <li id="release-2026-10-05"><time datetime="2026-10-05">2026-10-05</time><h2>Faster pages, a clearer Demos page, a live home page</h2><p>Fonts are now served from this site and preloaded, so pages show sooner and text no longer jumps when a font arrives.</p><p>The Demos page shows the SDK call each demo teaches, says whether a demo works alone or wants a second person, opens its source on GitHub, and links each demo to the product built on it. Product pages link back to their open demo.</p><p>The home page shows who else is reading it, live, through one shared channel.</p><p>The Docs page scrolls like the rest of the site, with a sidebar that stays in reach.</p><p>Fixed: a client that joined a room moments before its host left now reports the handover (host_lost telemetry).</p>
+                <a href="https://github.com/HaithamMubarak/messaging-platform-sdk/releases/tag/release-2026-10-05">release-2026-10-05 on GitHub</a></li>
+        </ol>
         <!-- changes:end -->
 </main>
 <!-- site-shell:footer (tools/site-shell.cjs; do not edit here) -->
@@ -60,7 +60,7 @@
             <div class="site-shell-footer__about"><a class="brand" href="/messaging-platform/hub/"><svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><rect width="24" height="24" rx="6" fill="#14b8a6"/><path d="M6 9.5A2.5 2.5 0 0 1 8.5 7h7A2.5 2.5 0 0 1 18 9.5v3a2.5 2.5 0 0 1-2.5 2.5H11l-3.2 2.4A.5.5 0 0 1 7 17V15h-.5A.5.5 0 0 1 6 14.5z" fill="#fff"/><circle cx="9.6" cy="11" r="1" fill="#0b1120"/><circle cx="12" cy="11" r="1" fill="#0b1120"/><circle cx="14.4" cy="11" r="1" fill="#0b1120"/></svg><span>Messaging Platform</span></a>
                 <p>Realtime infrastructure for developers: messaging, presence, shared state and WebRTC through one SDK.</p></div>
             <div><h2>Product</h2><ul><li><a href="/messaging-platform/hub/">Overview</a></li><li><a href="/messaging-platform/hub/pricing.html">Pricing</a></li><li><a href="/messaging-platform/hub/quickstart.html">Quickstart</a></li><li><a href="/messaging-platform/apps/status/">Status</a></li></ul></div>
-            <div><h2>Developers</h2><ul><li><a href="/messaging-platform/hub/docs.html">Documentation</a></li><li><a href="/messaging-platform/hub/sdk-guide.html">SDK guide</a></li><li><a href="/messaging-platform/hub/developer/index.html">Developer portal</a></li><li><a href="https://github.com/HaithamMubarak/messaging-platform-sdk">GitHub</a></li></ul></div>
+            <div><h2>Developers</h2><ul><li><a href="/messaging-platform/hub/docs.html">Documentation</a></li><li><a href="/messaging-platform/hub/sdk-guide.html">SDK guide</a></li><li><a href="/messaging-platform/hub/developer/index.html">Developer portal</a></li><li><a href="/messaging-platform/hub/changes.html">What changed</a></li><li><a href="https://github.com/HaithamMubarak/messaging-platform-sdk">GitHub</a></li></ul></div>
             <div><h2>Explore</h2><ul><li><a href="/messaging-platform/hub/playground.html">Demos</a></li><li><a href="/messaging-platform/apps/">Apps</a></li><li><a href="/messaging-platform/hub/games.html">Games</a></li><li><a href="/messaging-platform/apps/proof/">Proof</a></li></ul></div>
             <div><h2>Legal</h2><ul><li><a href="/messaging-platform/hub/privacy.html">Privacy</a></li><li><a href="/messaging-platform/hub/terms.html">Terms</a></li><li><a href="https://github.com/HaithamMubarak/messaging-platform-sdk/issues">Support</a></li></ul></div>
         </div>

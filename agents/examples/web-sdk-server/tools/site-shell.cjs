@@ -37,7 +37,7 @@ const FOOTER = [
     ['Product', [['Overview', HUB], ['Pricing', HUB + 'pricing.html'], ['Quickstart', HUB + 'quickstart.html'],
         ['Status', '/messaging-platform/apps/status/']]],
     ['Developers', [['Documentation', HUB + 'docs.html'], ['SDK guide', HUB + 'sdk-guide.html'],
-        ['Developer portal', HUB + 'developer/index.html'], ['GitHub', GITHUB]]],
+        ['Developer portal', HUB + 'developer/index.html'], ['What changed', HUB + 'changes.html'], ['GitHub', GITHUB]]],
     ['Explore', [['Demos', HUB + 'playground.html'], ['Apps', '/messaging-platform/apps/'],
         ['Games', HUB + 'games.html'], ['Proof', '/messaging-platform/apps/proof/']]],   // Games reaches Party Arcade (plan 3.3)
     ['Legal', [['Privacy', HUB + 'privacy.html'], ['Terms', HUB + 'terms.html'], ['Support', GITHUB + '/issues']]],
