@@ -60,6 +60,13 @@ public class WebConfig implements WebMvcConfigurer {
                 .addResourceLocations("classpath:/static/lib/")
                 .setCacheControl(CacheControl.maxAge(7, TimeUnit.DAYS).cachePublic());
 
+        // Fonts live under a version folder (fonts/5.3.0/, after the Fontsource release),
+        // so a changed font is a new URL and a year's cache cannot pin a stale one.
+        // site-shell.test.js fails if a font URL ever leaves its version folder.
+        registry.addResourceHandler("/fonts/**")
+                .addResourceLocations("classpath:/static/fonts/")
+                .setCacheControl(CacheControl.maxAge(365, TimeUnit.DAYS).cachePublic());
+
         // Everything else — HTML, CSS, JS — is served unversioned, so a long
         // max-age would pin browsers to a stale deploy. no-cache means "you may
         // keep it, but revalidate", which combined with the ETag filter below

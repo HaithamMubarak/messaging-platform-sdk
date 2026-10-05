@@ -121,7 +121,9 @@ function placeAssets(html) {
     const add = (needle, tag, before) => (html.includes(needle) ? html : html.replace(before, () => `${tag}\n${before}`));
     // Manrope (Latin) is fetched with the page, not found three stylesheets later: fonts.css
     // uses font-display: optional, so a face that misses first paint is not swapped in.
-    html = add('manrope-latin-wght-normal.woff2', `<link rel="preload" href="${HUB}fonts/manrope-latin-wght-normal.woff2" as="font" type="font/woff2" crossorigin>`, '</head>');
+    // A preload from an older font path is replaced, not kept beside the new one (it would 404).
+    html = html.replace(/<link rel="preload" href="[^"]*\/fonts\/(?!5\.3\.0\/)[^"]*\.woff2"[^>]*>\n?/g, '');
+    html = add('fonts/5.3.0/manrope-latin-wght-normal.woff2', `<link rel="preload" href="${HUB}fonts/5.3.0/manrope-latin-wght-normal.woff2" as="font" type="font/woff2" crossorigin>`, '</head>');
     html = add('css/site-shell.css', `<link rel="stylesheet" href="${HUB}css/site-shell.css">`, '</head>');
     if (!/js\/landing\.js/.test(html)) html = add('js/site-shell.js', `<script src="${HUB}js/site-shell.js" defer></script>`, '</body>');
     html = add('mp-account.js', `<script src="${HUB}js/mp-account.js" defer></script>`, '</body>');

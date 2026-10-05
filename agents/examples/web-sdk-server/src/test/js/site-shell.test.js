@@ -57,6 +57,18 @@ check('the shell styles load the face they name', () => {
     for (const p of pages) assert.ok(p.html.includes(`href="/messaging-platform/hub/${face[1]}" as="font"`), p.rel + ' does not preload ' + face[1]);
 });
 
+// The server caches /fonts/** for a year (WebConfig), which is safe only while a changed font is a
+// new URL: every face fonts.css loads must sit in a version folder (fonts/5.3.0/...), and exist.
+check('every font URL sits in a version folder, so the year-long cache cannot pin a stale face', () => {
+    const fonts = fs.readFileSync(path.join(shell.STATIC, 'css', 'fonts.css'), 'utf8');
+    const urls = [...fonts.matchAll(/url\("\/messaging-platform\/hub\/([^"]+\.woff2)"\)/g)].map((m) => m[1]);
+    assert.ok(urls.length >= 2, 'fonts.css loads no woff2');
+    for (const u of urls) {
+        assert.ok(/^fonts\/\d+\.\d+\.\d+\//.test(u), u + ' is not in a version folder');
+        assert.ok(fs.existsSync(path.join(shell.STATIC, u)), u + ' does not exist');
+    }
+});
+
 /*
  * One type system (landing redesign L2): no public page's stylesheets name a face
  * other than Manrope and JetBrains Mono, or a system fallback. The catalogue kept
