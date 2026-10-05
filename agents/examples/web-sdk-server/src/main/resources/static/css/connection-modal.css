@@ -849,3 +849,68 @@ button[id*="disconnect"]:hover,
    button that moves to its own line reads fine; a broken label does not. */
 .connection-modal #panelSignin .modal-buttons { flex-wrap: wrap; }
 .connection-modal #panelSignin .modal-buttons > button { white-space: nowrap; }
+
+/* --- The dialog's own controls, defended (2026-10-05) -----------------------
+   This dialog is vendored into every app, and a page's own button rules used to
+   win over it: the Whiteboard's `button:not(.color-btn):not([class*="wb-"])`
+   (specificity 0,2,1) painted the tabs, the eye and Regenerate solid indigo and
+   pushed the eye half out of the field. The class is doubled below (0,3,x) so a
+   page rule of that kind cannot reach these controls; it is the one place that
+   does this, on purpose. The look follows the site's tokens: a segmented
+   Channel / Saved control, the eye inside the field, teal for the one primary
+   action and a quiet outline for the rest. */
+
+.connection-modal.connection-modal .mp-tabs {
+    display: grid; grid-auto-flow: column; grid-auto-columns: 1fr; gap: 4px;
+    margin: 0 0 18px; padding: 4px; border: 0; border-radius: 12px; background: #eef2f6;
+}
+.connection-modal.connection-modal button.mp-tab {
+    display: flex; align-items: center; justify-content: center;
+    min-height: 40px; margin: 0; padding: 0 14px; border: 0; border-radius: 9px;
+    background: transparent; box-shadow: none; color: #475569;
+    font: 600 15px/1 var(--font-sans, system-ui, sans-serif); letter-spacing: 0; cursor: pointer;
+}
+.connection-modal.connection-modal button.mp-tab:hover { background: rgba(255, 255, 255, .6); color: #0f172a; }
+.connection-modal.connection-modal button.mp-tab.is-active {
+    background: #fff; color: #0f766e; box-shadow: 0 1px 3px rgba(15, 23, 42, .12), 0 0 0 1px rgba(15, 23, 42, .04);
+}
+.connection-modal.connection-modal button.mp-tab:focus-visible { outline: 3px solid var(--brand, #2dd4bf); outline-offset: 2px; }
+.connection-modal.connection-modal button.mp-tab[hidden] { display: none; }
+
+/* The eye sits inside the field's right edge, vertically centred, whatever the page does to buttons. */
+/* Fields are 44px, a comfortable thumb height. The wrapper carries the field's bottom margin,
+   so the eye centres on the field itself, not on field plus margin (it hung 5px low). */
+.connection-modal.connection-modal input[type="text"],
+.connection-modal.connection-modal input[type="password"],
+.connection-modal.connection-modal input[type="email"] { min-height: 44px; }
+.connection-modal.connection-modal .password-input-wrapper { margin-bottom: 8px; }
+.connection-modal.connection-modal .password-input-wrapper input { padding-right: 52px; margin-bottom: 0; }
+.connection-modal.connection-modal button.password-toggle-btn {
+    position: absolute; top: 50%; right: 6px; transform: translateY(-50%);
+    display: inline-flex; align-items: center; justify-content: center;
+    width: 36px; height: 36px; min-width: 36px; min-height: 36px; margin: 0; padding: 0;
+    border: 0; border-radius: 8px; background: transparent; box-shadow: none; color: #64748b;
+}
+.connection-modal.connection-modal button.password-toggle-btn:hover { background: #f1f5f9; color: #0f172a; }
+
+/* The collapse chevron: a quiet square, not a coloured button. */
+.connection-modal.connection-modal button.modal-toggle-btn {
+    width: 40px; height: 40px; min-width: 40px; min-height: 40px; margin: 0; padding: 0;
+    border: 1px solid #e2e8f0; border-radius: 10px; background: #fff; box-shadow: none; color: #334155;
+}
+.connection-modal.connection-modal button.modal-toggle-btn:hover { background: #f8fafc; border-color: #cbd5e1; }
+
+/* One primary per view: Connect is teal; Regenerate and other secondary actions are an outline. */
+.connection-modal.connection-modal .modal-buttons button { min-height: 44px; padding: 0 18px; border-radius: 10px; font: 700 15px/1 var(--font-sans, system-ui, sans-serif); box-shadow: none; }
+.connection-modal.connection-modal .modal-buttons button.btn-primary { background: var(--brand, #2dd4bf); color: var(--on-brand, #04201c); border: 0; }
+.connection-modal.connection-modal .modal-buttons button.btn-primary:hover { background: var(--brand-hover, #5eead4); }
+.connection-modal.connection-modal .modal-buttons button.ghost { background: #fff; color: #334155; border: 1px solid #cbd5e1; }
+.connection-modal.connection-modal .modal-buttons button.ghost:hover { background: #f8fafc; color: #0f172a; border-color: #94a3b8; }
+
+/* Links read as links on white (a page's own link colour can be pink, or white on dark). */
+.connection-modal.connection-modal a { color: #0f766e; text-decoration: underline; text-underline-offset: 2px; }
+.connection-modal.connection-modal input[type="checkbox"] { accent-color: #0d9488; width: 18px; height: 18px; }
+
+/* The expanded header reads title, then chevron, on every page (a page's own
+   `.modal-toggle-btn { order: -1 }` for its collapsed card flipped it). */
+.connection-modal.connection-modal .modal-header-row button.modal-toggle-btn { order: 0; opacity: 1; align-self: center; }

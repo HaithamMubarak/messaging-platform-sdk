@@ -1419,9 +1419,10 @@
            ============================================ */
 
         /* All buttons - base styling. The chrome (.wb-*) opts out: it is
+           (and so does the shared connection dialog, which styles its own; 2026-10-05)
            styled by whiteboard.css, and this rule's specificity used to beat
            it, painting every tool in the rail as a filled indigo pill. */
-        button:not(.color-btn):not([class*="wb-"]),
+        button:not(.color-btn):not([class*="wb-"]):not(.connection-modal *),
         .btn,
         .btn-primary,
         .btn-danger,
@@ -1442,7 +1443,7 @@
             box-shadow: 0 1px 3px rgba(0,0,0,0.1);
         }
 
-        button:not(.color-btn):not([class*="wb-"]):hover,
+        button:not(.color-btn):not([class*="wb-"]):not(.connection-modal *):hover,
         .btn:hover,
         .btn-primary:hover {
             background: #5753c6;
@@ -1450,12 +1451,12 @@
             box-shadow: 0 2px 6px rgba(0,0,0,0.15);
         }
 
-        button:not(.color-btn):not([class*="wb-"]):active,
+        button:not(.color-btn):not([class*="wb-"]):not(.connection-modal *):active,
         .btn:active {
             transform: translateY(0);
         }
 
-        button:not(.color-btn):not([class*="wb-"]):disabled {
+        button:not(.color-btn):not([class*="wb-"]):not(.connection-modal *):disabled {
             background: #d1d5db;
             color: #9ca3af;
             cursor: not-allowed;
