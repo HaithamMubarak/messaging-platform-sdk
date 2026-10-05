@@ -355,6 +355,19 @@
             this.streamStartTimes = new Map();      // streamId -> timestamp when stream creation started
             this.peerConnectionStartTimes = new Map(); // streamId -> timestamp when peer connection was created
             this.files = new PeerFiles(this);         // sendFile / 'file' events over the data channels
+            // How a broken connection is brought back (see "Reconnecting"). Tunable per helper.
+            this.reconnect = {
+                disconnectedGraceMs: 4000,   // 'disconnected' often heals by itself
+                attemptTimeoutMs: 10000,     // how long one attempt gets to reach 'connected'
+                maxAttempts: 4,              // one ICE restart, then new connections
+                offlinePollMs: 2000,         // while offline, how often to look again
+                answererGiveUpMs: 45000,     // answerer: how long to wait for the offerer to come back
+                dataChannelCloseGraceMs: 1500 // answerer: a closed channel may be a rebuild about to arrive
+            };
+            if (typeof window !== 'undefined' && window.addEventListener) {
+                this._onlineListener = () => this._onOnline();
+                window.addEventListener('online', this._onlineListener);
+            }
 
             // For Node.js SFU compatibility
             this.ready = _RTCPeerConnection !== null;
@@ -364,25 +377,30 @@
             this.channel = channel;
 
             // Handle all signaling events from agents
-            channel.onWebRtcSignaling = async ({streamId, sourceAgent, signalingMsg}) => {
-                console.log('[WebRTC] SIGNAL from agent:', streamId, signalingMsg);
+            channel.onWebRtcSignaling = (msg) => this._onSignal(msg);
+        }
 
-                try {
-                    const type = signalingMsg.type;
+        /** Handle all signaling events from agents. */
+        async _onSignal({streamId, sourceAgent, signalingMsg}) {
+            console.log('[WebRTC] SIGNAL from agent:', streamId, signalingMsg);
 
-                    if (type === 'offer') {
-                        await this.handleSdpOffer(streamId, sourceAgent, signalingMsg.sdp);
-                    } else if (type === 'answer') {
-                        await this.handleSdpAnswer(streamId, sourceAgent, signalingMsg.sdp);
-                    } else if (type === 'ice-candidate') {
-                        await this.handleIceCandidate(streamId, signalingMsg.candidate);
-                    } else {
-                        console.warn('[WebRTC] Unknown signaling type:', type);
-                    }
-                } catch (err) {
-                    console.error('[WebRTC] Failed to process signaling message:', err);
+            try {
+                const type = signalingMsg.type;
+
+                if (type === 'offer') {
+                    await this.handleSdpOffer(streamId, sourceAgent, signalingMsg.sdp, signalingMsg);
+                } else if (type === 'answer') {
+                    await this.handleSdpAnswer(streamId, sourceAgent, signalingMsg.sdp);
+                } else if (type === 'ice-candidate') {
+                    await this.handleIceCandidate(streamId, signalingMsg.candidate);
+                } else if (type === 'bye') {
+                    this._onBye(streamId, sourceAgent, signalingMsg);
+                } else {
+                    console.warn('[WebRTC] Unknown signaling type:', type);
                 }
-            };
+            } catch (err) {
+                console.error('[WebRTC] Failed to process signaling message:', err);
+            }
         }
 
         // ------------------------------------------------------------------
@@ -526,7 +544,13 @@
          *   - { video: true, audio: true } - Media only
          *   - { dataChannel: { name: 'chat', options: {...} } } - DataChannel only
          *   - { video: true, dataChannel: { name: 'data' } } - Both media + DataChannel
+         *   - { stream: myMediaStream } - Send a stream the caller owns
          *   - { sourceStreamId: 'stream_123' } - Relay existing stream (SFU mode)
+         *
+         * The returned id names the stream for its whole life. If the
+         * connection breaks, this side reconnects it under the SAME id (see
+         * _recover), so the caller's bookkeeping never changes. A stream the
+         * caller passes in stays the caller's: closing never stops its tracks.
          */
         async createStreamOffer(remoteAgent, constraints = {}) {
             if (!this.channel) {
@@ -534,125 +558,150 @@
             }
 
             const streamId = this._id();
-
-            // Determine if this is DataChannel-only (no media constraints)
-            const hasMediaConstraints = constraints.video || constraints.audio || constraints.stream || constraints.sourceStreamId;
-            const hasDataChannel = constraints.dataChannel;
-
-            // Set streamSession BEFORE creating peer connection
-            this.streamSessions.set(streamId, {
+            const hasMedia = !!(constraints.video || constraints.audio || constraints.stream || constraints.sourceStreamId);
+            const session = {
                 id: streamId,
                 remoteAgent,
                 role: 'offer',
                 state: 'creating',
-                hasMedia: hasMediaConstraints,
-                hasDataChannel: hasDataChannel,
-                sourceStreamId: constraints.sourceStreamId  // For SFU relay
-            });
+                hasMedia,
+                hasDataChannel: constraints.dataChannel,
+                sourceStreamId: constraints.sourceStreamId,  // For SFU relay
+                ownsLocal: false,
+                attempts: 0
+            };
+            this.streamSessions.set(streamId, session);
 
-            const pc = this._createPeerConnection(this.channel, remoteAgent, streamId);
-
-            // Create DataChannel if requested (initiator creates it)
-            if (hasDataChannel) {
-                const dcConfig = typeof hasDataChannel === 'object' ? hasDataChannel : {};
-                const channelName = dcConfig.name || 'data';
-                const channelOptions = dcConfig.options || {
-                    ordered: false,
-                    maxRetransmits: 0
-                };
-
-                const dataChannel = pc.createDataChannel(channelName, channelOptions);
-                this.dataChannels.set(remoteAgent, dataChannel);
-                this._setupDataChannelHandlers(dataChannel, remoteAgent, pc);
-
-                console.log(`[WebRTC] Created DataChannel "${channelName}" for peer ${remoteAgent}`);
+            try {
+                if (hasMedia) {
+                    const media = await this._resolveOfferStream(constraints);
+                    if (media.stream) this.localStreams.set(streamId, media.stream);
+                    session.ownsLocal = media.owned;
+                }
+                await this._offerOnNewConnection(streamId);
+            } catch (err) {
+                this.closeStream(streamId, { notify: false, reason: 'failed' });
+                throw err;
             }
-
-            // Add media stream if requested
-            if (hasMediaConstraints) {
-                let mediaStream = null;
-
-                // SFU relay mode: Get stream from existing remote stream
-                if (constraints.sourceStreamId) {
-                    const sourceInfo = this.remoteStreams.get(constraints.sourceStreamId);
-                    if (sourceInfo) {
-                        // remoteStreams stores { sourceAgent, stream } in SFU, or just stream in browser
-                        mediaStream = sourceInfo.stream || sourceInfo;
-                        console.log(`[WebRTC] Relaying source stream ${constraints.sourceStreamId} to ${remoteAgent}`);
-                    }
-                }
-                // Allow passing an existing MediaStream via constraints.stream
-                else if (constraints.stream && typeof constraints.stream.getTracks === 'function') {
-                    mediaStream = constraints.stream;
-                } else {
-                    mediaStream = await this._getLocalStream(constraints);
-                }
-
-                if (mediaStream) {
-                    this.localStreams.set(streamId, mediaStream);
-
-                    // Add tracks to peer connection
-                    let hasVideo = false, hasAudio = false;
-                    mediaStream.getTracks().forEach(track => {
-                        if (track.readyState === 'live' || track.readyState === undefined) {
-                            pc.addTrack(track, mediaStream);
-                            if (track.kind === 'video') hasVideo = true;
-                            if (track.kind === 'audio') hasAudio = true;
-                        }
-                    });
-
-                    // Add transceivers for missing media types (needed for wrtc)
-                    if (!hasVideo) pc.addTransceiver('video', {direction: 'recvonly'});
-                    if (!hasAudio) pc.addTransceiver('audio', {direction: 'recvonly'});
-
-                    console.log(`[WebRTC] Added media stream to offer for ${remoteAgent}`);
-                } else {
-                    // No stream available, add recvonly transceivers
-                    pc.addTransceiver('video', {direction: 'recvonly'});
-                    pc.addTransceiver('audio', {direction: 'recvonly'});
-                }
-            }
-
-            // Create and send offer
-            const offer = await pc.createOffer();
-            await pc.setLocalDescription(offer);
-
-            // Update state to offer-created
-            const session = this.streamSessions.get(streamId);
-            if (session) session.state = 'offer-created';
-
-            // Emit an 'offer' event so the UI can react
-            this.emit('offer', streamId, offer.sdp);
-
-            // Send to remote agent via channel, with the candidates in it.
-            this.channel.sendWebRtcSignaling({
-                type: 'offer',
-                sdp: await this._gatheredSdp(pc, offer.sdp),
-                streamSessionId: streamId
-            }, remoteAgent);
 
             console.log(`[WebRTC] Sent SDP offer to ${remoteAgent}, streamId=${streamId}`);
             return streamId;
         }
 
+        /** The MediaStream an offer carries, and whether this helper acquired it. */
+        async _resolveOfferStream(constraints) {
+            // SFU relay mode: Get stream from existing remote stream
+            if (constraints.sourceStreamId) {
+                const sourceInfo = this.remoteStreams.get(constraints.sourceStreamId);
+                if (!sourceInfo) return { stream: null, owned: false };
+                console.log(`[WebRTC] Relaying source stream ${constraints.sourceStreamId}`);
+                // remoteStreams stores { sourceAgent, stream } in SFU, or just stream in browser
+                return { stream: sourceInfo.stream || sourceInfo, owned: false };
+            }
+            // Allow passing an existing MediaStream via constraints.stream
+            if (constraints.stream && typeof constraints.stream.getTracks === 'function') {
+                return { stream: constraints.stream, owned: false };
+            }
+            return { stream: await this._getLocalStream(constraints), owned: true };
+        }
+
+        /** Build a connection for an offer session and send its offer: to start, and to rebuild. */
+        async _offerOnNewConnection(streamId) {
+            const session = this.streamSessions.get(streamId);
+            const pc = this._createPeerConnection(this.channel, session.remoteAgent, streamId);
+            if (session.hasDataChannel) this._openOfferDataChannel(pc, session);
+            if (session.hasMedia) this._addOfferMedia(pc, this.localStreams.get(streamId), session.remoteAgent);
+            await this._sendOffer(streamId, pc, {});
+        }
+
+        _openOfferDataChannel(pc, session) {
+            const dcConfig = typeof session.hasDataChannel === 'object' ? session.hasDataChannel : {};
+            const channelName = dcConfig.name || 'data';
+            const channelOptions = dcConfig.options || {
+                ordered: false,
+                maxRetransmits: 0
+            };
+
+            const dataChannel = pc.createDataChannel(channelName, channelOptions);
+            session.dataChannel = dataChannel;
+            this.dataChannels.set(session.remoteAgent, dataChannel);
+            this._setupDataChannelHandlers(dataChannel, session.remoteAgent, pc);
+
+            console.log(`[WebRTC] Created DataChannel "${channelName}" for peer ${session.remoteAgent}`);
+        }
+
+        _addOfferMedia(pc, mediaStream, remoteAgent) {
+            let hasVideo = false, hasAudio = false;
+            if (mediaStream) {
+                mediaStream.getTracks().forEach(track => {
+                    if (track.readyState === 'live' || track.readyState === undefined) {
+                        pc.addTrack(track, mediaStream);
+                        if (track.kind === 'video') hasVideo = true;
+                        if (track.kind === 'audio') hasAudio = true;
+                    }
+                });
+                console.log(`[WebRTC] Added media stream to offer for ${remoteAgent}`);
+            }
+            // Add transceivers for missing media types (needed for wrtc)
+            if (!hasVideo) pc.addTransceiver('video', {direction: 'recvonly'});
+            if (!hasAudio) pc.addTransceiver('audio', {direction: 'recvonly'});
+        }
+
+        /**
+         * Create, apply and send an offer on `pc`. `renegotiate` tells the
+         * answerer to apply it to the connection it already has for this id
+         * (an ICE restart) rather than build a new one.
+         */
+        async _sendOffer(streamId, pc, { iceRestart = false, renegotiate = false }) {
+            const offer = await pc.createOffer(iceRestart ? { iceRestart: true } : undefined);
+            await pc.setLocalDescription(offer);
+
+            const session = this.streamSessions.get(streamId);
+            if (!session || this.peerConnections.get(streamId) !== pc) return;   // closed meanwhile
+            session.state = 'offer-created';
+            session.renegotiating = renegotiate;
+
+            // Emit an 'offer' event so the UI can react
+            this.emit('offer', streamId, offer.sdp);
+
+            // Send to remote agent via channel, with the candidates in it.
+            const msg = { type: 'offer', sdp: await this._gatheredSdp(pc, offer.sdp), streamSessionId: streamId };
+            if (renegotiate) msg.renegotiate = true;
+            this.channel.sendWebRtcSignaling(msg, session.remoteAgent);
+        }
 
         /**
          * Handle an incoming SDP offer (answerer role)
          * Automatically detects DataChannel and/or media stream from SDP
+         *
+         * An offer for an id this side already has is one of two things. With
+         * `renegotiate` it is an ICE restart of that same connection and is
+         * applied to it. Without, the offerer rebuilt the connection, so the
+         * old one is closed first: it used to be overwritten in the map and
+         * left running, holding its tracks and its data channel.
          */
-        async handleSdpOffer(streamId, sourceAgent, sdpOffer) {
+        async handleSdpOffer(streamId, sourceAgent, sdpOffer, msg = {}) {
             if (!this.channel) {
                 throw new Error('No signaling channel provided to WebRtcHelper constructor');
             }
 
             console.log(`[WebRTC] Received SDP offer for ${streamId} from ${sourceAgent}`);
+            const existing = this.peerConnections.get(streamId);
+            const known = this.streamSessions.get(streamId);
+            if (known && known.remoteAgent !== sourceAgent) {
+                return console.warn(`[WebRTC] Ignoring offer for ${streamId} from ${sourceAgent}: it belongs to ${known.remoteAgent}`);
+            }
+            if (msg.renegotiate) {
+                if (existing) return this._answerOn(streamId, existing, sdpOffer);
+                // We no longer have what it restarts (this tab reloaded): ask for a new one.
+                this.channel.sendWebRtcSignaling({ type: 'bye', reason: 'unknown-stream', streamSessionId: streamId }, sourceAgent);
+                return;
+            }
+            if (existing) this._teardown(streamId, { replacing: true });
 
             // Detect what's in the SDP
             const hasDataChannel = sdpOffer.includes('m=application');
-            const hasVideo = sdpOffer.includes('m=video');
-            const hasAudio = sdpOffer.includes('m=audio');
-            const hasMedia = hasVideo || hasAudio;
-
+            const hasMedia = sdpOffer.includes('m=video') || sdpOffer.includes('m=audio');
             console.log(`[WebRTC] SDP contains - Media: ${hasMedia}, DataChannel: ${hasDataChannel}`);
 
             // Set streamSession BEFORE creating peer connection
@@ -666,77 +715,70 @@
             });
 
             const pc = this._createPeerConnection(this.channel, sourceAgent, streamId);
+            if (hasDataChannel) this._acceptDataChannel(pc, streamId, sourceAgent);
 
-            // Set up DataChannel receiver if present (receiver side: listen for incoming)
-            if (hasDataChannel) {
-                console.log(`[WebRTC] DataChannel detected in offer from ${sourceAgent}`);
-                this.dataChannelStartTimes.set(sourceAgent, Date.now());
-
-                // Receiver side: listen for incoming DataChannel
-                pc.ondatachannel = (event) => {
-                    console.log(`[WebRTC] Received DataChannel from ${sourceAgent}:`, event.channel.label);
-                    const dataChannel = event.channel;
-                    this.dataChannels.set(sourceAgent, dataChannel);
-                    this._setupDataChannelHandlers(dataChannel, sourceAgent, this);
-                };
+            // Add transceivers BEFORE setRemoteDescription. REQUIRED for Node.js
+            // wrtc ONLY; browsers handle transceivers automatically.
+            if (hasMedia && isNode) {
+                pc.addTransceiver('video', {direction: 'recvonly'});
+                pc.addTransceiver('audio', {direction: 'recvonly'});
+                console.log('[WebRTC] Node.js: Added video + audio transceivers (recvonly)');
             }
 
-            // Add media handling if present
-            if (hasMedia) {
-                console.log(`[WebRTC] Media detected in offer from ${sourceAgent}`);
+            // Attach answerer media so P2P media is bidirectional rather than
+            // only flowing from offerer to answerer.
+            await this._answerOn(streamId, pc, sdpOffer, hasMedia ? this.defaultLocalStream : null);
+        }
 
-                // Add transceivers BEFORE setRemoteDescription
-                // This is REQUIRED for Node.js wrtc module ONLY!
-                // Browser: Does NOT need this, handles transceivers automatically
-                // Node.js wrtc: MUST add transceivers before setRemoteDescription
-                if (isNode) {
-                    if (hasVideo || hasMedia) {
-                        pc.addTransceiver('video', {direction: 'recvonly'});
-                        console.log('[WebRTC] Node.js: Added video transceiver (recvonly)');
-                    }
-                    if (hasAudio || hasMedia) {
-                        pc.addTransceiver('audio', {direction: 'recvonly'});
-                        console.log('[WebRTC] Node.js: Added audio transceiver (recvonly)');
-                    }
-                }
+        /** Receiver side of a data channel: wait for the offerer's to arrive. */
+        _acceptDataChannel(pc, streamId, sourceAgent) {
+            console.log(`[WebRTC] DataChannel detected in offer from ${sourceAgent}`);
+            this.dataChannelStartTimes.set(sourceAgent, Date.now());
+
+            pc.ondatachannel = (event) => {
+                const session = this.streamSessions.get(streamId);
+                if (!session || this.peerConnections.get(streamId) !== pc) return;
+                console.log(`[WebRTC] Received DataChannel from ${sourceAgent}:`, event.channel.label);
+                session.dataChannel = event.channel;
+                this.dataChannels.set(sourceAgent, event.channel);
+                this._setupDataChannelHandlers(event.channel, sourceAgent, pc);
+            };
+        }
+
+        /** Apply an offer to `pc` and send the answer: first offers and ICE restarts alike. */
+        async _answerOn(streamId, pc, sdpOffer, localStream = null) {
+            if (pc.signalingState !== 'stable' && pc.signalingState !== 'have-remote-offer') {
+                // Only the offerer starts a round, so this is a stale half-round; the newer offer wins.
+                await pc.setLocalDescription({ type: 'rollback' }).catch(() => {});
             }
-
-            // Set remote description AFTER adding transceivers (required for wrtc in Node.js)
             await pc.setRemoteDescription(new _RTCSessionDescription({type: 'offer', sdp: sdpOffer}));
-            // The answerer has the same problem as the offerer: the other side
-            // may have trickled candidates before this point.
+            // The other side may have trickled candidates before this point.
             await this._flushIce(streamId);
 
-            // Attach answerer media before creating the answer so P2P media is
-            // bidirectional rather than only flowing from offerer to answerer.
-            if (hasMedia && this.defaultLocalStream) {
-                this.defaultLocalStream.getTracks().forEach(track => {
+            if (localStream) {
+                localStream.getTracks().forEach(track => {
                     if (track.readyState === 'live' || track.readyState === undefined) {
-                        pc.addTrack(track, this.defaultLocalStream);
+                        pc.addTrack(track, localStream);
                     }
                 });
                 console.log(`[WebRTC] Added answerer local media for ${streamId}`);
             }
 
-            // Modern browsers handle ICE candidate queueing internally
-            // No need to manually process queued candidates
-
             const answer = await pc.createAnswer();
             await pc.setLocalDescription(answer);
 
-            // Update state to answer-created
             const session = this.streamSessions.get(streamId);
-            if (session) session.state = 'answer-created';
+            if (!session || this.peerConnections.get(streamId) !== pc) return;   // closed meanwhile
+            session.state = 'answer-created';
 
             this.channel.sendWebRtcSignaling({
                 type: 'answer',
                 sdp: await this._gatheredSdp(pc, answer.sdp),
                 streamSessionId: streamId
-            }, sourceAgent);
+            }, session.remoteAgent);
 
             // Emit an 'answer' event after sending answer so UI can log it
             this.emit('answer', streamId, answer.sdp);
-
             console.log(`[WebRTC] Sent SDP answer for ${streamId}`);
         }
 
@@ -806,15 +848,14 @@
             if (!pc) return console.warn(`[WebRTC] No PeerConnection for ${streamId}`);
 
             const session = this.streamSessions.get(streamId);
+            if (session && session.remoteAgent !== sourceAgent) {
+                return console.warn(`[WebRTC] Ignoring answer for ${streamId} from ${sourceAgent}`);
+            }
 
             // Check if we can set remote description
             if (pc.signalingState === 'stable') {
-                // Connection is already stable - check if this is a duplicate answer
-                if (session && session.state === 'answer-received') {
-                    console.log(`[WebRTC] Ignoring duplicate SDP answer for ${streamId} - connection already stable`);
-                } else {
-                    console.log(`[WebRTC] SDP answer received for ${streamId} but connection already stable (possibly very fast connection)`);
-                }
+                // Connection is already stable - a duplicate, or a very fast connection
+                console.log(`[WebRTC] SDP answer received for ${streamId} but connection already stable - ignoring`);
                 return;
             }
 
@@ -825,23 +866,32 @@
 
             try {
                 await pc.setRemoteDescription(new _RTCSessionDescription({type: 'answer', sdp: sdpAnswer}));
-
-                if (session) session.state = 'answer-received';
-
-                console.log(`[WebRTC] Applied remote SDP answer for ${streamId}`);
-                await this._flushIce(streamId);
             } catch (err) {
+                if (session && session.renegotiating) {
+                    // An answerer that rebuilt instead of restarting (an older
+                    // SDK, or the relay) answers with a new DTLS identity, which
+                    // the existing connection cannot take. Start over on a new one.
+                    console.warn(`[WebRTC] ICE restart answer for ${streamId} did not apply (${err.message}); rebuilding`);
+                    return this._recover(streamId, { fresh: true });
+                }
                 // Handle race condition where state changed between check and setRemoteDescription
                 if (err.name === 'InvalidStateError') {
                     console.warn(`[WebRTC] Race condition: state changed to ${pc.signalingState} before setRemoteDescription for ${streamId}. Ignoring answer.`);
                     return;
                 }
-                // Re-throw other errors
                 throw err;
             }
 
-            // Modern browsers handle ICE candidate queueing internally
-            // No need to manually process queued candidates
+            const restarted = !!(session && session.renegotiating);
+            if (session) {
+                session.state = 'answer-received';
+                session.renegotiating = false;
+            }
+            console.log(`[WebRTC] Applied remote SDP answer for ${streamId}`);
+            await this._flushIce(streamId);
+            // A restart of a connection that never went down fires no state
+            // change, so 'connected' is not coming: count it as recovered now.
+            if (restarted && pc.connectionState === 'connected') this._onConnected(streamId, session);
         }
 
         /**
@@ -859,19 +909,30 @@
          * the log but a line saying a candidate could not be added.
          *
          * So buffer them, and apply them once there is a remote description.
+         * An ICE restart has the same race one level up: the other side's NEW
+         * candidates can arrive before the description that introduces their
+         * ufrag, so those wait too.
          */
         async handleIceCandidate(streamId, candidate) {
             const pc = this.peerConnections.get(streamId);
             if (!pc) return console.warn(`[WebRTC] No peer connection for ${streamId}`);
 
-            if (!pc.remoteDescription) {
+            if (!pc.remoteDescription || !this._iceFitsRemote(pc, candidate)) {
                 if (!this.pendingIce) this.pendingIce = new Map();
                 if (!this.pendingIce.has(streamId)) this.pendingIce.set(streamId, []);
-                this.pendingIce.get(streamId).push(candidate);
-                console.log(`[WebRTC] Buffered ICE candidate for ${streamId} (no remote description yet)`);
+                const queue = this.pendingIce.get(streamId);
+                if (queue.length < 200) queue.push(candidate);
+                console.log(`[WebRTC] Buffered ICE candidate for ${streamId} (its remote description is not here yet)`);
                 return;
             }
             await this._addIce(streamId, pc, candidate);
+        }
+
+        /** Does this candidate belong to the remote description we have now? (Its ufrag says.) */
+        _iceFitsRemote(pc, candidate) {
+            const m = / ufrag (\S+)/.exec((candidate && candidate.candidate) || '');
+            if (!m || !pc.remoteDescription || !pc.remoteDescription.sdp) return true;
+            return pc.remoteDescription.sdp.indexOf('a=ice-ufrag:' + m[1]) !== -1;
         }
 
         async _addIce(streamId, pc, candidate) {
@@ -887,49 +948,262 @@
             }
         }
 
-        /** Apply whatever arrived before the remote description did. */
+        /** Apply whatever arrived before the remote description did; drop what an ICE restart outdated. */
         async _flushIce(streamId) {
             const pc = this.peerConnections.get(streamId);
             const queued = this.pendingIce && this.pendingIce.get(streamId);
             if (!pc || !queued || !queued.length) return;
             this.pendingIce.delete(streamId);
-            console.log(`[WebRTC] Applying ${queued.length} buffered ICE candidates for ${streamId}`);
-            for (const c of queued) await this._addIce(streamId, pc, c);
+            const fits = queued.filter((c) => this._iceFitsRemote(pc, c));
+            console.log(`[WebRTC] Applying ${fits.length} buffered ICE candidates for ${streamId}`
+                + (fits.length < queued.length ? ` (${queued.length - fits.length} outdated)` : ''));
+            for (const c of fits) await this._addIce(streamId, pc, c);
+        }
+
+        // ------------------------------------------------------------------
+        // Replacing what a stream sends
+        // ------------------------------------------------------------------
+
+        /**
+         * Send `stream` on an existing outgoing connection instead of what it
+         * carries now: camera to screen and back, with no new negotiation.
+         *
+         * Closing the camera's connection and offering the screen used to be
+         * the only way, which costs a full offer/answer round (a black second
+         * on every peer, and a chance to lose the offer). replaceTrack swaps
+         * the pixels on the connection that is already up. It works for every
+         * kind the connection was negotiated to SEND; a kind it only receives
+         * (an audio-only call turning video on) needs a new offer, so this
+         * resolves false and the caller closes and offers as before.
+         *
+         * It works from the ANSWERING side too, on the tracks its answer sent
+         * (keep setLocalMediaStream current as well: a reconnect answers with it).
+         * @returns {Promise<boolean>} true if replaced in place
+         */
+        async replaceStream(streamId, stream) {
+            const pc = this.peerConnections.get(streamId);
+            const session = this.streamSessions.get(streamId);
+            if (!pc || !session || !stream || typeof pc.getTransceivers !== 'function') return false;
+
+            const plan = ['video', 'audio'].map((kind) => ({
+                track: stream.getTracks().find((t) => t.kind === kind && t.readyState !== 'ended') || null,
+                tx: pc.getTransceivers().find((t) => !t.stopped && t.receiver && t.receiver.track
+                    && t.receiver.track.kind === kind && /send/.test(t.direction))
+            }));
+            if (plan.some((p) => p.track && !p.tx)) return false;
+
+            await Promise.all(plan.filter((p) => p.tx).map((p) => p.tx.sender.replaceTrack(p.track)));
+            console.log(`[WebRTC] Replaced the stream on ${streamId} in place`);
+            if (session.role !== 'offer') return true;
+            const old = this.localStreams.get(streamId);
+            if (old && old !== stream && session.ownsLocal) old.getTracks().forEach((t) => t.stop());
+            session.ownsLocal = false;
+            this.localStreams.set(streamId, stream);
+            return true;
+        }
+
+        // ------------------------------------------------------------------
+        // Reconnecting
+        // ------------------------------------------------------------------
+        //
+        // A connection that breaks is brought back by the side that offered
+        // it, under the same stream id, so neither side's app has to notice:
+        //
+        //   1. 'disconnected' gets a grace period (a Wi-Fi blip heals itself);
+        //      'failed', or a connection that never came up, does not.
+        //   2. First an ICE restart on the same connection: the DTLS session,
+        //      tracks and data channel all survive it, and a changed network
+        //      (Wi-Fi to mobile) is exactly what it is for.
+        //   3. If that does not work, a new connection under the same id.
+        //   4. After reconnect.maxAttempts, close it and say 'stream-failed'.
+        //
+        // While the device is offline, or the signalling socket is down,
+        // nothing can be negotiated, so the attempts WAIT rather than being
+        // spent; coming back online restarts every broken stream at once.
+        // The answerer never starts a round (no glare); it waits for the
+        // offerer, and lets go after reconnect.answererGiveUpMs if the
+        // offerer's tab has gone for good.
+        //
+        // Events: 'stream-reconnecting' (id, peer, attempt),
+        // 'stream-recovered' (id, peer, attempts), 'stream-failed' (id, peer),
+        // 'stream-closed' (id, peer, reason: local | remote | failed).
+
+        /** Reconnect an outgoing stream now, rather than waiting for it to fail. */
+        restartStream(streamId) {
+            const session = this.streamSessions.get(streamId);
+            if (!session || session.role !== 'offer') return false;
+            session.attempts = 0;
+            this._recover(streamId);
+            return true;
+        }
+
+        /** Can a negotiation round get to the other side at all right now? */
+        _canSignal() {
+            if (typeof navigator !== 'undefined' && navigator && navigator.onLine === false) return false;
+            const ch = this.channel;
+            return !!ch && typeof ch.sendWebRtcSignaling === 'function'
+                && (ch.readyState === undefined || !!ch.readyState);
+        }
+
+        async _recover(streamId, { fresh = false } = {}) {
+            const session = this.streamSessions.get(streamId);
+            if (!session || session.role !== 'offer') return;
+            clearTimeout(session.recoveryTimer);
+            if (!this._canSignal()) {
+                // Offline: an offer now goes nowhere. Wait without spending an attempt.
+                session.recoveryTimer = setTimeout(() => this._recover(streamId, { fresh }), this.reconnect.offlinePollMs);
+                return;
+            }
+            if (session.attempts >= this.reconnect.maxAttempts) return this._giveUp(streamId);
+            session.attempts++;
+            this.emit('stream-reconnecting', streamId, session.remoteAgent, session.attempts);
+
+            const pc = this.peerConnections.get(streamId);
+            const restart = !fresh && session.attempts === 1 && pc && pc.signalingState === 'stable';
+            console.warn(`[WebRTC] Reconnecting ${streamId} to ${session.remoteAgent} `
+                + `(attempt ${session.attempts}: ${restart ? 'ICE restart' : 'new connection'})`);
+            try {
+                if (restart) await this._sendOffer(streamId, pc, { iceRestart: true, renegotiate: true });
+                else await this._rebuild(streamId);
+            } catch (err) {
+                console.warn(`[WebRTC] Reconnect attempt for ${streamId} failed:`, err);
+            }
+            if (this.streamSessions.get(streamId) !== session) return;
+            clearTimeout(session.recoveryTimer);
+            session.recoveryTimer = setTimeout(() => {
+                const now = this.peerConnections.get(streamId);
+                // An ICE restart that worked may never have left 'connected', so no state event said so.
+                if (now && now.connectionState === 'connected') this._onConnected(streamId, session);
+                else this._recover(streamId);
+            }, this.reconnect.attemptTimeoutMs);
+        }
+
+        async _rebuild(streamId) {
+            this._teardown(streamId, { replacing: true });
+            await this._offerOnNewConnection(streamId);
+        }
+
+        _giveUp(streamId) {
+            const session = this.streamSessions.get(streamId);
+            console.warn(`[WebRTC] Giving up on ${streamId} after ${session.attempts} reconnect attempts`);
+            this.emit('stream-failed', streamId, session.remoteAgent);
+            this.closeStream(streamId, { reason: 'failed' });
+        }
+
+        /** The connection to a stream's peer is down: schedule what each role does about it. */
+        _onBroken(streamId, session, delayMs) {
+            if (session.role === 'offer') {
+                if (session.attempts > 0) return;   // an attempt is in flight; its own timer decides
+                clearTimeout(session.recoveryTimer);
+                session.recoveryTimer = setTimeout(() => this._recover(streamId), delayMs);
+                return;
+            }
+            if (session.giveUpTimer) return;
+            const giveUp = () => {
+                const pc = this.peerConnections.get(streamId);
+                if (!pc || pc.connectionState === 'connected') return;
+                // It is this side that is offline: the offerer cannot reach us, so do not blame it.
+                if (!this._canSignal()) { session.giveUpTimer = setTimeout(giveUp, this.reconnect.answererGiveUpMs); return; }
+                console.warn(`[WebRTC] ${session.remoteAgent} did not reconnect ${streamId}; closing it`);
+                this.closeStream(streamId, { reason: 'failed' });
+            };
+            session.giveUpTimer = setTimeout(giveUp, this.reconnect.answererGiveUpMs);
+        }
+
+        /** Back online: restart every outgoing stream that is not connected, now. */
+        _onOnline() {
+            this.streamSessions.forEach((session, streamId) => {
+                const pc = this.peerConnections.get(streamId);
+                if (session.role !== 'offer' || (pc && pc.connectionState === 'connected')) return;
+                console.log(`[WebRTC] Back online: reconnecting ${streamId}`);
+                session.attempts = 0;
+                this._recover(streamId);
+            });
+        }
+
+        /** The other side closed a stream, or (unknown-stream) cannot restart it. */
+        _onBye(streamId, sourceAgent, msg) {
+            const session = this.streamSessions.get(streamId);
+            if (!session || session.remoteAgent !== sourceAgent) return;
+            if (msg.reason === 'unknown-stream' && session.role === 'offer') {
+                return this._recover(streamId, { fresh: true });
+            }
+            console.log(`[WebRTC] ${sourceAgent} closed ${streamId}`);
+            this.closeStream(streamId, { notify: false, reason: 'remote' });
+        }
+
+        _sendBye(streamId, remoteAgent) {
+            // A channel that is already down cannot carry it; the peer's own failure detection covers that.
+            if (!remoteAgent || !this._canSignal()) return;
+            try {
+                this.channel.sendWebRtcSignaling({ type: 'bye', streamSessionId: streamId }, remoteAgent);
+            } catch (_) { /* best effort */ }
+        }
+
+        // ------------------------------------------------------------------
+        // Closing
+        // ------------------------------------------------------------------
+
+        /** Close the connection behind a stream id and everything hanging off it; keep the session. */
+        _teardown(streamId, { replacing = false } = {}) {
+            const pc = this.peerConnections.get(streamId);
+            const session = this.streamSessions.get(streamId);
+            this.peerConnections.delete(streamId);
+            if (pc) { try { pc.close(); } catch (_) { /* already closed */ } }
+            if (this.pendingIce) this.pendingIce.delete(streamId);
+            this.peerConnectionStartTimes.delete(streamId);
+            this.streamStartTimes.delete(streamId);
+
+            if (session) {
+                clearTimeout(session.recoveryTimer);
+                clearTimeout(session.giveUpTimer);
+                session.recoveryTimer = session.giveUpTimer = null;
+                // pc.close() closes its data channels WITHOUT a 'close' event, so
+                // the map used to keep a dead channel and nobody heard it went.
+                if (session.dataChannel) {
+                    if (replacing) this.files.dropPeer(session.remoteAgent);
+                    this._retireDataChannel(session.remoteAgent, session.dataChannel, !replacing);
+                    try { session.dataChannel.close(); } catch (_) { /* already closed */ }
+                    session.dataChannel = null;
+                }
+            }
+            this._stopRemote(streamId);
+        }
+
+        _stopRemote(streamId) {
+            const remote = this.remoteStreams.get(streamId);
+            if (!remote) return;
+            // Handle both formats: plain stream or { sourceAgent, stream }
+            const stream = remote.stream || remote;
+            if (stream && stream.getTracks) stream.getTracks().forEach(t => t.stop());
+            this.remoteStreams.delete(streamId);
         }
 
         /**
-         * Close a stream session
+         * Close a stream session, and tell the other side (a 'bye') so it
+         * closes its end now rather than when its connection times out.
+         *
+         * Only tracks this helper acquired itself are stopped. A stream the
+         * caller passed in is the caller's: stopping it here is what turned
+         * the Call demo's camera off for good the moment screen share started
+         * (closing the camera's connection stopped the camera).
+         * @param {string} streamId
+         * @param {object} [options] - {notify = true, reason = 'local'}
          * @returns {Promise<void>} Resolves when stream is closed
          */
-        closeStream(streamId) {
+        closeStream(streamId, { notify = true, reason = 'local' } = {}) {
             try {
-                const pc = this.peerConnections.get(streamId);
-                if (pc) {
-                    pc.close();
-                    this.peerConnections.delete(streamId);
-                }
+                const session = this.streamSessions.get(streamId);
+                if (session && notify) this._sendBye(streamId, session.remoteAgent);
+                this._teardown(streamId);
 
                 const local = this.localStreams.get(streamId);
-                if (local) {
-                    // Do not stop tracks if this is the defaultLocalStream (page manages camera lifecycle)
-                    if (local !== this.defaultLocalStream) {
-                        local.getTracks().forEach(t => t.stop());
-                    }
-                    this.localStreams.delete(streamId);
+                if (local && session && session.ownsLocal && local !== this.defaultLocalStream) {
+                    local.getTracks().forEach(t => t.stop());
                 }
-
-                // Clean up remote stream if exists
-                const remote = this.remoteStreams.get(streamId);
-                if (remote) {
-                    // Handle both formats: plain stream or { sourceAgent, stream }
-                    const stream = remote.stream || remote;
-                    if (stream?.getTracks) {
-                        stream.getTracks().forEach(t => t.stop());
-                    }
-                    this.remoteStreams.delete(streamId);
-                }
-
+                this.localStreams.delete(streamId);
                 this.streamSessions.delete(streamId);
+                if (session) this.emit('stream-closed', streamId, session.remoteAgent, reason);
                 console.log(`[WebRTC] Closed stream ${streamId}`);
 
                 return Promise.resolve();
@@ -943,7 +1217,7 @@
          * Close all active stream sessions
          */
         closeAllStreams() {
-            const streamIds = Array.from(this.peerConnections.keys());
+            const streamIds = Array.from(new Set([...this.peerConnections.keys(), ...this.streamSessions.keys()]));
             console.log(`[WebRTC] Closing ${streamIds.length} stream(s)`);
 
             streamIds.forEach(streamId => {
@@ -953,9 +1227,52 @@
             console.log(`[WebRTC] All streams closed`);
         }
 
+        /** Close everything and stop listening for the network: for a helper that is being thrown away. */
+        destroy() {
+            this.closeAllStreams();
+            if (this._onlineListener && typeof window !== 'undefined' && window.removeEventListener) {
+                window.removeEventListener('online', this._onlineListener);
+            }
+            this._onlineListener = null;
+        }
+
         // Allow page to register a default local MediaStream (e.g., camera) to be used when answering offers
         setLocalMediaStream(stream) {
             this.defaultLocalStream = stream;
+        }
+
+        /**
+         * The far end closed a data channel. On the ANSWERING side that is
+         * also what the offerer rebuilding the connection looks like, and its
+         * new offer is a moment behind: so wait reconnect.dataChannelCloseGraceMs
+         * before telling the app, and say nothing if a replacement arrived.
+         */
+        _onDataChannelClosed(peerId, dataChannel) {
+            let owner = null;
+            this.streamSessions.forEach((s) => { if (s.dataChannel === dataChannel) owner = s; });
+            if (!owner || owner.role !== 'answer') return this._retireDataChannel(peerId, dataChannel, true);
+            setTimeout(() => this._retireDataChannel(peerId, dataChannel, true), this.reconnect.dataChannelCloseGraceMs);
+        }
+
+        /**
+         * A data channel is finished: forget it, once. `announce` says whether
+         * the app hears 'datachannel-close' -- not when the channel is being
+         * replaced by a reconnect, and never for a channel that is no longer
+         * the peer's current one. (A replaced channel's late 'close' used to
+         * delete its REPLACEMENT from the map, orphaning a channel that was open.)
+         */
+        _retireDataChannel(peerId, dataChannel, announce) {
+            if (!dataChannel || dataChannel.__mpRetired) return;
+            dataChannel.__mpRetired = true;
+            const current = this.dataChannels.get(peerId) === dataChannel;
+            if (current) this.dataChannels.delete(peerId);
+            if (!current || !announce) {
+                console.log(`[WebRTC DataChannel] Retired a replaced channel with ${peerId}`);
+                return;
+            }
+            console.log(`[WebRTC DataChannel] CLOSED with ${peerId}`);
+            this.files.dropPeer(peerId);
+            this.emit('datachannel-close', peerId);
         }
 
         /**
@@ -983,12 +1300,7 @@
                 this.emit('datachannel-open', peerId, dataChannel, connectionTimeMs);
             };
 
-            dataChannel.onclose = () => {
-                console.log(`[WebRTC DataChannel] CLOSED with ${peerId}`);
-                this.dataChannels.delete(peerId);
-                this.files.dropPeer(peerId);
-                this.emit('datachannel-close', peerId);
-            };
+            dataChannel.onclose = () => this._onDataChannelClosed(peerId, dataChannel);
 
             dataChannel.onerror = (error) => {
                 // Check if this is a graceful close (User-Initiated Abort)
@@ -1093,8 +1405,8 @@
         closeDataChannel(peerId) {
             const dataChannel = this.dataChannels.get(peerId);
             if (dataChannel) {
+                this._retireDataChannel(peerId, dataChannel, true);
                 dataChannel.close();
-                this.dataChannels.delete(peerId);
                 console.log(`[WebRTC DataChannel] Closed data channel with ${peerId}`);
             }
         }
@@ -1153,108 +1465,126 @@
             console.log(`[WebRTC] 🔌 Peer connection created for ${streamId}`);
 
             // --- Local ICE candidates ---
-            pc.onicecandidate = (event) => {
-                if (event.candidate) {
-                    console.log(`[WebRTC] Local ICE candidate for ${streamId}`);
-                    this.emit('ice-candidate', streamId, event.candidate);
+            pc.onicecandidate = (event) => { if (event.candidate) this._sendLocalIce(usedChannel, remoteAgent, streamId, event.candidate); };
 
-                    // Send ICE to remote agent
-                    if (usedChannel && typeof usedChannel.sendWebRtcSignaling === 'function') {
-                        usedChannel.sendWebRtcSignaling({
-                            type: 'ice-candidate',
-                            candidate: {
-                                candidate: event.candidate.candidate,
-                                sdpMLineIndex: event.candidate.sdpMLineIndex,
-                                sdpMid: event.candidate.sdpMid
-                            },
-                            streamSessionId: streamId
-                        }, remoteAgent);
-                    } else {
-                        console.warn('[WebRTC] No signaling channel available to send ICE candidate');
-                    }
-                }
-            };
+            // A connection that never comes up is broken too. 'new' fires no event, so arm it now.
+            this._armConnectTimeout(streamId, pc);
+            pc.onconnectionstatechange = () => this._onConnectionState(streamId, pc);
 
-            // Connection timeout handling
-            let connectionTimeout = null;
-            const CONNECTION_TIMEOUT_MS = 30000; // 30 seconds
-
-            pc.onconnectionstatechange = () => {
-                console.log(`[WebRTC] Connection state (${streamId}): ${pc.connectionState}`);
-                // Emit connection-state for UI
-                this.emit('connection-state', streamId, pc.connectionState);
-
-                // Handle connection timeout
-                if (pc.connectionState === 'connecting' || pc.connectionState === 'new') {
-                    // Start timeout timer
-                    if (connectionTimeout) clearTimeout(connectionTimeout);
-                    connectionTimeout = setTimeout(() => {
-                        if (pc.connectionState === 'connecting' || pc.connectionState === 'new') {
-                            console.warn(`[WebRTC] Connection timeout for ${streamId}, closing`);
-                            pc.close();
-                            this.emit('connection-state', streamId, 'failed');
-                        }
-                    }, CONNECTION_TIMEOUT_MS);
-                } else {
-                    // Clear timeout on state change
-                    if (connectionTimeout) {
-                        clearTimeout(connectionTimeout);
-                        connectionTimeout = null;
-                    }
-                }
-
-                // When connected or completed, emit stream-ready (include remoteAgent if available)
-                if (pc.connectionState === 'connected' || pc.connectionState === 'completed') {
-                    const session = this.streamSessions.get(streamId) || {};
-                    const remoteAgent = session.remoteAgent || null;
-
-                    // Calculate peer connection time (from peer creation to ready)
-                    const peerStartTime = this.peerConnectionStartTimes.get(streamId);
-                    let peerConnectionTimeMs = null;
-                    if (peerStartTime) {
-                        peerConnectionTimeMs = Date.now() - peerStartTime;
-                        this.peerConnectionStartTimes.delete(streamId);
-                        console.log(`[WebRTC] ⏱️  Peer connection ready for ${streamId} (took ${peerConnectionTimeMs}ms from peer creation to ready)`);
-                    }
-
-                    // Calculate connection time (from stream creation start)
-                    const startTime = this.streamStartTimes.get(streamId);
-                    let connectionTimeMs = null;
-                    if (startTime) {
-                        connectionTimeMs = Date.now() - startTime;
-                        this.streamStartTimes.delete(streamId);
-                        console.log(`[WebRTC] ⏱️  Stream ready for ${streamId} (took ${connectionTimeMs}ms)`);
-                    }
-
-                    this.emit('stream-ready', streamId, remoteAgent, connectionTimeMs, peerConnectionTimeMs);
-                }
-            };
-
-            pc.ontrack = (event) => {
-                console.log(`[WebRTC] Remote track received for ${streamId}:`, event.track.kind);
-                const stream = event.streams[0] || new _MediaStream([event.track]);
-
-                // Get source agent from session if available
-                const session = this.streamSessions.get(streamId);
-                const sourceAgent = session?.remoteAgent || remoteAgent || 'Unknown';
-
-                // Store remote stream in remoteStreams Map
-                // Use object format for SFU compatibility: { sourceAgent, stream }
-                const existingInfo = this.remoteStreams.get(streamId);
-                if (existingInfo?.stream) {
-                    // Add new track to existing stream
-                    if (!existingInfo.stream.getTracks().find(t => t.id === event.track.id)) {
-                        existingInfo.stream.addTrack(event.track);
-                    }
-                } else {
-                    // Store new stream with sourceAgent
-                    this.remoteStreams.set(streamId, { sourceAgent, stream });
-                }
-
-                this.emit('remote-stream', streamId, stream, sourceAgent);
-            };
+            pc.ontrack = (event) => this._onRemoteTrack(streamId, remoteAgent, pc, event);
 
             return pc;
+        }
+
+        _onRemoteTrack(streamId, remoteAgent, pc, event) {
+            if (this.peerConnections.get(streamId) !== pc) return;   // a replaced connection's late track
+            console.log(`[WebRTC] Remote track received for ${streamId}:`, event.track.kind);
+            const stream = event.streams[0] || new _MediaStream([event.track]);
+
+            // Get source agent from session if available
+            const session = this.streamSessions.get(streamId);
+            const sourceAgent = session?.remoteAgent || remoteAgent || 'Unknown';
+
+            // Store remote stream in remoteStreams Map
+            // Use object format for SFU compatibility: { sourceAgent, stream }
+            const existingInfo = this.remoteStreams.get(streamId);
+            if (existingInfo?.stream) {
+                // Add new track to existing stream
+                if (!existingInfo.stream.getTracks().find(t => t.id === event.track.id)) {
+                    existingInfo.stream.addTrack(event.track);
+                }
+            } else {
+                // Store new stream with sourceAgent
+                this.remoteStreams.set(streamId, { sourceAgent, stream });
+            }
+
+            this.emit('remote-stream', streamId, stream, sourceAgent);
+        }
+
+        _sendLocalIce(usedChannel, remoteAgent, streamId, candidate) {
+            console.log(`[WebRTC] Local ICE candidate for ${streamId}`);
+            this.emit('ice-candidate', streamId, candidate);
+
+            // Send ICE to remote agent
+            if (usedChannel && typeof usedChannel.sendWebRtcSignaling === 'function') {
+                usedChannel.sendWebRtcSignaling({
+                    type: 'ice-candidate',
+                    candidate: {
+                        candidate: candidate.candidate,
+                        sdpMLineIndex: candidate.sdpMLineIndex,
+                        sdpMid: candidate.sdpMid
+                    },
+                    streamSessionId: streamId
+                }, remoteAgent);
+            } else {
+                console.warn('[WebRTC] No signaling channel available to send ICE candidate');
+            }
+        }
+
+        /** A connection still not up after 30 s is broken: the offerer recovers it, the answerer lets go. */
+        _armConnectTimeout(streamId, pc) {
+            const CONNECTION_TIMEOUT_MS = 30000;
+            clearTimeout(pc.__mpConnectTimer);
+            pc.__mpConnectTimer = setTimeout(() => {
+                if (this.peerConnections.get(streamId) !== pc) return;
+                if (pc.connectionState !== 'connecting' && pc.connectionState !== 'new') return;
+                const session = this.streamSessions.get(streamId);
+                console.warn(`[WebRTC] Connection timeout for ${streamId}`);
+                if (session && session.role === 'offer') return this._onBroken(streamId, session, 0);
+                this.emit('connection-state', streamId, 'failed');
+                this.closeStream(streamId, { reason: 'failed' });
+            }, CONNECTION_TIMEOUT_MS);
+        }
+
+        _onConnectionState(streamId, pc) {
+            if (this.peerConnections.get(streamId) !== pc) return;   // replaced or closed: not news
+            const state = pc.connectionState;
+            console.log(`[WebRTC] Connection state (${streamId}): ${state}`);
+            // Emit connection-state for UI
+            this.emit('connection-state', streamId, state);
+
+            if (state === 'connecting') this._armConnectTimeout(streamId, pc);
+            else clearTimeout(pc.__mpConnectTimer);
+
+            const session = this.streamSessions.get(streamId);
+            if (state === 'connected' || state === 'completed') this._onConnected(streamId, session);
+            else if (session && state === 'failed') this._onBroken(streamId, session, 0);
+            else if (session && state === 'disconnected') this._onBroken(streamId, session, this.reconnect.disconnectedGraceMs);
+        }
+
+        /** Up (again): stop any recovery, and emit stream-ready with how long it took. */
+        _onConnected(streamId, session) {
+            if (session) {
+                clearTimeout(session.recoveryTimer);
+                clearTimeout(session.giveUpTimer);
+                session.recoveryTimer = session.giveUpTimer = null;
+                if (session.attempts) {
+                    console.log(`[WebRTC] ${streamId} reconnected after ${session.attempts} attempt(s)`);
+                    this.emit('stream-recovered', streamId, session.remoteAgent, session.attempts);
+                    session.attempts = 0;
+                }
+            }
+            const remoteAgent = (session && session.remoteAgent) || null;
+
+            // Calculate peer connection time (from peer creation to ready)
+            const peerStartTime = this.peerConnectionStartTimes.get(streamId);
+            let peerConnectionTimeMs = null;
+            if (peerStartTime) {
+                peerConnectionTimeMs = Date.now() - peerStartTime;
+                this.peerConnectionStartTimes.delete(streamId);
+                console.log(`[WebRTC] ⏱️  Peer connection ready for ${streamId} (took ${peerConnectionTimeMs}ms from peer creation to ready)`);
+            }
+
+            // Calculate connection time (from stream creation start)
+            const startTime = this.streamStartTimes.get(streamId);
+            let connectionTimeMs = null;
+            if (startTime) {
+                connectionTimeMs = Date.now() - startTime;
+                this.streamStartTimes.delete(streamId);
+                console.log(`[WebRTC] ⏱️  Stream ready for ${streamId} (took ${connectionTimeMs}ms)`);
+            }
+
+            this.emit('stream-ready', streamId, remoteAgent, connectionTimeMs, peerConnectionTimeMs);
         }
 
         async _getLocalStream(constraints = {}) {

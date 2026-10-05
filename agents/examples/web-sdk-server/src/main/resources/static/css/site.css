@@ -130,6 +130,7 @@ a.mp-card:hover { border-color: var(--green); box-shadow: var(--shadow); }
 .mp-copy {
     position: absolute; top: 8px; right: 8px; font: 600 12px var(--body); padding: 5px 9px; border-radius: 6px;
     border: 1px solid #ffffff26; background: #ffffff14; color: var(--code-ink); cursor: pointer;
+    min-height: 32px; min-width: 48px;   /* a 32px target at every width (2026-10-05) */
 }
 /* Touch: the footer links were 19px tall and the copy button 29px. Only on
    coarse pointers, so a desktop layout is unchanged. */

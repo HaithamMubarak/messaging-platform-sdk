@@ -2976,3 +2976,7 @@ button.cloud-tab) {
         justify-content: center;
     }
 }
+
+/* 32px minimum target at every width, not only on touch screens (site-audit small rule, 2026-10-05). */
+.terminal-app .menu-item, .menu-item, .top-status-indicator { min-height: 32px; }
+.sidebar-header-btn, .tab-add { min-width: 32px; min-height: 32px; }

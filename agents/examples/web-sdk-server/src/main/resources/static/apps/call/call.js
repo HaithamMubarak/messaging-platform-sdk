@@ -13,7 +13,10 @@
  *      Called with {} it negotiates nothing, and your camera shows in your
  *      own tab and nowhere else.
  *   2. One outgoing stream per peer, replaced rather than added: turning on
- *      the screen closes the camera's connection and offers the screen.
+ *      the screen swaps it onto the camera's connection (replaceStream), so
+ *      nothing is renegotiated; only a kind the connection never sent needs
+ *      a new offer. A broken connection is reconnected by the helper itself,
+ *      under the same id, so this file never has to.
  *   3. The browser's own "Stop sharing" bar ends the track without asking
  *      the page; listen for 'ended' or the app thinks it is still sharing.
  */
@@ -44,7 +47,8 @@
         onUserJoin(detail) {
             this._wireHelper();
             const peer = detail && detail.agentName;
-            if (peer && peer !== this.username && this.current()) this._offer(peer, this.current());
+            // A rejoin (their tab reloaded) leaves our old connection to them dead: replace it.
+            if (peer && peer !== this.username && this.current()) { this._closeTo(peer); this._offer(peer, this.current()); }
             this._announce(peer);
             this.render();
         }
@@ -63,8 +67,14 @@
             this._wiredHelper = this.webrtcHelper;
             this.webrtcHelper.on('remote-stream', (sid, stream, peer) => {
                 const r = this.remote.get(peer) || {};
-                this.remote.set(peer, Object.assign(r, { stream }));
+                this.remote.set(peer, Object.assign(r, { stream, sid }));
                 this.render();
+            });
+            // Closed by the other side, or given up on after its reconnect attempts.
+            this.webrtcHelper.on('stream-closed', (sid, peer) => {
+                if (this.outgoing.get(peer) === sid) this.outgoing.delete(peer);
+                const r = this.remote.get(peer);
+                if (r && r.sid === sid) { r.stream = null; r.sid = null; this.render(); }
             });
         }
 
@@ -126,12 +136,17 @@
         /** Replace what every peer receives from us with the current stream (or nothing). */
         _publish() {
             const stream = this.current();
-            this.peers().forEach((peer) => {
-                this._closeTo(peer);
-                if (stream) this._offer(peer, stream);
-            });
+            this.peers().forEach((peer) => this._sendTo(peer, stream));
             this._announce();
             this.render();
+        }
+
+        /** Swap in place when the connection can carry it; otherwise close and offer anew. */
+        async _sendTo(peer, stream) {
+            const sid = this.outgoing.get(peer);
+            if (stream && sid && await this.webrtcHelper.replaceStream(sid, stream).catch(() => false)) return;
+            this._closeTo(peer);
+            if (stream) this._offer(peer, stream);
         }
 
         /*

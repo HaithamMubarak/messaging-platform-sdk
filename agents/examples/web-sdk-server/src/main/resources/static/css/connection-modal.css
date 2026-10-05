@@ -914,3 +914,6 @@ button[id*="disconnect"]:hover,
 /* The expanded header reads title, then chevron, on every page (a page's own
    `.modal-toggle-btn { order: -1 }` for its collapsed card flipped it). */
 .connection-modal.connection-modal .modal-header-row button.modal-toggle-btn { order: 0; opacity: 1; align-self: center; }
+
+/* The save row is a 32px target at every width (44 on touch screens, above). */
+.connection-modal.connection-modal .mp-save-row { min-height: 32px; }

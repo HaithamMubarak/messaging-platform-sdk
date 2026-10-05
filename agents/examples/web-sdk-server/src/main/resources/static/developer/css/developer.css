@@ -354,3 +354,6 @@
     gap: var(--sp-5);
     align-items: start;
 }
+
+/* 32px minimum target at every width, not only on touch screens (site-audit small rule, 2026-10-05). */
+.auth__links a { display: inline-flex; align-items: center; justify-content: center; min-height: 32px; min-width: 32px; }

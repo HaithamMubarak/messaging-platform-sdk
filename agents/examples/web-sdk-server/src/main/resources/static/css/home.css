@@ -122,7 +122,7 @@
 .sdk-home .home-code-panel { border-color: var(--border); border-radius: 12px; box-shadow: none; }
 .sdk-home .home-code-panel .code-panel__bar { padding: 10px 18px; background: #131e30; }
 .sdk-home .home-code-panel .code-panel__name { font-size: 11px; }
-.sdk-home .home-code-panel .code-panel__copy { font-size: 11px; min-height: 26px; padding: 5px 8px; }
+.sdk-home .home-code-panel .code-panel__copy { font-size: 12px; min-height: 32px; padding: 5px 10px; }
 @media (pointer: coarse) { .sdk-home .home-code-panel .code-panel__copy { min-height: 44px; } }
 .sdk-home .home-code-panel pre { font-size: 12px; line-height: 1.85; padding: 24px; tab-size: 2; }
 .sdk-home .tok-key { color: #a3c8ff; }
@@ -385,3 +385,6 @@
     .sdk-home .home-presence { grid-template-columns: 1fr; }
     .sdk-home .home-beta-strip .home-limits { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
+
+/* 32px minimum target at every width, not only on touch screens (site-audit small rule, 2026-10-05). */
+.code-panel__copy, button[data-copy-target] { min-height: 32px; }

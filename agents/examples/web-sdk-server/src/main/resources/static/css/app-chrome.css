@@ -222,3 +222,6 @@ body:has(#mobileControls:not(.hidden)) > .connection-status {
 @media (pointer: coarse) {
     .sdk-home-chip a { display: inline-flex; align-items: center; min-height: 44px; }
 }
+
+/* 32px minimum target at every width, not only on touch screens (site-audit small rule, 2026-10-05). */
+.sdk-home-chip a { display: inline-flex; align-items: center; min-height: 32px; }

@@ -1103,7 +1103,10 @@
 @media (pointer: coarse) {
             .icon-btn-small, .events-toggle { min-width: 44px; min-height: 44px; }
         }
-</style>
+        /* 32px minimum target at every width, not only on touch screens (site-audit small rule, 2026-10-05). */
+        .icon-btn-small, .events-toggle { min-width: 32px; min-height: 32px; justify-content: center; align-items: center; }
+        label[for="enterToSend"] { min-height: 32px; }
+    </style>
 
     <!-- Load configuration from backend (secure API key management) -->
     <script src="../js/api-config.js"></script>

@@ -647,3 +647,9 @@ body.wb .chat-event--info  { color: var(--text-muted); }
 body.wb .chat-event--good .icon  { color: var(--success); }
 body.wb .chat-event--warn .icon  { color: var(--warning); }
 body.wb .chat-event--error .icon { color: var(--danger); }
+
+/* 32px minimum target at every width, not only on touch screens (site-audit small rule, 2026-10-05). */
+/* Swatches keep their 22px colour; the 32px button around it is the target (padding, clipped). */
+.wb-color { width: 32px; height: 32px; padding: 3px; background-clip: content-box; box-shadow: none; }
+.wb-size { width: 32px; height: 32px; }
+#sizeSlider { min-height: 32px; }

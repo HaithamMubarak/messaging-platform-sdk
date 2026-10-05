@@ -840,3 +840,6 @@ section[id] { scroll-margin-top: 80px; }
     .site-footer nav a { display: inline-flex; align-items: center; min-height: 44px; }
     .filter-solo { min-height: 44px; }
 }
+
+/* 32px minimum target at every width, not only on touch screens (site-audit small rule, 2026-10-05). */
+.filter-solo { min-height: 32px; }
