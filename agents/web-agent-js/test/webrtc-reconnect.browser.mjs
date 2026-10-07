@@ -34,6 +34,23 @@ await page.evaluate(() => {
     let online = true;
     Object.defineProperty(navigator, 'onLine', { configurable: true, get: () => online });
     window.setOnline = (v) => { online = v; window.dispatchEvent(new Event(v ? 'online' : 'offline')); };
+    // A phone suspending and resuming the tab, and switching networks.
+    let visible = 'visible';
+    Object.defineProperty(document, 'visibilityState', { configurable: true, get: () => visible });
+    window.setVisible = (v) => { visible = v ? 'visible' : 'hidden'; document.dispatchEvent(new Event('visibilitychange')); };
+    window.netChange = () => {
+        if (!navigator.connection) throw new Error('navigator.connection missing in this browser');
+        navigator.connection.dispatchEvent(new Event('change'));
+    };
+    window.sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+    // Count the restarts a helper starts, letting each one run for real.
+    window.countRecovers = (h) => {
+        const calls = [], real = Object.getPrototypeOf(h)._recover;
+        h._recover = function (id, opts) { calls.push(id); return real.call(this, id, opts); };
+        return { calls, done: () => { delete h._recover; } };
+    };
+    // How a resumed phone finds a connection: not connected, nothing fired yet.
+    window.fakeState = (pc, state) => Object.defineProperty(pc, 'connectionState', { configurable: true, get: () => state });
 
     const helpers = {};
     window.cut = new Set();          // agent names whose outgoing signalling is dropped
@@ -216,6 +233,47 @@ await check('offline: recovery waits without spending attempts, and coming back 
     setOnline(true);
     await waitFor(() => a.log.filter((e) => e[0] === 'stream-recovered').length > recovered && a.peerConnections.get(sid).connectionState === 'connected');
     if (!(await flowing(b, sid))) throw new Error('no frames after coming back');
+});
+
+await check('a tab back in front restarts a stream that is not connected, once however many events fire', async () => {
+    const a = helpers.alice, b = helpers.bob, pc = a.peerConnections.get(sid);
+    const rec = countRecovers(a);
+    try {
+        setVisible(false); setVisible(true);
+        await sleep(800);
+        if (rec.calls.length) throw new Error('restarted a connected stream on resume');
+        const recovered = a.log.filter((e) => e[0] === 'stream-recovered').length;
+        fakeState(pc, 'disconnected');
+        setVisible(false); setVisible(true);
+        await sleep(800);
+        if (rec.calls.length !== 1) throw new Error(`${rec.calls.length} restarts for coming back to the front`);
+        // A real resume fires several at once: one restart, not one each.
+        setVisible(false); setVisible(true); netChange(); window.dispatchEvent(new Event('online'));
+        await sleep(800);
+        delete pc.connectionState;
+        if (rec.calls.length !== 2) throw new Error(`${rec.calls.length - 1} restarts for one burst of resume events`);
+        await waitFor(() => a.log.filter((e) => e[0] === 'stream-recovered').length > recovered);
+        if (!(await flowing(b, sid))) throw new Error('no frames after the resume');
+    } finally { rec.done(); }
+});
+
+await check('a network change (wifi to mobile data) restarts it too; going to the background does not', async () => {
+    const a = helpers.alice, pc = a.peerConnections.get(sid);
+    const rec = countRecovers(a);
+    try {
+        fakeState(pc, 'disconnected');
+        setVisible(false);
+        await sleep(800);
+        if (rec.calls.length) throw new Error('restarted when the tab was hidden');
+        setVisible(true);   // back, but count only what the network change below starts
+        await sleep(800);
+        rec.calls.length = 0;
+        netChange();
+        await sleep(800);
+        delete pc.connectionState;
+        if (rec.calls.length !== 1) throw new Error(`${rec.calls.length} restarts for one network change`);
+    } finally { rec.done(); }
+    await waitFor(() => a.peerConnections.get(sid).connectionState === 'connected');
 });
 
 await check('signalling cut for good: bounded attempts, then stream-failed and everything released', async () => {

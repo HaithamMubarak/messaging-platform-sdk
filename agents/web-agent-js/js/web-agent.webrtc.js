@@ -375,12 +375,10 @@
                 maxAttempts: 4,              // one ICE restart, then new connections
                 offlinePollMs: 2000,         // while offline, how often to look again
                 answererGiveUpMs: 45000,     // answerer: how long to wait for the offerer to come back
-                dataChannelCloseGraceMs: 1500 // answerer: a closed channel may be a rebuild about to arrive
+                dataChannelCloseGraceMs: 1500, // answerer: a closed channel may be a rebuild about to arrive
+                wakeDebounceMs: 300          // resume/network events arriving together count once
             };
-            if (typeof window !== 'undefined' && window.addEventListener) {
-                this._onlineListener = () => this._onOnline();
-                window.addEventListener('online', this._onlineListener);
-            }
+            this._listenForWake();
 
             // For Node.js SFU compatibility
             this.ready = _RTCPeerConnection !== null;
@@ -1194,11 +1192,36 @@
         }
 
         /** Back online: restart every outgoing stream that is not connected, now. */
-        _onOnline() {
+        /**
+         * Phones suspend background tabs and switch networks (wifi to mobile
+         * data) without the connection noticing at once. Coming back online,
+         * the tab returning to the front, and a network change each restart
+         * every outgoing stream that is not connected. They tend to arrive
+         * together on a resume, so they are coalesced into one pass.
+         */
+        _listenForWake() {
+            const wake = (reason) => {
+                clearTimeout(this._wakeTimer);
+                this._wakeTimer = setTimeout(() => this._onWake(reason), this.reconnect.wakeDebounceMs);
+            };
+            this._wakeListeners = [];
+            const on = (target, event, fn) => {
+                if (!target || typeof target.addEventListener !== 'function') return;
+                target.addEventListener(event, fn);
+                this._wakeListeners.push(() => target.removeEventListener(event, fn));
+            };
+            if (typeof window !== 'undefined') on(window, 'online', () => wake('back online'));
+            if (typeof document !== 'undefined') {
+                on(document, 'visibilitychange', () => { if (document.visibilityState === 'visible') wake('back in front'); });
+            }
+            if (typeof navigator !== 'undefined') on(navigator.connection, 'change', () => wake('network changed'));
+        }
+
+        _onWake(reason) {
             this.streamSessions.forEach((session, streamId) => {
                 const pc = this.peerConnections.get(streamId);
                 if (session.role !== 'offer' || (pc && pc.connectionState === 'connected')) return;
-                console.log(`[WebRTC] Back online: reconnecting ${streamId}`);
+                console.log(`[WebRTC] ${reason}: reconnecting ${streamId}`);
                 session.attempts = 0;
                 this._recover(streamId);
             });
@@ -1313,10 +1336,9 @@
         /** Close everything and stop listening for the network: for a helper that is being thrown away. */
         destroy() {
             this.closeAllStreams();
-            if (this._onlineListener && typeof window !== 'undefined' && window.removeEventListener) {
-                window.removeEventListener('online', this._onlineListener);
-            }
-            this._onlineListener = null;
+            clearTimeout(this._wakeTimer);
+            (this._wakeListeners || []).forEach((off) => off());
+            this._wakeListeners = [];
         }
 
         // Allow page to register a default local MediaStream (e.g., camera) to be used when answering offers
