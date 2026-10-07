@@ -1035,7 +1035,9 @@
             payload : { sessionId : _self.sessionId },
             id : _self.channelId,
             callback : function(response){
-                const servers = response && response.status === 'success' ? extractApiResponse(response) : null;
+                // The body is the platform envelope; the list is its `data`.
+                const body = response && response.status === 'success' ? extractApiResponse(response) : null;
+                const servers = body && body.data;
                 const ok = Array.isArray(servers) && servers.length > 0;
                 if (ok) _self.iceServers = servers;
                 _self._scheduleIceRefresh();

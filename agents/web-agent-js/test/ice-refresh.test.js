@@ -58,6 +58,34 @@ check('a static credential, or a closed connection, schedules nothing', () => {
     assert.strictEqual(scheduledDelay(minted(now() + 1800), false), null);
 });
 
+// The envelope /ice-servers really answers with (captured from production,
+// 2026-10-07): the list is under `data`. The first version of
+// refreshIceServers read the envelope itself, so every refresh "failed".
+const CAPTURED = JSON.stringify({ status: 'success', statusMessage: null, data: [
+    { urls: ['stun:hmdevonline.com:3478'] },
+    { urls: ['turn:hmdevonline.com:3478'], username: (now() + 3600) + ':0123456789abcdef', credential: 'c2VjcmV0' }] });
+
+check('refreshIceServers takes the new list from the platform\'s envelope', () => {
+    const real = global.XMLHttpRequest;
+    let sent = null;
+    global.XMLHttpRequest = function () {
+        const xhr = this;
+        Object.assign(xhr, { status: 0, response: null, setRequestHeader() {},
+            open(method, url) { xhr.url = url; },
+            send(body) { sent = { url: xhr.url, body }; xhr.status = 200; xhr.response = CAPTURED; xhr.onloadend.call(xhr); } });
+    };
+    const conn = new AgentConnection();
+    Object.assign(conn, { readyState: true, sessionId: 'sess-1', channelId: 'ch', _api: 'https://x.test/api', iceServers: minted(now() + 60) });
+    let got;
+    const realTimeout = global.setTimeout;
+    global.setTimeout = () => ({ unref() {} });
+    try { conn.refreshIceServers((servers) => { got = servers; }); }
+    finally { global.XMLHttpRequest = real; global.setTimeout = realTimeout; }
+    assert.ok(/ice-servers/.test(sent.url), 'url ' + sent.url);
+    assert.ok(Array.isArray(got) && got.length === 2, 'callback got ' + JSON.stringify(got));
+    assert.strictEqual(conn.iceServers[1].username.slice(-16), '0123456789abcdef');
+});
+
 function nodeIceServers(env) {
     const keys = ['TURN_SERVER', 'STUN_SERVER', 'TURN_USERNAME', 'TURN_CREDENTIAL', 'TURN_PASSWORD', 'TURN_AUTH_SECRET', 'TURN_TTL_SECONDS'];
     const saved = {};
