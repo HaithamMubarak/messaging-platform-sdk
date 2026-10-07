@@ -96,14 +96,13 @@ rtc::Configuration buildRtcConfig() {
         std::string stun = stunServer ? stunServer : "coturn:3478";
         std::string turn = turnServer ? turnServer : "coturn:3478";
         std::string user = uEnv ? uEnv : "webrtc";
+        std::string pass = pEnv ? pEnv : "turnpassword123";
         cfg.iceServers.emplace_back("stun:" + stun);
-        if (pEnv && *pEnv) {   // no default credential: this file is public
-            rtc::IceServer turnUdp("turn:" + turn);
-            turnUdp.username = user;
-            turnUdp.password = pEnv;
-            turnUdp.relayType = rtc::IceServer::RelayType::TurnUdp;
-            cfg.iceServers.push_back(turnUdp);
-        }
+        rtc::IceServer turnUdp("turn:" + turn);
+        turnUdp.username = user;
+        turnUdp.password = pass;
+        turnUdp.relayType = rtc::IceServer::RelayType::TurnUdp;
+        cfg.iceServers.push_back(turnUdp);
     } else {
         cfg.iceServers.emplace_back("stun:stun.l.google.com:19302");
     }

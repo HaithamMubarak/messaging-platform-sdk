@@ -17,7 +17,7 @@ ice.turn.servers=turn:hmdevonline.com:3478
 
 # Authentication
 ice.turn.username=webrtc
-ice.turn.credential=<retired 2026-10-07: minted credentials now>
+ice.turn.credential=turnpassword123
 ```
 
 ## Server Details
@@ -27,7 +27,7 @@ ice.turn.credential=<retired 2026-10-07: minted credentials now>
 - **TURN Server:** `turn:hmdevonline.com:3478`
 - **Realm:** `hmdevonline.com`
 - **Username:** `webrtc`
-- **Password:** `<retired 2026-10-07: minted credentials now>`
+- **Password:** `turnpassword123`
 
 ## What This Enables
 

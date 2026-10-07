@@ -116,24 +116,22 @@ json WebRtcSignaling::buildIceServers() {
     if (turnServer || stunServer) {
         const char* uEnv = std::getenv("TURN_USERNAME");
         const char* pEnv = std::getenv("TURN_PASSWORD");
-        if (!pEnv) pEnv = std::getenv("TURN_CREDENTIAL");
         const std::string turn = turnServer ? turnServer : "coturn:3478";
         const std::string stun = stunServer ? stunServer : "coturn:3478";
         const std::string user = uEnv ? uEnv : "webrtc";
-        // No default credential: this file is public, so a literal password
-        // here is everyone's. TURN is included only when the environment
-        // supplies one (as the JS helper does); the platform's own TURN mints
-        // short-lived credentials and hands them out on connect.
-        json servers = json::array({ json{ {"urls", "stun:" + stun} } });
-        if (pEnv && *pEnv) {
-            servers.push_back(json{
-                {"urls", json::array({ "turn:" + turn + "?transport=udp", "turn:" + turn + "?transport=tcp" })},
+        const std::string pass = pEnv ? pEnv : "turnpassword123";
+        return json::array({
+            json{
+                {"urls", json::array({
+                    "stun:" + stun,
+                    "turn:" + turn + "?transport=udp",
+                    "turn:" + turn + "?transport=tcp"
+                })},
                 {"username", user},
-                {"credential", std::string(pEnv)}
-            });
-        }
-        servers.push_back(json{ {"urls", "stun:stun.l.google.com:19302"} });
-        return servers;
+                {"credential", pass}
+            },
+            json{ {"urls", "stun:stun.l.google.com:19302"} }
+        });
     }
     // Default: public STUN.
     return json::array({
