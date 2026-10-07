@@ -114,10 +114,27 @@ struct ConnectResponse {
     long long localOffset;
     std::string message;
     bool success;
+    /** The ICE servers the platform hands this connection (STUN, then TURN
+     *  with its credentials), as the browser SDK receives them. */
+    json iceServers;
 
-    ConnectResponse() : globalOffset(-1), localOffset(-1), success(false) {}
+    ConnectResponse() : globalOffset(-1), localOffset(-1), success(false), iceServers(json::array()) {}
 
     static ConnectResponse fromJson(const json& j);
+};
+
+/**
+ * One TURN server out of a connect response's iceServers: the first plain
+ * turn: URL (UDP relay, which is what the game mesh uses) on an entry that
+ * carries credentials. turns: (TLS) entries are skipped.
+ */
+struct TurnServer {
+    std::string host;
+    int port = 3478;
+    std::string username;
+    std::string credential;
+
+    static bool pick(const json& iceServers, TurnServer& out);
 };
 
 /**

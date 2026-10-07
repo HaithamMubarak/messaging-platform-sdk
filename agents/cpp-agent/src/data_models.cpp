@@ -1,5 +1,6 @@
 #include "hmdev/messaging/agent/data_models.h"
 #include <stdexcept>
+#include <cstdlib>
 
 namespace hmdev {
 namespace messaging {
@@ -185,8 +186,35 @@ ConnectResponse ConnectResponse::fromJson(const json& j) {
     if (!getIfPresent(j, "localOffset", resp.localOffset) && j.contains("state"))
         getIfPresent(j["state"], "localOffset", resp.localOffset);
     getIfPresent(j, "message", resp.message);
+    if (j.contains("iceServers") && j["iceServers"].is_array()) resp.iceServers = j["iceServers"];
     resp.success = !resp.sessionId.empty();
     return resp;
+}
+
+// TurnServer: "turn:host[:port][?transport=...]" with the entry's credentials.
+bool TurnServer::pick(const json& iceServers, TurnServer& out) {
+    if (!iceServers.is_array()) return false;
+    for (const auto& server : iceServers) {
+        if (!server.is_object() || !server.contains("username") || !server.contains("credential")
+            || !server["username"].is_string() || !server["credential"].is_string()) continue;
+        json urls = server.contains("urls") ? server["urls"] : json();
+        if (urls.is_string()) urls = json::array({ urls });
+        if (!urls.is_array()) continue;
+        for (const auto& u : urls) {
+            if (!u.is_string()) continue;
+            std::string url = u.get<std::string>();
+            if (url.rfind("turn:", 0) != 0) continue;
+            std::string hostPort = url.substr(5, url.find('?') == std::string::npos ? std::string::npos : url.find('?') - 5);
+            const size_t colon = hostPort.rfind(':');
+            out.host = colon == std::string::npos ? hostPort : hostPort.substr(0, colon);
+            out.port = colon == std::string::npos ? 3478 : std::atoi(hostPort.c_str() + colon + 1);
+            if (out.host.empty() || out.port <= 0) continue;
+            out.username = server["username"].get<std::string>();
+            out.credential = server["credential"].get<std::string>();
+            return true;
+        }
+    }
+    return false;
 }
 
 // EventMessageResult
