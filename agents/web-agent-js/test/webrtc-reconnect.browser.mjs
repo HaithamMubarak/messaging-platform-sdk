@@ -163,6 +163,23 @@ await check('restartStream: an ICE restart on the same connections, and the pict
     if (!(await flowing(b, sid))) throw new Error('no frames after the restart');
 });
 
+await check('an ICE restart gathers with the CURRENT ice servers on both sides (minted TURN credentials expire)', async () => {
+    const a = helpers.alice, b = helpers.bob;
+    // Not in the helper's fallback list, so only a refresh can put it there.
+    const fresh = [{ urls: 'stun:stun.cloudflare.com:3478' }];
+    a.channel.iceServers = fresh; b.channel.iceServers = fresh;
+    const pcA = a.peerConnections.get(sid), pcB = b.peerConnections.get(sid);
+    const recovered = a.log.filter((e) => e[0] === 'stream-recovered').length;
+    a.restartStream(sid);
+    await waitFor(() => a.log.filter((e) => e[0] === 'stream-recovered').length > recovered);
+    for (const [who, h] of [['offerer', a], ['answerer', b]]) {
+        const got = JSON.stringify(h.peerConnections.get(sid).getConfiguration().iceServers.map((s) => s.urls));
+        if (!got.includes('stun.cloudflare')) throw new Error(`the ${who} restarted with ${got}`);
+    }
+    if (a.peerConnections.get(sid) !== pcA || b.peerConnections.get(sid) !== pcB) throw new Error('rebuilt, not restarted');
+    delete a.channel.iceServers; delete b.channel.iceServers;
+});
+
 await check('the answerer reloaded (state gone): unknown-stream, then a new connection under the same id', async () => {
     const a = helpers.alice;
     const old = helpers.bob;

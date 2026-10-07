@@ -332,6 +332,19 @@
         }
     }
 
+    /**
+     * A TURN REST API credential (what coturn's use-auth-secret checks):
+     * username "<expiry seconds>:<random id>", password base64(HMAC-SHA1(secret,
+     * username)). Node only: a secret must never reach a browser, which gets
+     * its credentials from the platform instead. Null without a secret.
+     */
+    function mintTurnCredential(secret, ttlSeconds) {
+        if (!isNode || !secret) return null;
+        const crypto = require('crypto');
+        const username = (Math.floor(Date.now() / 1000) + ttlSeconds) + ':' + crypto.randomBytes(8).toString('hex');
+        return { username, credential: crypto.createHmac('sha1', secret).update(username).digest('base64') };
+    }
+
     // =========================================================================
     // WebRtcHelper Class
     // =========================================================================
@@ -454,11 +467,18 @@
                 // Node.js callers must supply whatever they want used.
                 const turnServer = process.env.TURN_SERVER;
                 const stunServer = process.env.STUN_SERVER;
-                const turnUsername = process.env.TURN_USERNAME;
+                // A server that holds the TURN secret (TURN_AUTH_SECRET, coturn's
+                // static-auth-secret) mints its own short-lived credential, new
+                // for every connection built, in the TURN REST API form; a
+                // static one is refused once coturn uses the secret.
+                const minted = mintTurnCredential(process.env.TURN_AUTH_SECRET,
+                    Number(process.env.TURN_TTL_SECONDS) || 3600);
+                const turnUsername = minted ? minted.username : process.env.TURN_USERNAME;
                 // TURN_CREDENTIAL is what the deployment actually sets, and
                 // reading only TURN_PASSWORD is what silently broke the SFU:
                 // see the note below.
-                const turnPassword = process.env.TURN_PASSWORD || process.env.TURN_CREDENTIAL;
+                const turnPassword = minted ? minted.credential
+                    : process.env.TURN_PASSWORD || process.env.TURN_CREDENTIAL;
 
                 // If custom TURN/STUN servers are configured in environment
                 if (turnServer || stunServer) {
@@ -657,6 +677,7 @@
          * (an ICE restart) rather than build a new one.
          */
         async _sendOffer(streamId, pc, { iceRestart = false, renegotiate = false }) {
+            if (iceRestart) this._useFreshIceServers(pc);
             const offer = await pc.createOffer(iceRestart ? { iceRestart: true } : undefined);
             await pc.setLocalDescription(offer);
 
@@ -749,12 +770,30 @@
             };
         }
 
+        /**
+         * Give `pc` the current ICE servers before it gathers again. TURN
+         * credentials are minted with an expiry (an hour on hmdevonline.com),
+         * and an ICE restart allocates a NEW relay, so restarting a long call
+         * with the credentials it was built with is refused by the TURN server
+         * exactly when the relay is the only way through.
+         */
+        _useFreshIceServers(pc) {
+            if (typeof pc.setConfiguration !== 'function') return;
+            try {
+                const current = typeof pc.getConfiguration === 'function' ? pc.getConfiguration() : {};
+                pc.setConfiguration(Object.assign({}, current, { iceServers: this.getIceServersFromConfig(this.channel) }));
+            } catch (err) {
+                console.warn('[WebRTC] Could not refresh ICE servers before gathering again:', err);
+            }
+        }
+
         /** Apply an offer to `pc` and send the answer: first offers and ICE restarts alike. */
         async _answerOn(streamId, pc, sdpOffer, localStream = null) {
             if (pc.signalingState !== 'stable' && pc.signalingState !== 'have-remote-offer') {
                 // Only the offerer starts a round, so this is a stale half-round; the newer offer wins.
                 await pc.setLocalDescription({ type: 'rollback' }).catch(() => {});
             }
+            if (pc.remoteDescription) this._useFreshIceServers(pc);   // an ICE restart gathers again
             await pc.setRemoteDescription(new _RTCSessionDescription({type: 'offer', sdp: sdpOffer}));
             // The other side may have trickled candidates before this point.
             await this._flushIce(streamId);

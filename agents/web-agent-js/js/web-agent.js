@@ -859,6 +859,19 @@
         });
     }
 
+    /**
+     * The earliest expiry (epoch seconds) among minted TURN usernames
+     * ("<seconds>:<id>", the TURN REST API form), or 0 when none is minted.
+     */
+    function turnExpirySeconds(iceServers) {
+        let soonest = 0;
+        (Array.isArray(iceServers) ? iceServers : []).forEach(function(server){
+            const m = /^(\d{9,}):/.exec(server && server.username || '');
+            if (m && (!soonest || Number(m[1]) < soonest)) soonest = Number(m[1]);
+        });
+        return soonest;
+    }
+
     const extractApiResponse  = function(response)
     {
         let responseData = response.data;
@@ -997,6 +1010,54 @@
         });
 
     }
+
+    /**
+     * Fetch fresh ICE servers for this session. TURN credentials from the
+     * platform expire (an hour on hmdevonline.com) and an ICE restart or a new
+     * peer needs a live one, so a connection keeps its list current by calling
+     * this before they lapse (see _scheduleIceRefresh). Calls back with the
+     * new list, or null.
+     */
+    AgentConnection.prototype.refreshIceServers = function(callback){
+        const _self = this;
+        if(!_self.readyState || !_self.sessionId){
+            typeof callback === 'function' && callback(null);
+            return;
+        }
+        request({
+            _throttle: _self._throttle || undefined,
+            useSyncMode : _self.useSyncMode,
+            pubKeyEncryptor : _self._pubKeyEncryptor,
+            base : _self._api,
+            apiKey: _self._apiKey,
+            method : 'post',
+            action : 'ice-servers',
+            payload : { sessionId : _self.sessionId },
+            id : _self.channelId,
+            callback : function(response){
+                const servers = response && response.status === 'success' ? extractApiResponse(response) : null;
+                const ok = Array.isArray(servers) && servers.length > 0;
+                if (ok) _self.iceServers = servers;
+                _self._scheduleIceRefresh();
+                typeof callback === 'function' && callback(ok ? servers : null);
+            }
+        });
+    };
+
+    /**
+     * Refresh the ICE servers five minutes before the minted TURN username's
+     * expiry ("<seconds>:<id>"), at least 30 s from now; retried that way until
+     * it succeeds. A static credential has no expiry and schedules nothing.
+     */
+    AgentConnection.prototype._scheduleIceRefresh = function(){
+        const _self = this;
+        clearTimeout(_self._iceRefreshTimer);
+        const expiry = turnExpirySeconds(_self.iceServers);
+        if (!expiry || !_self.readyState) return;
+        const delayMs = Math.max(30000, (expiry - 300) * 1000 - Date.now());
+        _self._iceRefreshTimer = setTimeout(function(){ _self.refreshIceServers(); }, delayMs);
+        if (_self._iceRefreshTimer && typeof _self._iceRefreshTimer.unref === 'function') _self._iceRefreshTimer.unref();
+    };
 
     /**
      * Connect to WebSocket for real-time messaging
@@ -1961,6 +2022,7 @@
             }
 
             _self.readyState = true;
+            _self._scheduleIceRefresh();
 
             // Register this connection in the active connections registry
             _registerConnection(_self);
@@ -2090,6 +2152,7 @@
             clearTimeout(_self._reconnectTimer);
             delete _self._reconnectTimer;
         }
+        clearTimeout(_self._iceRefreshTimer);
 
         const session = _self.sessionId;
 

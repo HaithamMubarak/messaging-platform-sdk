@@ -35,7 +35,7 @@
     }
   },
   "scripts": {
-    "test": "node test/smoke.test.js && node test/pack.test.js",
+    "test": "node test/smoke.test.js && node test/ice-refresh.test.js && node test/pack.test.js",
     "prepublishOnly": "npm test"
   },
   "types": "index.d.ts"
