@@ -85,6 +85,7 @@
 }
 .site-shell-footer .brand svg { width: 26px; height: 26px; flex: 0 0 26px; }
 .site-shell-footer .site-shell-footer__about p { margin: 12px 0 0; max-width: 32ch; line-height: 1.55; }
+.site-shell-footer .site-shell-footer__about ul { margin-top: 8px; }
 .site-shell-footer h2 {
     margin: 0 0 10px; font-size: 12px; font-weight: 700; letter-spacing: 1.2px; text-transform: uppercase;
     color: var(--text, #eef2f8);

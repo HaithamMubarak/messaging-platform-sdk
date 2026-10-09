@@ -1,0 +1,166 @@
+<!doctype html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>About HMDev | Messaging Platform</title>
+<meta name="description" content="HMDev is the developer behind the Messaging Platform: realtime messaging, presence, shared state and WebRTC through one SDK, and the apps and games built on it.">
+<link rel="canonical" href="https://hmdevonline.com/messaging-platform/hub/about.html">
+<meta name="robots" content="index,follow">
+<meta name="color-scheme" content="dark">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="Messaging Platform">
+<meta property="og:title" content="About HMDev | Messaging Platform">
+<meta property="og:description" content="Who builds the Messaging Platform, what it is, what runs on it, and the promises the site already makes.">
+<meta property="og:url" content="https://hmdevonline.com/messaging-platform/hub/about.html">
+<meta property="og:image" content="https://hmdevonline.com/messaging-platform/sdk/images/og-image.png">
+<meta name="twitter:card" content="summary_large_image">
+<link rel="icon" type="image/svg+xml" href="/messaging-platform/hub/favicon.svg">
+<link rel="stylesheet" href="/messaging-platform/hub/css/design-tokens.css">
+<link rel="stylesheet" href="/messaging-platform/hub/css/site.css">
+<link rel="stylesheet" href="/messaging-platform/hub/css/site-shell.css">
+<style>
+/* About page only. Grids use minmax(0, 1fr) so a long package name cannot widen a track. */
+.about-hero { max-width: 46rem; padding: 24px 0 8px; }
+.about-hero h1 { font-size: clamp(32px, 5vw, 52px); letter-spacing: -1.4px; line-height: 1.06; }
+.about-hero h1 em { font-style: normal; color: var(--accent, #2dd4bf); }
+.about-hero .mp-lead { margin-top: 16px; font-size: 18px; max-width: 40rem; }
+.about-split { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 32px; align-items: start; }
+.about-split p + p { margin-top: 12px; }
+.about-split p { color: var(--text-body); }
+.about-names { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; border: 1px solid var(--border); border-radius: 12px; background: var(--surface-1); padding: 16px 18px; overflow: clip; }
+.about-names li { display: grid; grid-template-columns: minmax(0, 7.5rem) minmax(0, 1fr); gap: 12px; font-size: 14px; color: var(--text-muted); }
+.about-names code { font-family: var(--font-mono); font-size: 13px; color: var(--brand-ink); overflow-wrap: anywhere; }
+.about-note { margin-top: 20px; color: var(--text-body); }
+.about-prims { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; list-style: none; margin: 18px 0 0; padding: 0; }
+.about-prims li { padding: 14px 16px; border: 1px solid var(--border); border-radius: 12px; background: var(--surface-1); min-width: 0; }
+.about-prims b { display: block; font-family: var(--font-display); color: var(--text); }
+.about-prims span { display: block; margin-top: 4px; font-size: 14px; color: var(--text-muted); }
+.about-checks li a { color: var(--brand-ink); font-weight: 600; text-underline-offset: 3px; }
+.about-checks li small { display: block; margin-top: 6px; font-size: 13px; color: var(--text-muted); }
+.about-contact { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 24px; align-items: center; padding: clamp(22px, 4vw, 36px); border: 1px solid var(--border); border-radius: 16px; background: var(--surface-1); }
+.about-contact h2 { font-size: clamp(22px, 3vw, 28px); }
+.about-contact p { margin-top: 10px; color: var(--text-body); }
+.about-contact .mp-actions { margin-top: 0; }
+@media (max-width: 980px) {
+    .about-split, .about-contact { grid-template-columns: minmax(0, 1fr); }
+    .about-prims { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+@media (max-width: 680px) {
+    .about-prims { grid-template-columns: minmax(0, 1fr); }
+    .about-names li { grid-template-columns: minmax(0, 1fr); gap: 2px; }
+}
+</style>
+<link rel="preload" href="/messaging-platform/hub/fonts/5.3.0/manrope-latin-wght-normal.woff2" as="font" type="font/woff2" crossorigin>
+</head>
+<body class="mp-page">
+<!-- site-shell:header (tools/site-shell.cjs; do not edit here) -->
+<header class="site-header" id="siteHeader">
+    <div class="site-header__inner">
+        <a class="brand" href="/messaging-platform/hub/"><svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><rect width="24" height="24" rx="6" fill="#14b8a6"/><path d="M6 9.5A2.5 2.5 0 0 1 8.5 7h7A2.5 2.5 0 0 1 18 9.5v3a2.5 2.5 0 0 1-2.5 2.5H11l-3.2 2.4A.5.5 0 0 1 7 17V15h-.5A.5.5 0 0 1 6 14.5z" fill="#fff"/><circle cx="9.6" cy="11" r="1" fill="#0b1120"/><circle cx="12" cy="11" r="1" fill="#0b1120"/><circle cx="14.4" cy="11" r="1" fill="#0b1120"/></svg><span>Messaging Platform</span></a>
+        <button class="nav-toggle" id="navToggle" type="button" aria-expanded="false" aria-controls="siteNav" aria-label="Open menu"><svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M4 6h16M4 12h16M4 18h16"/></svg></button>
+        <nav class="site-nav" id="siteNav" aria-label="Main">
+            <a href="/messaging-platform/hub/">Product</a>
+            <a href="/messaging-platform/hub/playground.html">Demos</a>
+            <a href="/messaging-platform/apps/">Apps</a>
+            <a href="/messaging-platform/hub/games.html">Games</a>
+            <a href="/messaging-platform/hub/docs.html">Docs</a>
+            <a href="/messaging-platform/hub/pricing.html">Pricing</a>
+            <a class="site-nav__cta btn--gradient" href="/messaging-platform/hub/developer/index.html?start=free">Start free</a>
+        </nav>
+    </div>
+</header>
+<!-- /site-shell:header -->
+<a class="sr-only" href="#main">Skip to content</a>
+<main class="mp-main" id="main">
+
+<section class="about-hero" aria-labelledby="page-title">
+<p class="mp-eyebrow">About</p>
+<h1 id="page-title">HMDev builds the <em>Messaging Platform.</em></h1>
+<p class="mp-lead">Realtime infrastructure for developers: messaging, presence, shared state and WebRTC through one SDK and a managed backend, plus the apps and games that run on it. The platform is in public beta.</p>
+<div class="mp-actions"><a class="mp-btn mp-btn--primary" href="quickstart.html">Open the quickstart</a><a class="mp-btn" href="https://github.com/HaithamMubarak/messaging-platform-sdk">Read the source</a></div>
+</section>
+
+<section class="mp-section" aria-labelledby="who-h">
+<div class="mp-section-head"><p class="mp-eyebrow">Who we are</p><h2 id="who-h">The name on the domain and on every package.</h2></div>
+<div class="about-split">
+<div>
+<p>HMDev is the developer behind the Messaging Platform. It runs the site at hmdevonline.com, operates the hosted service the SDKs connect to, and publishes the SDK in the open on GitHub.</p>
+<p>When the <a class="mp-link" href="terms.html">terms</a> and the <a class="mp-link" href="privacy.html">privacy policy</a> speak of "the project operator", this is who they mean.</p>
+</div>
+<ul class="about-names" aria-label="Where the HMDev name appears">
+<li><span>Website</span><code>hmdevonline.com</code></li>
+<li><span>Java</span><code>com.hmdev.messaging</code></li>
+<li><span>Python</span><code>hmdev-messaging-agent</code></li>
+<li><span>C++</span><code>hmdev::messaging-cpp-agent</code></li>
+</ul>
+</div>
+<p class="mp-note about-note">Today the Platform account and the Developer Portal account are separate. One HMDev account for both is on the way.</p>
+</section>
+
+<section class="mp-section" aria-labelledby="what-h">
+<div class="mp-section-head"><p class="mp-eyebrow">What the platform is</p><h2 id="what-h">Six primitives. One connection.</h2>
+<p class="mp-lead">Browsers, servers, AI agents and games on one channel. A WebSocket with an HTTP fallback, and peer-to-peer media with TURN handled.</p></div>
+<ul class="about-prims">
+<li><b>Messaging</b><span>Broadcast to a room, address one person, or send fast-changing state.</span></li>
+<li><b>Presence</b><span>Joins, leaves, who hosts, and who takes over.</span></li>
+<li><b>Shared state</b><span>Stored on the channel for whoever joins later.</span></li>
+<li><b>Files</b><span>Browser to browser, in chunks, checked on arrival.</span></li>
+<li><b>Calls</b><span>Video and audio over WebRTC; the media flows peer to peer.</span></li>
+<li><b>Proof</b><span>A hash-chained log with signed receipts.</span></li>
+</ul>
+<div class="mp-langs"><span>SDKs for</span><a class="mp-lang" href="quickstart.html#js">JavaScript</a><a class="mp-lang" href="quickstart.html#python">Python</a><a class="mp-lang" href="quickstart.html#java">Java</a><a class="mp-lang" href="quickstart.html#cpp">C++ <small>experimental</small></a></div>
+</section>
+
+<section class="mp-section" aria-labelledby="built-h">
+<div class="mp-section-head"><p class="mp-eyebrow">Built on it</p><h2 id="built-h">We use what we sell.</h2>
+<p class="mp-lead">The apps and games below run on the same channels the SDK gives you.</p></div>
+<nav class="home-doors" aria-label="What runs on the platform">
+<a class="home-door" href="/messaging-platform/apps/"><span class="home-door__icon" aria-hidden="true">&#9638;</span><p class="mp-eyebrow">Use</p><h3>Apps</h3><p>Rooms, Drop Pro, Proof and more, ready today.</p><span class="home-door__go">The apps catalogue &rarr;</span></a>
+<a class="home-door" href="games.html"><span class="home-door__icon" aria-hidden="true">&#9654;</span><p class="mp-eyebrow">Play</p><h3>Games</h3><p>Party Arcade and BlockParty: one code, everyone on their own phone.</p><span class="home-door__go">Games &rarr;</span></a>
+<a class="home-door" href="playground.html"><span class="home-door__icon" aria-hidden="true">&#9673;</span><p class="mp-eyebrow">Learn</p><h3>Demos</h3><p>One idea per demo, its source one click away.</p><span class="home-door__go">The demo gallery &rarr;</span></a>
+<a class="home-door" href="docs.html"><span class="home-door__icon" aria-hidden="true">&lt;/&gt;</span><p class="mp-eyebrow">Build</p><h3>Docs</h3><p>The user guide, the SDK guide and the quickstart.</p><span class="home-door__go">Documentation &rarr;</span></a>
+</nav>
+</section>
+
+<section class="mp-section" aria-labelledby="hold-h">
+<div class="mp-section-head"><p class="mp-eyebrow">What we hold ourselves to</p><h2 id="hold-h">Promises the site already makes.</h2>
+<p class="mp-lead">Each one is written down where it applies; follow the link to read it in full.</p></div>
+<ul class="home-checks about-checks">
+<li>The SDK sends no analytics, and makes no call of its own from inside your app.<small><a href="privacy.html">Privacy policy</a></small></li>
+<li>What you draw, type, say or share in a demo never reaches the server.<small><a href="privacy.html">Privacy policy</a></small></li>
+<li>We do not sell personal information.<small><a href="privacy.html">Privacy policy</a></small></li>
+<li>Channels are encrypted by their password.<small><a href="/messaging-platform/hub/">Product overview</a></small></li>
+<li>Paid plans are priced in the open before they apply, and guests and players always join free.<small><a href="pricing.html">Pricing</a></small></li>
+<li>No uptime guarantee during the beta, and no SLA claimed until monitoring and capacity support it.<small><a href="pricing.html">Pricing</a></small></li>
+</ul>
+</section>
+
+<section class="mp-section" aria-labelledby="contact-h"><div class="about-contact">
+<div><h2 id="contact-h">Talk to us.</h2>
+<p>Questions, bug reports, privacy requests or anything about a Platform account: open an issue on the project's GitHub. It is the contact the terms and the privacy policy name.</p></div>
+<div class="mp-actions"><a class="mp-btn mp-btn--primary" href="https://github.com/HaithamMubarak/messaging-platform-sdk/issues">Open an issue</a><a class="mp-btn" href="terms.html">Terms</a></div>
+</div></section>
+
+</main>
+<!-- site-shell:footer (tools/site-shell.cjs; do not edit here) -->
+<footer class="site-shell-footer">
+    <div class="site-shell-footer__inner">
+        <div class="site-shell-footer__cols">
+            <div class="site-shell-footer__about"><a class="brand" href="/messaging-platform/hub/"><svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><rect width="24" height="24" rx="6" fill="#14b8a6"/><path d="M6 9.5A2.5 2.5 0 0 1 8.5 7h7A2.5 2.5 0 0 1 18 9.5v3a2.5 2.5 0 0 1-2.5 2.5H11l-3.2 2.4A.5.5 0 0 1 7 17V15h-.5A.5.5 0 0 1 6 14.5z" fill="#fff"/><circle cx="9.6" cy="11" r="1" fill="#0b1120"/><circle cx="12" cy="11" r="1" fill="#0b1120"/><circle cx="14.4" cy="11" r="1" fill="#0b1120"/></svg><span>Messaging Platform</span></a>
+                <p>Realtime infrastructure for developers: messaging, presence, shared state and WebRTC through one SDK.</p>
+                <ul><li><a href="/messaging-platform/hub/about.html">About HMDev</a></li></ul></div>
+            <div><h2>Product</h2><ul><li><a href="/messaging-platform/hub/">Overview</a></li><li><a href="/messaging-platform/hub/pricing.html">Pricing</a></li><li><a href="/messaging-platform/hub/quickstart.html">Quickstart</a></li><li><a href="/messaging-platform/apps/status/">Status</a></li></ul></div>
+            <div><h2>Developers</h2><ul><li><a href="/messaging-platform/hub/docs.html">Documentation</a></li><li><a href="/messaging-platform/hub/sdk-guide.html">SDK guide</a></li><li><a href="/messaging-platform/hub/developer/index.html">Developer portal</a></li><li><a href="/messaging-platform/hub/changes.html">What changed</a></li><li><a href="https://github.com/HaithamMubarak/messaging-platform-sdk">GitHub</a></li></ul></div>
+            <div><h2>Explore</h2><ul><li><a href="/messaging-platform/hub/playground.html">Demos</a></li><li><a href="/messaging-platform/apps/">Apps</a></li><li><a href="/messaging-platform/hub/games.html">Games</a></li><li><a href="/messaging-platform/apps/proof/">Proof</a></li></ul></div>
+            <div><h2>Legal</h2><ul><li><a href="/messaging-platform/hub/privacy.html">Privacy</a></li><li><a href="/messaging-platform/hub/terms.html">Terms</a></li><li><a href="https://github.com/HaithamMubarak/messaging-platform-sdk/issues">Support</a></li></ul></div>
+        </div>
+        <div class="site-shell-footer__legal"><span>&copy; 2026 Messaging Platform</span>
+            <span>Public beta: APIs may still change, and there is no uptime guarantee yet.</span></div>
+    </div>
+</footer>
+<!-- /site-shell:footer -->
+<script src="/messaging-platform/hub/js/site-shell.js" defer></script>
+<script src="/messaging-platform/hub/js/mp-account.js" defer></script>
+<script src="/messaging-platform/hub/js/profile-chip.js" defer></script>
+</body>
+</html>

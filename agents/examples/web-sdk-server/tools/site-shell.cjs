@@ -48,7 +48,7 @@ const FOOTER = [
 const PAGES = {
     'hub.html': 'product', 'games.html': 'games', 'playground.html': 'demos', 'docs.html': 'docs', 'sdk-guide.html': 'docs', 'quickstart.html': 'docs',
     'pricing.html': 'pricing', 'privacy.html': '', 'terms.html': '',
-    'profile.html': '', 'changes.html': '',
+    'profile.html': '', 'changes.html': '', 'about.html': '',
     'apps/evidence-chain/index.html': 'demos', 'apps/terminal/index.html': 'demos',
     'apps/under-the-hood/index.html': 'demos', 'apps/whiteboard/index.html': 'demos',
 };
@@ -86,7 +86,8 @@ function footer() {
     <div class="site-shell-footer__inner">
         <div class="site-shell-footer__cols">
             <div class="site-shell-footer__about"><a class="brand" href="${HUB}">${LOGO}<span>Messaging Platform</span></a>
-                <p>Realtime infrastructure for developers: messaging, presence, shared state and WebRTC through one SDK.</p></div>
+                <p>Realtime infrastructure for developers: messaging, presence, shared state and WebRTC through one SDK.</p>
+                <ul><li><a href="${HUB}about.html">About HMDev</a></li></ul></div>
             ${cols}
         </div>
         <div class="site-shell-footer__legal"><span>&copy; 2026 Messaging Platform</span>
