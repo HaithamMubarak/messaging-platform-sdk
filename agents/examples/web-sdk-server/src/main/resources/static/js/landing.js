@@ -137,7 +137,7 @@
                 inputs.email.setAttribute('aria-readonly', 'true');
                 inputs.email.closest('.field').appendChild(UI.el('p', {
                     class: 'field__hint',
-                    text: 'This verified Platform account email will be used for developer access.'
+                    text: 'This verified HMDev account email will be used for developer access.'
                 }));
             }
 

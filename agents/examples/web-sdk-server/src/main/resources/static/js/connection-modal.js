@@ -91,15 +91,15 @@
              should not be the second option on the screen. -->
         <div id="panelSignin" class="mp-panel" role="tabpanel" aria-labelledby="tabSignin" hidden>
             <p class="mp-note mp-signin__lead">
-                Sign in to your <strong>Platform account</strong> (not the Developer
-                Portal one) to save rooms. You do not need either to join a room.
+                Sign in to your <strong>HMDev account</strong>: one account for every
+                HMDev app and game. It saves your rooms; you do not need it to join one.
             </p>
 
-            <div class="mp-subtabs" role="tablist" aria-label="Sign in to or create a Platform account">
+            <div class="mp-subtabs" role="tablist" aria-label="Sign in to or create an HMDev account">
                 <button type="button" class="mp-subtab is-active" id="modeSignin" role="tab"
                         aria-selected="true">Sign in</button>
                 <button type="button" class="mp-subtab" id="modeRegister" role="tab"
-                        aria-selected="false">Create a Platform account</button>
+                        aria-selected="false">Create an HMDev account</button>
             </div>
 
             <label class="form-label-visible" for="signinName" id="signinNameLabel" hidden>Your name</label>
@@ -123,7 +123,7 @@
                  a button that opens a broken flow is worse than no button. -->
             <div class="mp-or" id="googleWrap" hidden><span>or</span></div>
             <button type="button" id="googleSignInBtn" class="mp-google" hidden>
-                <span class="mp-google__g" aria-hidden="true">G</span> Sign in with Google
+                <span class="mp-google__g" aria-hidden="true">G</span> Continue with Google
             </button>
 
             <p id="signinError" class="connect-error" role="alert" hidden></p>
@@ -167,7 +167,7 @@
                 <span id="saveChannelLabel">Save this channel</span>
             </label>
             <p class="mp-note mp-save-note" id="saveChannelNote">
-                <a href="#" id="saveSigninLink">Sign in to your Platform account</a> to save channels.
+                <a href="#" id="saveSigninLink">Sign in to your HMDev account</a> to save channels.
             </p>
 
             <div class="modal-buttons">
@@ -1138,6 +1138,21 @@
             codeTab.set(badCode ? urlCode : PartyCode.newCode(appId), true);
             showTab(badCode ? 'code' : 'custom');
         }
+
+        /* A Google round trip that failed comes back to the page that started
+         * it, carrying its reason (#googleError). It is shown on the Sign in
+         * tab, where the button was pressed, instead of being dropped. Older
+         * mp-account.js copies have no takeGoogleError: nothing to show. */
+        function showGoogleError() {
+            var A = window.MPAccount;
+            var message = A && typeof A.takeGoogleError === 'function' ? A.takeGoogleError() : null;
+            var err = el('signinError');
+            if (!message || !err) return;
+            showTab('signin');
+            err.hidden = false;
+            err.textContent = 'Google sign-in did not finish: ' + message;
+        }
+        showGoogleError();
 
         // Sign in / create an account: two tabs over one set of fields.
         var registerMode = false;

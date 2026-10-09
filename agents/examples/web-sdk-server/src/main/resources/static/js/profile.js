@@ -67,7 +67,7 @@
             var current = A.idOf(user);
             if (!current || current !== accountId) {
                 applyUser(user);
-                throw new Error('Your Platform account changed. Please try that action again.');
+                throw new Error('Your HMDev account changed. Please try that action again.');
             }
             return work(current);
         });
@@ -142,7 +142,7 @@
 
         if (status === 'ACTIVE' && state.hasAccess) {
             setAccessBadge('Active', 'active');
-            el('pDeveloperBody').textContent = 'Your verified Platform identity has developer access. Profile and developer details now live together here.';
+            el('pDeveloperBody').textContent = 'Your verified HMDev account has developer access. Profile and developer details now live together here.';
             el('pDeveloperName').textContent = state.developerName || 'Developer';
             el('pDeveloperEmail').textContent = state.developerEmail || state.verifiedEmail || '';
             el('pDeveloperPlan').textContent = state.plan || 'Free';
@@ -339,6 +339,76 @@
         });
     }
 
+    /* ---- how you sign in ----
+     * /me says `google` and `hasPassword`. A service too old to say leaves
+     * the card hidden rather than guessing at an account's methods.
+     */
+    function methodsOf(user) {
+        if (!user || (typeof user.google !== 'boolean' && typeof user.hasPassword !== 'boolean')) return null;
+        var methods = [];
+        if (user.google) methods.push('Google');
+        if (user.hasPassword) methods.push('Email and password');
+        return methods;
+    }
+
+    function renderSignInMethods(user) {
+        var methods = methodsOf(user);
+        el('pMethodsCard').hidden = !methods;
+        if (!methods) return;
+        var list = el('pMethods');
+        list.innerHTML = '';
+        (methods.length ? methods : ['None on record']).forEach(function (name) {
+            var item = document.createElement('li');
+            item.textContent = name;
+            list.appendChild(item);
+        });
+        // A Google account with no password cannot sign in to a client that
+        // only takes a password (a game's sign-in screen); offer one.
+        el('pSetPassword').hidden = !(user.google && !user.hasPassword);
+    }
+
+    function loadSignInMethods(user) {
+        if (methodsOf(user)) { renderSignInMethods(user); return; }
+        // Possibly a /me cached before the service reported methods: ask once.
+        el('pMethodsCard').hidden = true;
+        A.me(true).then(function (fresh) {
+            if (fresh && A.idOf(fresh) === accountId) renderSignInMethods(fresh);
+        }).catch(function () {});
+    }
+
+    function setPasswordMessage(id, text) {
+        ['pSetPasswordError', 'pSetPasswordOk'].forEach(function (other) { el(other).hidden = true; });
+        if (!text) return;
+        el(id).hidden = false;
+        el(id).textContent = text;
+    }
+
+    function submitNewPassword() {
+        var pw = el('pNewPassword').value;
+        setPasswordMessage(null, null);
+        if (pw.length < 8) return setPasswordMessage('pSetPasswordError', 'Use at least 8 characters.');
+        if (pw !== el('pNewPassword2').value) {
+            return setPasswordMessage('pSetPasswordError', 'The two passwords do not match.');
+        }
+        singleFlight('setPassword', ['pSetPasswordBtn'], function () {
+            return A.setPassword(pw).then(function (user) {
+                el('pNewPassword').value = '';
+                el('pNewPassword2').value = '';
+                if (user) renderSignInMethods(user);
+                setPasswordMessage('pSetPasswordOk',
+                    'Password set. You can now sign in with your email and this password, or with Google.');
+            }).catch(function (e) {
+                if (e && e.status === 409) {
+                    // The page was out of date: show what the account really has.
+                    A.me(true).then(function (u) { if (u) renderSignInMethods(u); }).catch(function () {});
+                    return setPasswordMessage('pSetPasswordError', 'This account already has a password. '
+                        + 'To change it, sign out and use “Forgotten your password?”.');
+                }
+                setPasswordMessage('pSetPasswordError', (e && e.message) || 'The password could not be set.');
+            });
+        });
+    }
+
     function applyUser(user) {
         var previousAccount = accountId;
         if (previousAccount && K.clearAccountKey) {
@@ -355,6 +425,7 @@
             (user.email && user.displayName ? ' · ' + user.email : '');
             show(true);
             renderList();
+            loadSignInMethods(user);
             loadDeveloperAccess(user);
         };
 
@@ -765,7 +836,18 @@
         n.textContent = text;
     }
 
+    el('pSetPasswordBtn').addEventListener('click', submitNewPassword);
+
+    /** A Google round trip that failed comes back here with its reason. */
+    function showGoogleError() {
+        var message = typeof A.takeGoogleError === 'function' ? A.takeGoogleError() : null;
+        if (!message) return;
+        el('pGoogleError').hidden = false;
+        el('pGoogleError').textContent = 'Google sign-in did not finish: ' + message;
+    }
+
     /* ---- boot ---- */
+    showGoogleError();
     if (window.location.hash === '#signin') show(false);
     A.me().then(applyUser).catch(function () { show(false); });
     A.onChange(function () { A.me(true).then(applyUser).catch(function () { show(false); }); });

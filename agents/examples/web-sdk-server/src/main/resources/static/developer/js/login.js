@@ -100,7 +100,7 @@
         function applyStartMode() {
             document.getElementById('signInTitle').textContent = 'Create your free account';
             document.getElementById('signInLead').textContent =
-                'Sign in with Google. We open a developer account on the Free plan and show your first API key.';
+                'Continue with Google using your HMDev account. We open a developer account on the Free plan and show your first API key.';
             googleLabel.textContent = 'Start free with Google';
             document.getElementById('authAside').textContent =
                 'Free during the public beta. No credit card. Already have an account? Google signs you straight in.';
@@ -155,14 +155,14 @@
                 return;
             }
             accessTitle.textContent = 'Developer access not requested';
-            accessText.textContent = 'Request approval from your unified Platform profile.';
+            accessText.textContent = 'Request approval from your HMDev profile.';
             googleLabel.textContent = 'Use another Google account';
             accessLink.textContent = 'Request API access';
         }
 
         function inspectPlatformIdentity() {
             if (!MPAccount.signedIn()) return Promise.resolve();
-            googleStatus.textContent = 'Checking your Platform identity...';
+            googleStatus.textContent = 'Checking your HMDev account...';
             return MPAccount.googleLoginAssertion()
                 .then(function (assertion) { return DeveloperAPI.getPlatformAccess(assertion); })
                 .then(function (state) {
@@ -185,7 +185,19 @@
             if (!available && startMode) showSignupClosed();
         });
 
-        if (query.get('google') === '1') {
+        /* A Google round trip that failed returns here (?google=1) with its
+           reason in #googleError. There is no session to verify then, so say
+           why instead of asking the portal about an identity that never came. */
+        function takeGoogleError() {
+            const message = typeof MPAccount.takeGoogleError === 'function'
+                ? MPAccount.takeGoogleError() : null;
+            if (!message) return false;
+            clearGoogleReturn();
+            showError('Google sign-in did not finish: ' + message);
+            return true;
+        }
+
+        if (!takeGoogleError() && query.get('google') === '1') {
             completeGoogleLogin();
         }
 

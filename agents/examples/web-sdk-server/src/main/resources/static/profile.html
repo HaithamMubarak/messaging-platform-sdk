@@ -4,21 +4,21 @@
     <meta charset="UTF-8">
     <script src="sdk/js/prod-log.js"></script>
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Your Platform account — Messaging Platform</title>
+    <title>Your HMDev account — Messaging Platform</title>
     <!-- This head was a copy of privacy.html's, so this page declared privacy.html
          as its canonical URL and previewed as the telemetry page wherever it was
          shared. It is its own page and says so. -->
-    <meta name="description" content="Your Platform account: the channels you have saved, kept on this device, and the encrypted backup you can take with you.">
+    <meta name="description" content="Your HMDev account: the channels you have saved, kept on this device, and the encrypted backup you can take with you.">
     <meta name="theme-color" content="#0b1120">
     <link rel="canonical" href="https://hmdevonline.com/messaging-platform/profile.html">
     <meta property="og:type" content="website">
     <meta property="og:site_name" content="Messaging Platform">
-    <meta property="og:title" content="Your Platform account">
+    <meta property="og:title" content="Your HMDev account">
     <meta property="og:description" content="The channels you have saved, kept on this device, and the encrypted backup you can take with you.">
     <meta property="og:url" content="https://hmdevonline.com/messaging-platform/profile.html">
     <meta property="og:image" content="https://hmdevonline.com/messaging-platform/sdk/images/og-image.png">
     <meta name="twitter:card" content="summary_large_image">
-    <meta name="twitter:title" content="Your Platform account">
+    <meta name="twitter:title" content="Your HMDev account">
     <meta name="twitter:description" content="The channels you have saved, kept on this device, and the encrypted backup you can take with you.">
     <meta name="twitter:image" content="https://hmdevonline.com/messaging-platform/sdk/images/og-image.png">
     <link rel="icon" type="image/svg+xml" href="sdk/favicon.svg">
@@ -79,18 +79,21 @@
 <main id="main" class="wrap mp-profile">
   <h1>Your profile</h1>
   <p class="mp-profile__intro">One place for your identity, developer access, saved channels, and encrypted backups.</p>
+  <!-- A Google round trip that failed returns here with its reason. -->
+  <p id="pGoogleError" class="mp-profile__error" role="alert" hidden></p>
 
   <section id="signedOut" class="card mp-profile__card" hidden>
-    <h2>Sign in to your Platform account</h2>
+    <h2>Sign in to your HMDev account</h2>
     <p class="mp-profile__lead">
-      This account keeps your saved channels and becomes your developer identity
-      when API access is approved. Developer keys remain protected by their own
-      scoped session, but both experiences appear together in your profile.
-      You never need either account to join a room &mdash; that stays one click.
+      One account for every HMDev app and game. It keeps your saved channels and
+      becomes your developer identity when API access is approved. Developer keys
+      remain protected by their own scoped session, but both experiences appear
+      together in your profile. You never need an account to join a room &mdash;
+      that stays one click.
     </p>
-    <div class="mp-subtabs" role="tablist" aria-label="Sign in to or create a Platform account">
+    <div class="mp-subtabs" role="tablist" aria-label="Sign in to or create an HMDev account">
       <button type="button" class="mp-subtab is-active" id="pModeSignin" role="tab" aria-selected="true">Sign in</button>
-      <button type="button" class="mp-subtab" id="pModeRegister" role="tab" aria-selected="false">Create a Platform account</button>
+      <button type="button" class="mp-subtab" id="pModeRegister" role="tab" aria-selected="false">Create an HMDev account</button>
     </div>
 
     <label for="pName" id="pNameLabel" hidden>Your name</label>
@@ -110,7 +113,7 @@
 
     <div class="mp-or" id="pGoogleWrap" hidden><span>or</span></div>
     <button type="button" id="pGoogle" class="mp-google" hidden>
-      <span class="mp-google__g" aria-hidden="true">G</span> Sign in with Google
+      <span class="mp-google__g" aria-hidden="true">G</span> Continue with Google
     </button>
 
     <p id="pError" class="mp-profile__error" role="alert" hidden></p>
@@ -120,7 +123,7 @@
   <section id="signedIn" hidden>
     <div class="mp-profile__overview">
       <section class="card mp-profile__card mp-identity-card">
-        <span class="mp-developer-access__eyebrow">Platform identity</span>
+        <span class="mp-developer-access__eyebrow">HMDev account</span>
         <h2>Your account</h2>
         <p id="pWho" class="mp-profile__lead"></p>
         <p class="mp-profile__lead">Used across Rooms, saved channels, Drive backup, developer access, and administrator access.</p>
@@ -132,7 +135,7 @@
       <div class="mp-developer-access__head">
         <div>
           <span class="mp-developer-access__eyebrow">Developer access</span>
-          <h2>Build with your Platform identity</h2>
+          <h2>Build with your HMDev account</h2>
         </div>
         <span class="mp-access-badge" id="pDeveloperStatus">Checking</span>
       </div>
@@ -158,6 +161,32 @@
       </div>
       </section>
     </div>
+
+    <!-- Shown only when the service reports how this account signs in; an
+         older service that does not say leaves it hidden. -->
+    <section class="card mp-profile__card" id="pMethodsCard" hidden>
+      <h2>How you sign in</h2>
+      <ul class="mp-methods" id="pMethods"></ul>
+      <div class="mp-setpw" id="pSetPassword" hidden>
+        <p class="mp-profile__lead">
+          This account signs in with Google and has no password. If it had one
+          before, the password was removed when Google was linked to the same
+          email, so that only the owner of that address can sign in. Set a new
+          one to sign in where Google is not offered, such as a game&rsquo;s
+          sign-in screen.
+        </p>
+        <label for="pNewPassword">New password</label>
+        <input id="pNewPassword" type="password" autocomplete="new-password" maxlength="200"
+               placeholder="at least 8 characters">
+        <label for="pNewPassword2">Type it again</label>
+        <input id="pNewPassword2" type="password" autocomplete="new-password" maxlength="200">
+        <div class="mp-profile__actions">
+          <button type="button" id="pSetPasswordBtn" class="btn btn--ghost">Set a password</button>
+        </div>
+      </div>
+      <p id="pSetPasswordError" class="mp-profile__error" role="alert" hidden></p>
+      <p id="pSetPasswordOk" class="mp-profile__ok" role="status" hidden></p>
+    </section>
 
     <section class="card mp-profile__card">
       <h2>Saved channels</h2>

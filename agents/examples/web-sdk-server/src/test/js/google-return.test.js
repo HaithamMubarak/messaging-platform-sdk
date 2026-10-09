@@ -120,11 +120,73 @@ check('a cancelled sign-in is reported, not swallowed', () => {
     assert.strictEqual(A.lastError, 'Sign-in was cancelled.');
 });
 
+check('the page that started the flow can take the error, once', () => {
+    const { A } = load('/messaging-platform/profile.html', '', '#googleError=That%20Google%20email%20is%20not%20verified.');
+    assert.strictEqual(A.takeGoogleError(), 'That Google email is not verified.');
+    assert.strictEqual(A.takeGoogleError(), null, 'a second render showed the same error again');
+    assert.strictEqual(A.lastError, null);
+});
+
 check('an ordinary invite hash is left completely alone', () => {
     const { replaced, localStorage } = load('/messaging-platform/sdk/apps/whiteboard/app.html', '', '#abc123');
     assert.deepStrictEqual(replaced, [], 'rewrote the url of a page that was not coming back from Google');
     assert.strictEqual(localStorage._map.get('rooms.token'), undefined);
 });
 
-console.log(failures ? `\n${failures} failed` : '\nall passed');
-process.exit(failures ? 1 : 0);
+/* setPassword: a Google account with no password asks for one. Driven against
+ * a fake service that answers the way call() reads it: JSON, with the status. */
+function loadSignedIn(answers) {
+    const localStorage = makeStore(), sessionStorage = makeStore();
+    localStorage.setItem('rooms.token', 'session-1');
+    const sent = [];
+    const fetch = (url, opts) => {
+        sent.push({ url, opts: opts || {} });
+        const key = Object.keys(answers).find((k) => url.endsWith(k));
+        const [status, body] = answers[key] || [404, {}];
+        return Promise.resolve({ ok: status < 400, status, json: () => Promise.resolve(body) });
+    };
+    const win = { location: { hostname: 'hmdevonline.com', pathname: '/p.html', search: '', hash: '' },
+                  history: { replaceState: () => {} } };
+    new Function('window', 'localStorage', 'sessionStorage', 'fetch', SRC)(win, localStorage, sessionStorage, fetch);
+    return { A: win.MPAccount, sent, localStorage };
+}
+
+async function checkAsync(name, fn) {
+    try { await fn(); console.log('  ok   ' + name); }
+    catch (e) { failures++; console.log('  FAIL ' + name + ' -- ' + e.message); }
+}
+
+(async () => {
+    console.log('\nsetting a password on a Google account');
+
+    await checkAsync('it posts the password with the session and returns the fresh user', async () => {
+        const { A, sent } = loadSignedIn({
+            '/auth/set-password': [200, { ok: true }],
+            '/auth/me': [200, { id: 7, email: 'a@b.c', google: true, hasPassword: true }]
+        });
+        const user = await A.setPassword('correct horse');
+        const post = sent.find((s) => s.url.endsWith('/auth/set-password'));
+        assert.strictEqual(post.opts.method, 'POST');
+        assert.strictEqual(post.opts.headers.Authorization, 'Bearer session-1');
+        assert.deepStrictEqual(JSON.parse(post.opts.body), { password: 'correct horse' });
+        assert.strictEqual(user.hasPassword, true, 'the caller was handed a stale user');
+    });
+
+    await checkAsync('a session the service rotates is adopted, as login does', async () => {
+        const { A, localStorage } = loadSignedIn({
+            '/auth/set-password': [200, { token: 'session-2' }],
+            '/auth/me': [200, { id: 7, google: true, hasPassword: true }]
+        });
+        await A.setPassword('correct horse');
+        assert.strictEqual(localStorage._map.get('rooms.token'), 'session-2');
+    });
+
+    await checkAsync('an account that already has a password is refused with 409 and the service\'s words', async () => {
+        const { A } = loadSignedIn({ '/auth/set-password': [409, { error: 'This account already has a password.' }] });
+        await assert.rejects(() => A.setPassword('correct horse'), (e) =>
+            e.status === 409 && e.message === 'This account already has a password.');
+    });
+
+    console.log(failures ? `\n${failures} failed` : '\nall passed');
+    process.exitCode = failures ? 1 : 0;
+})();

@@ -767,6 +767,11 @@ section[id] { scroll-margin-top: 80px; }
 }
 .mp-profile__ok { color: #4ade80; font-size: var(--fs-md); margin: 0; }
 
+/* How this HMDev account signs in: Google, a password, or both. */
+.mp-methods { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: var(--sp-2); }
+.mp-methods li { padding: .32rem .75rem; border: 1px solid var(--border); border-radius: 999px; background: var(--surface-2); color: var(--text); font-size: var(--fs-sm); }
+.mp-setpw { display: flex; flex-direction: column; gap: var(--sp-2); }
+
 /* Platform and developer identity share one profile surface. Privileged
    sessions remain separate; this card presents the verified relationship. */
 .mp-developer-access { overflow: hidden; border-color: color-mix(in srgb, var(--accent) 34%, var(--border)); background: radial-gradient(35rem 18rem at 100% 0, color-mix(in srgb, var(--accent) 10%, transparent), transparent 70%), var(--surface-1); }

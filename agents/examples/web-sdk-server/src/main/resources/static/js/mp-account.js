@@ -183,6 +183,27 @@
             }).then(function (d) { setToken(d.token); cacheMe(d.user); return d.user; });
         },
 
+        /**
+         * Give a password to an account that has none: one made with Google,
+         * or one whose password was cleared when Google was linked to the
+         * same email. Password-only clients (a game's sign-in screen) need it.
+         *
+         * The service refuses with 409 when the account already has a
+         * password -- changing one is the reset flow's job, not this call's.
+         * Resolves with the refreshed user, so `hasPassword` is current.
+         */
+        setPassword: function (password) {
+            if (!token()) return Promise.reject(new Error('Sign in first.'));
+            return call('/auth/set-password', { method: 'POST', body: { password: password } })
+                .then(function (d) {
+                    // Same handling as login: a session the service rotates
+                    // is adopted, otherwise the old one stays.
+                    if (d && d.token) setToken(d.token);
+                    else cacheMe(null);
+                    return Account.me(true);
+                });
+        },
+
         logout: function () {
             var t = token();
             setToken(null);
@@ -287,6 +308,21 @@
                     if (!d || !d.assertion) throw new Error('Google sign-in could not be verified.');
                     return d.assertion;
                 });
+        },
+
+        /**
+         * The message a failed Google round trip came back with, once.
+         *
+         * The service returns to the page that started the flow with
+         * #googleError=...; adoptFragment() keeps it as `lastError` (still
+         * set, for older callers). Taking it clears it, so the page that
+         * shows it is the only one that does, and a later render does not
+         * show it again.
+         */
+        takeGoogleError: function () {
+            var message = Account.lastError || null;
+            Account.lastError = null;
+            return message;
         },
 
         /** Adopt a session minted elsewhere (the Google callback). */

@@ -190,13 +190,18 @@ check('every page with a nav gets the profile chip, and the account client with 
  * never opens developer keys, which keep their own scoped session, and the
  * portal says which ways in it accepts. Each assertion below went red when
  * the phrase it pins was removed.
+ *
+ * Re-pinned 2026-10-09: the account is now presented as the "HMDev account"
+ * (one account for every HMDev app and game), so the chip's label moved from
+ * "Platform account" to "HMDev account". The promise is unchanged: the entry
+ * names the account it opens.
  */
 check('the account doors are labelled, and the profile states the developer boundary', () => {
     const chip = fs.readFileSync(path.join(STATIC, 'js', 'profile-chip.js'), 'utf8');
-    assert.ok(chip.includes("a.textContent = 'Platform account'"),
+    assert.ok(chip.includes("a.textContent = 'HMDev account'"),
         'the shared account entry no longer says which account it opens');
-    assert.ok(chip.includes("Sign in to your Platform account"),
-        'the signed-out account entry has no accessible platform-account label');
+    assert.ok(chip.includes("Sign in to your HMDev account"),
+        'the signed-out account entry has no accessible account label');
 
     const ambiguousPortal = htmlFiles(STATIC).filter((f) => {
         const t = fs.readFileSync(f, 'utf8');
@@ -236,15 +241,23 @@ check('the Developer Portal says how you get in, and keeps keys apart from the P
     }
 });
 
-check('the connection modal names the Platform account rather than "an account"', () => {
+/*
+ * Re-pinned 2026-10-09 (HMDev unified login). This pinned "Platform account",
+ * a mention of the Developer Portal ("not the Developer Portal one") and the
+ * phrase "do not need either to join a room". The modal now names the one
+ * HMDev account, which is ALSO the Google way into the Developer Portal, so
+ * "not the Developer Portal one" stopped being true and "either" no longer
+ * has two accounts to refer to. Kept: the modal names the account it signs
+ * you in to, and promises in prose that joining a room needs no account.
+ */
+check('the connection modal names the HMDev account rather than "an account"', () => {
     const modal = fs.readFileSync(path.join(STATIC, 'js', 'connection-modal.js'), 'utf8');
-    assert.ok(modal.includes('Platform account'),
+    const prose = modal.replace(/\s+/g, ' ');
+    assert.ok(/Sign in to your <strong>HMDev account<\/strong>/.test(prose),
         'the modal asks people to "sign in" without saying to what');
-    assert.ok(modal.includes('Developer'),
-        'the modal never distinguishes itself from the Developer Portal account');
 
     // Rule 5 is stated here in prose; keep the prose honest.
-    assert.ok(/do not\s+need either to join a room/.test(modal.replace(/\s+/g, ' ')),
+    assert.ok(/you do not need it to join one/.test(prose),
         'the modal no longer promises that joining a room needs no account');
 });
 

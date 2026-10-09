@@ -83,7 +83,7 @@
                 canContinueCurrentIdentity = true;
                 googleLabel.textContent = 'Continue as ' + (status.email || 'current administrator');
                 googleSwitch.hidden = false;
-                googleStatus.textContent = 'This Platform identity has administrator access.';
+                googleStatus.textContent = 'This HMDev account has administrator access.';
             } catch (ignore) {
                 canContinueCurrentIdentity = false;
             }

@@ -1171,7 +1171,7 @@
 
         function renderLinked(state) {
             host.textContent = '';
-            const label = state.label || 'your Platform account';
+            const label = state.label || 'your HMDev account';
             host.appendChild(line('Linked to ' + label + '.'));
             usageLines(state.entitlement).forEach(function (el) { host.appendChild(el); });
             host.appendChild(button('Unlink', 'btn btn--ghost', async function () {
@@ -1188,22 +1188,22 @@
         function renderUnlinked() {
             host.textContent = '';
             if (!window.MPAccount || !window.MPAccount.signedIn()) {
-                host.appendChild(line('Sign in to your Platform account first, then come back here.'));
+                host.appendChild(line('Sign in to your HMDev account first, then come back here.'));
                 const a = document.createElement('a');
                 a.className = 'btn btn--ghost';
                 a.href = '/messaging-platform/profile.html';
-                a.textContent = 'Open the Platform account';
+                a.textContent = 'Open the HMDev account';
                 host.appendChild(a);
                 return;
             }
-            host.appendChild(button('Link this Platform account', 'btn btn--primary', async function () {
+            host.appendChild(button('Link this HMDev account', 'btn btn--primary', async function () {
                 fail('');
                 try {
                     // Minted where the password lives; spent here. If the mint
                     // fails the session is the problem, and saying so beats a
                     // generic failure on the link button.
                     const assertion = await window.MPAccount.linkAssertion();
-                    if (!assertion) throw new Error('Could not prove that Platform account. Sign in again.');
+                    if (!assertion) throw new Error('Could not prove that HMDev account. Sign in again.');
                     await DeveloperAPI.linkPlatform(assertion);
                     await load();
                 } catch (e) {
