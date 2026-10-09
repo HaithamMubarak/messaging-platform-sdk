@@ -48,6 +48,14 @@
         return path.charAt(0) === '/' ? path : '/' + path;
     }
 
+    // An invite hash cannot ride in returnTo (the service appends its own
+    // fragment), so it waits here for adoptFragment() to put it back.
+    function holdResumeHash() {
+        try {
+            if (window.location.hash) sessionStorage.setItem(RESUME, window.location.hash);
+        } catch (e) {}
+    }
+
     function token() { try { return localStorage.getItem(KEY) || null; } catch (e) { return null; } }
     // This is not a password hash or an authentication mechanism.  It is a
     // small, non-secret fingerprint used only to prove that the cached /me
@@ -80,11 +88,15 @@
         var headers = { 'Content-Type': 'application/json' };
         var t = token();
         if (t) headers.Authorization = 'Bearer ' + t;
-        return fetch(base() + path, {
+        var init = {
             method: opts.method || 'GET',
             headers: headers,
             body: opts.body ? JSON.stringify(opts.body) : undefined
-        }).then(function (r) {
+        };
+        // Only where the service sets a cookie the next request must carry
+        // (the OAuth state); every other call stays credential-free.
+        if (opts.credentials) init.credentials = opts.credentials;
+        return fetch(base() + path, init).then(function (r) {
             return r.json().catch(function () { return {}; }).then(function (data) {
                 // The service sends a sentence written for a person. Showing
                 // "Request failed (400)" instead throws that away.
@@ -247,11 +259,43 @@
          * signing in on the way does not lose the room.
          */
         googleStartUrl: function (returnTo) {
-            try {
-                if (window.location.hash) sessionStorage.setItem(RESUME, window.location.hash);
-            } catch (e) {}
+            holdResumeHash();
             var path = localReturnPath(returnTo);
             return base() + '/auth/google/start?returnTo=' + encodeURIComponent(path);
+        },
+
+        /**
+         * Add Google as a way into the signed-in account.
+         *
+         * Resolves with the Google URL the caller then navigates to; Google
+         * comes back to `returnTo` with #googleLinked=1 or #googleError=....
+         * The request carries cookies because the service binds the OAuth
+         * state to one it sets here. Refusals keep the service's words and
+         * status: 409 already linked, 503 Google not configured.
+         */
+        linkGoogle: function (returnTo) {
+            if (!token()) return Promise.reject(new Error('Sign in first.'));
+            var path = localReturnPath(returnTo);
+            return call('/auth/google/link-start', {
+                method: 'POST', body: { returnTo: path }, credentials: 'include'
+            }).then(function (d) {
+                if (!d || !d.url) throw new Error('Google linking could not be started.');
+                holdResumeHash();
+                return d.url;
+            });
+        },
+
+        /**
+         * Remove Google from the signed-in account. The service refuses with
+         * 409 while the account has no password, since Google is then its
+         * only way in. Resolves with the refreshed user.
+         */
+        unlinkGoogle: function () {
+            if (!token()) return Promise.reject(new Error('Sign in first.'));
+            return call('/auth/google/unlink', { method: 'POST' }).then(function () {
+                cacheMe(null);
+                return Account.me(true);
+            });
         },
 
         /**
@@ -325,6 +369,17 @@
             return message;
         },
 
+        /**
+         * True, once, when Google has just been linked to this account
+         * (the service returned with #googleLinked=1). Like takeGoogleError,
+         * taking it clears it.
+         */
+        takeGoogleLinked: function () {
+            var linked = !!Account.lastLinked;
+            Account.lastLinked = false;
+            return linked;
+        },
+
         /** Adopt a session minted elsewhere (the Google callback). */
         adoptToken: function (t) { setToken(t); },
 
@@ -355,7 +410,7 @@
      */
     function adoptFragment() {
         var hash = window.location.hash || '';
-        if (hash.indexOf('googleToken=') === -1 && hash.indexOf('googleError=') === -1) return;
+        if (!/(^#|&)google(Token|Error|Linked)=/.test(hash)) return;
 
         var params = {};
         hash.replace(/^#/, '').split('&').forEach(function (kv) {
@@ -365,6 +420,11 @@
 
         if (params.googleToken) Account.adoptToken(params.googleToken);
         if (params.googleError) Account.lastError = params.googleError;
+        if (params.googleLinked === '1') {
+            Account.lastLinked = true;
+            // The cached /me still says google:false.
+            try { sessionStorage.removeItem(CACHE); } catch (e) {}
+        }
 
         var resume = '';
         try {

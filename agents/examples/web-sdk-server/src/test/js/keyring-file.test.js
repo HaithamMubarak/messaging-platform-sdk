@@ -59,9 +59,15 @@ check('another account\'s key is refused by name, not by a vague failure', async
     await assert.rejects(() => KF.read(file, OTHER), /different account/);
 });
 
-check('a v3 backup is bound to its Platform account even with the same key', async () => {
+/*
+ * Re-pinned 2026-10-09 (HMDev unified login). This pinned "different Platform
+ * account"; the site now names the account "HMDev account" everywhere, so the
+ * refusal says that. The promise is unchanged: a backup made by another
+ * account is refused by naming the account mismatch, even with the right key.
+ */
+check('a v3 backup is bound to its HMDev account even with the same key', async () => {
     const file = await KF.write(DATA, KEY);
-    await assert.rejects(() => KF.read(file, KEY, 'account-b'), /different Platform account/);
+    await assert.rejects(() => KF.read(file, KEY, 'account-b'), /different HMDev account/);
     assert.deepStrictEqual((await KF.read(file, KEY, ACCOUNT)).channels, DATA.channels);
 });
 

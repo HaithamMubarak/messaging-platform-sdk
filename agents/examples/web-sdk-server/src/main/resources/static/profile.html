@@ -167,13 +167,27 @@
     <section class="card mp-profile__card" id="pMethodsCard" hidden>
       <h2>How you sign in</h2>
       <ul class="mp-methods" id="pMethods"></ul>
+      <!-- Link: only for an account without Google, on a deployment with it. -->
+      <div class="mp-setpw" id="pGoogleLink" hidden>
+        <p class="mp-profile__lead">Sign in with Google as well as your password. Your password keeps working.</p>
+        <div class="mp-profile__actions">
+          <button type="button" id="pLinkGoogleBtn" class="mp-google">
+            <span class="mp-google__g" aria-hidden="true">G</span> Link Google
+          </button>
+        </div>
+      </div>
+      <!-- Unlink: only while a password remains as a way in. -->
+      <div class="mp-profile__actions" id="pGoogleUnlink" hidden>
+        <button type="button" id="pUnlinkGoogleBtn" class="btn btn--ghost">Unlink Google</button>
+      </div>
       <div class="mp-setpw" id="pSetPassword" hidden>
         <p class="mp-profile__lead">
           This account signs in with Google and has no password. If it had one
           before, the password was removed when Google was linked to the same
           email, so that only the owner of that address can sign in. Set a new
           one to sign in where Google is not offered, such as a game&rsquo;s
-          sign-in screen.
+          sign-in screen. Google can be unlinked only once the account has a
+          password, so that it always keeps a way in.
         </p>
         <label for="pNewPassword">New password</label>
         <input id="pNewPassword" type="password" autocomplete="new-password" maxlength="200"
@@ -184,8 +198,8 @@
           <button type="button" id="pSetPasswordBtn" class="btn btn--ghost">Set a password</button>
         </div>
       </div>
-      <p id="pSetPasswordError" class="mp-profile__error" role="alert" hidden></p>
-      <p id="pSetPasswordOk" class="mp-profile__ok" role="status" hidden></p>
+      <p id="pMethodsError" class="mp-profile__error" role="alert" hidden></p>
+      <p id="pMethodsOk" class="mp-profile__ok" role="status" hidden></p>
     </section>
 
     <section class="card mp-profile__card">

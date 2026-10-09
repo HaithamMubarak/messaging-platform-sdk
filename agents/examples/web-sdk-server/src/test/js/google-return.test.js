@@ -127,6 +127,27 @@ check('the page that started the flow can take the error, once', () => {
     assert.strictEqual(A.lastError, null);
 });
 
+check('a completed link is reported once, and drops the /me that still says google:false', () => {
+    const localStorage = makeStore(), sessionStorage = makeStore();
+    sessionStorage.setItem('mp.me.v1', '{"u":{"google":false}}');
+    const replaced = [];
+    const win = {
+        location: { hostname: 'hmdevonline.com', pathname: '/messaging-platform/profile.html', search: '', hash: '#googleLinked=1' },
+        history: { replaceState: (a, b, url) => replaced.push(url) },
+    };
+    new Function('window', 'localStorage', 'sessionStorage', 'fetch', SRC)(
+        win, localStorage, sessionStorage, () => Promise.reject(new Error('none')));
+    assert.strictEqual(win.MPAccount.takeGoogleLinked(), true);
+    assert.strictEqual(win.MPAccount.takeGoogleLinked(), false, 'a second render reported the link again');
+    assert.strictEqual(sessionStorage.getItem('mp.me.v1'), null);
+    assert.deepStrictEqual(replaced, ['/messaging-platform/profile.html'], 'the marker was left in the url');
+});
+
+check('nothing linked, nothing reported', () => {
+    const { A } = load('/messaging-platform/profile.html', '', '#googleError=nope');
+    assert.strictEqual(A.takeGoogleLinked(), false);
+});
+
 check('an ordinary invite hash is left completely alone', () => {
     const { replaced, localStorage } = load('/messaging-platform/sdk/apps/whiteboard/app.html', '', '#abc123');
     assert.deepStrictEqual(replaced, [], 'rewrote the url of a page that was not coming back from Google');
@@ -185,6 +206,70 @@ async function checkAsync(name, fn) {
         const { A } = loadSignedIn({ '/auth/set-password': [409, { error: 'This account already has a password.' }] });
         await assert.rejects(() => A.setPassword('correct horse'), (e) =>
             e.status === 409 && e.message === 'This account already has a password.');
+    });
+
+    console.log('\nlinking Google to a signed-in account');
+
+    await checkAsync('link-start carries the session AND the state cookie, and hands back Google\'s url', async () => {
+        const { A, sent } = loadSignedIn({ '/auth/google/link-start': [200, { url: 'https://accounts.example/o?state=s' }] });
+        const url = await A.linkGoogle('https://hmdevonline.com/messaging-platform/profile.html?x=1#frag');
+        const post = sent.find((s) => s.url.endsWith('/auth/google/link-start'));
+        assert.strictEqual(post.opts.method, 'POST');
+        assert.strictEqual(post.opts.headers.Authorization, 'Bearer session-1');
+        assert.strictEqual(post.opts.credentials, 'include',
+            'without the cookie the service cannot match the state Google returns');
+        assert.deepStrictEqual(JSON.parse(post.opts.body), { returnTo: '/messaging-platform/profile.html?x=1' });
+        assert.strictEqual(url, 'https://accounts.example/o?state=s');
+    });
+
+    await checkAsync('a foreign returnTo never reaches the service', async () => {
+        const { A, sent } = loadSignedIn({ '/auth/google/link-start': [200, { url: 'u' }] });
+        await A.linkGoogle('https://elsewhere.example/steal');
+        assert.strictEqual(JSON.parse(sent[0].opts.body).returnTo, '/p.html');
+    });
+
+    await checkAsync('other calls stay credential-free', async () => {
+        const { A, sent } = loadSignedIn({ '/auth/set-password': [200, {}], '/auth/me': [200, { id: 7 }] });
+        await A.setPassword('correct horse');
+        assert.ok(sent.every((s) => s.opts.credentials === undefined));
+    });
+
+    await checkAsync('already linked (409) and not configured (503) keep the service\'s words and status', async () => {
+        for (const [status, error] of [[409, 'Google is already linked.'], [503, 'Google sign-in is not configured.']]) {
+            const { A } = loadSignedIn({ '/auth/google/link-start': [status, { error }] });
+            await assert.rejects(() => A.linkGoogle(), (e) => e.status === status && e.message === error);
+        }
+    });
+
+    await checkAsync('a 200 without a url is an error, not a navigation to "undefined"', async () => {
+        const { A } = loadSignedIn({ '/auth/google/link-start': [200, {}] });
+        await assert.rejects(() => A.linkGoogle(), /could not be started/);
+    });
+
+    await checkAsync('unlink posts with the session and returns the fresh user', async () => {
+        const { A, sent } = loadSignedIn({
+            '/auth/google/unlink': [204, {}],
+            '/auth/me': [200, { id: 7, google: false, hasPassword: true }]
+        });
+        const user = await A.unlinkGoogle();
+        const post = sent.find((s) => s.url.endsWith('/auth/google/unlink'));
+        assert.strictEqual(post.opts.method, 'POST');
+        assert.strictEqual(post.opts.headers.Authorization, 'Bearer session-1');
+        assert.strictEqual(user.google, false, 'the caller was handed a stale user');
+    });
+
+    await checkAsync('unlinking the only way in is refused with 409 and the service\'s words', async () => {
+        const msg = 'Set a password first, then unlink Google.';
+        const { A } = loadSignedIn({ '/auth/google/unlink': [409, { error: msg }] });
+        await assert.rejects(() => A.unlinkGoogle(), (e) => e.status === 409 && e.message === msg);
+    });
+
+    await checkAsync('signed out, neither call reaches the network', async () => {
+        const { A, sent, localStorage } = loadSignedIn({});
+        localStorage.removeItem('rooms.token');
+        await assert.rejects(() => A.linkGoogle(), /Sign in first/);
+        await assert.rejects(() => A.unlinkGoogle(), /Sign in first/);
+        assert.strictEqual(sent.length, 0);
     });
 
     console.log(failures ? `\n${failures} failed` : '\nall passed');

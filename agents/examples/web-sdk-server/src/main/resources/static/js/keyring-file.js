@@ -207,7 +207,7 @@
                         throw new Error('That backup file is damaged.');
                     }
                     if (accountId && parsed.accountId !== String(accountId)) {
-                        throw new Error('That backup belongs to a different Platform account.');
+                        throw new Error('That backup belongs to a different HMDev account.');
                     }
                 }
                 return {
@@ -218,7 +218,7 @@
                     legacy: file.version !== VERSION
                 };
             }).catch(function (e) {
-                if (/different (Platform )?account|newer version|damaged|Sign in|256-bit/.test(e.message)) throw e;
+                if (/different (HMDev )?account|newer version|damaged|Sign in|256-bit/.test(e.message)) throw e;
                 throw new Error('That backup could not be opened. It may be damaged.');
             });
         }

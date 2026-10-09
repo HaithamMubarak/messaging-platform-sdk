@@ -15,6 +15,8 @@
     var developerIdentityVerified = false;
     var verifiedAccessEmail = null;
     var busy = {};
+    var googleOn = false;      // Google sign-in configured on this deployment
+    var methodsUser = null;    // the user the sign-in card last rendered
     var el = function (id) { return document.getElementById(id); };
 
     function channelKey(row) {
@@ -354,6 +356,7 @@
     function renderSignInMethods(user) {
         var methods = methodsOf(user);
         el('pMethodsCard').hidden = !methods;
+        methodsUser = methods ? user : null;
         if (!methods) return;
         var list = el('pMethods');
         list.innerHTML = '';
@@ -365,19 +368,30 @@
         // A Google account with no password cannot sign in to a client that
         // only takes a password (a game's sign-in screen); offer one.
         el('pSetPassword').hidden = !(user.google && !user.hasPassword);
+        // Linking needs Google on this deployment; unlinking needs a password
+        // left behind, or the account would have no way in.
+        el('pGoogleLink').hidden = !(googleOn && !user.google && linkable(A));
+        el('pGoogleUnlink').hidden = !(user.google && user.hasPassword && typeof A.unlinkGoogle === 'function');
+    }
+
+    // An older mp-account.js (or a page that loaded one) has no link calls.
+    function linkable(account) { return typeof account.linkGoogle === 'function'; }
+
+    function refreshSignInMethods() {
+        A.me(true).then(function (u) {
+            if (u && A.idOf(u) === accountId) renderSignInMethods(u);
+        }).catch(function () {});
     }
 
     function loadSignInMethods(user) {
         if (methodsOf(user)) { renderSignInMethods(user); return; }
         // Possibly a /me cached before the service reported methods: ask once.
         el('pMethodsCard').hidden = true;
-        A.me(true).then(function (fresh) {
-            if (fresh && A.idOf(fresh) === accountId) renderSignInMethods(fresh);
-        }).catch(function () {});
+        refreshSignInMethods();
     }
 
-    function setPasswordMessage(id, text) {
-        ['pSetPasswordError', 'pSetPasswordOk'].forEach(function (other) { el(other).hidden = true; });
+    function methodsMessage(id, text) {
+        ['pMethodsError', 'pMethodsOk'].forEach(function (other) { el(other).hidden = true; });
         if (!text) return;
         el(id).hidden = false;
         el(id).textContent = text;
@@ -385,26 +399,57 @@
 
     function submitNewPassword() {
         var pw = el('pNewPassword').value;
-        setPasswordMessage(null, null);
-        if (pw.length < 8) return setPasswordMessage('pSetPasswordError', 'Use at least 8 characters.');
+        methodsMessage(null, null);
+        if (pw.length < 8) return methodsMessage('pMethodsError', 'Use at least 8 characters.');
         if (pw !== el('pNewPassword2').value) {
-            return setPasswordMessage('pSetPasswordError', 'The two passwords do not match.');
+            return methodsMessage('pMethodsError', 'The two passwords do not match.');
         }
         singleFlight('setPassword', ['pSetPasswordBtn'], function () {
             return A.setPassword(pw).then(function (user) {
                 el('pNewPassword').value = '';
                 el('pNewPassword2').value = '';
                 if (user) renderSignInMethods(user);
-                setPasswordMessage('pSetPasswordOk',
+                methodsMessage('pMethodsOk',
                     'Password set. You can now sign in with your email and this password, or with Google.');
             }).catch(function (e) {
                 if (e && e.status === 409) {
                     // The page was out of date: show what the account really has.
-                    A.me(true).then(function (u) { if (u) renderSignInMethods(u); }).catch(function () {});
-                    return setPasswordMessage('pSetPasswordError', 'This account already has a password. '
+                    refreshSignInMethods();
+                    return methodsMessage('pMethodsError', 'This account already has a password. '
                         + 'To change it, sign out and use “Forgotten your password?”.');
                 }
-                setPasswordMessage('pSetPasswordError', (e && e.message) || 'The password could not be set.');
+                methodsMessage('pMethodsError', (e && e.message) || 'The password could not be set.');
+            });
+        });
+    }
+
+    /* Linking leaves the page for Google. The flag tells the page it comes
+     * back to that a #googleError belongs to linking, not to signing in. */
+    var LINKING = 'mp.linkingGoogle';
+
+    function startGoogleLink() {
+        methodsMessage(null, null);
+        singleFlight('linkGoogle', ['pLinkGoogleBtn'], function () {
+            return A.linkGoogle(window.location.pathname).then(function (url) {
+                try { sessionStorage.setItem(LINKING, '1'); } catch (ignore) {}
+                window.location.assign(url);
+            }).catch(function (e) {
+                if (e && e.status === 409) refreshSignInMethods();
+                methodsMessage('pMethodsError', (e && e.message) || 'Google linking could not be started.');
+            });
+        });
+    }
+
+    function unlinkGoogle() {
+        methodsMessage(null, null);
+        singleFlight('unlinkGoogle', ['pUnlinkGoogleBtn'], function () {
+            return A.unlinkGoogle().then(function (user) {
+                if (user) renderSignInMethods(user);
+                methodsMessage('pMethodsOk', 'Google is unlinked. Sign in with your email and password.');
+            }).catch(function (e) {
+                // 409: no password to fall back on. The service says so.
+                if (e && e.status === 409) refreshSignInMethods();
+                methodsMessage('pMethodsError', (e && e.message) || 'Google could not be unlinked.');
             });
         });
     }
@@ -570,6 +615,8 @@
 
     A.googleAvailable().then(function (ok) {
         if (!ok) return;
+        googleOn = true;
+        if (methodsUser) renderSignInMethods(methodsUser);
         el('pSwitchAccount').hidden = false;
         var b = el('pGoogle');
         b.hidden = false;
@@ -837,17 +884,36 @@
     }
 
     el('pSetPasswordBtn').addEventListener('click', submitNewPassword);
+    el('pLinkGoogleBtn').addEventListener('click', startGoogleLink);
+    el('pUnlinkGoogleBtn').addEventListener('click', unlinkGoogle);
 
-    /** A Google round trip that failed comes back here with its reason. */
-    function showGoogleError() {
+    /** Was this page left to link Google? Asking clears it. */
+    function takeLinking() {
+        try {
+            var was = sessionStorage.getItem(LINKING) === '1';
+            sessionStorage.removeItem(LINKING);
+            return was;
+        } catch (e) { return false; }
+    }
+
+    /**
+     * A Google round trip comes back here: linked, or failed with a reason.
+     * A link's outcome goes on the sign-in card (rendered once /me answers);
+     * a failed sign-in goes at the top of the page, as before.
+     */
+    function showGoogleReturn() {
+        var linking = takeLinking();
+        var linked = typeof A.takeGoogleLinked === 'function' && A.takeGoogleLinked();
         var message = typeof A.takeGoogleError === 'function' ? A.takeGoogleError() : null;
+        if (linked) return methodsMessage('pMethodsOk', 'Google is now linked.');
         if (!message) return;
+        if (linking) return methodsMessage('pMethodsError', 'Google was not linked: ' + message);
         el('pGoogleError').hidden = false;
         el('pGoogleError').textContent = 'Google sign-in did not finish: ' + message;
     }
 
     /* ---- boot ---- */
-    showGoogleError();
+    showGoogleReturn();
     if (window.location.hash === '#signin') show(false);
     A.me().then(applyUser).catch(function () { show(false); });
     A.onChange(function () { A.me(true).then(applyUser).catch(function () { show(false); }); });
