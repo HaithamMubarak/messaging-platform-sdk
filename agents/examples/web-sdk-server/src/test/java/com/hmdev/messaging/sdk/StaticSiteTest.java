@@ -47,7 +47,8 @@ class StaticSiteTest {
             "apps/under-the-hood/index.html",
             "apps/pulse/index.html",
             "apps/drop/index.html",
-            "apps/call/index.html");
+            "apps/call/index.html",
+            "hmdev.html");
     // Hub consolidation phase 4 (2026-10-03) deleted the retired demos (Rewind, Dead Drop,
     // Pictionary, Find the Liar, Reactor and the redirect stubs); the gateway 301s their URLs.
 
@@ -266,9 +267,16 @@ class StaticSiteTest {
      * when another service owns it. The gateway serves this tree at both
      * /messaging-platform/sdk/ and /messaging-platform/hub/ (whose root is
      * hub.html), the profile at the platform root, and the key tester under an
-     * alias. /hub/apps/ is rewritten to apps-service and is not ours.
+     * alias. /hub/apps/ is rewritten to apps-service and is not ours. The HMDev
+     * company pages sit at the site root: / is hmdev.html, /about/ is
+     * about.html and /account/ is the profile (2026-10-10); /account/api/ and
+     * /account/connect/ are rooms-service's.
      */
     private static String gatewayToRepo(String path) {
+        if (path.equals("/")) return "hmdev.html";
+        if (path.equals("/about/")) return "about.html";
+        if (path.equals("/account/")) return "profile.html";
+        if (path.startsWith("/account/")) return null;
         if (path.equals("/messaging-platform/hub/developer/key-verifier/")) return "apps/test-api-key/index.html";
         if (path.equals("/messaging-platform/profile.html")) return "profile.html";
         if (path.startsWith("/messaging-platform/sdk/")) return path.substring("/messaging-platform/sdk/".length());
@@ -312,17 +320,6 @@ class StaticSiteTest {
                     if (routes.contains(path.replaceAll("^.*/", ""))
                             && !path.contains(".")) {
                         continue;
-                    }
-
-                    // profile.html is served at the PLATFORM ROOT, one level
-                    // above this tree, so its relative links are written from
-                    // there: sdk/x is this tree's x, and apps/x belongs to
-                    // apps-service. Resolving them like any other page's puts
-                    // them at static/sdk/x, which is nothing.
-                    if (page.getFileName().toString().equals("profile.html")
-                            && !path.startsWith("/")) {
-                        if (!path.startsWith("sdk/")) continue;
-                        path = path.substring("sdk/".length());
                     }
 
                     // An absolute link is a GATEWAY path, not a repo path. The

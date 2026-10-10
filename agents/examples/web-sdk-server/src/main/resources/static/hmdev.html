@@ -1,0 +1,98 @@
+<!doctype html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>HMDev</title>
+<!-- The company's home, served at exactly https://hmdevonline.com/ (gateway "location = /").
+     The Messaging Platform is one product under it, at /messaging-platform/hub/. Every link is
+     root-absolute: this file is served from the site root, not from this tree's own prefix. -->
+<meta name="description" content="HMDev builds the Messaging Platform, the apps and games that run on it, and one HMDev account that signs you in to all of them.">
+<link rel="canonical" href="https://hmdevonline.com/">
+<meta name="robots" content="index,follow">
+<meta name="color-scheme" content="dark">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="HMDev">
+<meta property="og:title" content="HMDev">
+<meta property="og:description" content="The Messaging Platform, the apps and games built on it, and one HMDev account for all of them.">
+<meta property="og:url" content="https://hmdevonline.com/">
+<meta property="og:image" content="https://hmdevonline.com/messaging-platform/sdk/images/og-image.png">
+<meta name="twitter:card" content="summary_large_image">
+<link rel="icon" type="image/svg+xml" href="/messaging-platform/hub/favicon.svg">
+<link rel="stylesheet" href="/messaging-platform/hub/css/design-tokens.css">
+<link rel="stylesheet" href="/messaging-platform/hub/css/site.css">
+<link rel="stylesheet" href="/messaging-platform/hub/css/site-shell.css">
+<style>
+/* HMDev home only. Tracks are minmax(0, 1fr) so nothing long can widen the page on a phone. */
+.hm-mark { display: inline-flex; align-items: center; justify-content: center; width: 28px; height: 28px; border-radius: 7px; background: #14b8a6; color: #0b1120; font-weight: 800; font-size: 15px; flex: none; }
+.hm-hero { max-width: 46rem; padding: 24px 0 8px; }
+.hm-hero h1 { font-size: clamp(32px, 5vw, 52px); letter-spacing: -1.4px; line-height: 1.06; }
+.hm-hero h1 em { font-style: normal; color: var(--accent, #2dd4bf); }
+.hm-hero .mp-lead { margin-top: 16px; font-size: 18px; max-width: 40rem; }
+.hm-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }
+.hm-card { display: block; min-width: 0; padding: 22px; border: 1px solid var(--border); border-radius: 16px; background: var(--surface-1); color: inherit; text-decoration: none; }
+a.hm-card:hover { border-color: var(--brand-ink, #2dd4bf); }
+.hm-card h3 { font-family: var(--font-display); font-size: 22px; color: var(--text); margin-top: 6px; }
+.hm-card p { margin-top: 8px; color: var(--text-body); }
+.hm-card .home-door__go { display: inline-block; margin-top: 14px; }
+.hm-card .mp-eyebrow { margin: 0; }
+@media (max-width: 760px) { .hm-grid { grid-template-columns: minmax(0, 1fr); } }
+</style>
+<link rel="preload" href="/messaging-platform/hub/fonts/5.3.0/manrope-latin-wght-normal.woff2" as="font" type="font/woff2" crossorigin>
+</head>
+<body class="mp-page">
+<header class="site-header" id="siteHeader">
+    <div class="site-header__inner">
+        <a class="brand" href="/"><span class="hm-mark" aria-hidden="true">H</span><span>HMDev</span></a>
+        <button class="nav-toggle" id="navToggle" type="button" aria-expanded="false" aria-controls="siteNav" aria-label="Open menu"><svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M4 6h16M4 12h16M4 18h16"/></svg></button>
+        <nav class="site-nav" id="siteNav" aria-label="Main">
+            <a href="#products">Products</a>
+            <a href="#games">Games</a>
+            <a href="/about/">About</a>
+            <a class="site-nav__cta btn--gradient" href="/account/">HMDev Account</a>
+        </nav>
+    </div>
+</header>
+<a class="sr-only" href="#main">Skip to content</a>
+<main class="mp-main" id="main">
+
+<section class="hm-hero" aria-labelledby="page-title">
+<p class="mp-eyebrow">HMDev</p>
+<h1 id="page-title">Realtime software, <em>built in the open.</em></h1>
+<p class="mp-lead">HMDev builds the Messaging Platform, the apps and games that run on it, and one HMDev account that signs you in to all of them.</p>
+<div class="mp-actions"><a class="mp-btn mp-btn--primary" href="/messaging-platform/hub/">The Messaging Platform</a><a class="mp-btn" href="/account/">Your HMDev Account</a></div>
+</section>
+
+<section class="mp-section" id="products" aria-labelledby="products-h">
+<div class="mp-section-head"><p class="mp-eyebrow">Products</p><h2 id="products-h">What we make.</h2></div>
+<div class="hm-grid">
+<a class="hm-card" href="/messaging-platform/hub/"><p class="mp-eyebrow">Build</p><h3>Messaging Platform</h3><p>Realtime infrastructure for developers: messaging, presence, shared state and WebRTC through one SDK, in public beta.</p><span class="home-door__go">The platform &rarr;</span></a>
+<a class="hm-card" href="/messaging-platform/apps/"><p class="mp-eyebrow">Use</p><h3>Apps</h3><p>Rooms, Drop Pro, Proof and more, built on the platform and ready today.</p><span class="home-door__go">The apps catalogue &rarr;</span></a>
+</div>
+</section>
+
+<section class="mp-section" id="games" aria-labelledby="games-h">
+<div class="mp-section-head"><p class="mp-eyebrow">Games</p><h2 id="games-h">What we play.</h2></div>
+<div class="hm-grid">
+<div class="hm-card"><p class="mp-eyebrow">PC and Android</p><h3>Crossline</h3><p>A playground racket sport: animal athletes on powered wheel shoes strike one ball into the other team's goal. Online play signs in with your HMDev account.</p></div>
+<a class="hm-card" href="/messaging-platform/hub/games.html"><p class="mp-eyebrow">In the browser</p><h3>Party games</h3><p>Party Arcade and BlockParty: one code, everyone on their own phone.</p><span class="home-door__go">Games &rarr;</span></a>
+</div>
+</section>
+
+<section class="mp-section" aria-labelledby="account-h">
+<div class="hm-card">
+<p class="mp-eyebrow">HMDev Account</p><h2 id="account-h">One account for every HMDev app and game.</h2>
+<p>Sign in with an email and password or with Google. Apps and games are shown your display name and HMDev ID, nothing more.</p>
+<div class="mp-actions"><a class="mp-btn mp-btn--primary" href="/account/">Open your account</a><a class="mp-btn" href="/about/">About HMDev</a></div>
+</div>
+</section>
+
+</main>
+<footer class="site-shell-footer">
+    <div class="site-shell-footer__inner">
+        <div class="site-shell-footer__legal"><span>&copy; 2026 HMDev</span>
+            <span><a href="/about/">About</a> &middot; <a href="/messaging-platform/hub/privacy.html">Privacy</a> &middot; <a href="/messaging-platform/hub/terms.html">Terms</a> &middot; <a href="https://github.com/HaithamMubarak/messaging-platform-sdk/issues">Support</a></span></div>
+    </div>
+</footer>
+<script src="/messaging-platform/hub/js/site-shell.js" defer></script>
+</body>
+</html>
