@@ -87,7 +87,7 @@ function footer() {
         <div class="site-shell-footer__cols">
             <div class="site-shell-footer__about"><a class="brand" href="${HUB}">${LOGO}<span>Messaging Platform</span></a>
                 <p>Realtime infrastructure for developers: messaging, presence, shared state and WebRTC through one SDK.</p>
-                <ul><li><a href="${HUB}about.html">About HMDev</a></li></ul></div>
+                <ul><li><a href="/about/">About HMDev</a></li></ul></div>
             ${cols}
         </div>
         <div class="site-shell-footer__legal"><span>&copy; 2026 Messaging Platform</span>

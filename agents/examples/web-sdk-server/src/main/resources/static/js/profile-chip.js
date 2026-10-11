@@ -14,7 +14,7 @@
 (function (window, document) {
     'use strict';
 
-    var PROFILE = '/messaging-platform/profile.html';
+    var PROFILE = '/account/';
 
     function build(user) {
         var a = document.createElement('a');
