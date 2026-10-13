@@ -793,6 +793,15 @@
             channelPrefix: 'pulse-',
             title: 'Join a Pulse room',
             collapsedTitle: 'Pulse',
+            partyLobby: {
+                id: 'pulse', start: 'Start a poll', players: 'Any size room · works alone',
+                tagline: 'Ask the room anything. Watch the votes arrive, then scrub back through how they moved.',
+                howTo: [
+                    'Ask a question and give a few answers.',
+                    'Share the code: everyone votes from their own phone.',
+                    'Drag the history slider to replay the vote.',
+                ],
+            },
             onConnect: connect
         });
         if (window.MiniGameUtils && MiniGameUtils.processSharedLinkAndAutoConnect) {

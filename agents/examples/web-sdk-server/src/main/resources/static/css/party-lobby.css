@@ -1,0 +1,172 @@
+/*
+ * The party lobby (js/party-lobby.js): the first screen of every demo.
+ * Loaded by the lobby itself, so a page only includes the script.
+ *
+ * It sits on top of pages with their own idea of a button, an input and a
+ * heading (the whiteboard is light, chat centres its text), so everything
+ * here is scoped to #partyLobby and reads its own --pl-* palette: the site's
+ * dark tokens, fixed, rather than whatever the host page redefined them to.
+ */
+#partyLobby {
+    --pl-bg: #0b1120; --pl-surface: #101827; --pl-raised: #16203a; --pl-field: #0d1526;
+    --pl-border: rgba(148, 163, 184, 0.14); --pl-border-strong: rgba(148, 163, 184, 0.28);
+    --pl-text: #eef2f8; --pl-body: #c4cede; --pl-muted: #8a97ab;
+    --pl-brand: #2dd4bf; --pl-brand-hover: #5eead4; --pl-brand-ink: #7ee8dc;
+    --pl-brand-subtle: rgba(45, 212, 191, 0.14); --pl-on-brand: #04201c; --pl-danger: #f87171;
+    --pl-focus: 0 0 0 3px rgba(45, 212, 191, 0.5);
+    --pl-font: "Manrope", "Manrope Fallback", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+    --pl-mono: "JetBrains Mono", ui-monospace, "Cascadia Code", Menlo, Consolas, monospace;
+
+    position: fixed; inset: 0; z-index: 100010;
+    display: grid; place-items: center; padding: 16px;
+    background: var(--pl-bg); overflow: auto;
+    color: var(--pl-text); font: 400 16px/1.4 var(--pl-font);
+}
+/* Undo the host page's element rules inside the lobby; the rules below set what they need. */
+#partyLobby * {
+    box-sizing: border-box; text-align: left; text-transform: none; letter-spacing: normal;
+    font-family: inherit; color: inherit; text-shadow: none;
+}
+#partyLobby h1, #partyLobby p, #partyLobby ol, #partyLobby figure { margin: 0; padding: 0; }
+#partyLobby button, #partyLobby input, #partyLobby a { box-shadow: none; outline: none; }
+
+#partyLobby .pl-card {
+    width: min(1100px, 100%); background: var(--pl-surface);
+    border: 1px solid var(--pl-border); border-radius: 20px;
+    display: grid; overflow: hidden;
+}
+#partyLobby .pl-body { display: grid; gap: 28px; padding: 28px; }
+@media (min-width: 860px) {
+    #partyLobby .pl-body { grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr); gap: 40px; padding: 36px; }
+    #partyLobby .pl-play { align-self: center; }
+}
+
+/* ---------------------------------------------------- the demo, left half */
+#partyLobby .pl-show { display: grid; gap: 16px; align-content: start; min-width: 0; }
+#partyLobby .pl-preview {
+    position: relative; border-radius: 16px; overflow: hidden;
+    background: var(--pl-bg); border: 1px solid var(--pl-border); aspect-ratio: 16 / 10;
+}
+#partyLobby .pl-preview[hidden] { display: none; }
+#partyLobby .pl-preview__img { display: block; width: 100%; height: 100%; object-fit: cover; object-position: top left; }
+#partyLobby .pl-preview__tags { position: absolute; top: 12px; left: 12px; right: 12px; display: flex; flex-wrap: wrap; gap: 8px; }
+#partyLobby .pl-tag {
+    font-size: 12px; font-weight: 700; padding: 5px 10px; border-radius: 999px;
+    background: rgba(11, 17, 32, 0.85); color: var(--pl-body);
+}
+#partyLobby .pl-tag--live { color: var(--pl-brand-ink); display: inline-flex; align-items: center; gap: 6px; }
+#partyLobby .pl-tag--live::before { content: ""; width: 7px; height: 7px; border-radius: 50%; background: var(--pl-brand); }
+
+#partyLobby .pl-steps { list-style: none; display: grid; gap: 10px; }
+@media (min-width: 640px) { #partyLobby .pl-steps { grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); } }
+#partyLobby .pl-step {
+    display: flex; gap: 12px; align-items: flex-start; padding: 12px 14px; border-radius: 14px;
+    background: var(--pl-bg); border: 1px solid var(--pl-border);
+    font-size: 14px; line-height: 1.45; color: var(--pl-body);
+}
+#partyLobby .pl-step__n {
+    flex: none; width: 26px; height: 26px; border-radius: 50%; display: grid; place-items: center;
+    background: var(--pl-brand-subtle); color: var(--pl-brand-ink); font-weight: 800; font-size: 13px;
+}
+
+/* ------------------------------------------------- the ways in, right half */
+#partyLobby .pl-play { display: grid; gap: 12px; min-width: 0; }
+#partyLobby .pl-title {
+    font: 800 clamp(30px, 4vw, 42px)/1.1 var(--pl-font); letter-spacing: -0.02em; color: var(--pl-text);
+}
+#partyLobby .pl-tagline { margin-bottom: 4px; font-size: 17px; line-height: 1.5; color: var(--pl-body); }
+#partyLobby .pl-tagline[hidden] { display: none; }
+#partyLobby .pl-label { font-size: 13px; font-weight: 600; color: var(--pl-muted); }
+
+#partyLobby .pl-who {
+    display: flex; align-items: center; gap: 12px; padding: 8px 8px 8px 12px; border-radius: 14px;
+    background: var(--pl-bg); border: 1px solid var(--pl-border);
+}
+#partyLobby .pl-avatar {
+    flex: none; width: 40px; height: 40px; border-radius: 50%; display: grid; place-items: center;
+    color: #0b1120; font-weight: 800; font-size: 17px;
+}
+#partyLobby .pl-who__name { flex: 1; min-width: 0; display: grid; }
+
+#partyLobby .pl-input {
+    width: 100%; min-height: 48px; margin: 0; padding: 10px 14px; border-radius: 12px;
+    border: 1px solid var(--pl-border-strong); background: var(--pl-field);
+    color: var(--pl-text); font: 400 16px/1.3 var(--pl-font);
+}
+#partyLobby .pl-input::placeholder { color: var(--pl-muted); opacity: 1; }
+#partyLobby .pl-who .pl-name {
+    min-height: 32px; padding: 2px 0; border: 0; background: transparent; font-weight: 700; border-radius: 4px;
+}
+#partyLobby .pl-code { letter-spacing: 0.08em; font-family: var(--pl-mono); font-weight: 600; }
+
+#partyLobby .pl-btn {
+    min-height: 52px; margin: 0; padding: 0 20px; border-radius: 14px; cursor: pointer; text-align: center;
+    border: 1px solid var(--pl-border-strong); background: var(--pl-raised);
+    color: var(--pl-text); font: 700 16px/1.2 var(--pl-font);
+}
+#partyLobby .pl-btn:hover { border-color: var(--pl-brand); }
+#partyLobby .pl-btn--primary {
+    min-height: 60px; border: 0; font-size: 19px; font-weight: 800;
+    background: var(--pl-brand); color: var(--pl-on-brand);
+    box-shadow: 0 10px 30px -12px rgba(45, 212, 191, 0.7);
+}
+#partyLobby .pl-btn--primary:hover { background: var(--pl-brand-hover); }
+#partyLobby .pl-btn--resume { border-color: var(--pl-brand); color: var(--pl-brand-ink); }
+#partyLobby .pl-btn--quiet { min-height: 48px; background: transparent; color: var(--pl-brand-ink); border-color: rgba(45, 212, 191, 0.5); }
+#partyLobby .pl-hint { margin: -4px 0 6px; text-align: center; font-size: 13px; color: var(--pl-muted); }
+
+#partyLobby .pl-icon-btn {
+    flex: none; width: 44px; height: 44px; margin: 0; padding: 0; display: grid; place-items: center; cursor: pointer;
+    border-radius: 10px; border: 1px solid var(--pl-border-strong); background: var(--pl-raised); color: var(--pl-text);
+}
+#partyLobby .pl-join { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 8px; }
+#partyLobby .pl-error { min-height: 1em; color: var(--pl-danger); font-size: 14px; }
+#partyLobby .pl-link {
+    justify-self: start; margin: 0; padding: 6px 0; min-height: 32px; cursor: pointer;
+    background: none; border: 0; color: var(--pl-muted); font: 400 13px/1.3 var(--pl-font); text-decoration: underline;
+}
+#partyLobby .pl-btn:focus-visible, #partyLobby .pl-icon-btn:focus-visible, #partyLobby .pl-link:focus-visible,
+#partyLobby .pl-input:focus-visible, #partyLobby .pl-teach__src:focus-visible { box-shadow: var(--pl-focus); }
+#partyLobby .pl-who .pl-name:focus-visible { box-shadow: var(--pl-focus); }
+
+/* --------------------------------------------- what it teaches, the footer */
+#partyLobby .pl-teach {
+    display: flex; flex-wrap: wrap; align-items: center; gap: 8px 10px; padding: 14px 28px;
+    border-top: 1px solid var(--pl-border); font-size: 13px; color: var(--pl-muted);
+}
+#partyLobby .pl-teach[hidden] { display: none; }
+#partyLobby .pl-teach__lead { margin-right: 2px; }
+#partyLobby .pl-chip-tag { padding: 4px 10px; border-radius: 999px; font-weight: 600; background: var(--pl-raised); color: var(--pl-body); }
+#partyLobby .pl-teach__src {
+    margin-left: auto; display: inline-flex; align-items: center; min-height: 32px;
+    font-weight: 700; color: var(--pl-brand-ink); text-decoration: none;
+}
+#partyLobby .pl-teach__src:hover { text-decoration: underline; }
+
+/* After the base rules, which it overrides. One column: the picture, then the ways in, then how to play. */
+@media (max-width: 859px) {
+    #partyLobby .pl-show { display: contents; }
+    #partyLobby .pl-preview { order: 0; aspect-ratio: 16 / 7; }
+    #partyLobby .pl-play { order: 1; }
+    #partyLobby .pl-steps { order: 2; }
+}
+/* Last, so it wins over the rules above: beside Join a 12-digit code was clipped on a phone. */
+@media (max-width: 420px) {
+    #partyLobby { padding: 0; place-items: start stretch; }
+    #partyLobby .pl-card { border-radius: 0; border: 0; min-height: 100%; }
+    #partyLobby .pl-body { padding: 16px; gap: 18px; }
+    #partyLobby .pl-join { grid-template-columns: minmax(0, 1fr); }
+    #partyLobby .pl-teach { padding: 14px 16px; }
+    #partyLobby .pl-teach__src { margin-left: 0; }
+}
+
+/* --------------------- the code after joining, on a page with its own form */
+.pl-chip {
+    position: fixed; top: 12px; left: 50%; transform: translateX(-50%); z-index: 100005;
+    display: flex; align-items: center; gap: 8px; padding: 6px 6px 6px 14px; border-radius: 999px;
+    background: #16203a; color: #eef2f8; border: 1px solid rgba(148, 163, 184, 0.28);
+    font: 14px "Manrope", system-ui, sans-serif; box-shadow: 0 6px 20px #0006;
+}
+.pl-chip strong { letter-spacing: 0.15em; font-family: "JetBrains Mono", ui-monospace, monospace; }
+.pl-chip__btn { min-height: 32px; padding: 0 12px; border-radius: 999px; border: 0; background: #2dd4bf; color: #04201c; font-weight: 700; cursor: pointer; }
+.pl-chip__x { min-width: 32px; min-height: 32px; border: 0; background: none; color: inherit; font-size: 18px; cursor: pointer; }

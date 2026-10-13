@@ -16,9 +16,11 @@
 
     const STORE_KEY = 'party_sound';
     let ctx = null;
-    let muted = false;
+    // Off until somebody turns it on: a page that starts making noise in a
+    // meeting or a classroom is closed, not played. The choice is remembered.
+    let muted = true;
 
-    try { muted = localStorage.getItem(STORE_KEY) === 'off'; } catch (_) {}
+    try { muted = localStorage.getItem(STORE_KEY) !== 'on'; } catch (_) {}
 
     function audio() {
         if (muted) return null;

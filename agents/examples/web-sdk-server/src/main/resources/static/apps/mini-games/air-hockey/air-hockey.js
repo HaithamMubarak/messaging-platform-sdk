@@ -2798,7 +2798,7 @@ function initializeConnectionModal() {
         title: 'Join Air Hockey',
         collapsedTitle: 'Air Hockey',
         partyLobby: {
-            players: '2–6 players',
+            id: 'air-hockey', start: 'Play now', players: '2–6 players',
             howTo: [
                 'Move your mallet with the mouse, or drag with a finger.',
                 "Knock the puck into the other side's goal.",

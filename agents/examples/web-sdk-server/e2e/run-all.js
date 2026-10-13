@@ -17,7 +17,7 @@ const { BASE } = require('./lib/harness');
 // not, and the self-checks exist to prove the sweeps can fail.
 const GROUPS = {
     'site sweeps': ['health.js', 'links.js', 'mobile.js', 'contrast.js', 'token-check.js',
-                    'a11y.js', 'focus.js', 'icon-blank-test.js', 'responsive-test.js'],
+                    'a11y.js', 'focus.js', 'icon-blank-test.js', 'responsive-test.js', 'lobby-test.js'],
     'self-checks': ['a11y-selfcheck.js', 'focus-selfcheck.js'],
     'apps': ['chat-test.js', 'wb-test.js', 'wb-history-test.js', 'shape-fidelity-test.js', 'collab-actions-test.js', 'persistence-test.js', 'handover-test.js', 'term-test.js', 'terminal-scrollback-test.js',
              'drop-test.js', 'drop-resume-test.js', 'drop-later-test.js', 'call-test.js', 'undriven-test.js', 'devpages-test.js', 'coreloop-test.js', 'pulse-moderation-test.js', 'tier2-test.js', 'under-the-hood-test.js', 'evidence-chain-test.js'],

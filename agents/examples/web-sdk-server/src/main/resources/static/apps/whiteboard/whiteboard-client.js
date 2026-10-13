@@ -4165,6 +4165,14 @@ function initializeCredentialInputs() {
         channelPrefix: 'whiteboard-',
         title: 'Join Whiteboard',
         collapsedTitle: 'Join Whiteboard',
+        partyLobby: {
+            id: 'whiteboard', title: 'Whiteboard', start: 'Open a board', players: 'Any size room · works alone',
+            howTo: [
+                'Open a board and draw: pen, shapes, text and sticky notes.',
+                'Share the code, and every stroke appears on every screen.',
+                'Come back later: the board is still there, stored encrypted.',
+            ],
+        },
         onConnect: function(username, channel, password) {
             // Call the whiteboard's connect function
             connect();

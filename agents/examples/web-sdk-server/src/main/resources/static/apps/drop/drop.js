@@ -704,6 +704,14 @@
             channelPrefix: 'drop-',
             title: 'Join a Drop room',
             collapsedTitle: 'Drop',
+            partyLobby: {
+                id: 'drop', start: 'Open a drop room', players: 'You and whoever has the code',
+                howTo: [
+                    'Open a room and send its code to the other side.',
+                    'Send now goes straight between your browsers, nothing uploaded.',
+                    'Or leave a file for later, encrypted before it leaves you.',
+                ],
+            },
             onConnect: connect
         });
         if (window.MiniGameUtils && MiniGameUtils.processSharedLinkAndAutoConnect) {

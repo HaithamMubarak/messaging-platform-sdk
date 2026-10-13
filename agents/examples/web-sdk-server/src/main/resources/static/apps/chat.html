@@ -2679,6 +2679,24 @@
 <script src="../js/active-channel.js"></script>
 <script src="../js/room-defaults.js"></script>
 <script>RoomDefaults.apply({ prefix: 'chat_', channelPrefix: 'chat-', sharedDefaults: ['default'] });</script>
+<!-- The party lobby (js/party-lobby.js) leads with Start a chat / Join with a code and
+     drives this page's own form. The modal script below is here only for PartyCode (codes to rooms). -->
+<script src="../js/connection-modal.js" data-codes-only></script>
+<script src="../js/party-lobby.js"></script>
+<script>
+PartyLobby.attach({
+    localStoragePrefix: 'chat_', channelPrefix: 'chat-',
+    fields: { user: 'agentName', channel: 'channelName', password: 'channelPassword', connect: 'start', form: 'sidebar-details' },
+    partyLobby: {
+        id: 'chat', title: 'Chat', start: 'Start a chat', players: '2 or more people',
+        howTo: [
+            'Start a chat and send the code to whoever you want to talk to.',
+            'Messages are encrypted in your browser before they leave it.',
+            'Ring me when I am away: a push that reaches a closed page.',
+        ],
+    },
+});
+</script>
 <script src="../js/app-chrome.js"></script>
 </body>
 </html>

@@ -303,6 +303,15 @@
             channelPrefix: 'hood-',
             title: 'Look under the hood',
             collapsedTitle: 'Under the Hood',
+            partyLobby: {
+                id: 'under-the-hood', start: 'Open the control room', players: 'Best with 2–4 tabs or devices',
+                tagline: 'See every connection live, then step aside as host and watch the room elect another.',
+                howTo: [
+                    'Open the room, then open its code in a second tab or on your phone.',
+                    'Send a ping and watch it travel.',
+                    'Step aside as host and see who takes over.',
+                ],
+            },
             onConnect: async function (username, channel, password) {
                 // This page is `promiscuous`, which means rawRoom: it joins the
                 // name it is given, verbatim, and derives no suffix of its own.

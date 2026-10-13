@@ -349,7 +349,11 @@ check('unticking "save this channel" actually unsaves it', () => {
 
 check('every page with the modal can reach the saved list', () => {
     const wrong = htmlFiles(STATIC).filter((f) => {
-        const t = fs.readFileSync(f, 'utf8');
+        // A page that loads connection-modal.js only for its room codes (chat.html,
+        // for the party lobby over its own form) never opens the modal, so it has no
+        // Saved tab to fill. It says so on the tag: `data-codes-only`.
+        const t = fs.readFileSync(f, 'utf8')
+            .replace(/<script[^>]*connection-modal\.js"[^>]*data-codes-only[^>]*><\/script>/g, '');
         if (!t.includes('connection-modal.js')) return false;
         return !t.includes('keyring.js') || !t.includes('mp-account.js');
     }).map((f) => path.relative(STATIC, f));

@@ -398,6 +398,15 @@
             channelPrefix: 'log-',
             title: 'Open an evidence log',
             collapsedTitle: 'Evidence Chain',
+            partyLobby: {
+                id: 'evidence-chain', start: 'Start a log', players: 'Works alone',
+                tagline: 'Write a log the platform signs. Then try to change it without getting caught.',
+                howTo: [
+                    'Add a few entries to the log.',
+                    'Alter or remove one of them in secret.',
+                    'Press Verify, and see exactly where it broke.',
+                ],
+            },
             onConnect: async function (username, channel, password) {
                 await app.initialize();
                 await app.connect({

@@ -1054,7 +1054,7 @@ function initializeConnectionModal() {
         title: 'Join Chess Game',
         collapsedTitle: 'Chess',
         partyLobby: {
-            players: '2 players, anyone else watches',
+            id: 'chess', start: 'Start a game', players: '2 players, anyone else watches',
             howTo: [
                 'Choose white or black when you arrive, or watch.',
                 'Take turns; the board is the same on every screen.',
