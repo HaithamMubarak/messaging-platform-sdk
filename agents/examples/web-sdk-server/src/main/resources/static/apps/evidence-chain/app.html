@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Evidence Chain</title>
-    <meta name="description" content="Append entries to a channel log whose hashes chain into each other, then tamper with one and watch the verifier catch it.">
+    <meta name="description" content="Write a log the platform signs, then try to edit, delete or reorder it without the verifier noticing.">
     <meta name="robots" content="noindex, nofollow">
     <meta name="theme-color" content="#0b1120">
     <link rel="icon" type="image/svg+xml" href="../../favicon.svg">
@@ -18,23 +18,28 @@
 
 <div class="ec-wrap">
     <header class="ec-head">
-        <h1>Evidence Chain</h1>
-        <p>
-            Every entry in <span id="logName" class="ec-log-name">this log</span> is hashed
-            together with the one before it. Add entries, then alter or remove one and
-            press <strong>Verify</strong> — the chain names the first entry that broke.
-        </p>
+        <div class="ec-head__text">
+            <p class="ec-kicker">Evidence Chain · <span id="logName" class="ec-log-name">this log</span></p>
+            <h1>Can you change history without getting caught?</h1>
+            <p class="ec-lede">
+                Every entry is sealed to the one before it, and the platform signs each seal.
+                Add a few entries, tamper with the log, then press <strong>Verify</strong>.
+            </p>
+        </div>
+        <dl class="ec-score" aria-label="Your score on this log">
+            <div><dt>Attempts</dt><dd id="scoreAttempts">0</dd></div>
+            <div><dt>Times you fooled it</dt><dd id="scoreFooled" class="ec-score__fooled">0</dd></div>
+        </dl>
     </header>
 
-    <section class="ec-compose" aria-labelledby="composeHead">
-        <h2 id="composeHead" class="sr-only">Append an entry</h2>
+    <section class="ec-compose ec-card" aria-labelledby="composeHead">
+        <h2 id="composeHead" class="ec-card__title">1 · Write the log</h2>
         <label for="note" class="sr-only">What to record</label>
         <textarea id="note" maxlength="280" rows="2"
-                  placeholder="Record something. It is hashed, chained to the entry before it, and appended — never overwritten."></textarea>
+                  placeholder="Record something: it is sealed to the entry before it, and can never be overwritten."></textarea>
         <div class="ec-row">
-            <button id="appendBtn" class="btn btn--primary btn--sm" type="button">Append entry</button>
-            <button id="verifyBtn" class="btn btn--sm" type="button">Verify the chain</button>
-            <button id="reloadBtn" class="btn btn--sm btn--ghost" type="button">Reload from storage</button>
+            <button id="appendBtn" class="btn btn--primary" type="button">Add entry</button>
+            <button id="seedBtn" class="btn" type="button">Add three example entries</button>
         </div>
         <p id="state" class="ec-state" role="status" aria-live="polite">Not connected yet.</p>
     </section>
@@ -43,42 +48,62 @@
         <div class="ec-log-head">
             <h2 id="logHead">The log <span class="ec-count">(<span id="count">0</span>)</span></h2>
             <p id="tamperFlag" class="ec-tamper" hidden>
-                This tab’s copy has been tampered with. Storage still holds the original —
-                <button class="ec-linkish" type="button" onclick="window.ecApp.reload()">reload</button>
-                to get it back.
+                This tab’s copy has been tampered with. The platform still holds the original.
             </p>
         </div>
         <ol id="entries" class="ec-entries"></ol>
     </section>
 
-    <section class="ec-explain" aria-labelledby="explainHead">
-        <h2 id="explainHead">What is actually happening</h2>
+    <section class="ec-play" aria-label="Tamper and verify">
+        <div class="ec-tricks ec-card">
+            <h2 class="ec-card__title">2 · Pick a trick</h2>
+            <ul class="ec-trick-list">
+                <li id="trick-edit" class="ec-trick"><strong>Edit a word.</strong> Press Edit on any entry and rewrite it.</li>
+                <li id="trick-delete" class="ec-trick"><strong>Delete an entry.</strong> Make something never have happened.</li>
+                <li id="trick-swap" class="ec-trick"><strong>Swap two.</strong> Change the order things happened in.</li>
+            </ul>
+            <div class="ec-row">
+                <button id="verifyBtn" class="btn btn--primary ec-verify" type="button">Verify the chain</button>
+                <button id="reloadBtn" class="btn" type="button">Put it back</button>
+            </div>
+        </div>
+        <div id="verdict" class="ec-verdict ec-card" data-state="idle" aria-live="polite">
+            <p id="verdictKicker" class="ec-verdict__kicker">Waiting</p>
+            <p id="verdictTitle" class="ec-verdict__title">Pick a trick, then press Verify.</p>
+            <p id="verdictDetail" class="ec-verdict__detail">
+                Verification runs in your browser. It never asks the platform whether the platform is honest.
+            </p>
+        </div>
+    </section>
+
+    <details class="ec-explain ec-card">
+        <summary>How does it know?</summary>
         <p class="ec-genesis">
             genesis = <code id="genesis">evidence-chain:&lt;log&gt;</code>
         </p>
 <pre class="ec-formula"><code>chain₀ = SHA-256( genesis   | contentHash₀ | canonical(stamp₀) )
 chainₙ = SHA-256( chainₙ₋₁ | contentHashₙ | canonical(stampₙ) )</code></pre>
         <p>
-            <strong><code>storageAdd</code> appends a version rather than replacing a value</strong>,
-            so the channel keeps every entry ever written — that gives you a log. The hash of each
-            entry covers the previous entry's hash, which welds the entries into an order — that is
-            what turns a log into a record.
+            Each note goes into channel storage, and only its hash goes to the platform's
+            <code>attest()</code>. The platform gives it its place in the order, stamps its own
+            clock, welds it to the record before it and signs the result. It never sees the note.
         </p>
         <p>
-            Neither half is enough alone. Storage without the chain lets somebody hand you a shorter
-            list and call it the whole thing. The chain without storage lets somebody hand you a
-            different list. Together they mean an entry can be added, and nothing else.
+            Verify asks two questions. Does the signed chain still re-derive, checked against the
+            published key? And does every note still hash to what was sealed for it? Edit a note and
+            the second question fails. Delete or swap one and the log no longer lines up with its
+            receipts.
         </p>
         <p>
-            Stamps are serialised with <em>sorted keys</em>, so the same entry hashes to the same
-            value on any browser, next year. That is the only reason re-derivation works at all.
+            Your tampering only changes this tab’s copy: storage and the chain are append-only, so
+            there is nothing there to rewrite. That is the realistic threat anyway: somebody hands
+            you a log and says it is the record. Verification is what tells you it is not.
         </p>
         <p class="ec-note-small">
-            This page is the primitive, not a product. Fieldstamp — a remote inspection with a phone
-            camera, capture templates and an exportable report — is built on exactly these four
-            functions, and lives elsewhere.
+            This page is the primitive, not a product. Fieldstamp, a remote inspection with a phone
+            camera, capture templates and an exportable report, is built on the same calls.
         </p>
-    </section>
+    </details>
 </div>
 
 <script src="../../js/config-loader.js"></script>

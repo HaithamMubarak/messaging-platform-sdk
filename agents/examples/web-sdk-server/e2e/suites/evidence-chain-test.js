@@ -38,6 +38,53 @@ async function open(b, room, name) {
     return p;
 }
 
+const verdict = (p) => p.evaluate(() => ({
+    state: document.getElementById('verdict').dataset.state,
+    title: document.getElementById('verdictTitle').textContent,
+    attempts: Number(document.getElementById('scoreAttempts').textContent),
+    fooled: Number(document.getElementById('scoreFooled').textContent),
+    firstBreak: [...document.querySelectorAll('#entries > li')].findIndex(li => li.classList.contains('ec-entry--first-break'))
+}));
+
+const putBack = async (p) => { await p.click('#reloadBtn'); await p.waitForTimeout(2500); };
+
+/** Play each trick through the page's buttons, and expect Verify to catch every one. */
+async function challenge(p) {
+    await putBack(p);
+    const start = await verdict(p);
+    await p.click('#verifyBtn');
+    let v = await verdict(p);
+    check(v.state === 'ok' && v.attempts === start.attempts, 'an untouched log verifies, and is not counted as an attempt');
+
+    const seq1 = await p.evaluate(() => window.ecApp.entries[1].seq);
+    await p.click('#entries > li:nth-child(2) button:has-text("Edit")');
+    await p.fill('.ec-edit input', 'Nothing was missing. All fine.');
+    await p.click('.ec-edit button[type=submit]');
+    check(await p.evaluate(() => document.getElementById('trick-edit').classList.contains('is-played')), 'Edit marks its trick as played');
+    await p.click('#verifyBtn');
+    v = await verdict(p);
+    check(v.state === 'caught' && v.firstBreak === 1 && v.title.includes(String(seq1)),
+        `an edit made in the page is caught at the entry it changed (${v.state}, li ${v.firstBreak}, "${v.title}")`);
+    check(v.attempts === start.attempts + 1, 'and counts as one attempt');
+
+    await putBack(p);
+    check((await verdict(p)).state === 'idle', '"Put it back" reads the original and clears the verdict');
+    await p.click('#entries > li:nth-child(1) button:has-text("Swap")');
+    await p.click('#verifyBtn');
+    v = await verdict(p);
+    const scope = await p.evaluate(() => window.ecApp.result.scope);
+    check(v.state === 'caught' && v.firstBreak === 0 && scope === 'order', `a swap is caught as an order break at the first entry (${scope}, li ${v.firstBreak})`);
+
+    await putBack(p);
+    await p.click('#entries > li:nth-child(2) button:has-text("Delete")');
+    await p.click('#verifyBtn');
+    v = await verdict(p);
+    check(v.state === 'caught', 'a delete made in the page is caught');
+    const tried = await p.evaluate(() => ['edit', 'delete', 'swap'].every(t => document.getElementById('trick-' + t).classList.contains('is-tried')));
+    check(tried && v.fooled === 0, `all three tricks are ticked as tried, and "fooled it" stays 0 (${v.fooled})`);
+    await putBack(p);
+}
+
 const append = async (p, text) => {
     await p.fill('#note', text);
     await p.click('#appendBtn');
@@ -51,7 +98,7 @@ const append = async (p, text) => {
     const room = 'ec' + Math.floor(Date.now() / 1000);
     const ENTRIES = ['meter reading 41892', 'seal intact, photographed', 'handed to the depot at 14:05'];
 
-    let first = null, second = null;
+    let first = null, second = null, third = null;
     try {
         // ---- the core functions, before any UI --------------------------
         first = await open(b, room, 'Recorder');
@@ -139,11 +186,19 @@ const append = async (p, text) => {
             !window.__x && document.querySelectorAll('#entries img').length === 0);
         check(escaped, 'an entry is rendered as text, never as markup');
 
+        // ---- the challenge, played with the page's own controls ----------
+        await challenge(second);
+        third = await open(b, room + 's', 'Seeder');
+        await third.click('#seedBtn');
+        await third.waitForFunction(() => window.ecApp.entries.length === 3, null, { timeout: 60000 }).catch(() => {});
+        check(await third.evaluate(() => window.ecApp.entries.length) === 3,
+            '"Add three example entries" seals three entries in one click');
+
     } catch (err) {
         console.error('\nTEST THREW:', (err && err.stack) || err);
         check(false, 'the suite ran to the end');
     } finally {
-        for (const p of [first, second]) {
+        for (const p of [first, second, third]) {
             if (p) { try { await p.context().close(); } catch (_) {} }
         }
         await b.close();
@@ -153,5 +208,5 @@ const append = async (p, text) => {
     pass.forEach(x => console.log('  ✓ ' + x));
     console.log('\nFAIL (' + fail.length + ')');
     fail.forEach(x => console.log('  ✗ ' + x));
-    process.exit(fail.length === 0 ? 0 : 1);
+    process.exitCode = fail.length === 0 ? 0 : 1;   // exit() would drop buffered stdout
 })();

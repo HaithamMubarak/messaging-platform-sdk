@@ -1,157 +1,175 @@
-/* Evidence Chain — the demo page. Tokens and buttons come from
-   design-tokens.css and ui.css; nothing here redefines them. */
+/* Evidence Chain — "can you change history without getting caught?"
+   Tokens and buttons come from design-tokens.css and ui.css; nothing here
+   redefines them. (Until 2026-10-13 this file named --space-*, --surface and
+   --radius-*, which design-tokens.css never defined, so the page had no
+   padding, no card backgrounds and no rounding.) */
 
-.ec {
-    background: var(--bg);
-    color: var(--text);
-    min-height: 100vh;
-}
+.ec { background: var(--bg); color: var(--text); min-height: 100vh; margin: 0; font-family: var(--font-sans); }
 
 .ec-wrap {
-    max-width: 60rem;
-    margin: 0 auto;
-    padding: var(--space-6) var(--space-4) var(--space-8);
-    display: flex;
-    flex-direction: column;
-    gap: var(--space-6);
+    max-width: 64rem; margin: 0 auto; padding: var(--sp-8) var(--sp-4) var(--sp-12);
+    display: flex; flex-direction: column; gap: var(--sp-6);
 }
 
-.ec-head h1 { margin: 0 0 var(--space-2); font-size: var(--fs-2xl); }
-.ec-head p { margin: 0; color: var(--text-muted); max-width: 52ch; line-height: 1.6; }
-.ec-log-name { color: var(--accent); font-weight: 600; }
-
-/* ---------------------------------------------------------------- compose */
-
-.ec-compose {
-    background: var(--surface);
-    border: 1px solid var(--border);
-    border-radius: var(--radius-lg);
-    padding: var(--space-4);
-    display: flex;
-    flex-direction: column;
-    gap: var(--space-3);
+.ec-card {
+    background: var(--surface-1); border: 1px solid var(--border); border-radius: var(--r-xl);
+    padding: var(--sp-5);
+}
+.ec-card__title {
+    margin: 0 0 var(--sp-3); font-size: var(--fs-xs); font-weight: 800; letter-spacing: 0.12em;
+    text-transform: uppercase; color: var(--text-muted);
 }
 
+/* ------------------------------------------------------------------ header */
+
+.ec-head { display: flex; flex-wrap: wrap; gap: var(--sp-6); align-items: flex-end; justify-content: space-between; }
+.ec-head__text { flex: 1 1 32rem; min-width: 0; }
+.ec-kicker { margin: 0 0 var(--sp-2); font-size: var(--fs-sm); font-weight: 700; color: var(--brand-ink); }
+.ec-log-name { font-family: var(--font-mono); font-weight: 600; overflow-wrap: anywhere; }
+.ec-head h1 { margin: 0 0 var(--sp-3); font-size: clamp(1.75rem, 4vw, 2.5rem); line-height: var(--lh-tight); letter-spacing: -0.02em; }
+.ec-lede { margin: 0; max-width: 56ch; color: var(--text-body); font-size: var(--fs-lg); line-height: 1.55; }
+
+.ec-score { display: flex; gap: var(--sp-3); margin: 0; }
+.ec-score > div { padding: var(--sp-3) var(--sp-4); border-radius: var(--r-lg); background: var(--surface-1); border: 1px solid var(--border); }
+.ec-score dt { font-size: var(--fs-xs); color: var(--text-muted); }
+.ec-score dd { margin: 0; font: 700 1.75rem/1.1 var(--font-mono); color: var(--warning); }
+.ec-score .ec-score__fooled { color: var(--danger); }
+
+/* ----------------------------------------------------------------- compose */
+
+.ec-compose { display: flex; flex-direction: column; gap: var(--sp-3); }
 .ec-compose textarea {
-    width: 100%;
-    resize: vertical;
-    font: inherit;
-    color: var(--text);
-    background: var(--bg);
-    border: 1px solid var(--border);
-    border-radius: var(--radius-md);
-    padding: var(--space-3);
+    width: 100%; box-sizing: border-box; resize: vertical; font: inherit; font-size: 16px;
+    color: var(--text); background: var(--code-bg); border: 1px solid var(--border-strong);
+    border-radius: var(--r-md); padding: var(--sp-3);
 }
-
-.ec-row { display: flex; flex-wrap: wrap; gap: var(--space-2); }
-
+.ec-row { display: flex; flex-wrap: wrap; gap: var(--sp-2); }
 .ec-state { margin: 0; font-size: var(--fs-sm); color: var(--text-muted); min-height: 1.4em; }
-.ec-state--ok   { color: var(--success, #34d399); }
-.ec-state--bad  { color: var(--danger, #f87171); }
-.ec-state--warn { color: var(--warning, #fbbf24); }
+.ec-state--ok   { color: var(--success); }
+.ec-state--bad  { color: var(--danger); }
+.ec-state--warn { color: var(--warning); }
 
-/* -------------------------------------------------------------------- log */
+/* -------------------------------------------------- the log, as a chain */
 
-.ec-log-head { display: flex; flex-wrap: wrap; align-items: baseline; gap: var(--space-3); }
-.ec-log-head h2 { margin: 0; font-size: var(--fs-lg); }
+.ec-log-head { display: flex; flex-wrap: wrap; align-items: baseline; gap: var(--sp-3); margin-bottom: var(--sp-3); }
+.ec-log-head h2 { margin: 0; font-size: var(--fs-xl); }
 .ec-count { color: var(--text-muted); font-weight: 400; }
-
 .ec-tamper {
-    margin: 0;
-    font-size: var(--fs-sm);
-    color: var(--warning, #fbbf24);
+    margin: 0; font-size: var(--fs-sm); color: var(--warning); background: var(--warning-bg);
+    padding: var(--sp-1) var(--sp-3); border-radius: var(--r-pill);
 }
 
-.ec-linkish {
-    background: none;
-    border: 0;
-    padding: 0;
-    font: inherit;
-    color: inherit;
-    text-decoration: underline;
-    cursor: pointer;
-}
-
-.ec-entries {
-    list-style: none;
-    margin: var(--space-3) 0 0;
-    padding: 0;
-    display: flex;
-    flex-direction: column;
-    gap: var(--space-2);
-}
+.ec-entries { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 22px; }
 
 .ec-entry {
-    background: var(--surface);
-    border: 1px solid var(--border);
-    border-left: 3px solid var(--border);
-    border-radius: var(--radius-md);
-    padding: var(--space-3);
+    position: relative; display: grid; grid-template-columns: 4.5rem minmax(0, 1fr) auto; gap: var(--sp-4);
+    align-items: start; padding: var(--sp-4); border-radius: var(--r-lg);
+    background: var(--surface-1); border: 2px solid var(--border);
+}
+/* The link to the entry above: each seal covers the one before it. */
+.ec-entry + .ec-entry::before {
+    content: ""; position: absolute; left: calc(var(--sp-4) + 2.25rem - 2px); top: -24px;
+    width: 4px; height: 22px; border-radius: 2px; background: var(--border-strong);
+}
+.ec-entry--ok { border-color: rgba(52, 211, 153, 0.55); }
+.ec-entry--ok + .ec-entry::before { background: var(--success); }
+.ec-entry--broken { border-color: rgba(248, 113, 113, 0.35); opacity: 0.7; }
+.ec-entry--first-break { border-color: var(--danger); background: var(--danger-bg); opacity: 1; }
+.ec-entries .ec-entry--first-break::before {
+    background: repeating-linear-gradient(var(--danger) 0 5px, transparent 5px 9px);
 }
 
-.ec-entry--ok     { border-left-color: var(--success, #34d399); }
-.ec-entry--broken { border-left-color: var(--danger, #f87171); background: color-mix(in srgb, var(--danger, #f87171) 6%, var(--surface)); }
-
-.ec-entry-head {
-    display: flex;
-    flex-wrap: wrap;
-    align-items: baseline;
-    gap: var(--space-2);
-    font-size: var(--fs-sm);
+.ec-entry-side { display: flex; flex-direction: column; align-items: center; gap: var(--sp-2); }
+.ec-seq {
+    width: 3rem; height: 3rem; border-radius: 50%; display: grid; place-items: center;
+    background: var(--brand-subtle); color: var(--brand-ink); font: 700 var(--fs-md) var(--font-mono);
 }
+.ec-entry--first-break .ec-seq { background: var(--danger); color: #2a0808; }
+.ec-verdict-tag { font-size: var(--fs-xs); font-weight: 800; letter-spacing: 0.06em; text-transform: uppercase; text-align: center; color: var(--success); }
+.ec-entry--broken .ec-verdict-tag { color: var(--danger); }
 
-.ec-seq { font-weight: 700; color: var(--accent); }
-.ec-by  { font-weight: 600; }
-.ec-at  { color: var(--text-muted); margin-left: auto; }
+.ec-entry-main { min-width: 0; display: flex; flex-direction: column; gap: var(--sp-2); }
+.ec-meta { margin: 0; font-size: var(--fs-xs); color: var(--text-muted); }
+.ec-note { margin: 0; font-size: var(--fs-base); line-height: 1.45; overflow-wrap: anywhere; }
 
-.ec-note { margin: var(--space-2) 0; line-height: 1.5; overflow-wrap: anywhere; }
-
+.ec-seal summary {
+    display: inline-flex; align-items: center; gap: var(--sp-2); cursor: pointer; min-height: 32px;
+    font-size: var(--fs-xs); color: var(--text-muted);
+}
+.ec-seal code { font-family: var(--font-mono); }
+.ec-print { display: inline-flex; width: 7rem; height: 8px; border-radius: 4px; overflow: hidden; }
+.ec-print > span { flex: 1; }
 .ec-hashes {
-    display: grid;
-    grid-template-columns: auto minmax(0, 1fr);
-    gap: 0 var(--space-2);
-    margin: 0;
-    font-size: var(--fs-xs);
-    font-family: var(--font-mono, ui-monospace, monospace);
-    color: var(--text-muted);
+    margin: var(--sp-2) 0 0; display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 2px var(--sp-3);
+    font: var(--fs-xs) var(--font-mono); color: var(--text-muted);
 }
-
-.ec-hashes dt { font-weight: 600; }
+.ec-hashes dt { color: var(--brand-ink); }
 .ec-hashes dd { margin: 0; overflow-wrap: anywhere; }
 
-.ec-break {
-    margin: var(--space-2) 0 0;
-    font-size: var(--fs-sm);
-    font-weight: 600;
-    color: var(--danger, #f87171);
+.ec-entry-tools { display: flex; flex-direction: column; gap: var(--sp-1); }
+.ec-edit { display: flex; flex-wrap: wrap; gap: var(--sp-2); }
+.ec-edit input {
+    flex: 1 1 14rem; min-width: 0; min-height: 40px; padding: 0 var(--sp-3); font: inherit; font-size: 16px;
+    color: var(--text); background: var(--code-bg); border: 1px solid var(--warning); border-radius: var(--r-md);
 }
 
-.ec-entry-tools { display: flex; gap: var(--space-2); margin-top: var(--space-2); }
+/* --------------------------------------------------- tricks and verdict */
 
-/* ---------------------------------------------------------------- explain */
+.ec-play { display: grid; grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr); gap: var(--sp-4); }
+.ec-trick-list { list-style: none; margin: 0 0 var(--sp-4); padding: 0; display: grid; gap: var(--sp-2); }
+.ec-trick {
+    position: relative; padding: var(--sp-3) var(--sp-3) var(--sp-3) 2.5rem; border-radius: var(--r-md);
+    background: var(--bg); border: 1px solid var(--border); font-size: var(--fs-md); color: var(--text-body);
+}
+.ec-trick::before {
+    content: ""; position: absolute; left: var(--sp-3); top: 50%; width: 16px; height: 16px; margin-top: -8px;
+    border-radius: 50%; border: 2px solid var(--border-strong); box-sizing: border-box;
+}
+.ec-trick strong { color: var(--text); }
+.ec-trick.is-tried::before { border-color: var(--success); background: var(--success); }
+.ec-trick.is-played { border-color: var(--warning); background: var(--warning-bg); }
+.ec-verify { min-height: 52px; padding-inline: var(--sp-6); font-size: var(--fs-lg); }
 
-.ec-explain {
-    border-top: 1px solid var(--border);
-    padding-top: var(--space-5);
+.ec-verdict { display: flex; flex-direction: column; justify-content: center; gap: var(--sp-2); border-width: 2px; }
+.ec-verdict__kicker { margin: 0; font-size: var(--fs-xs); font-weight: 800; letter-spacing: 0.14em; text-transform: uppercase; color: var(--text-muted); }
+.ec-verdict__title { margin: 0; font-size: var(--fs-2xl); font-weight: 800; line-height: var(--lh-tight); }
+.ec-verdict__detail { margin: 0; color: var(--text-body); line-height: 1.5; overflow-wrap: anywhere; }
+.ec-verdict[data-state="armed"] { border-color: var(--warning); }
+.ec-verdict[data-state="armed"] .ec-verdict__kicker { color: var(--warning); }
+.ec-verdict[data-state="ok"] { border-color: var(--success); background: var(--success-bg); }
+.ec-verdict[data-state="ok"] .ec-verdict__kicker { color: var(--success); }
+.ec-verdict[data-state="caught"] { border-color: var(--danger); background: var(--danger-bg); }
+.ec-verdict[data-state="caught"] .ec-verdict__kicker { color: var(--danger); }
+.ec-verdict[data-state="caught"] .ec-verdict__title { font-size: 2.25rem; }
+
+@media (prefers-reduced-motion: no-preference) {
+    .ec-entry--first-break, .ec-verdict[data-state="caught"] { animation: ec-shake 0.4s ease-in-out; }
+}
+@keyframes ec-shake {
+    25% { transform: translateX(-6px); } 50% { transform: translateX(5px); } 75% { transform: translateX(-3px); }
 }
 
-.ec-explain h2 { margin: 0 0 var(--space-3); font-size: var(--fs-lg); }
-.ec-explain p { margin: 0 0 var(--space-3); color: var(--text-muted); line-height: 1.6; max-width: 62ch; }
-.ec-genesis code { color: var(--accent); }
+/* ------------------------------------------------------------- explain */
 
+.ec-explain summary { cursor: pointer; font-weight: 700; min-height: 32px; display: flex; align-items: center; }
+.ec-explain p { color: var(--text-body); line-height: 1.6; max-width: 70ch; }
+.ec-genesis code { color: var(--brand-ink); font-family: var(--font-mono); overflow-wrap: anywhere; }
 .ec-formula {
-    background: var(--bg);
-    border: 1px solid var(--border);
-    border-radius: var(--radius-md);
-    padding: var(--space-3);
-    overflow-x: auto;
-    font-size: var(--fs-sm);
+    margin: var(--sp-3) 0; padding: var(--sp-3); overflow-x: auto; border-radius: var(--r-md);
+    background: var(--code-bg); border: 1px solid var(--border); font: var(--fs-sm) var(--font-mono);
 }
+.ec-note-small { font-size: var(--fs-sm); color: var(--text-muted); }
 
-.ec-note-small { font-size: var(--fs-sm); font-style: italic; }
+/* ------------------------------------------------------------- narrow */
 
-@media (max-width: 40rem) {
-    .ec-wrap { padding: var(--space-4) var(--space-3) var(--space-6); }
-    .ec-at { margin-left: 0; width: 100%; }
-    .ec-hashes { grid-template-columns: 1fr; }
+@media (max-width: 720px) {
+    .ec-play { grid-template-columns: minmax(0, 1fr); }
+    /* One column: the badge and its verdict in a row on top, so "untrusted" has room. */
+    .ec-entry { grid-template-columns: minmax(0, 1fr); gap: var(--sp-2); }
+    .ec-entry-side { flex-direction: row; gap: var(--sp-3); }
+    .ec-entry + .ec-entry::before { left: calc(var(--sp-4) + 1.25rem - 2px); }
+    .ec-seq { width: 2.5rem; height: 2.5rem; }
+    .ec-entry-tools { flex-direction: row; flex-wrap: wrap; }
+    .ec-score { width: 100%; }
+    .ec-score > div { flex: 1; }
 }
