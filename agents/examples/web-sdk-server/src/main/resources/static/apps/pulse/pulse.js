@@ -511,8 +511,14 @@
         /** Every version of the poll, newest first — the whole point of Pulse. */
         _loadVersions() {
             var self = this;
+            // Reads overlap when votes arrive quickly, and their answers can come
+            // back out of order: an older, shorter list arriving last would
+            // overwrite a newer one (on production, five votes read back as
+            // three versions). Only the newest read is believed.
+            var ticket = this._versionsTicket = (this._versionsTicket || 0) + 1;
             // The key is passed as a string here, unlike put/get/add which take options.
             this.channel.storageGetList(POLL_KEY, function (res) {
+                if (ticket !== self._versionsTicket) return;
                 if (!res || res.status !== 'success') return;
                 var rows = res.data && res.data.data ? res.data.data : res.data;
                 if (!Array.isArray(rows)) rows = rows && rows.versions ? rows.versions : [];

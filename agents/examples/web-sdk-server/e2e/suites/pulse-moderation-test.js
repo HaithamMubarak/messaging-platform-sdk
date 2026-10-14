@@ -57,7 +57,9 @@ async function glowUp(host, guest) {
 
     const v0 = await host.evaluate(() => window.pulseApp.versions.length);
     await host.click('[data-simulate]');
-    await host.waitForTimeout(6500);
+    // Five votes 700 ms apart, each a storage write and a read-back: wait for the
+    // history to show them all, on a clock generous enough for a loaded server.
+    await host.waitForFunction((n) => window.pulseApp.versions.length >= n, v0 + 5, { timeout: 20000 }).catch(() => {});
     const sim = await host.evaluate(() => ({
         votes: Object.keys(window.pulseApp.poll.votes).filter((n) => n.startsWith('Simulated ')).length,
         versions: window.pulseApp.versions.length,
