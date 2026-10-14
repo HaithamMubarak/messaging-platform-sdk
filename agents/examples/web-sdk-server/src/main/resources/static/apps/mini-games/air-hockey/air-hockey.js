@@ -3003,6 +3003,7 @@ function initializeConnectionModal() {
         collapsedTitle: 'Air Hockey',
         partyLobby: {
             id: 'air-hockey', start: 'Play now', players: '2–6 players',
+            waitingRoom: { solo: { label: 'Add a bot', run: () => window.addBot() } },
             howTo: [
                 'Move your mallet with the mouse, or drag with a finger.',
                 "Knock the puck into the other side's goal.",

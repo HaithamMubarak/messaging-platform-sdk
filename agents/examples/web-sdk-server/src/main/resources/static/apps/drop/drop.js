@@ -706,6 +706,7 @@
             collapsedTitle: 'Drop',
             partyLobby: {
                 id: 'drop', start: 'Open a drop room', players: 'You and whoever has the code',
+                waitingRoom: { hint: 'Nobody to send to yet? Leave a file for later: it waits for whoever opens the link.' },
                 howTo: [
                     'Open a room and send its code to the other side.',
                     'Send now goes straight between your browsers, nothing uploaded.',

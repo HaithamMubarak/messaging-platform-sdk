@@ -120,11 +120,52 @@ async function joinChat(browser) {
     await ctx.close();
 }
 
+/**
+ * The waiting room, after "Play now": the code, the link, a QR, who is here
+ * (live), the demo's way to play alone, and "Start playing". Only for the one
+ * who started the room; a friend joining with the code goes straight in.
+ */
+async function waitingRoom(browser) {
+    const host = await open(browser, 'desktop', PAGES.hockey);
+    await host.p.click('#partyLobby .pl-btn--primary');
+    await host.p.waitForSelector('#plWaiting', { timeout: 30000 }).catch(() => {});
+    const shown = await host.p.evaluate(() => {
+        const w = document.getElementById('plWaiting');
+        const code = new URLSearchParams(location.search).get('code');
+        return w && { code, groups: [...w.querySelectorAll('.pl-wait__group')].map((g) => g.textContent).join(''),
+            qr: !!w.querySelector('.pl-wait__qr canvas, .pl-wait__qr img'), seats: w.querySelectorAll('.pl-wait__seat').length };
+    });
+    r.check(!!shown && shown.groups === shown.code && shown.qr && shown.seats === 1,
+        'Play now opens the waiting room: the room\'s code, a QR, and an empty seat ' + JSON.stringify(shown));
+
+    const friend = await open(browser, 'desktop', PAGES.hockey + '?code=' + (shown && shown.code));
+    await friend.p.click('#partyLobby .pl-btn--quiet');   // Join, the code already in the box
+    const arrived = await host.p.waitForFunction(() => document.querySelectorAll('#plWaiting .pl-wait__person').length >= 2,
+        null, { timeout: 30000 }).then(() => true, () => false);
+    r.check(arrived, 'a friend joining with the code appears in the host\'s "who is here", live');
+    await friend.p.waitForTimeout(1500);
+    r.check(!(await friend.p.$('#plWaiting')), 'and the friend, who joined, gets no waiting room');
+
+    await host.p.click('#plWaiting .pl-btn:has-text("Add a bot")');
+    await host.p.waitForTimeout(800);
+    r.check(await host.p.evaluate(() => !!window.airHockeyGame.players.get('Bot Barry')), 'Air Hockey\'s "Add a bot" works from the waiting room');
+    await host.p.click('#plWaiting .pl-btn:has-text("Start playing")');
+    r.check(!(await host.p.$('#plWaiting')), '"Start playing" puts the waiting room away');
+    await friend.ctx.close();
+    await host.ctx.close();
+
+    const solo = await open(browser, 'desktop', PAGES.pulse);
+    await solo.p.click('#partyLobby .pl-btn--primary');
+    await solo.p.waitForTimeout(6000);
+    r.check(!(await solo.p.$('#plWaiting')), 'a demo played alone (Pulse) opens straight into the app');
+    await solo.ctx.close();
+}
+
 (async () => {
     const browser = await chromium.launch(LAUNCH);
     for (const name of Object.keys(PAGES)) for (const size of Object.keys(SIZES)) await layout(browser, name, size);
     for (const name of ['chat', 'pulse', 'hockey']) await doors(browser, name);
-    if (process.env.LOBBY_JOIN) { await joinPulse(browser); await joinChat(browser); }
+    if (process.env.LOBBY_JOIN) { await joinPulse(browser); await joinChat(browser); await waitingRoom(browser); }
     await browser.close();
     process.exitCode = r.report() ? 1 : 0;
 })();

@@ -7,7 +7,8 @@
  * here is scoped to #partyLobby and reads its own --pl-* palette: the site's
  * dark tokens, fixed, rather than whatever the host page redefined them to.
  */
-#partyLobby {
+/* The palette is shared with the waiting room (#plWaiting), which is scoped the same way. */
+#partyLobby, #plWaiting {
     --pl-bg: #0b1120; --pl-surface: #101827; --pl-raised: #16203a; --pl-field: #0d1526;
     --pl-border: rgba(148, 163, 184, 0.14); --pl-border-strong: rgba(148, 163, 184, 0.28);
     --pl-text: #eef2f8; --pl-body: #c4cede; --pl-muted: #8a97ab;
@@ -16,7 +17,8 @@
     --pl-focus: 0 0 0 3px rgba(45, 212, 191, 0.5);
     --pl-font: "Manrope", "Manrope Fallback", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
     --pl-mono: "JetBrains Mono", ui-monospace, "Cascadia Code", Menlo, Consolas, monospace;
-
+}
+#partyLobby {
     position: fixed; inset: 0; z-index: 100010;
     display: grid; place-items: center; padding: 16px;
     background: var(--pl-bg); overflow: auto;
@@ -170,3 +172,51 @@
 .pl-chip strong { letter-spacing: 0.15em; font-family: "JetBrains Mono", ui-monospace, monospace; }
 .pl-chip__btn { min-height: 32px; padding: 0 12px; border-radius: 999px; border: 0; background: #2dd4bf; color: #04201c; font-weight: 700; cursor: pointer; }
 .pl-chip__x { min-width: 32px; min-height: 32px; border: 0; background: none; color: inherit; font-size: 18px; cursor: pointer; }
+
+/* ---- the waiting room: the room just opened, getting people into it ------- */
+#plWaiting {
+    /* Above the toasts (100020): it opens only after a successful join, and its own live list
+       says who arrived, so a "joined" toast would only hide the code at the moment it matters. */
+    position: fixed; inset: 0; z-index: 100021; display: grid; place-items: center; padding: 16px;
+    background: rgba(2, 6, 23, 0.72); overflow: auto; color: var(--pl-text); font: 400 16px/1.4 var(--pl-font);
+}
+#plWaiting * { box-sizing: border-box; text-align: left; text-transform: none; letter-spacing: normal; font-family: inherit; }
+#plWaiting h2, #plWaiting h3, #plWaiting p, #plWaiting ul { margin: 0; padding: 0; }
+#plWaiting .pl-wait__card {
+    width: min(560px, 100%); display: grid; gap: 14px; padding: 24px; border-radius: 20px;
+    background: var(--pl-surface); border: 1px solid var(--pl-border); box-shadow: 0 24px 56px -16px rgba(2, 6, 23, 0.65);
+}
+#plWaiting .pl-wait__kicker { font-size: 13px; font-weight: 800; letter-spacing: 0.1em; text-transform: uppercase; color: var(--pl-brand-ink); }
+#plWaiting .pl-wait__title { font: 800 28px/1.15 var(--pl-font); color: var(--pl-text); }
+#plWaiting .pl-wait__invite { display: flex; gap: 16px; align-items: center; flex-wrap: wrap; }
+#plWaiting .pl-wait__code { flex: 1 1 240px; display: flex; gap: 8px; min-width: 0; }
+#plWaiting .pl-wait__group {
+    flex: 1; text-align: center; padding: 12px 0; border-radius: 12px; background: var(--pl-raised);
+    font: 700 26px var(--pl-mono); letter-spacing: 0.04em; color: var(--pl-text);
+}
+#plWaiting .pl-wait__qr { flex: none; padding: 8px; border-radius: 12px; background: #fff; line-height: 0; }
+#plWaiting .pl-wait__qr[hidden] { display: none; }
+#plWaiting .pl-wait__row { display: flex; flex-wrap: wrap; gap: 8px; }
+#plWaiting .pl-wait__row .pl-btn { flex: 1 1 160px; }
+#plWaiting .pl-wait__note { min-height: 1.2em; font-size: 13px; color: var(--pl-brand-ink); overflow-wrap: anywhere; }
+#plWaiting .pl-wait__sub { font-size: 12px; font-weight: 800; letter-spacing: 0.12em; text-transform: uppercase; color: var(--pl-muted); }
+#plWaiting .pl-wait__who { list-style: none; display: grid; gap: 6px; }
+#plWaiting .pl-wait__person, #plWaiting .pl-wait__seat {
+    display: flex; align-items: center; gap: 10px; padding: 10px 12px; border-radius: 12px; font-size: 15px;
+}
+#plWaiting .pl-wait__person { background: var(--pl-bg); border: 1px solid var(--pl-border); color: var(--pl-text); font-weight: 600; }
+#plWaiting .pl-wait__seat { border: 1px dashed var(--pl-border-strong); color: var(--pl-muted); }
+#plWaiting .pl-wait__dot { width: 12px; height: 12px; border-radius: 50%; flex: none; }
+#plWaiting .pl-wait__hint { font-size: 14px; color: var(--pl-body); }
+#plWaiting .pl-btn {
+    min-height: 48px; margin: 0; padding: 0 18px; border-radius: 12px; cursor: pointer; text-align: center;
+    border: 1px solid var(--pl-border-strong); background: var(--pl-raised); color: var(--pl-text); font: 700 15px/1.2 var(--pl-font);
+}
+#plWaiting .pl-btn--primary { border: 0; background: var(--pl-brand); color: var(--pl-on-brand); }
+#plWaiting .pl-btn:focus-visible { outline: none; box-shadow: var(--pl-focus); }
+@media (max-width: 420px) {
+    #plWaiting { padding: 0; place-items: start stretch; }
+    #plWaiting .pl-wait__card { border-radius: 0; border: 0; min-height: 100%; padding: 18px 16px; }
+    #plWaiting .pl-wait__group { font-size: 21px; }
+    #plWaiting .pl-wait__qr { margin: 0 auto; }
+}

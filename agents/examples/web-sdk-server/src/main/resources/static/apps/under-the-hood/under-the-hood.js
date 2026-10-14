@@ -409,6 +409,7 @@
             collapsedTitle: 'Under the Hood',
             partyLobby: {
                 id: 'under-the-hood', start: 'Open the control room', players: 'Best with 2–4 tabs or devices',
+                waitingRoom: { solo: { label: 'Open another tab', run: () => window.underTheHood.openAnotherTab() } },
                 tagline: 'See every connection live, then pass the crown and watch the room elect another host.',
                 howTo: [
                     'Open the room, then press "Open another tab" to be two people at once.',

@@ -666,6 +666,7 @@ PartyKit.boot({
     collapsedTitle: 'Gavel',
     partyLobby: {
         id: 'gavel', start: 'Open the court', players: '2 or more players',
+        waitingRoom: { hint: 'On your own? Tick "Seat 3 bot jurors" when you open the case.' },
         tagline: 'Put a friend on trial for a petty crime. Testimony is anonymous; the verdict is permanent.',
         howTo: [
             "Testimony is anonymous, and the bench decides what is admitted.",

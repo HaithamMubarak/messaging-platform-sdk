@@ -235,7 +235,7 @@
     }
 
     /** Fill the modal's own fields and press its own Connect. */
-    function enter(code, name) {
+    function enter(code, name, started) {
         const room = roomFor(current.config, code);
         const fields = fieldsOf(current.config);
         current.filling = true;
@@ -253,6 +253,9 @@
         // A 12-digit room gets the modal's own code chip once it is joined; a
         // page with its own form has no such chip, so the lobby shows the code.
         if (isLegacy(code) || !modal) whenJoined(modal, () => showChip(code, room));
+        // Somebody who just OPENED a room needs to get people into it.
+        const waiting = current.config.partyLobby.waitingRoom;
+        if (started && waiting && !isLegacy(code)) whenJoined(modal, () => showWaitingRoom(code, waiting));
     }
 
     /** Back into the room the modal already holds: the one this browser was last in. */
@@ -326,7 +329,7 @@
 
     function wire(lobby, f) {
         const needName = wireName(f);
-        f.start.addEventListener('click', () => { if (!needName()) enter(newCode(current.config), f.name.value.trim()); });
+        f.start.addEventListener('click', () => { if (!needName()) enter(newCode(current.config), f.name.value.trim(), true); });
         if (f.resume) f.resume.addEventListener('click', () => { if (!needName()) resume(f.name.value.trim()); });
         if (f.solo) f.solo.addEventListener('click', () => { close(); lobby.solo(); });
         wireCode(f, needName);
@@ -391,6 +394,91 @@
             el('span', { text: 'Code ' }), el('strong', { text: isLegacy(code) ? code : window.PartyCode.format(code) }), invite, dismiss]);
         dismiss.addEventListener('click', () => chip.remove());
         document.body.append(chip);
+    }
+
+    /* ----------------------------------------------------- the waiting room */
+    //
+    // Opening a room is half the job; the other half is getting somebody into
+    // it. A demo that is played together (`partyLobby.waitingRoom`) shows this
+    // sheet to whoever just started one: the code large, the link to copy, a QR
+    // for a phone, who has arrived (the room's own presence, live), and the
+    // demo's way to play alone if it has one. "Start playing" puts it away; the
+    // code stays in the corner chip.
+
+    const WAIT_ID = 'plWaiting';
+
+    /** Who is in the room now, from the connection the page joined with. */
+    function whoIsHere() {
+        const ch = window.channel;
+        if (!ch) return [];
+        if (Array.isArray(ch.connectedAgents)) return ch.connectedAgents.slice();
+        return Object.keys(ch._connectedAgentsMap || {});
+    }
+
+    function inviteUrl(code) {
+        return location.origin + location.pathname + '?code=' + code;
+    }
+
+    function waitingSheet(code, waiting) {
+        const btn = (text, cls) => el('button', { class: 'pl-btn ' + (cls || ''), type: 'button', text: text });
+        const w = {
+            copyLink: btn('Copy invite link', 'pl-btn--primary'),
+            copyCode: btn('Copy code'),
+            done: btn('Start playing'),
+            qr: el('div', { class: 'pl-wait__qr', 'aria-label': 'QR code for the invite link', role: 'img' }),
+            who: el('ul', { class: 'pl-wait__who', 'aria-live': 'polite' }),
+            note: el('p', { class: 'pl-wait__note', role: 'status' }),
+            solo: waiting.solo ? btn(waiting.solo.label) : null
+        };
+        const digits = window.PartyCode.format(code).split(' ').map((g) => el('span', { class: 'pl-wait__group', text: g }));
+        const card = el('div', { class: 'pl-wait__card', role: 'dialog', 'aria-modal': 'true', 'aria-labelledby': 'plWaitTitle' }, [
+            el('p', { class: 'pl-wait__kicker', text: 'Your room is open' }),
+            el('h2', { class: 'pl-wait__title', id: 'plWaitTitle', text: 'Send them this code' }),
+            el('div', { class: 'pl-wait__invite' }, [
+                el('div', { class: 'pl-wait__code', 'aria-label': 'Room code ' + window.PartyCode.format(code) }, digits), w.qr]),
+            el('div', { class: 'pl-wait__row' }, [w.copyLink, w.copyCode]),
+            w.note,
+            el('h3', { class: 'pl-wait__sub', text: 'Who is here' }), w.who,
+            waiting.hint ? el('p', { class: 'pl-wait__hint', text: waiting.hint }) : '',
+            el('div', { class: 'pl-wait__row' }, [w.solo || '', w.done])
+        ]);
+        w.root = el('div', { class: 'pl-wait', id: WAIT_ID }, [card]);
+        return w;
+    }
+
+    function renderWho(list) {
+        const me = (document.getElementById(fieldsOf(current.config).user) || {}).value;
+        const names = whoIsHere();
+        list.replaceChildren(...names.map((n) => el('li', { class: 'pl-wait__person' }, [
+            el('span', { class: 'pl-wait__dot', style: 'background:' + avatarColor(n), 'aria-hidden': 'true' }),
+            el('span', { text: n + (n === me ? ' (you)' : '') })])));
+        if (names.length < 2) list.append(el('li', { class: 'pl-wait__seat', text: 'Waiting for someone with the code…' }));
+    }
+
+    function copy(text, note, said) {
+        const done = () => { note.textContent = said; };
+        if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(text).then(done, () => { note.textContent = text; });
+        else note.textContent = text;
+    }
+
+    function showWaitingRoom(code, waiting) {
+        if (document.getElementById(WAIT_ID)) return;
+        const w = waitingSheet(code, waiting === true ? {} : waiting);
+        document.body.append(w.root);
+        if (typeof QRCode !== 'undefined') {
+            try { new QRCode(w.qr, { text: inviteUrl(code), width: 148, height: 148, colorDark: '#0b1120', colorLight: '#ffffff' }); }
+            catch (e) { w.qr.hidden = true; }
+        } else w.qr.hidden = true;
+        renderWho(w.who);
+        const poll = setInterval(() => renderWho(w.who), 1000);
+        const close = () => { clearInterval(poll); document.removeEventListener('keydown', onKey); w.root.remove(); };
+        const onKey = (e) => { if (e.key === 'Escape') close(); };
+        document.addEventListener('keydown', onKey);
+        w.copyLink.addEventListener('click', () => copy(inviteUrl(code), w.note, 'Invite link copied.'));
+        w.copyCode.addEventListener('click', () => copy(window.PartyCode.format(code), w.note, 'Code copied.'));
+        w.done.addEventListener('click', close);
+        if (w.solo) w.solo.addEventListener('click', () => { try { waiting.solo.run(); } catch (e) { /* the demo's own */ } renderWho(w.who); });
+        w.copyLink.focus();
     }
 
     function attach(config) {

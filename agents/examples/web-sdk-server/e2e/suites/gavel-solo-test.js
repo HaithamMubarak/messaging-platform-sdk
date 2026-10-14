@@ -76,6 +76,10 @@ async function trial(p) {
         await p.click('#partyLobby .pl-btn--primary');
         await waitFor(p, 'window.gavelGame && window.gavelGame.connected && window.gavelGame.isHost()', 45000);
         await sleep(2000);
+        // Whoever opens a room meets the waiting room first; alone, put it away.
+        const waiting = await p.$('#plWaiting');
+        r.check(!!waiting && /Seat 3 bot jurors/.test(await waiting.innerText()), 'the waiting room points a lone host at the bot jurors');
+        if (waiting) await p.click('#plWaiting .pl-btn:has-text("Start playing")');
         await trial(p);
     } catch (err) {
         r.check(false, 'the suite ran to the end: ' + (err && err.message));

@@ -328,6 +328,7 @@
             title: 'Join a call', collapsedTitle: 'Call', onConnect: connect,
             partyLobby: {
                 id: 'call', start: 'Start a call', players: '2–4 people',
+                waitingRoom: true,
                 howTo: [
                     'Start a call and send the code to whoever you want to see.',
                     'Turn your camera and microphone on when you are ready.',
