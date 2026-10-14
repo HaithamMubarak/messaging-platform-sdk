@@ -69,6 +69,9 @@ const GAME_CONFIG = {
 
 // Player colors and positions - Team-based system
 // Positions: left/right = team side, then vertical position (top/center/bottom)
+// How long the win screen (winner, score, awards) stays up before the lobby returns.
+const WIN_SCREEN_MS = 7000;
+
 const PLAYER_CONFIGS = [
     // Team Left (1-3 players)
     { color: '#3b82f6', name: 'Blue', position: 'left-center', goalSide: 'left', team: 'left' },
@@ -531,8 +534,15 @@ class AirHockeyGame extends UserConnectionBase {
         }
     }
 
+    /*
+     * The host is the one the room elected, which every client agrees on. It
+     * used to be playerOrder[0], but each client puts ITSELF first in its own
+     * playerOrder, so on a guest playerOrder[0] was the guest: every message
+     * from the real host failed this check and was dropped. Guests' pucks never
+     * moved and they never saw a start, a goal or an end (found 2026-10-14).
+     */
     isHostPeer(peerId) {
-        return this.playerOrder.length > 0 && this.playerOrder[0] === peerId;
+        return !!peerId && peerId === this._getHostName();
     }
 
     // ============================================
@@ -1053,12 +1063,16 @@ class AirHockeyGame extends UserConnectionBase {
             this.winScore = parseInt(winScoreSelect.value) || GAME_CONFIG.DEFAULT_WIN_SCORE;
         }
         console.log('[AirHockey] Win score:', this.winScore);
+        // Guests get this from game-start; the host's own side panel needs it too.
+        const winScoreDisplay = document.getElementById('winScoreDisplay');
+        if (winScoreDisplay) winScoreDisplay.textContent = this.winScore;
 
         // Reset goal flag
         this.goalScored = false;
 
-        // Reset scores
+        // Reset scores, and the notes the awards are made from
         this.players.forEach(p => p.score = 0);
+        this.resetMatchStats();
 
         // Reset all paddle positions to their initial positions
         this.players.forEach(player => {
@@ -1191,12 +1205,14 @@ class AirHockeyGame extends UserConnectionBase {
         // Stop idle monitoring
         this.stopHostIdleMonitoring();
 
+        const awards = this.matchAwards();
         this.sendData({
             type: 'game-end',
-            winner: winner
+            winner: winner,
+            awards: awards
         });
 
-        this.handleGameEnd({ winner });
+        this.handleGameEnd({ winner, awards });
     }
 
     handleGameEnd(data) {
@@ -1207,14 +1223,14 @@ class AirHockeyGame extends UserConnectionBase {
 
         const winner = data.winner;
         const player = this.players.get(winner);
-        const colorName = player ? player.colorName : winner;
+        const team = player ? player.team : null;
 
-        this.showGoalOverlay(`${colorName} Wins!`, winner);
-        this.showToast(`${winner} wins the game!`, 'success');
+        this.showWinScreen(team, data.awards || []);
+        this.showToast(`${team ? this.teamLabel(team) : winner} wins the game!`, 'success');
 
-        // Show control panel after delay
+        // Show control panel after the win screen has had its moment
         setTimeout(() => {
-            this.hideGoalOverlay();
+            this.hideWinScreen();
 
             // Reset goal flag
             this.goalScored = false;
@@ -1238,7 +1254,43 @@ class AirHockeyGame extends UserConnectionBase {
 
             this.updatePlayersList();
             this.updateGameMessage();
-        }, 3000);
+        }, WIN_SCREEN_MS);
+    }
+
+    /** The winning team, the final score and the awards, over the rink. */
+    showWinScreen(team, awards) {
+        const screen = document.getElementById('winScreen');
+        if (!screen) return;
+        const score = (side) => {
+            let s = 0;
+            this.players.forEach((p) => { if (p.team === side) s = Math.max(s, p.score); });
+            return s;
+        };
+        document.getElementById('winTitle').textContent = team ? `${this.teamLabel(team)} wins` : 'Game over';
+        document.getElementById('winFinalScore').textContent = `${score('left')} – ${score('right')}`;
+        const list = document.getElementById('winAwards');
+        list.replaceChildren(...awards.map((a) => {
+            const item = document.createElement('li');
+            const title = document.createElement('strong');
+            title.textContent = a.title;
+            item.append(title, document.createTextNode(' ' + a.text));
+            return item;
+        }));
+        list.hidden = !awards.length;
+        screen.classList.remove('hidden');
+        if (this.fx) GameKit.Sfx.fanfare();
+    }
+
+    /** A team by the colour the scoreboard shows ("Blue"), rather than its side ("left"). */
+    teamLabel(side) {
+        let label = null;
+        this.players.forEach((p) => { if (!label && p.team === side && p.colorName) label = p.colorName; });
+        return label || 'Team ' + side.charAt(0).toUpperCase() + side.slice(1);
+    }
+
+    hideWinScreen() {
+        const screen = document.getElementById('winScreen');
+        if (screen) screen.classList.add('hidden');
     }
 
     handleSettingsChange(data) {
@@ -1765,6 +1817,7 @@ class AirHockeyGame extends UserConnectionBase {
             if (this.puck.y < goalTop || this.puck.y > goalBottom) {
                 this.puck.x = r;
                 this.puck.vx *= bounce;
+                this.noteBounce();
                 this.puck.vy *= grip;
             }
             // If in goal area, let it through (goal will be detected)
@@ -1775,6 +1828,7 @@ class AirHockeyGame extends UserConnectionBase {
             if (this.puck.y < goalTop || this.puck.y > goalBottom) {
                 this.puck.x = w - r;
                 this.puck.vx *= bounce;
+                this.noteBounce();
                 this.puck.vy *= grip;
             }
         }
@@ -1786,6 +1840,7 @@ class AirHockeyGame extends UserConnectionBase {
             } else {
                 this.puck.y = r;
                 this.puck.vy *= bounce;
+                this.noteBounce();
                 this.puck.vx *= grip;
             }
         }
@@ -1797,6 +1852,7 @@ class AirHockeyGame extends UserConnectionBase {
             } else {
                 this.puck.y = h - r;
                 this.puck.vy *= bounce;
+                this.noteBounce();
                 this.puck.vx *= grip;
             }
         }
@@ -1809,6 +1865,8 @@ class AirHockeyGame extends UserConnectionBase {
 
         this.players.forEach((player, playerId) => {
             const paddle = player.paddle;
+            const gap = Math.hypot(this.puck.x - paddle.x, this.puck.y - paddle.y);
+            if (gap <= minDist + 1) this.noteTouch(playerId);
 
             // Continuous collision: did the puck's path this substep pass
             // through the paddle? If so, rewind the puck to the crossing
@@ -1869,37 +1927,105 @@ class AirHockeyGame extends UserConnectionBase {
         }
     }
 
+    // ============================================
+    // WHO SCORED, AND THE MATCH'S AWARDS (host only)
+    // ============================================
+    //
+    // The goal used to be credited to the first player found on the scoring
+    // team, whoever hit it. The host now remembers the last paddle to touch
+    // the puck, so a goal has a real shooter, can be an own goal, and knows
+    // whether it came off the boards. The same notes add up to the awards.
+
+    resetMatchStats() {
+        this.match = { goals: {}, own: {}, fastest: null, longestRally: 0 };
+        this.resetRally();
+    }
+
+    resetRally() {
+        this.touch = { last: null, at: 0, bank: false, rally: 0 };
+    }
+
+    noteTouch(playerId) {
+        if (!this.isHost()) return;
+        if (!this.touch) this.resetRally();
+        const now = performance.now();
+        // One touch per contact, not one per physics substep while touching.
+        if (this.touch.last !== playerId || now - this.touch.at > 250) this.touch.rally++;
+        this.touch.last = playerId;
+        this.touch.at = now;
+        this.touch.bank = false;
+    }
+
+    noteBounce() {
+        if (this.touch && this.touch.last) this.touch.bank = true;
+    }
+
+    /** The shot that just went in: who, whether it was their own net, off the boards, how hard. */
+    describeGoal(scoringTeam) {
+        const shooter = this.touch && this.touch.last;
+        const player = shooter && this.players.get(shooter);
+        const speed = Math.hypot(this.puck.vx, this.puck.vy);
+        return {
+            shooter: player ? shooter : null,
+            ownGoal: !!(player && player.team !== scoringTeam),
+            bank: !!(this.touch && this.touch.bank),
+            power: Math.min(100, Math.round((speed / GAME_CONFIG.PUCK_MAX_SPEED) * 100)),
+            rally: this.touch ? this.touch.rally : 0
+        };
+    }
+
+    recordGoal(shot) {
+        if (!this.match) this.resetMatchStats();
+        const m = this.match;
+        if (shot.shooter) {
+            const book = shot.ownGoal ? m.own : m.goals;
+            book[shot.shooter] = (book[shot.shooter] || 0) + 1;
+        }
+        if (shot.shooter && !shot.ownGoal && (!m.fastest || shot.power > m.fastest.power)) {
+            m.fastest = { name: shot.shooter, power: shot.power };
+        }
+        m.longestRally = Math.max(m.longestRally, shot.rally);
+        this.resetRally();
+    }
+
+    /** The win screen's awards, in words, from the match's notes. */
+    matchAwards() {
+        const m = this.match || { goals: {}, own: {}, fastest: null, longestRally: 0 };
+        const top = Object.entries(m.goals).sort((a, b) => b[1] - a[1])[0];
+        const own = Object.entries(m.own).sort((a, b) => b[1] - a[1])[0];
+        const awards = [];
+        if (top) awards.push({ title: 'Top scorer', text: `${top[0]}, ${top[1]} goal${top[1] === 1 ? '' : 's'}` });
+        if (m.fastest) awards.push({ title: 'Hardest shot', text: `${m.fastest.name}, ${m.fastest.power}% power` });
+        if (m.longestRally > 1) awards.push({ title: 'Longest rally', text: `${m.longestRally} touches` });
+        if (own) awards.push({ title: 'Own goal of the match', text: `${own[0]} (${own[1]})` });
+        return awards;
+    }
+
     onGoalScored(goalSide) {
         // Team-based scoring: when a goal is scored on a team, the opposing team gets a point
         // goalSide = 'left' or 'right' (which team's goal was scored on)
-
         const scoringTeam = (goalSide === 'left') ? 'right' : 'left';
-
         let scorer = null;
 
         // All players on the scoring team get a point
         this.players.forEach((player, playerId) => {
             if (player.team === scoringTeam) {
                 player.score++;
-                if (!scorer) scorer = playerId; // Track first player for display
+                if (!scorer) scorer = playerId;
             }
         });
+        const shot = this.describeGoal(scoringTeam);
+        this.recordGoal(shot);
 
-        // Broadcast goal
-        this.sendData({
-            type: 'goal',
+        const goal = {
             scoredOn: goalSide,
             scoringTeam: scoringTeam,
-            scorer: scorer,
+            scorer: shot.shooter || scorer,
+            shot: shot,
             scores: Array.from(this.players.entries()).map(([id, p]) => [id, p.score])
-        });
-
-        this.handleGoal({
-            scoredOn: goalSide,
-            scoringTeam: scoringTeam,
-            scorer: scorer,
-            scores: Array.from(this.players.entries()).map(([id, p]) => [id, p.score])
-        });
+        };
+        this.sendData({ type: 'goal', ...goal });
+        this.handleGoal(goal);
     }
 
     handleGoal(data) {
@@ -1914,9 +2040,12 @@ class AirHockeyGame extends UserConnectionBase {
             });
         }
 
-        // Display team-based goal message
-        const teamName = data.scoringTeam ? `Team ${data.scoringTeam.charAt(0).toUpperCase() + data.scoringTeam.slice(1)}` : 'Team';
-        this.showGoalOverlay('GOAL!', `${teamName} scores!`);
+        // Display the goal: who hit it, if the host knows, and how.
+        const teamName = data.scoringTeam ? this.teamLabel(data.scoringTeam) : 'Team';
+        const shot = data.shot || {};
+        const how = [shot.bank ? 'off the boards' : '', shot.power ? `${shot.power}% power` : ''].filter(Boolean).join(' · ');
+        if (shot.ownGoal) this.showGoalOverlay('OWN GOAL!', `${shot.shooter} put it in their own net`);
+        else this.showGoalOverlay('GOAL!', (shot.shooter ? `${shot.shooter} scores for ${teamName}` : `${teamName} scores!`) + (how ? ` · ${how}` : ''));
         this.updateScoreBoard();
 
         // Check for winner (any player reaching win score)
@@ -2811,9 +2940,26 @@ function initializeConnectionModal() {
     });
 }
 
+/** The Sound button: off until pressed, remembered for every party game in this browser. */
+function initSoundToggle() {
+    const btn = document.getElementById('soundBtn');
+    if (!btn || !window.GameKit) return;
+    const paint = () => {
+        btn.textContent = GameKit.Sfx.enabled ? 'Sound on' : 'Sound off';
+        btn.setAttribute('aria-pressed', String(GameKit.Sfx.enabled));
+    };
+    btn.addEventListener('click', () => {
+        GameKit.Sfx.setEnabled(!GameKit.Sfx.enabled);
+        if (GameKit.Sfx.enabled) GameKit.Sfx.hit(1);   // the press is the gesture audio needs
+        paint();
+    });
+    paint();
+}
+
 // Initialize on DOM load
 document.addEventListener('DOMContentLoaded', () => {
     console.log('[AirHockey] Page loaded');
+    initSoundToggle();
 
     // Initialize connection modal
     initializeConnectionModal();

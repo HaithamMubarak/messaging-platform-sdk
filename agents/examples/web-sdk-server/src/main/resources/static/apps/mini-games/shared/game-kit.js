@@ -325,10 +325,17 @@
     // Tiny synthesized sound effects (WebAudio oscillators — no asset files).
     // Safe everywhere: silently no-ops if audio is unavailable, and resumes
     // the context lazily so autoplay policies are satisfied after the first
-    // user gesture. Set GameKit.Sfx.enabled = false to mute a game.
+    // user gesture. Off until a person turns it on, and the choice is the one
+    // PartySFX remembers (`party_sound`), so a browser has one answer for every
+    // party game. GameKit.Sfx.setEnabled(on) changes and remembers it.
     const Sfx = {
         _ctx: null,
-        enabled: true,
+        enabled: (() => { try { return localStorage.getItem('party_sound') === 'on'; } catch (e) { return false; } })(),
+        setEnabled(on) {
+            this.enabled = !!on;
+            try { localStorage.setItem('party_sound', on ? 'on' : 'off'); } catch (e) { /* private mode */ }
+            if (!on && this._ctx && this._ctx.state === 'running') this._ctx.suspend();
+        },
         _ac() {
             if (!this.enabled) return null;
             try {

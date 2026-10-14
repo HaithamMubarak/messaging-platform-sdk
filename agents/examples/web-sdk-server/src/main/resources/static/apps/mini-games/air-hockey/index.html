@@ -47,6 +47,7 @@
             <div id="scoreBoard" class="score-board">
                 <!-- Scores will be populated dynamically -->
             </div>
+            <button id="soundBtn" class="btn btn--ghost btn--sm sound-btn" type="button" aria-pressed="false">Sound off</button>
         </div>
     </div>
 
@@ -83,6 +84,14 @@
         <div id="goalOverlay" class="goal-overlay hidden">
             <div class="goal-text">GOAL!</div>
             <div id="goalScorer" class="goal-scorer"></div>
+        </div>
+
+        <!-- Win screen: who won, the final score and the match's awards -->
+        <div id="winScreen" class="win-screen hidden" role="status" aria-live="polite">
+            <p id="winTitle" class="win-screen__title">Game over</p>
+            <p id="winFinalScore" class="win-screen__score"></p>
+            <ul id="winAwards" class="win-screen__awards"></ul>
+            <p class="win-screen__next">The host can start a rematch in a moment.</p>
         </div>
     </div>
 
