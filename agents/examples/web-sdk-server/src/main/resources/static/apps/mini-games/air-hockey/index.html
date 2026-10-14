@@ -78,6 +78,11 @@
                 </button>
                 <button id="startButton" onclick="startGame()" class="btn btn--primary btn--lg hidden" type="button">Start Game</button>
             </div>
+            <!-- Host only: a computer player, so one person has someone to play. -->
+            <div class="bot-buttons" id="botButtons" hidden>
+                <button id="addBotBtn" class="btn" type="button" onclick="addBot()">Add a bot</button>
+                <button id="removeBotBtn" class="btn btn--ghost" type="button" onclick="removeBot()" hidden>Remove bot</button>
+            </div>
         </div>
 
         <!-- Goal Animation Overlay -->
@@ -174,6 +179,7 @@
 <script src="../../../js/GameControlPanel.js"></script>
 
 <script src="../shared/game-kit.js"></script>
+<script src="air-hockey-bot.js"></script>
 <script src="air-hockey.js"></script>
 <script src="../../../js/app-chrome.js"></script>
 </body>

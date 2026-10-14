@@ -991,3 +991,8 @@ body.fullscreen-mode .game-arena {
 .score-display { align-items: center; }
 .sound-btn { min-height: 36px; white-space: nowrap; }
 .sound-btn[aria-pressed="true"] { border-color: var(--brand); color: var(--brand-ink); }
+
+/* Host only: add or remove a computer player in the lobby. */
+.bot-buttons { display: flex; flex-wrap: wrap; justify-content: center; gap: var(--sp-2); margin-top: var(--sp-3); }
+.bot-buttons[hidden], .bot-buttons [hidden] { display: none; }
+.bot-buttons .btn { min-height: 44px; }

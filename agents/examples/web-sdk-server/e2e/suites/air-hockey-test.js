@@ -85,6 +85,48 @@ async function play(host, guest, names) {
         `and the awards: top scorer and own goal (${JSON.stringify(win.awards)})`);
 }
 
+/** One person and a bot: the bot is added with the host's button and plays the puck. */
+async function solo(b, room) {
+    const me = await joinOne(b, '/apps/mini-games/air-hockey/index.html', GAME, room, 'Solo', 'e2e-solo-pass');
+    await sleep(3000);
+    const p = me.page;
+    r.check(await p.isVisible('#addBotBtn'), 'the host is offered "Add a bot"');
+    await p.click('#addBotBtn');
+    await sleep(500);
+    r.check(/Bot Barry \(bot\)/.test(await p.evaluate(() => document.getElementById('playersList').innerText)),
+        'the bot joins the player list as a bot');
+    await p.evaluate(() => window.startGame());
+    await sleep(1500);
+    // A still puck in the middle of the bot's half: it has to go and hit it.
+    const side = await p.evaluate(() => {
+        const g = window.airHockeyGame, team = g.players.get('Bot Barry').team;
+        g.resetRally();
+        Object.assign(g.puck, { x: team === 'left' ? 280 : 720, y: 330, vx: 0, vy: 0 });
+        return team;
+    });
+    await waitFor(() => p.evaluate(() => window.airHockeyGame.touch.last === 'Bot Barry'), 8000, 'the bot to hit the puck');
+    await sleep(150);
+    const after = await p.evaluate(() => ({ last: window.airHockeyGame.touch.last, vx: window.airHockeyGame.puck.vx }));
+    r.check(after.last === 'Bot Barry' && (side === 'left' ? after.vx > 0 : after.vx < 0),
+        `the bot goes to a still puck on its half and hits it towards the other goal (${JSON.stringify(after)}, ${side})`);
+    await me.ctx.close();
+}
+
+/** A bot in a room with a guest: the guest sees it, as a bot, where the host moves it. */
+async function botForGuest(host, guest) {
+    await host.evaluate(() => window.airHockeyGame.addBot());
+    await sleep(1500);
+    r.check(await guest.evaluate(() => !!(window.airHockeyGame.players.get('Bot Barry') || {}).bot), 'the guest is told about the bot, as a bot');
+    await host.evaluate(() => window.startGame());
+    await sleep(3000);
+    const where = await Promise.all([host, guest].map((pg) => pg.evaluate(() => {
+        const p = window.airHockeyGame.players.get('Bot Barry').paddle;
+        return { x: Math.round(p.x), y: Math.round(p.y) };
+    })));
+    r.check(Math.abs(where[0].x - where[1].x) < 25 && Math.abs(where[0].y - where[1].y) < 25,
+        `and sees its paddle where the host has it (${JSON.stringify(where)})`);
+}
+
 (async () => {
     const b = await chromium.launch(LAUNCH);
     const room = 'ah' + Math.floor(Date.now() / 1000);
@@ -109,6 +151,9 @@ async function play(host, guest, names) {
         r.check(await host.page.evaluate(() => window.airHockeyGame.players.get('Odell').score === 0),
             'a goal message from a guest is ignored by the host');
         await play(host.page, guest.page, ['Mara', 'Odell']);
+        await sleep(8000);   // the win screen's moment, then the lobby
+        await botForGuest(host.page, guest.page);
+        await solo(b, room + 's');
     } catch (err) {
         r.check(false, 'the suite ran to the end: ' + (err && err.message));
     }

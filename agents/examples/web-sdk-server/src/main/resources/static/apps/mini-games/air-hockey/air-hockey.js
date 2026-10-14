@@ -72,6 +72,9 @@ const GAME_CONFIG = {
 // How long the win screen (winner, score, awards) stays up before the lobby returns.
 const WIN_SCREEN_MS = 7000;
 
+// Computer players the host can add, in this order (air-hockey-bot.js moves them).
+const BOT_NAMES = ['Bot Barry', 'Bot Bea', 'Bot Boris', 'Bot Bianca', 'Bot Bruno'];
+
 const PLAYER_CONFIGS = [
     // Team Left (1-3 players)
     { color: '#3b82f6', name: 'Blue', position: 'left-center', goalSide: 'left', team: 'left' },
@@ -377,6 +380,15 @@ class AirHockeyGame extends UserConnectionBase {
     }
 
     broadcastPlayerAssignments() {
+        this.sendData({
+            type: 'player-assignments',
+            assignments: this.playerAssignments(),
+            playerOrder: this.playerOrder
+        });
+    }
+
+    /** Every player's seat, for the guests (the same list for one peer or for everyone). */
+    playerAssignments() {
         const assignments = [];
         this.players.forEach((player, playerId) => {
             assignments.push({
@@ -386,15 +398,11 @@ class AirHockeyGame extends UserConnectionBase {
                 colorName: player.colorName,
                 goalSide: player.goalSide,
                 team: player.team,  // Include team field for consistency
-                score: player.score
+                score: player.score,
+                bot: !!player.bot
             });
         });
-
-        this.sendData({
-            type: 'player-assignments',
-            assignments: assignments,
-            playerOrder: this.playerOrder
-        });
+        return assignments;
     }
 
     onUserLeave(detail) {
@@ -471,7 +479,7 @@ class AirHockeyGame extends UserConnectionBase {
         const HOST_ONLY = ['puck-update', 'game-start', 'game-end', 'game-pause',
                            'game-pause-player-join', 'game-resume', 'game-resume-after-join',
                            'goal', 'game-state', 'settings-change', 'player-assignments',
-                           'reset-ball', 'new-game'];
+                           'reset-ball', 'new-game', 'bot-paddles'];
         if (HOST_ONLY.indexOf(data.type) !== -1 && !this.isHostPeer(peerId)) {
             console.warn('[AirHockey] Ignoring', data.type, 'from a non-host peer:', peerId);
             return;
@@ -531,7 +539,81 @@ class AirHockeyGame extends UserConnectionBase {
             case 'new-game':
                 this.handleNewGame(data);
                 break;
+            case 'bot-paddles':
+                this.handleBotPaddles(data);
+                break;
         }
+    }
+
+    // ============================================
+    // BOTS (driven by whoever is host)
+    // ============================================
+    //
+    // A bot is an ordinary player with `bot: true`, so teams, scoring, goals
+    // and awards treat it like anyone. Its paddle is moved by the host each
+    // frame (air-hockey-bot.js decides where) and reaches everyone else in a
+    // host-only 'bot-paddles' message: a 'paddle-update' is attributed to its
+    // sender, so it could only ever move the host's own paddle. If the host
+    // leaves, the next host drives the same bots.
+
+    addBot() {
+        if (!this.isHost() || this.players.size >= 6) return;
+        const name = BOT_NAMES.find((n) => !this.players.has(n));
+        if (!name) return;
+        this.addPlayer(name);
+        const bot = this.players.get(name);
+        if (!bot) return;
+        bot.bot = true;
+        this.broadcastPlayerAssignments();
+        this.updatePlayersList();
+        this.updateScoreBoard();
+    }
+
+    removeBot() {
+        if (!this.isHost()) return;
+        const bots = [...this.players.keys()].filter((id) => this.players.get(id).bot);
+        if (!bots.length) return;
+        this.removePlayer(bots[bots.length - 1]);
+        this.broadcastPlayerAssignments();
+        this.updatePlayersList();
+        this.updateScoreBoard();
+    }
+
+    driveBots(dt) {
+        const size = { width: GAME_CONFIG.CANVAS_WIDTH, height: GAME_CONFIG.CANVAS_HEIGHT };
+        this.players.forEach((player) => {
+            if (!player.bot) return;
+            const next = AirHockeyBot.step(player.team, player.paddle, this.puck, size, dt);
+            const kept = this.constrainPaddlePosition(next.x, next.y, player.position);
+            Object.assign(player.paddle, { x: kept.x, y: kept.y, vx: next.vx, vy: next.vy });
+        });
+    }
+
+    /** Host: every bot's paddle, for the guests. */
+    botPaddles() {
+        const out = {};
+        this.players.forEach((p, id) => {
+            if (p.bot) out[id] = { x: p.paddle.x, y: p.paddle.y, vx: p.paddle.vx, vy: p.paddle.vy };
+        });
+        return Object.keys(out).length ? out : null;
+    }
+
+    handleBotPaddles(data) {
+        if (this.isHost()) return;
+        Object.entries(data.paddles || {}).forEach(([id, p]) => {
+            const player = this.players.get(id);
+            if (player && player.bot) Object.assign(player.paddle, { x: p.x, y: p.y, vx: p.vx || 0, vy: p.vy || 0 });
+        });
+    }
+
+    updateBotButtons() {
+        const box = document.getElementById('botButtons');
+        if (!box) return;
+        const host = this.isHost();
+        const bots = [...this.players.values()].filter((p) => p.bot).length;
+        box.hidden = !host;
+        document.getElementById('addBotBtn').hidden = this.players.size >= 6;
+        document.getElementById('removeBotBtn').hidden = !bots;
     }
 
     /*
@@ -612,22 +694,9 @@ class AirHockeyGame extends UserConnectionBase {
 
     sendPlayerAssignments(toPlayer) {
         // Send all player assignments to the joining player
-        const assignments = [];
-        this.players.forEach((player, playerId) => {
-            assignments.push({
-                playerId: playerId,
-                position: player.position,
-                color: player.color,
-                colorName: player.colorName,
-                goalSide: player.goalSide,
-                team: player.team,  // Include team field for consistency
-                score: player.score
-            });
-        });
-
         this.sendData({
             type: 'player-assignments',
-            assignments: assignments,
+            assignments: this.playerAssignments(),
             playerOrder: this.playerOrder
         }, toPlayer);
     }
@@ -656,7 +725,8 @@ class AirHockeyGame extends UserConnectionBase {
                 goalSide: info.goalSide,
                 team: info.team || info.goalSide, // Fallback to goalSide for backward compatibility
                 score: info.score || 0,
-                paddle: paddle
+                paddle: paddle,
+                bot: !!info.bot
             });
         });
 
@@ -1589,8 +1659,9 @@ class AirHockeyGame extends UserConnectionBase {
             this.updateMyPaddle(dt);
         }
 
-        // If playing and host, update physics (but only if not paused)
+        // If playing and host, move the bots and update physics (but only if not paused)
         if (this.gameStatus === 'playing' && this.isHost() && !isPaused) {
+            this.driveBots(dt);
             this.updatePhysics(dt);
         }
 
@@ -2237,6 +2308,8 @@ class AirHockeyGame extends UserConnectionBase {
                 type: 'puck-update',
                 ...this.puck
             });
+            const bots = this.botPaddles();
+            if (bots) this.sendData({ type: 'bot-paddles', paddles: bots });
         }
     }
 
@@ -2707,12 +2780,13 @@ class AirHockeyGame extends UserConnectionBase {
         let html = '';
         this.players.forEach((player, playerId) => {
             const isMe = playerId === this.username;
-            const hasP2P = isMe || this.connectedPeers.has(playerId);
+            // A bot lives on the host: no connection of its own to show.
+            const hasP2P = isMe || player.bot || this.connectedPeers.has(playerId);
 
             html += `
                 <div class="player-item">
                     <div class="player-color" style="background: ${escapeHtml(player.color)}"></div>
-                    <div class="player-name">${escapeHtml(playerId)}${isMe ? ' (You)' : ''} ${!isMe ? (hasP2P
+                    <div class="player-name">${escapeHtml(playerId)}${isMe ? ' (You)' : ''}${player.bot ? ' (bot)' : ''} ${!isMe && !player.bot ? (hasP2P
                         ? '<svg class="icon icon--sm p2p-state p2p-state--on" role="img" aria-label="Connected peer to peer"><title>Connected peer to peer</title><use href="#i-check-circle"></use></svg>'
                         : '<svg class="icon icon--sm p2p-state p2p-state--wait" role="img" aria-label="Connecting"><title>Connecting</title><use href="#i-clock"></use></svg>') : ''}</div>
                 </div>
@@ -2724,6 +2798,7 @@ class AirHockeyGame extends UserConnectionBase {
         if (playerCountEl) {
             playerCountEl.textContent = `Players: ${this.players.size}`;
         }
+        this.updateBotButtons();
     }
 
     updateScoreBoard() {
@@ -2995,6 +3070,14 @@ function resetBall() {
     if (airHockeyGame && airHockeyGame.isHost()) {
         airHockeyGame.resetBallToCenter();
     }
+}
+
+function addBot() {
+    if (airHockeyGame && airHockeyGame.isHost()) airHockeyGame.addBot();
+}
+
+function removeBot() {
+    if (airHockeyGame && airHockeyGame.isHost()) airHockeyGame.removeBot();
 }
 
 function newGame() {
