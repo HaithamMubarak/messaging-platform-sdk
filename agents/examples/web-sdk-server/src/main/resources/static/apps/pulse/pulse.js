@@ -23,6 +23,24 @@
     var POLL_KEY = 'pulse_poll';
     var Q_KEY = 'pulse_questions';
     var MAX_Q = 40;
+    var REACT_GAP_MS = 700;         // one reaction per person per this long, at the host
+    var REPLAY_STEP_MS = 450;
+    var REACTIONS = { zap: 'Zap', hand: 'Hands up', trophy: 'Winner' };   // kind -> icon is the same name
+    var SIM_PREFIX = 'Simulated ';
+    var SIM_NAMES = ['Ada', 'Bo', 'Cy', 'Dee', 'Eli', 'Fen', 'Gus', 'Hal'];
+
+    const isSimulated = (name) => String(name).indexOf(SIM_PREFIX) === 0;
+
+    /** A reaction floats up the side of the poll and fades. Skipped when motion is reduced. */
+    function floatReaction(kind, by) {
+        var layer = document.getElementById('reactionLayer');
+        if (!layer || !REACTIONS[kind]) return;
+        if (window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+        var bubble = UI.el('span', { class: 'reaction reaction--' + kind, title: by || '' }, [UI.iconNode(kind)]);
+        bubble.style.left = (10 + Math.random() * 70) + '%';
+        layer.appendChild(bubble);
+        setTimeout(function () { bubble.remove(); }, 2600);
+    }
 
     class Pulse extends UserConnectionBase {
         constructor() {
@@ -37,6 +55,8 @@
             this.versions = [];       // newest first — what storageGetList gave us
             this.myVote = null;
             this.viewing = null;      // a version index while scrubbing the history
+            this._reactAt = {};       // host: when each person last reacted
+            this._replaying = null;   // the running replay, if any
         }
 
         // ---- lifecycle -------------------------------------------------------
@@ -126,7 +146,70 @@
                     if (!this.isHost() || from !== this.username) break;
                     this._hostRemove(data.id);
                     break;
+
+                // Reactions go to the host, which relays them to the room. A
+                // relayed one counts only from the host itself, so nobody can
+                // put words in somebody else's mouth by sending 'reaction'.
+                case 'react':
+                    if (!this.isHost()) break;
+                    this._hostReact(from, data.kind);
+                    break;
+
+                case 'reaction':
+                    if (this.isHost() || from !== this._getHostName()) break;
+                    floatReaction(data.kind, data.by);
+                    break;
             }
+        }
+
+        // ---- reactions, simulated voters, the replay -------------------------
+
+        react(kind) {
+            if (!REACTIONS[kind] || !this.connected) return;
+            if (this.isHost()) this._hostReact(this.username, kind);
+            else this._ask({ type: 'react', kind: kind });
+        }
+
+        /** Relay one reaction, at most one per person every REACT_GAP_MS: a crowd, not a flood. */
+        _hostReact(by, kind) {
+            if (!REACTIONS[kind] || !by) return;
+            var now = Date.now();
+            if (now - (this._reactAt[by] || 0) < REACT_GAP_MS) return;
+            this._reactAt[by] = now;
+            floatReaction(kind, by);
+            this._say({ type: 'reaction', kind: kind, by: by }, '*');
+        }
+
+        /**
+         * Host only, and local: there is no message that asks for it, so no
+         * guest can stuff the ballot. Each simulated vote goes through the same
+         * tally and appends a version like any other, which is what gives the
+         * time machine something to replay when you are on your own.
+         */
+        simulate(count) {
+            if (!this.isHost() || !this.open) return;
+            var self = this, options = this.poll.options;
+            SIM_NAMES.slice(0, count || 5).forEach(function (name, i) {
+                setTimeout(function () {
+                    // Lean towards the first option, so the lead tends to change hands.
+                    var pick = options[Math.random() < 0.45 ? 0 : Math.floor(Math.random() * options.length)];
+                    self._hostVote(SIM_PREFIX + name, pick.id);
+                }, 700 * (i + 1));
+            });
+        }
+
+        /** Walk the versions from the first to now, then come back to live. */
+        replay() {
+            if (this.versions.length < 2) { UI.toast('Cast a few votes first: there is nothing to replay yet', 'info'); return; }
+            var self = this, token = {};
+            this._replaying = token;
+            var i = this.versions.length - 1;
+            (function step() {
+                if (self._replaying !== token) return;
+                self.scrubTo(i, true);
+                if (i-- > 0) setTimeout(step, REPLAY_STEP_MS);
+                else setTimeout(function () { if (self._replaying === token) { self._replaying = null; self.scrubTo(null); } }, REPLAY_STEP_MS);
+            })();
         }
 
         /**
@@ -477,7 +560,8 @@
          * Scrubbing is local: it changes what you are looking at, never what
          * the room has recorded.
          */
-        scrubTo(index) {
+        scrubTo(index, replaying) {
+            if (!replaying) this._replaying = null;    // a hand on the slider stops the replay
             this.viewing = (index === null || index === 0) ? null : index;
             this.renderPoll();
             this.renderVersions();
@@ -509,58 +593,64 @@
             var past = this.viewing !== null ? this.versions[this.viewing] : null;
             var counts = past ? past.tallies : this._tally();
             var total = Object.keys(counts).reduce(function (n, k) { return n + (counts[k] || 0); }, 0);
-            var self = this;
             var open = this.open;
 
+            var title = UI.el('div', { class: 'poll__title' }, [
+                UI.el('h2', { class: 'poll__q' }, this.poll.question),
+                this._ring(past, open)
+            ]);
+            host.replaceChildren(this._pollHead(past, open, total), title,
+                UI.el('div', { class: 'poll__options' }, this._pollBars(counts, total, past, open)));
+        }
+
+        /** Live / closed / a past version, the count, and the host's buttons. */
+        _pollHead(past, open, total) {
             var badge = past
                 ? UI.el('span', { class: 'badge' }, 'v' + past.v)
                 : open
                     ? UI.el('span', { class: 'badge badge--danger' }, 'Live')
                     : UI.el('span', { class: 'badge badge--warning' }, 'Closed');
-
-            var when = past
-                ? UI.fmtRelative(past.at)
-                : open ? 'closes in ' + this._left() : 'final result';
-
+            var simulated = Object.keys(this.poll.votes || {}).filter(isSimulated).length;
             var head = UI.el('div', { class: 'poll__head' }, [
                 badge,
-                UI.el('span', { class: 'poll__meta' }, total + (total === 1 ? ' vote' : ' votes')),
-                UI.el('span', { class: 'poll__meta' }, when),
-                UI.el('span', { class: 'poll__meta poll__meta--right' },
-                    'v' + (this.versions.length || 0))
+                UI.el('span', { class: 'poll__meta' }, total + (total === 1 ? ' vote' : ' votes')
+                    + (!past && simulated ? ' (' + simulated + ' simulated)' : '')),
+                UI.el('span', { class: 'poll__meta' }, past ? UI.fmtRelative(past.at) : open ? 'closes in ' + this._left() : 'final result'),
+                UI.el('span', { class: 'poll__meta poll__meta--right' }, 'v' + (this.versions.length || 0))
             ]);
-
-            if (past) {
-                head.appendChild(UI.el('button', {
-                    type: 'button', class: 'btn btn--ghost btn--sm', 'data-live': '1'
-                }, 'Back to live'));
-            } else if (!open && this.isHost()) {
-                head.appendChild(UI.el('button', {
-                    type: 'button', class: 'btn btn--ghost btn--sm', 'data-reopen': '1'
-                }, 'Run it again'));
-            }
-
+            var button = function (attr, label) {
+                var attrs = { type: 'button', class: 'btn btn--ghost btn--sm' };
+                attrs[attr] = '1';
+                head.appendChild(UI.el('button', attrs, label));
+            };
+            if (past) button('data-live', 'Back to live');
+            else if (!open && this.isHost()) button('data-reopen', 'Run it again');
             // The host can always write a new question — a demo whose only
             // poll is the one it shipped with is a screenshot.
-            if (!past && this.isHost()) {
-                head.appendChild(UI.el('button', {
-                    type: 'button', class: 'btn btn--ghost btn--sm', 'data-compose': '1'
-                }, open ? 'Ask something else' : 'New question'));
-            }
+            if (!past && this.isHost()) button('data-compose', open ? 'Ask something else' : 'New question');
+            if (!past && open && this.isHost()) button('data-simulate', 'Add 5 simulated votes');
+            return head;
+        }
 
-            var bars = this.poll.options.map(function (opt) {
+        _pollBars(counts, total, past, open) {
+            var self = this;
+            var max = Math.max.apply(null, this.poll.options.map(function (o) { return counts[o.id] || 0; }).concat([0]));
+            var leaders = this.poll.options.filter(function (o) { return max && (counts[o.id] || 0) === max; }).length;
+            return this.poll.options.map(function (opt, i) {
                 var n = counts[opt.id] || 0;
                 var pct = total ? Math.round((n / total) * 100) : 0;
                 var mine = !past && self.myVote === opt.id;
-
+                var leads = max > 0 && n === max && leaders === 1;
                 return UI.el('button', {
                     type: 'button',
-                    class: 'poll-option' + (mine ? ' is-mine' : '') + ((past || !open) ? ' is-shut' : ''),
+                    class: 'poll-option poll-option--c' + (i % 6) + (mine ? ' is-mine' : '') + (leads ? ' is-leading' : '')
+                        + ((past || !open) ? ' is-shut' : ''),
                     'data-option': opt.id,
                     disabled: (past || !open) ? true : null
                 }, [
                     UI.el('span', { class: 'poll-option__row' }, [
                         UI.el('span', { class: 'poll-option__label' }, opt.label),
+                        leads ? UI.el('span', { class: 'poll-option__lead' }, 'Leading') : '',
                         UI.el('span', { class: 'poll-option__n' }, n + ' · ' + pct + '%')
                     ]),
                     UI.el('span', { class: 'poll-option__track' }, [
@@ -568,9 +658,18 @@
                     ])
                 ]);
             });
+        }
 
-            host.replaceChildren(head, UI.el('h2', { class: 'poll__q' }, this.poll.question),
-                UI.el('div', { class: 'poll__options' }, bars));
+        /** The countdown as a ring: the share of the poll's time still left. */
+        _ring(past, open) {
+            var left = this.poll.closesAt ? Math.max(0, this.poll.closesAt - Date.now()) : 0;
+            var share = past || !open ? 0 : Math.min(1, left / (POLL_SECS * 1000));
+            var ring = UI.el('span', { class: 'poll__ring', role: 'img',
+                'aria-label': past ? 'A past version' : open ? this._left() + ' left' : 'Closed' }, [
+                UI.el('span', { class: 'poll__ring-text' }, past ? 'v' + past.v : open ? this._left() : 'Done')
+            ]);
+            ring.style.setProperty('--left', (share * 100).toFixed(1) + '%');
+            return ring;
         }
 
         /** How long the poll has left, in words a clock can show. */
@@ -685,7 +784,9 @@
                     'v' + (this.versions[0] ? this.versions[0].v : 1))
             ]);
 
-            host.replaceChildren.apply(host, rows.concat([scrub]));
+            var replay = UI.el('button', { type: 'button', class: 'btn btn--sm ver-replay', 'data-replay': '1',
+                disabled: this.versions.length < 2 ? true : null }, [UI.iconNode('timer', 'icon--sm'), ' Replay the vote']);
+            host.replaceChildren.apply(host, [replay].concat(rows, [scrub]));
         }
     }
 
@@ -710,21 +811,53 @@
         ShareModal.show(app.channelName, app.channelPassword);
     }
 
+    /**
+     * Big screen: the poll alone, large, with the room's code and a QR to scan,
+     * for a projector or a TV at the front of a room. Esc comes back.
+     */
+    function present(on) {
+        document.body.classList.toggle('is-presenting', on);
+        document.getElementById('presentBtn').setAttribute('aria-pressed', String(on));
+        if (!on || !app) return;
+        var code = window.PartyCode && PartyCode.codeFor('pulse', app.channelName, app.channelPassword);
+        var url = code ? location.origin + location.pathname + '?code=' + code : null;
+        document.getElementById('presentCode').textContent = code ? PartyCode.format(code) : 'Use Invite to share this room';
+        var qr = document.getElementById('presentQr');
+        qr.replaceChildren();
+        if (url && typeof QRCode !== 'undefined') {
+            new QRCode(qr, { text: url, width: 176, height: 176, colorDark: '#0b1120', colorLight: '#ffffff' });
+        }
+        qr.hidden = !url;
+    }
+
     function wire() {
         var share = document.getElementById('shareBtn');
         if (share) share.addEventListener('click', invite);
+        document.getElementById('presentBtn').addEventListener('click', function () {
+            present(!document.body.classList.contains('is-presenting'));
+        });
+        document.getElementById('presentExit').addEventListener('click', function () { present(false); });
+        document.addEventListener('keydown', function (e) {
+            if (e.key === 'Escape' && document.body.classList.contains('is-presenting')) present(false);
+        });
+        document.getElementById('reactions').addEventListener('click', function (e) {
+            var b = e.target.closest('[data-react]');
+            if (b && app) app.react(b.getAttribute('data-react'));
+        });
 
         document.getElementById('poll').addEventListener('click', function (e) {
             if (!app) return;
             if (e.target.closest('[data-live]')) { app.scrubTo(null); return; }
             if (e.target.closest('[data-reopen]')) { app.reopen(); return; }
             if (e.target.closest('[data-compose]')) { app.compose(); return; }
+            if (e.target.closest('[data-simulate]')) { app.simulate(5); return; }
             var btn = e.target.closest('[data-option]');
             if (btn && !btn.disabled) app.vote(btn.getAttribute('data-option'));
         });
 
         var versions = document.getElementById('versions');
         versions.addEventListener('click', function (e) {
+            if (e.target.closest('[data-replay]') && app) { app.replay(); return; }
             var row = e.target.closest('[data-version]');
             if (row && app) app.scrubTo(Number(row.getAttribute('data-version')));
         });
@@ -797,9 +930,9 @@
                 id: 'pulse', start: 'Start a poll', players: 'Any size room · works alone',
                 tagline: 'Ask the room anything. Watch the votes arrive, then scrub back through how they moved.',
                 howTo: [
-                    'Ask a question and give a few answers.',
-                    'Share the code: everyone votes from their own phone.',
-                    'Drag the history slider to replay the vote.',
+                    'Ask a question, then put it on the big screen with its code.',
+                    'Everyone votes and reacts from their own phone. On your own? Add simulated votes.',
+                    'Press Replay and watch the vote happen again, version by version.',
                 ],
             },
             onConnect: connect

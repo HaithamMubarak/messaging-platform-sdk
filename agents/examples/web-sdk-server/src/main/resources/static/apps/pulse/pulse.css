@@ -215,3 +215,105 @@
     font-family: var(--font-mono); font-size: var(--fs-xs); white-space: pre-wrap; overflow-wrap: anywhere;
     background: var(--surface-2); border: 1px solid var(--border); border-radius: var(--r-md);
 }
+
+/* ---- the glow-up (2026-10-14): colour per option, the lead, the clock ----- */
+.poll-stage { position: relative; }
+.poll__title { display: flex; align-items: center; gap: var(--sp-4); }
+.poll__title .poll__q { flex: 1; min-width: 0; margin: 0; }
+.poll__ring {
+    --left: 0%;
+    flex: none; width: 64px; height: 64px; border-radius: 50%; display: grid; place-items: center;
+    background: conic-gradient(var(--brand) var(--left), var(--surface-3) 0);
+}
+.poll__ring-text {
+    width: 50px; height: 50px; border-radius: 50%; display: grid; place-items: center;
+    background: var(--surface-1); font: 700 var(--fs-xs) var(--font-mono); color: var(--text);
+}
+.poll-option__track { height: 14px; }
+.poll-option__fill { transition: width 0.45s var(--ease); }
+.poll-option--c0 .poll-option__fill { background: #2dd4bf; }
+.poll-option--c1 .poll-option__fill { background: #fbbf24; }
+.poll-option--c2 .poll-option__fill { background: #38bdf8; }
+.poll-option--c3 .poll-option__fill { background: #a78bfa; }
+.poll-option--c4 .poll-option__fill { background: #fb923c; }
+.poll-option--c5 .poll-option__fill { background: #f472b6; }
+.poll-option.is-leading { border-color: var(--warning); }
+.poll-option__lead {
+    margin-left: auto; padding: 2px 8px; border-radius: var(--r-pill); background: var(--warning-bg);
+    color: var(--warning); font-size: var(--fs-xs); font-weight: 800; letter-spacing: 0.08em; text-transform: uppercase;
+}
+.poll-option__lead + .poll-option__n { margin-left: 0; }
+.ver-replay { width: 100%; justify-content: center; margin-bottom: var(--sp-2); }
+
+/* ---- reactions ------------------------------------------------------------ */
+.reactions { display: flex; align-items: center; gap: var(--sp-2); flex: none; }
+.reactions__label { font-size: var(--fs-xs); color: var(--text-muted); margin-right: var(--sp-1); }
+.reactions__btn {
+    width: 44px; height: 44px; display: grid; place-items: center; cursor: pointer;
+    border-radius: var(--r-md); border: 1px solid var(--border); background: var(--surface-2); color: var(--text);
+}
+.reactions__btn:hover { background: var(--surface-3); }
+.reactions__btn:focus-visible { outline: none; box-shadow: var(--focus-ring); }
+.reactions__btn[data-react="zap"] { color: #fbbf24; }
+.reactions__btn[data-react="hand"] { color: #2dd4bf; }
+.reactions__btn[data-react="trophy"] { color: #fb923c; }
+
+.reaction-layer { position: absolute; inset: 0; pointer-events: none; overflow: hidden; }
+.reaction {
+    position: absolute; bottom: 8px; width: 40px; height: 40px; border-radius: 50%; display: grid; place-items: center;
+    background: var(--surface-3); box-shadow: 0 6px 18px rgba(2, 6, 23, 0.5);
+    animation: pulse-float 2.5s var(--ease) forwards;
+}
+.reaction--zap { color: #fbbf24; }
+.reaction--hand { color: #2dd4bf; }
+.reaction--trophy { color: #fb923c; }
+@keyframes pulse-float {
+    0% { transform: translateY(0) scale(0.6); opacity: 0; }
+    15% { transform: translateY(-20px) scale(1); opacity: 1; }
+    100% { transform: translateY(-260px) scale(1.1); opacity: 0; }
+}
+
+/* ---- big screen ----------------------------------------------------------- */
+.present-join { display: none; }
+body.is-presenting .sdk-side,
+body.is-presenting .pulse-tabs,
+body.is-presenting .ask,
+body.is-presenting #questions,
+body.is-presenting .sdk-main > .pulse-tab > .sdk-side__title { display: none; }
+body.is-presenting .poll-stage { display: grid; grid-template-columns: minmax(0, 1fr) 240px; gap: var(--sp-6); align-items: center; }
+body.is-presenting .poll { padding: var(--sp-6); }
+body.is-presenting .poll__q { font-size: clamp(1.75rem, 3.6vw, 3rem); line-height: 1.15; }
+body.is-presenting .poll__ring { width: 104px; height: 104px; }
+body.is-presenting .poll__ring-text { width: 84px; height: 84px; font-size: var(--fs-lg); }
+body.is-presenting .poll-option { padding: var(--sp-4); }
+body.is-presenting .poll-option__label { font-size: clamp(1.1rem, 2vw, 1.5rem); }
+body.is-presenting .poll-option__n { font-size: var(--fs-lg); }
+body.is-presenting .poll-option__track { height: 22px; }
+body.is-presenting .present-join {
+    display: flex; flex-direction: column; align-items: center; gap: var(--sp-2); text-align: center;
+    padding: var(--sp-5) var(--sp-4); border-radius: var(--r-lg); background: var(--surface-1); border: 1px solid var(--border);
+}
+.present-join__lead { margin: 0; font-weight: 800; font-size: var(--fs-lg); }
+.present-join__qr { padding: 8px; border-radius: var(--r-md); background: #fff; line-height: 0; }
+.present-join__qr[hidden] { display: none; }
+.present-join__label { margin: var(--sp-2) 0 0; font-size: var(--fs-xs); color: var(--text-muted); }
+.present-join__code { margin: 0; font: 700 1.5rem var(--font-mono); letter-spacing: 0.06em; color: var(--warning); }
+@media (max-width: 760px) {
+    body.is-presenting .poll-stage { grid-template-columns: minmax(0, 1fr); }
+}
+
+/* The head carries up to four host buttons now: let it wrap rather than push the
+   page sideways on a phone, and give its small buttons a finger-sized target. */
+.poll__head { flex-wrap: wrap; row-gap: var(--sp-2); }
+.poll__head .btn--sm, .ver-replay { min-height: 36px; }
+.scrub__range { min-height: 32px; }
+
+/* A version row is a <button>: it kept the browser's default borders, and
+   width:100% plus its 4px margin pushed every tally past the card's edge. */
+.ver {
+    box-sizing: border-box; width: calc(100% - 4px);
+    border: 0; border-left: 1px solid var(--border-strong);
+}
+.versions > .ver-replay + .ver { border-left-color: transparent; }
+/* The wire log below grows with every call; the history keeps its room. */
+.sdk-side .versions { flex: none; max-height: 24rem; }
