@@ -352,6 +352,10 @@
     }
 
     function defaultName(config) {
+        // `?newname`: a second tab of this browser joining as another person
+        // (Under the Hood's "Open another tab"), not as the name saved here.
+        const fresh = new URLSearchParams(location.search).has('newname');
+        if (fresh && window.generateRandomAgentName) return window.generateRandomAgentName();
         try {
             const saved = localStorage.getItem((config.localStoragePrefix || '') + 'username');
             if (saved) return saved;

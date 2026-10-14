@@ -1,148 +1,131 @@
-/**
- * Under the Hood.
- *
- * An instrument panel, so it reads like one: monospace for anything that is a
- * value, colour used only where it means something (the host, you, and the
- * kind of a log line), and no decoration competing with the diagram.
- */
+/* Under the Hood — the control room. Tokens and buttons come from
+   design-tokens.css and ui.css; nothing here redefines them. */
 
-.hood {
-    min-height: 100vh;
-    background: var(--bg, #0b1120);
-    color: var(--text-body, #c4cede);
-    font-family: var(--font-sans, Inter, system-ui, sans-serif);
-}
+.hood { margin: 0; min-height: 100vh; background: var(--bg); color: var(--text); font-family: var(--font-sans); }
 
-.hood-wrap {
-    max-inline-size: 64rem;
-    margin-inline: auto;
-    padding: var(--sp-6, 1.5rem) var(--sp-4, 1rem) var(--sp-12, 3rem);
-    display: flex;
-    flex-direction: column;
-    gap: var(--sp-5, 1.25rem);
-}
+.hood-wrap { max-width: 82rem; margin: 0 auto; padding: var(--sp-6) var(--sp-4) var(--sp-12); }
 
-.hood-head h1 { margin: 0 0 var(--sp-1, .25rem); font-size: var(--fs-2xl, 1.75rem); color: var(--text, #eef2f8); }
-.hood-head p { margin: 0; color: var(--text-muted, #8a97ab); font-size: var(--fs-md, .875rem); }
+.hood-head { margin-bottom: var(--sp-5); }
+.hood-kicker { margin: 0 0 var(--sp-1); font-size: var(--fs-sm); font-weight: 700; color: var(--brand-ink); }
+.hood-room { font-family: var(--font-mono); font-weight: 600; overflow-wrap: anywhere; }
+.hood-head h1 { margin: 0 0 var(--sp-2); font-size: clamp(1.75rem, 4vw, 2.5rem); letter-spacing: -0.02em; line-height: 1.1; }
+.hood-lede { margin: 0; max-width: 60ch; color: var(--text-body); font-size: var(--fs-lg); line-height: 1.5; }
 
-.hood-grid {
-    display: grid;
-    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
-    gap: var(--sp-4, 1rem);
-    align-items: start;
-}
-@media (max-width: 860px) { .hood-grid { grid-template-columns: minmax(0, 1fr); } }
+.hood-grid { display: grid; grid-template-columns: 17rem minmax(0, 1fr) 19rem; gap: var(--sp-4); align-items: start; }
 
-.hood-panel {
-    background: var(--surface-1, #101827);
-    border: 1px solid var(--border, rgba(148, 163, 184, .14));
-    border-radius: var(--r-lg, 12px);
-    padding: var(--sp-4, 1rem);
-    display: flex;
-    flex-direction: column;
-    gap: var(--sp-3, .75rem);
-    min-inline-size: 0;
-}
+/* ------------------------------------------------------------- controls */
 
-.hood-panel__title {
-    font-size: var(--fs-xs, .75rem);
-    font-weight: 700;
-    letter-spacing: .08em;
-    text-transform: uppercase;
-    color: var(--text-muted, #8a97ab);
+.hood-side, .hood-timeline, .hood-map {
+    background: var(--surface-1); border: 1px solid var(--border); border-radius: var(--r-xl); padding: var(--sp-4);
 }
+.hood-side { display: flex; flex-direction: column; gap: var(--sp-2); }
+.hood-side__title {
+    margin: var(--sp-3) 0 var(--sp-1); font-size: var(--fs-xs); font-weight: 800; letter-spacing: 0.12em;
+    text-transform: uppercase; color: var(--text-muted);
+}
+.hood-timeline .hood-side__title { margin-top: 0; }
 
-.hood-facts { display: flex; gap: var(--sp-4, 1rem); flex-wrap: wrap; }
-.hood-fact { display: flex; flex-direction: column; }
-.hood-fact__label { font-size: var(--fs-xs, .75rem); color: var(--text-muted, #8a97ab); }
-.hood-fact__value {
-    font-family: var(--font-mono, ui-monospace, monospace);
-    font-size: var(--fs-lg, 1.125rem);
-    color: var(--text, #eef2f8);
-}
-.hood-fact__value.is-yes { color: var(--success, #34d399); }
+.hood-facts { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--sp-2); }
+.hood-fact { display: flex; flex-direction: column; gap: 2px; padding: var(--sp-3); border-radius: var(--r-lg); background: var(--bg); }
+.hood-fact--wide { grid-column: 1 / -1; }
+.hood-fact__label { font-size: var(--fs-xs); color: var(--text-muted); }
+.hood-fact__value { font-size: var(--fs-xl); font-weight: 800; overflow-wrap: anywhere; }
+.hood-fact__value.is-yes { color: var(--warning); }
+.hood-fact__value--crown { color: var(--warning); font-size: var(--fs-lg); }
+.hood-fact__value--mono { font: 600 var(--fs-md) var(--font-mono); color: var(--brand-ink); }
 
-/* ---- roster ---- */
-.hood-peers { display: flex; flex-direction: column; gap: var(--sp-2, .5rem); }
-.hood-peer {
-    display: flex;
-    align-items: center;
-    gap: var(--sp-3, .75rem);
-    padding: var(--sp-2, .5rem) var(--sp-3, .75rem);
-    border-radius: var(--r-md, 8px);
-    background: var(--surface-2, #16203a);
-}
-.hood-peer--host { outline: 1px solid var(--brand, #5d60ef); }
-.hood-peer--me { background: color-mix(in oklab, var(--brand, #5d60ef) 14%, var(--surface-2, #16203a)); }
-.hood-peer__dot {
-    inline-size: 8px; block-size: 8px; border-radius: 999px;
-    background: var(--success, #34d399); flex-shrink: 0;
-}
-.hood-peer__name {
-    flex: 1; min-inline-size: 0;
-    font-family: var(--font-mono, ui-monospace, monospace);
-    font-size: var(--fs-sm, .8125rem);
-    color: var(--text, #eef2f8);
-    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
-}
-.hood-peer__tags { display: flex; gap: var(--sp-1, .25rem); flex-shrink: 0; }
+.hood-btn { min-height: 48px; width: 100%; justify-content: center; }
+.hood-btn--crown:not(:disabled) { border-color: var(--warning); color: var(--warning); background: var(--warning-bg); }
+.hood-hint { margin: 0; font-size: var(--fs-xs); color: var(--text-muted); line-height: 1.55; }
+.hood-hint code { font-family: var(--font-mono); }
 
-/* ---- topology ---- */
-.hood-topology { inline-size: 100%; block-size: auto; }
-.hood-edge { stroke: var(--border-strong, rgba(148, 163, 184, .28)); stroke-width: 1.5; }
-.hood-edge--weak { stroke-dasharray: 4 4; }
-.hood-node { fill: var(--surface-3, #1e2a3d); stroke: var(--border-strong, rgba(148, 163, 184, .28)); stroke-width: 1.5; }
-.hood-node--host { fill: var(--brand, #5d60ef); stroke: var(--brand-hover, #818cf8); }
-.hood-node--me { stroke: var(--accent, #22d3ee); stroke-width: 2.5; }
-.hood-node__label {
-    fill: var(--text-muted, #8a97ab);
-    font-size: 10px;
-    font-family: var(--font-mono, ui-monospace, monospace);
+.hood-inspect { margin-top: var(--sp-3); border-top: 1px solid var(--border); padding-top: var(--sp-2); }
+.hood-inspect summary, .hood-crash summary {
+    cursor: pointer; min-height: 32px; display: flex; align-items: center; font-size: var(--fs-sm); font-weight: 700; color: var(--text-body);
 }
-.hood-topology-note { font-size: var(--fs-xs, .75rem); color: var(--text-muted, #8a97ab); }
-
-/* ---- log ---- */
-.hood-log {
-    display: flex; flex-direction: column; gap: 2px;
-    max-block-size: 18rem; overflow-y: auto;
-    font-family: var(--font-mono, ui-monospace, monospace);
-    font-size: var(--fs-xs, .75rem);
-}
-.hood-log__row { display: flex; gap: var(--sp-2, .5rem); padding: 2px 0; }
-.hood-log__time { color: var(--text-faint, #64748b); flex-shrink: 0; }
-.hood-log__kind {
-    inline-size: 5.5rem; flex-shrink: 0;
-    color: var(--text-muted, #8a97ab);
-}
-.hood-log__text { color: var(--text-body, #c4cede); overflow-wrap: anywhere; }
-.hood-log__row--host .hood-log__kind { color: var(--brand-ink, #a5b4fc); }
-.hood-log__row--join .hood-log__kind { color: var(--success, #34d399); }
-.hood-log__row--leave .hood-log__kind { color: var(--warning, #fbbf24); }
-.hood-log__row--disconnected .hood-log__kind { color: var(--danger, #f87171); }
-
-.hood-empty { color: var(--text-muted, #8a97ab); font-size: var(--fs-sm, .8125rem); margin: 0; }
-.hood-actions { display: flex; gap: var(--sp-2, .5rem); flex-wrap: wrap; }
-.hood-hint { font-size: var(--fs-xs, .75rem); color: var(--text-muted, #8a97ab); line-height: var(--lh-body, 1.65); }
-
-/* Naming the app whose room to watch. Rule 7 gives every app a room of its
-   own, so this page can no longer see anything by simply being on the
-   channel — it has to say what it is inspecting. */
-.hood-inspect { margin-top: var(--sp-4, 1rem); }
-.hood-inspect__label {
-    display: block;
-    font-size: var(--fs-sm, .85rem);
-    font-weight: 600;
-    margin-bottom: var(--sp-2, .5rem);
-}
+.hood-inspect__label { display: block; margin: var(--sp-2) 0 var(--sp-1); font-size: var(--fs-xs); color: var(--text-muted); }
+.hood-inspect__row { display: flex; gap: var(--sp-2); margin-bottom: var(--sp-2); }
 .hood-inspect input {
-    width: 100%;
-    max-width: 22rem;
-    min-height: 44px;              /* the site's coarse-pointer rule */
-    padding: 0 var(--sp-3, .75rem);
-    font: inherit;
-    color: var(--text, inherit);
-    background: var(--surface-2, transparent);
-    border: 1px solid var(--border, currentColor);
-    border-radius: var(--radius-md, 8px);
+    flex: 1; min-width: 0; min-height: 36px; padding: 0 var(--sp-3); font: 500 16px var(--font-mono);
+    color: var(--text); background: var(--code-bg); border: 1px solid var(--border-strong); border-radius: var(--r-md);
 }
-.hood-inspect input:invalid { border-color: var(--danger, #b3261e); }
+.hood-inspect input:invalid { border-color: var(--danger); }
+
+/* ------------------------------------------------------------------ map */
+
+.hood-map { padding: var(--sp-3); }
+.hood-map__stage {
+    position: relative; border-radius: var(--r-lg); overflow: hidden;
+    background:
+        radial-gradient(circle at 50% 46%, rgba(45, 212, 191, 0.10), transparent 60%),
+        repeating-linear-gradient(0deg, rgba(148, 163, 184, 0.05) 0 1px, transparent 1px 40px),
+        repeating-linear-gradient(90deg, rgba(148, 163, 184, 0.05) 0 1px, transparent 1px 40px),
+        var(--bg);
+}
+.hood-topology, .hood-packets { display: block; inline-size: 100%; block-size: auto; }
+.hood-packets { position: absolute; inset: 0; pointer-events: none; }
+
+.hood-edge { stroke: rgba(45, 212, 191, 0.45); stroke-width: 3; stroke-linecap: round; }
+.hood-edge--mesh { stroke-dasharray: 6 6; }
+.hood-node { stroke: var(--bg); stroke-width: 3; }
+.hood-node--host { stroke: var(--warning); stroke-width: 4; filter: drop-shadow(0 0 14px rgba(251, 191, 36, 0.55)); }
+.hood-node__me { fill: none; stroke: var(--text); stroke-width: 2; stroke-dasharray: 5 5; }
+.hood-node__initial { fill: #0b1120; font: 800 22px var(--font-sans); pointer-events: none; }
+.hood-node--host + .hood-node__initial { font-size: 28px; }
+.hood-crown { fill: var(--warning); stroke: #7c4a03; stroke-width: 1.5; stroke-linejoin: round; }
+.hood-node__label { fill: var(--text-body); font: 600 13px var(--font-sans); }
+.hood-packet { fill: var(--warning); filter: drop-shadow(0 0 8px rgba(251, 191, 36, 0.9)); }
+
+.hood-topology-note { margin: var(--sp-3) var(--sp-1) var(--sp-2); font-size: var(--fs-sm); color: var(--text-body); }
+
+.hood-peers { display: flex; flex-wrap: wrap; gap: var(--sp-2); padding: 0 var(--sp-1) var(--sp-1); }
+.hood-peer {
+    display: inline-flex; align-items: center; gap: var(--sp-2); padding: 4px 10px 4px 4px; border-radius: var(--r-pill);
+    background: var(--surface-2); border: 1px solid var(--border); font-size: var(--fs-sm);
+}
+.hood-peer--host { border-color: var(--warning); }
+.hood-peer--me { border-color: var(--text-muted); }
+.hood-peer__place {
+    width: 24px; height: 24px; border-radius: 50%; display: grid; place-items: center;
+    background: var(--bg); color: var(--text-muted); font: 700 var(--fs-xs) var(--font-mono);
+}
+.hood-peer__name { font-weight: 600; overflow-wrap: anywhere; }
+.hood-empty { margin: 0; padding: var(--sp-1); color: var(--text-muted); font-size: var(--fs-sm); }
+
+/* ------------------------------------------------------------- timeline */
+
+.hood-log { list-style: none; margin: 0 0 var(--sp-3); padding: 0; max-height: 30rem; overflow-y: auto; }
+.hood-log__row {
+    position: relative; display: flex; flex-direction: column; gap: 2px;
+    padding: 0 0 var(--sp-3) var(--sp-5); border-left: 2px solid var(--border); margin-left: 6px;
+}
+.hood-log__row::before {
+    content: ""; position: absolute; left: -7px; top: 3px; width: 12px; height: 12px; border-radius: 50%;
+    background: var(--text-faint); border: 2px solid var(--surface-1);
+}
+.hood-log__text { font-size: var(--fs-sm); color: var(--text-body); overflow-wrap: anywhere; }
+.hood-log__time { font: var(--fs-xs) var(--font-mono); color: var(--text-faint); }
+.hood-log__row--host::before { background: var(--warning); }
+.hood-log__row--host .hood-log__text { color: var(--text); font-weight: 700; }
+.hood-log__row--join::before, .hood-log__row--connected::before { background: var(--success); }
+.hood-log__row--leave::before, .hood-log__row--disconnected::before { background: var(--danger); }
+.hood-log__row--message::before, .hood-log__row--sent::before { background: var(--brand); }
+.hood-log__row--datachannel::before { background: var(--info); }
+.hood-crash { border-top: 1px solid var(--border); padding-top: var(--sp-2); }
+.hood-crash p { margin: var(--sp-2) 0 0; font-size: var(--fs-sm); color: var(--text-muted); line-height: 1.55; }
+
+/* ---------------------------------------------------------------- narrow */
+
+@media (max-width: 1100px) {
+    .hood-grid { grid-template-columns: 17rem minmax(0, 1fr); }
+    .hood-timeline { grid-column: 1 / -1; }
+}
+@media (max-width: 760px) {
+    .hood-grid { grid-template-columns: minmax(0, 1fr); }
+    .hood-map { order: -1; }
+}
+/* The map scales to about half on a phone, where its labels would be ~6px:
+   the names are in the chips under it, so the map keeps only the initials. */
+@media (max-width: 520px) {
+    .hood-node__label { display: none; }
+}

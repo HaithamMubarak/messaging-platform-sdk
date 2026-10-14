@@ -33,6 +33,7 @@ async function open(b, room, name) {
         args: ['--no-sandbox', '--enable-unsafe-swiftshader', '--use-gl=angle', '--use-angle=swiftshader'] });
 
     const room = 'uh' + Math.floor(Date.now() / 1000);
+    let soloRoom = '';
     const first = await open(b, room, 'Alpha');
     const second = await open(b, room, 'Beta');
     await first.waitForTimeout(5000);
@@ -72,12 +73,18 @@ async function open(b, room, name) {
     const note = await first.evaluate(() => document.getElementById('topologyNote').textContent);
     check(/star|mesh/i.test(note), `and says which shape it is (${note})`);
 
-    // A message shows up in the log on the other side.
+    // A message shows up in the log on the other side, and is drawn travelling.
+    await second.evaluate(() => {
+        window.__packets = 0;
+        new MutationObserver((ms) => ms.forEach((m) => { window.__packets += m.addedNodes.length; }))
+            .observe(document.getElementById('packets'), { childList: true });
+    });
     await first.evaluate(() => window.underTheHood.ping());
     await second.waitForTimeout(3000);
     const logged = await second.evaluate(() =>
         (document.getElementById('log').innerText || '').includes('ping'));
     check(logged, 'a ping from one tab appears in the other tab\'s log');
+    check(await second.evaluate(() => window.__packets) > 0, 'and flies across the other tab\'s map as a packet');
 
     // ---- the point of the app: watch an election happen --------------------
     const hostWas = hosts[0];
@@ -92,9 +99,50 @@ async function open(b, room, name) {
     check(hostNow !== hostWas || survivorIsHost,
         `the host stepping aside produces a new one (${hostWas} -> ${hostNow}, survivor host: ${survivorIsHost})`);
 
+    // The survivor is usually the new host itself ("You have the crown now").
+    check(await survivor.evaluate(() => /(has|have) the crown now/.test(document.getElementById('log').innerText)),
+        'the survivor\'s timeline says who has the crown now');
+    check(await survivor.evaluate(() => !document.getElementById('stepAsideBtn').disabled), 'and its Pass the crown button is live');
+
+    // ---- rejoin: back in, at the back of the line ----------------------------
+    check(await hostPage.isVisible('#rejoinBtn'), 'the tab that stepped aside is offered Rejoin');
+    // A real click: the join form common-utils re-opens on disconnect must not cover it.
+    const pressed = await hostPage.click('#rejoinBtn', { timeout: 10000 }).then(() => true, () => false);
+    check(pressed, 'and can press it: the join form is not covering the page');
+    await hostPage.waitForFunction(() => window.underTheHood.connected, null, { timeout: 45000 }).catch(() => {});
+    await hostPage.waitForTimeout(5000);
+    const after = await hostPage.evaluate(() => ({ users: window.underTheHood.getConnectedUsers().length,
+        host: window.underTheHood._getHostName(), mine: window.underTheHood.isHost(),
+        guestCanPass: !document.getElementById('stepAsideBtn').disabled }));
+    check(after.users === 2 && !after.mine && after.host === hostNow,
+        `Rejoin puts it back in the room behind the new host (${JSON.stringify(after)})`);
+    check(!after.guestCanPass, 'and a guest cannot pass a crown it does not hold');
+
+    // ---- one person, two tabs -------------------------------------------------
+    // These tabs joined by name, so there is no code to open: the page says so.
+    await survivor.click('#anotherTabBtn');
+    check(/no code/.test(await survivor.evaluate(() => document.getElementById('sideHint').textContent)),
+        'a room joined by name explains why it has no tab to open');
+    const lobbyCtx = await b.newContext({ viewport: { width: 1280, height: 900 } });
+    const solo = await lobbyCtx.newPage();
+    await solo.goto(BASE + '/apps/under-the-hood/app.html', { waitUntil: 'load' });
+    await solo.waitForSelector('#partyLobby:not(.pl-loading)');
+    await solo.click('#partyLobby .pl-btn--primary');
+    await solo.waitForFunction(() => window.underTheHood && window.underTheHood.connected, null, { timeout: 45000 }).catch(() => {});
+    const opened = await solo.evaluate(() => {
+        let url = null;
+        window.open = (u) => { url = u; return null; };
+        document.getElementById('anotherTabBtn').click();
+        return url;
+    });
+    check(/\?code=\d{12}&newname=1$/.test(opened || ''), `a code room opens its own code in a new tab, under a new name (${opened})`);
+    soloRoom = await solo.evaluate(() => window.underTheHood.channelName);
+    await lobbyCtx.close();
+
     await survivor.screenshot({ path: SHOTS + '/under-the-hood.png' });
     await b.close();
     console.log('\nPASS (' + pass.length + ')'); pass.forEach(x => console.log('  ✓ ' + x));
     console.log('\nFAIL (' + fail.length + ')'); fail.forEach(x => console.log('  ✗ ' + x));
-    process.exit(fail.length ? 1 : 0);
+    console.log('rooms: ' + room + ' ' + soloRoom);
+    process.exitCode = fail.length ? 1 : 0;   // exit() would drop buffered stdout
 })();
