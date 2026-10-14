@@ -48,7 +48,9 @@ a.hm-card:hover { border-color: var(--brand-ink, #2dd4bf); }
             <a href="#products">Products</a>
             <a href="#games">Games</a>
             <a href="/about/">About</a>
-            <a class="site-nav__cta btn--gradient" href="/account/">HMDev Account</a>
+            <!-- The account entry. profile-chip.js replaces it (it removes any .mp-chip) with the live
+                 one, which names you once signed in; without scripts this plain link still opens it. -->
+            <a class="mp-chip" href="/account/">HMDev account</a>
         </nav>
     </div>
 </header>
@@ -93,6 +95,8 @@ a.hm-card:hover { border-color: var(--brand-ink, #2dd4bf); }
             <span><a href="/about/">About</a> &middot; <a href="/messaging-platform/hub/privacy.html">Privacy</a> &middot; <a href="/messaging-platform/hub/terms.html">Terms</a> &middot; <a href="https://github.com/HaithamMubarak/messaging-platform-sdk/issues">Support</a></span></div>
     </div>
 </footer>
+<script src="/messaging-platform/hub/js/mp-account.js" defer></script>
+<script src="/messaging-platform/hub/js/profile-chip.js" defer></script>
 <script src="/messaging-platform/hub/js/site-shell.js" defer></script>
 </body>
 </html>
