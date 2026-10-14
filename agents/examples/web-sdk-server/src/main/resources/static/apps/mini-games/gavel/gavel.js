@@ -17,6 +17,19 @@ const GV_EVIDENCE_TIME = 90;   // seconds of testimony
 const GV_JURY_TIME     = 25;   // seconds in the booth
 const GV_MAX_LEN       = 200;
 
+// Bot jurors, for trying a trial alone. They are the host's own: they vote and
+// testify through the same host methods a person's message reaches, and every
+// screen is told how many there are, so nobody mistakes one for a person.
+const GV_BOT_JURORS = ['Bot juror Ada', 'Bot juror Bo', 'Bot juror Cy'];
+const GV_BOT_TESTIMONY = [
+    'Saw a suspicious foam moustache at 3pm. Draw your own conclusions.',
+    'The carton was found in the bin, rinsed. RINSED. Who rinses?',
+    'The defendant has been seen near the fridge with intent.',
+    'I would like it noted that the biscuits also went missing.',
+    'They hummed while doing it. That is not the behaviour of an innocent person.',
+];
+const GV_PHASES = ['plea', 'evidence', 'jury', 'sentence'];
+
 const GV_SENTENCES = [
     'Provides biscuits until March.',
     'Loses fridge privileges for one week.',
@@ -59,6 +72,8 @@ class GavelGame extends PartyKit.PartyGame {
         this._nextId = 1;
         this._timer = null;
         this._objTimer = null;
+        this.botJurors = 0;     // public: how many of the jury are bots
+        this._botTimers = [];
     }
 
     async onInitialize() { this.setupUI(); }
@@ -121,6 +136,8 @@ class GavelGame extends PartyKit.PartyGame {
         this.plea = null;
         this.objection = null;
         this.objections = 0;
+        this.clearBots();
+        this.botJurors = cfg.bots ? GV_BOT_JURORS.length : 0;
 
         // A cited case is shown throughout. The record is only funny if it is
         // used, and this is the thing that uses it.
@@ -152,6 +169,36 @@ class GavelGame extends PartyKit.PartyGame {
         this.setDeadline(GV_EVIDENCE_TIME);
         this.broadcastState();
         this._timer = setTimeout(() => this.hostJury(), GV_EVIDENCE_TIME * 1000);
+        this.botsTestify();
+    }
+
+    // ---- bot jurors (host only) ------------------------------------------
+
+    clearBots() {
+        this._botTimers.forEach(clearTimeout);
+        this._botTimers = [];
+    }
+
+    later(ms, fn) { this._botTimers.push(setTimeout(fn, ms)); }
+
+    /** A few anonymous statements in the first half of testimony, for the bench to rule on. */
+    botsTestify() {
+        if (!this.botJurors) return;
+        const lines = GV_BOT_TESTIMONY.slice().sort(() => Math.random() - 0.5).slice(0, 3);
+        lines.forEach((text, i) => this.later(2500 + i * 4000 + Math.random() * 1500,
+            () => this.hostSubmit(GV_BOT_JURORS[i], { text })));
+    }
+
+    /** Sealed votes from the bots, one at a time, so the booths light up as people's do. */
+    botsVote() {
+        if (!this.botJurors) return;
+        GV_BOT_JURORS.slice(0, this.botJurors).forEach((name, i) => this.later(1200 + i * 1300,
+            () => this.hostVote(name, { vote: Math.random() < 0.6 ? 'guilty' : 'not-guilty' })));
+    }
+
+    /** Everyone who sits on this jury: the people other than the defendant, and any bots. */
+    jurySize() {
+        return this.players().filter(n => n !== this.defendant).length + (this.botJurors || 0);
     }
 
     /** Pure ceremony, and the cheapest laugh in the game. */
@@ -197,6 +244,7 @@ class GavelGame extends PartyKit.PartyGame {
         this.setDeadline(GV_JURY_TIME);
         this.broadcastState();
         this._timer = setTimeout(() => this.hostTally(), GV_JURY_TIME * 1000);
+        this.botsVote();
     }
 
     hostVote(from, msg) {
@@ -206,8 +254,7 @@ class GavelGame extends PartyKit.PartyGame {
         this.votes.set(from, msg.vote);
         this.broadcastState();
 
-        const eligible = this.players().filter(n => n !== this.defendant).length;
-        if (this.votes.size >= eligible) {
+        if (this.votes.size >= this.jurySize()) {
             clearTimeout(this._timer);
             this._timer = setTimeout(() => this.hostTally(), 600);
         }
@@ -244,6 +291,7 @@ class GavelGame extends PartyKit.PartyGame {
 
     hostAdjourn() {
         clearTimeout(this._timer);
+        this.clearBots();
         this.phase = 'lobby';
         this.setDeadline(0);
         this.broadcastState();
@@ -261,7 +309,7 @@ class GavelGame extends PartyKit.PartyGame {
     }
 
     publicState() {
-        const eligible = this.players().filter(n => n !== this.defendant).length;
+        const eligible = this.jurySize();
         return {
             t: 'state',
             phase: this.phase,
@@ -280,6 +328,7 @@ class GavelGame extends PartyKit.PartyGame {
             precedent: this.precedent,
             objection: this.objection,
             objections: this.objections,
+            botJurors: this.botJurors || 0,
             secondsLeft: this.secondsLeft(),
         };
     }
@@ -321,6 +370,7 @@ class GavelGame extends PartyKit.PartyGame {
         this.precedent = s.precedent;
         this.objection = s.objection;
         this.objections = s.objections || 0;
+        this.botJurors = s.botJurors || 0;
         this.adoptDeadline(s.secondsLeft);
         this.renderAll();
     }
@@ -375,6 +425,7 @@ class GavelGame extends PartyKit.PartyGame {
                 charge: $('caseCharge').value,
                 defendant: $('defendantSelect').value,
                 precedent: $('precedentSelect').value,
+                bots: $('botJurors').checked,
             });
         });
         $('sendTestimony').addEventListener('click', () => this.submitTestimony());
@@ -409,6 +460,7 @@ class GavelGame extends PartyKit.PartyGame {
 
     renderAll() {
         this.renderPhase();
+        this.renderCourt();
         this.renderStage();
         this.renderMine();
         this.renderBench();
@@ -437,6 +489,32 @@ class GavelGame extends PartyKit.PartyGame {
         this.setPhasePill('phasePill', label, tone);
         this.setText('roundCount', this.phase === 'lobby' ? '' : `Case ${String(this.caseNo).padStart(4, '0')}`);
         this.setText('lobbyCount', this.playerCount() === 1 ? '1 present' : `${this.playerCount()} present`);
+    }
+
+    /**
+     * The room itself: which stage the trial is at, who sits on the bench and
+     * in the dock, and a sealed booth per juror that lights when a vote is in.
+     * Only the COUNT of votes is public, so a lit booth says nothing about
+     * whose vote it is or which way it went.
+     */
+    renderCourt() {
+        const at = GV_PHASES.indexOf(this.phase === 'done' ? 'sentence' : this.phase);
+        document.querySelectorAll('#courtStepper [data-phase]').forEach((li) => {
+            const i = GV_PHASES.indexOf(li.dataset.phase);
+            li.classList.toggle('is-now', i === at);
+            li.classList.toggle('is-done', i < at);
+            if (i === at) li.setAttribute('aria-current', 'step'); else li.removeAttribute('aria-current');
+        });
+        this.setText('benchName', (typeof this._getHostName === 'function' && this._getHostName()) || '');
+        this.setText('dockName', this.defendant || '');
+        const booths = document.getElementById('booths');
+        if (!booths) return;
+        const seats = this.juryOf || 0;
+        const lit = this.phase === 'jury' ? (this.juryIn || 0) : (this.phase === 'sentence' || this.phase === 'done') ? seats : 0;
+        booths.innerHTML = Array.from({ length: seats }, (_, i) =>
+            `<li class="gv-booth${i < lit ? ' is-in' : ''}"><span class="gv-booth__light"></span></li>`).join('');
+        booths.setAttribute('aria-label', `${lit} of ${seats} sealed booths have voted`);
+        this.setText('botNote', this.botJurors ? `${this.botJurors} of the jury are bots` : '');
     }
 
     renderStage() {
@@ -476,8 +554,9 @@ class GavelGame extends PartyKit.PartyGame {
             el.innerHTML = this.admitted.length
                 ? this.admitted.map((a, i) => `
                     <li class="gv-exhibit">
-                        <span class="gv-exhibit__no">${String.fromCharCode(65 + i)}</span>
-                        <span>${PartyKit.esc(a.text)}</span>
+                        <span class="gv-exhibit__no">Exhibit ${String.fromCharCode(65 + i)}</span>
+                        <span class="gv-exhibit__text">${PartyKit.esc(a.text)}</span>
+                        <span class="gv-exhibit__stamp" aria-hidden="true">Admitted</span>
                     </li>`).join('')
                 : '<li class="pk-empty">Nothing has been admitted yet.</li>';
         }
@@ -488,7 +567,8 @@ class GavelGame extends PartyKit.PartyGame {
                 v.hidden = false;
                 v.className = 'gv-verdict ' + (this.verdict === 'guilty' ? 'is-guilty' : 'is-clear');
                 v.innerHTML = `
-                    <div class="gv-verdict__word">${this.verdict === 'guilty' ? 'Guilty' : 'Not guilty'}</div>
+                    <div class="gv-verdict__kicker">The jury finds the defendant</div>
+                    <div class="gv-verdict__word gv-stamp">${this.verdict === 'guilty' ? 'Guilty' : 'Not guilty'}</div>
                     <div class="gv-verdict__tally">${this.tally ? `${this.tally.guilty} to ${this.tally.notGuilty}` : ''}</div>
                     ${this.sentence ? `<div class="gv-verdict__sentence">${PartyKit.esc(this.sentence)}</div>` : ''}
                     ${this.phase === 'done' ? '<div class="gv-verdict__chain">Written to the record. It cannot be quietly expunged.</div>' : ''}`;

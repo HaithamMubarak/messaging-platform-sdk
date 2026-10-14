@@ -41,11 +41,11 @@
 
         <div class="sdk-header__right">
             <span class="pk-round" id="roundCount"></span>
-            <button class="btn btn--ghost" id="soundBtn" type="button" aria-pressed="true" title="Sound on">
+            <button class="btn btn--ghost" id="soundBtn" type="button" aria-pressed="false" aria-label="Sound" title="Sound off">
                 <svg class="icon icon--sm" aria-hidden="true"><use href="#i-mic"></use></svg>
                 <span>Sound</span>
             </button>
-            <button class="btn btn--ghost" id="shareBtn" type="button" hidden title="Invite someone (QR or link)">
+            <button class="btn btn--ghost" id="shareBtn" type="button" hidden aria-label="Invite" title="Invite someone (QR or link)">
                 <svg class="icon icon--sm" aria-hidden="true"><use href="#i-qr-code"></use></svg>
                 <span>Invite</span>
             </button>
@@ -90,6 +90,10 @@
                             <span>Cite precedent</span>
                             <select id="precedentSelect" class="field__select"></select>
                         </label>
+                        <label class="gv-check">
+                            <input type="checkbox" id="botJurors">
+                            <span>Seat 3 bot jurors (on your own? they testify and vote)</span>
+                        </label>
                         <button class="btn btn--primary btn--block" id="openBtn" type="button">Open the case</button>
                     </div>
                     <div class="pk-card" id="guestWait" hidden>
@@ -101,6 +105,24 @@
             </section>
 
             <section class="pk-panel" id="gamePanel" hidden>
+                <!-- The courtroom: the stage of the trial, the bench, the dock and the sealed booths. -->
+                <div class="gv-court" aria-label="The courtroom">
+                    <ol class="gv-stepper" id="courtStepper" aria-label="Stage of the trial">
+                        <li data-phase="plea">The plea</li>
+                        <li data-phase="evidence">Testimony</li>
+                        <li data-phase="jury">The jury</li>
+                        <li data-phase="sentence">Verdict</li>
+                    </ol>
+                    <div class="gv-room">
+                        <div class="gv-dock"><span class="gv-room__label">The dock</span><strong id="dockName"></strong></div>
+                        <div class="gv-bench"><span class="gv-room__label">The bench</span><strong id="benchName"></strong></div>
+                        <div class="gv-jury">
+                            <span class="gv-room__label">Sealed booths</span>
+                            <ul class="gv-booths" id="booths" aria-label="Sealed booths"></ul>
+                            <span class="gv-botnote" id="botNote"></span>
+                        </div>
+                    </div>
+                </div>
                 <div class="pk-stage-card">
                     <div class="gv-case">
                         <h2 class="gv-case__title" id="caseTitleOut"></h2>

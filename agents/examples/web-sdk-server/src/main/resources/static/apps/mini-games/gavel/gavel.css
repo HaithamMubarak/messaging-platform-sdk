@@ -12,19 +12,19 @@
 .gv-case__dock { font-family: var(--font-mono); font-size: var(--fs-sm); color: var(--danger); margin-top: var(--sp-2); }
 
 .gv-exhibits { list-style: none; margin: 0; padding: 0; display: grid; gap: var(--sp-2); }
+/* An admitted exhibit is a slip of paper with a stamp on it. */
 .gv-exhibit {
+    position: relative;
     display: grid;
-    grid-template-columns: 28px 1fr;
-    gap: var(--sp-3);
-    align-items: baseline;
-    padding: var(--sp-2) var(--sp-3);
-    background: var(--surface-2);
-    border-left: 3px solid var(--brand);
-    border-radius: 0 var(--r-sm) var(--r-sm) 0;
+    gap: 2px;
+    padding: var(--sp-3) 110px var(--sp-3) var(--sp-3);
+    background: #f5ede1;
+    color: #2a1a0f;
+    border-radius: 4px;
     font-size: var(--fs-md);
     line-height: var(--lh-snug);
 }
-.gv-exhibit__no { font-family: var(--font-mono); color: var(--brand-ink); }
+.gv-exhibit__no { color: #7c5a3a; font-size: var(--fs-xs); font-weight: 800; letter-spacing: 0.08em; text-transform: uppercase; }
 
 .gv-jurycount { font-family: var(--font-mono); font-size: var(--fs-sm); color: var(--text-muted); margin-top: var(--sp-3); }
 
@@ -126,3 +126,77 @@
 .gv-objection.is-sustained { border-color: var(--success); color: var(--success); }
 .gv-objection.is-overruled { border-color: var(--danger); color: var(--danger); }
 .gv-objection em { font-style: normal; text-transform: uppercase; letter-spacing: .08em; }
+
+/* ---- the courtroom (2026-10-14): stages, bench, dock, sealed booths ------- */
+.gv-court {
+    margin-bottom: var(--sp-4); padding: var(--sp-4); border-radius: var(--r-lg);
+    background: linear-gradient(#24170d, #1a110a); border: 1px solid rgba(224, 180, 92, 0.3);
+}
+.gv-stepper { list-style: none; margin: 0 0 var(--sp-4); padding: 0; display: flex; flex-wrap: wrap; gap: var(--sp-2); }
+.gv-stepper li {
+    padding: 6px 12px; border-radius: var(--r-pill); font-size: var(--fs-sm); font-weight: 700;
+    color: #b8a487; border: 1px solid rgba(224, 180, 92, 0.25);
+}
+.gv-stepper li.is-done { color: #f5d78e; border-color: rgba(224, 180, 92, 0.6); }
+.gv-stepper li.is-now { background: #e0b45c; border-color: #e0b45c; color: #2a1a0f; }
+.gv-room { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.2fr) minmax(0, 1.4fr); gap: var(--sp-3); align-items: stretch; }
+.gv-room > div {
+    display: flex; flex-direction: column; gap: 4px; padding: var(--sp-3); border-radius: var(--r-md);
+    background: #2e1c10; border: 2px solid rgba(224, 180, 92, 0.45); min-width: 0;
+}
+.gv-room > .gv-bench { background: linear-gradient(#8a5529, #5b3415); border-color: #e0b45c; text-align: center; }
+.gv-room__label { font-size: var(--fs-xs); font-weight: 800; letter-spacing: 0.14em; text-transform: uppercase; color: #e0b45c; }
+.gv-room strong { color: #f5ede1; font-size: var(--fs-md); overflow-wrap: anywhere; }
+.gv-booths { list-style: none; margin: 4px 0 0; padding: 0; display: flex; flex-wrap: wrap; gap: 6px; }
+.gv-booth {
+    width: 30px; height: 40px; border-radius: 6px 6px 2px 2px; background: #1a110a; border: 2px solid rgba(224, 180, 92, 0.4);
+    display: flex; align-items: flex-end; justify-content: center; padding-bottom: 5px; box-sizing: border-box;
+}
+.gv-booth__light { width: 10px; height: 10px; border-radius: 50%; background: #3f2f22; transition: background 0.3s, box-shadow 0.3s; }
+.gv-booth.is-in { border-color: #e0b45c; }
+.gv-booth.is-in .gv-booth__light { background: #34d399; box-shadow: 0 0 10px #34d399; }
+.gv-botnote { font-size: var(--fs-xs); color: #b8a487; }
+.gv-check { display: flex; gap: var(--sp-2); align-items: flex-start; margin: var(--sp-2) 0 var(--sp-3); font-size: var(--fs-sm); color: var(--text-body); cursor: pointer; }
+.gv-check input { width: 20px; height: 20px; margin: 0; flex: none; accent-color: var(--brand); }
+
+/* Exhibits sit a little askew, as paper does. */
+.gv-exhibit:nth-child(odd) { transform: rotate(-0.6deg); }
+.gv-exhibit:nth-child(even) { transform: rotate(0.5deg); }
+.gv-exhibit__text { font-family: Georgia, "Times New Roman", serif; font-size: var(--fs-md); line-height: 1.4; }
+.gv-exhibit__stamp {
+    position: absolute; right: 12px; top: 50%; margin-top: -14px; transform: rotate(8deg);
+    padding: 3px 8px; border: 2px solid #15803d; border-radius: 4px; color: #15803d;
+    font-size: var(--fs-xs); font-weight: 900; letter-spacing: 0.12em; text-transform: uppercase;
+}
+
+/* The verdict is stamped, not printed. */
+.gv-verdict__kicker { font-size: var(--fs-xs); font-weight: 800; letter-spacing: 0.16em; text-transform: uppercase; color: var(--text-muted); }
+.gv-stamp {
+    display: inline-block; padding: 4px 18px; border: 6px solid currentColor; border-radius: 10px;
+    text-transform: uppercase; letter-spacing: 0.06em; transform: rotate(-6deg);
+}
+@media (prefers-reduced-motion: no-preference) {
+    .gv-stamp { animation: gv-stamp 0.45s cubic-bezier(0.2, 0, 0.15, 1); }
+}
+@keyframes gv-stamp {
+    0% { transform: rotate(-6deg) scale(2.2); opacity: 0; }
+    70% { transform: rotate(-6deg) scale(0.95); opacity: 1; }
+    100% { transform: rotate(-6deg) scale(1); }
+}
+@media (max-width: 640px) {
+    .gv-room { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
+    .gv-jury { grid-column: 1 / -1; }
+    .gv-exhibit { padding-right: var(--sp-3); padding-bottom: 40px; }
+    .gv-exhibit__stamp { top: auto; bottom: 10px; margin-top: 0; }
+}
+
+/* At 320-400px the header, with Share and Host added once joined, ran 28px past
+   the edge (in production too, before the courtroom). The phase pill writes its
+   words straight into itself, out of reach of the shell's narrow-screen rule, and
+   the courtroom's stepper now says the same thing, so on a narrow phone the pill
+   and the case number step out of the row. */
+@media (max-width: 400px) {
+    #phasePill, #roundCount { display: none; }
+    .sdk-header .sdk-room { max-width: 9ch; }
+    #shareBtn > span, #soundBtn > span { display: none; }   /* icon only; the label stays as title/aria */
+}

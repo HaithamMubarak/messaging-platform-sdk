@@ -23,7 +23,7 @@ const GROUPS = {
              'drop-test.js', 'drop-resume-test.js', 'drop-later-test.js', 'call-test.js', 'undriven-test.js', 'devpages-test.js', 'coreloop-test.js', 'pulse-moderation-test.js', 'tier2-test.js', 'under-the-hood-test.js', 'evidence-chain-test.js'],
     // Chorus, Autocue, Nudge, Open Outcry and Pictionary are Party Arcade's now,
     // tested in apps/party-arcade/tests (hub phases 1 and 4).
-    'games': ['chess-features-test.js', 'games-test.js', 'gavel-test.js'],
+    'games': ['chess-features-test.js', 'games-test.js', 'gavel-test.js', 'gavel-solo-test.js', 'air-hockey-test.js'],
     'platform': ['tenancy-test.js', 'migration-test.js', 'reconnect-test.js', 'smoke-all.js', 'telemetry-test.js'],
     // Slow by nature — it waits out a presence TTL, so it is opt in rather than
     // ungated. Run with: npm test -- ghost
