@@ -206,10 +206,27 @@ body {
     box-shadow: 0 0 0 1px var(--success);
 }
 
+/* Each side's king on its own square colour, as on the board. Both used to be
+   drawn in the text colour, so Black's king read as a white one. */
 .player-icon {
-    font-size: 34px;
+    position: relative;
+    display: grid;
+    place-items: center;
+    width: 46px;
+    height: 46px;
+    flex: none;
+    border-radius: var(--r-md);
+    font-size: 32px;
     line-height: 1;
-    color: var(--text);
+}
+.white-player .player-icon {
+    background: var(--dark-square);
+    color: #fbfcfe;
+    text-shadow: 0 1px 2px rgba(15, 23, 42, 0.55);
+}
+.black-player .player-icon {
+    background: var(--light-square);
+    color: #14181f;
 }
 
 .player-info { min-width: 0; flex-grow: 1; }
@@ -444,6 +461,75 @@ body {
 
 .chess-square:hover { filter: brightness(1.08); }
 
+/* ---- the moments ------------------------------------------------------------
+ * A king in check burns red; the piece that just moved settles in; a capture
+ * lands with a thump. Moves happen on someone else's screen as often as on
+ * yours, and a board that changes silently is easy to miss.
+ */
+.chess-square.in-check {
+    background: radial-gradient(circle, rgba(248, 113, 113, 0.95) 0%, rgba(220, 38, 38, 0.65) 45%, transparent 80%), var(--dark-square) !important;
+}
+.chess-square.light.in-check {
+    background: radial-gradient(circle, rgba(248, 113, 113, 0.95) 0%, rgba(220, 38, 38, 0.65) 45%, transparent 80%), var(--light-square) !important;
+}
+.chess-square.just-moved { animation: chess-settle 260ms var(--ease) both; }
+.chess-square.just-captured { animation: chess-thump 380ms var(--ease) both; }
+@keyframes chess-settle { from { transform: scale(0.82); } to { transform: none; } }
+@keyframes chess-thump {
+    0% { transform: scale(1.3); box-shadow: inset 0 0 0 4px rgba(251, 191, 36, 0.9); }
+    100% { transform: none; box-shadow: inset 0 0 0 0 rgba(251, 191, 36, 0); }
+}
+
+.board-flash {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    padding: var(--sp-3) var(--sp-6);
+    border-radius: var(--r-pill);
+    background: rgba(220, 38, 38, 0.92);
+    color: #fff;
+    font-size: var(--fs-2xl);
+    font-weight: 800;
+    letter-spacing: 0.04em;
+    pointer-events: none;
+    z-index: 50;
+    animation: chess-flash 1400ms var(--ease) both;
+}
+@keyframes chess-flash {
+    0% { opacity: 0; transform: translate(-50%, -50%) scale(0.6); }
+    15% { opacity: 1; transform: translate(-50%, -50%) scale(1.05); }
+    75% { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+    100% { opacity: 0; transform: translate(-50%, -50%) scale(1); }
+}
+
+/* Coordinates in the corner of the edge squares, in the other square's colour. */
+.coord {
+    position: absolute;
+    font-size: clamp(8px, 1.4vmin, 12px);
+    font-weight: 700;
+    line-height: 1;
+    pointer-events: none;
+    text-shadow: none;
+}
+.coord--file { right: 3px; bottom: 2px; }
+.coord--rank { left: 3px; top: 3px; }
+.chess-square.light .coord { color: var(--dark-square); }
+.chess-square.dark .coord { color: var(--light-square); }
+
+.player-panel.is-computer .player-icon::after {
+    content: '🤖';
+    position: absolute;
+    right: -8px;
+    bottom: -6px;
+    font-size: 18px;
+    text-shadow: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .chess-square.just-moved, .chess-square.just-captured, .board-flash { animation: none; }
+}
+
 /* ---- dialogs on the board -------------------------------------------------- */
 .promotion-dialog {
     position: absolute;
@@ -545,6 +631,19 @@ body {
 .color-btn:hover { background: var(--surface-3); border-color: var(--brand); }
 .color-btn:focus-visible { outline: none; box-shadow: var(--focus-ring); }
 .color-btn.spectate { color: var(--text-muted); font-size: var(--fs-md); }
+.color-btn.computer { border-color: var(--brand); }
+.computer-level {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: var(--sp-2);
+    min-height: 32px;
+    margin-top: calc(-1 * var(--sp-1));
+    font-size: var(--fs-sm);
+    color: var(--text-muted);
+    cursor: pointer;
+}
+.computer-level input { width: 18px; height: 18px; accent-color: var(--brand); }
 
 .lobby-info {
     margin-top: var(--sp-4);
@@ -567,11 +666,35 @@ body {
     z-index: 200;
 }
 
+.game-over-glyph {
+    font-size: 64px;
+    line-height: 1;
+    margin-bottom: var(--sp-2);
+    animation: chess-settle 420ms var(--ease) both;
+}
+
 .game-over-dialog h2 {
     margin-bottom: var(--sp-3);
     font-size: var(--fs-2xl);
     color: var(--text);
 }
+
+.game-over-dialog .btn-secondary {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--sp-2);
+    min-height: 44px;
+    padding: 0.625rem 1.25rem;
+    font: inherit;
+    font-weight: 600;
+    color: var(--text);
+    background: var(--brand);
+    border: 1px solid var(--brand);
+    border-radius: var(--r-md);
+    cursor: pointer;
+}
+.game-over-dialog .btn-secondary:hover { filter: brightness(1.1); }
+.game-over-dialog .btn-secondary:focus-visible { outline: none; box-shadow: var(--focus-ring); }
 
 .game-over-dialog .result {
     margin-bottom: var(--sp-5);

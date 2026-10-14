@@ -88,16 +88,9 @@ async function join(b, path, name, room, ready) {
 
     // ---- chess -------------------------------------------------------------
     //
-    // NOT tested here, deliberately. chess-game.js had a real defect — an
-    // illegal remote move ran this.chess.load(data.fen), so any peer could set
-    // the board to a position of its choosing — and that IS fixed. But I could
-    // not build a check that goes red when the fix is reverted: even with both
-    // players seated via chooseColor(), a forged 'move' never reaches
-    // handleRemoteMove, so the assertion passed against the reintroduced bug.
-    //
-    // A test that cannot fail is worse than no test, so it is not here. What is
-    // needed is a forgery sent the way a real client sends a move, once the
-    // routing that swallows it is understood.
+    // Tested in chess-trust-test.js (2026-10-15): three browsers, every forgery
+    // sent through sendData and bracketed by real moves that must arrive, so it
+    // cannot pass on silence. Removing the sender check turns it red.
 
     await b.close();
     console.log('\nPASS (' + pass.length + ')'); pass.forEach(x => console.log('  ✓ ' + x));

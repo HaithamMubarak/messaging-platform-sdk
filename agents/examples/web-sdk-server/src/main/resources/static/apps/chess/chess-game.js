@@ -90,6 +90,9 @@ class ChessGame extends UserConnectionBase {
     onUserLeave(detail) {
         console.log('[Chess] User left:', detail.agentName);
 
+        // The computer plays from its owner's tab, so it leaves with them.
+        if (this.computerBy === detail.agentName) this._freeComputerSeat();
+
         // Handle player leaving
         if (this.whitePlayer === detail.agentName) {
             this.whitePlayer = null;
@@ -107,6 +110,14 @@ class ChessGame extends UserConnectionBase {
 
     onDataChannelMessage(peerId, data) {
         if (!data || !data.type) return;
+        const from = this._sender(peerId, data);
+        if (!this._mayAct(from, data)) {
+            console.warn('[Chess] Ignored ' + data.type + ' from ' + from);
+            return;
+        }
+        // Names shown to people come from the transport too.
+        if (data.type === 'resign') data.username = from;
+        if (data.type === 'offer-draw') data.from = from;
 
         switch (data.type) {
             case 'choose-color':
@@ -130,6 +141,50 @@ class ChessGame extends UserConnectionBase {
             case 'new-game':
                 this.handleNewGame(data);
                 break;
+        }
+    }
+
+    /**
+     * Who really sent a message: the transport's word, never the payload's.
+     * In the default p2p-host mode a guest's message reaches other guests
+     * through the host, which stamps the original sender as _fromClient (and
+     * strips any _fromClient a guest wrote itself).
+     */
+    _sender(peerId, data) {
+        const viaHost = peerId === this._getHostName() && data && data._fromClient;
+        return viaHost ? data._fromClient : this.senderOf(peerId);
+    }
+
+    /** The seat a name sits in: 'white', 'black' or null. */
+    _seatOf(name) {
+        if (name && name === this.whitePlayer) return 'white';
+        if (name && name === this.blackPlayer) return 'black';
+        return null;
+    }
+
+    /** Does `name` speak for the side to move (a player, or the computer's owner)? */
+    _speaksFor(name, side) {
+        const seat = side === 'w' ? this.whitePlayer : this.blackPlayer;
+        return seat === name || (seat === ChessBot.NAME && this.computerBy === name);
+    }
+
+    /**
+     * Every message used to be believed as written. Any guest could move for
+     * either side, resign for a player, reset the board, accept a draw nobody
+     * was offered, or send a game-sync that replaced the whole game. Each now
+     * has to come from the person entitled to it.
+     */
+    _mayAct(from, data) {
+        if (!from) return false;
+        switch (data.type) {
+            case 'choose-color':
+                return data.username === from || (data.username === ChessBot.NAME && data.by === from);
+            case 'move': return !this.gameEnded && this._speaksFor(from, this.chess.turn());
+            case 'game-sync': return from === this._getHostName();
+            case 'resign': return this._seatOf(from) === data.color;
+            case 'offer-draw': case 'draw-accepted': return !!this._seatOf(from);
+            case 'new-game': return !!this._seatOf(from) || from === this._getHostName();
+            default: return true;
         }
     }
 
@@ -169,6 +224,57 @@ class ChessGame extends UserConnectionBase {
         this.handleColorChoice(data);
     }
 
+    // ============================================
+    // THE COMPUTER
+    // ============================================
+
+    /**
+     * Play the computer: take a seat if you have none, and seat the computer
+     * in the other. It plays from this tab (see chess-bot.js), and its moves go
+     * out like anyone's, so a room can watch you play it.
+     */
+    playComputer(level) {
+        if (this.myColor === 'spectator') return this.showToast('Spectators cannot play the computer', 'warning');
+        if (!this.myColor) {
+            const seat = !this.whitePlayer ? 'white' : (!this.blackPlayer ? 'black' : null);
+            if (!seat) return this.showToast('Both seats are taken', 'warning');
+            this.chooseColor(seat);
+            if (!this.myColor) return;
+        }
+        const other = this.myColor === 'white' ? 'black' : 'white';
+        if (other === 'white' ? this.whitePlayer : this.blackPlayer) {
+            return this.showToast('Your opponent is already seated', 'warning');
+        }
+        this.botLevel = level === 'easy' ? 'easy' : 'normal';
+        const data = { type: 'choose-color', username: ChessBot.NAME, color: other, by: this.username };
+        this.sendData(data);
+        this.handleColorChoice(data);
+    }
+
+    /** If it is the computer's move and this tab runs it, think, then move. */
+    _botMaybeMove() {
+        if (this.computerBy !== this.username || this._botTimer || this.gameEnded) return;
+        if (!this.whitePlayer || !this.blackPlayer || this.chess.game_over()) return;
+        if ((this.chess.turn() === 'w' ? this.whitePlayer : this.blackPlayer) !== ChessBot.NAME) return;
+        // A short pause reads as thinking; an instant reply feels like a wall.
+        this._botTimer = setTimeout(() => {
+            this._botTimer = null;
+            const side = this.chess.turn() === 'w' ? this.whitePlayer : this.blackPlayer;
+            if (side !== ChessBot.NAME || this.gameEnded) return;
+            const m = ChessBot.pick(this.chess, { level: this.botLevel });
+            if (m) this.makeMove(m.from, m.to, m.promotion || null);
+        }, 450 + Math.random() * 500);
+    }
+
+    _freeComputerSeat() {
+        if (this.whitePlayer === ChessBot.NAME) this.whitePlayer = null;
+        if (this.blackPlayer === ChessBot.NAME) this.blackPlayer = null;
+        this.computerBy = null;
+        clearTimeout(this._botTimer);
+        this._botTimer = null;
+        this.updatePlayersUI();
+    }
+
     handleColorChoice(data) {
         const username = data.username;
         const color = data.color;
@@ -179,6 +285,7 @@ class ChessGame extends UserConnectionBase {
                 return;
             }
             this.whitePlayer = username;
+            if (username === ChessBot.NAME) this.computerBy = data.by;
             if (username === this.username) {
                 this.myColor = 'white';
                 document.getElementById('lobbyPanel').classList.add('hidden');
@@ -189,6 +296,7 @@ class ChessGame extends UserConnectionBase {
                 return;
             }
             this.blackPlayer = username;
+            if (username === ChessBot.NAME) this.computerBy = data.by;
             if (username === this.username) {
                 this.myColor = 'black';
                 this.boardFlipped = true;
@@ -214,16 +322,26 @@ class ChessGame extends UserConnectionBase {
             this.showToast('Game ready! White moves first.', 'success');
             this.enableControls();
         }
+        this._botMaybeMove();
     }
 
     updatePlayersUI() {
         document.getElementById('whitePlayerName').textContent = this.whitePlayer || 'Waiting...';
         document.getElementById('blackPlayerName').textContent = this.blackPlayer || 'Waiting...';
+        document.querySelector('.white-player').classList.toggle('is-computer', this.whitePlayer === ChessBot.NAME);
+        document.querySelector('.black-player').classList.toggle('is-computer', this.blackPlayer === ChessBot.NAME);
 
-        // Highlight active player
+        // Highlight active player. A finished game has nobody to move: it used
+        // to leave the loser "Thinking..." under the result.
         const whiteTurn = this.chess.turn() === 'w';
-        document.querySelector('.white-player').classList.toggle('active', whiteTurn);
-        document.querySelector('.black-player').classList.toggle('active', !whiteTurn);
+        const over = this.gameEnded || this.chess.game_over();
+        document.querySelector('.white-player').classList.toggle('active', whiteTurn && !over);
+        document.querySelector('.black-player').classList.toggle('active', !whiteTurn && !over);
+        if (over) {
+            document.getElementById('whitePlayerStatus').textContent = this.whitePlayer ? '' : '⏳ Waiting';
+            document.getElementById('blackPlayerStatus').textContent = this.blackPlayer ? '' : '⏳ Waiting';
+            return;
+        }
 
         // Update status indicators
         document.getElementById('whitePlayerStatus').textContent =
@@ -266,6 +384,10 @@ class ChessGame extends UserConnectionBase {
             statusEl.textContent = 'Playing';
         }
 
+        if (this.gameEnded || this.chess.game_over()) {
+            turnEl.textContent = 'Game over';
+            return;
+        }
         const currentPlayer = this.chess.turn() === 'w' ? this.whitePlayer : this.blackPlayer;
         turnEl.textContent = `${currentPlayer}'s Turn (${this.chess.turn() === 'w' ? 'White' : 'Black'})`;
     }
@@ -279,6 +401,10 @@ class ChessGame extends UserConnectionBase {
         boardEl.innerHTML = '';
 
         const board = this.chess.board();
+        // The king in check glows; so does the side that just moved, once.
+        const checked = this.chess.in_check() ? this.chess.turn() : null;
+        const fresh = this._freshMove;
+        this._freshMove = null;
 
         for (let row = 0; row < 8; row++) {
             for (let col = 0; col < 8; col++) {
@@ -294,41 +420,12 @@ class ChessGame extends UserConnectionBase {
                 // always right, which is what made it hard to see.
                 const displayRow = this.boardFlipped ? 7 - row : row;
                 const displayCol = this.boardFlipped ? 7 - col : col;
-
-                const square = board[displayRow][displayCol];
-                const squareEl = document.createElement('div');
-                squareEl.className = 'chess-square';
-                squareEl.dataset.row = displayRow;
-                squareEl.dataset.col = displayCol;
-
-                // Light or dark square
-                const isLight = (row + col) % 2 === 0;
-                squareEl.classList.add(isLight ? 'light' : 'dark');
-
-                // Add piece
-                if (square) {
-                    const pieceSymbol = PIECE_UNICODE[square.type === square.type.toUpperCase() ? square.type.toUpperCase() : square.type];
-                    squareEl.textContent = square.color === 'w' ? pieceSymbol : PIECE_UNICODE[square.type];
-                    // Which side a piece belongs to, so the stylesheet can colour
-                    // it. Both sets inherited one colour before, and the only
-                    // thing telling them apart was outline glyph versus filled —
-                    // legible on paper, much less so at board size on a screen.
-                    squareEl.classList.add(square.color === 'w' ? 'piece-white' : 'piece-black');
-                }
-
-                // Highlight last move
-                if (this.lastMove) {
-                    const from = this.lastMove.from;
-                    const to = this.lastMove.to;
-                    const currentSquare = this.getSquareNotation(displayRow, displayCol);
-                    if (currentSquare === from || currentSquare === to) {
-                        squareEl.classList.add('last-move');
-                    }
-                }
-
-                // Click handler
-                squareEl.addEventListener('click', () => this.handleSquareClick(displayRow, displayCol));
-
+                const squareEl = this._squareEl(board[displayRow][displayCol], displayRow, displayCol, (row + col) % 2 === 0);
+                const name = this.getSquareNotation(displayRow, displayCol);
+                const piece = board[displayRow][displayCol];
+                if (piece && piece.type === 'k' && piece.color === checked) squareEl.classList.add('in-check');
+                if (fresh && name === fresh.to) squareEl.classList.add(fresh.captured ? 'just-captured' : 'just-moved');
+                this._addCoords(squareEl, row, col, displayRow, displayCol);
                 boardEl.appendChild(squareEl);
             }
         }
@@ -337,6 +434,41 @@ class ChessGame extends UserConnectionBase {
         if (this.selectedSquare) {
             this.highlightValidMoves();
         }
+    }
+
+    /** One square: its colour, its piece, the last-move tint and its click. */
+    _squareEl(square, displayRow, displayCol, isLight) {
+        const squareEl = document.createElement('div');
+        squareEl.className = 'chess-square ' + (isLight ? 'light' : 'dark');
+        squareEl.dataset.row = displayRow;
+        squareEl.dataset.col = displayCol;
+        if (square) {
+            squareEl.textContent = PIECE_UNICODE[square.color === 'w' ? square.type.toUpperCase() : square.type];
+            // Which side a piece belongs to, so the stylesheet can colour
+            // it. Both sets inherited one colour before, and the only
+            // thing telling them apart was outline glyph versus filled —
+            // legible on paper, much less so at board size on a screen.
+            squareEl.classList.add(square.color === 'w' ? 'piece-white' : 'piece-black');
+        }
+        const name = this.getSquareNotation(displayRow, displayCol);
+        if (this.lastMove && (name === this.lastMove.from || name === this.lastMove.to)) {
+            squareEl.classList.add('last-move');
+        }
+        squareEl.addEventListener('click', () => this.handleSquareClick(displayRow, displayCol));
+        return squareEl;
+    }
+
+    /** File letters along the bottom edge, rank numbers up the left, as on a real board. */
+    _addCoords(squareEl, row, col, displayRow, displayCol) {
+        const add = (cls, text) => {
+            const s = document.createElement('span');
+            s.className = 'coord ' + cls;
+            s.textContent = text;
+            s.setAttribute('aria-hidden', 'true');
+            squareEl.appendChild(s);
+        };
+        if (row === 7) add('coord--file', 'abcdefgh'[displayCol]);
+        if (col === 0) add('coord--rank', String(8 - displayRow));
     }
 
     /**
@@ -367,7 +499,7 @@ class ChessGame extends UserConnectionBase {
         const isMyTurn = (this.chess.turn() === 'w' && this.myColor === 'white') ||
                          (this.chess.turn() === 'b' && this.myColor === 'black');
 
-        if (!isMyTurn || this.myColor === 'spectator') {
+        if (!isMyTurn || this.myColor === 'spectator' || this.gameEnded) {
             return;
         }
 
@@ -446,33 +578,12 @@ class ChessGame extends UserConnectionBase {
             return;
         }
 
-        // Move successful
-        this.lastMove = move;
         this.selectedSquare = null;
         this.validMoves = [];
 
-        // Update UI
-        this.renderBoard();
-        this.updatePlayersUI();
-        this.updateGameStatus();
-        this.addMoveToHistory(move);
-        this.updateCapturedPieces();
-
         // Broadcast move
-        const data = {
-            type: 'move',
-            from: from,
-            to: to,
-            promotion: promotion,
-            fen: this.chess.fen()
-        };
-
-        this.sendData(data);
-
-        // Check game over
-        if (this.chess.game_over()) {
-            this.handleGameOver();
-        }
+        this.sendData({ type: 'move', from: from, to: to, promotion: promotion, fen: this.chess.fen() });
+        this._afterMove(move);
     }
 
     handleRemoteMove(data) {
@@ -484,17 +595,7 @@ class ChessGame extends UserConnectionBase {
         const move = this.chess.move(moveObj);
 
         if (move) {
-            this.lastMove = move;
-            this.renderBoard();
-            this.updatePlayersUI();
-            this.updateGameStatus();
-            this.addMoveToHistory(move);
-            this.updateCapturedPieces();
-
-            if (this.chess.game_over()) {
-                this._stopClocks();
-                this.handleGameOver();
-            }
+            this._afterMove(move);
         } else {
             // An illegal move used to load the position the sender attached, so
             // anyone could put the board in any state by sending a deliberately
@@ -503,6 +604,38 @@ class ChessGame extends UserConnectionBase {
             console.error('[Chess] Ignoring an invalid remote move:', data && data.move);
             this.showToast('Ignored an illegal move from another player', 'warning');
         }
+    }
+
+    /** Whoever made it, a move lands the same way on every screen. */
+    _afterMove(move) {
+        this.lastMove = move;
+        this._freshMove = move;
+        this.renderBoard();
+        this.updatePlayersUI();
+        this.updateGameStatus();
+        this.addMoveToHistory(move);
+        this.updateCapturedPieces();
+
+        if (this.chess.game_over()) {
+            this._stopClocks();
+            this.handleGameOver();
+            return;
+        }
+        if (this.chess.in_check()) this._flash('Check!');
+        this._botMaybeMove();
+    }
+
+    /** A word across the board for a moment: "Check!". */
+    _flash(text) {
+        const area = document.querySelector('.board-area');
+        if (!area) return;
+        area.querySelectorAll('.board-flash').forEach((f) => f.remove());
+        const f = document.createElement('div');
+        f.className = 'board-flash';
+        f.setAttribute('role', 'status');
+        f.textContent = text;
+        area.appendChild(f);
+        setTimeout(() => f.remove(), 1400);
     }
 
     showPromotionDialog() {
@@ -651,10 +784,9 @@ class ChessGame extends UserConnectionBase {
         this.updateGameStatus();
         this.updatePlayersUI();
 
-        // Rebuild the move list from the loaded game.
-        const history = document.getElementById('moveHistory');
-        if (history) history.innerHTML = '';
-        this.chess.history({ verbose: true }).forEach((move) => this.addMoveToHistory(move));
+        this.gameEnded = false;
+        this._rebuildHistory();
+        if (this.whitePlayer && this.blackPlayer) this.enableControls();
 
         // A loaded game starts its clocks fresh: the times in the file, if any,
         // are somebody else's and pretending otherwise would be a lie.
@@ -664,6 +796,7 @@ class ChessGame extends UserConnectionBase {
         // Everyone sees the same board.
         this.syncGameState();
         this.showToast('Loaded ' + this.chess.history().length + ' move(s)', 'success');
+        this._botMaybeMove();
         return true;
     }
 
@@ -685,17 +818,33 @@ class ChessGame extends UserConnectionBase {
         // Every move is a clock event, whoever made it.
         this._startClocks();
         this._tickClocks();
-        const history = document.getElementById('moveHistory');
-        const moveNum = Math.floor(this.chess.history().length / 2) + (this.chess.turn() === 'w' ? 0 : 1);
+        this._appendMoveRow(move, this.chess.history().length - 1);
+    }
 
-        // Create move entry
+    /**
+     * The move list and captures, rebuilt from the game itself. Replaying a
+     * loaded or synced game used to number every row with the LAST move's
+     * number (it read the finished history for each one), tick the clock once
+     * per replayed move, and leave the captured pieces of the previous game.
+     */
+    _rebuildHistory() {
+        const list = document.getElementById('moveHistory');
+        if (list) list.innerHTML = '';
+        this.chess.history({ verbose: true }).forEach((m, ply) => this._appendMoveRow(m, ply));
+        this.updateCapturedPieces();
+    }
+
+    /** One row: "3." before White's move, "3…" before Black's. */
+    _appendMoveRow(move, ply) {
+        const history = document.getElementById('moveHistory');
+        if (!history) return;
+        const n = Math.floor(ply / 2) + 1;
         const entryEl = document.createElement('div');
         entryEl.className = 'move-entry';
         entryEl.innerHTML = `
-            <span class="move-number">${moveNum}.</span>
+            <span class="move-number">${n}${ply % 2 ? '…' : '.'}</span>
             <span class="move-text">${MiniGameUtils.escapeHtml(move.san)}</span>
         `;
-
         history.appendChild(entryEl);
         history.scrollTop = history.scrollHeight;
     }
@@ -733,6 +882,11 @@ class ChessGame extends UserConnectionBase {
     // ============================================
 
     requestNewGame() {
+        // The other screens refuse a reset from a spectator, so a spectator's
+        // own reset would only put their board out of step with everyone's.
+        if (!this._seatOf(this.username) && !this.isHost()) {
+            return this.showToast('Only the players can start a new game', 'warning');
+        }
         MiniGameUtils.ask({
             title: 'Start a new game?', body: 'The game on the board now is lost.',
             confirmLabel: 'New game', danger: true
@@ -755,12 +909,13 @@ class ChessGame extends UserConnectionBase {
         // game over stacked another one behind it.
         this.removeGameOverDialog();
 
-        // Clear captured pieces
-        document.getElementById('whiteCaptured').innerHTML = '';
-        document.getElementById('blackCaptured').innerHTML = '';
-
-        // Clear move history
-        document.getElementById('moveHistory').innerHTML = '';
+        // Clear captured pieces and the move list. The clocks too: they used
+        // to carry the last game's thinking time into the new one.
+        this._rebuildHistory();
+        this._stopClocks();
+        this._clockMs = { w: 0, b: 0 };
+        this._renderClocks();
+        this.gameEnded = false;
 
         this.renderBoard();
         this.updatePlayersUI();
@@ -774,6 +929,7 @@ class ChessGame extends UserConnectionBase {
         }
 
         this.showToast('New game started!', 'success');
+        this._botMaybeMove();
     }
 
     resign() {
@@ -791,11 +947,11 @@ class ChessGame extends UserConnectionBase {
     }
 
     handleResign(data) {
-        const winner = data.color === 'white' ? this.blackPlayer : this.whitePlayer;
+        const winner = (data.color === 'white' ? this.blackPlayer : this.whitePlayer) || 'Their opponent';
         this.showToast(`${data.username} resigned! ${winner} wins!`, 'success');
         this.disableControls();
 
-        this.showGameOverDialog(`${winner} wins by resignation!`);
+        this.showGameOverDialog(`${winner} wins by resignation!`, data.color === 'white' ? '♚' : '♔');
     }
 
     offerDraw() {
@@ -838,23 +994,25 @@ class ChessGame extends UserConnectionBase {
 
     handleDrawAccepted(data) {
         this.showToast('Draw accepted!', 'success');
-        this.showGameOverDialog('Game drawn by agreement');
+        this.showGameOverDialog('Game drawn by agreement', '½');
         this.disableControls();
     }
 
     handleGameOver() {
         let message = '';
+        let glyph = '½';
 
         if (this.chess.in_checkmate()) {
             const winner = this.chess.turn() === 'w' ? this.blackPlayer : this.whitePlayer;
-            message = `Checkmate! ${winner} wins!`;
+            message = `Checkmate! ${winner || (this.chess.turn() === 'w' ? 'Black' : 'White')} wins!`;
+            glyph = this.chess.turn() === 'w' ? '♚' : '♔';
         } else if (this.chess.in_stalemate()) {
             message = 'Stalemate - Draw!';
         } else if (this.chess.in_draw()) {
             message = 'Draw!';
         }
 
-        this.showGameOverDialog(message);
+        this.showGameOverDialog(message, glyph);
         this.disableControls();
     }
 
@@ -863,12 +1021,17 @@ class ChessGame extends UserConnectionBase {
         document.querySelectorAll('.game-over-dialog').forEach(d => d.remove());
     }
 
-    showGameOverDialog(message) {
-        // Never stack two of them.
+    showGameOverDialog(message, glyph) {
+        // Never stack two of them. Once one is up the board is closed: a
+        // resigned or agreed game used to stay playable underneath it.
         this.removeGameOverDialog();
+        this.gameEnded = true;
+        this.updatePlayersUI();
+        this.updateGameStatus();
         const dialog = document.createElement('div');
         dialog.className = 'game-over-dialog';
         dialog.innerHTML = `
+            <div class="game-over-glyph" aria-hidden="true">${MiniGameUtils.escapeHtml(glyph || '🏁')}</div>
             <h2>Game Over</h2>
             <div class="result">${MiniGameUtils.escapeHtml(message)}</div>
             <button class="btn-secondary" onclick="chessGame?.requestNewGame()">
@@ -905,7 +1068,8 @@ class ChessGame extends UserConnectionBase {
             whitePlayer: this.whitePlayer,
             blackPlayer: this.blackPlayer,
             spectators: this.spectators,
-            lastMove: this.lastMove
+            lastMove: this.lastMove,
+            computerBy: this.computerBy || null
         };
 
         this.sendData(data, targetUsername);
@@ -925,14 +1089,9 @@ class ChessGame extends UserConnectionBase {
                 replayed = true;
             }
         }
-        if (!replayed) {
-            this.chess.load(data.fen);
-        } else {
-            // Rebuild the move list to match what just arrived.
-            const history = document.getElementById('moveHistory');
-            if (history) history.innerHTML = '';
-            this.chess.history({ verbose: true }).forEach((move) => this.addMoveToHistory(move));
-        }
+        if (!replayed) this.chess.load(data.fen);
+        this._rebuildHistory();
+        this.computerBy = data.computerBy || null;
         this.whitePlayer = data.whitePlayer;
         this.blackPlayer = data.blackPlayer;
         this.spectators = data.spectators || [];
@@ -976,6 +1135,7 @@ class ChessGame extends UserConnectionBase {
         if (this.whitePlayer && this.blackPlayer) {
             this.enableControls();
         }
+        this._botMaybeMove();
     }
 
     // ============================================
@@ -1055,11 +1215,14 @@ function initializeConnectionModal() {
         collapsedTitle: 'Chess',
         partyLobby: {
             id: 'chess', start: 'Start a game', players: '2 players, anyone else watches',
-            waitingRoom: { hint: 'Whoever joins next plays the other side; anyone after that watches.' },
+            waitingRoom: {
+                hint: 'Whoever joins next plays the other side; anyone after that watches. Or play the computer now.',
+                solo: { label: 'Play the computer', close: true, run: () => window.chessGame && window.chessGame.playComputer() }
+            },
             howTo: [
                 'Choose white or black when you arrive, or watch.',
                 'Take turns; the board is the same on every screen.',
-                'Send your opponent the party code to play.',
+                'Send your opponent the party code, or play the computer.',
             ],
         },
         onConnect: function(username, channel, password) {

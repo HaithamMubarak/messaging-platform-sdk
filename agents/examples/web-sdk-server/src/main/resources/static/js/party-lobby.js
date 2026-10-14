@@ -477,7 +477,12 @@
         w.copyLink.addEventListener('click', () => copy(inviteUrl(code), w.note, 'Invite link copied.'));
         w.copyCode.addEventListener('click', () => copy(window.PartyCode.format(code), w.note, 'Code copied.'));
         w.done.addEventListener('click', close);
-        if (w.solo) w.solo.addEventListener('click', () => { try { waiting.solo.run(); } catch (e) { /* the demo's own */ } renderWho(w.who); });
+        // solo.close: the solo choice starts the game (Chess's computer), so the
+        // sheet goes; without it the room stays up to show who joined (bots).
+        if (w.solo) w.solo.addEventListener('click', () => {
+            try { waiting.solo.run(); } catch (e) { /* the demo's own */ }
+            if (waiting.solo.close) close(); else renderWho(w.who);
+        });
         w.copyLink.focus();
     }
 

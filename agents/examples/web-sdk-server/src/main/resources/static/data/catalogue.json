@@ -144,12 +144,12 @@
     },
     {
       "id": "chess", "name": "Chess", "audience": "play", "shelf": "templates", "status": "live",
-      "primitives": ["directed", "host"], "solo": false, "players": "2 players, plus spectators",
+      "primitives": ["directed", "host"], "solo": true, "players": "2 players or the computer, plus spectators",
       "pattern": "Turn-based, state restored from a peer",
       "url": "/messaging-platform/sdk/apps/chess/index.html",
       "image": "img/playground/chess.webp", "imageAlt": "A chess game between two players after 1.e4 e5 2.Nf3 Nc6 3.Bc4 Bc5, White to move, with the move history and clocks beside the board.", "icon": "i-layers",
       "blurb": "Turn-based play where a joiner is sent the whole game by a peer.",
-      "text": "Turn-based chess where the board is rebuilt from the other player, not from a server. A joiner is sent the position and the whole move list in one addressed message, so a spectator arrives mid-game with the history intact.",
+      "text": "Turn-based chess where the board is rebuilt from the other player, not from a server. A joiner is sent the position and the whole move list in one addressed message, so a spectator arrives mid-game with the history intact. Alone, play the computer; a room can watch.",
       "badges": ["Addressed messages", "Turn-based state", "State handover"],
       "links": [{ "label": "Also in Party Arcade", "url": "/messaging-platform/apps/party-arcade/" }],
       "source": ["apps/chess/chess-game.js"]

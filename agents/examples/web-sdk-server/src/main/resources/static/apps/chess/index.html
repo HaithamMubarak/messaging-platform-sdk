@@ -7,7 +7,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5, user-scalable=yes">
     <meta name="theme-color" content="#0b1120">
     <title>♟️ Chess - Multiplayer</title>
-    <meta name="description" content="Two-player chess with full rules and a board another player restores for you after a refresh. Share the room link and make your move.">
+    <meta name="description" content="Chess with full rules: play a friend with a room code, or the computer on your own, and a board another player restores for you after a refresh.">
     <link rel="canonical" href="https://hmdevonline.com/messaging-platform/sdk/apps/chess/index.html">
 
     <meta property="og:type" content="website">
@@ -160,6 +160,10 @@
                 <button class="color-btn" onclick="chessGame?.chooseColor('black')">
                     ♚ Play as Black
                 </button>
+                <button id="playComputerBtn" class="color-btn computer" onclick="chessGame?.playComputer(document.getElementById('computerEasy').checked ? 'easy' : 'normal')">
+                    🤖 Play the computer
+                </button>
+                <label class="computer-level"><input type="checkbox" id="computerEasy"> Go easy on me</label>
                 <button class="color-btn spectate" onclick="chessGame?.chooseSpectator()">
                     👀 Spectate
                 </button>
@@ -189,6 +193,7 @@
     <script src="../../js/UserConnectionBase.js"></script>
 
     <!-- Game Logic -->
+    <script src="chess-bot.js"></script>
     <script src="chess-game.js"></script>
 <script src="../../js/app-chrome.js"></script>
 </body>
