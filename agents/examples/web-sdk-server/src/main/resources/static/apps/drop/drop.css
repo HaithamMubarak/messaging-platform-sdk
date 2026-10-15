@@ -111,3 +111,60 @@
 .drop-modes [role="tab"]:focus-visible { outline: none; box-shadow: var(--focus-ring); }
 .drop-mode { display: flex; flex-direction: column; gap: var(--sp-3); min-height: 0; flex: 1; }
 .drop-mode[hidden] { display: none; }
+
+/* --- the moments ----------------------------------------------------------
+ * A transfer you can watch: who it leaves and who it reaches, a plane riding
+ * the front of the bar, the speed and the time left. When it lands, the row
+ * pulses once and shows what came in before you save it.
+ */
+.drop-postcard { align-self: center; }
+.tr__flight { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: center; gap: var(--sp-2); }
+.tr__flight .tr__chunks { grid-column: 1 / -1; }
+.tr__flight .avatar--sm { width: 24px; height: 24px; font-size: 10px; }
+.tr__track { position: relative; overflow: visible; }
+.tr__fill { position: relative; }
+.tr__plane {
+    position: absolute;
+    right: -9px;
+    top: 50%;
+    display: grid;
+    place-items: center;
+    width: 18px;
+    height: 18px;
+    transform: translateY(-50%);
+    color: var(--accent);
+    animation: drop-bob 900ms ease-in-out infinite alternate;
+}
+@keyframes drop-bob { from { transform: translateY(-65%); } to { transform: translateY(-35%); } }
+
+.tr.is-fresh { animation: drop-land 700ms var(--ease); }
+@keyframes drop-land {
+    0% { box-shadow: 0 0 0 0 rgba(52, 211, 153, 0.55); transform: scale(0.98); }
+    60% { box-shadow: 0 0 0 10px rgba(52, 211, 153, 0); transform: scale(1.01); }
+    100% { box-shadow: none; transform: none; }
+}
+
+.tr__preview {
+    display: block;
+    max-width: 100%;
+    max-height: 180px;
+    border-radius: var(--r-md);
+    border: 1px solid var(--border);
+}
+img.tr__preview { width: auto; object-fit: contain; background: var(--surface-2); }
+.tr__preview--text {
+    margin: 0;
+    padding: var(--sp-2) var(--sp-3);
+    overflow: hidden;
+    font-family: var(--font-mono);
+    font-size: var(--fs-xs);
+    line-height: 1.5;
+    white-space: pre-wrap;
+    word-break: break-word;
+    color: var(--text-body);
+    background: var(--surface-2);
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .tr__plane, .tr.is-fresh { animation: none; }
+}

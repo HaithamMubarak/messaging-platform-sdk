@@ -197,6 +197,7 @@
                     return;
                 }
                 row.done = i + 1;
+                this._pace(row);
                 if (i % 8 === 0 || i === row.total - 1) this.render();
                 // Yielding keeps the tab responsive and the channel from
                 // backing up on a large file.
@@ -204,7 +205,19 @@
             }
 
             row.state = 'sent';
+            row.fresh = true;
             this.render();
+        }
+
+        /**
+         * How fast this transfer is moving, either end: bytes per second over
+         * the transfer so far, which is what the time left is worked out from.
+         */
+        _pace(row) {
+            var now = Date.now();
+            if (!row.t0) { row.t0 = now; row.d0 = row.done - 1; return; }
+            var secs = (now - row.t0) / 1000;
+            if (secs > 0.2) row.rate = ((row.done - row.d0) * CHUNK) / secs;
         }
 
         /**
@@ -221,9 +234,11 @@
         /**
          * Chunks arrive on the data channel, which is the point of this app —
          * `sendData` routes there, and the base class hands it back here.
+         * senderOf() reads the p2p-host relay's stamp, so a guest's message
+         * relayed by the host is still credited to the guest.
          */
         onDataChannelMessage(peerId, data) {
-            this._receive(data, peerId);
+            this._receive(data, this.senderOf(peerId, data));
         }
 
         /** Whatever came through the host relay instead. */
@@ -232,93 +247,101 @@
                 detail && (detail.from || detail.agentName));
         }
 
+        /**
+         * Every message is about one transfer, and only the person on the other
+         * end of that transfer may move it along. `from` is the transport's
+         * word; `d.by` is whatever the sender typed, and is never believed.
+         *
+         * It used to be. An offer was filed under `d.by`, and a chunk was taken
+         * from anyone who knew the id, so a third person could offer
+         * "invoice.pdf" signed "Ann" and stream their own bytes into it. And
+         * `need` re-sent pieces to whoever asked, so anyone who had seen a
+         * room-wide offer could ask for a file that went to somebody else.
+         */
         _receive(d, from) {
-            if (!d || !d.type) return;
-            // Deliberately NOT falling back to d.by: that is the sender's own
-            // claim about who they are, and accepting it undoes the point of
-            // taking `from` from the transport in the first place.
-            if (!from) return;
+            if (!d || !d.type || !from || from === this.username) return;
+            var handler = RECEIVE[d.type];
+            if (handler) handler.call(this, d, from);
+        }
 
-            switch (d.type) {
-                case 'offer': {
-                    if (d.by === this.username) break;
-                    if (this.transfers.has(d.id)) break;
-                    this.transfers.set(d.id, {
-                        id: d.id, dir: 'in', name: String(d.name || 'file').slice(0, 120),
-                        size: d.size || 0, mime: d.mime || 'application/octet-stream',
-                        total: d.chunks || 1, done: 0, state: 'offered',
-                        from: d.by || from, parts: [], at: Date.now()
-                    });
-                    this.render();
-                    UI.toast((d.by || 'Someone') + ' wants to send you ' + d.name, 'info', 4000);
-                    break;
-                }
+        _onOffer(d, from) {
+            if (this.transfers.has(d.id)) return;
+            this.transfers.set(d.id, {
+                id: d.id, dir: 'in', name: String(d.name || 'file').slice(0, 120),
+                size: d.size || 0, mime: d.mime || 'application/octet-stream',
+                total: d.chunks || 1, done: 0, state: 'offered',
+                from: from, parts: [], at: Date.now()
+            });
+            this.render();
+            UI.toast(from + ' wants to send you ' + d.name, 'info', 4000);
+        }
 
-                case 'accept': {
-                    var out = this.transfers.get(d.id);
-                    if (!out || out.dir !== 'out') break;
-                    if (out.state !== 'offered') {
-                        // The file already went (or is going) to the first
-                        // acceptor. Tell this one, instead of leaving them
-                        // sitting at 0% for ever.
-                        this._say({ type: 'taken', id: d.id, by: this.username, winner: out.to }, d.by || from);
-                        break;
-                    }
-                    // Whoever accepted is who it goes to, so a broadcast offer
-                    // does not stream to the whole room at once.
-                    //
-                    // `from` is the transport's word; d.by is whatever the
-                    // sender typed. Trusting d.by let a peer accept an offer
-                    // and name somebody else as the recipient, redirecting the
-                    // file — a data leak, not merely impersonation.
-                    out.to = from || d.by || out.to;
-                    this._stream(out);
-                    break;
-                }
-
-                case 'taken': {
-                    var late = this.transfers.get(d.id);
-                    if (!late || late.dir !== 'in') break;
-                    if (late.state !== 'accepted' && late.state !== 'offered') break;
-                    clearTimeout(late._stall);
-                    late.state = 'taken';
-                    late.parts = [];
-                    this.render();
-                    UI.toast(late.name + ' went to ' + (d.winner || 'someone else') + ' — first to accept receives', 'info', 5000);
-                    break;
-                }
-
-                case 'decline': {
-                    var dec = this.transfers.get(d.id);
-                    if (!dec || dec.dir !== 'out') break;
-                    dec.state = 'declined';
-                    this.render();
-                    break;
-                }
-
-                case 'need': {
-                    // The receiver is short of some pieces. Send those and only
-                    // those — resending the whole file to fix one lost chunk is
-                    // how a 4GB transfer used to start again from zero.
-                    var out = this.transfers.get(d.id);
-                    if (!out || out.dir !== 'out' || !Array.isArray(d.missing)) break;
-                    if (!out.file) break;
-                    this._resend(out, d.missing, from);
-                    break;
-                }
-
-                case 'chunk': {
-                    var row = this.transfers.get(d.id);
-                    if (!row || row.dir !== 'in' || row.state !== 'accepted') break;
-                    if (typeof d.i !== 'number' || d.i < 0 || d.i >= row.total) break;
-                    if (row.parts[d.i]) break;                 // a repeat is not progress
-                    row.parts[d.i] = fromB64(d.b);
-                    row.done++;
-                    if (row.done >= row.total) this._finish(row);
-                    else { this._watch(row); if (row.done % 8 === 0) this.render(); }
-                    break;
-                }
+        _onAccept(d, from) {
+            var out = this.transfers.get(d.id);
+            if (!out || out.dir !== 'out') return;
+            // An offer made to one person is theirs to accept, nobody else's.
+            if (out.to && out.to !== from && out.state === 'offered') return;
+            if (out.state !== 'offered') {
+                // The file already went (or is going) to the first acceptor.
+                // Tell this one, instead of leaving them at 0% for ever.
+                if (out.to !== from) this._say({ type: 'taken', id: d.id, by: this.username, winner: out.to }, from);
+                return;
             }
+            // Whoever accepted is who it goes to, so a broadcast offer does not
+            // stream to the whole room at once.
+            out.to = from;
+            this._stream(out);
+        }
+
+        _onTaken(d, from) {
+            var late = this.transfers.get(d.id);
+            if (!late || late.dir !== 'in' || late.from !== from) return;
+            if (late.state !== 'accepted' && late.state !== 'offered') return;
+            clearTimeout(late._stall);
+            late.state = 'taken';
+            late.parts = [];
+            this.render();
+            UI.toast(late.name + ' went to ' + (d.winner || 'someone else') + ' — first to accept receives', 'info', 5000);
+        }
+
+        /**
+         * A decline ends an offer made to that one person. An offer to the
+         * room used to end at the FIRST decline, so anyone who said no stopped
+         * everyone else from saying yes; it now ends only when all have.
+         */
+        _onDecline(d, from) {
+            var dec = this.transfers.get(d.id);
+            if (!dec || dec.dir !== 'out' || dec.state !== 'offered') return;
+            if (dec.to) {
+                if (dec.to === from) dec.state = 'declined';
+            } else {
+                dec.declinedBy = dec.declinedBy || [];
+                if (dec.declinedBy.indexOf(from) < 0) dec.declinedBy.push(from);
+                var self = this;
+                var others = (this.getConnectedUsers() || []).filter(function (n) { return n !== self.username; });
+                if (others.every(function (n) { return dec.declinedBy.indexOf(n) >= 0; })) dec.state = 'declined';
+            }
+            this.render();
+        }
+
+        _onNeed(d, from) {
+            // The receiver is short of some pieces. Send those and only those,
+            // and only to the receiver: anyone else asking gets nothing.
+            var out = this.transfers.get(d.id);
+            if (!out || out.dir !== 'out' || !out.file || out.to !== from || !Array.isArray(d.missing)) return;
+            this._resend(out, d.missing, from);
+        }
+
+        _onChunk(d, from) {
+            var row = this.transfers.get(d.id);
+            if (!row || row.dir !== 'in' || row.state !== 'accepted' || row.from !== from) return;
+            if (typeof d.i !== 'number' || d.i < 0 || d.i >= row.total) return;
+            if (row.parts[d.i]) return;                 // a repeat is not progress
+            row.parts[d.i] = fromB64(d.b);
+            row.done++;
+            this._pace(row);
+            if (row.done >= row.total) this._finish(row);
+            else { this._watch(row); if (row.done % 8 === 0) this.render(); }
         }
 
         accept(id) {
@@ -409,9 +432,29 @@
             row.state = (row.size && blob.size !== row.size) ? 'damaged' : 'ready';
             row.blob = blob;
             row.parts = [];
+            row.fresh = row.state === 'ready';
             this.render();
             if (row.state === 'ready') UI.toast(row.name + ' arrived', 'success');
             else UI.toast(row.name + ' arrived incomplete', 'error', 5000);
+            if (row.state === 'ready') this._preview(row);
+        }
+
+        /**
+         * A look at what arrived before you save it: a thumbnail for a picture,
+         * the first lines of a text file. Made here, from the bytes in this
+         * browser; nothing is opened, run or sent anywhere.
+         */
+        _preview(row) {
+            var self = this;
+            if (/^image\/(png|jpe?g|gif|webp)$/.test(row.mime) && row.size <= PREVIEW_IMAGE_MAX) {
+                row.previewUrl = URL.createObjectURL(row.blob);
+                this.render();
+            } else if (/^text\/|json|csv|markdown/.test(row.mime) || /\.(txt|md|csv|json|log)$/i.test(row.name)) {
+                row.blob.slice(0, 600).text().then(function (t) {
+                    row.previewText = t.split('\n').slice(0, 6).join('\n');
+                    self.render();
+                }).catch(function () { /* no preview is fine */ });
+            }
         }
 
         save(id) {
@@ -483,12 +526,14 @@
                 ])
             ];
 
-            if (row.state === 'sending' || row.state === 'accepted') {
-                kids.push(UI.el('div', { class: 'tr__track' }, [
-                    UI.el('div', { class: 'tr__fill', style: 'width:' + pct + '%' })
-                ]));
-                kids.push(UI.el('span', { class: 'tr__chunks' },
-                    'chunk ' + row.done + ' / ' + row.total));
+            if (row.state === 'sending' || row.state === 'accepted') kids.push(this._flight(row, pct));
+            if (row.dir === 'out' && row.state === 'offered' && row.declinedBy && row.declinedBy.length) {
+                kids.push(UI.el('span', { class: 'tr__chunks' }, 'declined by ' + row.declinedBy.join(', ') + ' · still open to the rest'));
+            }
+            if (row.previewUrl) {
+                kids.push(UI.el('img', { class: 'tr__preview', src: row.previewUrl, alt: 'Preview of ' + row.name }));
+            } else if (row.previewText) {
+                kids.push(UI.el('pre', { class: 'tr__preview tr__preview--text' }, row.previewText));
             }
 
             var actions = [];
@@ -501,7 +546,34 @@
             }
             if (actions.length) kids.push(UI.el('div', { class: 'tr__actions' }, actions));
 
-            return UI.el('article', { class: 'tr tr--' + row.state }, kids);
+            var fresh = row.fresh;
+            row.fresh = false;   // the arrival moment plays once
+            return UI.el('article', { class: 'tr tr--' + row.state + (fresh ? ' is-fresh' : '') }, kids);
+        }
+
+        /**
+         * The file in flight: who it leaves, who it reaches, a bar between them
+         * with the plane at its front, and the speed and time left.
+         */
+        _flight(row, pct) {
+            var me = this.username;
+            var a = row.dir === 'out' ? me : row.from;
+            var b = row.dir === 'out' ? row.to : me;
+            var dot = function (n) {
+                return UI.el('span', { class: 'avatar avatar--sm', style: 'background:' + this.generateUserColor(n || '?'), title: n || '' }, initials(n));
+            }.bind(this);
+            var left = row.rate ? Math.max(0, (row.total - row.done) * CHUNK / row.rate) : null;
+            var pace = row.rate ? ' · ' + UI.fmtBytes(row.rate) + '/s' + (left !== null ? ' · ' + fmtLeft(left) : '') : '';
+            return UI.el('div', { class: 'tr__flight' }, [
+                dot(a),
+                UI.el('div', { class: 'tr__track' }, [
+                    UI.el('div', { class: 'tr__fill', style: 'width:' + pct + '%' }, [
+                        UI.el('span', { class: 'tr__plane' }, UI.iconNode('send', 'icon--sm'))
+                    ])
+                ]),
+                dot(b),
+                UI.el('span', { class: 'tr__chunks' }, 'chunk ' + row.done + ' / ' + row.total + pace)
+            ]);
         }
 
         renderPeers() {
@@ -546,6 +618,14 @@
         }
     }
 
+    /** Which method moves which kind of message along. */
+    var RECEIVE = {
+        offer: Drop.prototype._onOffer, accept: Drop.prototype._onAccept, taken: Drop.prototype._onTaken,
+        decline: Drop.prototype._onDecline, need: Drop.prototype._onNeed, chunk: Drop.prototype._onChunk
+    };
+
+    var PREVIEW_IMAGE_MAX = 8 * 1024 * 1024;
+
     var STATE_TEXT = {
         offered: 'waiting', accepted: 'receiving', sending: 'sending',
         sent: 'sent', ready: 'ready', declined: 'declined', damaged: 'incomplete', cancelled: 'cancelled',
@@ -572,6 +652,41 @@
     }
 
     function wait(ms) { return new Promise(function (r) { setTimeout(r, ms); }); }
+
+    /** "about 4 s left", "about 2 min left". */
+    function fmtLeft(secs) {
+        if (secs < 1) return 'almost there';
+        if (secs < 90) return 'about ' + Math.ceil(secs) + ' s left';
+        return 'about ' + Math.round(secs / 60) + ' min left';
+    }
+
+    /**
+     * Something to send when you have nothing to hand: a postcard from this
+     * room, drawn here as a PNG. It is a real file, so the whole path runs,
+     * offer, accept, chunks, and the picture preview at the other end.
+     */
+    function postcard(room) {
+        var c = document.createElement('canvas');
+        c.width = 800; c.height = 500;
+        var g = c.getContext('2d');
+        var sky = g.createLinearGradient(0, 0, 0, 500);
+        sky.addColorStop(0, '#0ea5e9'); sky.addColorStop(0.6, '#fbbf24'); sky.addColorStop(1, '#f97316');
+        g.fillStyle = sky; g.fillRect(0, 0, 800, 500);
+        g.fillStyle = '#fde68a'; g.beginPath(); g.arc(600, 300, 90, 0, Math.PI * 2); g.fill();
+        g.fillStyle = '#0f172a';
+        g.beginPath(); g.moveTo(0, 500); g.lineTo(0, 380); g.lineTo(180, 260); g.lineTo(330, 380);
+        g.lineTo(470, 300); g.lineTo(800, 420); g.lineTo(800, 500); g.fill();
+        g.fillStyle = '#ffffff'; g.font = 'bold 54px system-ui, sans-serif';
+        g.fillText('Greetings from', 48, 110);
+        g.font = 'bold 44px ui-monospace, monospace';
+        g.fillText(String(room).slice(0, 26), 48, 170);
+        g.font = '24px system-ui, sans-serif';
+        g.fillText('Sent with Drop · ' + new Date().toLocaleString(), 48, 470);
+        var name = 'postcard-' + String(room).replace(/[^a-z0-9-]+/gi, '-') + '.png';
+        return new Promise(function (res) {
+            c.toBlob(function (blob) { res(new File([blob], name, { type: 'image/png' })); }, 'image/png');
+        });
+    }
 
     // ---- boot ---------------------------------------------------------------
 
@@ -615,6 +730,12 @@
         input.addEventListener('change', function () {
             if (input.files && input.files.length && app) app.send(input.files[0]);
             input.value = '';
+        });
+
+        var card = document.getElementById('postcardBtn');
+        if (card) card.addEventListener('click', function () {
+            if (!app || !app.connected) { UI.toast('Join a room first', 'info'); return; }
+            postcard(app.channelName).then(function (file) { app.send(file); });
         });
 
         document.getElementById('transfers').addEventListener('click', function (e) {
@@ -706,7 +827,13 @@
             collapsedTitle: 'Drop',
             partyLobby: {
                 id: 'drop', start: 'Open a drop room', players: 'You and whoever has the code',
-                waitingRoom: { hint: 'Nobody to send to yet? Leave a file for later: it waits for whoever opens the link.' },
+                waitingRoom: {
+                    hint: 'Nobody to send to yet? Add a companion and send it something, or leave a file for later: it waits for whoever opens the link.',
+                    solo: { label: 'Add a companion', close: true, run: function () {
+                        var btn = document.querySelector('.companion-btn');
+                        if (btn && !btn.classList.contains('is-on')) btn.click();
+                    } }
+                },
                 howTo: [
                     'Open a room and send its code to the other side.',
                     'Send now goes straight between your browsers, nothing uploaded.',

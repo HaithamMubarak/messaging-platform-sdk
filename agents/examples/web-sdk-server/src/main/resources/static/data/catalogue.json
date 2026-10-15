@@ -98,7 +98,7 @@
       "url": "/messaging-platform/sdk/apps/drop/index.html",
       "image": "img/playground/drop.webp", "imageAlt": "Drop sending handover-notes.md straight to Dawit over a direct connection — 18 KB, sent, nothing stored.", "icon": "i-download",
       "blurb": "Send a file now, or leave one encrypted for later.",
-      "text": "Two ways to hand somebody a file. Send now streams it in chunks over the data channel, straight between browsers: nothing is uploaded and nothing is stored. Leave for later encrypts a note or file in your browser and stores it in the room, notes in channel storage and larger files in the Vault, for whoever opens the link next.",
+      "text": "Two ways to hand somebody a file. Send now streams it in chunks over the data channel, straight between browsers: nothing is uploaded and nothing is stored. Leave for later encrypts a note or file in your browser and stores it in the room, notes in channel storage and larger files in the Vault, for whoever opens the link next. Alone? Add a companion and send it a postcard.",
       "badges": ["Binary transfer", "P2P data channels", "Encrypted storage", "Vault"],
       "call": "this.sendData(chunk, peerId)", "product": { "name": "Drop Pro", "url": "/messaging-platform/apps/droppro/" },
       "source": ["apps/drop/drop.js", "apps/drop/mailbox.js"]
