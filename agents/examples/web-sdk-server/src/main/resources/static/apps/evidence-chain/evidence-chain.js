@@ -209,6 +209,22 @@
             this.reload();
         }
 
+        /**
+         * Somebody else sealed an entry. Read the log again, unless this tab is
+         * in the middle of a trick: then say so, and leave the game alone.
+         */
+        onGameMessage(detail) {
+            var data = detail && detail.data ? detail.data : detail;
+            var from = this.senderOf(detail);
+            if (!data || data.type !== 'sealed' || !from || from === this.username) return;
+            if (this.tampered) {
+                this.say(from + ' sealed entry ' + data.seq + '. Reload to see it (it ends this trick).', 'warn');
+                return;
+            }
+            this.fresh = data.seq;
+            this.reload();
+        }
+
         say(msg, kind) {
             var box = el('state');
             box.textContent = msg;
@@ -233,6 +249,8 @@
             var seq = receipt.data.record.seq;
             var stored = await this.storeNote(seq, note);
             if (stored) {
+                this.fresh = seq;
+                try { this.sendCustomEventMessage({ type: 'sealed', seq: seq }, '*'); } catch (_) { /* the log is the record either way */ }
                 el('note').value = '';
                 this.say('Entry ' + seq + ' sealed and stored.', 'ok');
             } else {
@@ -298,22 +316,21 @@
                 self.channel.storageGetList(LOG_KEY, function (response) {
                     var notes = notesFrom(response);
                     // Half two: the receipts, out of the platform chain.
-                    self.channel.attestList(LOG_CHAIN, function (chainResponse) {
+                    self.channel.attestList(LOG_CHAIN, async function (chainResponse) {
                         var bundle = (chainResponse && chainResponse.status === 'success')
                             ? chainResponse.data : { records: [], genesis: null, publicKeys: [] };
                         // Join them by the sequence the server assigned. A
                         // record with no note keeps its place in the list with
                         // the text missing, so the gap is visible rather than
                         // quietly skipped.
-                        self.entries = (bundle.records || []).map(function (r) {
-                            return {
-                                seq: r.seq,
-                                note: notes[r.seq] !== undefined ? notes[r.seq] : null,
-                                contentHash: r.contentHash,
-                                chain: r.chain,
-                                stamp: r.stamp
-                            };
-                        });
+                        self.entries = await Promise.all((bundle.records || []).map(function (r) {
+                            return sealedNote(notes[r.seq] || [], r.contentHash).then(function (pick) {
+                                return {
+                                    seq: r.seq, note: pick.note, others: pick.others,
+                                    contentHash: r.contentHash, chain: r.chain, stamp: r.stamp
+                                };
+                            });
+                        }));
                         self.bundle = bundle;
                         self.untouched();
                         resolve(self.entries);
@@ -426,7 +443,8 @@
             var broken = result && !result.ok && i >= result.brokenAt;
             var first = result && !result.ok && i === result.brokenAt;
             var row = document.createElement('li');
-            row.className = 'ec-entry' + (broken ? ' ec-entry--broken' : '')
+            if (this.fresh === e.seq && !result) { row.classList.add('ec-entry--fresh'); this.fresh = null; }
+            row.className += ' ec-entry' + (broken ? ' ec-entry--broken' : '')
                 + (first ? ' ec-entry--first-break' : '') + (result && result.ok ? ' ec-entry--ok' : '');
             var side = Object.assign(document.createElement('div'), { className: 'ec-entry-side' });
             side.appendChild(Object.assign(document.createElement('span'), { className: 'ec-seq', textContent: '#' + e.seq }));
@@ -436,6 +454,12 @@
             main.appendChild(Object.assign(document.createElement('p'), { className: 'ec-meta',
                 textContent: e.stamp.agent + ' · ' + String(e.stamp.serverTime).replace('T', ' ').slice(0, 19) }));
             main.appendChild(this.editing === i ? this.editor(e, i) : noteOf(e));
+            if (e.others) {
+                main.appendChild(Object.assign(document.createElement('p'), { className: 'ec-others',
+                    textContent: e.others + (e.others === 1 ? ' other text was' : ' other texts were')
+                        + ' stored for this entry by someone in the room. '
+                        + (e.note !== null ? 'It does not match the seal, so it is ignored.' : '') }));
+            }
             main.appendChild(sealOf(e));
             row.append(side, main, this.toolsFor(i));
             return row;
@@ -512,10 +536,35 @@
                     try { raw = atob(raw); } catch (_) { /* already plain */ }
                     raw = JSON.parse(raw);
                 }
-                if (raw && typeof raw.seq === 'number') notes[raw.seq] = raw.note;
+                if (raw && typeof raw.seq === 'number' && typeof raw.note === 'string') {
+                    (notes[raw.seq] = notes[raw.seq] || []).push({ note: raw.note, at: row.createdAt || '' });
+                }
             } catch (_) { /* a row this client cannot read is skipped */ }
         });
+        Object.keys(notes).forEach(function (k) {
+            notes[k].sort(function (a, b) { return String(a.at).localeCompare(String(b.at)); });
+        });
         return notes;
+    }
+
+    /**
+     * Which stored text is this entry's: the one that hashes to its seal.
+     *
+     * Storage is append-only and shared, so anyone in the room can store a text
+     * under any entry number, including one not written yet. The page used to
+     * take one by arrival order, so a text planted for entry 4 before its author
+     * sealed it became entry 4: the honest entry showed the planted words and
+     * Verify said "Caught at entry 4", blaming its author. The seal says which
+     * text was sealed; any other is counted, shown as ignored, and never used.
+     * With none matching, the oldest is shown, and Verify reports it, as before.
+     */
+    async function sealedNote(versions, contentHash) {
+        for (var i = 0; i < versions.length; i++) {
+            if (await sha256Text(versions[i].note) === contentHash) {
+                return { note: versions[i].note, others: versions.length - 1 };
+            }
+        }
+        return { note: versions.length ? versions[0].note : null, others: Math.max(0, versions.length - 1) };
     }
 
     const snapshot = (entries) => JSON.stringify(entries.map(function (e) { return [e.seq, e.note]; }));

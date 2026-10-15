@@ -173,3 +173,20 @@
     .ec-score { width: 100%; }
     .ec-score > div { flex: 1; }
 }
+
+/* A text someone else stored under this entry, that the seal does not match. */
+.ec-others { margin: 6px 0 0; font-size: var(--fs-xs); color: var(--warning); }
+
+/* A newly sealed entry lands with a stamp: down, a ring, settled. */
+.ec-entry--fresh { animation: ec-sealed 700ms cubic-bezier(.22, 1, .36, 1); }
+.ec-entry--fresh .ec-seq { animation: ec-stamp 700ms cubic-bezier(.22, 1, .36, 1); }
+@keyframes ec-sealed {
+    0% { box-shadow: 0 0 0 0 rgba(45, 212, 191, .6); }
+    100% { box-shadow: 0 0 0 12px rgba(45, 212, 191, 0); }
+}
+@keyframes ec-stamp {
+    0% { transform: scale(1.8) rotate(-12deg); opacity: 0; }
+    60% { transform: scale(.92) rotate(2deg); opacity: 1; }
+    100% { transform: none; }
+}
+@media (prefers-reduced-motion: reduce) { .ec-entry--fresh, .ec-entry--fresh .ec-seq { animation: none; } }
