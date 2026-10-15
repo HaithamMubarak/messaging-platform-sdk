@@ -1678,6 +1678,11 @@ class AirHockeyGame extends UserConnectionBase {
             this.lastSyncTime = now;
         }
 
+        // While a match runs, the page's floating chrome steps back from the
+        // rink (air-hockey.css, body.ah-playing): on a phone there is no room
+        // beside it, and the host's panel and the site chips sat on the table.
+        document.body.classList.toggle('ah-playing', this.gameStatus === 'playing');
+
         // Draw
         this.draw();
     }
@@ -1772,10 +1777,15 @@ class AirHockeyGame extends UserConnectionBase {
         // Mobile controls - paddle MIRRORS finger movement (not chasing finger)
         // When finger moves 10px right, paddle moves 10px right
 
-        // Apply the touch movement delta directly to paddle position
-        // touchVelocityX/Y contains the movement since last frame
-        const moveX = this.input.touchVelocityX;
-        const moveY = this.input.touchVelocityY;
+        // Apply the finger's movement SINCE THE LAST FRAME, then forget it.
+        // This used to add the finger's last speed every frame, and a finger
+        // that stops sends no touchmove to zero it, so the paddle kept sliding
+        // the way it was last pushed until it hit the wall: on a phone it
+        // never stayed where you left it.
+        const moveX = this.input.pendingDX || 0;
+        const moveY = this.input.pendingDY || 0;
+        this.input.pendingDX = 0;
+        this.input.pendingDY = 0;
 
         // Apply movement directly to position (1:1 mapping)
         player.paddle.x += moveX;
@@ -2716,6 +2726,10 @@ class AirHockeyGame extends UserConnectionBase {
         this.input.touchVelocityX = (dx / timeDelta) * 16; // Scale to ~60fps
         this.input.touchVelocityY = (dy / timeDelta) * 16;
 
+        // The movement itself, for the paddle to take on its next frame.
+        this.input.pendingDX = (this.input.pendingDX || 0) + dx;
+        this.input.pendingDY = (this.input.pendingDY || 0) + dy;
+
         // Update touch state
         this.input.touchPrevX = this.input.touchCurrentX;
         this.input.touchPrevY = this.input.touchCurrentY;
@@ -2755,6 +2769,8 @@ class AirHockeyGame extends UserConnectionBase {
         this.input.touchCurrentX = canvasX;
         this.input.touchCurrentY = canvasY;
         this.input.lastTouchTime = Date.now();
+        this.input.pendingDX = 0;
+        this.input.pendingDY = 0;
     }
 
     handleTouchEnd(e) {

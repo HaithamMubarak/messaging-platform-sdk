@@ -996,3 +996,16 @@ body.fullscreen-mode .game-arena {
 .bot-buttons { display: flex; flex-wrap: wrap; justify-content: center; gap: var(--sp-2); margin-top: var(--sp-3); }
 .bot-buttons[hidden], .bot-buttons [hidden] { display: none; }
 .bot-buttons .btn { min-height: 44px; }
+
+/* --- During a match, the chrome steps back from the rink --------------------
+ * On a phone there is no room beside the table, so the host's control button,
+ * the site's SDK chip and the room-code chip all landed on it. While a match
+ * runs (body.ah-playing, set by the game loop) the button shrinks and fades
+ * until touched, and the two chips wait until the match is over.
+ */
+body.ah-playing .game-control-panel.collapsed { opacity: 0.35; transform: scale(0.72); transform-origin: top right; transition: opacity 160ms ease, transform 160ms ease; }
+body.ah-playing .game-control-panel.collapsed:hover,
+body.ah-playing .game-control-panel.collapsed:focus-within,
+body.ah-playing .game-control-panel.collapsed:active { opacity: 1; transform: none; }
+body.ah-playing .sdk-home-chip,
+body.ah-playing #partyCodeChip { opacity: 0; pointer-events: none; transition: opacity 160ms ease; }
