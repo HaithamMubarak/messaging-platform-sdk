@@ -58,8 +58,8 @@
     <div class="sdk-main">
         <div class="call-tiles" id="tiles" aria-label="People in the call"></div>
         <p class="sdk-note" id="alone">
-            Nobody else is here yet. Send the <strong>Invite</strong> link to another device, or open it in a
-            second browser, and each of you will see the other.
+            Nobody else is here yet. Send the <strong>Invite</strong> link to another device, open it in a
+            second browser, or <strong>Add a companion</strong> to see a picture arrive from another peer.
         </p>
         <div class="call-controls" role="group" aria-label="Call controls">
             <button class="btn btn--primary" id="camBtn" type="button" aria-pressed="false">
@@ -71,6 +71,12 @@
             <button class="btn btn--ghost" id="screenBtn" type="button" aria-pressed="false">
                 <svg class="icon icon--sm" aria-hidden="true"><use href="#i-monitor"></use></svg><span>Share screen</span>
             </button>
+            <span class="call-reactions" id="reactions" role="group" aria-label="React">
+                <button class="btn btn--ghost" type="button" data-react="👋" aria-label="Wave">👋</button>
+                <button class="btn btn--ghost" type="button" data-react="👏" aria-label="Applaud">👏</button>
+                <button class="btn btn--ghost" type="button" data-react="😂" aria-label="Laugh">😂</button>
+                <button class="btn btn--ghost" type="button" data-react="❤️" aria-label="Love">❤️</button>
+            </span>
         </div>
     </div>
 
@@ -110,6 +116,7 @@
 <script src="../../js/party-lobby.js"></script>
 <script src="../../js/telemetry.js"></script>
 <script src="../../js/UserConnectionBase.js"></script>
+<script src="../../js/companion.js"></script>
 <script src="call.js"></script>
 </body>
 </html>

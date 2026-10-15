@@ -109,7 +109,7 @@
       "url": "/messaging-platform/sdk/apps/call/index.html",
       "image": "img/playground/call.webp", "imageAlt": "A call between two people, Ana and Bo, each tile showing a live test-pattern camera, with the Camera, Microphone and Share screen buttons below.", "icon": "i-video",
       "blurb": "Camera, microphone and screen share, straight between browsers.",
-      "text": "The demo of WebRtcHelper's media side. The channel carries who is here and what they have switched on; camera and screen go peer to peer. Sharing your screen replaces your camera rather than adding a stream, and a camera switched off mid-negotiation never shows up late.",
+      "text": "The demo of WebRtcHelper's media side. The channel carries who is here and what they have switched on; camera and screen go peer to peer. Sharing your screen replaces your camera rather than adding a stream, and a camera switched off mid-negotiation never shows up late. Alone? Add a companion: its camera is a test card sent over WebRTC.",
       "badges": ["WebRTC media", "Screen share", "Mesh"],
       "call": "rtc.createStreamOffer(peer, { stream })",
       "source": ["apps/call/call.js"]

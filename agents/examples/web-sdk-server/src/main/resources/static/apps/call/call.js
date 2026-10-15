@@ -113,6 +113,7 @@
         current() { return this.screen || this.cam; }
 
         async toggleCamera() {
+            this._levels();
             if (this.cam) {
                 this.cam.getTracks().forEach((t) => t.stop());
                 this.cam = null;
@@ -204,13 +205,97 @@
             if (to) this.sendData(state, to); else this.sendData(state);
         }
 
+        /**
+         * Who said it is the transport's word, read through the host relay.
+         * `senderOf(peer)` alone named the HOST as the author of every guest's
+         * message, so in a call of three each guest's "camera on" was filed
+         * under the host: the guests received each other's pictures and never
+         * showed them. Only two-person calls worked.
+         */
         onDataChannelMessage(peer, data) {
-            if (!data || data.t !== 'media') return;
-            const from = this.senderOf(peer);
+            if (!data) return;
+            const from = this.senderOf(peer, data);
+            if (!from || from === this.username) return;
+            if (data.t === 'react') { this._showReaction(from, data.e); return; }
+            if (data.t !== 'media') return;
             const r = this.remote.get(from) || {};
             Object.assign(r, { cam: !!data.cam, screen: !!data.screen, mic: !!data.mic });
             this.remote.set(from, r);
             this.render();
+        }
+
+        // ---- reactions ---------------------------------------------------------
+
+        /** A reaction floats up over your tile on every screen, yours included. */
+        react(e) {
+            if (REACTIONS.indexOf(e) < 0) return;
+            const now = Date.now();
+            if (now - (this._lastReact || 0) < REACT_GAP_MS) return;
+            this._lastReact = now;
+            this.sendData({ t: 'react', e });
+            this._showReaction(this.username, e);
+        }
+
+        _showReaction(from, e) {
+            if (REACTIONS.indexOf(e) < 0) return;          // only the four on the buttons
+            const seen = this._reactSeen || (this._reactSeen = new Map());
+            const now = Date.now();
+            if (from !== this.username && now - (seen.get(from) || 0) < REACT_GAP_MS) return;
+            seen.set(from, now);
+            const tile = document.querySelector('.call-tile[data-name="' + CSS.escape(from) + '"]');
+            if (!tile) return;
+            const bubble = document.createElement('span');
+            bubble.className = 'call-react';
+            bubble.textContent = e;
+            bubble.style.left = (20 + Math.random() * 60) + '%';
+            tile.appendChild(bubble);
+            setTimeout(() => bubble.remove(), 2400);
+        }
+
+        // ---- who is speaking ---------------------------------------------------
+
+        /**
+         * A tile glows while its sound is above a whisper. One AudioContext,
+         * one analyser per stream with audio, sampled a few times a second;
+         * nothing is played, and your own microphone is measured, not heard.
+         */
+        _levels() {
+            if (!this._ac) {
+                const AC = window.AudioContext || window.webkitAudioContext;
+                if (!AC) return;
+                this._ac = new AC();
+                this._meters = new Map();
+                this._levelTimer = setInterval(() => this._sampleLevels(), 150);
+            }
+            if (this._ac.state === 'suspended') this._ac.resume().catch(() => {});
+        }
+
+        _meterFor(stream) {
+            if (!stream || !stream.getAudioTracks().length || !this._ac) return null;
+            let m = this._meters.get(stream.id);
+            if (!m) {
+                const an = this._ac.createAnalyser();
+                an.fftSize = 512;
+                this._ac.createMediaStreamSource(stream).connect(an);
+                m = { an, buf: new Float32Array(an.fftSize) };
+                this._meters.set(stream.id, m);
+            }
+            return m;
+        }
+
+        _sampleLevels() {
+            document.querySelectorAll('.call-tile').forEach((el) => {
+                const v = el.querySelector('video');
+                const live = v && v.srcObject && (el.dataset.me ? this.micOn() : (this.remote.get(el.dataset.name) || {}).mic);
+                const m = live ? this._meterFor(v.srcObject) : null;
+                let rms = 0;
+                if (m) {
+                    m.an.getFloatTimeDomainData(m.buf);
+                    for (let i = 0; i < m.buf.length; i++) rms += m.buf[i] * m.buf[i];
+                    rms = Math.sqrt(rms / m.buf.length);
+                }
+                el.classList.toggle('is-speaking', rms > SPEAKING_RMS);
+            });
         }
 
         peers() {
@@ -266,6 +351,8 @@
             const video = el.querySelector('video');
             video.muted = !!w.me;   // never play your own microphone back to you
             if (video.srcObject !== (w.stream || null)) video.srcObject = w.stream || null;
+            if (w.me) el.dataset.me = '1';
+            el.dataset.initial = String(w.name || '?').trim().charAt(0).toUpperCase();
             el.classList.toggle('is-empty', !w.stream);
             el.classList.toggle('is-screen', !!w.screen);
             el.classList.toggle('is-reconnecting', !!w.reconnecting);
@@ -274,6 +361,64 @@
                 + (w.reconnecting ? ' · reconnecting…' : '');
         }
     }
+
+    const REACTIONS = ['👋', '👏', '😂', '❤️'];
+    const REACT_GAP_MS = 400;     // a held button is a reaction, not a flood
+    const SPEAKING_RMS = 0.02;
+
+    /**
+     * A test card for the companion's camera: colour bars, its name and a
+     * running clock, drawn on a canvas and sent as a real video stream.
+     */
+    function testCard(name) {
+        // 4:3, the tile's own shape, so nothing is cropped; words kept above
+        // the bottom edge, where the tile puts the name.
+        const c = Object.assign(document.createElement('canvas'), { width: 640, height: 480 });
+        const g = c.getContext('2d');
+        const bars = ['#e5e7eb', '#facc15', '#22d3ee', '#22c55e', '#d946ef', '#ef4444', '#3b82f6'];
+        let n = 0;
+        const draw = () => {
+            bars.forEach((col, i) => { g.fillStyle = col; g.fillRect(i * 640 / 7, 0, 640 / 7 + 1, 300); });
+            g.fillStyle = 'rgba(255,255,255,.85)';
+            g.beginPath(); g.arc((n++ * 6) % 680 - 20, 150, 18, 0, Math.PI * 2); g.fill();   // the picture moves
+            g.fillStyle = '#0b1120'; g.fillRect(0, 300, 640, 180);
+            g.fillStyle = '#fff'; g.textAlign = 'center';
+            g.font = 'bold 34px system-ui, sans-serif';
+            g.fillText(name + ' · test card', 320, 352);
+            g.font = '26px ui-monospace, monospace';
+            g.fillText(new Date().toLocaleTimeString(), 320, 396);
+        };
+        draw();
+        const timer = setInterval(draw, 66);
+        const stream = c.captureStream(15);
+        stream.getVideoTracks()[0].addEventListener('ended', () => clearInterval(timer));
+        return stream;
+    }
+
+    /**
+     * The companion (companion.js): a real second connection in this tab. It
+     * sends you a test card over WebRTC as its camera, so you see a picture
+     * arrive from another peer, and it waves back when you react.
+     */
+    const COMPANION_SCRIPT = {
+        onJoin(c) {
+            const peer = c.connection();
+            const me = c.host().username;
+            setTimeout(() => {
+                if (!peer.webrtcHelper) return;
+                c.card = testCard(c.name);
+                peer.webrtcHelper.createStreamOffer(me, { stream: c.card }).catch(() => {});
+                c.send({ t: 'media', cam: true, screen: false, mic: false }, me);
+            }, 1500);
+        },
+        onData(c, from, data) {
+            if (data && data.t === 'react' && REACTIONS.indexOf(data.e) >= 0) {
+                setTimeout(() => c.send({ t: 'react', e: data.e }), 700);
+            }
+            // Asked again after a page change: say what it has on.
+            if (data && data.t === 'media') c.send({ t: 'media', cam: true, screen: false, mic: false }, c.host().username);
+        }
+    };
 
     // ---- page ------------------------------------------------------------------
 
@@ -295,6 +440,10 @@
         document.getElementById('camBtn').addEventListener('click', run(() => app.toggleCamera()));
         document.getElementById('micBtn').addEventListener('click', run(() => app.toggleMic()));
         document.getElementById('screenBtn').addEventListener('click', run(() => app.toggleScreen()));
+        document.getElementById('reactions').addEventListener('click', (e) => {
+            const b = e.target.closest('[data-react]');
+            if (b && app && app.connected) { app._levels(); app.react(b.dataset.react); }
+        });
         if (!navigator.mediaDevices || !navigator.mediaDevices.getDisplayMedia) {
             document.getElementById('screenBtn').hidden = true;   // phones cannot share a screen
         }
@@ -313,6 +462,13 @@
                 if (encoded) history.replaceState(null, '', '#' + encoded);
             }
             app.render();
+            if (window.Companion) {
+                window.callCompanion = window.Companion.attach(app, COMPANION_SCRIPT, {
+                    noteText: 'The companion is a second connection running in this tab. Its camera is a test card, ' +
+                              'sent to you over a real WebRTC connection, but there is no network between you, so ' +
+                              'the quality here is not representative.'
+                });
+            }
         } catch (err) {
             console.error('[Call] connect failed:', err);
             if (window.ConnectionModal) ConnectionModal.fail(err);
@@ -328,7 +484,13 @@
             title: 'Join a call', collapsedTitle: 'Call', onConnect: connect,
             partyLobby: {
                 id: 'call', start: 'Start a call', players: '2–4 people',
-                waitingRoom: true,
+                waitingRoom: {
+                    hint: 'Nobody here yet? Add a companion: it joins as a second person and sends you a test card.',
+                    solo: { label: 'Add a companion', close: true, run: () => {
+                        const btn = document.querySelector('.companion-btn');
+                        if (btn && !btn.classList.contains('is-on')) btn.click();
+                    } }
+                },
                 howTo: [
                     'Start a call and send the code to whoever you want to see.',
                     'Turn your camera and microphone on when you are ready.',

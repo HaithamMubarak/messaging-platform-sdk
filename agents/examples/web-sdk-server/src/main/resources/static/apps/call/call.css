@@ -16,10 +16,22 @@
 .call-tile video { width: 100%; height: 100%; object-fit: cover; display: block; }
 .call-tile.is-screen video { object-fit: contain; background: #000; }
 .call-tile.is-empty video { visibility: hidden; }
+/* Camera off: the person's initial in a circle, as a call app shows them. */
 .call-tile.is-empty::before {
-    content: 'Camera off';
-    position: absolute; inset: 0;
+    content: attr(data-initial);
+    position: absolute; left: 50%; top: 45%;
+    width: 72px; height: 72px;
+    transform: translate(-50%, -50%);
     display: grid; place-items: center;
+    border-radius: 50%;
+    background: var(--surface-3, #1e2a3d);
+    color: var(--text);
+    font-size: 30px; font-weight: 700;
+}
+.call-tile.is-empty::after {
+    content: 'Camera off';
+    position: absolute; left: 0; right: 0; top: calc(45% + 48px);
+    text-align: center;
     color: var(--text-muted);
     font-size: var(--fs-sm);
 }
@@ -38,3 +50,29 @@
 .call-tile.is-reconnecting figcaption { background: var(--warning, #fbbf24); color: #1c1400; }
 .call-controls { display: flex; flex-wrap: wrap; gap: var(--sp-2); margin-top: var(--sp-3); }
 .call-controls [aria-pressed="true"] { outline: 2px solid var(--accent-ink); }
+
+/* Speaking: a ring that follows the voice, measured from the sound itself. */
+.call-tile { transition: box-shadow 120ms ease, border-color 120ms ease; }
+.call-tile.is-speaking { border-color: var(--success, #34d399); box-shadow: 0 0 0 3px var(--success, #34d399); }
+
+/* Reactions: four buttons, and what they send floats up over the sender's tile. */
+.call-reactions { display: inline-flex; gap: var(--sp-1); margin-left: auto; }
+.call-reactions .btn { min-width: 40px; padding-inline: var(--sp-2); font-size: 18px; }
+.call-react {
+    position: absolute;
+    bottom: 18%;
+    font-size: 36px;
+    pointer-events: none;
+    animation: call-float 2.4s ease-out forwards;
+    filter: drop-shadow(0 2px 4px rgba(0, 0, 0, .5));
+}
+@keyframes call-float {
+    0% { transform: translateY(0) scale(.6); opacity: 0; }
+    15% { transform: translateY(-10px) scale(1.1); opacity: 1; }
+    100% { transform: translateY(-140px) scale(1); opacity: 0; }
+}
+@media (max-width: 560px) { .call-reactions { margin-left: 0; } }
+@media (prefers-reduced-motion: reduce) {
+    .call-react { animation: none; opacity: 1; top: var(--sp-2); bottom: auto; }
+    .call-tile { transition: none; }
+}
