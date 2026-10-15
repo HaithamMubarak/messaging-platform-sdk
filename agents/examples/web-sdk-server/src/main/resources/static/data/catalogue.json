@@ -71,7 +71,7 @@
       "url": "/messaging-platform/sdk/apps/whiteboard/app.html", "about": "/messaging-platform/sdk/apps/whiteboard/index.html",
       "image": "img/playground/whiteboard.webp", "imageAlt": "The Whiteboard with two people in the room and four thick strokes in black, red, green and blue beside the tool rail.", "icon": "i-pen",
       "blurb": "Draw together and see every stroke appear across the room.",
-      "text": "A shared drawing surface — pen, shapes, text and sticky notes. Every stroke reaches the room as it is made, undo reaches everybody, and the board is still there when you come back — stored encrypted, so the server keeps a board it cannot read. Every save is a version, and History scrubs or plays back through them without touching the board.",
+      "text": "A shared drawing surface — pen, shapes, text and sticky notes. Every stroke reaches the room as it is made, undo reaches everybody, and the board is still there when you come back — stored encrypted, so the server keeps a board it cannot read. Every save is a version, and History scrubs or plays back through them without touching the board. Alone, play Guess the Doodle: a bot draws, you guess.",
       "badges": ["Broadcast", "Presence", "Encrypted storage"],
       "call": "agent.storagePut({ storageKey: 'board', content })", "product": { "name": "Rooms", "url": "/messaging-platform/apps/rooms/" },
       "source": ["apps/whiteboard/whiteboard-client.js", "apps/whiteboard/whiteboard-tools.js", "apps/whiteboard/board-replay.js"]

@@ -731,10 +731,17 @@ class UserConnectionBase {
      * know who a message actually came from; this returns that.
      *
      * Accepts either shape an app receives: onGameMessage's {from, data} detail
-     * or onDataChannelMessage's (peerId, data) — pass the peerId directly.
+     * or onDataChannelMessage's (peerId, data) — pass the peerId directly, and
+     * the data too: in p2p-host mode a guest's message reaches other guests
+     * FROM the host, which stamps the original sender as _fromClient (and
+     * strips any _fromClient a guest wrote), so the peer alone would name the
+     * host as the author of everything.
      */
-    senderOf(detail) {
-        if (typeof detail === 'string') return detail;
+    senderOf(detail, data) {
+        if (typeof detail === 'string') {
+            const viaHost = data && data._fromClient && detail === this._getHostName();
+            return viaHost ? data._fromClient : detail;
+        }
         if (!detail) return null;
         // _fromClient is stamped by the host relay from the transport peer id.
         return detail.from || detail.agentName || detail._fromClient || null;

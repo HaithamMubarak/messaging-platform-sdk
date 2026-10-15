@@ -1606,6 +1606,8 @@ class WhiteboardGame extends UserConnectionBase {
     onChat(detail) {
         console.log('[WhiteboardGame] Chat from', detail.from, ':', detail.message);
         this._addChatMessage(detail.from, detail.message, '#333');
+        // A guess, if a doodle game is running on this tab.
+        if (window.DoodleGame) DoodleGame.heard(this.senderOf(detail) || detail.from, detail.message);
     }
 
     /**
@@ -1643,34 +1645,20 @@ class WhiteboardGame extends UserConnectionBase {
             return;
         }
 
+        // Who drew it: the transport's word, never the payload's.
+        const from = this.senderOf(peerId, data);
+
         // Handle stroke-batch-binary
         if (type === 'stroke-batch-binary' && data.binaryStrokes) {
-            const strokes = decodeStrokesBinary(new Float32Array(data.binaryStrokes));
-            if (strokes && strokes.length > 0) {
-                // Add to global queue for rendering (use local variable that render loop reads from)
-                strokes.forEach(stroke => {
-                    stroke.peerId = peerId;
-                    incomingStrokeQueue.push(stroke);  // ✅ Use local variable
-                    this.whiteboardCanvas.addStroke(stroke);
-                });
-                console.log(`[WhiteboardGame] Received ${strokes.length} binary strokes from ${peerId}`);
-            }
+            this._takeStrokes(decodeStrokesBinary(new Float32Array(data.binaryStrokes)), from, data.op);
         }
         // Handle stroke-batch (JSON)
-        else if (type === 'stroke-batch' && data.strokes) {
-            // Add to global queue for rendering
-            data.strokes.forEach(stroke => {
-                stroke.peerId = peerId;
-                incomingStrokeQueue.push(stroke);  // ✅ Use local variable
-                this.whiteboardCanvas.addStroke(stroke);
-            });
-            console.log(`[WhiteboardGame] Received ${data.strokes.length} JSON strokes from ${peerId}`);
+        else if (type === 'stroke-batch' && Array.isArray(data.strokes)) {
+            this._takeStrokes(data.strokes, from, data.op);
         }
         // Handle single stroke
         else if (type === 'stroke' && data.stroke) {
-            data.stroke.peerId = peerId;
-            incomingStrokeQueue.push(data.stroke);  // ✅ Use local variable
-            this.whiteboardCanvas.addStroke(data.stroke);
+            this._takeStrokes([data.stroke], from, data.op);
         }
         // Somebody else is dragging a shape. It is not on the board yet, so it
         // is drawn on the preview layer and never recorded.
@@ -1708,15 +1696,39 @@ class WhiteboardGame extends UserConnectionBase {
             console.log(`[WhiteboardGame] Received ${data.action} notification from ${data.sender} (${data.commandType})`);
 
             // Don't process our own actions
-            if (data.sender === this.username) {
+            if (from === this.username) {
                 console.log('[WhiteboardGame] Ignoring own undo-redo notification');
                 return;
             }
 
-            // Show notification about the remote action
-            // The actual canvas sync will happen via storage fetch or stroke events
-            undoRedoManager.applyRemoteAction(data.action, data, data.sender);
+            // Applied as the person who really sent it. data.sender is the
+            // payload's claim, and believing it let anyone undo anyone's work
+            // on every other screen in the room.
+            undoRedoManager.applyRemoteAction(data.action, data, from);
         }
+    }
+
+    /**
+     * Somebody else's ink, onto this board.
+     *
+     * A line goes out in two halves: fast moves as a compact binary batch,
+     * the rest as JSON. The binary half used to arrive with no action id and no
+     * owner, so a remote undo found only the JSON half and the rest of the line
+     * stayed on every other screen. Each batch now carries its action id, and
+     * every stroke is stamped with the sender the transport names.
+     */
+    _takeStrokes(strokes, from, op) {
+        if (!Array.isArray(strokes) || !strokes.length) return;
+        strokes.forEach(stroke => {
+            if (!stroke) return;
+            stroke.peerId = from;
+            stroke.by = from;
+            if (op) stroke.op = op;
+            incomingStrokeQueue.push(stroke);
+            this.whiteboardCanvas.addStroke(stroke);
+        });
+        // Ink from someone else ends "this board is empty" just as yours does.
+        syncEmptyHint();
     }
 
     /**
@@ -4171,6 +4183,7 @@ function initializeCredentialInputs() {
                 'Open a board and draw: pen, shapes, text and sticky notes.',
                 'Share the code, and every stroke appears on every screen.',
                 'Come back later: the board is still there, stored encrypted.',
+                'Alone? Play Guess the Doodle: a bot draws, you guess.',
             ],
         },
         onConnect: function(username, channel, password) {
@@ -5772,7 +5785,7 @@ function draw(e) {
                 let strokeData;
                 if (binaryData) {
                     strokeData = {
-                        type: 'stroke-batch-binary',
+                        type: 'stroke-batch-binary', op: currentActionId,
                         binaryStrokes: Array.from(binaryData),
                         count: strokes.length,
                         sender: username,
@@ -5780,7 +5793,7 @@ function draw(e) {
                     };
                 } else {
                     strokeData = {
-                        type: 'stroke-batch',
+                        type: 'stroke-batch', op: currentActionId,
                         strokes: strokes,
                         sender: username,
                         color: currentColor
@@ -5813,7 +5826,7 @@ function draw(e) {
             // Single stroke sent instantly for lowest latency
             if (webrtcHelper) {
                 const strokeData = {
-                    type: 'stroke-batch',
+                    type: 'stroke-batch', op: currentActionId,
                     strokes: [stroke],
                     sender: username,
                     color: currentColor
@@ -6493,6 +6506,7 @@ function sendChat() {
                     input.value = '';
                     // Add to own chat display immediately (messages from self won't trigger chat-text event)
                     addChatMessage(username || 'You', message, '#6965db');
+                    if (window.DoodleGame) DoodleGame.heard(username || 'You', message);
                 })
                 .catch(error => {
                     console.error('Failed to send chat message:', error);

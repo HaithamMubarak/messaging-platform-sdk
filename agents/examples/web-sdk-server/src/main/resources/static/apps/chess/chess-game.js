@@ -110,7 +110,7 @@ class ChessGame extends UserConnectionBase {
 
     onDataChannelMessage(peerId, data) {
         if (!data || !data.type) return;
-        const from = this._sender(peerId, data);
+        const from = this.senderOf(peerId, data);
         if (!this._mayAct(from, data)) {
             console.warn('[Chess] Ignored ' + data.type + ' from ' + from);
             return;
@@ -142,17 +142,6 @@ class ChessGame extends UserConnectionBase {
                 this.handleNewGame(data);
                 break;
         }
-    }
-
-    /**
-     * Who really sent a message: the transport's word, never the payload's.
-     * In the default p2p-host mode a guest's message reaches other guests
-     * through the host, which stamps the original sender as _fromClient (and
-     * strips any _fromClient a guest wrote itself).
-     */
-    _sender(peerId, data) {
-        const viaHost = peerId === this._getHostName() && data && data._fromClient;
-        return viaHost ? data._fromClient : this.senderOf(peerId);
     }
 
     /** The seat a name sits in: 'white', 'black' or null. */

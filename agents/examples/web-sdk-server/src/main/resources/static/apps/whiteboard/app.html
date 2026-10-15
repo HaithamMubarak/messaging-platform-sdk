@@ -2518,6 +2518,9 @@
             <svg class="icon" aria-hidden="true"><use href="#i-qr-code"></use></svg>
             <span class="wb-btn__word">Invite</span>
         </button>
+        <button id="doodleBtn" class="wb-btn" onclick="DoodleGame.start()" title="Guess the Doodle: the bot draws, you guess" aria-label="Play Guess the Doodle">
+            <svg class="icon" aria-hidden="true"><use href="#i-gamepad"></use></svg>
+        </button>
         <button class="wb-btn" onclick="toggleShortcutSheet()" title="Keyboard shortcuts (?)" aria-label="Keyboard shortcuts">
             <svg class="icon" aria-hidden="true"><use href="#i-info"></use></svg>
         </button>
@@ -2624,7 +2627,10 @@
            scroll to zoom, <kbd>Ctrl</kbd>+<kbd>Z</kbd> to take it back.</p>
         <p>Press <kbd>?</kbd> for every shortcut — or <strong>Invite</strong> somebody, because
            a whiteboard on your own is a piece of paper.</p>
-        <button class="wb-btn" onclick="dismissEmptyHint()">Got it</button>
+        <div class="wb-empty__actions">
+            <button class="wb-btn wb-btn--primary" onclick="DoodleGame.start()">Play Guess the Doodle</button>
+            <button class="wb-btn" onclick="dismissEmptyHint()">Got it</button>
+        </div>
     </div>
 
     <!-- The shortcuts, on the ? key. They used to live in title attributes. -->
@@ -2738,6 +2744,8 @@
     <!-- Shapes, text and sticky notes, spoken in the segments the board already
          understands. Loaded after the client, whose globals it borrows. -->
     <script src="whiteboard-tools.js"></script>
+    <script src="doodle-bot.js"></script>
+    <script src="doodle-game.js"></script>
 
     <script>
         // The toolbar used to collapse when its title was clicked, be

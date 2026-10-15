@@ -29,6 +29,7 @@
 .wb-bar,
 .wb-rail,
 .wb-sheet,
+.doodle-card,
 body.wb .unified-footer {
     --text:          #eef2f8;
     --text-body:     #c4cede;
@@ -313,6 +314,9 @@ body.wb .canvas-container {
     color: #334155;
 }
 .wb-empty button { pointer-events: auto; }
+.wb-empty__actions { display: flex; flex-wrap: wrap; justify-content: center; gap: var(--sp-2); }
+.wb-empty .wb-btn--primary { background: var(--brand); border-color: var(--brand); color: var(--on-brand, #04201c); }
+.wb-empty .wb-btn--primary:hover { background: var(--brand-hover); color: #fff; }
 
 /* --- The shortcut sheet --------------------------------------------------- */
 .wb-sheet {
@@ -653,3 +657,72 @@ body.wb .chat-event--error .icon { color: var(--danger); }
 .wb-color { width: 32px; height: 32px; padding: 3px; background-clip: content-box; box-shadow: none; }
 .wb-size { width: 32px; height: 32px; }
 #sizeSlider { min-height: 32px; }
+
+/* --- Guess the Doodle (doodle-game.js) -------------------------------------
+ * The bot draws on the board; this card, in the chrome's own dark, holds the
+ * guess box, the progress of the drawing and the score. It sits above the
+ * room bar at the bottom, clear of the tool rail and the top bar.
+ */
+.doodle-card {
+    position: fixed;
+    left: 50%;
+    bottom: 76px;
+    transform: translateX(-50%);
+    z-index: 950;
+    width: min(440px, calc(100vw - 32px));
+    padding: var(--sp-3) var(--sp-4);
+    background: var(--surface-1);
+    border: 1px solid var(--border-strong);
+    border-radius: var(--r-lg);
+    box-shadow: var(--shadow-3);
+    color: var(--text-body);
+}
+.doodle-card[hidden] { display: none; }
+.doodle-card.is-won { border-color: var(--success); box-shadow: 0 0 0 1px var(--success), var(--shadow-3); }
+.doodle-card.is-wrong { animation: doodle-shake 320ms var(--ease); }
+.doodle-card__head { display: flex; align-items: center; gap: var(--sp-2); }
+.doodle-card__bot { font-size: 22px; line-height: 1; }
+.doodle-card__line { flex: 1; min-width: 0; margin: 0; font-weight: 600; color: var(--text); }
+.doodle-card__bar { height: 4px; margin: var(--sp-2) 0; border-radius: var(--r-pill); background: var(--surface-3); overflow: hidden; }
+.doodle-card__bar span { display: block; height: 100%; width: 0; background: var(--brand); transition: width 120ms linear; }
+.doodle-card__form { display: flex; flex-wrap: wrap; gap: var(--sp-2); }
+.doodle-card__form input {
+    flex: 1 1 140px;
+    min-width: 0;
+    height: 34px;
+    padding: 0 var(--sp-3);
+    font: inherit;
+    color: var(--text);
+    background: var(--surface-2);
+    border: 1px solid var(--border-strong);
+    border-radius: var(--r-md);
+}
+.doodle-card__form input:focus-visible { outline: none; box-shadow: var(--focus-ring); }
+.doodle-card__form .wb-btn { border-color: var(--border-strong); }
+.doodle-card__form .wb-btn--primary { border-color: var(--brand); }
+.doodle-card__score { margin: var(--sp-2) 0 0; font-size: var(--fs-sm); color: var(--text-muted); }
+
+.doodle-burst { position: absolute; left: 50%; top: 30%; pointer-events: none; }
+.doodle-burst i {
+    position: absolute;
+    width: 8px;
+    height: 8px;
+    border-radius: 2px;
+    animation: doodle-pop 1100ms var(--ease) forwards;
+}
+@keyframes doodle-pop {
+    0% { transform: translate(0, 0) scale(1); opacity: 1; }
+    100% { transform: translate(var(--dx), var(--dy)) rotate(260deg) scale(0.6); opacity: 0; }
+}
+@keyframes doodle-shake {
+    0%, 100% { transform: translateX(-50%); }
+    25% { transform: translateX(calc(-50% - 6px)); }
+    75% { transform: translateX(calc(-50% + 6px)); }
+}
+/* On a phone the tool rail runs along the bottom, so the card goes under the top bar. */
+@media (max-width: 720px) {
+    .doodle-card { top: 72px; bottom: auto; }
+}
+@media (prefers-reduced-motion: reduce) {
+    .doodle-card.is-wrong, .doodle-burst i { animation: none; }
+}
