@@ -1120,6 +1120,7 @@
     <script src="../js/common-utils.js"></script>
     <script src="../js/share-modal.js"></script>
     <link rel="stylesheet" href="../css/app-chrome.css">
+    <link rel="stylesheet" href="chat-extras.css">
 </head>
 <body>
 <!-- inline SVG sprite (inlined for compatibility and single-request) -->
@@ -1187,6 +1188,7 @@
                 <button id="disconnect-quick" class="btn ghost" style="flex:1;padding:8px;font-size:12px;">Disconnect</button>
             </div>
             <button id="knock-open" class="btn ghost" type="button" style="padding:8px;font-size:12px;">Ring me when I'm away</button>
+            <button id="companionBtn" class="btn ghost" type="button" style="padding:8px;font-size:12px;">Add a companion</button>
         </div>
 
         <!-- Connection form: shown by default, hidden when connected -->
@@ -1322,6 +1324,7 @@
             </div>
         </section>
 
+        <div class="typing-line" id="typingLine" aria-live="polite"></div>
         <div class="composer">
             <div class="composer-left" style="display: none">
             </div>
@@ -1676,6 +1679,8 @@
             col.append(bubble, meta);
             if (isMe) row.append(col, avatar); else row.append(avatar, col);
             container.appendChild(row);
+            // Links you can open, and reactions (chat-extras.js); not on the welcome note.
+            if (!opts.welcome && window.ChatExtras) ChatExtras.decorate(row, bubble, name, timestamp, message);
 
             // Auto-scroll when the sender is "me", or when the reader is already
             // at the bottom. The scroller is .chat-body, not the column the row
@@ -1913,6 +1918,7 @@
 
         // Keyboard handling: when Enter-to-send is enabled, Enter sends message, Shift+Enter inserts newline
         if (msgEl) {
+            msgEl.addEventListener('input', function () { if (window.ChatExtras) ChatExtras.typing(); });
             msgEl.addEventListener('keydown', function (e) {
                 try {
                     const chk = enterToSendChk || document.getElementById('enterToSend');
@@ -2288,6 +2294,9 @@
                                 }
                             }
 
+                            // Typing and reactions: custom types on the same connection (chat-extras.js).
+                            if (it.type === 'custom' && window.ChatExtras) { ChatExtras.onCustom(it); return; }
+
                             if (it.type === 'chat-text')
                             {
                                 // Ignore system events
@@ -2305,6 +2314,7 @@
                                     ? '🔒 Could not decrypt this message — it was sent with a different channel password'
                                     : (it.content || '(None)');
                                 appendMessage(it.from || agentName || 'Unknown', messageText, isMe, it.date || Date.now());
+                                if (window.ChatExtras) ChatExtras.onText(it);
                             }
                         });
                     } catch (e) { console.warn('message handler', e); }
@@ -2676,6 +2686,8 @@
        this. On an iPhone it only works from a page added to the Home Screen.</p>
 </dialog>
 <script src="chat-knock.js"></script>
+<script src="chat-bot.js"></script>
+<script src="chat-extras.js"></script>
 <script src="../js/active-channel.js"></script>
 <script src="../js/room-defaults.js"></script>
 <script>RoomDefaults.apply({ prefix: 'chat_', channelPrefix: 'chat-', sharedDefaults: ['default'] });</script>
@@ -2689,7 +2701,10 @@ PartyLobby.attach({
     fields: { user: 'agentName', channel: 'channelName', password: 'channelPassword', connect: 'start', form: 'sidebar-details' },
     partyLobby: {
         id: 'chat', title: 'Chat', start: 'Start a chat', players: '2 or more people',
-        waitingRoom: true,
+        waitingRoom: {
+            hint: 'Nobody here yet? Add a companion: a second connection that types, answers and reacts.',
+            solo: { label: 'Add a companion', close: true, run: function () { if (window.ChatExtras) ChatExtras.addCompanion(); } }
+        },
         howTo: [
             'Start a chat and send the code to whoever you want to talk to.',
             'Messages are encrypted in your browser before they leave it.',

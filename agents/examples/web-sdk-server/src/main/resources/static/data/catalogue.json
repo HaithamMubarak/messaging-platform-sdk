@@ -33,10 +33,10 @@
       "url": "/messaging-platform/sdk/apps/chat.html",
       "image": "img/playground/chat.webp", "imageAlt": "The chat demo connected with two agents in the channel and three messages exchanged.", "icon": "i-message",
       "blurb": "The raw connection API: channels, presence and encrypted messages.",
-      "text": "The only demo on the raw connection API rather than the wrapper: connect by channel ID, resume a session after a reload, and approve another agent's key before they can join. \"Ring me when I'm away\" adds Knock: a content-free push that reaches somebody whose page is closed.",
+      "text": "The only demo on the raw connection API rather than the wrapper: connect by channel ID, resume a session after a reload, and approve another agent's key before they can join. \"Ring me when I'm away\" adds Knock: a content-free push that reaches somebody whose page is closed. Typing and reactions are custom message types, one ephemeral and one kept; alone, add a companion that types, answers and reacts.",
       "badges": ["Raw AgentConnection", "Presence", "Knock push"],
       "call": "channel.sendMessage(text, done)",
-      "source": ["apps/chat.html", "apps/chat-knock.js"]
+      "source": ["apps/chat.html", "apps/chat-knock.js", "apps/chat-extras.js", "apps/chat-bot.js"]
     },
     {
       "id": "under-the-hood", "name": "Under the Hood", "audience": "learn", "shelf": "learn", "status": "live",

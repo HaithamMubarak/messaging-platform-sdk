@@ -1,0 +1,65 @@
+/* Chat's extras (chat-extras.js): links, reactions, who is typing.
+   Loaded after chat.html's own styles. */
+
+/* Message text reads left to right, like any message, not centred. */
+.bubble { text-align: left; }
+
+/* The width limit belongs on the column, not the bubble. The bubble's
+   max-width: 68% was a share of a column that shrinks to fit the bubble, so
+   each squeezed the other: "hello Bob" came out 56 px wide, three lines tall.
+   The column now takes the limit and the bubble fills what it needs of it. */
+.msg-col { max-width: 68%; min-width: 0; }
+.bubble { max-width: 100%; }
+@media (max-width: 720px) { .msg-col { max-width: 85%; } }
+.bubble a { color: inherit; text-decoration: underline; text-underline-offset: 2px; word-break: break-all; }
+.bubble.me a { color: #071225; }
+
+/* Reactions: a small tray on hover (or a tap on a phone), chips under the bubble. */
+.msg-col { position: relative; }
+.react-tray {
+    position: absolute;
+    top: -30px;
+    display: none;
+    gap: 2px;
+    padding: 3px;
+    border-radius: 999px;
+    background: #0f1b2e;
+    border: 1px solid rgba(148, 163, 184, .25);
+    box-shadow: 0 6px 18px rgba(0, 0, 0, .4);
+    z-index: 5;
+}
+.msg-left .react-tray { left: 0; }
+.msg-right .react-tray { right: 0; }
+.msg-row:hover .react-tray, .msg-row:focus-within .react-tray, .msg-row.show-react .react-tray { display: inline-flex; }
+.react-tray button {
+    width: 32px; height: 32px;
+    border: 0; border-radius: 50%;
+    background: transparent;
+    font-size: 17px; line-height: 1;
+    cursor: pointer;
+}
+.react-tray button:hover, .react-tray button:focus-visible { background: rgba(148, 163, 184, .2); outline: none; }
+.react-chips { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 4px; }
+.react-chips:empty { display: none; }
+.react-chip {
+    padding: 2px 8px;
+    border-radius: 999px;
+    border: 1px solid rgba(148, 163, 184, .3);
+    background: rgba(15, 27, 46, .9);
+    color: #dbeafe;
+    font-size: 12px;
+    cursor: pointer;
+    animation: react-pop 260ms cubic-bezier(.22, 1, .36, 1);
+}
+.react-chip.is-mine { border-color: var(--accent, #22d3ee); background: rgba(34, 211, 238, .15); }
+@keyframes react-pop { from { transform: scale(.6); opacity: 0; } }
+
+/* Who is typing, just above the composer; takes no room when nobody is. */
+.typing-line { min-height: 18px; padding: 2px 16px; font-size: 12px; color: var(--muted, #8a97ab); font-style: italic; }
+
+/* The site's SDK / More demos chip sits at the bottom-left of a phone, which is
+   where the composer is: keep the composer clear of it. */
+@media (max-width: 720px) {
+    .composer { margin-bottom: 56px; }
+}
+@media (prefers-reduced-motion: reduce) { .react-chip { animation: none; } }
