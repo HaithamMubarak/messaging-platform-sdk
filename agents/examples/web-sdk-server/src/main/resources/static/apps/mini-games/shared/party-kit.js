@@ -79,8 +79,13 @@
                 this.hostReceive(data._fromClient || peerId, data);
                 return;
             }
-            // Everyone else trusts exactly one sender.
-            if (peerId !== this._getHostName()) return;
+            // Everyone else trusts exactly one sender: the host, by name. The
+            // host's CONNECTION is not enough, because in p2p-host mode the host
+            // forwards a guest's untargeted message to everyone else on that same
+            // connection (stamped with the guest's name). Checking the peer let
+            // a guest broadcast a 'state' every other guest believed: a verdict
+            // nobody voted for. senderOf reads the stamp.
+            if (this.senderOf(peerId, data) !== this._getHostName()) return;
             this.clientReceive(data);
         }
 

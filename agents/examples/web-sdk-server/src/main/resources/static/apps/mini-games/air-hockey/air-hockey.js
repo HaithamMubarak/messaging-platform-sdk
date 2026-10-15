@@ -480,14 +480,21 @@ class AirHockeyGame extends UserConnectionBase {
                            'game-pause-player-join', 'game-resume', 'game-resume-after-join',
                            'goal', 'game-state', 'settings-change', 'player-assignments',
                            'reset-ball', 'new-game', 'bot-paddles'];
-        if (HOST_ONLY.indexOf(data.type) !== -1 && !this.isHostPeer(peerId)) {
-            console.warn('[AirHockey] Ignoring', data.type, 'from a non-host peer:', peerId);
+        //
+        // Who sent it is read through the relay's stamp, not taken from the
+        // connection it arrived on: in p2p-host mode the host forwards each
+        // guest's broadcast to the others on its own connection. By peer, a
+        // guest's 'goal' passed as the host's, and in a game of three a guest's
+        // paddle moved the HOST's paddle on everyone else's screen.
+        const from = this.senderOf(peerId, data);
+        if (HOST_ONLY.indexOf(data.type) !== -1 && !this.isHostPeer(from)) {
+            console.warn('[AirHockey] Ignoring', data.type, 'from a non-host peer:', from);
             return;
         }
 
         switch (data.type) {
             case 'paddle-update':
-                this.handlePaddleUpdate(peerId, data);
+                this.handlePaddleUpdate(from, data);
                 break;
             case 'puck-update':
                 if (!this.isHost()) {
