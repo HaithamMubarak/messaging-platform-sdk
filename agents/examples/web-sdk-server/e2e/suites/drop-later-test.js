@@ -84,9 +84,20 @@ async function open(b, room, name) {
     check(tomb && tomb.by === 'Collector',
         `collecting records who took it (${tomb && tomb.by})`);
 
-    const hidden = await second.evaluate(() =>
-        !(document.getElementById('mbDrops').innerText || '').includes('this one is read once'));
+    // Re-pinned 2026-10-16 (guidelines 6.8). This asked the COLLECTOR's own page
+    // to stop showing the note, which held while a read-once note was shown to
+    // everyone before collection. It now stays sealed (in Vault) until someone
+    // collects it, and the collector sees it once in their own tab. The promise
+    // underneath is unchanged: after collection nobody else sees it, and it is
+    // not kept anywhere. Checked from a newcomer's page, which reads the box
+    // afresh.
+    const latecomer = await open(b, room, 'Latecomer');
+    await latecomer.waitForTimeout(3000);
+    const hidden = await latecomer.evaluate(() =>
+        !(document.getElementById('mbDrops').innerText || '').includes('this one is read once')
+        && /Collected by Collector/.test(document.getElementById('mbDrops').innerText || ''));
     check(hidden, 'and a collected read-once drop no longer shows its contents');
+    await latecomer.context().close();
 
     // ---- a file too big for the box goes to the vault, visibly -------------
     //

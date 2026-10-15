@@ -23,9 +23,16 @@
  *
  *  - Nothing is relayed peer to peer. There is no peer. The store IS the
  *    transport, which is why this works with nobody else online.
- *  - A drop can be marked read-once. Collecting it writes a tombstone, so the
- *    next person to open the box sees that it was taken and by whom, not the
- *    contents.
+ *  - A drop can be marked read-once. A read-once NOTE goes to Vault, like a
+ *    big file, and collecting it deletes it there: the box keeps a card that
+ *    says who took it, and nothing else. (It used to stay in the box's storage,
+ *    where anyone with the room password could still read it; read-once only
+ *    hid it on this page.)
+ *  - Who left a drop, and who collected it, is SIGNED: each one is sealed with
+ *    Attest, and the card names the person the platform recorded, not the name
+ *    the drop gave itself. Storage keeps no author, so a drop "from Ann" left by
+ *    somebody else, or a forged "collected by Ann", now shows as unsigned and is
+ *    not believed.
  *  - Small drops stay in channel storage, where the promise is "the bytes were
  *    never on a server in a form anybody could read". Anything past that goes
  *    to VAULT, where the promise is different and weaker: the ciphertext IS
@@ -52,6 +59,29 @@
     /** The ceiling for a vaulted drop. Past this, say no rather than crawl. */
     var MAX_VAULT_BYTES = 100 * 1024 * 1024;
     var MAX_DROPS_SHOWN = 50;
+    var SEAL_CHAIN = 'drop-box';     // Attest chain: who left a drop, who took it
+
+    async function sha256Text(text) {
+        var digest = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(text));
+        return [].slice.call(new Uint8Array(digest)).map(function (b) { return b.toString(16).padStart(2, '0'); }).join('');
+    }
+
+    /**
+     * What a drop's seal covers: its id, its words, what file it carries, and
+     * a random salt that lives only inside the encrypted drop. The seal's hash
+     * is public, and a bare hash of a short note can be confirmed by guessing
+     * it; with the salt, only someone who can open the box can.
+     */
+    function sealText(drop) {
+        var f = drop.file ? drop.file.name + ':' + drop.file.size : drop.noteVault ? 'note' : '';
+        return 'drop|' + drop.id + '|' + (drop.salt || '') + '|' + (drop.text || '') + '|' + f;
+    }
+    function takenText(drop) { return 'collected|' + drop.id + '|' + (drop.salt || ''); }
+
+    function randomSalt() {
+        var b = crypto.getRandomValues(new Uint8Array(16));
+        return [].slice.call(b).map(function (x) { return x.toString(16).padStart(2, '0'); }).join('');
+    }
 
     function el(id) { return document.getElementById(id); }
 
@@ -156,20 +186,67 @@
 
                 // A read-once drop that has been collected shows as a
                 // tombstone: who took it and when, never what it said.
-                drops.forEach(function (drop) {
-                    var taken = collected[drop.id];
-                    if (taken) {
-                        drop.collectedBy = taken.by;
-                        drop.collectedAt = taken.at;
-                    }
+                self.seals().then(function (seals) {
+                    return self.judge(drops, collected, seals);
+                }).then(function () {
+                    drops.sort(function (a, b) { return (b.at || 0) - (a.at || 0); });
+                    self.drops = drops.slice(0, MAX_DROPS_SHOWN);
+                    el('boxState').textContent = self.drops.length
+                        ? self.drops.length + ' drop(s) in this box'
+                        : 'This box is empty.';
+                    self.render();
                 });
+            });
+        }
 
-                drops.sort(function (a, b) { return (b.at || 0) - (a.at || 0); });
-                self.drops = drops.slice(0, MAX_DROPS_SHOWN);
-                el('boxState').textContent = self.drops.length
-                    ? self.drops.length + ' drop(s) in this box'
-                    : 'This box is empty.';
-                self.render();
+        /** Every seal in the box's chain, by content hash (earliest kept); nothing if the chain does not verify. */
+        seals() {
+            var self = this;
+            return new Promise(function (resolve) {
+                if (typeof self.channel.attestList !== 'function') { resolve({}); return; }
+                self.channel.attestList(SEAL_CHAIN, function (res) {
+                    var bundle = res && res.status === 'success' ? res.data : null;
+                    var by = {};
+                    if (!bundle || !Array.isArray(bundle.records)) { resolve(by); return; }
+                    Promise.resolve(window.AgentConnection.attestVerify ? window.AgentConnection.attestVerify(bundle) : { ok: true })
+                        .then(function (v) {
+                            if (v && v.ok) bundle.records.forEach(function (r) { if (!by[r.contentHash]) by[r.contentHash] = r; });
+                            resolve(by);
+                        }, function () { resolve(by); });
+                });
+            });
+        }
+
+        /**
+         * Who left each drop and who took it, as the platform recorded them.
+         * A drop's author is the agent on its seal; a tombstone counts only if
+         * the platform sealed it, and names whoever really sealed it.
+         */
+        async judge(drops, collected, seals) {
+            for (var i = 0; i < drops.length; i++) {
+                var drop = drops[i];
+                var seal = seals[await sha256Text(sealText(drop))];
+                drop.signedBy = seal && seal.kind === 'drop' ? seal.stamp.agent : null;
+                var took = seals[await sha256Text(takenText(drop))];
+                if (took && took.kind === 'collected') {
+                    drop.collectedBy = took.stamp.agent;
+                    drop.collectedAt = Date.parse(took.stamp.serverTime) || (collected[drop.id] || {}).at;
+                } else if (collected[drop.id]) {
+                    drop.forgedTombstone = collected[drop.id].by || 'someone';
+                }
+            }
+        }
+
+        /** Seal a hash with Attest; resolves to the receipt, or null. */
+        seal(kind, text) {
+            var self = this;
+            return sha256Text(text).then(function (contentHash) {
+                return new Promise(function (resolve) {
+                    if (typeof self.channel.attest !== 'function') { resolve(null); return; }
+                    self.channel.attest({ chainKey: SEAL_CHAIN, kind: kind, contentHash: contentHash, meta: {} }, function (r) {
+                        resolve(r && r.status === 'success' ? r : null);
+                    });
+                });
             });
         }
 
@@ -189,7 +266,8 @@
                 by: this.username,
                 at: Date.now(),
                 readOnce: el('readOnce').checked,
-                text: text
+                text: text,
+                salt: randomSalt()
             };
 
             if (this.pending && this.pending.vaulted) {
@@ -227,10 +305,38 @@
                 };
             }
 
+            if (drop.readOnce && drop.text && typeof this.channel.vaultPut === 'function') {
+                this.vaultNote(drop);
+                return;
+            }
             this.finishDrop(drop);
         }
 
+        /**
+         * A read-once note is kept in Vault, not in the box: collecting it
+         * deletes it there, so "read once" is a fact and not a page that hides
+         * text everybody with the password could still read.
+         */
+        vaultNote(drop) {
+            var self = this;
+            this.say('Encrypting and storing…');
+            this.channel.vaultPut(new Blob([drop.text], { type: 'text/plain' }), { ttlSeconds: 30 * 24 * 3600 })
+                .then(function (put) {
+                    drop.noteVault = { blobId: put.blobId, key: put.key, chars: drop.text.length };
+                    drop.text = '';
+                    self.finishDrop(drop);
+                }).catch(function (e) { self.say('Could not store that note — ' + (e && e.message)); });
+        }
+
         finishDrop(drop) {
+            var self = this;
+            this.seal('drop', sealText(drop)).then(function (receipt) {
+                if (!receipt) self.say('Left, but the platform did not sign it: it will show as unsigned.');
+                self.writeDrop(drop);
+            });
+        }
+
+        writeDrop(drop) {
             this.write(drop, function (ok) {
                 if (!ok) return;
                 el('noteText').value = '';
@@ -331,6 +437,18 @@
                 setTimeout(function () { URL.revokeObjectURL(url); }, 1000);
             }
 
+            if (drop.noteVault) {
+                this.say('Fetching and decrypting…');
+                this.channel.vaultGet(drop.noteVault.blobId, drop.noteVault.key)
+                    .then(function (bytes) {
+                        self.opened = { id: drop.id, text: new TextDecoder().decode(bytes) };
+                        self.tombstone(drop);
+                        self.render();
+                    })
+                    .catch(function () { self.say('That note could not be fetched: somebody may have collected it first, or it expired.'); });
+                return;
+            }
+
             if (drop.file && drop.file.vault) {
                 this.say('Fetching and decrypting…');
                 this.channel.vaultGet(drop.file.vault.blobId, drop.file.vault.key)
@@ -358,9 +476,15 @@
             if (drop.readOnce && !drop.collectedBy) {
                 // A tombstone, not a deletion: the box records that it was
                 // taken and by whom, which is the useful half of read-once.
-                this.write({
-                    kind: 'collected', dropId: drop.id, by: this.username, at: Date.now()
-                }, function () { this.refresh(); }.bind(this));
+                // Sealed, so "collected by" names who really took it.
+                var self = this;
+                this.seal('collected', takenText(drop)).then(function () {
+                    self.write({ kind: 'collected', dropId: drop.id, by: self.username, at: Date.now() },
+                        function () { self.refresh(); });
+                });
+                if (drop.noteVault && typeof this.channel.vaultDelete === 'function') {
+                    this.channel.vaultDelete(drop.noteVault.blobId, function () {});
+                }
                 if (drop.file && drop.file.vault && typeof this.channel.vaultDelete === 'function') {
                     // Read-once means gone. A tombstone in the box with the
                     // ciphertext still sitting in the vault would make
@@ -400,8 +524,13 @@
                 var head = document.createElement('div');
                 head.className = 'dd-drop__head';
                 var who = document.createElement('span');
-                who.className = 'dd-drop__by';
-                who.textContent = drop.by || 'someone';
+                who.className = 'dd-drop__by' + (drop.signedBy ? ' is-signed' : ' is-unsigned');
+                // The platform's word for who left it; the drop's own claim only
+                // as a claim, never as a fact.
+                who.textContent = drop.signedBy ? drop.signedBy + ' ✓'
+                    : 'says it is from ' + (drop.by || 'someone') + ' · not signed';
+                who.title = drop.signedBy ? 'Signed by the platform when it was left'
+                    : 'Nothing signed this drop, so its name is only what it says about itself';
                 var when = document.createElement('span');
                 when.className = 'dd-drop__when';
                 when.textContent = relative(drop.at || Date.now());
@@ -426,13 +555,41 @@
                 }
                 card.appendChild(head);
 
-                if (drop.collectedBy) {
+                if (self.opened && self.opened.id === drop.id) {
+                    var read = document.createElement('p');
+                    read.className = 'dd-drop__text dd-drop__text--once';
+                    read.textContent = self.opened.text;
+                    card.appendChild(read);
+                    var gone = document.createElement('p');
+                    gone.className = 'dd-drop__taken';
+                    gone.textContent = 'Read once: it is gone from the server now. Copy it if you need it.';
+                    card.appendChild(gone);
+                } else if (drop.collectedBy) {
                     var taken = document.createElement('p');
                     taken.className = 'dd-drop__taken';
-                    taken.textContent = 'Collected by ' + drop.collectedBy + ' · ' +
+                    taken.textContent = 'Collected by ' + drop.collectedBy + ' ✓ · ' +
                         relative(drop.collectedAt || Date.now());
                     card.appendChild(taken);
+                } else if (drop.noteVault) {
+                    var sealed = document.createElement('p');
+                    sealed.className = 'dd-drop__text dd-drop__text--sealed';
+                    sealed.textContent = 'A read-once note (' + drop.noteVault.chars + ' characters). '
+                        + 'Reading it deletes it for everyone.';
+                    card.appendChild(sealed);
+                    var open = document.createElement('button');
+                    open.className = 'btn btn--sm btn--primary';
+                    open.type = 'button';
+                    open.textContent = 'Read it once';
+                    open.addEventListener('click', function () { self.collect(drop.id); });
+                    card.appendChild(open);
                 } else {
+                    if (drop.forgedTombstone) {
+                        var odd = document.createElement('p');
+                        odd.className = 'dd-drop__odd';
+                        odd.textContent = 'Someone wrote that ' + drop.forgedTombstone
+                            + ' collected this, but the platform has no record of it, so it is still here.';
+                        card.appendChild(odd);
+                    }
                     if (drop.text) {
                         var body = document.createElement('p');
                         body.className = 'dd-drop__text';

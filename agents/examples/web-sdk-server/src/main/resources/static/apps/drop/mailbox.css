@@ -119,3 +119,10 @@
 @media (pointer: coarse) {
     label[for="readOnce"] { display: inline-flex; align-items: center; min-height: 44px; }
 }
+
+/* Who left it: signed by the platform, or only a claim. */
+.dd-drop__by.is-signed { color: var(--text); }
+.dd-drop__by.is-unsigned { color: var(--warning); font-weight: 500; }
+.dd-drop__text--sealed { color: var(--text-muted); font-style: italic; }
+.dd-drop__text--once { border-left: 3px solid var(--brand); padding-left: var(--sp-3); }
+.dd-drop__odd { margin: var(--sp-2) 0 0; font-size: var(--fs-xs); color: var(--warning); }
