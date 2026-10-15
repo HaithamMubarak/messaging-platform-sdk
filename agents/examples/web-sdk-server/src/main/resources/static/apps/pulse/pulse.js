@@ -42,6 +42,32 @@
         setTimeout(function () { bubble.remove(); }, 2600);
     }
 
+    var LEAD_FLASH_MS = 2500;
+
+    /** A burst of colour from an element: the winner's bar, when the bell rings. */
+    function confetti(el) {
+        if (window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+        // On the page, over the element: the poll redraws every second and
+        // would take a burst inside it away half-way through.
+        var box = el.getBoundingClientRect();
+        var burst = document.createElement('span');
+        burst.className = 'poll-burst';
+        burst.style.left = (box.left + box.width / 2) + 'px';
+        burst.style.top = (box.top + box.height / 2) + 'px';
+        burst.setAttribute('aria-hidden', 'true');
+        var colours = ['#f43f5e', '#f59e0b', '#22c55e', '#06b6d4', '#8b5cf6', '#eab308'];
+        for (var i = 0; i < 28; i++) {
+            var bit = document.createElement('i');
+            var a = (i / 28) * Math.PI * 2;
+            bit.style.setProperty('--dx', Math.round(Math.cos(a) * (80 + (i % 3) * 40)) + 'px');
+            bit.style.setProperty('--dy', Math.round(Math.sin(a) * (40 + (i % 4) * 18) - 20) + 'px');
+            bit.style.background = colours[i % colours.length];
+            burst.appendChild(bit);
+        }
+        document.body.appendChild(burst);
+        setTimeout(function () { burst.remove(); }, 1300);
+    }
+
     class Pulse extends UserConnectionBase {
         constructor() {
             super({
@@ -106,8 +132,11 @@
 
             switch (data.type) {
                 case 'state':
-                    // Only the host's word counts for state.
-                    if (this.isHost()) break;
+                    // Only the host's word counts for state. This used to ask
+                    // only whether THIS tab was the host, so any guest could
+                    // broadcast a poll ("HACKED: vote for Mal") and questions
+                    // signed with anyone's name onto every other screen.
+                    if (this.isHost() || from !== this._getHostName()) break;
                     this.poll = data.poll || null;
                     this.questions = data.questions || [];
                     this.versions = data.versions || this.versions;
@@ -297,7 +326,7 @@
                 self._wasOpen = self.open;
                 self.renderPoll();
                 if (wasOpen && !self.open) {
-                    UI.toast('The poll has closed', 'info');
+                    self._announceResult();
                     // The final tally deserves a version of its own.
                     if (self.isHost()) self._hostCommit('closed');
                 }
@@ -607,6 +636,46 @@
             ]);
             host.replaceChildren(this._pollHead(past, open, total), title,
                 UI.el('div', { class: 'poll__options' }, this._pollBars(counts, total, past, open)));
+            if (!past && !open && total) host.appendChild(this._resultBanner(counts, total));
+        }
+
+        /**
+         * Who won, in words: the option and its share, or the options that
+         * tied. Shown under a closed poll; the bell plays it with confetti once.
+         */
+        _result(counts, total) {
+            var max = Math.max.apply(null, this.poll.options.map(function (o) { return counts[o.id] || 0; }).concat([0]));
+            var top = this.poll.options.filter(function (o) { return max && (counts[o.id] || 0) === max; });
+            if (!top.length) return null;
+            return {
+                ids: top.map(function (o) { return o.id; }),
+                text: top.length === 1
+                    ? top[0].label + ' wins, with ' + max + ' of ' + total + (total === 1 ? ' vote' : ' votes')
+                        + ' (' + Math.round(100 * max / total) + '%)'
+                    : 'A tie: ' + top.map(function (o) { return o.label; }).join(' and ') + ', ' + max + ' each'
+            };
+        }
+
+        _resultBanner(counts, total) {
+            var r = this._result(counts, total);
+            return UI.el('div', { class: 'poll__result', role: 'status' }, [
+                UI.el('span', { class: 'poll__result-icon', 'aria-hidden': 'true' }, r && r.ids.length === 1 ? '🏆' : '🤝'),
+                UI.el('span', {}, r ? r.text : 'No votes')
+            ]);
+        }
+
+        /** The bell: every screen reaches it on its own, from the same closing time. */
+        _announceResult() {
+            var counts = this._tally();
+            var total = Object.keys(counts).reduce(function (n, k) { return n + counts[k]; }, 0);
+            var r = total ? this._result(counts, total) : null;
+            UI.toast(r ? r.text : 'The poll has closed with no votes', 'info', 5000);
+            this.renderPoll();
+            if (!r || this.viewing !== null) return;
+            r.ids.forEach(function (id) {
+                var bar = document.querySelector('.poll-option[data-option="' + CSS.escape(id) + '"]');
+                if (bar) confetti(bar);
+            });
         }
 
         /** Live / closed / a past version, the count, and the host's buttons. */
@@ -642,6 +711,13 @@
             var self = this;
             var max = Math.max.apply(null, this.poll.options.map(function (o) { return counts[o.id] || 0; }).concat([0]));
             var leaders = this.poll.options.filter(function (o) { return max && (counts[o.id] || 0) === max; }).length;
+            // A new sole leader, live: say so for a moment. Never while scrubbing,
+            // where the lead changing is the past, not news.
+            var leaderNow = leaders === 1 ? this.poll.options.filter(function (o) { return (counts[o.id] || 0) === max; })[0].id : null;
+            var tookLead = !past && open && leaderNow && this._leader && leaderNow !== this._leader ? leaderNow : null;
+            if (!past) this._leader = leaderNow || this._leader;
+            if (tookLead) { this._tookLeadAt = Date.now(); this._tookLead = tookLead; }
+            var flash = this._tookLead && Date.now() - (this._tookLeadAt || 0) < LEAD_FLASH_MS ? this._tookLead : null;
             return this.poll.options.map(function (opt, i) {
                 var n = counts[opt.id] || 0;
                 var pct = total ? Math.round((n / total) * 100) : 0;
@@ -650,13 +726,14 @@
                 return UI.el('button', {
                     type: 'button',
                     class: 'poll-option poll-option--c' + (i % 6) + (mine ? ' is-mine' : '') + (leads ? ' is-leading' : '')
-                        + ((past || !open) ? ' is-shut' : ''),
+                        + ((past || !open) ? ' is-shut' : '') + (!past && flash === opt.id ? ' took-lead' : '')
+                        + (!past && !open && n === max && max > 0 ? ' is-winner' : ''),
                     'data-option': opt.id,
                     disabled: (past || !open) ? true : null
                 }, [
                     UI.el('span', { class: 'poll-option__row' }, [
                         UI.el('span', { class: 'poll-option__label' }, opt.label),
-                        leads ? UI.el('span', { class: 'poll-option__lead' }, 'Leading') : '',
+                        leads ? UI.el('span', { class: 'poll-option__lead' }, !past && !open ? 'Winner' : !past && flash === opt.id ? 'New leader!' : 'Leading') : '',
                         UI.el('span', { class: 'poll-option__n' }, n + ' · ' + pct + '%')
                     ]),
                     UI.el('span', { class: 'poll-option__track' }, [
