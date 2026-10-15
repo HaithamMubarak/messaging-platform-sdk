@@ -129,3 +129,8 @@
 @media (max-width: 520px) {
     .hood-node__label { display: none; }
 }
+
+/* The server, and each person's round trip on each path. */
+.hood-server__box { fill: var(--surface-2); stroke: var(--border-strong); stroke-width: 2; }
+.hood-server__label { fill: var(--text-muted); font: 700 12px var(--font-mono); letter-spacing: 0.04em; }
+.hood-rtt { margin-left: auto; font: 600 var(--fs-xs) var(--font-mono); color: var(--brand-ink); white-space: nowrap; }

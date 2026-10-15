@@ -14,7 +14,9 @@
  *   - the roster, in join order, because that is what host election sorts on:
  *     the host is the first one in, and everyone independently agrees;
  *   - the relay topology (star through the host, or mesh), with every ping
- *     drawn travelling the route it really takes;
+ *     drawn travelling the route it really took: a channel message through the
+ *     SERVER, a data-channel message direct or through the host, read from who
+ *     handed it over, not assumed; and each person's round trip on each path;
  *   - "Pass the crown", which makes the host leave on purpose so you can watch
  *     an election happen, and "Rejoin", which puts you back at the end of the
  *     line — so the crown does not come back to you;
@@ -27,6 +29,8 @@
     var SVG = 'http://www.w3.org/2000/svg';
     var W = 560, H = 420, CX = W / 2, CY = H / 2 - 12, RING = 165;
     var HOP_MS = 420;
+    var SERVER = 'the server';
+    var SERVER_AT = { x: W - 52, y: 40 };    // top right, clear of the ring of people
     var COLORS = ['#fbbf24', '#2dd4bf', '#fb923c', '#a78bfa', '#38bdf8', '#f472b6'];
 
     function el(id) { return document.getElementById(id); }
@@ -63,6 +67,8 @@
                 autoCreateDataChannel: true    // so the topology has edges to draw
             });
             this.log = [];
+            this.rtt = {};          // name -> { p2p: ms }, from the last pongs
+            this.serverRtt = undefined;   // our last ping through the server, there and back
             this.points = {};       // where each name is drawn, for the packets
             this.lastHost = null;
             this.creds = null;      // { username, channelName (the base), channelPassword, appId }
@@ -134,12 +140,53 @@
             this.refresh();
         }
 
+        /**
+         * A channel message: it went from the sender to the SERVER and from
+         * there to here. The drawing used to send it through the host, which is
+         * the data channel's route in a star, not the channel's.
+         */
         onGameMessage(detail) {
             var from = this.senderOf(detail) || 'unknown';
             var data = (detail && detail.data) ? detail.data : detail;
             var type = data && data.type ? data.type : 'message';
-            this.note('message', from + ' sent ' + (type === 'ping' ? 'a ping' : type));
-            this.flyRoute(this.routeFrom(from));
+            // The server echoes our own message back to us. That is not news
+            // for the log, but it is the honest measure of the server path:
+            // our ping's round trip to the server and back, with no one else
+            // having to answer. (A guest answering over the channel tripped
+            // a server fault, filed 2026-10-15: a newly joined agent's push is
+            // held until it receives, and the held reply stopped the host
+            // rejoining under its own name.)
+            if (from === this.username) {
+                if (type === 'ping' && data.at) { this.serverRtt = Math.max(0, Date.now() - data.at); this.refresh(); }
+                return;
+            }
+            this.note('message', from + ' sent ' + (type === 'ping' ? 'a ping, through the server' : type));
+            this.flyRoute([[from, SERVER, this.username]]);
+            this.refresh();
+        }
+
+        /**
+         * A data-channel message. Who handed it over says how it came: from the
+         * sender itself is direct; from the host, stamped with the sender, is
+         * relayed. Drawn and logged as it really happened.
+         */
+        onDataChannelMessage(peerId, data) {
+            if (!data || !data.type) return;
+            var from = this.senderOf(peerId, data);
+            if (data.type === 'pong') { this._pong(from, data, 'p2p'); return; }
+            if (data.type !== 'ping') return;
+            var relayed = from !== peerId;
+            this.note('message', from + ' sent a ping, peer to peer, ' + (relayed ? 'relayed by ' + peerId : 'straight to you'));
+            this.flyRoute([relayed ? [from, peerId, this.username] : [from, this.username]]);
+            if (data.at) this.sendData({ type: 'pong', at: data.at }, from);
+            this.refresh();
+        }
+
+        /** A reply to one of our pings: that person's round trip on that path. */
+        _pong(from, data, path) {
+            if (!data.at || !from) return;
+            var ms = Math.max(0, Date.now() - data.at);
+            this.rtt[from] = Object.assign(this.rtt[from] || {}, { [path]: ms });
             this.refresh();
         }
 
@@ -150,11 +197,20 @@
 
         // ---- actions ---------------------------------------------------------
 
-        ping() {
+        /** A ping to everyone, through the server (the channel) or peer to peer (the data channel). */
+        ping(path) {
             if (!this.connected) return;
-            this.sendCustomEventMessage({ type: 'ping', at: Date.now() }, '*');
-            this.note('sent', 'You sent a ping to everyone');
-            this.flyRoute(this.routeFrom(this.username));
+            var others = (this.getConnectedUsers() || []).filter(function (u) { return u !== this.username; }, this);
+            if (path === 'p2p') {
+                this.sendData({ type: 'ping', at: Date.now() });
+                this.note('sent', 'You sent a ping peer to peer');
+                this.flyRoute(this.routeFrom(this.username));
+            } else {
+                this.sendCustomEventMessage({ type: 'ping', at: Date.now() }, '*');
+                this.note('sent', 'You sent a ping through the server');
+                var me = this.username;
+                this.flyRoute(others.map(function (u) { return [me, SERVER, u]; }));
+            }
             this.refresh();
         }
 
@@ -258,6 +314,7 @@
             el('meHost').textContent = !this.connected ? 'outside' : this.isHost() ? 'the host' : 'a guest';
             el('meHost').className = 'hood-fact__value' + (this.isHost() ? ' is-yes' : '');
             el('crown').textContent = host || '—';
+            el('serverRtt').textContent = this.serverRtt !== undefined ? this.serverRtt + ' ms' : '—';
             this.renderControls();
             this.renderRoster(users, host);
             this.renderTopology(users, host);
@@ -267,6 +324,7 @@
         renderControls() {
             var inRoom = this.connected;
             el('pingBtn').disabled = !inRoom;
+            el('pingDirectBtn').disabled = !inRoom;
             el('stepAsideBtn').disabled = !inRoom || !this.isHost();
             el('stepAsideBtn').title = this.isHost() ? '' : 'Only the crown holder can pass it on';
             el('rejoinBtn').hidden = inRoom || !this.creds;
@@ -289,6 +347,12 @@
                 if (name === self.username) row.appendChild(tag('you', 'badge'));
                 if (name !== self.username && typeof self.isDataChannelOpen === 'function' && self.isDataChannelOpen(name)) {
                     row.appendChild(tag('p2p', 'badge badge--success'));
+                }
+                var rtt = self.rtt[name];
+                if (rtt && rtt.p2p !== undefined && name !== self.username) {
+                    var r = tag(rtt.p2p + ' ms', 'hood-rtt');
+                    r.title = 'Round trip of your last peer-to-peer ping to ' + name;
+                    row.appendChild(r);
                 }
                 target.appendChild(row);
             });
@@ -317,10 +381,14 @@
                 users.forEach(function (a, i) { users.slice(i + 1).forEach(function (b) { root.appendChild(edge(p[a], p[b], true)); }); });
             }
             var self = this;
+            if (users.length) { this.points[SERVER] = SERVER_AT; root.appendChild(serverNode(SERVER_AT)); }
             users.forEach(function (name) { root.appendChild(node(name, p[name], name === host, name === self.username)); });
+            // What the lines mean, and what they do not: channel messages never
+            // use them, they go through the server.
             el('topologyNote').textContent = !users.length ? ''
-                : star ? 'Star: every message goes through ' + host + ', the crown holder.'
-                    : 'Mesh: peers talk to each other directly.';
+                : (star ? 'Star: peer-to-peer messages go through ' + host + ', the crown holder.'
+                    : 'Mesh: peer-to-peer messages go straight between peers.')
+                  + ' Channel messages go through the server.';
         }
 
         renderLog() {
@@ -374,6 +442,14 @@
         return g;
     }
 
+    /** The messaging server, where every channel message goes on its way. */
+    function serverNode(p) {
+        var g = svg('g', { class: 'hood-server' });
+        g.appendChild(svg('rect', { x: p.x - 38, y: p.y - 18, width: 76, height: 36, rx: 10, class: 'hood-server__box' }));
+        g.appendChild(svg('text', { x: p.x, y: p.y + 5, class: 'hood-server__label', 'text-anchor': 'middle' }, 'server'));
+        return g;
+    }
+
     /** One packet along a list of points, a hop at a time. Skipped when motion is reduced. */
     function flyPacket(pts) {
         if (window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
@@ -395,7 +471,8 @@
         var app = new UnderTheHood();
         window.underTheHood = app;
 
-        el('pingBtn').addEventListener('click', function () { app.ping(); });
+        el('pingBtn').addEventListener('click', function () { app.ping('server'); });
+        el('pingDirectBtn').addEventListener('click', function () { app.ping('p2p'); });
         el('stepAsideBtn').addEventListener('click', function () { app.stepAside(); });
         el('rejoinBtn').addEventListener('click', function () { app.rejoin(); });
         el('anotherTabBtn').addEventListener('click', function () { app.openAnotherTab(); });
@@ -413,7 +490,7 @@
                 tagline: 'See every connection live, then pass the crown and watch the room elect another host.',
                 howTo: [
                     'Open the room, then press "Open another tab" to be two people at once.',
-                    'Send a ping and watch it travel through the host.',
+                    'Ping through the server, then peer to peer, and see the two routes.',
                     'Pass the crown and see who takes over.',
                 ],
             },
