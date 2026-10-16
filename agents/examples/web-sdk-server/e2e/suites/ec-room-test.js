@@ -8,7 +8,11 @@
  *    words became entry 4 and Verify said "Caught at entry 4", blaming Ann;
  *  - Bea is in the middle of a trick when Ann seals entry 5: Bea's game is left
  *    alone, and her page says there is a new entry to reload;
- *  - control: Bea's trick is still caught by Verify.
+ *  - control: Bea's trick is still caught by Verify;
+ *  - Mal sends twenty "I sealed an entry" messages for entries that do not
+ *    exist or are not new: Ann's page reads the log no more often for them, and
+ *    Bea's page never announces "Mal sealed entry 99". Anyone can send that
+ *    message; only the chain says whether it is true.
  *
  * Channels are 'ecr<time>'; clean up with
  *   scripts/cleanup_channels.py --prefix '^ecr[0-9]+' --yes
@@ -77,6 +81,16 @@ async function trickInProgress(ann, bea) {
     r.check(caught, "control: Bea's edit is still caught by Verify");
 }
 
+async function forgedNudges(ann, bea, mal) {
+    await ann.evaluate(() => { window.__loads = 0; const orig = ecApp.load.bind(ecApp); ecApp.load = () => { window.__loads++; return orig(); }; });
+    await mal.evaluate(() => { for (let i = 0; i < 20; i++) ecApp.sendCustomEventMessage({ type: 'sealed', seq: i % 2 ? 99 : 2 }, '*'); });
+    await sleep(5000);
+    const loads = await game(ann, 'window.__loads');
+    r.check(loads === 0, `twenty forged "sealed" messages make Ann's page read the log ${loads} times (want 0)`);
+    const said = await game(bea, "document.getElementById('state').textContent");
+    r.check(!/Mal sealed/.test(said), `and Bea's page never says Mal sealed an entry (${said})`);
+}
+
 (async () => {
     const b = await chromium.launch(LAUNCH);
     const errors = [];
@@ -86,6 +100,7 @@ async function trickInProgress(ann, bea) {
         const mal = await join(b, 'Mal', errors);
         await liveAndPlanted(ann, bea, mal);
         await trickInProgress(ann, bea);
+        await forgedNudges(ann, bea, mal);
     } catch (err) {
         r.check(false, 'the suite ran to the end: ' + (err && err.message));
     }

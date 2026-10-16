@@ -210,19 +210,48 @@
         }
 
         /**
-         * Somebody else sealed an entry. Read the log again, unless this tab is
-         * in the middle of a trick: then say so, and leave the game alone.
+         * Somebody says they sealed an entry. The message is only a nudge:
+         * anyone can send it, as often as they like, with any number. So one
+         * check runs at a time, and nothing is read again or announced unless
+         * the chain holds a NEW entry at that number, sealed by the sender.
+         * Then read the log again, unless this tab is in the middle of a
+         * trick: then say so, and leave the game alone.
          */
         onGameMessage(detail) {
             var data = detail && detail.data ? detail.data : detail;
             var from = this.senderOf(detail);
             if (!data || data.type !== 'sealed' || !from || from === this.username) return;
-            if (this.tampered) {
-                this.say(from + ' sealed entry ' + data.seq + '. Reload to see it (it ends this trick).', 'warn');
-                return;
+            this.nudged = { from: from, seq: data.seq };
+            if (!this.checkingNudge) this.checkNudges();
+        }
+
+        async checkNudges() {
+            this.checkingNudge = true;
+            while (this.nudged) {
+                var n = this.nudged;
+                this.nudged = null;
+                var known = (this.bundle.records || []).some(function (r) { return r.seq === n.seq; });
+                var record = known ? null : await this.sealedBy(n.from, n.seq);
+                if (!record) continue;
+                if (this.tampered) {
+                    this.say(n.from + ' sealed entry ' + record.seq + '. Reload to see it (it ends this trick).', 'warn');
+                    continue;
+                }
+                this.fresh = record.seq;
+                await this.reload();
             }
-            this.fresh = data.seq;
-            this.reload();
+            this.checkingNudge = false;
+        }
+
+        /** The chain's record at `seq` if `agent` sealed it, else null. */
+        sealedBy(agent, seq) {
+            var self = this;
+            return new Promise(function (resolve) {
+                self.channel.attestList(LOG_CHAIN, function (res) {
+                    var records = res && res.status === 'success' && res.data ? res.data.records || [] : [];
+                    resolve(records.find(function (r) { return r.seq === seq && r.stamp && r.stamp.agent === agent; }) || null);
+                });
+            });
         }
 
         say(msg, kind) {
