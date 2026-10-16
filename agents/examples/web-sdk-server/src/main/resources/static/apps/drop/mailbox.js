@@ -61,11 +61,6 @@
     var MAX_DROPS_SHOWN = 50;
     var SEAL_CHAIN = 'drop-box';     // Attest chain: who left a drop, who took it
 
-    async function sha256Text(text) {
-        var digest = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(text));
-        return [].slice.call(new Uint8Array(digest)).map(function (b) { return b.toString(16).padStart(2, '0'); }).join('');
-    }
-
     /**
      * What a drop's seal covers: its id, its words, what file it carries, and
      * a random salt that lives only inside the encrypted drop. The seal's hash
@@ -77,11 +72,6 @@
         return 'drop|' + drop.id + '|' + (drop.salt || '') + '|' + (drop.text || '') + '|' + f;
     }
     function takenText(drop) { return 'collected|' + drop.id + '|' + (drop.salt || ''); }
-
-    function randomSalt() {
-        var b = crypto.getRandomValues(new Uint8Array(16));
-        return [].slice.call(b).map(function (x) { return x.toString(16).padStart(2, '0'); }).join('');
-    }
 
     function el(id) { return document.getElementById(id); }
 
@@ -199,23 +189,8 @@
             });
         }
 
-        /** Every seal in the box's chain, by content hash (earliest kept); nothing if the chain does not verify. */
-        seals() {
-            var self = this;
-            return new Promise(function (resolve) {
-                if (typeof self.channel.attestList !== 'function') { resolve({}); return; }
-                self.channel.attestList(SEAL_CHAIN, function (res) {
-                    var bundle = res && res.status === 'success' ? res.data : null;
-                    var by = {};
-                    if (!bundle || !Array.isArray(bundle.records)) { resolve(by); return; }
-                    Promise.resolve(window.AgentConnection.attestVerify ? window.AgentConnection.attestVerify(bundle) : { ok: true })
-                        .then(function (v) {
-                            if (v && v.ok) bundle.records.forEach(function (r) { if (!by[r.contentHash]) by[r.contentHash] = r; });
-                            resolve(by);
-                        }, function () { resolve(by); });
-                });
-            });
-        }
+        /** Every verified seal in the box's chain (js/seals.js). */
+        seals() { return Seals.read(this.channel, SEAL_CHAIN); }
 
         /**
          * Who left each drop and who took it, as the platform recorded them.
@@ -225,9 +200,8 @@
         async judge(drops, collected, seals) {
             for (var i = 0; i < drops.length; i++) {
                 var drop = drops[i];
-                var seal = seals[await sha256Text(sealText(drop))];
-                drop.signedBy = seal && seal.kind === 'drop' ? seal.stamp.agent : null;
-                var took = seals[await sha256Text(takenText(drop))];
+                drop.signedBy = await Seals.who(seals, 'drop', sealText(drop));
+                var took = seals[await Seals.hash(takenText(drop))];
                 if (took && took.kind === 'collected') {
                     drop.collectedBy = took.stamp.agent;
                     drop.collectedAt = Date.parse(took.stamp.serverTime) || (collected[drop.id] || {}).at;
@@ -237,18 +211,8 @@
             }
         }
 
-        /** Seal a hash with Attest; resolves to the receipt, or null. */
-        seal(kind, text) {
-            var self = this;
-            return sha256Text(text).then(function (contentHash) {
-                return new Promise(function (resolve) {
-                    if (typeof self.channel.attest !== 'function') { resolve(null); return; }
-                    self.channel.attest({ chainKey: SEAL_CHAIN, kind: kind, contentHash: contentHash, meta: {} }, function (r) {
-                        resolve(r && r.status === 'success' ? r : null);
-                    });
-                });
-            });
-        }
+        /** Seal with Attest (js/seals.js); resolves to the receipt, or null. */
+        seal(kind, text) { return Seals.seal(this.channel, SEAL_CHAIN, kind, text); }
 
         // ---- leaving something ----------------------------------------------
 
@@ -267,7 +231,7 @@
                 at: Date.now(),
                 readOnce: el('readOnce').checked,
                 text: text,
-                salt: randomSalt()
+                salt: Seals.salt()
             };
 
             if (this.pending && this.pending.vaulted) {

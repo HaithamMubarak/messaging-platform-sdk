@@ -55,8 +55,9 @@ const bubbleWith = (text) => `[...document.querySelectorAll('.msg-row')].find((r
 
 async function typingAndLinks(ann, bob) {
     // Ann speaks first. Until the first joiner says something, the second
-    // joiner's sends are held by the server (a platform fault, filed
-    // separately on 2026-10-15), and that is not what this suite is about.
+    // joiner's sends were held by the server (a platform fault found on
+    // 2026-10-15, fixed by services 568d4bb; second-speaker-test covers it),
+    // and that is not what this suite is about.
     await say(ann, 'hello Bob');
     await waitFor(bob, `!!${bubbleWith('hello Bob')}`, 8000);
     // A short message is one line. Its bubble's width limit used to be a share of a column

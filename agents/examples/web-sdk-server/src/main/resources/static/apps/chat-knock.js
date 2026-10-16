@@ -9,7 +9,10 @@
  *   - the knock carries NOTHING -- not who rang, not why. The push service
  *     learns that something happened and never what;
  *   - who rang goes into channel storage, where only people with the channel
- *     password can read it, and this page reads it when you open it.
+ *     password can read it, and this page reads it when you open it. Storage
+ *     keeps no author, so the ring is also SEALED (js/seals.js): the list names
+ *     the agent the platform recorded, and a ring that only says who sent it
+ *     shows as "not signed" (anyone in the room could write "Bob rang").
  * "A knock was sent" is all anybody can honestly say. Whether a person saw it
  * is up to their browser and them.
  *
@@ -19,6 +22,10 @@
     'use strict';
 
     var RINGS = 'chat.rings';
+    var RING_SEALS = 'chat-rings';
+
+    /** What a ring's seal covers: who it is for, when, and a salt kept inside the stored ring. */
+    function ringText(r) { return 'ring|' + r.to + '|' + r.at + '|' + (r.salt || ''); }
     var SAYS = {
         not_connected: 'Connect to a channel first.',
         unsupported: 'This browser cannot receive knocks. On an iPhone, add this page to the Home Screen first.',
@@ -42,8 +49,12 @@
             render();
         });
         c.storageReadList(RINGS).then(function (rows) {
-            state.rings = rows.filter(function (r) { return r && r.to && r.at; });
-            render();
+            var rings = rows.filter(function (r) { return r && r.to && r.at; });
+            return Seals.read(c, RING_SEALS).then(async function (seals) {
+                for (var i = 0; i < rings.length; i++) rings[i].signedBy = await Seals.who(seals, 'ring', ringText(rings[i]));
+                state.rings = rings;
+                render();
+            });
         }, function () { /* keep what we had; the next open tries again */ });
     }
 
@@ -59,7 +70,13 @@
     /** Say who rang where only the channel can read it, then knock with nothing in it. */
     function ring(agent) {
         var c = ch(); if (!c) return;
-        c.storageAdd({ storageKey: RINGS, content: { to: agent, from: me(), at: Date.now() } }, function () {
+        var r = { to: agent, from: me(), at: Date.now(), salt: Seals.salt() };
+        Seals.seal(c, RING_SEALS, 'ring', ringText(r)).then(function () { storeAndKnock(c, r); });
+    }
+
+    function storeAndKnock(c, r) {
+        var agent = r.to;
+        c.storageAdd({ storageKey: RINGS, content: r }, function () {
             c.knock(agent, { tag: 'chat' }, function (res) {
                 state.lastSent = res && res.status === 'success' ? res.data
                     : { meaning: 'No knock was sent: ' + ((res && res.data) || 'no answer') + '.' };
@@ -99,13 +116,19 @@
         var mine = state.rings.filter(function (r) { return r.to === me(); });
         $('knockRings').replaceChildren.apply($('knockRings'), mine.slice(0, 10).map(function (r) {
             var li = document.createElement('li');
-            li.textContent = r.from + ' rang · ' + new Date(r.at).toLocaleString();
+            li.textContent = (r.signedBy ? r.signedBy + ' rang ✓' : 'says ' + (r.from || 'someone') + ' rang · not signed')
+                + ' · ' + new Date(r.at).toLocaleString();
+            li.className = r.signedBy ? 'is-signed' : 'is-unsigned';
             return li;
         }));
         $('knockNoRings').hidden = mine.length > 0;
     }
 
     function render() { if ($('knockDialog')) { renderSelf(); renderPeople(); renderRings(); } }
+
+    // For the e2e suite (chat-knock-test.js): a Ring button only appears for
+    // someone with a push subscription, which a headless browser cannot make.
+    window.ChatKnock = { ring: ring, refresh: refresh, state: state };
 
     document.addEventListener('DOMContentLoaded', function () {
         var open = $('knock-open'), dialog = $('knockDialog');

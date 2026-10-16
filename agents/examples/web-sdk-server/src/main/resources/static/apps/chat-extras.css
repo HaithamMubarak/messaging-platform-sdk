@@ -63,3 +63,6 @@
     .composer { margin-bottom: 56px; }
 }
 @media (prefers-reduced-motion: reduce) { .react-chip { animation: none; } }
+
+/* Knock: who rang, signed by the platform, or only claimed. */
+#knockRings .is-unsigned { color: #fbbf24; }
