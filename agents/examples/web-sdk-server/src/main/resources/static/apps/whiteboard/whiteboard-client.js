@@ -3020,6 +3020,7 @@ function putChannelStorage( content, metadata, onSuccess, onError) {
             storageKey: HISTORY_KEY,
             content: content,
             encrypted: true,
+            appendOnly: true,
             metadata: metadata
         }, function (response) {
             if (!response || response.status !== 'success') {
@@ -3185,7 +3186,7 @@ function historyRow(version, index) {
 
     const who = document.createElement('span');
     who.className = 'wb-history__who';
-    who.textContent = index === 0 ? 'current' : (meta.by ? 'by ' + meta.by : '');
+    who.textContent = index === 0 ? 'current' : (version.writtenBy ? 'by ' + version.writtenBy : '');
 
     row.appendChild(when);
     row.appendChild(who);

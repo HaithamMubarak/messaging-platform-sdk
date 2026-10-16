@@ -41,6 +41,41 @@ export interface AgentInfo {
     alias?: string;
 }
 
+/** What a storage callback receives. */
+export interface StorageResult<D = any> {
+    status: 'success' | 'error';
+    /** The server's envelope on success; the server's sentence on failure. */
+    data: D | any;
+    /** HTTP status of a failed request. */
+    httpStatus?: number;
+    /** True when the key may only be appended to (HTTP 409). */
+    appendOnly?: boolean;
+}
+
+/** One stored version as getList returns it. */
+export interface StorageVersion {
+    id: number;
+    storageKey: string;
+    content: unknown;
+    version: number;
+    createdAt: string;
+    updatedAt: string;
+    metadata?: object;
+    /** Agent name of the session that wrote it, stamped by the server; null on older rows. */
+    writtenBy: string | null;
+    /** The key was locked by an appendOnly add. */
+    appendOnly: boolean;
+}
+
+export interface StorageEntry<T = unknown> {
+    value: T;
+    writtenBy: string | null;
+    appendOnly: boolean;
+    id: number;
+    version: number;
+    createdAt: string;
+}
+
 export type AgentEvent =
     | 'connect'
     | 'disconnect'
@@ -67,16 +102,32 @@ export declare class AgentConnection {
     addEventListener(event: AgentEvent, handler: (event: any) => void): void;
     removeEventListener(event: AgentEvent, handler: (event: any) => void): void;
 
-    /** Channel storage: state every client can read and late joiners catch up on. */
+    /**
+     * Channel storage: state every client can read and late joiners catch up on.
+     * put and deleteByKey on a key locked by an appendOnly add answer
+     * StorageResult with appendOnly: true (HTTP 409).
+     */
     storagePut(options: { storageKey: string; content: unknown; encrypted?: boolean; metadata?: object },
-               callback?: (result: any) => void): void;
+               callback?: (result: StorageResult) => void): void;
+    /**
+     * Append a version. appendOnly on the key's first add locks it against
+     * put and delete for every session; ignored once the key has versions.
+     */
+    storageAdd(options: { storageKey: string; content: unknown; encrypted?: boolean; metadata?: object; appendOnly?: boolean },
+               callback?: (result: StorageResult) => void): void;
     storageGet(options: { storageKey: string }, callback: (result: any) => void): void;
+    /** Every version of a key, newest first, as the server sent them (decrypted where possible). */
+    storageGetList(storageKey: string, callback: (result: StorageResult<{ versions: StorageVersion[] }>) => void): void;
     /** The value as written (JSON parsed back); null when nothing is stored. Rejects on any failure. */
     storageRead<T = unknown>(storageKey: string): Promise<T | null>;
     /** Every version of an append-only key, decoded (and decrypted), newest first. Rejects on any failure. */
     storageReadList<T = unknown>(storageKey: string): Promise<T[]>;
+    /** storageReadList with each version's server-stamped writer and lock. */
+    storageReadEntries<T = unknown>(storageKey: string): Promise<StorageEntry<T>[]>;
     storageKeys(callback: (result: any) => void): void;
-    storageDeleteByKey(storageKey: string, callback?: (result: any) => void): void;
+    /** Metadata of every key in the channel. */
+    storageValues(callback: (result: any) => void): void;
+    storageDeleteByKey(storageKey: string, callback?: (result: StorageResult) => void): void;
 
     isHostAgent(agentName: string): boolean;
     getHostAgentName(): string | null;

@@ -106,6 +106,7 @@ class GavelGame extends PartyKit.PartyGame {
             storageKey: this.lawKey(),
             content: record,
             encrypted: false,
+            appendOnly: true,
             metadata: { description: `Gavel case ${record.no} — ${record.title}` },
         }, (res) => {
             if (!res || res.status !== 'success') {

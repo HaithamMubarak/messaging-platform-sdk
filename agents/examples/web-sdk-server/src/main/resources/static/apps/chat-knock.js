@@ -48,8 +48,9 @@
             state.reachable = Array.isArray(list) ? list : [];
             render();
         });
-        c.storageReadList(RINGS).then(function (rows) {
-            var rings = rows.filter(function (r) { return r && r.to && r.at; });
+        c.storageReadEntries(RINGS).then(function (entries) {
+            var rings = entries.filter(function (e) { return e.value && e.value.to && e.value.at; })
+                .map(function (e) { e.value.writtenBy = e.writtenBy; return e.value; });
             return Seals.read(c, RING_SEALS).then(async function (seals) {
                 for (var i = 0; i < rings.length; i++) rings[i].signedBy = await Seals.who(seals, 'ring', ringText(rings[i]));
                 state.rings = rings;
@@ -76,7 +77,7 @@
 
     function storeAndKnock(c, r) {
         var agent = r.to;
-        c.storageAdd({ storageKey: RINGS, content: r }, function () {
+        c.storageAdd({ storageKey: RINGS, content: r, appendOnly: true }, function () {
             c.knock(agent, { tag: 'chat' }, function (res) {
                 state.lastSent = res && res.status === 'success' ? res.data
                     : { meaning: 'No knock was sent: ' + ((res && res.data) || 'no answer') + '.' };
@@ -116,7 +117,9 @@
         var mine = state.rings.filter(function (r) { return r.to === me(); });
         $('knockRings').replaceChildren.apply($('knockRings'), mine.slice(0, 10).map(function (r) {
             var li = document.createElement('li');
-            li.textContent = (r.signedBy ? r.signedBy + ' rang ✓' : 'says ' + (r.from || 'someone') + ' rang · not signed')
+            li.textContent = (r.signedBy ? r.signedBy + ' rang ✓'
+                : r.writtenBy ? r.writtenBy + ' rang · not signed'
+                : 'says ' + (r.from || 'someone') + ' rang · not signed')
                 + ' · ' + new Date(r.at).toLocaleString();
             li.className = r.signedBy ? 'is-signed' : 'is-unsigned';
             return li;

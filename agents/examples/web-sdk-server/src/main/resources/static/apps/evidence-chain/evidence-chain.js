@@ -320,6 +320,7 @@
                     storageKey: LOG_KEY,
                     content: JSON.stringify({ seq: seq, note: note }),
                     encrypted: false,
+                    appendOnly: true,
                     metadata: { seq: seq }
                 }, function (response) { resolve(!!(response && response.status === 'success')); });
             });

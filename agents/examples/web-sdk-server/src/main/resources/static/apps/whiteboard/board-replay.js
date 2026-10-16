@@ -49,7 +49,9 @@
         return {
             id: row.id,
             at: body.savedAt || meta.savedAt || (row.createdAt ? Date.parse(row.createdAt) : 0),
-            by: meta.by || null,
+            // The server's stamp of the writing session. meta.by was never
+            // there: the server keeps only metadata.properties.
+            by: row.writtenBy || null,
             paths: Array.isArray(body.paths) ? body.paths : null,
             objects: Array.isArray(body.objects) ? body.objects : null,
             image: body.canvasImage || null,

@@ -170,6 +170,9 @@
                     }
                     if (payload.kind === 'drop') {
                         payload._version = version.version;
+                        // Stamped by the server from the writing session, not
+                        // the drop's own `by`; null on drops left before it did.
+                        payload._writtenBy = version.writtenBy || null;
                         drops.push(payload);
                     }
                 });
@@ -327,6 +330,7 @@
                 storageKey: BOX_KEY,
                 content: JSON.stringify(payload),
                 encrypted: true,
+                appendOnly: true,
                 metadata: { at: payload.at || Date.now(), kind: payload.kind }
             }, function (response) {
                 var ok = response && response.status === 'success';
@@ -492,6 +496,7 @@
                 // The platform's word for who left it; the drop's own claim only
                 // as a claim, never as a fact.
                 who.textContent = drop.signedBy ? drop.signedBy + ' ✓'
+                    : drop._writtenBy ? 'left by ' + drop._writtenBy + ' · not signed'
                     : 'says it is from ' + (drop.by || 'someone') + ' · not signed';
                 who.title = drop.signedBy ? 'Signed by the platform when it was left'
                     : 'Nothing signed this drop, so its name is only what it says about itself';

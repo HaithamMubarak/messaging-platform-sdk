@@ -2600,7 +2600,7 @@
      * Internal helper for storage PUT/ADD operations (eliminates code duplication)
      * @private
      */
-    AgentConnection.prototype._storageWrite = function(endpoint, storageKey, content, encrypted, metadata, callback){
+    AgentConnection.prototype._storageWrite = function(endpoint, storageKey, content, encrypted, metadata, callback, appendOnly){
         const _self = this;
 
         if(!_self.readyState || !_self.sessionId){
@@ -2652,22 +2652,32 @@
             encrypted: !!encrypted,
             metadata: metadataObj
         };
+        if (appendOnly) payload.appendOnly = true;
 
-        // Use direct XHR for storage endpoints (not WebSocket actions)
+        storagePost(getStorageUrl(_self._api, endpoint), payload, callback);
+    }
+
+    /**
+     * POST a storage request and answer the callback with {status, data}.
+     * A 409 is a key that may only be appended to (an earlier add locked it
+     * with appendOnly): it answers {status:'error', appendOnly:true, data:
+     * the server's sentence}, so a caller can tell it from a network failure.
+     */
+    function storagePost(url, payload, callback){
         const xhr = new XMLHttpRequest();
-        xhr.open('POST', getStorageUrl(_self._api, endpoint));
+        xhr.open('POST', url);
         xhr.setRequestHeader('Content-Type', 'application/json');
 
         xhr.onload = function() {
+            if (typeof callback !== 'function') return;
             if (xhr.status === 200) {
                 try {
-                    const response = JSON.parse(xhr.responseText);
-                    typeof callback === 'function' && callback({status: 'success', data: response});
+                    callback({status: 'success', data: JSON.parse(xhr.responseText)});
                 } catch(e) {
-                    typeof callback === 'function' && callback({status: 'error', data: 'Invalid response'});
+                    callback({status: 'error', data: 'Invalid response'});
                 }
             } else {
-                typeof callback === 'function' && callback({status: 'error', data: xhr.responseText || xhr.statusText});
+                callback(storageFailure(xhr));
             }
         };
 
@@ -2676,6 +2686,18 @@
         };
 
         xhr.send(JSON.stringify(payload));
+    }
+
+    /** A non-200 storage answer as a callback result; the server's own sentence when it sent one. */
+    function storageFailure(xhr){
+        let message = xhr.responseText || xhr.statusText;
+        try {
+            const body = JSON.parse(xhr.responseText);
+            if (body && body.statusMessage) message = body.statusMessage;
+        } catch(e) { /* not JSON: keep the text */ }
+        const result = {status: 'error', data: message, httpStatus: xhr.status};
+        if (xhr.status === 409) result.appendOnly = true;
+        return result;
     }
 
     /**
@@ -2690,12 +2712,19 @@
 
     /**
      * ADD: Append new version (keeps existing versions)
-     * @param {object} options - Storage options {storageKey, content, encrypted, metadata}
+     *
+     * appendOnly:true on the FIRST add to a key locks it: from then on put,
+     * deleteByKey and deleteById on it are refused (409, `appendOnly: true` in
+     * the callback result) for every session, this one included. Ignored on a
+     * key that already has versions; the answer's `data.appendOnly` says
+     * whether the key is locked. Pass it on every add of a log, so whichever
+     * member writes first locks it.
+     * @param {object} options - Storage options {storageKey, content, encrypted, metadata, appendOnly}
      * @param {function} callback - Callback function(response)
      */
     AgentConnection.prototype.storageAdd = function(options, callback){
-        const {storageKey, content, encrypted = false, metadata = null} = options;
-        this._storageWrite('add', storageKey, content, encrypted, metadata, callback);
+        const {storageKey, content, encrypted = false, metadata = null, appendOnly = false} = options;
+        this._storageWrite('add', storageKey, content, encrypted, metadata, callback, appendOnly);
     }
 
     /**
@@ -2899,6 +2928,22 @@
      * @returns {Promise<Array<*>>}
      */
     AgentConnection.prototype.storageReadList = function(storageKey){
+        return this.storageReadEntries(storageKey).then(function(entries){
+            return entries.map(function(e){ return e.value; });
+        });
+    }
+
+    /**
+     * storageReadList with what the server knows about each version:
+     * [{value, writtenBy, appendOnly, id, version, createdAt}], NEWEST FIRST.
+     * `writtenBy` is the agent name the writing session was connected under,
+     * stamped by the server; a name inside `value` is only the writer's claim.
+     * It is null on versions written before the server recorded it. Names are
+     * unique only while connected, so after X leaves someone may connect as X.
+     * @param {string} storageKey
+     * @returns {Promise<Array<{value:*, writtenBy:(string|null), appendOnly:boolean, id:number, version:number, createdAt:string}>>}
+     */
+    AgentConnection.prototype.storageReadEntries = function(storageKey){
         const _self = this;
         return new Promise(function(resolve, reject){
             _self.storageGetList(storageKey, function(res){
@@ -2906,7 +2951,16 @@
                     return reject(new Error((res && res.data) || 'Storage read failed'));
                 }
                 const versions = storageVersions(res) || [];
-                resolve(versions.filter(function(v){ return v && !v.unreadable; }).map(storageVersionValue));
+                resolve(versions.filter(function(v){ return v && !v.unreadable; }).map(function(v){
+                    return {
+                        value: storageVersionValue(v),
+                        writtenBy: v.writtenBy == null ? null : v.writtenBy,
+                        appendOnly: !!v.appendOnly,
+                        id: v.id,
+                        version: v.version,
+                        createdAt: v.createdAt
+                    };
+                }));
             });
         });
     }
@@ -2957,29 +3011,7 @@
             payload.storageKey = storageKey;
         }
 
-        // Use direct XHR for storage endpoints (not WebSocket actions)
-        const xhr = new XMLHttpRequest();
-        xhr.open('POST', getStorageUrl(_self._api, endpoint));
-        xhr.setRequestHeader('Content-Type', 'application/json');
-
-        xhr.onload = function() {
-            if (xhr.status === 200) {
-                try {
-                    const response = JSON.parse(xhr.responseText);
-                    typeof callback === 'function' && callback({status: 'success', data: response});
-                } catch(e) {
-                    typeof callback === 'function' && callback({status: 'error', data: 'Invalid response'});
-                }
-            } else {
-                typeof callback === 'function' && callback({status: 'error', data: xhr.responseText || xhr.statusText});
-            }
-        };
-
-        xhr.onerror = function() {
-            typeof callback === 'function' && callback({status: 'error', data: 'Network error'});
-        };
-
-        xhr.send(JSON.stringify(payload));
+        storagePost(getStorageUrl(_self._api, endpoint), payload, callback);
     }
 
     // ---- Attest: hash-chain receipts --------------------------------------
@@ -4062,7 +4094,7 @@
         await new Promise((resolve, reject) => {
             // `content`, not `storageValue`: storageAdd destructures {storageKey,
             // content} and silently sends undefined for anything else.
-            _self.storageAdd({storageKey : ESCROW_KEY, content : JSON.stringify(record)},
+            _self.storageAdd({storageKey : ESCROW_KEY, content : JSON.stringify(record), appendOnly : true},
                 res => (res && res.status === 'success') ? resolve(res)
                     : reject(new Error('Could not store the escrow record.')));
         });
