@@ -43,6 +43,10 @@
     }
 
     var LEAD_FLASH_MS = 2500;
+    var HISTORY_SEALS = 'pulse-history';
+
+    /** What a stored version's seal covers: the version itself, as stored. */
+    function versionText(content) { return 'pulse|' + JSON.stringify(content); }
 
     /** A burst of colour from an element: the winner's bar, when the bell rings. */
     function confetti(el) {
@@ -454,10 +458,14 @@
         _hostCommit(why, questionsToo) {
             var self = this;
             var tallies = this._tally();
+            var content = { poll: this.poll, tallies: tallies, why: why, at: Date.now() };
+            // Sealed (js/seals.js), so the history can tell a version the host
+            // wrote from one anybody in the room appended to the same key.
+            Seals.seal(this.channel, HISTORY_SEALS, 'version', versionText(content));
 
             this.channel.storageAdd({
                 storageKey: POLL_KEY,
-                content: { poll: this.poll, tallies: tallies, why: why, at: Date.now() },
+                content: content,
                 encrypted: false,
                 metadata: { description: 'Pulse poll — ' + why }
             }, function (res) {
@@ -551,27 +559,56 @@
                 if (!res || res.status !== 'success') return;
                 var rows = res.data && res.data.data ? res.data.data : res.data;
                 if (!Array.isArray(rows)) rows = rows && rows.versions ? rows.versions : [];
-
-                self.versions = rows.map(function (row, i) {
-                    var body = self._decodeVersion(row);
-                    return {
-                        v: rows.length - i,
-                        at: (body && body.at) || row.createdAt || row.updatedAt || null,
-                        tallies: (body && body.tallies) || {},
-                        why: (body && body.why) || ''
-                    };
+                Seals.read(self.channel, HISTORY_SEALS).then(function (seals) {
+                    if (ticket !== self._versionsTicket) return;
+                    return self._signedVersions(rows, seals).then(function (kept) {
+                        if (ticket !== self._versionsTicket) return;
+                        self._applyVersions(kept);
+                    });
                 });
-                // Newest first, however the server chose to order them.
-                self.versions.sort(function (a, b) { return (b.at || 0) - (a.at || 0); });
-                self.versions.forEach(function (row, i) { row.v = self.versions.length - i; });
-
-                if (self.isHost() && !self.poll) {
-                    var newest = rows.length ? self._decodeVersion(rows[0]) : null;
-                    if (newest && newest.poll) self.poll = newest.poll;
-                }
-                self.renderVersions();
-                self._hostBroadcast();
             });
+        }
+
+        /**
+         * Only versions somebody sealed, each with who sealed it. The key is
+         * shared and append-only, so anyone in the room could append a version
+         * ("HACKED: Mal wins") and the time machine replayed it as history.
+         * An unsealed version is counted and left out; a sealed one says whose.
+         */
+        async _signedVersions(rows, seals) {
+            var kept = [];
+            this.unsignedVersions = 0;
+            for (var i = 0; i < rows.length; i++) {
+                var body = this._decodeVersion(rows[i]);
+                var by = body ? await Seals.who(seals, 'version', versionText(body)) : null;
+                if (!by) { this.unsignedVersions++; continue; }
+                kept.push({ row: rows[i], body: body, by: by });
+            }
+            return kept;
+        }
+
+        _applyVersions(kept) {
+            var self = this;
+            self.versions = kept.map(function (k, i) {
+                return {
+                    v: kept.length - i,
+                    at: (k.body && k.body.at) || k.row.createdAt || k.row.updatedAt || null,
+                    tallies: (k.body && k.body.tallies) || {},
+                    why: (k.body && k.body.why) || '',
+                    by: k.by
+                };
+            });
+            // Newest first, however the server chose to order them.
+            self.versions.sort(function (a, b) { return (b.at || 0) - (a.at || 0); });
+            self.versions.forEach(function (row, i) { row.v = self.versions.length - i; });
+
+            // A new host picks the poll up from the newest SIGNED version only.
+            if (self.isHost() && !self.poll) {
+                var newest = kept.length ? kept[0].body : null;
+                if (newest && newest.poll) self.poll = newest.poll;
+            }
+            self.renderVersions();
+            self._hostBroadcast();
         }
 
         // ---- actions from this browser --------------------------------------
@@ -847,7 +884,10 @@
                 }, [
                     UI.el('span', { class: 'ver__dot' }),
                     UI.el('span', { class: 'ver__v' }, 'v' + row.v),
-                    UI.el('span', { class: 'ver__when' }, i === 0 ? 'now' : UI.fmtRelative(row.at)),
+                    // Who wrote it: on hover always, in the row only when it was
+                    // not the room's host now (the case worth noticing).
+                    UI.el('span', { class: 'ver__when', title: row.by ? 'Written by ' + row.by + ', signed' : '' },
+                        (i === 0 ? 'now' : UI.fmtRelative(row.at)) + (row.by && row.by !== self._getHostName() ? ' · ' + row.by : '')),
                     UI.el('span', { class: 'ver__tally' }, order)
                 ]);
             });
@@ -869,7 +909,10 @@
 
             var replay = UI.el('button', { type: 'button', class: 'btn btn--sm ver-replay', 'data-replay': '1',
                 disabled: this.versions.length < 2 ? true : null }, [UI.iconNode('timer', 'icon--sm'), ' Replay the vote']);
-            host.replaceChildren.apply(host, [replay].concat(rows, [scrub]));
+            var ignored = this.unsignedVersions
+                ? [UI.el('p', { class: 'sdk-note ver-ignored' }, this.unsignedVersions + (this.unsignedVersions === 1 ? ' unsigned version' : ' unsigned versions')
+                    + ' in storage, not written by anybody the platform can name, left out of the history.')] : [];
+            host.replaceChildren.apply(host, [replay].concat(rows, [scrub], ignored));
         }
     }
 

@@ -141,7 +141,7 @@
 .ver.is-now .ver__dot { background: var(--brand); box-shadow: 0 0 0 3px rgba(99,102,241,0.2); }
 .ver__v { font-family: var(--font-mono); font-weight: 600; color: var(--text-body); }
 .ver.is-now .ver__v { color: var(--text); }
-.ver__tally { margin-left: auto; font-family: var(--font-mono); }
+.ver__tally { margin-left: auto; font-family: var(--font-mono); white-space: nowrap; }
 .ver.is-now .ver__tally { color: var(--brand-ink); }
 
 .sdk-note code { font-family: var(--font-mono); color: var(--brand-ink); }
@@ -350,3 +350,6 @@ body.is-presenting .present-join {
 @media (prefers-reduced-motion: reduce) {
     .poll-option.took-lead, .poll-burst i { animation: none; }
 }
+
+/* Versions in storage that nobody signed: counted, never replayed. */
+.ver-ignored { color: var(--warning); }
