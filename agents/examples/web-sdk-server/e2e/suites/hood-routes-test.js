@@ -85,6 +85,13 @@ const drew = (p, route) => waitFor(p, `window.__routes.includes(${JSON.stringify
         r.check(await waitFor(bea, "/^\\d+ ms$/.test(document.getElementById('serverRtt').textContent)", 8000),
             'and her ping to the server and back, timed by its own echo');
         r.check(!(await logHas(bea, '/Bea sent a ping/')), "Bea's own ping, echoed back by the server, is not news on her own log");
+
+        // A pong nobody asked for: Cal claims a 99-second round trip.
+        const before = await game(bea, "underTheHood.rtt.Cal && underTheHood.rtt.Cal.p2p");
+        await cal.evaluate(() => underTheHood.sendData({ type: 'pong', at: Date.now() - 99000 }, 'Bea'));
+        await sleep(2500);
+        const after = await game(bea, "underTheHood.rtt.Cal && underTheHood.rtt.Cal.p2p");
+        r.check(after === before, `a pong to a ping Bea never sent does not change her figure for Cal (${before} -> ${after})`);
         await shot(cal, 'hood-routes');
         await shot(bea, 'hood-rtt');
     } catch (err) {

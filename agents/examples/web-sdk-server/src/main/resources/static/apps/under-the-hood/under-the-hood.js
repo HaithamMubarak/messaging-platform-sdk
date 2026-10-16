@@ -68,6 +68,7 @@
             });
             this.log = [];
             this.rtt = {};          // name -> { p2p: ms }, from the last pongs
+            this.pingsSent = new Map();   // our last few peer-to-peer pings: time sent -> who has answered
             this.serverRtt = undefined;   // our last ping through the server, there and back
             this.points = {};       // where each name is drawn, for the packets
             this.lastHost = null;
@@ -183,8 +184,15 @@
         }
 
         /** A reply to one of our pings: that person's round trip on that path. */
+        /**
+         * Only a reply to a ping this tab sent, once per person per ping. Any
+         * pong used to be believed, so a peer could answer nothing with an old
+         * timestamp and make its own link look as fast or as slow as it liked.
+         */
         _pong(from, data, path) {
-            if (!data.at || !from) return;
+            var answered = data && this.pingsSent.get(data.at);
+            if (!answered || !from || answered.has(from)) return;
+            answered.add(from);
             var ms = Math.max(0, Date.now() - data.at);
             this.rtt[from] = Object.assign(this.rtt[from] || {}, { [path]: ms });
             this.refresh();
@@ -202,7 +210,10 @@
             if (!this.connected) return;
             var others = (this.getConnectedUsers() || []).filter(function (u) { return u !== this.username; }, this);
             if (path === 'p2p') {
-                this.sendData({ type: 'ping', at: Date.now() });
+                var at = Date.now();
+                this.pingsSent.set(at, new Set());
+                if (this.pingsSent.size > 5) this.pingsSent.delete(this.pingsSent.keys().next().value);
+                this.sendData({ type: 'ping', at: at });
                 this.note('sent', 'You sent a ping peer to peer');
                 this.flyRoute(this.routeFrom(this.username));
             } else {
