@@ -2695,7 +2695,8 @@
             const body = JSON.parse(xhr.responseText);
             if (body && body.statusMessage) message = body.statusMessage;
         } catch(e) { /* not JSON: keep the text */ }
-        const result = {status: 'error', data: message, httpStatus: xhr.status};
+        // statusMessage too: apps already log response.statusMessage on failure.
+        const result = {status: 'error', data: message, statusMessage: message, httpStatus: xhr.status};
         if (xhr.status === 409) result.appendOnly = true;
         return result;
     }

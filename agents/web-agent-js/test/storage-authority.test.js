@@ -80,11 +80,13 @@ const call = (fn) => new Promise(resolve => fn(resolve));
     await check('a put on a locked key answers appendOnly with the server sentence', async () => {
         const res = await call(cb => agent.storagePut({ storageKey: 'log', content: 'forged' }, cb));
         assert.deepStrictEqual([res.status, res.httpStatus, res.appendOnly, res.data], ['error', 409, true, LOCKED]);
+        assert.strictEqual(res.statusMessage, LOCKED, 'statusMessage, which apps already log');
     });
 
     await check('a deleteByKey on a locked key answers the same', async () => {
         const res = await call(cb => agent.storageDeleteByKey('log', cb));
         assert.deepStrictEqual([res.status, res.httpStatus, res.appendOnly, res.data], ['error', 409, true, LOCKED]);
+        assert.strictEqual(res.statusMessage, LOCKED, 'statusMessage, which apps already log');
     });
 
     await check('storageGetList keeps writtenBy and appendOnly on each version', async () => {
