@@ -2330,14 +2330,23 @@ class AirHockeyGame extends UserConnectionBase {
         }
     }
 
+    /**
+     * A player's paddle, as that player reports it. The numbers are the
+     * sender's claim, so they are held to the rules every local paddle obeys:
+     * real numbers, inside the owner's zone, no faster than PADDLE_MAX_SPEED.
+     * Taken as sent, a guest could park in the other team's goal mouth at any
+     * speed (the host's physics bounced the puck off it there), and one
+     * non-number made every screen's draw throw.
+     */
     handlePaddleUpdate(playerId, data) {
         const player = this.players.get(playerId);
-        if (player) {
-            player.paddle.x = data.x;
-            player.paddle.y = data.y;
-            player.paddle.vx = data.vx || 0;
-            player.paddle.vy = data.vy || 0;
-        }
+        if (!player || player.bot) return;
+        const num = (v, fallback) => (Number.isFinite(v) ? v : fallback);
+        const kept = this.constrainPaddlePosition(num(data.x, player.paddle.x), num(data.y, player.paddle.y), player.position);
+        let vx = num(data.vx, 0), vy = num(data.vy, 0);
+        const speed = Math.hypot(vx, vy), max = GAME_CONFIG.PADDLE_MAX_SPEED;
+        if (speed > max) { vx *= max / speed; vy *= max / speed; }
+        Object.assign(player.paddle, { x: kept.x, y: kept.y, vx, vy });
     }
 
     // ============================================
@@ -3011,7 +3020,10 @@ async function connectAirHockey(username, channel, password) {
     } catch (error) {
         console.error('[AirHockey] Connection failed:', error);
         if (window.ConnectionModal) ConnectionModal.fail(error);
+        // Both names, or window.airHockeyGame keeps the failed game and
+        // anything asking `window.airHockeyGame && airHockeyGame.x` throws.
         airHockeyGame = null;
+        window.airHockeyGame = null;
     } finally {
         isConnecting = false;
     }
