@@ -5,8 +5,8 @@
  * keeps no author, so a ring that SAYS "Bob" could be anybody's.
  *  - Bob rings Ann: Ann's list says "Bob rang ✓" (sealed with Attest);
  *  - Mal stores a ring for Ann that says it is from Bob: Ann's list shows it
- *    as "says Bob rang · not signed" (or, where the server stamps writers,
- *    "Mal rang · not signed"), never as Bob's.
+ *    as "Mal rang · not signed" (the server stamps who wrote it), never as
+ *    Bob's.
  *
  * Channels are 'chk<time>' (no app suffix); clean up with
  *   scripts/cleanup_channels.py --prefix '^chk[0-9]+$' --yes
@@ -59,7 +59,7 @@ async function join(b, name, errors) {
         const ok = await waitFor(ann, "document.querySelectorAll('#knockRings li').length >= 2", 10000);
         const rows = await game(ann, "[...document.querySelectorAll('#knockRings li')].map((li) => li.textContent.split(' · ')[0] + (li.textContent.includes('not signed') ? ' · not signed' : ''))");
         r.check(ok && rows.some((t) => /^Bob rang ✓$/.test(t)), `Bob's real ring shows as Bob's, signed (${JSON.stringify(rows)})`);
-        r.check(rows.some((t) => /^(says Bob|Mal) rang · not signed$/.test(t)) && rows.filter((t) => /^Bob rang ✓$/.test(t)).length === 1,
+        r.check(rows.some((t) => /^Mal rang · not signed$/.test(t)) && rows.filter((t) => /^Bob rang ✓$/.test(t)).length === 1,
             "Mal's ring in Bob's name shows only as an unsigned claim");
     } catch (err) {
         r.check(false, 'the suite ran to the end: ' + (err && err.message));

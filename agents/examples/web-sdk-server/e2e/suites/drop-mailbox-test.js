@@ -5,8 +5,8 @@
  * Ann, Bea and Mal in one room (all can open the box: they share its password).
  *  - Ann leaves a note: Bea's card names Ann, signed by the platform;
  *  - Mal stores a drop that SAYS it is from Ann: Bea's card says so, as an
- *    unsigned claim, or as left by Mal where the server stamps writers, but
- *    never as Ann's (only the seal makes a drop someone's);
+ *    left by Mal, unsigned (the server stamps who wrote it), never as Ann's
+ *    (only the seal makes a drop someone's);
  *  - Ann leaves a read-once note: its text is not in the box's storage at all
  *    (it is in Vault), so Mal reading the raw storage finds nothing;
  *  - Mal writes a tombstone saying Ann collected it: Bea's card is not fooled;
@@ -69,7 +69,7 @@ async function authors(ann, bea, mal) {
         readOnce: false, text: 'Please send the deposit to Mal.', salt: '00' }, res)));
     await refresh(bea);
     const forged = await game(bea, `(() => { const c = ${card('deposit to Mal')}; return c ? c.querySelector('.dd-drop__by').textContent : null; })()`);
-    r.check(forged && /(says it is from Ann|left by Mal) · not signed/.test(forged), `a drop Mal signs "Ann" shows as an unsigned claim (${forged})`);
+    r.check(forged && /^left by Mal · not signed$/.test(forged), `a drop Mal signs "Ann" shows as left by Mal, unsigned (${forged})`);
     await shot(bea, 'drop-mailbox-authors');
 }
 
