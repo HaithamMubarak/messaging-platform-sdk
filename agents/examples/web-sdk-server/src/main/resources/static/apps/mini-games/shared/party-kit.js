@@ -75,8 +75,13 @@
             if (!data || typeof data !== 'object') return;
 
             if (this.isHost()) {
-                // Anything reaching the host from a peer is a player action.
-                this.hostReceive(data._fromClient || peerId, data);
+                // Anything reaching the host from a peer is a player action, by
+                // that peer. Only a RELAYED message is re-stamped; one sent
+                // straight to the host keeps whatever _fromClient its sender
+                // wrote, so reading it let a guest plead as the defendant and
+                // vote under any name. senderOf believes the stamp only when the
+                // host itself relayed it, which on the host is never.
+                this.hostReceive(this.senderOf(peerId, data), data);
                 return;
             }
             // Everyone else trusts exactly one sender: the host, by name. The

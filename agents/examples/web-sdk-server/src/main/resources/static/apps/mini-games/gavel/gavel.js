@@ -30,6 +30,11 @@ const GV_BOT_TESTIMONY = [
 ];
 const GV_PHASES = ['plea', 'evidence', 'jury', 'sentence'];
 
+// Each verdict the bench records is sealed on this chain (js/seals.js), so the
+// record can tell a case the court tried from one anybody appended to the key.
+const GV_LAW_SEALS = 'gavel-law';
+const gvLawText = (record) => 'gavel|' + JSON.stringify(record);
+
 const GV_SENTENCES = [
     'Provides biscuits until March.',
     'Loses fridge privileges for one week.',
@@ -89,19 +94,43 @@ class GavelGame extends PartyKit.PartyGame {
 
     lawKey() { return 'gavel-' + (this.channelName || 'chambers'); }
 
+    /**
+     * The record holds only cases a bench sealed, each with who sat on it. The
+     * key is append-only and open to the whole room, so anyone could add "case
+     * 99, The People v. Hana, guilty": it showed as precedent, could be cited,
+     * and numbered the next case 100. Unsealed rows are counted and left out.
+     */
     loadCaseLaw() {
         if (!this.channel) return;
-        this.channel.storageReadList(this.lawKey()).then((versions) => {
-            const rows = versions.filter(r => r && r.title);
-            rows.sort((a, b) => (a.no || 0) - (b.no || 0));
-            this.caseLaw = rows;
-            this.caseNo = rows.length ? Math.max(...rows.map(r => r.no || 0)) : 0;
-            this.renderCaseLaw();
-        }, (e) => console.warn('[Gavel] could not read case law:', e.message));
+        const ticket = this._lawTicket = (this._lawTicket || 0) + 1;
+        Promise.all([this.channel.storageReadList(this.lawKey()), Seals.read(this.channel, GV_LAW_SEALS)])
+            .then(([versions, seals]) => this.sealedCases(versions, seals))
+            .then((kept) => {
+                if (ticket !== this._lawTicket) return;   // a newer read is on its way
+                kept.sort((a, b) => (a.no || 0) - (b.no || 0));
+                this.caseLaw = kept;
+                this.caseNo = kept.length ? Math.max(...kept.map(r => r.no || 0)) : 0;
+                this.renderCaseLaw();
+            }, (e) => console.warn('[Gavel] could not read case law:', e.message));
+    }
+
+    async sealedCases(versions, seals) {
+        const kept = [];
+        this.unsealedCases = 0;
+        for (const row of versions.filter(r => r && r.title)) {
+            const bench = await Seals.who(seals, 'verdict', gvLawText(row));
+            if (bench) kept.push(Object.assign({}, row, { bench })); else this.unsealedCases++;
+        }
+        return kept;
     }
 
     recordVerdict(record) {
         if (!this.channel) return;
+        // Sealed before it is stored, so the read that follows already holds it.
+        Seals.seal(this.channel, GV_LAW_SEALS, 'verdict', gvLawText(record)).then(() => this.storeVerdict(record));
+    }
+
+    storeVerdict(record) {
         this.channel.storageAdd({
             storageKey: this.lawKey(),
             content: record,
@@ -642,6 +671,12 @@ class GavelGame extends PartyKit.PartyGame {
     renderCaseLaw() {
         const el = document.getElementById('caseLaw');
         if (!el) return;
+        const ignored = document.getElementById('caseLawIgnored');
+        if (ignored) {
+            const n = this.unsealedCases || 0;
+            ignored.hidden = !n;
+            ignored.textContent = n ? `${n} unsigned ${n === 1 ? 'record' : 'records'} in storage, sealed by no bench, left out.` : '';
+        }
         if (!this.caseLaw.length) {
             el.innerHTML = '<li class="pk-empty">No precedent yet. Somebody has to be first.</li>';
             return;
@@ -653,6 +688,7 @@ class GavelGame extends PartyKit.PartyGame {
                     <strong>${PartyKit.esc(c.title)}</strong>
                     <em class="${c.verdict === 'guilty' ? 'is-guilty' : ''}">${c.verdict === 'guilty' ? 'Guilty' : 'Not guilty'}</em>
                     ${c.sentence ? `<span>${PartyKit.esc(c.sentence)}</span>` : ''}
+                    ${c.bench ? `<small class="gv-law__bench">Bench: ${PartyKit.esc(c.bench)}</small>` : ''}
                 </span>
             </li>`).join('');
     }

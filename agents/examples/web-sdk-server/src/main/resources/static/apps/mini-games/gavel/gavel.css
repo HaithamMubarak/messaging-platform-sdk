@@ -77,6 +77,8 @@
 .gv-law__body strong { color: var(--text); font-weight: 600; }
 .gv-law__body em { font-style: normal; color: var(--success); font-size: var(--fs-xs); text-transform: uppercase; letter-spacing: .08em; }
 .gv-law__body em.is-guilty { color: var(--danger); }
+.gv-law__bench { color: var(--text-faint); font-size: var(--fs-xs); }
+.gv-law-ignored { color: var(--warning); margin-top: var(--sp-2); }
 .gv-law__body span { color: var(--text-muted); }
 
 /* ---- precedent, plea and objections ------------------------------------- */
@@ -195,8 +197,13 @@
    words straight into itself, out of reach of the shell's narrow-screen rule, and
    the courtroom's stepper now says the same thing, so on a narrow phone the pill
    and the case number step out of the row. */
+/* Once joined, js/app-chrome.js moves Invite and the Host badge into this row too,
+   and at 320px it needed ~354px: the right-hand group (min-width 0) shrank under
+   its own buttons and drew Sound over Invite (in production too). The room name,
+   cut to 9ch, read "g…" by then and said nothing, and Invite holds the code, so
+   on a narrow phone the name steps out as well, and Invite is as narrow as Sound. */
 @media (max-width: 400px) {
-    #phasePill, #roundCount { display: none; }
-    .sdk-header .sdk-room { max-width: 9ch; }
+    #phasePill, #roundCount, .sdk-header .sdk-room { display: none; }
     #shareBtn > span, #soundBtn > span { display: none; }   /* icon only; the label stays as title/aria */
+    #shareBtn { padding: 0 var(--sp-2); }
 }
