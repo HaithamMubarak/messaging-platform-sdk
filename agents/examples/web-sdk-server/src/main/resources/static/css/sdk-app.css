@@ -1,5 +1,5 @@
 /* ==========================================================================
-   Shared shell for the first-party SDK apps (Rooms, Drop, Pulse).
+   Shared shell for the first-party SDK apps (Rooms, Drop).
    Loads after design-tokens.css + ui.css and adds only what an app screen
    needs on top of the kit: a header bar, a two-column stage, and the small
    status vocabulary the three of them share.
@@ -191,7 +191,7 @@ body.sdk-app {
    because it widens the document, every overlay sized as a percentage (the
    connection modal above all) is laid out against the overflowed width and
    spills too. Rooms carried its own copy of this; it belongs to the shell,
-   so Drop and Pulse get it as well.
+   so Drop gets it as well.
 
    Everything in the row either earns its width or loses its words. */
 @media (max-width: 640px) {

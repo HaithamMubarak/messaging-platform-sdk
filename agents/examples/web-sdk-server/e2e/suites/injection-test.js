@@ -40,7 +40,7 @@ const check = (ok, what) => (ok ? pass : fail).push(what);
     // ---- layer 1: the platform refuses hostile agent names ------------------
     for (const name of HOSTILE_NAMES) {
         const p = await b.newPage({ viewport: { width: 1000, height: 700 } });
-        await p.goto(BASE + '/apps/pulse/index.html', { waitUntil: 'domcontentloaded' });
+        await p.goto(BASE + '/apps/drop/index.html', { waitUntil: 'domcontentloaded' });
         await p.waitForSelector('#usernameInput', { state: 'attached', timeout: 20000 });
         await p.evaluate(() => document.getElementById('tabCustom')?.click());
         await p.fill('#usernameInput', name);
@@ -81,7 +81,7 @@ const check = (ok, what) => (ok ? pass : fail).push(what);
         // host-authoritative quiz it demonstrated moved into an events product.
         'apps/chess/chess-game.js'
         // Pictionary, Find the Liar, Reactor and collab-doc left the SDK in hub
-        // phases 1 and 4. Drop, its mailbox, Pulse, Call, Evidence Chain and the
+        // phases 1 and 4 (Pulse on 2026-10-18). Drop, its mailbox, Call, Evidence Chain and the
         // Knock dialog put remote text in with textContent, never innerHTML
         // (read 2026-10-04), so they have no escaper to look for.
     ];

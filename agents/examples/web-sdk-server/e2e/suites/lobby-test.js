@@ -9,17 +9,17 @@
  * both other ways in still work: "Advanced", and typing into the form under it,
  * which is how every other suite here reaches the channel form.
  *
- * With LOBBY_JOIN=1 it also joins two real rooms (Pulse through the modal,
+ * With LOBBY_JOIN=1 it also joins two real rooms (Evidence Chain through the modal,
  * Chat through its own form) and goes back to the first. Those make channels
  * under the demo key: clean them with
- *   scripts/cleanup_channels.py --prefix '^(pulse|chat)-\d{6}(\.pulse)?$' --yes
+ *   scripts/cleanup_channels.py --prefix '^(log|chat)-\d{6}$' --yes
  */
 const { BASE, SHOTS, LAUNCH, results } = require('../lib/harness');
 const { chromium } = require('playwright');
 const path = require('path');
 
 const PAGES = {
-    chat: 'chat.html', hood: 'under-the-hood/app.html', pulse: 'pulse/index.html', whiteboard: 'whiteboard/app.html',
+    chat: 'chat.html', hood: 'under-the-hood/app.html', whiteboard: 'whiteboard/app.html',
     evidence: 'evidence-chain/app.html', drop: 'drop/index.html', call: 'call/index.html',
     hockey: 'mini-games/air-hockey/index.html', gavel: 'mini-games/gavel/index.html', chess: 'chess/index.html'
 };
@@ -92,21 +92,21 @@ async function doors(browser, name) {
 
 const modalClosed = () => !document.getElementById('connectionModal').classList.contains('active');
 
-async function joinPulse(browser) {
-    const { ctx, p } = await open(browser, 'desktop', PAGES.pulse);
+async function joinEvidence(browser) {
+    const { ctx, p } = await open(browser, 'desktop', PAGES.evidence);
     await p.click('#partyLobby .pl-btn--primary');
     await p.waitForFunction(modalClosed, null, { timeout: 30000 }).catch(() => {});
     // The modal records the room and shows its code on its next 300 ms poll after closing.
     await p.waitForSelector('#partyCodeChip', { timeout: 5000 }).catch(() => {});
     const room = await p.evaluate(() => document.getElementById('channelInput').value);
-    r.check(await p.isVisible('#partyCodeChip'), 'pulse: Start a poll joins a room and shows its code (' + room + ')');
-    await p.goto(BASE + '/apps/' + PAGES.pulse, { waitUntil: 'load' });
+    r.check(await p.isVisible('#partyCodeChip'), 'evidence: Start joins a room and shows its code (' + room + ')');
+    await p.goto(BASE + '/apps/' + PAGES.evidence, { waitUntil: 'load' });
     await p.waitForSelector('#partyLobby:not(.pl-loading)');
-    r.check(await p.isVisible('.pl-btn--resume'), 'pulse: a returning visitor is offered their last room');
+    r.check(await p.isVisible('.pl-btn--resume'), 'evidence: a returning visitor is offered their last room');
     await p.click('.pl-btn--resume');
     await p.waitForFunction(modalClosed, null, { timeout: 30000 }).catch(() => {});
     r.check(await p.evaluate(modalClosed) && room === await p.evaluate(() => document.getElementById('channelInput').value),
-        'pulse: "Back to your last room" rejoins it');
+        'evidence: "Back to your last room" rejoins it');
     await ctx.close();
 }
 
@@ -154,18 +154,18 @@ async function waitingRoom(browser) {
     await friend.ctx.close();
     await host.ctx.close();
 
-    const solo = await open(browser, 'desktop', PAGES.pulse);
+    const solo = await open(browser, 'desktop', PAGES.evidence);
     await solo.p.click('#partyLobby .pl-btn--primary');
     await solo.p.waitForTimeout(6000);
-    r.check(!(await solo.p.$('#plWaiting')), 'a demo played alone (Pulse) opens straight into the app');
+    r.check(!(await solo.p.$('#plWaiting')), 'a demo played alone (Evidence Chain) opens straight into the app');
     await solo.ctx.close();
 }
 
 (async () => {
     const browser = await chromium.launch(LAUNCH);
     for (const name of Object.keys(PAGES)) for (const size of Object.keys(SIZES)) await layout(browser, name, size);
-    for (const name of ['chat', 'pulse', 'hockey']) await doors(browser, name);
-    if (process.env.LOBBY_JOIN) { await joinPulse(browser); await joinChat(browser); await waitingRoom(browser); }
+    for (const name of ['chat', 'evidence', 'hockey']) await doors(browser, name);
+    if (process.env.LOBBY_JOIN) { await joinEvidence(browser); await joinChat(browser); await waitingRoom(browser); }
     await browser.close();
     process.exitCode = r.report() ? 1 : 0;
 })();

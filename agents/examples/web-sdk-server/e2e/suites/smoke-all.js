@@ -11,7 +11,6 @@ const { chromium } = require('playwright');
 const APPS = [
   ['chess',        'chess/index.html'],
   ['drop',         'drop/index.html'],
-      ['pulse',        'pulse/index.html'],
   ['air-hockey',   'mini-games/air-hockey/index.html'],
   ['gavel',        'mini-games/gavel/index.html']
   // Chat has no roster API for this sweep to ask; chat-test.js drives it.

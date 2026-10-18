@@ -110,19 +110,6 @@ async function blip(b, label, path, work) {
 (async () => {
   const b = await chromium.launch(LAUNCH);
 
-  // collab-doc carried this until hub phase 1; a Pulse vote is the same
-  // question: does a change made after the wifi came back reach the other side?
-  await blip(b, 'pulse', 'pulse/index.html', async (a, c) => {
-    const votes = (p) => p.evaluate(() => Number((document.body.innerText.match(/(\d+) votes?/) || [])[1] || 0));
-    const before = await votes(a);
-    await c.bringToFront();
-    await c.evaluate(() => { const el = document.querySelector('[data-option]');
-      window.pulseApp.vote(el.getAttribute('data-option')); });
-    await c.waitForTimeout(3000);
-    await a.bringToFront(); await a.waitForTimeout(5000);
-    return (await votes(a)) > before;
-  });
-
   await blip(b, 'chat', 'chat.html', null);
 
   console.log('\nPASS (' + pass.length + ')'); pass.forEach(x => console.log('  ✓ ' + x));

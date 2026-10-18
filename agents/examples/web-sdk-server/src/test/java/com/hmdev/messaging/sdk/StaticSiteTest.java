@@ -45,12 +45,12 @@ class StaticSiteTest {
             // because a log is opened from a link somebody was given.
             "apps/evidence-chain/index.html",
             "apps/under-the-hood/index.html",
-            "apps/pulse/index.html",
             "apps/drop/index.html",
             "apps/call/index.html",
             "hmdev.html");
     // Hub consolidation phase 4 (2026-10-03) deleted the retired demos (Rewind, Dead Drop,
     // Pictionary, Find the Liar, Reactor and the redirect stubs); the gateway 301s their URLs.
+    // Pulse went the same way on 2026-10-18.
 
     /** Pages that must never be indexed, whether or not robots.txt is fetched. */
     private static final List<String> PRIVATE_PAGES = List.of(

@@ -1,9 +1,9 @@
 {
   "about": "The one list of what the platform shows and ships. hub.html and playground.html render it, with the products merged in from the apps catalogue's products.json (js/catalogue.js); test/js/catalogue.test.js fails if an entry claims a primitive its source never calls, if a link or image is missing, or if a page grows a hand-written card again. Paths in `source` are relative to static/. Apps whose code lives in the apps repo have no `source`, so their claims are checked there, not here.",
-  "highlights": ["whiteboard", "pulse", "under-the-hood"],
+  "highlights": ["whiteboard", "evidence-chain", "under-the-hood"],
   "built": ["rooms", "blockparty", "party-arcade", "proof"],
   "github": "https://github.com/HaithamMubarak/messaging-platform-sdk/blob/develop/agents/examples/web-sdk-server/src/main/resources/static/",
-  "start": [{ "id": "chat", "what": "messages and presence" }, { "id": "pulse", "what": "storage with history" }, { "id": "whiteboard", "what": "shared state" }],
+  "start": [{ "id": "chat", "what": "messages and presence" }, { "id": "evidence-chain", "what": "storage with history" }, { "id": "whiteboard", "what": "shared state" }],
   "primitives": {
     "presence":  { "label": "Presence",          "hub": "Presence",  "evidence": "onUserJoin|onUserLeave|getConnectedUsers|connectedAgents|getActiveAgents|agent-connect" },
     "broadcast": { "label": "Broadcast",         "hub": "Messaging", "evidence": "sendMessage\\s*\\(|sendCustomEventMessage\\s*\\(|broadcastDataChannel\\s*\\(|toRoom\\s*\\(|broadcastState\\s*\\(" },
@@ -20,7 +20,7 @@
     "binary":    { "label": "Files",             "hub": "WebRTC",    "evidence": "sendFile\\s*\\(|ArrayBuffer|arrayBuffer\\s*\\(|binaryType|FileReader" }
   },
   "shelves": {
-    "learn":     { "title": "Learn the SDK", "lead": "Seven demos, each the clearest example of one part of the SDK. Open one, then read its source." },
+    "learn":     { "title": "Learn the SDK", "lead": "Six demos, each the clearest example of one part of the SDK. Open one, then read its source." },
     "templates": { "title": "Build a game", "lead": "Three games that are also templates: each is the reference for one multiplayer pattern. Read the source, then build yours on it.",
       "more": { "label": "Or just play: Party Arcade", "url": "/messaging-platform/apps/party-arcade/" } },
     "products":  { "title": "Built on the SDK", "lead": "Finished apps, not demos. Each is a product in the apps catalogue.",
@@ -50,20 +50,14 @@
       "source": ["apps/under-the-hood/under-the-hood.js"]
     },
     {
-      "id": "storage-demo", "name": "Channel storage", "audience": "learn", "status": "moved", "movedTo": "pulse",
-      "note": "Its calls are now the Raw storage tab in Pulse.",
+      "id": "storage-demo", "name": "Channel storage", "audience": "learn", "status": "moved", "movedTo": "evidence-chain",
+      "note": "Its calls lived on as the Raw storage tab in Pulse, which was removed on 2026-10-18; Evidence Chain shows storage with history.",
       "url": "/messaging-platform/sdk/apps/storage-demo.html"
     },
     {
-      "id": "pulse", "name": "Pulse", "audience": "learn", "shelf": "learn", "status": "live",
-      "primitives": ["broadcast", "presence", "versions", "storage"], "solo": true,
-      "url": "/messaging-platform/sdk/apps/pulse/index.html",
-      "image": "img/playground/pulse.webp", "imageAlt": "Pulse with two people in the room: a live poll at two votes, a question from the floor, and the version history each vote appended.", "icon": "i-activity",
-      "blurb": "Live polls and questions, with a history of every response.",
-      "text": "Live questions and polls for a room or a talk. Every vote appends a version rather than overwriting one, so the result has a history you can scrub back through. The Raw storage tab is the same calls with the poll taken away: put, add, read, list and delete on the room you are in.",
-      "badges": ["Storage versions", "Broadcast", "Presence"],
-      "call": "agent.storageAdd({ storageKey, content })", "product": { "name": "SponsorPulse", "url": "/messaging-platform/apps/sponsorpulse/" },
-      "source": ["apps/pulse/pulse.js", "apps/pulse/raw-storage.js"]
+      "id": "pulse", "name": "Pulse", "audience": "learn", "status": "moved", "movedTo": "evidence-chain",
+      "note": "Removed on 2026-10-18. Evidence Chain shows storage versions; SponsorPulse is the product built on live polls.",
+      "url": "/messaging-platform/sdk/apps/pulse/index.html"
     },
     {
       "id": "whiteboard", "name": "Whiteboard", "audience": "learn", "shelf": "learn", "status": "live",

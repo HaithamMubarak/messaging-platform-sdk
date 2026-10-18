@@ -37,7 +37,7 @@ async function join(b, path, name, room) {
 
 /** Which of these pages thinks it is the host? */
 const AM_I_HOST = () => {
-  for (const k of ['gavelGame', 'airHockeyGame', 'chessGame', 'pulseApp', 'dropApp']) {
+  for (const k of ['gavelGame', 'airHockeyGame', 'chessGame', 'dropApp']) {
     const g = window[k];
     if (g && typeof g.isHost === 'function') { try { return { app: k, host: g.isHost() }; } catch (e) {} }
   }
@@ -145,19 +145,6 @@ async function migrate(b, label, path, after) {
     // Not a specific colour: the scoreboard correctly drops the departed
     // player's colour, so "Blue" is gone once the original host leaves.
     return o.evaluate(() => /CONTROLS[\s\S]*LEADERBOARD/.test(document.body.innerText));
-  });
-
-
-  // Content apps: a change made by either survivor must still reach the other.
-  await migrate(b, 'pulse', 'pulse/index.html', async (h, o) => {
-    const before = await o.evaluate(() => Number((document.body.innerText.match(/(\d+) votes?/) || [])[1] || 0));
-    await h.bringToFront();
-    await h.evaluate(() => { const el = document.querySelector('[data-option]');
-      window.pulseApp.vote(el.getAttribute('data-option')); });
-    await h.waitForTimeout(3000);
-    await o.bringToFront(); await o.waitForTimeout(5000);
-    const now = await o.evaluate(() => Number((document.body.innerText.match(/(\d+) votes?/) || [])[1] || 0));
-    return now > before;
   });
 
   console.log('\nPASS (' + pass.length + ')'); pass.forEach(x => console.log('  ✓ ' + x));

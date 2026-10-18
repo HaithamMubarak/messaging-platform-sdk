@@ -10,7 +10,7 @@ const { BASE, SHOTS, LAUNCH } = require('../lib/harness');
 const { chromium } = require('playwright');
 const PAGES = ['index.html','playground.html','docs.html','apps/chat.html',
  'apps/whiteboard/index.html','apps/terminal/index.html',
- 'apps/mini-games/gavel/index.html','apps/drop/index.html','apps/pulse/index.html',
+ 'apps/mini-games/gavel/index.html','apps/drop/index.html',
  'apps/call/index.html',
  ];
 

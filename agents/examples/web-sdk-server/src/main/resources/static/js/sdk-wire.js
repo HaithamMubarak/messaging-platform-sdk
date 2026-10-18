@@ -4,7 +4,7 @@
  * Every demo on this site is a working example of the SDK, and almost none of
  * them let you SEE the SDK. You draw a stroke, something appears on the other
  * screen, and the method that carried it is invisible unless you open the
- * source. Pulse is the only app that names its calls, and only in prose.
+ * source. Pulse (removed 2026-10-18) was the only app that named its calls, and only in prose.
  *
  * This wraps an app's UserConnectionBase instance and prints one row per call:
  * the method, where it went, and how big it was. It is deliberately a subset of
