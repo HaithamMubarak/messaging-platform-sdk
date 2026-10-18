@@ -9,6 +9,9 @@
  *    leave the fast half of the line behind on every other screen);
  *  - Bea, claiming to be Hana, cannot undo Hana's work on Cal's board;
  *  - Cal, who drew nothing, loses the "Draw anything" hint once ink arrives;
+ *  - a stroke is held to what the tools can make (real coordinates, the
+ *    widest pen, the text tool's length); a cursor and a Clear carry their
+ *    sender's name on the third screen;
  *  - Hana starts Guess the Doodle, Cal guesses right in the chat, and Hana's
  *    tab (the referee) announces it to the room.
  *
@@ -90,6 +93,47 @@ async function forgedUndo(hana, bea, cal) {
     r.check(before > 0 && after === before, `Bea cannot undo Hana's line on Cal's board by naming her (${before} -> ${after})`);
 }
 
+/**
+ * Bea's cursor and Bea's Clear, seen from Cal's screen: each must carry Bea's
+ * name. In p2p-host mode what a guest broadcasts can reach the other guests
+ * through the host's connection, and a handler that names the connection
+ * instead of the sender draws Bea's cursor as Hana's and says Hana cleared.
+ */
+async function cursorAndClear(hana, bea, cal) {
+    await game(bea, "webrtcHelper.broadcastDataChannel({ type: 'cursor', x: 123, y: 45, color: '#e11d48' })");
+    await sleep(2500);
+    const cur = await game(cal, "Object.fromEntries([...whiteboardGame.remoteCursorTargets].map(([k, v]) => [k, Math.round(v.x)]))");
+    r.check(cur.Bea === 123, `Bea's cursor reaches Cal's board under her name (${JSON.stringify(cur)})`);
+    r.check(cur.Hana !== 123, "and is not drawn as Hana's");
+    await cal.evaluate(() => { window.__toasts = []; const o = window.showToast; window.showToast = (m, t) => { window.__toasts.push(m); return o && o(m, t); }; });
+    await game(bea, "sendWhiteboardEvent('clear', {})");
+    await sleep(2500);
+    const said = await game(cal, 'window.__toasts');
+    r.check(said.some((m) => /^Bea cleared the board/.test(m)), `Cal is told Bea cleared the board (${JSON.stringify(said)})`);
+}
+
+/**
+ * A stroke from someone else is their claim. Bea sends what no tool can make:
+ * coordinates that are not numbers, a line 10 million px wide, a 200,000
+ * character note. Cal's board keeps none of the first, and bounds the others
+ * by what the tools allow (a 160 px font, 500 characters); a normal stroke
+ * still lands as sent (the control).
+ */
+async function strokeClaims(bea, cal) {
+    const send = (s) => bea.evaluate((s) => webrtcHelper.broadcastDataChannel({ type: 'stroke', stroke: s, op: 'op_claim_' + Math.random() }), s);
+    await game(cal, 'window.__n0 = boardState.length');
+    await send({ type: 'draw', x1: 'nope', y1: null, x2: {}, y2: [], color: '#000', size: 3, erase: false });
+    await send({ type: 'draw', x1: 10, y1: 10, x2: 900, y2: 600, color: '#000', size: 1e7, erase: false });
+    await send({ type: 'note', x1: 100, y1: 100, x2: 300, y2: 200, color: '#f59e0b', size: 20, text: 'x'.repeat(200000), erase: false });
+    await send({ type: 'draw', x1: 20, y1: 20, x2: 60, y2: 60, color: '#2563eb', size: 4, erase: false });
+    await sleep(3000);
+    const got = await game(cal, "boardState.slice(window.__n0).map((s) => ({ ok: [s.x1, s.y1, s.x2, s.y2].every(Number.isFinite), size: s.size, text: s.text ? s.text.length : null }))");
+    r.check(got.every((s) => s.ok), `a stroke with no real coordinates is not kept on Cal's board (${JSON.stringify(got.map((s) => s.ok))})`);
+    r.check(got.every((s) => s.size <= 160), `no stroke is wider than the widest tool (${got.map((s) => s.size).join(', ')})`);
+    r.check(got.every((s) => s.text === null || s.text <= 500), `no note is longer than the text tool allows (${got.map((s) => s.text).filter((x) => x !== null).join(', ')})`);
+    r.check(got.some((s) => s.size === 4), 'control: a normal stroke lands as sent');
+}
+
 async function guessTogether(hana, cal) {
     await game(hana, 'DoodleGame.start()');
     await sleep(1500);
@@ -113,6 +157,8 @@ async function guessTogether(hana, cal) {
         await sleep(3000);
         await strokesAndUndo(hana, bea, cal);
         await forgedUndo(hana, bea, cal);
+        await strokeClaims(bea, cal);
+        await cursorAndClear(hana, bea, cal);
         await guessTogether(hana, cal);
     } catch (err) {
         r.check(false, 'the suite ran to the end: ' + (err && err.message));

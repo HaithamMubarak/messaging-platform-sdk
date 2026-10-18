@@ -67,8 +67,21 @@ async function contribute(p, who, x) {
     check(joined.notes === 1 && joined.authors.includes('Alice'),
         `somebody joining gets her work as objects (${JSON.stringify(joined.authors)})`);
 
-    // the host leaves
+    /*
+     * The host leaves the way a person does: Leave, then "Leave" in the
+     * dialog that asks. This used to call disconnect() and close the browser
+     * context, but disconnect() only OPENS that dialog, and a closed context
+     * runs no pagehide, so no goodbye was sent: it modelled a crash, which the
+     * room only notices when the session expires (~3 min), and the 60 s wait
+     * below failed on every run. Measured 2026-10-18 on production: Leave hands
+     * over in under 2 s, a tab closed normally in about 1 s.
+     */
     await alice.evaluate(() => { if (typeof disconnect === 'function') disconnect(); });
+    await alice.waitForTimeout(500);
+    await alice.evaluate(() => {
+        const leave = [...document.querySelectorAll('button')].find((x) => x.textContent.trim() === 'Leave');
+        if (leave) leave.click();
+    });
     await alice.waitForTimeout(1500);
     await alice.ctx.close();
     /*

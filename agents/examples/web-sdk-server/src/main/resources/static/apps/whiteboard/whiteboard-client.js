@@ -1720,7 +1720,7 @@ class WhiteboardGame extends UserConnectionBase {
     _takeStrokes(strokes, from, op) {
         if (!Array.isArray(strokes) || !strokes.length) return;
         strokes.forEach(stroke => {
-            if (!stroke) return;
+            if (!saneRemoteStroke(stroke)) return;
             stroke.peerId = from;
             stroke.by = from;
             if (op) stroke.op = op;
@@ -1939,6 +1939,27 @@ let _renderLoopRunning = false;
 let _lastRenderTs = 0;
 const TARGET_FPS = 60;
 const RENDER_INTERVAL = 1000 / TARGET_FPS;
+// The most any tool here can make: the size slider stops at 20, and a note's
+// font is that times 8 (whiteboard-tools.js fontFor); the text tool keeps 500.
+const MAX_REMOTE_SIZE = 160;
+const MAX_REMOTE_TEXT = 500;
+
+/**
+ * A stroke from someone else is their claim, so it is held to what the tools
+ * can make before it reaches this board: real coordinates, no wider than the
+ * widest pen, a note no longer than the text tool allows. Taken as sent, a
+ * line 10 million pixels wide blacked out every board, a 200,000-character
+ * note bloated it, and the host saved both for every newcomer. Returns false
+ * for a stroke that cannot be drawn at all.
+ */
+function saneRemoteStroke(s) {
+    if (!s || typeof s !== 'object') return false;
+    if (!['x1', 'y1', 'x2', 'y2'].every(k => Number.isFinite(s[k]))) return false;
+    if (s.size !== undefined) s.size = Number.isFinite(s.size) ? Math.min(Math.max(s.size, 0.5), MAX_REMOTE_SIZE) : 3;
+    if (s.text !== undefined) s.text = String(s.text).slice(0, MAX_REMOTE_TEXT);
+    return true;
+}
+
 const MAX_STROKES_PER_FRAME = 2000;
 const MAX_STROKES_QUEUE = 20000;
 
