@@ -5,6 +5,8 @@
  *  - an offer Mal sends signed "Ann" shows on Rex's screen as Mal's, and bytes
  *    Mal streams into Ann's transfer to Rex are refused;
  *  - Mal asking for the pieces of Ann's file to Rex gets nothing;
+ *  - offers and pieces are held to the rules Drop's own keep (size limit,
+ *    piece count, piece size, a few waiting offers per sender);
  *  - Ann offers to the room, Mal declines, and Rex can still accept and
  *    receive it (one decline used to end the offer for everybody);
  * and the moments: the flight strip with speed while it moves, the arrival
@@ -88,6 +90,39 @@ async function injectedChunks(ann, rex, mal) {
     r.check(leaked === 0, `Mal asking for pieces of Ann's file to Rex gets none (${leaked})`);
 }
 
+/**
+ * An offer and its pieces are the sender's own numbers. Taken as sent:
+ * "1 byte in a billion pieces" made Rex's stall check walk a billion slots, a
+ * 10 GB offer sat on his screen past the 64 MB limit, one person could stack
+ * forty offers, and a single "piece" could be any size (or not text at all).
+ */
+async function offerClaims(rex, mal) {
+    const send = (d) => mal.evaluate((d) => dropApp.sendData(d, 'Rex'), d);
+    await send({ type: 'offer', id: 'tHUGE', name: 'tiny.bin', size: 1, mime: 'application/octet-stream', chunks: 1e9 });
+    await send({ type: 'offer', id: 'tBIG', name: 'movie.mkv', size: 10 * 1024 ** 3, mime: 'video/x-matroska', chunks: 655360 });
+    await mal.evaluate(() => { for (let i = 0; i < 40; i++) dropApp.sendData({ type: 'offer', id: 'tSPAM' + i, name: 'spam' + i + '.txt', size: 4, mime: 'text/plain', chunks: 1 }, 'Rex'); });
+    await sleep(3000);
+    const seen = await game(rex, "({ huge: dropApp.transfers.has('tHUGE'), big: dropApp.transfers.has('tBIG'), spam: [...dropApp.transfers.keys()].filter((k) => /^tSPAM/.test(k)).length })");
+    r.check(!seen.huge, 'an offer whose piece count does not match its size is refused');
+    r.check(!seen.big, 'an offer over the 64 MB limit is refused');
+    r.check(seen.spam > 0 && seen.spam <= 8, `one sender can keep only a few offers waiting on Rex's screen (${seen.spam} of 40)`);
+
+    await rex.evaluate(() => [...dropApp.transfers.values()].filter((x) => x.from === 'Mal' && x.state === 'offered').forEach((x) => dropApp.decline(x.id)));
+    await send({ type: 'offer', id: 'tOK', name: 'note.bin', size: 16384, mime: 'application/octet-stream', chunks: 1 });
+    await waitFor(rex, "dropApp.transfers.has('tOK')", 6000);
+    await rex.evaluate(() => dropApp.accept('tOK'));
+    await send({ type: 'chunk', id: 'tOK', i: 0, b: { not: 'text' } });
+    // 64 KB: four pieces' worth, and still small enough for one data-channel
+    // message (1 MB never arrived, so it proved nothing).
+    await mal.evaluate(() => window.__bigSent = dropApp.sendData({ type: 'chunk', id: 'tOK', i: 0, b: btoa('x'.repeat(64 * 1024)) }, 'Rex'));
+    r.check(await game(mal, 'window.__bigSent') > 0, 'the oversized piece really left Mal');
+    await sleep(2500);
+    const st = await game(rex, "dropApp.transfers.get('tOK').state");
+    r.check(st === 'accepted', `a piece bigger than a piece is not taken, nor one that is not text (state ${st})`);
+    await mal.evaluate(() => dropApp.sendData({ type: 'chunk', id: 'tOK', i: 0, b: btoa('y'.repeat(16384)) }, 'Rex'));
+    r.check(await waitFor(rex, "dropApp.transfers.get('tOK').state === 'ready'", 6000), 'control: a proper piece still completes it');
+}
+
 async function roomOffer(ann, rex, mal) {
     await offerTo(ann, 'menu.txt', 'soup\nsalad\nbread\n'.repeat(20), null);
     await waitFor(mal, "[...dropApp.transfers.values()].some((x) => x.name === 'menu.txt')", 8000);
@@ -122,6 +157,7 @@ async function postcardFlight(ann, rex) {
         const mal = await join(b, 'Mal', errors);
         await sleep(2500);
         await forgedOffer(ann, rex, mal);
+        await offerClaims(rex, mal);
         await injectedChunks(ann, rex, mal);
         await roomOffer(ann, rex, mal);
         await postcardFlight(ann, rex);

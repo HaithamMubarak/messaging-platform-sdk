@@ -26,6 +26,8 @@
 
     var CHUNK = 16 * 1024;          // what a data channel carries comfortably
     var MAX_FILE = 64 * 1024 * 1024;
+    var MAX_WAITING_OFFERS = 8;     // offers one person can have waiting on your screen
+    var MAX_CHUNK_B64 = Math.ceil(CHUNK / 3) * 4;
     var SEND_GAP_MS = 12;           // let the channel drain between chunks
     var RECEIVE_STALL_MS = 30000;   // give up on a receive after this long without a chunk
 
@@ -264,16 +266,33 @@
             if (handler) handler.call(this, d, from);
         }
 
+        /**
+         * An offer is the sender's description of a file, so it is held to the
+         * rules our own offers keep: a size within MAX_FILE, exactly the pieces
+         * that size needs, and a few waiting per sender. Taken as sent, "1 byte
+         * in a billion pieces" made the stall check walk a billion slots, a
+         * 10 GB offer sat past the limit, and one person could stack offers
+         * without end.
+         */
+        _offerOk(d, from) {
+            if (typeof d.id !== 'string' || !d.id || d.id.length > 64 || this.transfers.has(d.id)) return false;
+            if (!Number.isInteger(d.size) || d.size < 0 || d.size > MAX_FILE) return false;
+            if (d.chunks !== Math.max(1, Math.ceil(d.size / CHUNK))) return false;
+            var waiting = 0;
+            this.transfers.forEach(function (r) { if (r.dir === 'in' && r.from === from && r.state === 'offered') waiting++; });
+            return waiting < MAX_WAITING_OFFERS;
+        }
+
         _onOffer(d, from) {
-            if (this.transfers.has(d.id)) return;
+            if (!this._offerOk(d, from)) return;
             this.transfers.set(d.id, {
                 id: d.id, dir: 'in', name: String(d.name || 'file').slice(0, 120),
-                size: d.size || 0, mime: d.mime || 'application/octet-stream',
-                total: d.chunks || 1, done: 0, state: 'offered',
+                size: d.size, mime: String(d.mime || 'application/octet-stream').slice(0, 100),
+                total: d.chunks, done: 0, state: 'offered',
                 from: from, parts: [], at: Date.now()
             });
             this.render();
-            UI.toast(from + ' wants to send you ' + d.name, 'info', 4000);
+            UI.toast(from + ' wants to send you ' + this.transfers.get(d.id).name, 'info', 4000);
         }
 
         _onAccept(d, from) {
@@ -336,6 +355,9 @@
             var row = this.transfers.get(d.id);
             if (!row || row.dir !== 'in' || row.state !== 'accepted' || row.from !== from) return;
             if (typeof d.i !== 'number' || d.i < 0 || d.i >= row.total) return;
+            // A piece is at most CHUNK bytes, as base64 text: anything else would
+            // let the sender push past MAX_FILE into this tab's memory.
+            if (typeof d.b !== 'string' || d.b.length > MAX_CHUNK_B64) return;
             if (row.parts[d.i]) return;                 // a repeat is not progress
             row.parts[d.i] = fromB64(d.b);
             row.done++;
