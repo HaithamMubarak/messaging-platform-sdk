@@ -34,8 +34,10 @@ function packed(points) {
     return Buffer.from(new Float32Array(points).buffer).toString('base64');
 }
 
+// Shaped like storageGetList's versions: the author is the server's stamp,
+// `writtenBy`, beside `metadata` (which keeps only `properties`).
 const rows = [
-    { id: 12, content: JSON.stringify({ savedAt: 3000, paths: [{ p: packed([0, 0, 960, 540]), c: '#ff0000', s: 4 }] }), metadata: { by: 'Bo' } },
+    { id: 12, content: JSON.stringify({ savedAt: 3000, paths: [{ p: packed([0, 0, 960, 540]), c: '#ff0000', s: 4 }] }), writtenBy: 'Bo' },
     { id: 10, content: { savedAt: 1000, paths: [] } },
     { id: 11, unreadable: true, content: 'ciphertext' },
     { id: 13, content: 'not json' },
@@ -47,7 +49,8 @@ console.log('board replay');
 check('versions become frames oldest first, whatever order they arrive in', () => {
     const frames = R.framesOf(rows);
     assert.deepStrictEqual(frames.map((f) => f.id), [10, 14, 12]);
-    assert.strictEqual(frames[2].by, 'Bo');
+    // Versions written before the server stamped writers have no author.
+    assert.deepStrictEqual(frames.map((f) => f.by), [null, null, 'Bo']);
 });
 
 check('a version under another password or not JSON is skipped, not fatal', () => {
