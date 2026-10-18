@@ -15,6 +15,9 @@ public class ConnectRequest extends SessionRequest {
     private String channelPassword;
     private String agentName;
 
+    /** A MANAGED channel's key for this agent, from the app that owns the channel. Ignored by ordinary channels. */
+    private String agentKey;
+
     /**
      * Agent context map (agent metadata)
      * Can include: agentType, descriptor, ipAddress, customEventType, and other custom fields

@@ -196,6 +196,7 @@ public class AgentConnection {
         apiConfig.put("channelId", config.getChannelId());
         apiConfig.put("enableWebrtcRelay", config.isEnableWebrtcRelay());
         apiConfig.put("apiKeyScope", config.getApiKeyScope());
+        apiConfig.put("agentKey", config.getAgentKey());
 
         ConnectResponse connectResponse = channelApi.connect(apiConfig);
 

@@ -101,6 +101,11 @@ public class MessagingChannelApi implements ConnectionChannelApi {
         this.udpClient = new UdpClient(host, udpPort, this.objectMapper);
     }
 
+    /** A MANAGED channel's key for this agent (from the app that owns the channel); sent with every connect. */
+    private String agentKey;
+
+    public void setAgentKey(String agentKey) { this.agentKey = agentKey; }
+
     @Override
     public ConnectResponse connect(String channelName, String channelPassword, String agentName)  {
         return connect(channelName, channelPassword, agentName, null, null);
@@ -165,6 +170,7 @@ public class MessagingChannelApi implements ConnectionChannelApi {
                     .channelName(channelName)
                     .channelPassword(passwordHash)
                     .agentName(agentName)
+                    .agentKey(agentKey)
                     .agentContext(createAgentMetadata())
                     .build();
             connectRequest.setSessionId(sessionId);
@@ -200,9 +206,14 @@ public class MessagingChannelApi implements ConnectionChannelApi {
         String agentName = (String) config.get("agentName");
         String sessionId = (String) config.get("sessionId");
         String channelId = (String) config.get("channelId");
-        boolean enableWebrtcRelay = config.getOrDefault("enableWebrtcRelay", false) instanceof Boolean ?
-                (Boolean) config.get("enableWebrtcRelay") : false;
+        // getOrDefault(..., false) used to pass the instanceof check and then get() returned null: an NPE
+        // for any map without the key. Read it once.
+        Object relay = config.get("enableWebrtcRelay");
+        boolean enableWebrtcRelay = relay instanceof Boolean && (Boolean) relay;
         String apiKeyScope = (String) config.getOrDefault("apiKeyScope", "private");
+        if (config.get("agentKey") instanceof String && !((String) config.get("agentKey")).isEmpty()) {
+            this.agentKey = (String) config.get("agentKey");
+        }
 
         return connect(channelName, channelPassword, agentName, sessionId, channelId, enableWebrtcRelay, apiKeyScope);
     }

@@ -29,6 +29,13 @@ public class ConnectConfig {
     private String agentName;
 
     /**
+     * For a MANAGED channel: this agent's key, from the app that owns the
+     * channel (it registered agentName + agentKey with its API key). Not needed
+     * for ordinary channels. See "Managed channels" in the SDK guide.
+     */
+    private String agentKey;
+
+    /**
      * Pre-existing session ID for reconnection (optional)
      */
     private String sessionId;

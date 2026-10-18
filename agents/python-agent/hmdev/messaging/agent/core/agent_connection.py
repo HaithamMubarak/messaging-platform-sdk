@@ -144,6 +144,10 @@ class AgentConnection:
         # Falls back to HTTP automatically if the socket/subscribe fails.
         use_websocket = kwargs.get('useWebsocket', kwargs.get('use_websocket', False))
 
+        # A managed channel's key for this agent (see "Managed channels" in the SDK guide).
+        if kwargs.get('agentKey'):
+            self._channel_api.agent_key = kwargs['agentKey']
+
         # Apply instance settings
         if 'enableWebrtcRelay' in kwargs:
             self.enable_webrtc_relay = enable_webrtc_relay
@@ -162,6 +166,9 @@ class AgentConnection:
         enable_webrtc_relay = config.get('enableWebrtcRelay', False)
         check_last_session = config.get('checkLastSession', True)
         use_websocket = config.get('useWebsocket', config.get('use_websocket', False))
+
+        if config.get('agentKey'):
+            self._channel_api.agent_key = config['agentKey']
 
         # Apply instance settings
         self.enable_webrtc_relay = enable_webrtc_relay

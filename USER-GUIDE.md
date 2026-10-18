@@ -12,10 +12,11 @@
 2. [Core Features](#core-features)
 3. [Quick Start](#quick-start)
 4. [API Key & Channel Isolation](#api-key--channel-isolation)
-5. [Basic Examples](#basic-examples)
-6. [Per-Language Guides](#per-language-guides)
-7. [Best Practices](#best-practices)
-8. [Troubleshooting](#troubleshooting)
+5. [Managed Channels (who may join)](#managed-channels-who-may-join)
+6. [Basic Examples](#basic-examples)
+7. [Per-Language Guides](#per-language-guides)
+8. [Best Practices](#best-practices)
+9. [Troubleshooting](#troubleshooting)
 
 ---
 
@@ -178,6 +179,104 @@ The `apiKeyScope` parameter controls how channels are isolated between developer
 | Testing with teammates, SDK demos | `public` |
 | Cross-developer collaboration | `public` |
 | Server-side bot (your own channel) | `private` |
+
+---
+
+## Managed Channels (who may join)
+
+By default anyone who knows a channel's name and password can join it, and an
+existing channel can also be joined by its `channelId`, which every member
+receives on connect. That is fine for open rooms and demos. When **your app**
+decides who belongs (members of a team, players in a match, people you might
+remove), make the channel **managed**: it then admits only the agents your
+backend lists, each with its own key.
+
+Nothing changes for channels you do not manage, and an agent that does not
+send a key behaves exactly as before.
+
+### How it works
+
+1. **Your backend registers agents** with your developer API key (never a
+   temporary key). For each person it picks an agent name and a random key
+   (24+ characters), and an expiry. The channel becomes managed.
+2. **Your backend hands each person their own agent name and key** (with the
+   temporary key it already gives them).
+3. **The client connects** with `agentName` + `agentKey`. Anyone else is
+   refused, whether they name the channel by name and password or by
+   `channelId`.
+4. **To remove someone, revoke their agent:** their sessions close at once and
+   their key stops working.
+
+Rotating identities is the same call: register a fresh name and key for the
+person and revoke the old one. Keep your own mapping from your user id to the
+agent name; you may store it in `externalId` (an opaque id, never an email).
+
+### Your backend: the owner calls
+
+All four are `POST` with your developer API key in `X-Api-Key`. Name the
+channel by `channelId`, or by `channelName` + `channelPassword` exactly as you
+give them to your users (the plain password: the service derives what agents send).
+
+```bash
+BASE=https://hmdevonline.com/messaging-platform/api/v1/messaging-service
+
+# Admit agents (creates the channel if new; it becomes managed)
+curl -s -X POST $BASE/channels/managed/agents -H "X-Api-Key: $DEV_KEY" -H "Content-Type: application/json" -d '{
+  "channelName": "team-42", "channelPassword": "the-room-password",
+  "agents": [
+    { "agentName": "u-7f3a91", "agentKey": "<random 32+ chars>", "ttlSeconds": 3600, "externalId": "user-1093" }
+  ]
+}'
+
+# Remove agents: their sessions close now
+curl -s -X POST $BASE/channels/managed/revoke  -H "X-Api-Key: $DEV_KEY" -H "Content-Type: application/json" \
+     -d '{ "channelName": "team-42", "channelPassword": "the-room-password", "agentNames": ["u-7f3a91"] }'
+
+# Who is admitted now (names, externalId, expiry; never keys)
+curl -s -X POST $BASE/channels/managed/list    -H "X-Api-Key: $DEV_KEY" -H "Content-Type: application/json" \
+     -d '{ "channelName": "team-42", "channelPassword": "the-room-password" }'
+
+# Back to an ordinary channel
+curl -s -X POST $BASE/channels/managed/release -H "X-Api-Key: $DEV_KEY" -H "Content-Type: application/json" \
+     -d '{ "channelName": "team-42", "channelPassword": "the-room-password" }'
+```
+
+`agents` adds to the list; add `"replace": true` to make it the whole list
+(agents left out are revoked and disconnected).
+
+| Rule | Value |
+|------|-------|
+| Agent key | 24 to 256 characters, random; stored only as a hash |
+| `ttlSeconds` | 60 s to 7 days (default 1 day). After it, new connects with that key are refused; a session already open stays until it ends or you revoke it |
+| Agents per channel | up to 2000 |
+| Who may call | the API key that owns the channel; temporary keys are refused |
+
+### The client: connect with the agent key
+
+```javascript
+// Web / JavaScript
+agent.connect({ api, apiKey: temporaryKey, channelName: 'team-42', channelPassword: 'the-room-password',
+                agentName: 'u-7f3a91', agentKey: keyFromYourBackend });
+```
+
+```python
+# Python
+agent.connect(channelName='team-42', channelPassword='the-room-password',
+              agentName='u-7f3a91', agentKey=key_from_your_backend)
+```
+
+```java
+// Java
+ConnectConfig config = ConnectConfig.builder()
+        .channelName("team-42").channelPassword("the-room-password")
+        .agentName("u-7f3a91").agentKey(keyFromYourBackend)
+        .build();
+agent.connect(config);
+```
+
+A refused connect answers `unauthorized`: *"This channel admits only agents its
+owner registered."* The C++ agent does not send `agentKey` yet; until it does,
+keep C++ clients on ordinary channels.
 
 ---
 

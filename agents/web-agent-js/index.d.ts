@@ -13,6 +13,12 @@ export interface ConnectOptions {
     channelName: string;
     channelPassword: string;
     agentName: string;
+    /**
+     * For a MANAGED channel: this agent's key, from the app that owns the
+     * channel (it registered agentName + agentKey with its API key). Not needed
+     * for ordinary channels. See "Managed channels" in the SDK guide.
+     */
+    agentKey?: string;
     /** Connect to a server-side channel id instead of a name. */
     channelId?: string;
     autoReceive?: boolean;

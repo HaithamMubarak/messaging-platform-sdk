@@ -27,7 +27,7 @@
      * it, screen shares show it, and bug reports paste it.
      */
     function logPayload(label, payload) {
-        const SENSITIVE = ['channelPassword', 'password', 'secret', 'channelSecret',
+        const SENSITIVE = ['channelPassword', 'password', 'secret', 'channelSecret', 'agentKey',
                            'token', 'apiKey', 'privateKey', 'content', 'msg', 'data'];
         let safe;
         try {
@@ -1738,6 +1738,8 @@
              channelName = null,
              channelPassword = null,
              agentName = null,
+             // A managed channel's key for this agent, from the app that owns the channel.
+             agentKey = null,
 
              sessionId = null,
              channelId = null,
@@ -1790,6 +1792,7 @@
         _self._channelPassword = channelPassword;
 
         _self.agentName = agentName || _self.agentName;
+        _self._agentKey = agentKey || _self._agentKey;   // kept for reconnects; never logged
 
         // Override enableWebrtcRelay if provided in config
         if(enableWebrtcRelay !== null){
@@ -1873,6 +1876,7 @@
                 sessionId: sessionId || '',
                 channelId: channelId,
                 agentName: _self.agentName,
+                agentKey: _self._agentKey || undefined,
                 agentContext,
                 enableWebrtcRelay: _self.enableWebrtcRelay || false,
                 apiKeyScope
@@ -1888,6 +1892,7 @@
                 channelName: _self._channelName,
                 channelPassword: channelPasswordHash,
                 agentName: _self.agentName,
+                agentKey: _self._agentKey || undefined,
                 agentContext,
                 enableWebrtcRelay: _self.enableWebrtcRelay || false,
                 apiKeyScope
@@ -2537,6 +2542,7 @@
             channelName: _self._channelName,
             channelPassword: _self._channelPassword,
             agentName: _self.agentName,
+            agentKey: _self._agentKey,
             devApiKey: _self._devApiKey,
             autoReceive: _self.autoReceive,
             enableWebrtcRelay: _self._enableWebrtcRelay,

@@ -1061,6 +1061,7 @@ webrtc.on('ice-candidate', (streamId, c) => console.log('ICE:', c));
 | `channelName` | Yes* | Channel name (* or use `channelId`) |
 | `channelPassword` | Yes* | Channel password (* or use `channelId`) |
 | `agentName` | Yes | Your agent's identifier |
+| `agentKey` | Managed channels only | This agent's key, from the app that owns the channel. See [Managed channels](USER-GUIDE.md#managed-channels-who-may-join) |
 | `api` | Yes | API base URL |
 | `apiKey` | Yes | Developer API key |
 | `autoReceive` | No | Auto-receive messages (default: false) |

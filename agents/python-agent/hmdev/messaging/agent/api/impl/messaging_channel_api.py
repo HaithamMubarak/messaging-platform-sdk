@@ -32,6 +32,8 @@ class MessagingChannelApi(ConnectionChannelApi):
             self.client.set_default_header('X-Api-Key', developer_api_key)
 
         self.channel_secret: Optional[str] = None
+        # A managed channel's key for this agent, from the app that owns the channel (None for ordinary channels).
+        self.agent_key: Optional[str] = None
         # track readiness and current session
         self.ready_state: bool = False
         self.session_id: Optional[str] = None
@@ -152,6 +154,8 @@ class MessagingChannelApi(ConnectionChannelApi):
             })
             if session_id:
                 payload["sessionId"] = session_id
+            if self.agent_key:
+                payload["agentKey"] = self.agent_key
 
             response_text = self.client.request("POST", self._url("connect"), json_body=payload)
             json_data = json.loads(response_text)
@@ -270,6 +274,8 @@ class MessagingChannelApi(ConnectionChannelApi):
         enable_webrtc_relay = config.get('enableWebrtcRelay', False)
         api_key_scope = config.get('apiKeyScope', 'private')
         poll_source = config.get('pollSource', 'AUTO')
+        if config.get('agentKey'):
+            self.agent_key = config.get('agentKey')
 
         return self.connect(channel_name, channel_password, agent_name, session_id, channel_id, enable_webrtc_relay, api_key_scope, poll_source)
 

@@ -573,9 +573,17 @@
             const sections = new Map();
             let currentH1 = null;
 
-            headings.forEach((heading, index) => {
-                // Add ID for anchor links
-                const id = `section-${index}`;
+            // GitHub-style ids ("API Key & Channel Isolation" -> api-key--channel-isolation),
+            // so the guides' own tables of contents and links from other pages
+            // (docs.html#managed-channels-who-may-join) land on the heading. They
+            // were section-0, section-1..., which no link could know.
+            const used = new Map();
+            headings.forEach((heading) => {
+                const base = heading.textContent.trim().toLowerCase()
+                    .replace(/[^\p{L}\p{N} _-]/gu, '').replace(/ /g, '-') || 'section';
+                const n = used.get(base) || 0;
+                used.set(base, n + 1);
+                const id = n ? `${base}-${n}` : base;
                 heading.id = id;
 
                 if (heading.tagName === 'H1') {
@@ -604,6 +612,10 @@
             });
 
             document.getElementById('sidebar').innerHTML = navHtml;
+
+            // The guide arrives after the page, so the browser's own jump to #anchor found nothing.
+            const target = location.hash && document.getElementById(decodeURIComponent(location.hash.slice(1)));
+            if (target) target.scrollIntoView();
         }
 
         /**

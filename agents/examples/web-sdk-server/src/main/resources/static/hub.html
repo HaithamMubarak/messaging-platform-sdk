@@ -106,6 +106,7 @@ agent.connect({ channelName: <span class="s">'room-123'</span>, apiKey });</pre>
 <ul class="home-checks">
 <li>A WebSocket service, with a fallback for networks that block it</li>
 <li>API keys and short-lived browser credentials</li>
+<li>Deciding who may join: <a class="mp-link" href="docs.html#managed-channels-who-may-join">managed channels</a> admit only the people your backend lists, and removing someone takes effect at once</li>
 <li>Reconnect and resume without losing or duplicating messages</li>
 <li>Presence, including the ones who never say goodbye</li>
 <li>Ordering, persistence and replay from an offset</li>

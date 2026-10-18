@@ -15,6 +15,9 @@ public class ConnectRequest extends SessionRequest {
     private String channelPassword;
     private String agentName;
 
+    /** A MANAGED channel's key for this agent, from the app that owns the channel. Ignored by ordinary channels. */
+    private String agentKey;
+
     /**
      * Machine ID for persistent identity (optional)
      * Format: MID_abc123def456 (16 hex chars)
