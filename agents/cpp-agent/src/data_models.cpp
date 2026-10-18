@@ -156,6 +156,19 @@ json ConnectRequest::toJson() const {
         j["apiKeyScope"] = apiKeyScope;
     }
 
+    // Only managed channels need it; ordinary channels see the old payload.
+    if (!agentKey.empty()) {
+        j["agentKey"] = agentKey;
+    }
+
+    return j;
+}
+
+json ConnectRequest::toRedactedJson() const {
+    json j = toJson();
+    if (j.contains("agentKey")) {
+        j["agentKey"] = "[redacted]";
+    }
     return j;
 }
 

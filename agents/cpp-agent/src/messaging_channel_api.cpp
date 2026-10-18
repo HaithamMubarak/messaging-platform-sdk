@@ -133,6 +133,7 @@ ConnectResponse MessagingChannelApi::connect(const std::string& channelName,
         connectRequest.agentContext = createAgentMetadata();
         connectRequest.enableWebrtcRelay = enableWebrtcRelay;
         connectRequest.apiKeyScope = apiKeyScope.empty() ? "private" : apiKeyScope;
+        connectRequest.agentKey = agentKey_;
 
         // Send connect request
         HttpClientResult result = httpClient_->post(getActionUrl("connect"),
@@ -141,7 +142,7 @@ ConnectResponse MessagingChannelApi::connect(const std::string& channelName,
 
         if (std::getenv("CPPAGENT_DEBUG")) {
             std::cerr << "[DEBUG] connect status=" << result.statusCode
-                       << " req=" << connectRequest.toJson().dump()
+                       << " req=" << connectRequest.toRedactedJson().dump()
                        << " body=" << result.data << std::endl;
         }
         if (result.isHttpOk()) {
@@ -179,6 +180,9 @@ ConnectResponse MessagingChannelApi::connect(const std::map<std::string, std::st
     bool enableWebrtcRelay = config.count("enableWebrtcRelay") && config.at("enableWebrtcRelay") == "true";
     std::string apiKeyScope = config.count("apiKeyScope") ? config.at("apiKeyScope") : "private";
     std::string pollSource = config.count("pollSource") ? config.at("pollSource") : "AUTO";
+    if (config.count("agentKey") && !config.at("agentKey").empty()) {
+        agentKey_ = config.at("agentKey");
+    }
 
     return connect(channelName, channelPassword, agentName, sessionId, channelId, enableWebrtcRelay, apiKeyScope, pollSource);
 }

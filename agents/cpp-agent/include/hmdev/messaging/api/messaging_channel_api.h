@@ -94,7 +94,8 @@ public:
     /**
      * Object-based connect for cleaner API (recommended)
      * @param config Map with keys: channelName, channelPassword, agentName, sessionId (optional),
-     *               channelId (optional), enableWebrtcRelay (optional), apiKeyScope (optional)
+     *               channelId (optional), enableWebrtcRelay (optional), apiKeyScope (optional),
+     *               agentKey (optional, managed channels; see setAgentKey)
      * @return Connect response
      */
     ConnectResponse connect(const std::map<std::string, std::string>& config);
@@ -155,6 +156,16 @@ public:
      */
     void setUsePublicKey(bool usePublicKey) { usePublicKey_ = usePublicKey; }
 
+    /**
+     * For a MANAGED channel: this agent's key, from the app that owns the
+     * channel (it registered agentName + agentKey with its API key). Sent with
+     * every connect; never logged. Leave empty for ordinary channels, which
+     * then see exactly the old connect payload. The map-based connect also
+     * accepts it as config["agentKey"].
+     * @param agentKey The agent's key, or "" to stop sending one
+     */
+    void setAgentKey(const std::string& agentKey) { agentKey_ = agentKey; }
+
 private:
     static constexpr int POLLING_TIMEOUT_MS = 40000;  // 40 seconds
     static constexpr int DEFAULT_UDP_PORT = 9999;
@@ -185,6 +196,8 @@ private:
      * @return Full action path
      */
     std::string getActionUrl(const std::string& action) const;
+
+    std::string agentKey_;  // Managed channels only; see setAgentKey
 };
 
 } // namespace messaging

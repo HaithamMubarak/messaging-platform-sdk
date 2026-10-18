@@ -97,10 +97,14 @@ struct ConnectRequest {
     std::string sessionId;          // Optional: for reconnection
     bool enableWebrtcRelay;
     std::string apiKeyScope;        // "private" (default) or "public"
+    std::string agentKey;           // Optional: a MANAGED channel's key for this agent
 
     ConnectRequest() : enableWebrtcRelay(false), apiKeyScope("private") {}
 
     json toJson() const;
+
+    /** toJson() with agentKey masked, for logs. Never log toJson() itself. */
+    json toRedactedJson() const;
 };
 
 /**
