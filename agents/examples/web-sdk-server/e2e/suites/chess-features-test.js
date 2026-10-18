@@ -25,7 +25,11 @@ async function join(b, room, name) {
     await p.fill('#channelInput', room);
     await p.fill('#passwordInput', 'pw12345');
     await p.click('#connectBtn');
-    await p.waitForFunction(() => window.chessGame && window.chessGame.connected, { timeout: 45000 }).catch(() => {});
+    // A join that fails is reported, not swallowed: with the options passed as the
+    // argument and a catch, a player who never joined (a full channel quota) made
+    // two checks fail far downstream as "the other player did not move".
+    const ok = await p.waitForFunction(() => window.chessGame && window.chessGame.connected, null, { timeout: 45000 }).then(() => true, () => false);
+    check(ok, name + ' joins the room');
     await p.waitForTimeout(3000);
     return p;
 }
@@ -44,10 +48,14 @@ async function join(b, room, name) {
     check(await white.evaluate(() => !!document.getElementById('exportPgn')), 'the export control is on the page');
 
     // Play a couple of real moves through the app's own path.
+    // Each move waits for the last one to ARRIVE, not for a fixed time: Black's
+    // e5 sent before White's e4 reached Black is illegal on Black's own board, and
+    // two fixed waits made this suite red on production with the app at fault in nothing.
     await white.evaluate(() => window.chessGame.makeMove('e2', 'e4'));
-    await white.waitForTimeout(2500);
+    const e4Arrived = await black.waitForFunction(() => window.chessGame.chess.history().length === 1, null, { timeout: 20000 }).then(() => true, () => false);
+    check(e4Arrived, "White's first move reaches Black");
     await black.evaluate(() => window.chessGame.makeMove('e7', 'e5'));
-    await white.waitForTimeout(4000);
+    await white.waitForFunction(() => window.chessGame.chess.history().length === 2, null, { timeout: 20000 }).catch(() => {});
 
     const moves = await white.evaluate(() => window.chessGame.chess.history());
     check(moves.length >= 2, `two moves were played (${JSON.stringify(moves)})`);

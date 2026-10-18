@@ -93,19 +93,35 @@ class ChessGame extends UserConnectionBase {
         // The computer plays from its owner's tab, so it leaves with them.
         if (this.computerBy === detail.agentName) this._freeComputerSeat();
 
-        // Handle player leaving
-        if (this.whitePlayer === detail.agentName) {
-            this.whitePlayer = null;
-            this.showToast('White player left', 'warning');
+        // A player who leaves mid-game keeps the seat until they come back.
+        // It used to be emptied at once, so a reload (a leave, then a join)
+        // cost the player their seat: back under the same name, they could not
+        // move, the game stalled, and a spectator could sit down and play on as
+        // them. Before the first move, or once the game is over, it is freed;
+        // "New game" frees any seat whose player is not here.
+        const seat = this.whitePlayer === detail.agentName ? 'White' : this.blackPlayer === detail.agentName ? 'Black' : null;
+        if (seat && this._gameInProgress()) {
+            this.showToast(`${seat} left. The seat is kept until they come back`, 'warning');
             this.updatePlayersUI();
-        } else if (this.blackPlayer === detail.agentName) {
-            this.blackPlayer = null;
-            this.showToast('Black player left', 'warning');
+        } else if (seat) {
+            if (seat === 'White') this.whitePlayer = null; else this.blackPlayer = null;
+            this.showToast(`${seat} player left`, 'warning');
             this.updatePlayersUI();
         }
 
         this.spectators = this.spectators.filter(s => s !== detail.agentName);
         this.updateSpectatorsList();
+    }
+
+    /** Moves have been played and nobody has won, lost or drawn yet. */
+    _gameInProgress() {
+        return this.chess.history().length > 0 && !this.gameEnded && !this.chess.game_over();
+    }
+
+    /** A seat whose player is not in the room (the computer is always here). */
+    _away(name) {
+        if (!name || name === ChessBot.NAME || name === this.username) return false;
+        return (this.getConnectedUsers() || []).indexOf(name) < 0;
     }
 
     onDataChannelMessage(peerId, data) {
@@ -332,11 +348,10 @@ class ChessGame extends UserConnectionBase {
             return;
         }
 
-        // Update status indicators
-        document.getElementById('whitePlayerStatus').textContent =
-            this.whitePlayer ? (whiteTurn ? '⏳ Thinking...' : '✓ Ready') : '⏳ Waiting';
-        document.getElementById('blackPlayerStatus').textContent =
-            this.blackPlayer ? (!whiteTurn ? '⏳ Thinking...' : '✓ Ready') : '⏳ Waiting';
+        // Update status indicators; a kept seat whose player has gone says so.
+        const status = (name, turn) => !name ? '⏳ Waiting' : this._away(name) ? '⏸ Away' : turn ? '⏳ Thinking...' : '✓ Ready';
+        document.getElementById('whitePlayerStatus').textContent = status(this.whitePlayer, whiteTurn);
+        document.getElementById('blackPlayerStatus').textContent = status(this.blackPlayer, !whiteTurn);
     }
 
     updateSpectatorsList() {
@@ -905,6 +920,11 @@ class ChessGame extends UserConnectionBase {
         this._clockMs = { w: 0, b: 0 };
         this._renderClocks();
         this.gameEnded = false;
+
+        // A seat was only kept for the game its player left; a new one starts
+        // without them, open to whoever sits down.
+        if (this._away(this.whitePlayer)) this.whitePlayer = null;
+        if (this._away(this.blackPlayer)) this.blackPlayer = null;
 
         this.renderBoard();
         this.updatePlayersUI();
