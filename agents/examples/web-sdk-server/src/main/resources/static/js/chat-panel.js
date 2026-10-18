@@ -233,11 +233,17 @@
         handleMessage(peerId, data) {
             if (!data || data.type !== 'chat') return false;
 
-            const from = data._fromClient || data.name;
-            if (this._isHost() && !data._fromHost) {
+            if (this._isHost()) {
                 // Everything a client sends lands here first, which is the one
-                // place a mute can be enforced for the whole room.
-                if (this.opts.isMuted && this.opts.isMuted(from)) return true;
+                // place a mute can be enforced for the whole room. The author
+                // is the transport's word: name, _fromClient and _fromHost are
+                // all written by the sender, and a line sent straight to the
+                // host keeps them as written. The relayed line carries that
+                // name, so what the room sees is the host's word too.
+                const from = this.game.senderOf(peerId, data);
+                if (!from || (this.opts.isMuted && this.opts.isMuted(from))) return true;
+                const { _fromClient, _needsRelay, _fromHost, ...line } = data;
+                data = Object.assign(line, { name: from });
                 this._transport(data);
             } else if (!this._blessedByHost(peerId, data)) {
                 // A line that reached me without the host's game agreeing to it.
@@ -275,11 +281,12 @@
          * True when the host's own code sent this. An auto-relayed client
          * message also arrives from the host, but carries _fromClient — that is
          * what separates "the host said so" from "the host passed it along".
+         * Asked of the transport (senderOf), never of a _fromHost flag, which
+         * anyone can write.
          */
         _blessedByHost(peerId, data) {
-            if (data._fromHost) return true;
-            if (data._fromClient) return false;
-            return peerId === this._hostName();
+            const host = this._hostName();
+            return !!host && this.game.senderOf(peerId, data) === host;
         }
 
         _hostName() {

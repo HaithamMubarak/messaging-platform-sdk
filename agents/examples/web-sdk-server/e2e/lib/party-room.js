@@ -46,20 +46,23 @@ async function useChannelForm(page) {
     }
 }
 
-async function joinOne(browser, path, globalName, room, name, pass) {
+async function joinOne(browser, path, globalName, room, name, pass, prepare) {
     const ctx = await browser.newContext({ viewport: { width: 1280, height: 900 } });
+    if (prepare) await prepare(ctx);
     const page = await ctx.newPage();
     page.setDefaultTimeout(60000);
     const errors = [];
     page.on('console', m => { if (m.type() === 'error') errors.push(m.text()); });
     page.on('pageerror', e => errors.push('pageerror: ' + e.message));
 
+    const url = /^https?:/.test(path) ? path : BASE + path;
+
     // One retry: a restart between two clients joining is common on a shared box.
     try {
-        await gotoStable(page, `${BASE}${path}?debug`, { waitUntil: 'domcontentloaded' });
+        await gotoStable(page, url + '?debug', { waitUntil: 'domcontentloaded' });
     } catch (_) {
         await waitForService();
-        await gotoStable(page, `${BASE}${path}?debug`, { waitUntil: 'domcontentloaded' });
+        await gotoStable(page, url + '?debug', { waitUntil: 'domcontentloaded' });
     }
     await page.waitForSelector('#connectionModal.active', { timeout: 30000 });
     await useChannelForm(page);

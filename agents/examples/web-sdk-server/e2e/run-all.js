@@ -29,7 +29,7 @@ const GROUPS = {
     // ungated. Run with: npm test -- ghost
     'presence (opt in)': [],
     'mobile + security': ['injection-test.js', 'forgery-test.js',
-                          'host-forgery-test.js', 'vote-privacy-test.js'],
+                          'host-forgery-test.js', 'vote-privacy-test.js', 'chat-panel-trust-test.js'],
     'mechanisms': ['companion-test.js', 'attest-test.js', 'till-test.js', 'knock-test.js', 'vault-test.js', 'escrow-test.js', 'disk-sink-test.js', 'hooks-meter-test.js']
 };
 
