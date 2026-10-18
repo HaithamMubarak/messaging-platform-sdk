@@ -274,9 +274,16 @@ ConnectConfig config = ConnectConfig.builder()
 agent.connect(config);
 ```
 
+```cpp
+// C++
+MessagingChannelApi api(apiUrl, temporaryKey);
+api.setAgentKey(keyFromYourBackend);
+ConnectResponse resp = api.connect("team-42", "the-room-password", "u-7f3a91");
+```
+
 A refused connect answers `unauthorized`: *"This channel admits only agents its
-owner registered."* The C++ agent does not send `agentKey` yet; until it does,
-keep C++ clients on ordinary channels.
+owner registered."* Every agent (web, Python, Java and C++) sends `agentKey`
+only when you give it one, so ordinary channels are unaffected.
 
 ---
 

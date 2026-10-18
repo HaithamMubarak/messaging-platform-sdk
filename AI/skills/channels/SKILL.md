@@ -51,8 +51,8 @@ A channel admits anyone with its name + password, and an existing one even by
 - `POST /channels/managed/revoke` `{..., agentNames:[...]}` (closes their sessions now)
 - `POST /channels/managed/list` / `POST /channels/managed/release`
 
-Clients then connect with `agentName` + `agentKey` (web, Python and Java agents;
-not the C++ agent yet). Ordinary channels and clients without a key are unchanged.
+Clients then connect with `agentName` + `agentKey` (web, Python, Java and C++
+agents; in C++ call `MessagingChannelApi::setAgentKey` before `connect`). Ordinary channels and clients without a key are unchanged.
 Full guide: `USER-GUIDE.md`, "Managed Channels".
 
 ## Notes for assistants

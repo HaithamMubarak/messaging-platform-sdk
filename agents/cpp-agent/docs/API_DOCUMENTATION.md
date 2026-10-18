@@ -288,7 +288,29 @@ while (running) {
 }
 ```
 
-### Pattern 3: Event-Driven
+### Pattern 3: Managed Channel (agentKey)
+
+A managed channel admits only the agents its owner registered, each with a
+key (see "Managed Channels" in the root `USER-GUIDE.md`). Your backend hands
+the client its `agentName` and `agentKey`; set the key before connecting:
+
+```cpp
+MessagingChannelApi api(apiUrl, temporaryKey);
+api.setAgentKey(keyFromYourBackend);   // sent with every connect, never logged
+ConnectResponse resp = api.connect("team-42", "the-room-password", "u-7f3a91");
+
+// or, with the map-based connect:
+std::map<std::string, std::string> config{
+    {"channelName", "team-42"}, {"channelPassword", "the-room-password"},
+    {"agentName", "u-7f3a91"}, {"agentKey", keyFromYourBackend}};
+api.connect(config);
+```
+
+Without a key the connect request is exactly what it was before, so ordinary
+channels are unaffected. `CPPAGENT_DEBUG=1` prints the connect request with
+`agentKey` shown as `[redacted]`. A refused connect answers `unauthorized`.
+
+### Pattern 4: Event-Driven
 
 ```cpp
 class GameClient {
@@ -355,15 +377,12 @@ target_link_libraries(my_game PRIVATE hmdev::messaging-cpp-agent)
 
 ### Unit Tests
 
-(Future: Add unit tests with Google Test)
+Configure with `-DBUILD_TESTS=ON`, build, then run `ctest`:
 
-```cpp
-TEST(MessagingChannelApi, ConnectSuccess) {
-    MessagingChannelApi api("http://test", "key");
-    auto resp = api.connect("room", "pass", "agent");
-    EXPECT_TRUE(resp.success);
-}
-```
+- `security_vectors_test`: the password hash and channel secret match the
+  other agents byte for byte.
+- `managed_connect_test`: against a local stand-in server, `agentKey` is sent
+  when set, absent when not, and never appears in the `CPPAGENT_DEBUG` output.
 
 ### Integration Tests
 
