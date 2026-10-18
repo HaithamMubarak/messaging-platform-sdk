@@ -1935,6 +1935,31 @@
             });
         }
 
+        /**
+         * The box empties the moment a line is sent. It used to empty when the
+         * server answered, so whatever was typed while waiting was wiped by the
+         * previous line's answer: two quick lines ("ok", "thanks") lost the
+         * second, and a burst of 25 reached the room as 14. A line that fails,
+         * or gets no answer at all (a send before the session is ready is
+         * dropped without one), comes back into the box if it is still empty.
+         */
+        function sendTyped(txt) {
+            msgEl.value = '';
+            let answered = false, gaveBack = false;
+            const giveBack = (why) => {
+                gaveBack = true;
+                if (!msgEl.value) msgEl.value = txt;
+                showToast(why, 'error');
+            };
+            const timer = setTimeout(() => { if (!answered) giveBack('Not sent: no answer yet. Your message is back in the box.'); }, 8000);
+            window.channel.sendMessage(txt, res => {
+                answered = true;
+                clearTimeout(timer);
+                if (res?.status !== 'success') giveBack('Send failed');
+                else if (gaveBack && msgEl.value === txt) msgEl.value = '';   // it went after all
+            });
+        }
+
         if (sendBtn) {
             sendBtn.addEventListener('click', function () {
                 const txt = msgEl?.value?.trim();
@@ -1942,13 +1967,7 @@
                 if (window.channel?.sendMessage) {
                     // Send through channel. Do NOT append locally here; the server will broadcast
                     // and the message will be appended when received through the channel message event.
-                    window.channel.sendMessage(txt, res => {
-                        if (res?.status === 'success') {
-                            msgEl.value = '';
-                        } else {
-                            showToast('Send failed', 'error');
-                        }
-                    });
+                    sendTyped(txt);
                 } else {
                     // No channel library available: clear the input but do not append locally.
                     msgEl.value = '';
