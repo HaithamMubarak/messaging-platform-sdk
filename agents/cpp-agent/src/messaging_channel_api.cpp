@@ -10,7 +10,8 @@ namespace messaging {
 
 MessagingChannelApi::MessagingChannelApi(const std::string& remoteUrl,
                                         const std::string& developerApiKey)
-    : usePublicKey_(false), defaultPollSource_("AUTO") {
+    : usePublicKey_(false), defaultPollSource_("AUTO"),
+      requestTimeoutMs_(POLLING_TIMEOUT_MS) {
 
     // Create HTTP client
     httpClient_ = std::make_unique<HttpClient>(remoteUrl);
@@ -50,6 +51,10 @@ MessagingChannelApi::MessagingChannelApi(const std::string& remoteUrl,
 
     // Create UDP client
     udpClient_ = std::make_unique<UdpClient>(host, udpPort);
+}
+
+void MessagingChannelApi::setRequestTimeoutMs(int timeoutMs) {
+    requestTimeoutMs_ = timeoutMs < 100 ? 100 : timeoutMs;
 }
 
 MessagingChannelApi::~MessagingChannelApi() {
@@ -138,7 +143,7 @@ ConnectResponse MessagingChannelApi::connect(const std::string& channelName,
         // Send connect request
         HttpClientResult result = httpClient_->post(getActionUrl("connect"),
                                                      connectRequest.toJson(),
-                                                     POLLING_TIMEOUT_MS);
+                                                     requestTimeoutMs_);
 
         if (std::getenv("CPPAGENT_DEBUG")) {
             std::cerr << "[DEBUG] connect status=" << result.statusCode
@@ -192,7 +197,7 @@ std::string MessagingChannelApi::createChannel(const std::string& channelName,
     try {
         CreateChannelRequest request(channelName, passwordHash);
         HttpClientResult result = httpClient_->post(getActionUrl("create-channel"),
-                                                     request.toJson());
+                                                     request.toJson(), requestTimeoutMs_);
         if (std::getenv("CPPAGENT_DEBUG")) {
             std::cerr << "[DEBUG] create-channel status=" << result.statusCode
                        << " body=" << result.data << std::endl;
@@ -227,7 +232,7 @@ EventMessageResult MessagingChannelApi::receive(const std::string& sessionId,
 
         HttpClientResult httpResult = httpClient_->post(getActionUrl("pull"),
                                                         request.toJson(),
-                                                        POLLING_TIMEOUT_MS);
+                                                        requestTimeoutMs_);
 
         if (httpResult.isHttpOk()) {
             json responseJson = httpResult.dataAsJson();
@@ -248,7 +253,7 @@ std::vector<AgentInfo> MessagingChannelApi::getActiveAgents(const std::string& s
     try {
         SessionRequest request(sessionId);
         HttpClientResult result = httpClient_->post(getActionUrl("list-agents"),
-                                                     request.toJson());
+                                                     request.toJson(), requestTimeoutMs_);
 
         if (result.isHttpOk()) {
             json responseJson = result.dataAsJson();
@@ -271,7 +276,7 @@ std::vector<AgentInfo> MessagingChannelApi::getSystemAgents(const std::string& s
     try {
         SessionRequest request(sessionId);
         HttpClientResult result = httpClient_->post(getActionUrl("list-system-agents"),
-                                                     request.toJson());
+                                                     request.toJson(), requestTimeoutMs_);
 
         if (result.isHttpOk()) {
             json responseJson = result.dataAsJson();
@@ -322,7 +327,7 @@ bool MessagingChannelApi::send(EventType eventType,
         request.encrypted = false;
 
         HttpClientResult result = httpClient_->post(getActionUrl("push"),
-                                                     request.toJson());
+                                                     request.toJson(), requestTimeoutMs_);
 
         return result.isHttpOk();
     } catch (const std::exception& e) {
@@ -341,7 +346,7 @@ bool MessagingChannelApi::disconnect(const std::string& sessionId) {
     try {
         SessionRequest request(sessionId);
         HttpClientResult result = httpClient_->post(getActionUrl("disconnect"),
-                                                     request.toJson());
+                                                     request.toJson(), requestTimeoutMs_);
 
         httpClient_->closeAll();
 
@@ -365,7 +370,7 @@ bool MessagingChannelApi::sendWebRtcSignaling(const std::string& remoteAgent,
         request.ephemeral = true;                       // signaling is not persisted
 
         HttpClientResult result = httpClient_->post(getActionUrl("push"),
-                                                     request.toJson());
+                                                     request.toJson(), requestTimeoutMs_);
         return result.isHttpOk();
     } catch (const std::exception& e) {
         std::cerr << "Exception in sendWebRtcSignaling: " << e.what() << std::endl;

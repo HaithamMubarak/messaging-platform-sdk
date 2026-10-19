@@ -1,5 +1,7 @@
 # Build directories
 build/
+# Any other build folder (build-unreal-static/ from a static build for Unreal sat untracked for a month).
+build-*/
 cmake-build-*/
 CMakeFiles/
 CMakeCache.txt

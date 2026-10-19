@@ -24,6 +24,13 @@ public:
                        const std::string& developerApiKey = "");
 
     /**
+     * Bound every HTTP operation, including pull, for hosts that need a
+     * responsive shutdown (for example a game worker thread). The historical
+     * default remains 40 seconds until a caller opts into a shorter timeout.
+     */
+    void setRequestTimeoutMs(int timeoutMs);
+
+    /**
      * Destructor
      */
     ~MessagingChannelApi() override;
@@ -174,6 +181,7 @@ private:
     std::unique_ptr<UdpClient> udpClient_;
     bool usePublicKey_;
     std::string defaultPollSource_;  // Default poll source for receive operations
+    int requestTimeoutMs_;
 
     /**
      * Create channel on server

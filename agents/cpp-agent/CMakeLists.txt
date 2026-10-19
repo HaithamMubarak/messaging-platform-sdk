@@ -45,6 +45,12 @@ set(AGENT_HEADERS
 # add_subdirectory() this tree or find_package() an installed copy.
 add_library(messaging-cpp-agent ${AGENT_SOURCES} ${AGENT_HEADERS})
 add_library(hmdev::messaging-cpp-agent ALIAS messaging-cpp-agent)
+if(WIN32 AND NOT BUILD_SHARED_LIBS)
+    # Unreal links its own static libcurl into the game executable. Compile
+    # this static SDK without dllimport decorations so those symbols can
+    # satisfy the final link instead of forcing a second libcurl DLL import.
+    target_compile_definitions(messaging-cpp-agent PRIVATE CURL_STATICLIB)
+endif()
 
 include(GNUInstallDirs)
 
