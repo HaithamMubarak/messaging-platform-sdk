@@ -44,9 +44,33 @@ public abstract class BaseMessagingServiceClient implements MessagingServiceClie
         return null;
     }
 
+    /** A tenant's own key, or null when this server has none for it. The site's key is getApiKey(). */
+    protected String getTenantApiKey(String tenant) {
+        return null;
+    }
+
+    /**
+     * The key to mint from: the tenant's when it is named and configured, else
+     * the site's own. A missing tenant key falls back rather than failing, so
+     * a game keeps working (on the demos' quota) until its key is set, and the
+     * log says so.
+     */
+    protected String keyFor(String tenant) {
+        if (tenant == null || tenant.isBlank()) return getApiKey();
+        String key = getTenantApiKey(tenant.trim());
+        if (key != null && !key.trim().isEmpty()) return key;
+        log.warn("No key configured for tenant '{}'; minting from the site's own key", tenant);
+        return getApiKey();
+    }
+
     @Override
     public ApiConfigResponse getApiAccessDetails(Integer ttlSeconds, Boolean singleUse) {
-        String apiKey = getApiKey();
+        return getApiAccessDetails(null, ttlSeconds, singleUse);
+    }
+
+    @Override
+    public ApiConfigResponse getApiAccessDetails(String tenant, Integer ttlSeconds, Boolean singleUse) {
+        String apiKey = keyFor(tenant);
         if (apiKey == null || apiKey.trim().isEmpty()) {
             throw new IllegalStateException("API key not configured");
         }

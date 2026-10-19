@@ -27,6 +27,11 @@ public class MessagingServiceClient extends BaseMessagingServiceClient {
     }
 
     @Override
+    protected String getTenantApiKey(String tenant) {
+        return "games".equals(tenant) ? properties.getGamesApiKey() : null;
+    }
+
+    @Override
     protected String getMessagingServiceUrl() {
         return properties.getMessagingServiceUrl();
     }

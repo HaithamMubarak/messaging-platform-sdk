@@ -33,6 +33,13 @@ class BaseApiConfigControllerTest {
     /** Records the TTL actually passed downstream, so we can assert on the clamp. */
     private static class RecordingClient implements MessagingServiceClientInterface {
         final List<Integer> ttls = new ArrayList<>();
+        final List<String> tenants = new ArrayList<>();
+
+        @Override
+        public ApiConfigResponse getApiAccessDetails(String tenant, Integer ttlSeconds, Boolean singleUse) {
+            tenants.add(tenant);
+            return getApiAccessDetails(ttlSeconds, singleUse);
+        }
 
         @Override
         public ApiConfigResponse getApiAccessDetails(Integer ttlSeconds, Boolean singleUse) {
@@ -134,6 +141,26 @@ class BaseApiConfigControllerTest {
     void clampsANegativeTtl() throws Exception {
         requestKey(-1, "10.0.0.3");
         assertThat(client.ttls).containsExactly(BaseApiConfigController.MIN_TTL_SECONDS);
+    }
+
+    // -------------------------------------------------------------- tenant
+
+    @Test
+    @DisplayName("a game asking for the games tenant is minted from that tenant, not the demos' key")
+    void passesTheTenantThrough() throws Exception {
+        mvc.perform(post("/app/api/config")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .header("X-Forwarded-For", "10.0.0.9")
+                        .content("{\"ttlSeconds\":300,\"singleUse\":false,\"tenant\":\"games\"}"))
+                .andExpect(status().isOk());
+        assertThat(client.tenants).containsExactly("games");
+    }
+
+    @Test
+    @DisplayName("a demo that names no tenant gets the site's own key, as before")
+    void noTenantMeansTheSite() throws Exception {
+        requestKey(60, "10.0.0.10");
+        assertThat(client.tenants).containsExactly((String) null);
     }
 
     // ----------------------------------------------------------- rate limit

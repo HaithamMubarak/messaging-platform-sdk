@@ -26,6 +26,9 @@ public class WebDemosProperties {
      */
     private String apiKey;
 
+    /** The Games tenant's key (GAMES_MESSAGING_API_KEY): the games' temporary keys are minted from it. */
+    private String gamesApiKey;
+
     /**
      * Default TTL for temporary keys in seconds
      * Default: 3600 (1 hour)

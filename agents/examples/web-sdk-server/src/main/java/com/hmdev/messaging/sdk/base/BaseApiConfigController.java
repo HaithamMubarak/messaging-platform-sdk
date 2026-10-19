@@ -94,11 +94,14 @@ public abstract class BaseApiConfigController {
             Boolean singleUse = (request != null && request.getSingleUse() != null)
                     ? request.getSingleUse() : false;
 
-            ApiConfigResponse apiConfigResponse = messagingServiceClient.getApiAccessDetails(
-                    ttlSeconds, singleUse);
+            String tenant = (request != null) ? request.getTenant() : null;
 
-            log.info("[{}] Created temporary key with ttl: {}s, singleUse: {}",
-                    getServiceName(), apiConfigResponse.getTtlSeconds(), apiConfigResponse.getSingleUse());
+            ApiConfigResponse apiConfigResponse = messagingServiceClient.getApiAccessDetails(
+                    tenant, ttlSeconds, singleUse);
+
+            log.info("[{}] Created temporary key with ttl: {}s, singleUse: {}, tenant: {}",
+                    getServiceName(), apiConfigResponse.getTtlSeconds(), apiConfigResponse.getSingleUse(),
+                    tenant == null ? "site" : tenant);
 
             return ResponseEntity.ok(JsonResponse.success(apiConfigResponse));
 

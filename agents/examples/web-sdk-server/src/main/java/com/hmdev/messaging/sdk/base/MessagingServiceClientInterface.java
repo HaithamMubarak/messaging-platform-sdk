@@ -21,6 +21,11 @@ public interface MessagingServiceClientInterface {
      */
     ApiConfigResponse getApiAccessDetails(Integer ttlSeconds, Boolean singleUse);
 
+    /** The same, minted from a tenant's key (ApiAccessRequest.tenant); by default the site's own. */
+    default ApiConfigResponse getApiAccessDetails(String tenant, Integer ttlSeconds, Boolean singleUse) {
+        return getApiAccessDetails(ttlSeconds, singleUse);
+    }
+
     /**
      * Check if messaging service is available.
      *
