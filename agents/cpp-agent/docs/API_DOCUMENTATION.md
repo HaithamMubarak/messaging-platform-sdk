@@ -310,6 +310,14 @@ Without a key the connect request is exactly what it was before, so ordinary
 channels are unaffected. `CPPAGENT_DEBUG=1` prints the connect request with
 `agentKey` shown as `[redacted]`. A refused connect answers `unauthorized`.
 
+### Channel life
+
+`api.setChannelAgeMs(ms)` (or `config["channelAgeMs"]`, decimal ms) asks for a
+shorter life for a channel this agent creates; it goes with create-channel and
+connect. The service holds it to 5 min – 24 h and ignores it for a channel that
+already exists, so it can only shorten a life. 0 (the default) sends nothing:
+the old payload and 24 h. See "Channel life" in the SDK user guide.
+
 ### Pattern 4: Event-Driven
 
 ```cpp

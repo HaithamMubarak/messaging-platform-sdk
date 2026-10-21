@@ -3,6 +3,7 @@
 // as before), and the CPPAGENT_DEBUG dump of the connect request never shows
 // the key. A local server stands in for the service and records each body;
 // the same checks the JS, Python and Java agents' managed-connect tests make.
+// The same stand-in also checks channelAgeMs, the requested channel life.
 #ifdef _WIN32
 #include <winsock2.h>
 #include <ws2tcpip.h>
@@ -120,10 +121,8 @@ public:
 
     std::string url() const { return "http://127.0.0.1:" + std::to_string(port_); }
 
-    std::string lastConnect() {
-        std::lock_guard<std::mutex> lock(mutex_);
-        return connects_.empty() ? "" : connects_.back();
-    }
+    std::string lastConnect() { return lastBody(connects_); }
+    std::string lastCreate() { return lastBody(creates_); }
 
 private:
     void serve() {
@@ -131,9 +130,11 @@ private:
             socket_t client = accept(listener_, nullptr, nullptr);
             if (stopping_) break;
             std::string head, body;
-            if (readRequest(client, head, body) && contains(head.substr(0, head.find("\r\n")), "/connect")) {
+            if (readRequest(client, head, body)) {
+                std::string line = head.substr(0, head.find("\r\n"));
                 std::lock_guard<std::mutex> lock(mutex_);
-                connects_.push_back(body);
+                if (contains(line, "/connect")) connects_.push_back(body);
+                if (contains(line, "/create-channel")) creates_.push_back(body);
             }
             const std::string reply = "{\"status\":\"unauthorized\",\"statusMessage\":\"stand-in\"}";
             std::string out = "HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nConnection: close\r\n"
@@ -149,6 +150,12 @@ private:
     std::thread thread_;
     std::mutex mutex_;
     std::vector<std::string> connects_;
+    std::vector<std::string> creates_;
+
+    std::string lastBody(const std::vector<std::string>& bodies) {
+        std::lock_guard<std::mutex> lock(mutex_);
+        return bodies.empty() ? "" : bodies.back();
+    }
 };
 
 // --- the checks --------------------------------------------------------------
@@ -205,6 +212,34 @@ void overTheWire(StandIn& server) {
     check("config[\"agentKey\"]: debug dump never shows the key", !contains(log, kKey), log);
 }
 
+// Channel life: channelAgeMs goes with create-channel AND connect (either may
+// create the channel) when asked for, and not at all otherwise.
+void channelAge(StandIn& server) {
+    ConnectRequest request;
+    request.channelId = "room-1";
+    check("no age: channelAgeMs absent from JSON", !request.toJson().contains("channelAgeMs"), request.toJson().dump());
+    request.channelAgeMs = 7200000;
+    check("age: channelAgeMs in JSON", request.toJson().value("channelAgeMs", 0LL) == 7200000, request.toJson().dump());
+
+    MessagingChannelApi shortLived(server.url(), "temp-key");
+    shortLived.setChannelAgeMs(7200000);
+    shortLived.connect("room", "pw", "u-ann", "", "", false);
+    check("setChannelAgeMs: create-channel carries it", contains(server.lastCreate(), "\"channelAgeMs\":7200000"), server.lastCreate());
+    check("setChannelAgeMs: connect carries it", contains(server.lastConnect(), "\"channelAgeMs\":7200000"), server.lastConnect());
+
+    MessagingChannelApi plain(server.url(), "temp-key");
+    plain.connect("room", "pw", "u-bob", "", "", false);
+    check("ordinary agent: no channelAgeMs in create-channel",
+          !server.lastCreate().empty() && !contains(server.lastCreate(), "channelAgeMs"), server.lastCreate());
+    check("ordinary agent: no channelAgeMs in connect", !contains(server.lastConnect(), "channelAgeMs"), server.lastConnect());
+
+    MessagingChannelApi byMap(server.url(), "temp-key");
+    std::map<std::string, std::string> config{
+        {"channelName", "room"}, {"channelPassword", "pw"}, {"agentName", "u-cy"}, {"channelAgeMs", "600000"}};
+    byMap.connect(config);
+    check("config[\"channelAgeMs\"]: connect carries it", contains(server.lastConnect(), "\"channelAgeMs\":600000"), server.lastConnect());
+}
+
 }  // namespace
 
 int main() {
@@ -217,6 +252,7 @@ int main() {
     {
         StandIn server;
         overTheWire(server);
+        channelAge(server);
     }
     std::cout << (failures == 0 ? "all managed-connect checks passed" : "managed-connect checks FAILED") << std::endl;
     return failures == 0 ? 0 : 1;

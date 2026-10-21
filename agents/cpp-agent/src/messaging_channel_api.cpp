@@ -139,6 +139,7 @@ ConnectResponse MessagingChannelApi::connect(const std::string& channelName,
         connectRequest.enableWebrtcRelay = enableWebrtcRelay;
         connectRequest.apiKeyScope = apiKeyScope.empty() ? "private" : apiKeyScope;
         connectRequest.agentKey = agentKey_;
+        connectRequest.channelAgeMs = channelAgeMs_;
 
         // Send connect request
         HttpClientResult result = httpClient_->post(getActionUrl("connect"),
@@ -188,6 +189,9 @@ ConnectResponse MessagingChannelApi::connect(const std::map<std::string, std::st
     if (config.count("agentKey") && !config.at("agentKey").empty()) {
         agentKey_ = config.at("agentKey");
     }
+    if (config.count("channelAgeMs") && !config.at("channelAgeMs").empty()) {
+        channelAgeMs_ = std::strtoll(config.at("channelAgeMs").c_str(), nullptr, 10);
+    }
 
     return connect(channelName, channelPassword, agentName, sessionId, channelId, enableWebrtcRelay, apiKeyScope, pollSource);
 }
@@ -195,7 +199,7 @@ ConnectResponse MessagingChannelApi::connect(const std::map<std::string, std::st
 std::string MessagingChannelApi::createChannel(const std::string& channelName,
                                                const std::string& passwordHash) {
     try {
-        CreateChannelRequest request(channelName, passwordHash);
+        CreateChannelRequest request(channelName, passwordHash, channelAgeMs_);
         HttpClientResult result = httpClient_->post(getActionUrl("create-channel"),
                                                      request.toJson(), requestTimeoutMs_);
         if (std::getenv("CPPAGENT_DEBUG")) {

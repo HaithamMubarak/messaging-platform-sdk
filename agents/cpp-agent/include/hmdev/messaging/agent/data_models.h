@@ -98,8 +98,9 @@ struct ConnectRequest {
     bool enableWebrtcRelay;
     std::string apiKeyScope;        // "private" (default) or "public"
     std::string agentKey;           // Optional: a MANAGED channel's key for this agent
+    long long channelAgeMs;         // Optional (0 = unset): requested life if this connect creates the channel
 
-    ConnectRequest() : enableWebrtcRelay(false), apiKeyScope("private") {}
+    ConnectRequest() : enableWebrtcRelay(false), apiKeyScope("private"), channelAgeMs(0) {}
 
     json toJson() const;
 
@@ -161,10 +162,11 @@ struct EventMessageResult {
 struct CreateChannelRequest {
     std::string channelName;
     std::string channelPassword;
+    long long channelAgeMs = 0;     // Optional (0 = unset): requested life, held to [5 min, 24 h]
 
     CreateChannelRequest() = default;
-    CreateChannelRequest(const std::string& name, const std::string& password)
-        : channelName(name), channelPassword(password) {}
+    CreateChannelRequest(const std::string& name, const std::string& password, long long ageMs = 0)
+        : channelName(name), channelPassword(password), channelAgeMs(ageMs) {}
 
     json toJson() const;
 };

@@ -161,6 +161,11 @@ json ConnectRequest::toJson() const {
         j["agentKey"] = agentKey;
     }
 
+    // Only sent when asked for; the service then keeps its 24 h default.
+    if (channelAgeMs > 0) {
+        j["channelAgeMs"] = channelAgeMs;
+    }
+
     return j;
 }
 
@@ -264,10 +269,14 @@ EventMessageResult EventMessageResult::fromJson(const json& j) {
 
 // CreateChannelRequest
 json CreateChannelRequest::toJson() const {
-    return json{
+    json j = {
         {"channelName", channelName},
         {"channelPassword", channelPassword}
     };
+    if (channelAgeMs > 0) {
+        j["channelAgeMs"] = channelAgeMs;
+    }
+    return j;
 }
 
 // SessionRequest

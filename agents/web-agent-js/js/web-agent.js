@@ -1740,6 +1740,8 @@
              agentName = null,
              // A managed channel's key for this agent, from the app that owns the channel.
              agentKey = null,
+             // Requested channel life (ms) if this connect creates the channel; see the payload below.
+             channelAgeMs = null,
 
              sessionId = null,
              channelId = null,
@@ -1793,6 +1795,7 @@
 
         _self.agentName = agentName || _self.agentName;
         _self._agentKey = agentKey || _self._agentKey;   // kept for reconnects; never logged
+        _self._channelAgeMs = channelAgeMs || _self._channelAgeMs;   // kept: a reconnect may recreate the channel
 
         // Override enableWebrtcRelay if provided in config
         if(enableWebrtcRelay !== null){
@@ -1871,32 +1874,25 @@
             descriptor: navigator.userAgent,
             customEventType: customEventType || ''
         };
+        const common = {
+            sessionId: sessionId || '',
+            agentName: _self.agentName,
+            agentKey: _self._agentKey || undefined,
+            agentContext,
+            enableWebrtcRelay: _self.enableWebrtcRelay || false,
+            apiKeyScope,
+            // If this connect creates the channel, the life it asks for. The service holds it
+            // to [5 min, 24 h] and ignores it for a channel that exists; unset sends nothing.
+            channelAgeMs: _self._channelAgeMs || undefined
+        };
         if(connectingByChannelId){
-            payload = {
-                sessionId: sessionId || '',
-                channelId: channelId,
-                agentName: _self.agentName,
-                agentKey: _self._agentKey || undefined,
-                agentContext,
-                enableWebrtcRelay: _self.enableWebrtcRelay || false,
-                apiKeyScope
-            };
+            payload = Object.assign({ channelId: channelId }, common);
         } else {
             let channelPasswordHash = '';
             if(_self._channelPassword && _self._channelSecret){
                 channelPasswordHash = MySecurity.hash(_self._channelPassword, _self._channelSecret);
             }
-
-            payload = {
-                sessionId: sessionId || '',
-                channelName: _self._channelName,
-                channelPassword: channelPasswordHash,
-                agentName: _self.agentName,
-                agentKey: _self._agentKey || undefined,
-                agentContext,
-                enableWebrtcRelay: _self.enableWebrtcRelay || false,
-                apiKeyScope
-            };
+            payload = Object.assign({ channelName: _self._channelName, channelPassword: channelPasswordHash }, common);
         }
 
         logPayload('Connect payload:', payload);

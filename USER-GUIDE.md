@@ -287,6 +287,41 @@ only when you give it one, so ordinary channels are unaffected.
 
 ---
 
+## Channel life (how long a channel lasts)
+
+A channel lives **24 hours** from when it is created, then the service deletes it
+with its messages. While it lives it counts against your plan's channel units, so
+a game room abandoned after one match holds quota for a day.
+
+The client that creates a channel may ask for a **shorter** life with
+`channelAgeMs` (milliseconds) on connect or create-channel:
+
+- It is held to **5 minutes – 24 hours**: below 5 minutes gets 5 minutes, above
+  24 hours gets 24 hours. It can shorten a channel's life, never lengthen it.
+- It counts only for the request that **creates** the channel. Joining or
+  reconnecting to an existing channel never changes its life, whatever it asks.
+- Leave it out and you get 24 hours, exactly as before.
+- The connect response's `state.ageMs` says what was granted.
+
+When the life ends the channel is deleted mid-session: pick a life longer than
+your longest session. A page still open on it will recreate it on reconnect (as
+an ordinary channel, with the life that reconnect asks for).
+
+```javascript
+// Web / JavaScript: a room that frees its quota two hours after it was made
+agent.connect({ api, apiKey, channelName: 'room-7', channelPassword: 'pw',
+                agentName: 'ann', channelAgeMs: 2 * 60 * 60 * 1000 });
+```
+
+```cpp
+// C++
+MessagingChannelApi api(apiUrl, temporaryKey);
+api.setChannelAgeMs(2LL * 60 * 60 * 1000);   // or config["channelAgeMs"] = "7200000"
+api.connect("room-7", "pw", "ann");
+```
+
+---
+
 ## Basic Examples
 
 ### Java

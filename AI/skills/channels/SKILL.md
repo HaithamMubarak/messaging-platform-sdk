@@ -41,6 +41,13 @@ agent.connect({ channelName: 'lobby', channelPassword: 'secret', agentName: 'ali
 agent.disconnect();
 ```
 
+## Channel life
+
+A channel lives 24 h from creation, then is deleted. The creating connect (or
+create-channel) may send `channelAgeMs` to ask for less: held to 5 min – 24 h,
+ignored for an existing channel, so it can never extend a life. Game rooms
+should ask for a little more than their longest session (e.g. 2 h).
+
 ## Managed channels (who may join)
 
 A channel admits anyone with its name + password, and an existing one even by

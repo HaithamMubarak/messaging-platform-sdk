@@ -19,6 +19,12 @@ export interface ConnectOptions {
      * for ordinary channels. See "Managed channels" in the SDK guide.
      */
     agentKey?: string;
+    /**
+     * Ask for a shorter channel life (ms), used only if this connect creates
+     * the channel. The service holds it to [5 min, 24 h], the default; it can
+     * shorten a channel's life, never lengthen it. Omit for 24 h.
+     */
+    channelAgeMs?: number;
     /** Connect to a server-side channel id instead of a name. */
     channelId?: string;
     autoReceive?: boolean;

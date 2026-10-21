@@ -102,7 +102,8 @@ public:
      * Object-based connect for cleaner API (recommended)
      * @param config Map with keys: channelName, channelPassword, agentName, sessionId (optional),
      *               channelId (optional), enableWebrtcRelay (optional), apiKeyScope (optional),
-     *               agentKey (optional, managed channels; see setAgentKey)
+     *               agentKey (optional, managed channels; see setAgentKey),
+     *               channelAgeMs (optional, decimal ms; see setChannelAgeMs)
      * @return Connect response
      */
     ConnectResponse connect(const std::map<std::string, std::string>& config);
@@ -173,6 +174,16 @@ public:
      */
     void setAgentKey(const std::string& agentKey) { agentKey_ = agentKey; }
 
+    /**
+     * Ask for a shorter channel life (ms) when this agent's create-channel or
+     * connect is the one that creates the channel. The service holds it to
+     * [5 min, 24 h] and ignores it for a channel that already exists, so it can
+     * only shorten a life. 0 (the default) sends nothing: the old payload and
+     * the 24 h default. The map-based connect also accepts config["channelAgeMs"].
+     * @param channelAgeMs Requested life in ms, or 0 for the default
+     */
+    void setChannelAgeMs(long long channelAgeMs) { channelAgeMs_ = channelAgeMs; }
+
 private:
     static constexpr int POLLING_TIMEOUT_MS = 40000;  // 40 seconds
     static constexpr int DEFAULT_UDP_PORT = 9999;
@@ -206,6 +217,7 @@ private:
     std::string getActionUrl(const std::string& action) const;
 
     std::string agentKey_;  // Managed channels only; see setAgentKey
+    long long channelAgeMs_ = 0;  // 0 = the service's default life; see setChannelAgeMs
 };
 
 } // namespace messaging
