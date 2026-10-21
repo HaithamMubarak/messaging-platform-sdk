@@ -11,6 +11,16 @@ const ROOT = BASE + '/';
 // went on asking for demos that had been deleted.
 const PAGES = discoverPages();
 
+// Errors a page is MEANT to show on a machine without something the visitor
+// brings. Printed as expected, never counted: a check red every night for the
+// same known reason teaches everyone to skim it (guidelines 6.24).
+const EXPECTED = {
+    'apps/terminal/app.html': {
+        why: 'needs the SDK Local Service running on the visitor\'s own PC',
+        match: /Failed to get SLS token|ERR_CONNECTION_REFUSED|Failed to fetch/,
+    },
+};
+
 (async () => {
     const b = await chromium.launch(LAUNCH);
     const rows = [];
@@ -55,9 +65,12 @@ const PAGES = discoverPages();
             tokens: !!getComputedStyle(document.documentElement).getPropertyValue('--brand').trim()
         })).catch(() => ({}));
 
+        const exp = EXPECTED[path];
+        const all = [...new Set(errs)];
         rows.push({
             path, status,
-            errs: [...new Set(errs)],
+            errs: exp ? all.filter((e) => !exp.match.test(e)) : all,
+            expected: exp ? all.filter((e) => exp.match.test(e)).length : 0,
             missing: [...new Set(missing)],
             connect: facts.connect, emoji: facts.emoji, tokens: facts.tokens, h1: facts.h1
         });
@@ -89,8 +102,11 @@ const PAGES = discoverPages();
             r.missing.slice(0, 4).forEach(m => console.log('   404 ' + m));
         });
     }
+    rows.filter((r) => r.expected).forEach((r) =>
+        console.log('\n(expected) ' + r.path + ': ' + r.expected + ' error(s); ' + EXPECTED[r.path].why));
     console.log('\n' + (unwell.length === 0
         ? 'all ' + rows.length + ' pages load clean: no console errors, no missing files'
         : unwell.length + ' of ' + rows.length + ' pages have errors or missing files'));
-    process.exit(unwell.length ? 1 : 0);
+    // exitCode, not exit(): exit() drops stdout still buffered for a pipe (6.10).
+    process.exitCode = unwell.length ? 1 : 0;
 })();
