@@ -21,6 +21,24 @@ class TerminalSharing extends UserConnectionBase {
      */
     static SCROLLBACK_LIMIT = 64 * 1024;
 
+    /**
+     * How often one sender may ask for something that costs this page work:
+     * [messages, per milliseconds], per sender, type and session. A
+     * viewer-join replays up to 64 KB of scrollback and redraws the owner's
+     * prompt, so a burst of ten used to cost ten of each.
+     */
+    static RATE_LIMITS = {
+        'session-viewer-join': [3, 5000],
+        'request-sync': [3, 5000],
+        'permission-request': [2, 10000],
+        'typing-indicator': [20, 1000]
+    };
+
+    /** A permission off the wire is a claim: anything but 'readwrite' is read-only. */
+    static permissionOf(value) {
+        return value === 'readwrite' ? 'readwrite' : 'readonly';
+    }
+
     constructor() {
         super({
             storagePrefix: 'terminal_sharing_',
@@ -101,17 +119,52 @@ class TerminalSharing extends UserConnectionBase {
      * Routes messages to handleMessage for processing
      */
     onDataChannelMessage(sourceAgent, message) {
+        if (!message || typeof message !== 'object') return;
         const { type } = message;
 
-        console.log('[TerminalSharing] Received:', type, 'from:', sourceAgent);
+        // Who really sent it. In p2p-host mode a guest's broadcast reaches
+        // everyone else FROM the room host, so the peer id alone credited a
+        // read-only viewer's keystrokes to the host, and the owner ran them
+        // with the host's permission (guidelines 6.68).
+        const from = this.senderOf(sourceAgent, message);
+        console.log('[TerminalSharing] Received:', type, 'from:', from);
+
+        if (!this._withinRate(from, type, message.sessionId)) {
+            console.warn('[TerminalSharing] Dropped', type, 'from', from, '- too many too fast');
+            return;
+        }
 
         // Call registered handler if exists
         const handler = this.messageHandlers.get(type);
         if (handler) {
-            handler(message, sourceAgent);
+            handler(message, from);
         } else {
             console.log('[TerminalSharing] No handler for type:', type);
         }
+    }
+
+    /** Count one message against its sender's allowance (see RATE_LIMITS). */
+    _withinRate(from, type, sessionId) {
+        const limit = TerminalSharing.RATE_LIMITS[type];
+        if (!limit) return true;
+        if (!this._rate) this._rate = new Map();
+
+        const key = from + '|' + type + '|' + (sessionId || '');
+        const now = Date.now();
+        const recent = (this._rate.get(key) || []).filter(t => now - t < limit[1]);
+        const allowed = recent.length < limit[0];
+        if (allowed) recent.push(now);
+        this._rate.set(key, recent);
+        return allowed;
+    }
+
+    /**
+     * Does `from` speak for this session? Only its owner may end it, re-share
+     * it or change its permission; anybody else saying so is ignored.
+     */
+    _isOwnerOf(sessionId, from) {
+        const session = this.sharedSessions.get(sessionId);
+        return !!session && !!from && session.owner === from;
     }
 
     /**
@@ -247,7 +300,7 @@ class TerminalSharing extends UserConnectionBase {
      * Send input to a shared session (for viewers to send commands to owner's terminal)
      * @param {string} sessionId - Terminal session identifier
      * @param {string} data - Input data to send
-     * @param {string} targetAgent - Owner agent name (optional, broadcasts if not provided)
+     * @param {string} targetAgent - Owner agent name (required: keystrokes go to the owner alone)
      */
     sendInputToSession(sessionId, data, targetAgent) {
         if (!this.connected) {
@@ -257,6 +310,13 @@ class TerminalSharing extends UserConnectionBase {
 
         if (!sessionId || data === undefined || data === null) {
             console.error('[TerminalSharing] Invalid sessionId or data for input');
+            return false;
+        }
+
+        // Never broadcast keystrokes: everybody in the room would receive
+        // them, and they are only ever meant for the shell's owner.
+        if (!targetAgent) {
+            console.error('[TerminalSharing] No owner named for input to:', sessionId);
             return false;
         }
 
@@ -272,10 +332,9 @@ class TerminalSharing extends UserConnectionBase {
             data: data
         };
 
-        // Send directly using sendData (to specific agent or broadcast)
         this.sendData(message, targetAgent);
 
-        console.log('[TerminalSharing] Sent input to session:', sessionId, targetAgent ? `to: ${targetAgent}` : '(broadcast)');
+        console.log('[TerminalSharing] Sent input to session:', sessionId, 'to:', targetAgent);
         return true;
     }
 
@@ -316,13 +375,21 @@ class TerminalSharing extends UserConnectionBase {
         const { sessionId, sessionInfo } = msg;
 
         // Don't track our own shares
-        if (src === this.username) return;
+        if (src === this.username || !sessionInfo || typeof sessionInfo !== 'object') return;
+
+        // A session id already on record belongs to its owner: anybody else
+        // announcing it would take the session over on every screen.
+        const existing = this.sharedSessions.get(sessionId);
+        if (existing && existing.owner !== src) {
+            console.warn('[TerminalSharing] Ignored', src, 'sharing', sessionId, 'owned by', existing.owner);
+            return;
+        }
 
         // Add to remote shared sessions with permission
         this.sharedSessions.set(sessionId, {
             ...sessionInfo,
             owner: src,
-            permission: sessionInfo.permission || 'readonly'
+            permission: TerminalSharing.permissionOf(sessionInfo.permission)
         });
 
         console.log('[TerminalSharing] Remote agent shared session:', sessionId, 'from:', src, 'permission:', sessionInfo.permission);
@@ -338,6 +405,7 @@ class TerminalSharing extends UserConnectionBase {
      */
     handleSessionUnshared(msg, src) {
         const { sessionId } = msg;
+        if (!this._isOwnerOf(sessionId, src)) return;
 
         // Remove from shared sessions
         this.sharedSessions.delete(sessionId);
@@ -496,9 +564,10 @@ class TerminalSharing extends UserConnectionBase {
         const { sessionId } = msg;
 
         console.log('[TerminalSharing] Permission request from:', src, 'for session:', sessionId);
+        if (!this.isSessionOwnedByUs(sessionId)) return;
 
-        // Store the pending request
-        this.pendingPermissionRequests.set(sessionId, {
+        // One entry per requester: two viewers asking at once are two requests.
+        this.pendingPermissionRequests.set(this._requestKey(sessionId, src), {
             requester: src,
             timestamp: Date.now()
         });
@@ -515,11 +584,11 @@ class TerminalSharing extends UserConnectionBase {
         const { sessionId, granted, newPermission } = msg;
 
         console.log('[TerminalSharing] Permission response from:', src, 'session:', sessionId, 'granted:', granted);
+        if (!this._isOwnerOf(sessionId, src)) return;
 
         // Update local session permission if granted
-        if (granted && this.sharedSessions.has(sessionId)) {
-            const session = this.sharedSessions.get(sessionId);
-            session.permission = newPermission || 'readwrite';
+        if (granted) {
+            this.sharedSessions.get(sessionId).permission = TerminalSharing.permissionOf(newPermission || 'readwrite');
         }
 
         if (typeof this.onPermissionResponse === 'function') {
@@ -531,15 +600,14 @@ class TerminalSharing extends UserConnectionBase {
      * Handle permission-update message (owner changed permission)
      */
     handlePermissionUpdate(msg, src) {
-        const { sessionId, permission } = msg;
+        const { sessionId } = msg;
+        const permission = TerminalSharing.permissionOf(msg.permission);
 
         console.log('[TerminalSharing] Permission update from:', src, 'session:', sessionId, 'new permission:', permission);
+        if (!this._isOwnerOf(sessionId, src)) return;
 
         // Update local session permission
-        if (this.sharedSessions.has(sessionId)) {
-            const session = this.sharedSessions.get(sessionId);
-            session.permission = permission;
-        }
+        this.sharedSessions.get(sessionId).permission = permission;
 
         if (typeof this.onPermissionUpdate === 'function') {
             this.onPermissionUpdate(sessionId, permission);
@@ -553,6 +621,7 @@ class TerminalSharing extends UserConnectionBase {
         const { sessionId } = msg;
 
         console.log('[TerminalSharing] Owner disconnect from:', src, 'session:', sessionId);
+        if (!this._isOwnerOf(sessionId, src)) return;
 
         // Remove the session from our map
         this.sharedSessions.delete(sessionId);
@@ -607,37 +676,26 @@ class TerminalSharing extends UserConnectionBase {
      * @param {string} requester - Agent who requested
      */
     respondToPermissionRequest(sessionId, granted, requester) {
-        if (!this.connected) return;
+        if (!this.connected || !requester || !this.isSessionOwnedByUs(sessionId)) return false;
 
-        const newPermission = granted ? 'readwrite' : 'readonly';
-
-        // Update local session
-        if (granted && this.sharedSessions.has(sessionId)) {
-            const session = this.sharedSessions.get(sessionId);
-            session.permission = newPermission;
-        }
-
-        // Clear pending request
-        this.pendingPermissionRequests.delete(sessionId);
-
-        // Send response to requester
+        // The grant is the requester's alone, and so is the answer. It used to
+        // set the session's permission for everyone and broadcast that, so one
+        // approval told every viewer they could type (the owner's page records
+        // the per-person grant: session.agentPermissions in terminal.js).
+        this.pendingPermissionRequests.delete(this._requestKey(sessionId, requester));
         this.sendData({
             type: 'permission-response',
             sessionId: sessionId,
             granted: granted,
-            newPermission: newPermission
+            newPermission: granted ? 'readwrite' : 'readonly'
         }, requester);
 
-        // If granted, broadcast update to all
-        if (granted) {
-            this.sendData({
-                type: 'permission-update',
-                sessionId: sessionId,
-                permission: newPermission
-            });
-        }
+        console.log('[TerminalSharing] Responded to permission request:', sessionId, 'from:', requester, 'granted:', granted);
+        return true;
+    }
 
-        console.log('[TerminalSharing] Responded to permission request:', sessionId, 'granted:', granted);
+    _requestKey(sessionId, requester) {
+        return sessionId + '|' + requester;
     }
 
     /**
@@ -883,16 +941,16 @@ class TerminalSharing extends UserConnectionBase {
 
         console.log('[TerminalSharing] Received', sessions.length, 'sessions from:', src);
 
-        sessions.forEach(({ sessionId, sessionInfo }) => {
+        sessions.forEach(({ sessionId, sessionInfo } = {}) => {
             // Don't track our own sessions
-            if (src === this.username) return;
+            if (src === this.username || !sessionInfo || typeof sessionInfo !== 'object') return;
 
             // Add to shared sessions if not already present
             if (!this.sharedSessions.has(sessionId)) {
                 this.sharedSessions.set(sessionId, {
                     ...sessionInfo,
                     owner: src,
-                    permission: sessionInfo.permission || 'readonly'
+                    permission: TerminalSharing.permissionOf(sessionInfo.permission)
                 });
 
                 // Fire callback for each new session
@@ -1078,6 +1136,8 @@ class TerminalSharing extends UserConnectionBase {
         console.log('[TerminalSharing] Received FS response from:', src, msg);
 
         const { sessionId, requestId, data } = msg;
+        // Only the owner answers for its own file system.
+        if (!this._isOwnerOf(sessionId, src)) return;
 
         // Call user-defined callback
         if (this.onFileSystemResponse) {

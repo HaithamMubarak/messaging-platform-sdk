@@ -7304,25 +7304,31 @@ function showPermissionRequestNotification(sessionId, requester) {
             <span>${svgIcon('hand', 'icon')}</span>
             <div>
                 <div style="font-weight: 600; color: var(--text-primary);">Permission Request</div>
-                <div style="font-size: 12px; color: var(--text-secondary);">${requester} wants write access</div>
+                <div style="font-size: 12px; color: var(--text-secondary);">${escapeHtml(requester)} wants write access</div>
             </div>
         </div>
         <div style="font-size: 11px; color: var(--text-muted); margin-bottom: 12px;">
-            Session: ${session.name}
+            Session: ${escapeHtml(session.name)}
         </div>
         <div style="display: flex; gap: 8px;">
-            <button onclick="respondToPermission('${sessionId}', true, '${requester}', this.parentElement.parentElement)" 
-                    style="flex: 1; padding: 8px 12px; background: var(--accent-green); border: none; 
+            <button data-grant="true"
+                    style="flex: 1; padding: 8px 12px; background: var(--accent-green); border: none;
                            border-radius: 6px; color: white; cursor: pointer; font-weight: 600; font-size: 12px;">
                 ✓ Grant
             </button>
-            <button onclick="respondToPermission('${sessionId}', false, '${requester}', this.parentElement.parentElement)" 
-                    style="flex: 1; padding: 8px 12px; background: var(--accent-red); border: none; 
+            <button data-grant="false"
+                    style="flex: 1; padding: 8px 12px; background: var(--accent-red); border: none;
                            border-radius: 6px; color: white; cursor: pointer; font-weight: 600; font-size: 12px;">
                 ✕ Deny
             </button>
         </div>
     `;
+    // Bound here, not written into an onclick: the requester's name comes off
+    // the wire, and a quote in it would have become script.
+    notification.querySelectorAll('button[data-grant]').forEach(button => {
+        button.addEventListener('click', () =>
+            respondToPermission(sessionId, button.dataset.grant === 'true', requester, notification));
+    });
     document.body.appendChild(notification);
 
     // Auto-dismiss after 30 seconds
@@ -7338,6 +7344,12 @@ function showPermissionRequestNotification(sessionId, requester) {
  * Respond to a permission request
  */
 window.respondToPermission = function respondToPermission(sessionId, granted, requester, notificationElement) {
+    // The grant is this requester's alone. Input is checked against
+    // agentPermissions (onSessionInput), so that is where it is recorded.
+    if (granted) {
+        recordAgentPermission(sessionId, requester, 'readwrite');
+        updateMySharesList();
+    }
     if (terminalSharing) {
         terminalSharing.respondToPermissionRequest(sessionId, granted, requester);
     }
@@ -7518,16 +7530,17 @@ function viewerContextMenuAction(action) {
 }
 window.viewerContextMenuAction = viewerContextMenuAction;
 
-function setAgentPermission(sessionId, agentName, permission) {
+/** Record one agent's permission on a session I share. */
+function recordAgentPermission(sessionId, agentName, permission) {
     const session = sessions.get(sessionId);
-    if (!session) return;
-
-    // Initialize agentPermissions map if not exists
-    if (!session.agentPermissions) {
-        session.agentPermissions = {};
-    }
-
+    if (!session || !session.isShared || session.owner) return false;
+    if (!session.agentPermissions) session.agentPermissions = {};
     session.agentPermissions[agentName] = permission;
+    return true;
+}
+
+function setAgentPermission(sessionId, agentName, permission) {
+    if (!recordAgentPermission(sessionId, agentName, permission)) return;
 
     // Broadcast permission update to the specific agent
     if (terminalSharing && cloudConnected) {
