@@ -1138,6 +1138,12 @@
 
             _self._websocket.onclose = function(event) {
                 console.log('[WebSocket] Disconnected:', event.code, event.reason);
+                // 4404: the server closed it because this session no longer
+                // exists (it was evicted as silent, expired, or its channel was
+                // deleted). Reconnecting the socket cannot bring it back.
+                if (event && event.code === 4404) {
+                    _self._handleAgentSessionNotFound({ statusMessage: 'Agent session not found' });
+                }
                 _self._socketGone(event && event.reason);
             };
 
@@ -1333,6 +1339,15 @@
         const action = message.action;
 
         console.debug('[WebSocket] Received:', action, message);
+
+        // A subscribe, pull or push for a session the server no longer has is
+        // answered with this and nothing else. It used to be logged and
+        // ignored, so the page went on as a zombie in a room that had dropped
+        // it. Tell the page, and stop the socket: it has nothing to carry.
+        if (message.status === 'error' && _self._handleAgentSessionNotFound(message)) {
+            _self._socketGone('session not found');
+            return;
+        }
 
         switch (action) {
             case 'subscribed':
@@ -2216,6 +2231,39 @@
                 });
             }
         }
+    }
+
+    /**
+     * Go silent at once, as a crashed tab or a cut network would: no goodbye
+     * to the server, no reconnect, nothing more sent. For testing how an app
+     * copes when a peer (often its host) vanishes. The room hears about it
+     * from the server, which notices a socket that closed without saying
+     * goodbye and announces the departure about ten seconds later. This
+     * connection is finished afterwards; connect again to come back.
+     */
+    AgentConnection.prototype.dropWithoutGoodbye = function(){
+        const _self = this;
+        if(!_self.readyState){
+            return;
+        }
+        _self.readyState = false;   // so nothing reconnects
+        _self._stopHeartbeat();
+        if (_self._websocket) {
+            try { _self._websocket.onclose = null; _self._websocket.close(); } catch (e) { /* already gone */ }
+            _self._websocket = null;
+            _self._websocketConnected = false;
+        }
+        if(_self._receive_xhr){
+            abortRequest(_self._receive_xhr);
+            _self._receive_xhr = null;
+        }
+        if(_self._reconnectTimer){
+            clearTimeout(_self._reconnectTimer);
+            delete _self._reconnectTimer;
+        }
+        clearTimeout(_self._iceRefreshTimer);
+        _unregisterConnection(_self);
+        _self.dispatchEvent('disconnect', { response: { status: 'success', dropped: true } });
     }
 
     AgentConnection.prototype.getSessionInfo = function(){

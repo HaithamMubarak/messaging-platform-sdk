@@ -516,15 +516,7 @@ class UserConnectionBase {
      * Disconnect from game
      */
     disconnect() {
-        this.stop();
-        this._stopRosterReconcile();
-
-        // Leaving on purpose. Everything below this line exists to tell the
-        // difference between that and the floor giving way.
-        this._userDisconnected = true;
-        this.reconnecting = false;
-        this._reconnectAttempt = 0;
-        clearTimeout(this._reconnectTimer);
+        this._leavingOnPurpose();
 
         // Close the peer connections BEFORE the socket, so each peer gets a
         // 'bye' and drops its end now. Leaving used to keep every P2P link
@@ -540,6 +532,41 @@ class UserConnectionBase {
         this.connected = false;
         if (window.channel === this.channel) window.channel = null;
         console.log('[UserConnectionBase] Disconnected');
+    }
+
+    /**
+     * Vanish as a crash would: no goodbye to the server or to any peer, and
+     * no attempt to come back. The room hears of it only when the server
+     * notices this socket has gone (about ten seconds), which is how a host
+     * that loses its network leaves. For demos and tests of exactly that.
+     */
+    dropWithoutGoodbye() {
+        this._leavingOnPurpose();
+        // The socket first: a peer's 'bye' travels through it, and a crash sends none.
+        if (this.channel && this.channel.dropWithoutGoodbye) {
+            this.channel.dropWithoutGoodbye();
+        }
+        try {
+            if (this.webrtcHelper && this.webrtcHelper.destroy) this.webrtcHelper.destroy();
+        } catch (e) { /* best effort */ }
+
+        this.connected = false;
+        if (window.channel === this.channel) window.channel = null;
+        console.log('[UserConnectionBase] Dropped without a goodbye');
+    }
+
+    /**
+     * Leaving on purpose. Everything that follows a call to this exists to
+     * tell the difference between that and the floor giving way.
+     * @private
+     */
+    _leavingOnPurpose() {
+        this.stop();
+        this._stopRosterReconcile();
+        this._userDisconnected = true;
+        this.reconnecting = false;
+        this._reconnectAttempt = 0;
+        clearTimeout(this._reconnectTimer);
     }
 
     /* ====================================================================

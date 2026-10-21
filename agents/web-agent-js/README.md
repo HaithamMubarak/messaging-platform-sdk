@@ -302,6 +302,14 @@ agent.getActiveAgents(agents => { /* who is connected now */ });
 agent.isHostAgent(name);  agent.getHostAgentName();
 ```
 
+An agent that leaves with `disconnect()` is announced at once (`agent-disconnect`).
+One that vanishes without a goodbye (a closed lid, a cut network, a killed tab)
+is announced by the server once its socket has been silent for about 12 s, or
+about 10 s after its socket closed without one; every page then re-elects the
+same way. A page that comes back after that finds its session gone and gets
+`session-not-found`, so it can join again. To test how your app copes with a
+vanished host, `agent.dropWithoutGoodbye()` goes silent the way a crash would.
+
 ### Shared state (channel storage)
 
 ```javascript

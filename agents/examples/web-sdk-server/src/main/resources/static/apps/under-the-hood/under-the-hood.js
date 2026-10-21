@@ -20,6 +20,8 @@
  *   - "Pass the crown", which makes the host leave on purpose so you can watch
  *     an election happen, and "Rejoin", which puts you back at the end of the
  *     line — so the crown does not come back to you;
+ *   - "Pull the plug", which makes this tab vanish the way a crash does, with
+ *     no goodbye, so you can watch the server notice and the room re-elect;
  *   - "Open another tab", so one person can be a whole room.
  */
 (function () {
@@ -78,6 +80,7 @@
         onConnect(detail) {
             if (window.ConnectionModal && window.ConnectionModal.hide) window.ConnectionModal.hide();
             this.outside = false;
+            this.unplugged = false;
             this.note('connected', 'You joined as ' + this.username
                 + (detail && detail.isHost ? ', first in, so you hold the crown' : ''));
             this.lastHost = this._getHostName();
@@ -93,7 +96,9 @@
 
         onDisconnect() {
             clearInterval(this._timer);
-            this.note('disconnected', 'You left the room');
+            this.note('disconnected', this.unplugged
+                ? 'Unplugged. The others hear nothing until the server notices, in about ten seconds'
+                : 'You left the room');
             this.refresh();
         }
 
@@ -105,9 +110,10 @@
          * event comes whenever the socket closes, so the form is kept shut for
          * as long as this tab is outside on purpose; Rejoin is the way back.
          */
-        leaveOnPurpose() {
+        leaveOnPurpose(withoutGoodbye) {
             var self = this;
             this.outside = true;
+            this.unplugged = !!withoutGoodbye;
             var modal = document.getElementById('connectionModal');
             var keepShut = function () {
                 if (self.outside && !self.connected && modal && modal.classList.contains('active')
@@ -117,7 +123,7 @@
                 this._shutWatch = new MutationObserver(keepShut);
                 this._shutWatch.observe(modal, { attributes: true, attributeFilter: ['class'] });
             }
-            this.disconnect();
+            if (withoutGoodbye) this.dropWithoutGoodbye(); else this.disconnect();
             keepShut();
         }
 
@@ -243,6 +249,20 @@
             this.refresh();
         }
 
+        /**
+         * Vanish as a crash would. Passing the crown says goodbye; a host
+         * whose laptop lid closes says nothing, and the room has to notice.
+         * The server does: a socket that goes silent, or closes without a
+         * goodbye, is announced as a departure about ten seconds later.
+         */
+        pullThePlug() {
+            this.note('host', this.isHost()
+                ? 'You pulled the plug while holding the crown. Watch another tab take over'
+                : 'You pulled the plug. Watch the others notice you are gone');
+            this.leaveOnPurpose(true);
+            this.refresh();
+        }
+
         /** Back in, at the end of the line: the crown stays where it went. */
         async rejoin(appId) {
             if (!this.creds || this.connected || this.connecting) return;
@@ -338,6 +358,7 @@
             el('pingDirectBtn').disabled = !inRoom;
             el('stepAsideBtn').disabled = !inRoom || !this.isHost();
             el('stepAsideBtn').title = this.isHost() ? '' : 'Only the crown holder can pass it on';
+            el('plugBtn').disabled = !inRoom;
             el('rejoinBtn').hidden = inRoom || !this.creds;
             el('anotherTabBtn').disabled = !inRoom;
         }
@@ -485,6 +506,7 @@
         el('pingBtn').addEventListener('click', function () { app.ping('server'); });
         el('pingDirectBtn').addEventListener('click', function () { app.ping('p2p'); });
         el('stepAsideBtn').addEventListener('click', function () { app.stepAside(); });
+        el('plugBtn').addEventListener('click', function () { app.pullThePlug(); });
         el('rejoinBtn').addEventListener('click', function () { app.rejoin(); });
         el('anotherTabBtn').addEventListener('click', function () { app.openAnotherTab(); });
         el('inspectBtn').addEventListener('click', function () { app.watch(el('inspectApp').value.trim()); });
@@ -503,6 +525,7 @@
                     'Open the room, then press "Open another tab" to be two people at once.',
                     'Ping through the server, then peer to peer, and see the two routes.',
                     'Pass the crown and see who takes over.',
+                    'Pull the plug and see how long the room takes to notice.',
                 ],
             },
             onConnect: async function (username, channel, password) {

@@ -107,6 +107,8 @@ export declare class AgentConnection {
 
     connect(options: ConnectOptions): void;
     disconnect(): void;
+    /** Go silent without a goodbye, as a crash would; the server announces the departure ~10 s later. */
+    dropWithoutGoodbye(): void;
 
     sendMessage(options: SendOptions | string, callback?: (result: any) => void): void;
     getActiveAgents(callback: (agents: AgentInfo[]) => void): void;

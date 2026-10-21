@@ -40,6 +40,8 @@
             <button id="pingBtn" class="btn btn--primary hood-btn" type="button">Ping through the server</button>
             <button id="pingDirectBtn" class="btn hood-btn" type="button">Ping peer to peer</button>
             <button id="stepAsideBtn" class="btn hood-btn hood-btn--crown" type="button">Pass the crown</button>
+            <button id="plugBtn" class="btn hood-btn" type="button"
+                    title="Vanish like a crashed tab: no goodbye">Pull the plug</button>
             <button id="rejoinBtn" class="btn hood-btn" type="button" hidden>Rejoin the room</button>
             <button id="anotherTabBtn" class="btn hood-btn" type="button">Open another tab</button>
             <p id="sideHint" class="hood-hint">Alone? Open another tab: it joins this room as a second person.</p>
@@ -79,9 +81,11 @@
             <details class="hood-crash">
                 <summary>What if the host crashes?</summary>
                 <p>Passing the crown says goodbye, so the room re-elects at once. A host that crashes,
-                    loses its network or closes a laptop says nothing. The platform notices when its
-                    session expires and announces the departure: about three minutes. Then the next in
-                    line takes the crown, exactly as here.</p>
+                    loses its network or closes a laptop says nothing. The server pings every socket
+                    every few seconds; one that stops answering for about twelve seconds, or closes
+                    without a goodbye and does not come back within ten, is announced as gone. Then the
+                    next in line takes the crown, exactly as here. <strong>Pull the plug</strong> to watch
+                    it happen.</p>
             </details>
         </aside>
     </div>
