@@ -752,9 +752,21 @@ class UserConnectionBase {
      *
      * Checks the sender's identity against the current host rather than
      * trusting a _fromHost flag, which a client can set on anything it sends.
+     *
+     * Takes the same arguments as senderOf. From onDataChannelMessage, pass
+     * the data too: a guest's broadcast reaches other guests FROM the host's
+     * connection, so the peer id alone would call it the host's. A peer id
+     * without its data is refused (and said once), never trusted.
      */
-    isFromHost(detail) {
-        const sender = this.senderOf(detail);
+    isFromHost(detail, data) {
+        if (typeof detail === 'string' && data === undefined) {
+            if (!this._warnedPeerOnlyHost) {
+                this._warnedPeerOnlyHost = true;
+                console.warn('isFromHost(peerId) needs the message too: isFromHost(peerId, data). Refusing.');
+            }
+            return false;
+        }
+        const sender = this.senderOf(detail, data);
         if (!sender) return false;
         const host = this._getHostName();
         return !!host && sender === host;
