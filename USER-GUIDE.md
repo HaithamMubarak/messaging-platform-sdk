@@ -374,8 +374,8 @@ default is `true`, so keys you already mint behave as before.
 
 ### With the example web-sdk-server
 
-The example server (`agents/examples/web-sdk-server`) does the backend half
-for you. `POST /app/api/host` (beside `/app/api/config`) takes
+The example server (`agents/examples/web-sdk-server`) does both halves for
+you. `POST /app/api/host` (beside `/app/api/config`) takes
 `{ "app": "<your app id>", "agentName": "<the host's name>", "tenant"? }`,
 makes a random room name and password, opens the room with the server's real
 key, names `agentName` its host with a fresh key, and answers
@@ -393,6 +393,19 @@ await connection.connect({                                           // a UserCo
     agentKey: room.agentKey        // kept for its own reconnects; never show or share it
 });
 // Share room.channelName and room.channelPassword with the guests, never agentKey.
+```
+
+On a guest's page, ask `/app/api/config` for a join-only key: send
+`"createChannels": false` with the request, or call
+`window.fetchJoinOnlyConfig(ttlSeconds)`. The answer carries
+`createChannels: false`. If the messaging service did not make the key
+join-only, the server refuses (HTTP 500) rather than hand the page a key that
+creates rooms.
+
+```javascript
+const config = await window.fetchJoinOnlyConfig(60);   // POST /app/api/config {createChannels:false}
+// connect with config.apiKey to the room the host shared; a mistyped name
+// or password is refused instead of opening a new, empty room
 ```
 
 **Decide who may open a room.** By default anyone may call `/app/api/host`

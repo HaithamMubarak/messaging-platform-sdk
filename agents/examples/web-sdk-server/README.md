@@ -454,6 +454,11 @@ curl http://localhost:8084/app/api/health
 curl -X POST http://localhost:8084/app/api/config \
   -H "Content-Type: application/json" \
   -d '{"ttlSeconds": 3600}'
+
+# A join-only key for a guest: joins rooms that exist, never creates one
+curl -X POST http://localhost:8084/app/api/config \
+  -H "Content-Type: application/json" \
+  -d '{"ttlSeconds": 60, "createChannels": false}'
 ```
 
 ---

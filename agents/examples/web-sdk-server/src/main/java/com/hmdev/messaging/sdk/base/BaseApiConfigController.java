@@ -97,13 +97,15 @@ public abstract class BaseApiConfigController {
                     ? request.getSingleUse() : false;
 
             String tenant = (request != null) ? request.getTenant() : null;
+            // A page may only narrow its key: createChannels false asks for join-only, true changes nothing.
+            boolean joinOnly = request != null && Boolean.FALSE.equals(request.getCreateChannels());
 
             ApiConfigResponse apiConfigResponse = messagingServiceClient.getApiAccessDetails(
-                    tenant, ttlSeconds, singleUse);
+                    tenant, ttlSeconds, singleUse, joinOnly);
 
-            log.info("[{}] Created temporary key with ttl: {}s, singleUse: {}, tenant: {}",
+            log.info("[{}] Created temporary key with ttl: {}s, singleUse: {}, joinOnly: {}, tenant: {}",
                     getServiceName(), apiConfigResponse.getTtlSeconds(), apiConfigResponse.getSingleUse(),
-                    tenant == null ? "site" : tenant);
+                    joinOnly, tenant == null ? "site" : tenant);
 
             return ResponseEntity.ok(JsonResponse.success(apiConfigResponse));
 

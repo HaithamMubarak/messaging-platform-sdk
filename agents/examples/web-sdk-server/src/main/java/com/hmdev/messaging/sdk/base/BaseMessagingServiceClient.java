@@ -71,68 +71,47 @@ public abstract class BaseMessagingServiceClient implements MessagingServiceClie
 
     @Override
     public ApiConfigResponse getApiAccessDetails(String tenant, Integer ttlSeconds, Boolean singleUse) {
+        return getApiAccessDetails(tenant, ttlSeconds, singleUse, false);
+    }
+
+    @Override
+    public ApiConfigResponse getApiAccessDetails(String tenant, Integer ttlSeconds, Boolean singleUse, boolean joinOnly) {
         String apiKey = keyFor(tenant);
         if (apiKey == null || apiKey.trim().isEmpty()) {
             throw new IllegalStateException("API key not configured");
         }
-
-        String url = getMessagingServiceUrl() + "/channels/api-access";
-
-        // Create request body
-        ApiAccessRequest request = new ApiAccessRequest(ttlSeconds, singleUse);
-
-        // Create headers
-        HttpHeaders headers = new HttpHeaders();
-        headers.setContentType(MediaType.APPLICATION_JSON);
-        headers.set("X-Api-Key", apiKey);
-
-        HttpEntity<ApiAccessRequest> entity = new HttpEntity<>(request, headers);
-
+        // createChannels is sent only to say false: left out, the service mints the keys it always has.
+        ApiAccessRequest request = new ApiAccessRequest(ttlSeconds, singleUse, null, joinOnly ? Boolean.FALSE : null);
         try {
-            log.debug("Requesting temporary key from messaging service: ttl={}s, singleUse={}", ttlSeconds, singleUse);
-
-            ResponseEntity<Map> response = restTemplate.exchange(
-                url,
-                HttpMethod.POST,
-                entity,
-                Map.class
-            );
-
-            if (response.getStatusCode().is2xxSuccessful() && response.getBody() != null) {
-                Map<String, Object> responseBody = response.getBody();
-                String status = (String) responseBody.get("status");
-
-                if ("success".equals(status)) {
-                    Map<String, Object> data = (Map<String, Object>) responseBody.get("data");
-
-                    ApiConfigResponse.ApiConfigResponseBuilder builder = ApiConfigResponse.builder()
-                        .temporaryKey((String) data.get("temporaryKey"))
-                        .ttlSeconds((Integer) data.get("ttlSeconds"))
-                        .singleUse((Boolean) data.get("singleUse"))
-                        .expiresAt(((Number) data.get("expiresAt")).longValue())
-                        .messagingServiceUrl(getMessagingServiceUrl());
-
-                    String fileServiceUrl = getFileServiceUrl();
-                    if (fileServiceUrl != null) {
-                        builder.fileServiceUrl(fileServiceUrl);
-                    }
-
-                    ApiConfigResponse keyResponse = builder.build();
-
-                    log.info("Successfully created temporary key: expires in {}s", keyResponse.getTtlSeconds());
-                    return keyResponse;
-                } else {
-                    String errorMsg = (String) responseBody.get("statusMessage");
-                    throw new RuntimeException(errorMsg);
-                }
-            } else {
-                throw new RuntimeException("Unexpected response from messaging service: " + response.getStatusCode());
+            log.debug("Requesting temporary key from messaging service: ttl={}s, singleUse={}, joinOnly={}",
+                ttlSeconds, singleUse, joinOnly);
+            ApiConfigResponse keyResponse = toConfigResponse(postWithKey("/channels/api-access", apiKey, request));
+            // A service that ignored the field minted a key that creates rooms: refuse it rather than hand it on.
+            if (joinOnly && !Boolean.FALSE.equals(keyResponse.getCreateChannels())) {
+                throw new IllegalStateException("the messaging service did not mint a join-only key");
             }
-
+            log.info("Successfully created temporary key: expires in {}s", keyResponse.getTtlSeconds());
+            return keyResponse;
         } catch (Exception e) {
             LogUtils.logError(log, "Failed to create temporary key", e);
             throw new RuntimeException("Failed to create temporary key: " + e.getMessage(), e);
         }
+    }
+
+    /** The service's api-access answer as pages receive it, with this server's URLs. */
+    private ApiConfigResponse toConfigResponse(Map<String, Object> data) {
+        ApiConfigResponse.ApiConfigResponseBuilder builder = ApiConfigResponse.builder()
+            .temporaryKey((String) data.get("temporaryKey"))
+            .ttlSeconds((Integer) data.get("ttlSeconds"))
+            .singleUse((Boolean) data.get("singleUse"))
+            .createChannels((Boolean) data.get("createChannels"))
+            .expiresAt(((Number) data.get("expiresAt")).longValue())
+            .messagingServiceUrl(getMessagingServiceUrl());
+        String fileServiceUrl = getFileServiceUrl();
+        if (fileServiceUrl != null) {
+            builder.fileServiceUrl(fileServiceUrl);
+        }
+        return builder.build();
     }
 
     /** How long a hosted room's host key admits its connects: a working day; open the room again after. */

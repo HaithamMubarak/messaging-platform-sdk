@@ -75,7 +75,9 @@ identity. The owner's backend can instead:
   existing channels and never creates one
 
 The example web-sdk-server wraps both host steps as `POST /app/api/host`
-(`window.openHostedRoom(app, agentName)`; gate it by overriding `mayOpenRoom`).
+(`window.openHostedRoom(app, agentName)`; gate it by overriding `mayOpenRoom`), and
+mints guests' join-only keys from `POST /app/api/config {createChannels:false}`
+(`window.fetchJoinOnlyConfig(ttl)`, or `UserConnectionBase.connect({..., joinOnly: true})`).
 Full guide: `USER-GUIDE.md`, "Named Host and Join-Only Keys".
 
 ## Notes for assistants

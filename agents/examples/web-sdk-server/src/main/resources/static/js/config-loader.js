@@ -45,9 +45,12 @@
      * @param {number} ttlSeconds - Time to live in seconds (default: 60)
      * @param {boolean} singleUse - Whether key is single-use (default: false)
      * @param {boolean} allowFallback - Whether to fallback to hmdevonline.com on failure (default: false)
+     * @param {boolean} joinOnly - A key that joins rooms that exist and never creates one (default: false)
      * @returns {Promise<object>} Config with fresh temporary key
      */
-    window.fetchAppConfig = async function(ttlSeconds = 60, singleUse = false, allowFallback = false) {
+    window.fetchAppConfig = async function(ttlSeconds = 60, singleUse = false, allowFallback = false, joinOnly = false) {
+        const body = { ttlSeconds: ttlSeconds, singleUse: singleUse };
+        if (joinOnly) body.createChannels = false;
         try {
             const configUrl = window.getConfigUrl();
             
@@ -58,10 +61,7 @@
                 headers: {
                     'Content-Type': 'application/json'
                 },
-                body: JSON.stringify({
-                    ttlSeconds: ttlSeconds,
-                    singleUse: singleUse
-                })
+                body: JSON.stringify(body)
             });
 
             if (!response.ok) {
@@ -89,10 +89,7 @@
                         headers: {
                             'Content-Type': 'application/json'
                         },
-                        body: JSON.stringify({
-                            ttlSeconds: ttlSeconds,
-                            singleUse: singleUse
-                        })
+                        body: JSON.stringify(body)
                     });
 
                     if (!response.ok) {
@@ -122,6 +119,18 @@
      */
     window.fetchSingleUseConfig = async function(ttlSeconds = 30) {
         return await window.fetchAppConfig(ttlSeconds, true);
+    };
+
+    /**
+     * Fetch a join-only temporary key for a guest: it joins rooms that exist and
+     * never creates one, so a guest cannot open a room of its own and be first in
+     * it. Pair it with a room your backend opened (openHostedRoom). The server
+     * refuses rather than hand out a key that creates rooms.
+     * @param {number} ttlSeconds - Time to live in seconds (default: 60)
+     * @returns {Promise<object>} Config with a join-only key (createChannels: false)
+     */
+    window.fetchJoinOnlyConfig = async function(ttlSeconds = 60) {
+        return await window.fetchAppConfig(ttlSeconds, false, false, true);
     };
 
     /**

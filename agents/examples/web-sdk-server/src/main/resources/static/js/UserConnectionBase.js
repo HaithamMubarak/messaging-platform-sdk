@@ -264,10 +264,13 @@ class UserConnectionBase {
      * credentials: {username, channelName, channelPassword, agentKey?}. agentKey is for an agent whose
      * name the channel's owner reserved: the named host of a room the app's backend opened
      * (POST /app/api/host), or an agent of a managed channel. It is kept for reconnects, never shown.
+     * joinOnly: true for a guest of a room the backend opened: its key joins rooms that exist and never
+     * creates one, so a mistyped room is refused rather than opened empty. Also kept for reconnects.
      */
     async connect(credentials) {
         const { username, channelName, channelPassword } = credentials;
         if (credentials.agentKey !== undefined) this._agentKey = credentials.agentKey || null;
+        if (credentials.joinOnly !== undefined) this._joinOnly = !!credentials.joinOnly;
 
         // CRITICAL: Cancel auto-connect timer to prevent duplicate connection
         if (window.MiniGameUtils && typeof window.MiniGameUtils._cancelAutoConnect === 'function') {
@@ -315,7 +318,7 @@ class UserConnectionBase {
 
             // Get config
             console.log('[UserConnectionBase] Requesting API key...');
-            const response = await window.fetchAppConfig(300, false);
+            const response = await window.fetchAppConfig(300, false, false, !!this._joinOnly);
             const config = response?.data || response;
             const apiKey = config?.apiKey || null;
             const apiUrl = config?.messagingServiceUrl || config?.messagingApiUrl || null;

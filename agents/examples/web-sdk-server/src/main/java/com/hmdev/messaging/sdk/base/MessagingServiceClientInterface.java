@@ -28,6 +28,16 @@ public interface MessagingServiceClientInterface {
     }
 
     /**
+     * The same; joinOnly asks for a key that joins channels that exist and never creates one
+     * (ApiAccessRequest.createChannels = false). A client that cannot mint one refuses, rather than
+     * hand a guest a key that opens rooms.
+     */
+    default ApiConfigResponse getApiAccessDetails(String tenant, Integer ttlSeconds, Boolean singleUse, boolean joinOnly) {
+        if (joinOnly) throw new UnsupportedOperationException("This server cannot mint join-only keys.");
+        return getApiAccessDetails(tenant, ttlSeconds, singleUse);
+    }
+
+    /**
      * Open a room whose host is hostAgent: a random name under the app and a random password, created on
      * the messaging service with the real key, with hostAgent named its host. Only a server that holds a
      * real key can do this; the default refuses.

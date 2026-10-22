@@ -48,6 +48,11 @@ public class ApiConfigResponse {
     private Boolean singleUse;
 
     /**
+     * false for a join-only key (it joins channels that exist, never creates one)
+     */
+    private Boolean createChannels;
+
+    /**
      * When the key expires (Unix timestamp in milliseconds or ISO 8601 format)
      */
     private Object expiresAt;

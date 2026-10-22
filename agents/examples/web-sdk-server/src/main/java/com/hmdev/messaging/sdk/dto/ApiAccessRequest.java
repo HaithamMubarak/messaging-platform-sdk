@@ -37,7 +37,14 @@ public class ApiAccessRequest {
      */
     private String tenant;
 
+    /**
+     * false asks for a join-only key: it connects to channels that exist and
+     * never creates one, so a guest's page cannot open a room of its own and be
+     * first in it. Left out (null), the key creates channels as it always has.
+     */
+    private Boolean createChannels;
+
     public ApiAccessRequest(Integer ttlSeconds, Boolean singleUse) {
-        this(ttlSeconds, singleUse, null);
+        this(ttlSeconds, singleUse, null, null);
     }
 }
