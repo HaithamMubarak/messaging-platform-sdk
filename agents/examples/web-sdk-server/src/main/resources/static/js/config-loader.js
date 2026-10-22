@@ -124,4 +124,28 @@
         return await window.fetchAppConfig(ttlSeconds, true);
     };
 
+    /**
+     * Open a room whose host is this page (POST /app/api/host, beside /config).
+     * The backend makes the room's name and password and names agentName its
+     * host, so nobody who reaches the room first becomes its host.
+     * @param {string} app - the page's customType (the room is `<channelName>.<app>`)
+     * @param {string} agentName - the name this page connects as
+     * @param {string} [tenant] - whose account, as for /config
+     * @returns {Promise<{channelName, channelPassword, channelId, hostAgent, agentKey, agentKeyTtlSeconds}>}
+     *          pass agentKey to connect() and to nobody else
+     */
+    window.openHostedRoom = async function(app, agentName, tenant) {
+        const url = window.getConfigUrl().replace(/\/config$/, '/host');
+        const response = await fetch(url, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ app: app, agentName: agentName, tenant: tenant || undefined })
+        });
+        const result = await response.json().catch(() => ({}));
+        if (!response.ok || result.status !== 'success') {
+            throw new Error(result.message || result.statusMessage || ('Could not open a room (' + response.status + ')'));
+        }
+        return result.data;
+    };
+
 })();

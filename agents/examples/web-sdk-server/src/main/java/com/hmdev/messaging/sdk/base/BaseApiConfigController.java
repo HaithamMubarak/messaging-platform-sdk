@@ -2,6 +2,8 @@ package com.hmdev.messaging.sdk.base;
 
 import com.hmdev.messaging.sdk.dto.ApiAccessRequest;
 import com.hmdev.messaging.sdk.dto.ApiConfigResponse;
+import com.hmdev.messaging.sdk.dto.HostRoomRequest;
+import com.hmdev.messaging.sdk.dto.HostRoomResponse;
 import com.hmdev.messaging.sdk.dto.JsonResponse;
 import com.hmdev.messaging.common.util.LogUtils;
 import lombok.extern.slf4j.Slf4j;
@@ -110,6 +112,59 @@ public abstract class BaseApiConfigController {
             return ResponseEntity.status(500)
                     .body(JsonResponse.error(e.getMessage()));
         }
+    }
+
+    /** An app id as pages declare it (customType), which names the room on the wire. */
+    private static final java.util.regex.Pattern APP_ID = java.util.regex.Pattern.compile("^[a-z0-9-]{1,32}$");
+
+    /**
+     * Open a room whose host is the caller.
+     *
+     * Without this, a page connecting by name and password creates the room
+     * itself, and the room's host is whoever connected first, so anyone who got
+     * there before the rightful host was the host. Here the room is created by
+     * this server, with its real key, under a random name and password, and the
+     * caller's agent is NAMED its host: every member is told so, and a connect
+     * under that name needs the key returned here (messaging-service, POST
+     * /channels/managed/host).
+     *
+     * Who may open a room is the developer's decision: override mayOpenRoom to
+     * check your own session or token. By default anyone may, under the same
+     * per-address limit as /config, and each room counts against the account's
+     * channel units.
+     */
+    @PostMapping(value = "/host",
+                 consumes = MediaType.APPLICATION_JSON_VALUE,
+                 produces = MediaType.APPLICATION_JSON_VALUE)
+    public ResponseEntity<JsonResponse> openHostedRoom(
+            @RequestBody(required = false) HostRoomRequest request,
+            HttpServletRequest httpRequest) {
+        if (!mayOpenRoom(httpRequest)) {
+            return ResponseEntity.status(403).body(JsonResponse.error("You may not open a room here."));
+        }
+        if (!allowRequest(clientKey(httpRequest))) {
+            return ResponseEntity.status(429).body(JsonResponse.error("Too many requests. Try again in a minute."));
+        }
+        String app = request == null ? null : request.getApp();
+        String agentName = request == null ? null : request.getAgentName();
+        if (app == null || !APP_ID.matcher(app).matches() || agentName == null || agentName.isBlank()) {
+            return ResponseEntity.badRequest().body(JsonResponse.error("Name the app (a-z, 0-9, -) and the host's agentName."));
+        }
+        try {
+            HostRoomResponse room = messagingServiceClient.openHostedRoom(request.getTenant(), app, agentName.trim());
+            return ResponseEntity.ok(JsonResponse.success(room));
+        } catch (Exception e) {
+            LogUtils.logError(log, "[" + getServiceName() + "] Failed to open a hosted room", e);
+            return ResponseEntity.status(500).body(JsonResponse.error(e.getMessage()));
+        }
+    }
+
+    /**
+     * Whether this caller may open a room. Override to check your own session
+     * or token; the default lets anyone, as /config does.
+     */
+    protected boolean mayOpenRoom(HttpServletRequest request) {
+        return true;
     }
 
     /**

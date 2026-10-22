@@ -1,6 +1,7 @@
 package com.hmdev.messaging.sdk.base;
 
 import com.hmdev.messaging.sdk.dto.ApiConfigResponse;
+import com.hmdev.messaging.sdk.dto.HostRoomResponse;
 
 /**
  * Interface for communicating with the messaging service API.
@@ -24,6 +25,17 @@ public interface MessagingServiceClientInterface {
     /** The same, minted from a tenant's key (ApiAccessRequest.tenant); by default the site's own. */
     default ApiConfigResponse getApiAccessDetails(String tenant, Integer ttlSeconds, Boolean singleUse) {
         return getApiAccessDetails(ttlSeconds, singleUse);
+    }
+
+    /**
+     * Open a room whose host is hostAgent: a random name under the app and a random password, created on
+     * the messaging service with the real key, with hostAgent named its host. Only a server that holds a
+     * real key can do this; the default refuses.
+     *
+     * @param app the page's customType: the room is created as `<channelName>.<app>`, the room that page joins
+     */
+    default HostRoomResponse openHostedRoom(String tenant, String app, String hostAgent) {
+        throw new UnsupportedOperationException("This server does not open rooms.");
     }
 
     /**

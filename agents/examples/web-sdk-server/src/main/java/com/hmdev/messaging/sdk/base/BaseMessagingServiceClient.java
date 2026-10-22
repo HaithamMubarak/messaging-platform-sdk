@@ -2,6 +2,7 @@ package com.hmdev.messaging.sdk.base;
 
 import com.hmdev.messaging.sdk.dto.ApiAccessRequest;
 import com.hmdev.messaging.sdk.dto.ApiConfigResponse;
+import com.hmdev.messaging.sdk.dto.HostRoomResponse;
 import com.hmdev.messaging.common.util.LogUtils;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.*;
@@ -132,6 +133,64 @@ public abstract class BaseMessagingServiceClient implements MessagingServiceClie
             LogUtils.logError(log, "Failed to create temporary key", e);
             throw new RuntimeException("Failed to create temporary key: " + e.getMessage(), e);
         }
+    }
+
+    /** How long a hosted room's host key admits its connects: a working day; open the room again after. */
+    protected static final long HOST_KEY_TTL_SECONDS = 12 * 3600;
+    private static final java.security.SecureRandom RANDOM = new java.security.SecureRandom();
+
+    @Override
+    public HostRoomResponse openHostedRoom(String tenant, String app, String hostAgent) {
+        String apiKey = keyFor(tenant);
+        if (apiKey == null || apiKey.trim().isEmpty()) {
+            throw new IllegalStateException("API key not configured");
+        }
+        String channelName = app + "-" + randomToken(8).toLowerCase(java.util.Locale.ROOT).replace('_', 'x');
+        String channelPassword = randomToken(18);
+        String agentKey = randomToken(24);
+
+        Map<String, Object> host = new java.util.LinkedHashMap<>();
+        host.put("agentName", hostAgent);
+        host.put("agentKey", agentKey);
+        host.put("ttlSeconds", HOST_KEY_TTL_SECONDS);
+        Map<String, Object> body = new java.util.LinkedHashMap<>();
+        body.put("channelName", channelName + "." + app);   // the room the app's pages join (wireRoom)
+        body.put("channelPassword", channelPassword);
+        body.put("host", host);
+
+        Map<String, Object> data = postWithKey("/channels/managed/host", apiKey, body);
+        log.info("Opened hosted room {} for app {} with host {}", channelName, app, hostAgent);
+        return HostRoomResponse.builder()
+            .channelName(channelName)
+            .channelPassword(channelPassword)
+            .channelId((String) data.get("channelId"))
+            .hostAgent((String) data.get("hostAgent"))
+            .agentKey(agentKey)
+            .agentKeyTtlSeconds(HOST_KEY_TTL_SECONDS)
+            .build();
+    }
+
+    /** Random URL-safe text: `bytes` random bytes, base64url without padding. */
+    protected static String randomToken(int bytes) {
+        byte[] b = new byte[bytes];
+        RANDOM.nextBytes(b);
+        return java.util.Base64.getUrlEncoder().withoutPadding().encodeToString(b);
+    }
+
+    /** POST to the messaging service with this key; the response's data, or an exception with its message. */
+    @SuppressWarnings("unchecked")
+    protected Map<String, Object> postWithKey(String path, String apiKey, Object body) {
+        HttpHeaders headers = new HttpHeaders();
+        headers.setContentType(MediaType.APPLICATION_JSON);
+        headers.set("X-Api-Key", apiKey);
+        ResponseEntity<Map> response = restTemplate.exchange(getMessagingServiceUrl() + path, HttpMethod.POST,
+            new HttpEntity<>(body, headers), Map.class);
+        Map<String, Object> responseBody = response.getBody();
+        if (responseBody == null || !"success".equals(responseBody.get("status"))) {
+            String why = responseBody == null ? "no answer" : String.valueOf(responseBody.get("statusMessage"));
+            throw new IllegalStateException("The messaging service refused " + path + ": " + why);
+        }
+        return (Map<String, Object>) responseBody.get("data");
     }
 
     @Override

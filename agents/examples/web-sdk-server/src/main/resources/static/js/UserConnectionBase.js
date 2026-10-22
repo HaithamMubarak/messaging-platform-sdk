@@ -260,8 +260,14 @@ class UserConnectionBase {
         return channelName + '.' + appId;
     }
 
+    /**
+     * credentials: {username, channelName, channelPassword, agentKey?}. agentKey is for an agent whose
+     * name the channel's owner reserved: the named host of a room the app's backend opened
+     * (POST /app/api/host), or an agent of a managed channel. It is kept for reconnects, never shown.
+     */
     async connect(credentials) {
         const { username, channelName, channelPassword } = credentials;
+        if (credentials.agentKey !== undefined) this._agentKey = credentials.agentKey || null;
 
         // CRITICAL: Cancel auto-connect timer to prevent duplicate connection
         if (window.MiniGameUtils && typeof window.MiniGameUtils._cancelAutoConnect === 'function') {
@@ -366,6 +372,7 @@ class UserConnectionBase {
                     channelName: wireRoom,
                     channelPassword,
                     agentName: username,
+                    agentKey: this._agentKey || null,
                     // Declaring the app does two things, both of which need it
                     // to be sent and neither of which happened before: the
                     // service stops delivering other apps' CUSTOM events at
