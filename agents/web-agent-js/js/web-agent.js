@@ -914,6 +914,7 @@
 
         this.agentName = null;
         this._connectedAgentsMap = {};  // Map agentName -> AgentInfo object (includes connectionTime)
+        this._namedHost = null;         // the host the channel's owner named, if any (see getHostAgentName)
         this.connectedAgents = [];
 
         this.fileSystem = new FileSystem(this);
@@ -1558,6 +1559,7 @@
                     // Store AgentInfo in _connectedAgentsMap
                     if (agentInfo && typeof agentInfo === 'object') {
                         _self._connectedAgentsMap[item.from] = agentInfo;
+                        _self._noteNamedHost(item.from, agentInfo);
                     } else {
                         // Fallback: fetch from getActiveAgents if parsing failed
                         _self.getActiveAgents(function(agentsRes){
@@ -2017,6 +2019,10 @@
             // Set session role
             _self._session_role = apiResponseData.role;
 
+            // The host the channel's owner named, if any: it is the host whether or not it is here.
+            const connectState = apiResponseData.state || apiResponseData.metadata || {};
+            _self._namedHost = typeof connectState.hostAgent === 'string' && connectState.hostAgent ? connectState.hostAgent : null;
+
             // Calculate connection timing
             let connectionTimeMs = null;
             if (_self._agentCreationTime) {
@@ -2088,6 +2094,7 @@
                         agentName = agentData.name || agentData.agentName;
                         // Store full AgentInfo object (includes connectionTime)
                         _self._connectedAgentsMap[agentName] = agentData;
+                        _self._noteNamedHost(agentName, agentData);
                     } else {
                         agentName = agentData;
                         _self._connectedAgentsMap[agentName] = {};
@@ -3302,6 +3309,15 @@
     }
 
     /**
+     * Learn a named host from an agent's info: the service marks the host its
+     * channel's owner named with host:true (its CONNECT event and the agent
+     * list), so a host named after this agent joined is learned too.
+     */
+    AgentConnection.prototype._noteNamedHost = function(agentName, info) {
+        if (agentName && info && info.host === true) this._namedHost = agentName;
+    }
+
+    /**
      * Determine if this agent is the "host" relative to another agent.
      * Host is responsible for sending board state to new joiners and creating DataChannels.
      *
@@ -3314,6 +3330,12 @@
     AgentConnection.prototype.isHostAgent = function(peerAgentName) {
         const agentsInfo = this._connectedAgentsMap || {};
         const myConnectionTime = agentsInfo[this.agentName]?.connectionTime || Date.now();
+
+        // A named host is the host of any pair it is in, whoever connected first.
+        const named = this._namedHost;
+        if (peerAgentName && named && (this.agentName === named || peerAgentName === named)) {
+            return this.agentName === named;
+        }
 
         // If peer agent specified, compare connection times directly (peer-to-peer host check)
         if (peerAgentName) {
@@ -3367,6 +3389,12 @@
      * believe they were host.
      */
     AgentConnection.prototype.getHostAgentName = function() {
+        // The host the channel's owner named (messaging-service, POST
+        // /channels/managed/host) is the host, here or not: while it is away
+        // the room has no host and nobody else is promoted, because whoever
+        // connected first is exactly who must not become host in its place.
+        if (this._namedHost) return this._namedHost;
+
         const agentsInfo = this._connectedAgentsMap || {};
         const agentNames = Object.keys(agentsInfo);
         if (agentNames.length === 0) return null;

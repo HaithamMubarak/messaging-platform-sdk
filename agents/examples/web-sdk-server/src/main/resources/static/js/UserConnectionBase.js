@@ -1878,9 +1878,9 @@ class UserConnectionBase {
         const users = [];
         const connectedUsers = this.getConnectedUsers();
 
-        // Determine who is host (first to join the channel)
+        // Who is host: the one the channel's owner named, else the first to join
         const otherUsers = connectedUsers.filter(n => n !== this.username);
-        const hostName = this.isHost() ? this.username : otherUsers[0];
+        const hostName = this.isHost() ? this.username : this._getHostName();
 
         // Add self
         users.push({
