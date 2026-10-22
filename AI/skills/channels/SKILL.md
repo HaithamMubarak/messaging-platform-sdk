@@ -62,6 +62,22 @@ Clients then connect with `agentName` + `agentKey` (web, Python, Java and C++
 agents; in C++ call `MessagingChannelApi::setAgentKey` before `connect`). Ordinary channels and clients without a key are unchanged.
 Full guide: `USER-GUIDE.md`, "Managed Channels".
 
+## Named host and join-only keys (who is host)
+
+Clients otherwise take the first agent in as host, which is arrival order, not
+identity. The owner's backend can instead:
+
+- `POST /channels/managed/host` `{channelName, channelPassword | channelId, host:{agentName, agentKey, ttlSeconds?}}`
+  (created if new; only the host's name needs its key; members see `state.hostAgent`
+  and `host: true` on its agent info; the web agent's `getHostAgentName()` returns it
+  even while it is away, and promotes nobody meanwhile)
+- `POST /channels/api-access` `{createChannels: false}`: a temporary key that joins
+  existing channels and never creates one
+
+The example web-sdk-server wraps both host steps as `POST /app/api/host`
+(`window.openHostedRoom(app, agentName)`; gate it by overriding `mayOpenRoom`).
+Full guide: `USER-GUIDE.md`, "Named Host and Join-Only Keys".
+
 ## Notes for assistants
 
 - Don't invent channel fields. The connect parameter list above is the real one

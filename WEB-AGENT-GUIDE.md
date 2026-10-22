@@ -1083,6 +1083,7 @@ webrtc.on('ice-candidate', (streamId, c) => console.log('ICE:', c));
 | `getSystemAgents(callback)` | System agents in the channel |
 | `getSessionInfo()` | Local session details |
 | `isHostAgent(agentName?)` | Whether that agent (default: you) is host |
+| `getHostAgentName()` | The host: the one the channel's owner named, here or not (see [Named host](USER-GUIDE.md#named-host-and-join-only-keys-who-is-host)), else the first connected; `null` if none |
 | `readyState` | Property — `true` once the channel is usable |
 | `storagePut(params, callback)` | Store/replace value |
 | `storageAdd(params, callback)` | Append version |

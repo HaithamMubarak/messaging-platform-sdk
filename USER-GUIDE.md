@@ -13,10 +13,11 @@
 3. [Quick Start](#quick-start)
 4. [API Key & Channel Isolation](#api-key--channel-isolation)
 5. [Managed Channels (who may join)](#managed-channels-who-may-join)
-6. [Basic Examples](#basic-examples)
-7. [Per-Language Guides](#per-language-guides)
-8. [Best Practices](#best-practices)
-9. [Troubleshooting](#troubleshooting)
+6. [Named Host and Join-Only Keys (who is host)](#named-host-and-join-only-keys-who-is-host)
+7. [Basic Examples](#basic-examples)
+8. [Per-Language Guides](#per-language-guides)
+9. [Best Practices](#best-practices)
+10. [Troubleshooting](#troubleshooting)
 
 ---
 
@@ -284,6 +285,127 @@ ConnectResponse resp = api.connect("team-42", "the-room-password", "u-7f3a91");
 A refused connect answers `unauthorized`: *"This channel admits only agents its
 owner registered."* Every agent (web, Python, Java and C++) sends `agentKey`
 only when you give it one, so ordinary channels are unaffected.
+
+---
+
+## Named Host and Join-Only Keys (who is host)
+
+Many rooms have a **host**: the agent that keeps the game state, starts the
+match or decides who speaks. By default every client takes as host the agent
+that **connected first**. That is an order of arrival, not an identity: anyone
+who learns a room's name and password before its rightful host arrives (a
+shared link, a guessed name, a page left open) connects first and is the host,
+and nothing on the wire says otherwise.
+
+When being host matters, let **your backend** decide it, with two tools:
+
+- **A named host.** The channel's owner names one agent the host. Every member
+  is told who it is, and only a connect that carries that agent's key may use
+  its name.
+- **Join-only temporary keys.** A key that can join channels that exist but
+  never create one, so a page cannot open a room of its own and be first in it.
+
+The pattern: **your backend opens the room** and names the host, **the host's
+page connects** under that name with its key, and **guests connect with
+join-only keys**.
+
+### Name the host (your backend)
+
+`POST /channels/managed/host` with your developer API key in `X-Api-Key`
+(temporary keys are refused). Name the channel by `channelId`, or by
+`channelName` + `channelPassword`; it is created if it does not exist.
+
+```bash
+BASE=https://hmdevonline.com/messaging-platform/api/v1/messaging-service
+
+curl -s -X POST $BASE/channels/managed/host -H "X-Api-Key: $DEV_KEY" -H "Content-Type: application/json" -d '{
+  "channelName": "match-8c1f2e", "channelPassword": "<random password>",
+  "host": { "agentName": "host-u-7f3a91", "agentKey": "<random 32+ chars>", "ttlSeconds": 43200 }
+}'
+# -> { "channelId": "...", "hostAgent": "host-u-7f3a91", "managed": false, "agents": [...] }
+```
+
+- Only the host's **name** is reserved. Everyone else joins with name and
+  password as before; the channel does not become managed (to limit who may
+  join at all, see [Managed Channels](#managed-channels-who-may-join); the two
+  combine).
+- The host key follows the managed-agent rules: 24 to 256 random characters,
+  `ttlSeconds` 60 s to 7 days (default 1 day). A connect under the host's name
+  without that key is refused like an unlisted agent of a managed channel.
+- Naming closes any session already using that name. Naming the same agent
+  again renews its key; naming another agent replaces the host and revokes the
+  old one's key. Revoking the host (`/channels/managed/revoke`) or releasing
+  the channel (`/channels/managed/release`) leaves it with no named host.
+
+### What members see
+
+The connect response carries the named host in `state.hostAgent`, and the
+host's own agent info carries `host: true` (in its CONNECT event and in the
+agent list). Other agents can read either.
+
+The web agent follows it for you:
+
+- `getHostAgentName()` returns the named host **whether or not it is in the
+  room**. While it is away the room has no host: `isHostAgent()` is `false` for
+  everyone else, and nobody is promoted in its place, because the first one in
+  is exactly who must not take over.
+- `isHostAgent(peer)` treats the named host as host of any pair it is in;
+  pairs without it still go by connect time.
+- On a channel with no named host, election works exactly as before.
+
+A web page built on an older copy of the web agent ignores the named host and
+still elects by connect time, so update every page of an app before you start
+naming its host. A member that is already connected when the host is un-named
+keeps treating that agent as host until it reconnects.
+
+### Join-only keys for guests
+
+Mint your users' temporary keys with `createChannels: false`:
+
+```bash
+curl -s -X POST $BASE/channels/api-access -H "X-Api-Key: $DEV_KEY" -H "Content-Type: application/json" \
+     -d '{ "ttlSeconds": 300, "createChannels": false }'
+```
+
+Such a key connects to channels that exist, and a connect or create-channel
+that would make a new one is refused with `unauthorized`: *"This key can join
+channels that exist, not create them; ask the app to open the room."* The
+default is `true`, so keys you already mint behave as before.
+
+### With the example web-sdk-server
+
+The example server (`agents/examples/web-sdk-server`) does the backend half
+for you. `POST /app/api/host` (beside `/app/api/config`) takes
+`{ "app": "<your app id>", "agentName": "<the host's name>", "tenant"? }`,
+makes a random room name and password, opens the room with the server's real
+key, names `agentName` its host with a fresh key, and answers
+`{ channelName, channelPassword, channelId, hostAgent, agentKey, agentKeyTtlSeconds }`
+(the key lasts 12 hours; open a new room after that).
+
+On the host's page:
+
+```javascript
+const room = await window.openHostedRoom('my-game', myAgentName);   // POST /app/api/host
+await connection.connect({                                           // a UserConnectionBase
+    username: myAgentName,
+    channelName: room.channelName,
+    channelPassword: room.channelPassword,
+    agentKey: room.agentKey        // kept for its own reconnects; never show or share it
+});
+// Share room.channelName and room.channelPassword with the guests, never agentKey.
+```
+
+**Decide who may open a room.** By default anyone may call `/app/api/host`
+(under the same per-address limit as `/app/api/config`), and every room counts
+against your plan's channel units. Override `mayOpenRoom` in your controller
+to check your own session or token:
+
+```java
+@Override
+protected boolean mayOpenRoom(HttpServletRequest request) {
+    return mySessions.isSignedIn(request);   // your own check; false answers 403
+}
+```
 
 ---
 
