@@ -18,6 +18,16 @@
  * Dropping without promoting would be its own bug — a room with no host is the
  * failure this was written about. Still opt-in, because waiting out a TTL takes
  * minutes: run it with `npm test -- ghost`.
+ *
+ * Since 2026-10-24 the server also evicts a WebSocket that stops answering
+ * its pings (~12 s; docs/dead-peer-detection.md in the ops repo), and this
+ * suite STILL measures about 2.8 min. That is the tool, not the platform:
+ * setOffline is DevTools emulation, and the browser's network stack goes on
+ * answering protocol pings for the "offline" page (production's log showed
+ * the ghost's socket heard for ~2.4 min after setOffline). A real cut, with
+ * every byte of the browser's traffic black-holed, is dead-peer-test.js:
+ * seen leaving in 11.7 s. So read this suite as "a ghost is dropped and the
+ * room re-elects", not as how fast.
  */
 const { LAUNCH } = require('../lib/harness');
 const { joinOne } = require('../lib/party-room');
