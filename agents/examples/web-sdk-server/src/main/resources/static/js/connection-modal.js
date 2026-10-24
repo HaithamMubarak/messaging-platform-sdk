@@ -327,6 +327,9 @@
      * @param {string} config.title - Modal title (e.g., '🎨 Join Whiteboard')
      * @param {Function} config.onConnect - Callback when user clicks connect: function(username, channel, password)
      * @param {Function} config.onHideModal - Callback to hide modal after connection (optional)
+     * @param {boolean} config.hostedRoom - Ask for the name only: the app's backend opens the room
+     *        (HostedRoom, POST /app/api/host), so onConnect(username) gets no channel or password
+     * @param {string} config.hostedRoomLabel - The button's word in that mode (default 'Open')
      */
     // Set once the modal is built; ConnectionModal.fail() routes through it.
     let _reportFailure = null;
@@ -342,6 +345,25 @@
     function _ask(opts) {
         if (window.MiniGameUtils && MiniGameUtils.ask) return MiniGameUtils.ask(opts);
         return Promise.resolve(window.confirm(opts.body));
+    }
+
+    /**
+     * Name only, for an app whose backend opens the room (config.hostedRoom): the room and its password
+     * are made for the person, so the Code, Advanced and Saved ways in, and the channel fields, do not
+     * apply. What remains is the name and one button.
+     */
+    function hostedOnly(config) {
+        const hide = (node) => { if (node) node.hidden = true; };
+        hide(document.querySelector('#connectionModal .mp-tabs'));
+        hide(document.getElementById('panelCode'));
+        hide(document.getElementById('panelSaved'));
+        const form = document.getElementById('connectionForm');
+        if (!form) return;
+        form.hidden = false;
+        Array.from(form.children).forEach((child) => { if (!child.classList.contains('modal-buttons')) child.hidden = true; });
+        hide(document.getElementById('regenerateBtn'));
+        const button = document.getElementById('connectBtn');
+        if (button) button.textContent = config.hostedRoomLabel || 'Open';
     }
 
     function codeMessage(appId, digits, strict) {
@@ -857,6 +879,11 @@
                 if (modal && !modal.classList.contains('active')) {
                     settled = true;
                     done();
+                    // A hosted room is the app's to keep (HostedRoom); only the name is this modal's.
+                    if (config.hostedRoom) {
+                        try { localStorage.setItem(usernameKey(), username); } catch (_) { /* not remembered */ }
+                        return;
+                    }
                     // The modal closing IS the app saying the room was joined:
                     // apps hide it from their own onConnect. Recording here
                     // rather than on the click means a channel is only ever
@@ -908,8 +935,8 @@
                 const channel = chEl ? chEl.value.trim() : '';
                 const password = pwEl ? pwEl.value.trim() : '';
 
-                if (!username || !channel || !password) {
-                    showError(new Error('Your name, the channel and its password are all needed.'));
+                if (config.hostedRoom ? !username : (!username || !channel || !password)) {
+                    showError(new Error(config.hostedRoom ? 'Your name is needed.' : 'Your name, the channel and its password are all needed.'));
                     return;
                 }
                 attempt(username);
@@ -942,6 +969,7 @@
         function el(id) { return document.getElementById(id); }
 
         function showTab(name) {
+            if (config.hostedRoom) return;   // name only: no tab is ever shown (hostedOnly)
             [['Code', 'panelCode'], ['Custom', 'connectionForm'], ['Saved', 'panelSaved'], ['Signin', 'panelSignin']]
                 .forEach(function (pair) {
                     var tab = el('tab' + pair[0]);
@@ -1130,7 +1158,9 @@
         // The first tab. A code the URL carried that is not this app's is shown
         // with what is wrong with it; otherwise the Code tab keeps a new code
         // ready even while the room on offer is a channel.
-        if (!codesOn) {
+        if (config.hostedRoom) {
+            hostedOnly(config);
+        } else if (!codesOn) {
             ['tabCode', 'panelCode'].forEach(function (id) { if (el(id)) el(id).hidden = true; });
             showTab('custom');
         } else if (!codeTab.fromRoom()) {
