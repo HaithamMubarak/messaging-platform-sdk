@@ -4,11 +4,10 @@
  * Until the server measured its sockets, a host whose laptop lid closed (or
  * whose network died, or whose tab was killed) stayed in the room until its
  * session expired, about three minutes, and nobody re-elected. This suite
- * makes that happen for real: three tabs in one room, each reaching the site
- * through its own faulty link (lib/faulty-link.js). The links sit in front of
- * the SDK dev server, which forwards the WebSocket to the live platform, so
- * cutting a tab's link silences it as far as the platform can tell, with no
- * socket closed anywhere.
+ * makes that happen for real: three people in one room, each in their own
+ * browser whose every connection (page, API, WebSocket) goes through its own
+ * faulty proxy (lib/faulty-link.js). Cutting a proxy silences that browser as
+ * far as the platform can tell, with no socket closed anywhere.
  *
  *   Beta  joins first and holds the crown; its link is cut.
  *   Alpha must see Beta leave within ~15 s and take the crown.
@@ -16,29 +15,33 @@
  *   Then Alpha pulls the plug (Under the Hood's button: no goodbye, socket
  *   closed), and Gamma must see Alpha leave and take the crown.
  *
- *   node scripts/sdk-dev-server.cjs <static> 8086          (in the ops repo)
- *   SDK_DEV_PORT=8086 NODE_PATH=<apps>/node_modules node -r <ops>/scripts/use-edge.cjs suites/dead-peer-test.js
+ *   NODE_PATH=<apps>/node_modules node -r <ops>/scripts/use-edge.cjs suites/dead-peer-test.js
+ *
+ * Against production by default; SDK_BASE_URL points it at another deployment.
  *
  * Every join makes a channel under the public demo key; the room names are
  * printed at the end for cleanup_channels.py (guidelines 6.21).
  */
 const { chromium } = require('playwright');
-const { faultyLink } = require('../lib/faulty-link');
+const { faultyProxy } = require('../lib/faulty-link');
 
-const DEV_PORT = Number(process.env.SDK_DEV_PORT || 8086);
-const PAGE = '/messaging-platform/sdk/apps/under-the-hood/app.html';
+const BASE = (process.env.SDK_BASE_URL || 'https://hmdevonline.com/messaging-platform/sdk').replace(/\/$/, '');
+const PAGE = BASE + '/apps/under-the-hood/app.html';
 const SEEN_LEAVING_MS = 16000;     // the goal is ~10-15 s
 const WAIT_MS = 60000;             // long enough to measure, short of the 180 s session expiry
 
 const pass = [], fail = [];
 const check = (ok, w) => { (ok ? pass : fail).push(w); console.log((ok ? '  ✓ ' : '  ✗ ') + w); };
 
-async function open(b, room, name) {
-    const link = await faultyLink(DEV_PORT);
-    const ctx = await b.newContext({ viewport: { width: 1280, height: 900 } });
-    const p = await ctx.newPage();
+/** One person: a browser of their own, every byte of it through their own proxy. */
+async function open(room, name) {
+    const link = await faultyProxy();
+    const browser = await chromium.launch({ headless: false, proxy: { server: link.server } });
+    const p = await (await browser.newContext({ viewport: { width: 1280, height: 900 } })).newPage();
+    const sockets = [];
+    p.on('websocket', ws => sockets.push(ws.url()));
     p.on('pageerror', e => console.log(`  (${name} threw: ${e.message.split('\n')[0].slice(0, 100)})`));
-    await p.goto(`http://localhost:${link.port}${PAGE}`, { waitUntil: 'domcontentloaded' });
+    await p.goto(PAGE, { waitUntil: 'domcontentloaded' });
     await p.waitForSelector('#usernameInput', { state: 'attached', timeout: 45000 });
     await p.evaluate(() => document.getElementById('tabCustom')?.click());
     await p.fill('#usernameInput', name);
@@ -49,7 +52,7 @@ async function open(b, room, name) {
         null, { timeout: 45000 }).then(() => true, () => false);
     if (!joined) throw new Error(name + ' could not join ' + room);   // a join must fail loudly (6.21)
     await p.waitForTimeout(2500);
-    return { page: p, link, name };
+    return { page: p, link, browser, name, sockets };
 }
 
 const users = (tab) => tab.page.evaluate(() => window.underTheHood.getConnectedUsers());
@@ -98,23 +101,24 @@ async function crownMovesWhenHostPullsThePlug(alpha, gamma) {
 }
 
 (async () => {
-    const b = await chromium.launch({ headless: false });
     const room = 'deadpeer-' + Math.floor(Date.now() / 1000);
     const tabs = [];
     try {
-        const beta = await open(b, room, 'Beta'); tabs.push(beta);
-        const alpha = await open(b, room, 'Alpha'); tabs.push(alpha);
-        const gamma = await open(b, room, 'Gamma'); tabs.push(gamma);
+        const beta = await open(room, 'Beta'); tabs.push(beta);
+        const alpha = await open(room, 'Alpha'); tabs.push(alpha);
+        const gamma = await open(room, 'Gamma'); tabs.push(gamma);
         await alpha.page.waitForTimeout(5000);
-        check((await users(alpha)).length === 3, `three tabs in one room (${JSON.stringify(await users(alpha))})`);
+        check((await users(alpha)).length === 3, `three people in one room (${JSON.stringify(await users(alpha))})`);
+        // The proxy only cuts what goes through it: a socket opened anywhere
+        // else would make every "cut" below a no-op that still reads as a test.
+        check(tabs.every(t => t.sockets.length > 0), 'each browser opened its socket (all its traffic goes through its proxy)');
 
         await crownMovesWhenHostIsCut(alpha, beta, gamma);
         await crownMovesWhenHostPullsThePlug(alpha, gamma);
     } catch (e) {
         check(false, 'the suite ran to the end: ' + e.message);
     } finally {
-        tabs.forEach(t => t.link.close());
-        await b.close();
+        for (const t of tabs) { await t.browser.close(); t.link.close(); }
         console.log('\nPASS (' + pass.length + ')  FAIL (' + fail.length + ')');
         console.log('rooms: ' + room);
         process.exitCode = fail.length ? 1 : 0;   // exit() would drop buffered stdout
