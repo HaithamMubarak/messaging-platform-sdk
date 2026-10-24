@@ -164,45 +164,59 @@
      * A page opened with a shared link (`#<auth>#<slug>` in its address) joins
      * the room the link names, as a guest, with what the person typed. Any
      * other page is the host: it opens a room (openHostedRoom), or gets back
-     * the one this tab opened while the host key lasts, so a reload rejoins it.
+     * one it opened before while the host key lasts, so a reload rejoins it.
      *
      *   const args = await HostedRoom.connectArgs('myapp', username, channel, password);
      *   await app.connect(args);   // {username, channelName, channelPassword, agentKey?}
+     *
+     * options.keep: 'tab' (default) keeps a hosted room for this tab only, so a
+     * new session starts in a new room. 'device' keeps it in this browser under
+     * the room name the host typed (its label), so a host whose tab closed can
+     * come back to the same room, with its key, by opening it again under that
+     * label (or under the hosted room's own name, which the keyring saves).
      */
     window.HostedRoom = {
         storageKey: function (app) { return 'hosted-room.' + app; },
+        store: function (keep) { return keep === 'device' ? localStorage : sessionStorage; },
 
-        /** The room this tab opened as host for app, while its key lasts; else null. */
-        kept: function (app) {
+        /** The rooms this tab (or, kept by device, this browser) opened as host for app, while their keys last. */
+        list: function (app, keep) {
             try {
-                const kept = JSON.parse(sessionStorage.getItem(this.storageKey(app)) || 'null');
-                return kept && kept.expiresAt > Date.now() + 60000 ? kept : null;
-            } catch (_) { return null; }
+                const all = JSON.parse(this.store(keep).getItem(this.storageKey(app)) || '[]');
+                return (Array.isArray(all) ? all : [all]).filter((r) => r && r.expiresAt > Date.now() + 60000);
+            } catch (_) { return []; }
         },
 
-        /** The room the page's link names ({c, p}), unless it is this tab's own hosted room. */
-        linked: function (app) {
+        save: function (app, keep, rooms) {
+            try { this.store(keep).setItem(this.storageKey(app), JSON.stringify(rooms.slice(-10))); } catch (_) { /* this page only */ }
+        },
+
+        /** The room the page's link names ({c, p}), unless it is a room this page hosts. */
+        linked: function (app, keep) {
             const encoded = window.location.hash.replace(/^#/, '').split('#')[0];
             const auth = encoded && window.ChannelAuthUtils ? window.ChannelAuthUtils.decodeAuto(encoded) : null;
             if (!auth || !auth.c) return null;
-            const kept = this.kept(app);
-            return kept && kept.channelName === auth.c ? null : auth;
+            return this.list(app, keep).some((r) => r.channelName === auth.c) ? null : auth;
         },
 
-        /** Open a room for app with username as its host, or get back this tab's own. */
-        open: async function (app, username) {
-            const kept = this.kept(app);
-            if (kept && kept.hostAgent === username) return kept;
+        /** Open a room for app with username as its host, or get back one it opened before. */
+        open: async function (app, username, label, keep) {
+            const rooms = this.list(app, keep);
+            const kept = rooms.find((r) => r.hostAgent === username
+                && (keep !== 'device' || r.label === label || r.channelName === label));
+            if (kept) return kept;
             const room = await window.openHostedRoom(app, username);
             room.expiresAt = Date.now() + (room.agentKeyTtlSeconds || 0) * 1000;
-            try { sessionStorage.setItem(this.storageKey(app), JSON.stringify(room)); } catch (_) { /* this page only */ }
+            room.label = label || '';
+            this.save(app, keep, rooms.concat([room]));
             return room;
         },
 
         /** What to pass to connect(): the linked room as a guest, else this page's hosted room as its host. */
-        connectArgs: async function (app, username, channel, password) {
-            if (this.linked(app)) return { username: username, channelName: channel, channelPassword: password };
-            const room = await this.open(app, username);
+        connectArgs: async function (app, username, channel, password, options) {
+            const keep = (options && options.keep) || 'tab';
+            if (this.linked(app, keep)) return { username: username, channelName: channel, channelPassword: password };
+            const room = await this.open(app, username, channel, keep);
             return { username: room.hostAgent, channelName: room.channelName,
                 channelPassword: room.channelPassword, agentKey: room.agentKey };
         }

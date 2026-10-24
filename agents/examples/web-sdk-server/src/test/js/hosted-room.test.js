@@ -20,8 +20,8 @@ function makeStore() {
     return { getItem: (k) => (map.has(k) ? map.get(k) : null), setItem: (k, v) => map.set(k, String(v)) };
 }
 
-/** A page: config-loader.js with a fake backend that counts the rooms it opens. */
-function page(hash, store) {
+/** A page: config-loader.js with a fake backend that counts the rooms it opens. store is the tab's, device the browser's. */
+function page(hash, store, device) {
     const opened = [];
     const win = { location: { hostname: 'localhost', pathname: '/', hash: hash || '' } };
     win.ChannelAuthUtils = { decodeAuto: (s) => (s.startsWith('auth:') ? { c: s.slice(5), p: 'pw' } : null) };
@@ -33,8 +33,8 @@ function page(hash, store) {
             channelPassword: 'pw' + n, hostAgent: body.agentName, agentKey: 'key' + n, agentKeyTtlSeconds: 3600 } }) };
     };
     const quiet = { log() {}, warn() {}, error() {} };
-    new Function('window', 'sessionStorage', 'fetch', 'console', fs.readFileSync(path.join(DIR, 'config-loader.js'), 'utf8'))(
-        win, store || makeStore(), fetch, quiet);
+    new Function('window', 'sessionStorage', 'localStorage', 'fetch', 'console', fs.readFileSync(path.join(DIR, 'config-loader.js'), 'utf8'))(
+        win, store || makeStore(), device || makeStore(), fetch, quiet);
     return { win, opened };
 }
 
@@ -86,6 +86,43 @@ async function check(name, fn) {
         const args = await p.win.HostedRoom.connectArgs('myapp', 'Other', '', '');
         assert.strictEqual(p.opened.length, 1);
         assert.strictEqual(args.username, 'Other');
+    });
+
+    // keep: 'device' -- a host whose tab closed comes back to its room (an event's organiser)
+    const DEVICE = { keep: 'device' };
+
+    await check('kept by device, a new tab under the same label gets the same room and key back', async () => {
+        const device = makeStore();
+        const first = await page('', makeStore(), device).win.HostedRoom.connectArgs('myapp', 'Org', 'event-1', 'typed', DEVICE);
+        const p = page('', makeStore(), device);
+        const again = await p.win.HostedRoom.connectArgs('myapp', 'Org', 'event-1', 'typed', DEVICE);
+        assert.strictEqual(p.opened.length, 0, 'opened another room');
+        assert.deepStrictEqual(again, first);
+    });
+
+    await check('kept by device, the hosted room’s own name (what the keyring saves) finds it too', async () => {
+        const device = makeStore();
+        const first = await page('', makeStore(), device).win.HostedRoom.connectArgs('myapp', 'Org', 'event-1', 'typed', DEVICE);
+        const p = page('', makeStore(), device);
+        const again = await p.win.HostedRoom.connectArgs('myapp', 'Org', first.channelName, first.channelPassword, DEVICE);
+        assert.strictEqual(p.opened.length, 0);
+        assert.strictEqual(again.agentKey, first.agentKey);
+    });
+
+    await check('kept by device, a new label is a new event in a new room', async () => {
+        const device = makeStore();
+        await page('', makeStore(), device).win.HostedRoom.connectArgs('myapp', 'Org', 'event-1', '', DEVICE);
+        const p = page('', makeStore(), device);
+        const other = await p.win.HostedRoom.connectArgs('myapp', 'Org', 'event-2', '', DEVICE);
+        assert.strictEqual(p.opened.length, 1);
+    });
+
+    await check('kept by tab (the default), another tab of the same browser opens its own room', async () => {
+        const device = makeStore();
+        await page('', makeStore(), device).win.HostedRoom.connectArgs('myapp', 'Lead', 'x', '');
+        const p = page('', makeStore(), device);
+        await p.win.HostedRoom.connectArgs('myapp', 'Lead', 'x', '');
+        assert.strictEqual(p.opened.length, 1);
     });
 
     console.log(failures ? `\n${failures} failure(s)` : '\nall passed');
