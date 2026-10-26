@@ -43,9 +43,7 @@ class ChessGame extends UserConnectionBase {
     }
 
     async onInitialize() {
-        console.log('[Chess] Initializing...');
         this.renderBoard();
-        console.log('[Chess] Initialized');
     }
 
     onConnect(detail) {
@@ -54,7 +52,6 @@ class ChessGame extends UserConnectionBase {
         if (window.ConnectionModal && typeof window.ConnectionModal.hide === 'function') {
             window.ConnectionModal.hide();
         }
-        console.log('[Chess] Connected:', detail);
 
         // Show game container
         document.getElementById('gameContainer').classList.remove('hidden');
@@ -76,7 +73,6 @@ class ChessGame extends UserConnectionBase {
     }
 
     onUserJoin(detail) {
-        console.log('[Chess] User joined:', detail.agentName);
 
         // Sync game state to new player
         if (this.isHost()) {
@@ -88,7 +84,6 @@ class ChessGame extends UserConnectionBase {
     }
 
     onUserLeave(detail) {
-        console.log('[Chess] User left:', detail.agentName);
 
         // The computer plays from its owner's tab, so it leaves with them.
         if (this.computerBy === detail.agentName) this._freeComputerSeat();
@@ -1206,7 +1201,6 @@ async function connectChess(username, channel, password) {
             }
         }
 
-        console.log('[Chess] Connected and ready!');
     } catch (error) {
         console.error('[Chess] Connection failed:', error);
         if (window.ConnectionModal) ConnectionModal.fail(error);
@@ -1241,7 +1235,6 @@ function initializeConnectionModal() {
 }
 
 document.addEventListener('DOMContentLoaded', () => {
-    console.log('[Chess] Page loaded');
 
     initializeConnectionModal();
 
