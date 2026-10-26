@@ -26,7 +26,15 @@ const pass = [], fail = [], skip = [], warn = [];
 const check = (ok, what) => (ok ? pass : fail).push(what);
 
 function run(cmd, args, cwd) {
-    return execFileSync(cmd, args, { cwd, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] });
+    const opts = { cwd, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] };
+    // On Windows npm is npm.cmd, and Node refuses to spawn a .cmd without a
+    // shell, so a bare 'npm' failed with ENOENT. Through the shell, arguments
+    // are joined unquoted: quote any that hold a space (a tarball path may).
+    if (process.platform === 'win32' && cmd === 'npm') {
+        const quoted = args.map(a => (/\s/.test(a) ? `"${a}"` : a));
+        return execFileSync('npm.cmd', quoted, Object.assign(opts, { shell: true }));
+    }
+    return execFileSync(cmd, args, opts);
 }
 
 /** Run a snippet against the INSTALLED package and capture everything it prints. */
@@ -106,14 +114,21 @@ try {
     // a <script> tag. That is not a defect to block a publish on, but a bundler
     // user may still see a "can't resolve 'crypto'" warning, so it is reported
     // rather than swallowed. An UNGUARDED builtin require would be a real bug.
+    // web-agent.webrtc.js's TURN minting requires 'crypto' on the line after
+    // `if (!isNode ...) return`, which a <script> tag never passes: the same
+    // case, so a require within a few lines of an isNode check counts too.
     const BUILTINS = ['fs', 'path', 'crypto', 'http', 'https', 'net', 'os', 'child_process'];
+    const behindIsNode = (lines, i) => lines.slice(Math.max(0, i - 3), i).some(l => /\bisNode\b/.test(l));
     for (const f of fs.readdirSync(path.join(root, 'js'))) {
         const src = fs.readFileSync(path.join(root, 'js', f), 'utf8');
+        const lines = src.split('\n');
+        const umd = /typeof\s+require\s*==/.test(src);
         for (const b of BUILTINS) {
-            const re = new RegExp(`require\\(['"]${b}['"]\\)`, 'g');
-            if (!re.test(src)) continue;
-            const guarded = /typeof\s+require\s*==/.test(src);
-            if (guarded) warn.push(`${f} requires '${b}' behind a UMD guard — bundler users may need a fallback`);
+            const re = new RegExp(`require\\(['"]${b}['"]\\)`);
+            const at = lines.map((l, i) => (re.test(l) ? i : -1)).filter(i => i >= 0);
+            if (!at.length) continue;
+            if (umd) warn.push(`${f} requires '${b}' behind a UMD guard — bundler users may need a fallback`);
+            else if (at.every(i => behindIsNode(lines, i))) warn.push(`${f} requires '${b}' behind an isNode check — bundler users may need a fallback`);
             else check(false, `${f} requires the Node builtin '${b}' unguarded`);
         }
     }
@@ -158,4 +173,4 @@ skip.forEach(s => console.log('  skip ' + s));
 warn.forEach(w => console.log('  warn ' + w));
 fail.forEach(f => console.log('  FAIL ' + f));
 console.log(fail.length ? `\n${fail.length} failed` : '\nall passed');
-process.exit(fail.length ? 1 : 0);
+process.exitCode = fail.length ? 1 : 0;

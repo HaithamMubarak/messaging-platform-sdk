@@ -246,7 +246,8 @@ export declare class AgentConnection {
     /** Licences and seats. A browser-side check is a courtesy, not protection. */
     static Till: Till;
 
-    isHostAgent(agentName: string): boolean;
+    /** Whether this agent is host against that peer, or of the channel when no peer is named. */
+    isHostAgent(agentName?: string): boolean;
     getHostAgentName(): string | null;
 
     /**

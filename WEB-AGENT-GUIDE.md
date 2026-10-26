@@ -337,7 +337,8 @@ written in, its own clock, and the authenticated agent — and signs that.
 A chain is named by you: one per consent, per shift, per delivery.
 
 ```javascript
-// Hash whatever you want to prove. Text, a Blob, an ArrayBuffer.
+// Hash whatever you want to prove: text, an ArrayBuffer or a typed array
+// (for a Blob, hash `await blob.arrayBuffer()`).
 const contentHash = await agent.attestHash(JSON.stringify(signedForm));
 
 agent.attest({
@@ -571,7 +572,7 @@ one waiting notification rather than three buzzes.
 
 ```javascript
 channel.knockReachable(res => {
-    // [{agent: 'Dana', devices: 2}, ...] — names and counts, never endpoints
+    // res.data.reachable: [{agent: 'Dana', devices: 2}, ...] — names and counts, never endpoints
 });
 ```
 
@@ -1126,14 +1127,18 @@ webrtc.on('ice-candidate', (streamId, c) => console.log('ICE:', c));
 
 | Method | Description |
 |--------|-------------|
-| `createStreamOffer(id, target, options)` | Offer media or a data channel to a peer |
-| `setLocalMediaStream(stream)` | Set the stream offered to peers |
-| `sendData(peerId, data)` | Send over that peer's data channel |
-| `broadcastDataChannel(data)` | Send over every open data channel |
+| `createStreamOffer(remoteAgent, constraints?)` | Promise — offer media and/or a data channel to one agent; resolves the stream id, kept across reconnects |
+| `replaceStream(streamId, stream)` | Promise — swap what a connection sends without renegotiating; `false` when it has no slot for that kind |
+| `restartStream(streamId)` | Reconnect an outgoing stream now |
+| `setLocalMediaStream(stream)` | Set the stream offered back when answering |
+| `sendData(peerId, data)` | Send over that peer's data channel; `false` if it is not open |
+| `sendFile(peerId, file, options?)` | Promise — send a Blob over a reliable, ordered data channel; resolves once the receiver checked its SHA-256 |
+| `broadcastDataChannel(data)` | Send over every open data channel; returns how many it reached |
 | `getActiveDataChannels()` | Peers with an open data channel |
 | `closeDataChannel(peerId)` | Close one data channel |
-| `closeStream(id)` / `closeAllStreams()` | Tear down media |
-| `getStats(peerId)` | WebRTC statistics for a peer |
+| `closeStream(streamId, options?)` / `closeAllStreams()` | Tear down media (stops only tracks the helper acquired) |
+| `destroy()` | Close everything and stop listening for network changes |
+| `getStats()` | Counts of connections, streams and data channels |
 | `on(event, handler)` | Register event handler |
 
 ### WebRtcHelper Events
@@ -1141,13 +1146,18 @@ webrtc.on('ice-candidate', (streamId, c) => console.log('ICE:', c));
 | Event | Parameters | Description |
 |-------|------------|-------------|
 | `remote-stream` | `(streamId, stream, sourceAgent)` | Remote media arrived |
-| `stream-ready` | `(streamId, stream)` | Local stream ready to offer |
+| `stream-ready` | `(streamId, remoteAgent, connectionTimeMs, peerConnectionTimeMs)` | The stream's connection is up (again, after a reconnect) |
+| `stream-reconnecting` | `(streamId, peer, attempt)` | A broken connection is being brought back |
+| `stream-recovered` | `(streamId, peer, attempts)` | It came back |
+| `stream-failed` | `(streamId, peer)` | Reconnecting gave up |
+| `stream-closed` | `(streamId, peer, reason)` | Closed: `local`, `remote` or `failed` |
 | `datachannel-open` | `(peerId, channel, connectionTimeMs)` | Data channel usable |
 | `datachannel-message` | `(peerId, data)` | Data arrived from a peer |
 | `datachannel-close` | `(peerId)` | Data channel closed |
-| `datachannel-error` | `(peerId, error)` | Data channel error |
-| `connection-state` | `(peerId, state)` | Peer connection state changed |
-| `offer` / `answer` / `ice-candidate` | signalling payload | Emitted while negotiating |
+| `datachannel-error` | `(peerId, error, isGracefulClose)` | Data channel error |
+| `connection-state` | `(streamId, state)` | Peer connection state changed |
+| `file-start` / `file-progress` / `file` / `file-failed` | `(peerId, info)` | An incoming `sendFile`; `file`'s info carries the `blob` |
+| `offer` / `answer` / `ice-candidate` | `(streamId, sdp \| candidate)` | Emitted while negotiating |
 
 ---
 

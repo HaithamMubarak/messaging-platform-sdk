@@ -36,7 +36,7 @@
   },
   "scripts": {
     "test": "node test/smoke.test.js && node test/ice-refresh.test.js && node test/pack.test.js && node test/storage-authority.test.js && node test/managed-connect.test.js && node test/channel-age.test.js && node test/named-host.test.js && node test/session-gone.test.js",
-    "test:types": "npx -p typescript tsc --noEmit --strict --target es2020 --lib es2020,dom --module nodenext --moduleResolution nodenext test/types-check.ts",
+    "test:types": "npx -y -p typescript@7.0.2 tsc --noEmit --strict --target es2020 --lib es2020,dom --module nodenext --moduleResolution nodenext test/types-check.ts",
     "prepublishOnly": "npm test"
   },
   "types": "index.d.ts"
