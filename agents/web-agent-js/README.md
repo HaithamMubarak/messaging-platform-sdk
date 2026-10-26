@@ -293,7 +293,28 @@ agent.disconnect();
 ```
 
 Events: `connect`, `disconnect`, `message`, `agent-connect`, `agent-disconnect`,
-`connection-lost`, `reconnecting`, `session-not-found`.
+`connection-lost`, `reconnecting`, `session-not-found`, `socket-open`.
+
+### TypeScript
+
+`index.d.ts` declares everything on this page, `WebRtcHelper` included (as the
+global that `web-agent.webrtc.js` defines). It uses DOM types (`Blob`,
+`MediaStream`, `RTCDataChannel`), so keep `dom` in your `lib`. Callbacks of the
+attest, vault and knock calls receive the platform envelope, typed
+`PlatformResponse<T>`: check `status === 'success'` before reading `data`.
+`test/types-check.ts` uses every declaration; `npm run test:types` compiles it.
+
+### Session helpers
+
+```javascript
+const { channelId, sessionId } = agent.getSessionInfo();
+agent.refreshIceServers(servers => { /* fresh TURN credentials, or null */ });
+agent.getSystemAgents(res => { if (res.status === 'success') console.log(res.data); });
+```
+
+The connection refreshes its ICE servers by itself five minutes before the TURN
+credential expires; call `refreshIceServers` before an ICE restart you start
+yourself.
 
 ### Presence
 
@@ -319,6 +340,110 @@ agent.storageKeys(keys => { /* ... */ });
 agent.storageDeleteByKey('board', done);
 ```
 
+The promise forms decode the value for you and reject on any failure:
+
+```javascript
+const board = await agent.storageRead('board');          // null when nothing is stored
+const log = await agent.storageReadEntries('moves');     // newest first, each with its writer
+log.forEach(e => console.log(e.writtenBy, e.value));
+```
+
+`writtenBy` is stamped by the server from the writing session, so unlike a name
+inside the value it cannot be made up by the writer.
+
+### Attest (tamper-evident receipts)
+
+Your content never leaves your machine: you hash it and send the hash. The
+server adds only what a server can honestly witness (the order, its own clock,
+the authenticated agent) and signs that.
+
+```javascript
+const contentHash = await agent.attestHash(JSON.stringify(signedForm));
+agent.attest({ chainKey: 'consent-9f2e', kind: 'consent-signed', contentHash,
+               meta: { formVersion: 7 } },              // small and PUBLIC-SAFE
+    r => { if (r.status === 'success') console.log('record', r.data.record.seq); });
+
+agent.attestList('consent-9f2e', async (r) => {
+    if (r.status !== 'success') return;
+    const result = await AgentConnection.attestVerify(r.data);   // offline, plain data
+    console.log(result.ok ? `${result.length} records, all intact`
+                          : `broken at record ${result.brokenAt}: ${result.reason}`);
+});
+```
+
+`attestExport(chainKey, cb)` answers `r.data.bundle`, a self-contained file that
+`attestVerify` still checks years later; `attestChains(cb)` lists the chain names.
+`attestHash` takes text, an `ArrayBuffer` or a typed array.
+
+### Vault (encrypted blobs)
+
+Vault's promise is **"never *readable* by the server"**: the ciphertext is
+stored, the key is generated in the browser and never sent.
+
+```javascript
+const { blobId, key } = await agent.vaultPut(file, {
+    ttlSeconds: 3600,
+    onProgress: p => bar.style.width = (p.sent / p.total * 100) + '%'
+});
+// Share blobId AND key. Lose the key and the bytes are gone.
+const bytes = await agent.vaultGet(blobId, key);         // a Uint8Array
+```
+
+An interrupted `vaultPut` sends only the chunks the server is missing.
+`vaultStatus`, `vaultList`, `vaultQuota` and `vaultDelete` take a callback and
+answer the envelope; `vaultNewKey()` makes a key in advance.
+
+### Key escrow and recovery
+
+```javascript
+const { escrowId, ownerShare } = await agent.escrowSeal({
+    secret: channelPassword,
+    recoveryPhrase: 'seventeen rusty lanterns above the harbour',  // 12+ characters
+    label: 'clinic channel password'
+});
+// Show ownerShare ONCE. Do not offer to remember it.
+
+const { secret } = await agent.escrowRecover({ escrowId, recoveryPhrase, ownerShare });
+```
+
+Opening needs both halves, and the platform stores neither. Every seal, every
+recovery and every failed attempt is written to the `keyring-escrow` Attest
+chain, which `escrowHistory(cb)` returns; `escrowList(cb)` gives labels and
+dates, never a half. A wrong pair rejects without saying which half was wrong.
+
+### Knock (reaching a closed browser)
+
+A knock is a **content-free ping**: no payload at all. The sentence an app may
+write is "a knock was sent", never "they were notified".
+
+```javascript
+// From a CLICK, not on page load.
+const res = await agent.knockSubscribe({ swPath: '/knock-sw.js' });
+if (!res.ok) explain(res.reason);   // 'unsupported' | 'denied' | 'no_key' | 'ephemeral_key' | ...
+
+agent.knock('Dana', { tag: 'shift-handover' }, (r) => {
+    if (r.status === 'success') show(r.data.meaning);   // per-device results in r.data.results
+});
+agent.knockReachable(r => { /* r.data.reachable: [{agent, devices}], never endpoints */ });
+```
+
+The service worker controls only its own directory, so serve it from the root
+of the scope that needs it. `knockUnsubscribe()` stops knocks to this browser.
+
+### Till (licences and seats)
+
+A licence check in a browser is a courtesy, not protection: the check that
+protects something is on your own server.
+
+```javascript
+const Till = AgentConnection.Till.configure('/messaging-platform/api/v1/messaging-service');
+const verdict = await Till.check({ app: 'signet', key: Till.recall('signet') });
+if (!verdict.valid) showPurchaseScreen(verdict.reason);   // never rejects
+```
+
+`claimSeat` / `releaseSeat` take a `seatRef` (hashed before it is stored), and
+`require` is `check` that rejects with `e.verdict` when the answer is no.
+
 ### WebRTC (load `web-agent.webrtc.js`)
 
 ```javascript
@@ -343,6 +468,18 @@ if (!(await rtc.replaceStream(sid, screen))) {
 ```
 
 A stream you pass in stays yours: closing a connection never stops its tracks.
+
+**Files over a data channel.** `sendFile` needs a reliable, ordered channel,
+and the helper's default one is neither (it is tuned for game state), so ask
+for one when offering:
+
+```javascript
+await rtc.createStreamOffer(peer, { dataChannel: { name: 'files', options: { ordered: true } } });
+rtc.on('datachannel-open', async (peerId) => {
+    const meta = await rtc.sendFile(peerId, file);   // resolves once the receiver checked its SHA-256
+});
+rtc.on('file', (peerId, f) => saveAs(f.blob, f.name));
+```
 
 **Reconnecting is automatic.** A connection that drops (Wi-Fi to mobile, a
 blip, the peer's tab reloading) is brought back by the side that offered it,
