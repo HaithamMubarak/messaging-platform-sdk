@@ -175,6 +175,8 @@ a.mp-card:hover { border-color: var(--green); box-shadow: var(--shadow); }
 /* Plans and the comparison are rendered from plans.json: hold their room until then, or the
    sections below show first and are pushed away (layout shift 0.45 on a phone, L5). */
 .mp-plans:empty { min-height: 480px; }
+.mp-plans-notice { margin-top: 22px; }
+.mp-faq { margin-top: 18px; }
 .mp-table-scroll:empty { min-height: 420px; }
 @media (max-width: 900px) { .mp-plans:empty { min-height: 100vh; } }
 .mp-plan {

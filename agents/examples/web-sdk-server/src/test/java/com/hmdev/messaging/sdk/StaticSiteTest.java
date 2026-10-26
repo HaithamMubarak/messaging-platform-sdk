@@ -383,9 +383,10 @@ class StaticSiteTest {
                 assertThat(plan.get("limits").hasNonNull(key)).as(plan.get("id") + " limit " + key).isTrue();
             }
             String status = plan.get("status").asText();
-            assertThat(status).isIn("available", "planned");
+            // "contact" is the service's word for Enterprise (by agreement): not on sale either.
+            assertThat(status).isIn("available", "planned", "contact");
             if (!plan.get("id").asText().equals("free")) {
-                assertThat(status).as(plan.get("id") + " is not on sale yet").isEqualTo("planned");
+                assertThat(status).as(plan.get("id") + " is not on sale yet").isNotEqualTo("available");
             }
             String href = plan.get("cta").get("href").asText();
             String file = gatewayToRepo(href.split("[?#]")[0]);
@@ -405,8 +406,13 @@ class StaticSiteTest {
         assertThat(page).contains("js/plan-format.js");
         assertThat(read("js/plan-format.js")).contains("/billing/plans").contains("data/plans.json");
         assertThat(read("js/pricing.js")).contains("PlanFormat.load");
-        // A price typed into the page would drift from the file the day it changes.
-        assertThat(page).doesNotContainPattern("\\$\\d");
+        // A price typed into the page would drift from the file the day it changes. Since
+        // 2026-10-26 the plans are prerendered from plans.json (tools/prerender-pricing.cjs; the
+        // prerender-pricing jsTest holds them equal), so a price may appear only between its
+        // markers: anywhere else it is still a typed price.
+        assertThat(page).contains("<!-- prerender:plans ").contains("<!-- prerender:compare ");
+        String outside = page.replaceAll("(?s)<!-- prerender:(\\w+) .*?<!-- /prerender:\\1 -->", "");
+        assertThat(outside).doesNotContainPattern("\\$\\d");
     }
 
     // ---------------------------------------------------------- quickstart
