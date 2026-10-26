@@ -470,6 +470,19 @@ a.mp-card:hover { border-color: var(--green); box-shadow: var(--shadow); }
 .home-products[data-shelf]:empty { min-height: 360px; }
 @media (max-width: 680px) { .home-products[data-shelf]:empty { min-height: 720px; } }
 
+/* A page's title, where it is not a hero (pricing, quickstart, contact); --lg for a landing's first screen. */
+.page-title { font-size: clamp(30px, 5vw, 44px); letter-spacing: -1.2px; line-height: 1.1; }
+.page-title--lg { font-size: clamp(32px, 5vw, 52px); letter-spacing: -1.4px; line-height: 1.06; }
+.mp-lead--page { margin-top: 14px; max-width: 40rem; }
+
+/* Contact (contact.html). */
+.contact-grid { margin-top: 28px; grid-template-columns: repeat(auto-fit, minmax(min(100%, 260px), 1fr)); }
+.contact-grid .mp-card { display: flex; flex-direction: column; }
+.contact-grid h2 { font-size: 19px; letter-spacing: -.2px; }
+.contact-grid .mp-actions { margin-top: auto; padding-top: 16px; }
+.contact-brief { margin-top: 16px; max-width: 46rem; }
+.contact-note { margin-top: 18px; max-width: 46rem; }
+
 /* The skip link: off screen until a keyboard user reaches it. */
 .sr-only { position: absolute; left: -9999px; top: 8px; z-index: 60; padding: 10px 16px; border-radius: 8px; background: var(--brand, #2dd4bf); color: var(--on-brand, #04201c); }
 .sr-only:focus { left: 16px; }
