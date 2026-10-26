@@ -14,11 +14,35 @@ const fs = require('fs');
 const path = require('path');
 
 const STATIC = path.join(__dirname, '..', '..', 'main', 'resources', 'static');
-const APPS = process.env.SIBLING_APPS_DIR
-    || path.join(__dirname, '..', '..', '..', '..', '..', '..', '..', 'messaging-platform-apps');
+
+/**
+ * The apps repo beside this one: SIBLING_APPS_DIR, else the first ancestor that has a
+ * messaging-platform-apps folder. A fixed "seven levels up" found it from the main
+ * checkout only; from a worktree (dev/worktrees/<repo>/<branch>/...) it looked in the
+ * wrong folder and this test went red on scripts that only the apps load (2026-10-26).
+ */
+function findApps() {
+    const given = process.env.SIBLING_APPS_DIR;
+    if (given) return fs.existsSync(path.join(given, 'apps')) ? given : null;
+    for (let dir = __dirname; path.dirname(dir) !== dir; dir = path.dirname(dir)) {
+        const candidate = path.join(path.dirname(dir), 'messaging-platform-apps');
+        if (fs.existsSync(path.join(candidate, 'apps'))) return candidate;
+    }
+    return null;
+}
+const APPS = findApps();
 
 // Kept on purpose, each with its reason. An entry here is a decision, not a hiding place.
 const KEPT = {
+};
+
+// Shared with the apps repo, which loads them from this site or vendors them as
+// vendor/sdk-ui/<name>. No page here uses them, so without an apps checkout (the public
+// build) they are taken on trust; with one, they must still be used by an app.
+const FOR_APPS = {
+    'licence-gate.js': 'the licence check; vendored into Baton, Gatehouse, Screener, Signet, SponsorPulse, Turnstile',
+    'platform-badge.js': '"Powered by Messaging Platform"; BlockParty loads it from /messaging-platform/sdk/js/, Rooms vendors it',
+    'receipts.js': 'the seal record; vendored into Baton, Fieldstamp, Screener, Signet, Turnstile',
 };
 
 function files(dir, keep) {
@@ -37,15 +61,26 @@ function check(name, fn) {
 }
 
 const scripts = fs.readdirSync(path.join(STATIC, 'js')).filter((f) => f.endsWith('.js'));
-const readers = files(STATIC, /\.(html|js|css|json)$/).concat(files(path.join(APPS, 'apps'), /\.(html|js|ts|css)$/));
+const appFiles = APPS ? files(path.join(APPS, 'apps'), /\.(html|js|ts|css)$/) : [];
+const readers = files(STATIC, /\.(html|js|css|json)$/).concat(appFiles);
 const text = readers.map((f) => [f, fs.readFileSync(f, 'utf8')]);
+if (!APPS) console.log('  note no apps checkout beside this repo: ' + Object.keys(FOR_APPS).join(', ') + ' taken on trust');
 
 check('every script in js/ is loaded or named by a page, script or app', () => {
-    const unused = scripts.filter((s) => !KEPT[s]).filter((s) => {
+    const unused = scripts.filter((s) => !KEPT[s] && !(FOR_APPS[s] && !APPS)).filter((s) => {
         const own = path.join(STATIC, 'js', s);
         return !text.some(([f, t]) => f !== own && t.includes(s));
     });
-    assert.deepStrictEqual(unused, [], 'delete them, or keep one in KEPT with its reason');
+    assert.deepStrictEqual(unused, [], 'delete them, or keep one in KEPT (or FOR_APPS) with its reason');
+});
+
+check('every script kept for the apps still exists, and an app still uses it', () => {
+    for (const s of Object.keys(FOR_APPS)) {
+        assert.ok(scripts.includes(s), s + ' is gone: remove it from FOR_APPS');
+        if (APPS) {
+            assert.ok(text.some(([f, t]) => appFiles.includes(f) && t.includes(s)), s + ' is used by no app now: remove it from FOR_APPS');
+        }
+    }
 });
 
 check('nothing kept on purpose has started being used or been deleted', () => {

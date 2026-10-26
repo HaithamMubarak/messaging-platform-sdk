@@ -256,7 +256,8 @@ Local Shell or Remote Server
 - **Settings** - Configure SLS port, backup/restore
 - **Help** - Installation guide and setup instructions
 - **About** - App information and GitHub links
-- **Share Terminal** - Cloud connection and sharing options
+- **Join a shared terminal** - the shared connection modal (`js/connection-modal.js`) every demo uses: your name, then a channel and password, or a short code you were given
+- **Room** - once in a room: who you are, Leave, and Sharing (short code, link, QR)
 
 #### Responsive Design
 - Mobile-friendly layout
@@ -762,12 +763,9 @@ If PWA shows "Local Service Offline":
 ### Sharing a Terminal
 1. Open terminal you want to share
 2. Click **"Share"** button in toolbar
-3. Configure sharing options:
-   - Agent name
-   - Channel name and password
-   - Read-only or read-write permission
-4. Click **"Start Sharing"**
-5. Share the generated link or QR code
+3. If you are not in a room yet, join one: your name, then a channel name and password
+4. Choose read-only or read-write permission and start sharing
+5. Invite somebody from **Room → Sharing**: a short code to read out (it expires and works for a few people), or the link or QR code (which carry the password)
 
 ### Browsing Files
 1. Open a terminal session

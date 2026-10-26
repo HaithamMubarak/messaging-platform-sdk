@@ -3,8 +3,12 @@
  * Enables offline functionality by caching all terminal assets
  */
 
-const CACHE_NAME = 'messaging-platform-shared-terminal-v2.0.0';
-const CACHE_TIMESTAMP = '2026-08-20-complete-asset-list';
+const CACHE_NAME = 'messaging-platform-shared-terminal-v2.1.0';
+const CACHE_TIMESTAMP = '2026-10-26-shared-connection-modal';
+
+// The page gates its logs with js/prod-log.js, which a worker never runs. Same rule
+// here: silent unless the worker was registered with ?debug.
+const log = /[?&]debug/.test(self.location.search) ? console.log.bind(console) : () => {};
 
 // Files to cache for offline use
 const STATIC_ASSETS = [
@@ -78,7 +82,12 @@ const STATIC_ASSETS = [
     '../../js/config-loader.js',
     '../../js/icons.js',
     '../../js/dialog.js',
-    '../../js/room-defaults.js',
+    '../../js/mp-account.js',
+    '../../js/keyring.js',
+    '../../js/app-config.js',
+    '../../js/mp.js',
+    '../../js/connection-modal.js',
+    '../../js/active-channel.js',
     '../../js/app-chrome.js',
     '../../generated-web-agent-js/js/web-agent.libs.js',
     '../../generated-web-agent-js/js/web-agent.js',
@@ -88,22 +97,23 @@ const STATIC_ASSETS = [
     // Shared stylesheets loaded by app.html
     '../../css/design-tokens.css',
     '../../css/toast.css',
+    '../../css/connection-modal.css',
     '../../css/cloud-connection.css',
     '../../css/app-chrome.css',
 ];
 
 // Install event - cache all static assets
 self.addEventListener('install', (event) => {
-    console.log('[ServiceWorker] Installing...');
+    log('[ServiceWorker] Installing...');
 
     event.waitUntil(
         caches.open(CACHE_NAME)
             .then((cache) => {
-                console.log('[ServiceWorker] Caching app shell');
+                log('[ServiceWorker] Caching app shell');
                 return cache.addAll(STATIC_ASSETS);
             })
             .then(() => {
-                console.log('[ServiceWorker] All assets cached');
+                log('[ServiceWorker] All assets cached');
                 return self.skipWaiting(); // Activate immediately
             })
             .catch((error) => {
@@ -114,20 +124,20 @@ self.addEventListener('install', (event) => {
 
 // Activate event - clean up old caches
 self.addEventListener('activate', (event) => {
-    console.log('[ServiceWorker] Activating...');
+    log('[ServiceWorker] Activating...');
 
     event.waitUntil(
         caches.keys().then((cacheNames) => {
             return Promise.all(
                 cacheNames.map((cacheName) => {
                     if (cacheName !== CACHE_NAME) {
-                        console.log('[ServiceWorker] Deleting old cache:', cacheName);
+                        log('[ServiceWorker] Deleting old cache:', cacheName);
                         return caches.delete(cacheName);
                     }
                 })
             );
         }).then(() => {
-            console.log('[ServiceWorker] Activated');
+            log('[ServiceWorker] Activated');
             return self.clients.claim(); // Take control immediately
         })
     );
@@ -204,12 +214,12 @@ self.addEventListener('fetch', (event) => {
         caches.match(request)
             .then((cachedResponse) => {
                 if (cachedResponse) {
-                    console.log('[ServiceWorker] Serving from cache:', url.pathname);
+                    log('[ServiceWorker] Serving from cache:', url.pathname);
                     return cachedResponse;
                 }
 
                 // Not in cache - fetch from network
-                console.log('[ServiceWorker] Fetching from network:', url.pathname);
+                log('[ServiceWorker] Fetching from network:', url.pathname);
                 return fetch(request).then((response) => {
                     // Don't cache if not a success response
                     if (!response || response.status !== 200 || response.type === 'error') {
@@ -263,5 +273,5 @@ self.addEventListener('message', (event) => {
     }
 });
 
-console.log('[ServiceWorker] Loaded - Cache:', CACHE_NAME, 'Timestamp:', CACHE_TIMESTAMP);
+log('[ServiceWorker] Loaded - Cache:', CACHE_NAME, 'Timestamp:', CACHE_TIMESTAMP);
 

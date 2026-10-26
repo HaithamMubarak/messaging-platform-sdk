@@ -45,13 +45,15 @@ async function join(b, name, errors) {
     const p = await (await b.newContext({ viewport: { width: 1200, height: 820 } })).newPage();
     p.on('pageerror', (e) => errors.push(name + ': ' + e.message.split('\n')[0]));
     await p.goto(BASE + '/apps/terminal/app.html?test', { waitUntil: 'domcontentloaded' });
-    await p.waitForFunction(() => typeof connectToCloud === 'function', null, { timeout: 25000 });
-    await p.evaluate(({ room, name }) => {
-        document.getElementById('cloudChannelName').value = room;
-        document.getElementById('cloudChannelPassword').value = 'pw12345';
-        document.getElementById('cloudAgentName').value = name;
-        connectToCloud();
-    }, { room: ROOM, name });
+    // Through the room dialog, as a person joins: the shared connection modal's
+    // Advanced tab (the terminal turns its 12-digit codes off).
+    await p.waitForFunction(() => !!window.ConnectionModal, null, { timeout: 25000 });
+    await p.evaluate(() => openMessagingModal());
+    await p.waitForSelector('#connectionForm:not([hidden]) #channelInput', { state: 'visible', timeout: 10000 });
+    await p.fill('#usernameInput', name);
+    await p.fill('#channelInput', ROOM);
+    await p.fill('#passwordInput', 'pw12345');
+    await p.click('#connectBtn');
     const ok = await waitFor(p, () => !!(window.terminalSharing && window.terminalSharing.connected), null, 30000);
     if (!ok) throw new Error(name + ' never connected to ' + ROOM);
     // Every output a page's sharing layer hands up, for brackets.

@@ -53,6 +53,7 @@
     <!-- Site design tokens first, so terminal.css can build on them -->
     <link rel="stylesheet" href="../../css/design-tokens.css"/>
     <link rel="stylesheet" href="terminal.css"/>
+    <link rel="stylesheet" href="../../css/connection-modal.css"/>
 
     <!-- File Explorer Component -->
     <link rel="stylesheet" href="file-explorer.css"/>
@@ -135,6 +136,13 @@
 
     <!-- Terminal JavaScript Logic (includes TerminalDataSender) -->
     <script src="../../js/dialog.js"></script>
+    <!-- The shared way into a room, as in every other demo. -->
+    <script src="../../js/mp-account.js"></script>
+    <script src="../../js/keyring.js"></script>
+    <script src="../../js/app-config.js"></script>
+    <script src="../../js/mp.js"></script>
+    <script src="../../js/active-channel.js"></script>
+    <script src="../../js/connection-modal.js"></script>
     <script src="terminal.js"></script>
 
     <link rel="stylesheet" href="../../css/app-chrome.css">
@@ -318,182 +326,119 @@
         </button>
     </div>
 
-    <!-- Cloud Connection Modal -->
+    <!-- Room panel: what you see once you are in a room. Joining one is the
+         shared connection modal (js/connection-modal.js, loaded by terminal.js),
+         the same dialog every other demo uses. -->
     <div class="modal-overlay" id="cloudModalOverlay">
-        <div class="modal cloud-modal" id="cloudModal" role="dialog" aria-modal="true" aria-labelledby="cloudModalTitle" style="width: 520px; max-height: 90vh; overflow-y: auto;">
-            <div class="modal-header" style="background: linear-gradient(135deg, rgba(74, 158, 255, 0.1), rgba(167, 139, 250, 0.1)); border-bottom: 1px solid var(--border-color, #2a2a4a); padding: 20px;">
-                <div class="modal-title" id="cloudModalTitle" style="display: flex; align-items: center; gap: 10px; font-size: 18px;">
-                    <span style="font-size: 24px;"><svg class="icon" aria-hidden="true"><use href="#i-message"></use></svg></span>
+        <div class="modal cloud-modal" id="cloudModal" role="dialog" aria-modal="true" aria-labelledby="cloudModalTitle">
+            <div class="modal-header cloud-modal__header">
+                <div class="modal-title cloud-modal__title" id="cloudModalTitle">
+                    <svg class="icon" aria-hidden="true"><use href="#i-message"></use></svg>
                     <span>Messaging Platform</span>
                 </div>
-                <div style="display: flex; align-items: center; gap: 15px;">
-                    <!-- Status Indicator (includes host badge inside) -->
-                    <div class="cloud-panel-status" style="display: flex; align-items: center; gap: 8px; padding: 6px 12px; background: var(--bg-panel, #0f0f1a); border-radius: 20px; font-size: 11px;">
-
+                <div class="cloud-modal__header-end">
+                    <div class="cloud-panel-status cloud-modal__status">
                         <div class="status-dot" id="cloudStatus"></div>
-                        <span id="cloudStatusText" style="font-weight: 500;">Disconnected</span>
-                        <!-- Host Indicator (inline badge) -->
-                        <div id="cloudHostIndicator" style="display: none; align-items: center; gap: 3px; padding: 2px 7px; background: linear-gradient(135deg, rgba(255, 215, 0, 0.15), rgba(255, 165, 0, 0.15)); border: 1px solid rgba(255, 215, 0, 0.3); border-radius: 10px; font-size: 12px; font-weight: 700; color: #ffd700; letter-spacing: 0.3px;">
-                            <span style="font-size: 12px;"><svg class="icon" aria-hidden="true"><use href="#i-shield"></use></svg></span>
+                        <span id="cloudStatusText" class="cloud-modal__status-text">Disconnected</span>
+                        <div id="cloudHostIndicator" class="cloud-host-badge" style="display: none;">
+                            <svg class="icon icon--sm" aria-hidden="true"><use href="#i-shield"></use></svg>
                             <span>HOST</span>
                         </div>
                     </div>
-                    <button type="button" class="modal-close" onclick="closeCloudModal()" aria-label="Close" style="font-size: 20px; width: 32px; height: 32px;"><svg class="icon icon--sm" aria-hidden="true"><use href="#i-x"></use></svg></button>
+                    <button type="button" class="modal-close cloud-modal__close" onclick="closeCloudModal()" aria-label="Close"><svg class="icon icon--sm" aria-hidden="true"><use href="#i-x"></use></svg></button>
                 </div>
             </div>
 
-            <!-- Tab Navigation -->
-            <div role="tablist" aria-label="Messaging Platform" style="display: flex; border-bottom: 1px solid var(--border-color); background: var(--bg-panel);">
+            <div role="tablist" aria-label="Messaging Platform" class="cloud-tabs">
                 <button type="button" class="cloud-tab active" onclick="switchCloudTab('connection')" id="cloud-tab-connection"
-                        role="tab" aria-selected="true" aria-controls="cloud-content-connection"
-                        style="flex: 1; padding: 12px 20px; text-align: center; cursor: pointer; font-size: 13px; font-weight: 500; color: var(--text-muted); border-bottom: 2px solid transparent; transition: all 0.2s;">
-                    <svg class="icon icon--sm" aria-hidden="true"><use href="#i-channel"></use></svg> Connection
+                        role="tab" aria-selected="true" aria-controls="cloud-content-connection">
+                    <svg class="icon icon--sm" aria-hidden="true"><use href="#i-channel"></use></svg> Room
                 </button>
                 <button type="button" class="cloud-tab" onclick="switchCloudTab('sharing')" id="cloud-tab-sharing"
-                        role="tab" aria-selected="false" aria-controls="cloud-content-sharing"
-                        style="flex: 1; padding: 12px 20px; text-align: center; cursor: pointer; font-size: 13px; font-weight: 500; color: var(--text-muted); border-bottom: 2px solid transparent; transition: all 0.2s;">
+                        role="tab" aria-selected="false" aria-controls="cloud-content-sharing">
                     <svg class="icon icon--sm" aria-hidden="true"><use href="#i-channel"></use></svg> Sharing
                 </button>
             </div>
 
-            <!-- Connection Tab Content -->
-            <div class="cloud-tab-content active" id="cloud-content-connection" role="tabpanel" aria-labelledby="cloud-tab-connection" style="padding: 24px;">
-
-                <!-- Somebody read a code out to you. This is the shortest way in,
-                     so it is the first thing on the tab. -->
-                <div class="cloud-form-row" style="margin-bottom: 18px; padding-bottom: 18px; border-bottom: 1px solid var(--border-color, #2a2a4a);">
-                    <label for="joinCodeInput" style="font-size: 12px; font-weight: 600; color: var(--text-secondary, #8888aa); margin-bottom: 8px; display: block; text-transform: uppercase; letter-spacing: 0.5px;">Been given a code?</label>
-                    <div class="join-code-row">
-                        <input type="text" id="joinCodeInput" placeholder="amber-willow-42" autocomplete="off" spellcheck="false"
-                               onkeydown="if (event.key === 'Enter') { event.preventDefault(); joinByCode(); }">
-                        <button type="button" class="cloud-btn" id="joinCodeBtn" onclick="joinByCode()">Join</button>
-                    </div>
-                    <div id="joinCodeNote" style="margin-top: 8px; font-size: 12px; color: var(--text-secondary, #8888aa); display: none;"></div>
+            <div class="cloud-tab-content cloud-modal__body active" id="cloud-content-connection" role="tabpanel" aria-labelledby="cloud-tab-connection">
+                <p class="cloud-note">You are in this room. Share a terminal from its tab, or invite somebody from Sharing.</p>
+                <div class="cloud-actions-row" id="cloudActionsRow">
+                    <button type="button" class="cloud-btn disconnect" id="cloudDisconnectBtn" onclick="disconnectFromCloud()">
+                        Leave the room
+                    </button>
                 </div>
-
-                <div class="cloud-form-row" style="margin-bottom: 16px;">
-                    <label for="cloudAgentName" style="font-size: 12px; font-weight: 600; color: var(--text-secondary, #8888aa); margin-bottom: 8px; display: block; text-transform: uppercase; letter-spacing: 0.5px;">Your Name</label>
-                    <input type="text" id="cloudAgentName" placeholder="Auto-generated if empty"
-                           style="width: 100%; padding: 12px; font-size: 13px; border-radius: 6px; border: 1px solid var(--border-color, #2a2a4a); background: var(--bg-panel, #0f0f1a); color: var(--text-primary, #e0e0e0); transition: border-color 0.2s;">
-                </div>
-                <div style="margin-bottom: 16px; padding: 10px; background: rgba(74, 158, 255, 0.1); border-left: 3px solid var(--accent-blue, #4a9eff); border-radius: 4px; font-size: 12px; color: var(--text-secondary); line-height: 1.5;">
-                    <svg class="icon icon--sm" aria-hidden="true"><use href="#i-info"></use></svg> <strong>Tip:</strong> Channel name and password are freely chosen by you. Pick any values you like, then share them with others to connect together.
-                </div>
-                <div class="cloud-form-row" style="margin-bottom: 16px;">
-                    <label for="cloudChannelName" style="font-size: 12px; font-weight: 600; color: var(--text-secondary, #8888aa); margin-bottom: 8px; display: block; text-transform: uppercase; letter-spacing: 0.5px;">Channel Name</label>
-                    <input type="text" id="cloudChannelName" placeholder="my-terminal-channel" value="terminal-share"
-                           style="width: 100%; padding: 12px; font-size: 13px; border-radius: 6px; border: 1px solid var(--border-color, #2a2a4a); background: var(--bg-panel, #0f0f1a); color: var(--text-primary, #e0e0e0); transition: border-color 0.2s;">
-                </div>
-                <div class="cloud-form-row" style="margin-bottom: 20px;">
-                    <label for="cloudChannelPassword" style="font-size: 12px; font-weight: 600; color: var(--text-secondary, #8888aa); margin-bottom: 8px; display: block; text-transform: uppercase; letter-spacing: 0.5px;">Channel Password</label>
-                    <div style="position: relative; display: flex; align-items: center;">
-                        <input type="password" id="cloudChannelPassword" placeholder="Channel password" value="terminal123"
-                               autocomplete="new-password"
-                               style="width: 100%; padding: 12px 42px 12px 12px; font-size: 13px; border-radius: 6px; border: 1px solid var(--border-color, #2a2a4a); background: var(--bg-panel, #0f0f1a); color: var(--text-primary, #e0e0e0); transition: border-color 0.2s;">
-                        <button type="button" id="cloudPasswordToggle" onclick="toggleCloudPasswordVisibility()"
-                                style="position: absolute; right: 8px; background: transparent; border: none; cursor: pointer; padding: 6px; font-size: 16px; color: var(--text-secondary); transition: color 0.2s;"
-                                onmouseover="this.style.color='var(--text-primary)'"
-                                onmouseout="this.style.color='var(--text-secondary)'"
-                                title="Toggle password visibility">
-                            <svg class="icon icon--sm" aria-hidden="true"><use href="#i-eye"></use></svg>                         </button>
-                    </div>
-                </div>
-
-                <div class="cloud-actions" style="margin-top: 20px;">
-                    <div class="cloud-actions-row" style="display: flex; gap: 8px; margin-bottom: 8px;">
-                        <button type="button" class="cloud-btn" id="cloudConnectBtn" onclick="connectToCloud()"
-                                style="flex: 2; padding: 10px 16px; font-size: 13px; font-weight: 600; border-radius: 6px; transition: all 0.2s;">
-                            Connect
-                        </button>
-                        <button type="button" class="cloud-btn cloud-btn-secondary" id="cloudRegenBtn" onclick="regenerateConnection()"
-                                title="Regenerate channel name and password"
-                                style="flex: 0 0 42px; padding: 10px; font-size: 16px; border-radius: 6px; transition: all 0.2s;">
-                            <svg class="icon icon--sm" aria-hidden="true"><use href="#i-refresh"></use></svg>                         </button>
-                    </div>
-                    <div class="cloud-actions-row" id="cloudActionsRow" style="display: none; gap: 8px;">
-                        <button type="button" class="cloud-btn cloud-btn-small disconnect" id="cloudDisconnectBtn" onclick="disconnectFromCloud()"
-                                style="flex: 1; padding: 10px 16px; font-size: 13px; font-weight: 600; border-radius: 6px;">
-                            Disconnect
-                        </button>
-                    </div>
-                </div>
-
             </div>
 
-            <!-- Sharing Tab Content -->
-            <div class="cloud-tab-content" id="cloud-content-sharing" role="tabpanel" aria-labelledby="cloud-tab-sharing" style="padding: 24px;">
-
-                <div style="font-size: 13px; color: #d0d0d0; margin-bottom: 20px; padding: 14px; background: rgba(74, 158, 255, 0.08); border-radius: 6px; border-left: 3px solid var(--accent-blue, #4a9eff); line-height: 1.6;">
+            <div class="cloud-tab-content cloud-modal__body" id="cloud-content-sharing" role="tabpanel" aria-labelledby="cloud-tab-sharing">
+                <p class="cloud-note">
                     <svg class="icon icon--sm" aria-hidden="true"><use href="#i-info"></use></svg> Invite someone into this room. A short code is the best thing to hand over: it is minted by the server, expires on its own, and works for a limited number of people.
-                </div>
+                </p>
 
                 <!-- A code is for saying out loud, which is how this app is
                      actually used when somebody is stuck — and unlike the link
                      it does not carry the room password inside it. -->
-                <div class="cloud-form-row" style="margin-bottom: 16px;">
-                    <label style="font-size: 12px; font-weight: 600; color: var(--text-secondary, #8888aa); margin-bottom: 8px; display: block; text-transform: uppercase; letter-spacing: 0.5px;"><svg class="icon icon--sm" aria-hidden="true"><use href="#i-mic"></use></svg> Short code — the safest way in</label>
+                <div class="cloud-form-row">
+                    <span class="cloud-label"><svg class="icon icon--sm" aria-hidden="true"><use href="#i-mic"></use></svg> Short code — the safest way in</span>
                     <div id="sessionCodeIdle">
-                        <button type="button" class="cloud-btn" id="sessionCodeBtn" onclick="mintSessionCode()"
-                                style="width: 100%; padding: 12px; font-size: 13px; font-weight: 600; border-radius: 8px;">
+                        <button type="button" class="cloud-btn" id="sessionCodeBtn" onclick="mintSessionCode()">
                             Make a code I can read out
                         </button>
                     </div>
                     <div id="sessionCodeResult" style="display: none;">
-                        <div style="display: flex; gap: 8px; align-items: center;">
-                            <code id="sessionCodeValue" style="flex: 1; padding: 14px; text-align: center; font-size: 20px; font-weight: 700; letter-spacing: 0.04em; font-family: monospace; color: var(--accent-cyan, #22d3ee); background: var(--bg-darker, #08080d); border: 1px solid var(--border-color, #2a2a4a); border-radius: 8px;"></code>
-                            <button type="button" class="cloud-regen-btn" onclick="copySessionCode()" title="Copy the code"
-                                    style="min-width: 44px; height: 48px; border-radius: 6px; font-size: 16px;"><svg class="icon icon--sm" aria-hidden="true"><use href="#i-copy"></use></svg></button>
+                        <div class="cloud-input-group">
+                            <code id="sessionCodeValue" class="session-code-value"></code>
+                            <button type="button" class="cloud-regen-btn cloud-copy-btn" onclick="copySessionCode()" title="Copy the code"><svg class="icon icon--sm" aria-hidden="true"><use href="#i-copy"></use></svg></button>
                         </div>
-                        <div id="sessionCodeNote" style="margin-top: 8px; font-size: 12px; color: var(--text-secondary, #8888aa);"></div>
+                        <div id="sessionCodeNote" class="cloud-hint"></div>
                     </div>
                 </div>
 
-                <div class="cloud-form-row" style="margin-bottom: 16px;">
-                    <label style="font-size: 12px; font-weight: 600; color: var(--text-secondary, #8888aa); margin-bottom: 8px; display: block; text-transform: uppercase; letter-spacing: 0.5px;"><svg class="icon icon--sm" aria-hidden="true"><use href="#i-copy"></use></svg> Share Link</label>
-                    <div class="cloud-input-group" style="display: flex; gap: 8px; margin-bottom: 8px;">
-                        <input type="text" id="shareUrlInput" readonly
-                               style="flex: 1; font-size: 11px; background: var(--bg-darker, #08080d);
-                                      color: var(--text-primary, #e0e0e0);
-                                      border: 1px solid var(--border-color, #2a2a4a);
-                                      padding: 10px 12px; border-radius: 6px; font-family: monospace;">
-                        <button type="button" class="cloud-regen-btn" onclick="copyShareUrl()"
-                                title="Copy to clipboard"
-                                style="min-width: 44px; height: 40px; border-radius: 6px; font-size: 16px;">
-                            <svg class="icon icon--sm" aria-hidden="true"><use href="#i-copy"></use></svg>                         </button>
+                <div class="cloud-form-row">
+                    <label for="shareUrlInput" class="cloud-label"><svg class="icon icon--sm" aria-hidden="true"><use href="#i-copy"></use></svg> Share Link</label>
+                    <div class="cloud-input-group">
+                        <input type="text" id="shareUrlInput" class="share-url-input" readonly>
+                        <button type="button" class="cloud-regen-btn cloud-copy-btn" onclick="copyShareUrl()" title="Copy to clipboard">
+                            <svg class="icon icon--sm" aria-hidden="true"><use href="#i-copy"></use></svg>
+                        </button>
                     </div>
-                    <div style="font-size: 12px; color: var(--warning, #fbbf24); line-height: 1.5;">
+                    <div class="cloud-hint cloud-hint--warn">
                         <svg class="icon icon--sm" aria-hidden="true"><use href="#i-alert-triangle"></use></svg>
                         This link (and the QR code below) embeds the room password. Anyone who sees it can join,
                         and it never expires — treat it like the password itself.
                     </div>
                 </div>
 
-                <button type="button" class="cloud-btn cloud-btn-secondary"
-                        onclick="toggleQrCode()"
-                        id="qrToggleBtn"
-                        style="width: 100%; margin-bottom: 16px; font-size: 12px; padding: 12px; border-radius: 8px; font-weight: 600;">
+                <button type="button" class="cloud-btn cloud-btn-secondary cloud-qr-toggle" onclick="toggleQrCode()" id="qrToggleBtn">
                     <span id="qrToggleIcon"><svg class="icon icon--sm" aria-hidden="true"><use href="#i-qr-code"></use></svg></span> <span id="qrToggleText">Show QR Code</span>
                 </button>
 
-                <div id="shareQrCode" style="display: none; text-align: center; margin: 0 auto; padding: 20px;
-                                             background: white; border-radius: 8px;
-                                             box-shadow: 0 4px 12px rgba(0,0,0,0.15); max-width: fit-content;">
+                <div id="shareQrCode" class="share-qr" style="display: none;">
                     <!-- QR code will be generated here -->
                 </div>
 
-                <!-- Connected Agents (moved from Connection tab) -->
-                <div class="cloud-agents" id="cloudAgentsSection"
-                     style="display: none; margin-bottom: 20px; padding-bottom: 20px; border-bottom: 1px solid var(--border-color, #2a2a4a);">
-                    <div class="cloud-agents-title" style="font-size: 12px; font-weight: 600; color: var(--text-secondary, #8888aa); margin-bottom: 10px; text-transform: uppercase; letter-spacing: 0.5px;">
+                <div class="cloud-agents" id="cloudAgentsSection" style="display: none;">
+                    <div class="cloud-agents-title">
                         <svg class="icon icon--sm" aria-hidden="true"><use href="#i-users"></use></svg> Connected Agents
                     </div>
-                    <div id="cloudAgentsList" style="display: flex; flex-direction: column; gap: 6px;">
-                        <!-- Agents will be populated here -->
-                    </div>
+                    <div id="cloudAgentsList" class="cloud-agents-list"></div>
                 </div>
             </div>
         </div>
     </div>
+
+    <!-- The terminal's own way in: a short code the service minted. The shared
+         connection modal has no such field, so terminal.js puts this at the top
+         of its Advanced tab. -->
+    <template id="joinCodeTemplate">
+        <div class="term-join-code" id="joinCodeRow">
+            <label for="joinCodeInput" class="form-label-visible">Been given a code?</label>
+            <div class="join-code-row">
+                <input type="text" id="joinCodeInput" placeholder="amber-willow-42" autocomplete="off" spellcheck="false">
+                <button type="button" class="btn-primary" id="joinCodeBtn">Join</button>
+            </div>
+            <p id="joinCodeNote" class="mp-note" hidden></p>
+        </div>
+    </template>
 
     <!-- Main Container -->
     <div class="main-container">
@@ -995,7 +940,7 @@
                             <div style="font-size: 13px; color: var(--text-secondary); margin-bottom: 12px;">
                                 To use terminals, you need <strong style="color: var(--text-primary);">SDK Local Service</strong> running:
                             </div>
-                            <pre style="background: var(--bg-dark); padding: 12px; border-radius: 6px; font-size: 12px; color: var(--accent-green); margin-bottom: 12px; overflow-x: auto;">java -jar sdk-local-service.jar</pre>
+                            <pre class="help-code">java -jar sdk-local-service.jar</pre>
                             <div style="font-size: 12px; color: var(--text-muted);">
                                 <svg class="icon icon--sm" aria-hidden="true"><use href="#i-info"></use></svg> <strong>Note:</strong> The PWA works offline for UI, but terminal features require SLS running on <code style="background: var(--bg-dark); padding: 2px 6px; border-radius: 3px;">localhost:8088</code>
                             </div>
@@ -1067,7 +1012,7 @@
 
                         <h4 style="font-size: 14px; color: var(--text-primary); margin-bottom: 12px;">Step 1: Start SDK
                             Local Service</h4>
-                        <pre style="background: var(--bg-dark); padding: 12px; border-radius: 6px; font-size: 12px; color: var(--accent-green); margin-bottom: 16px; overflow-x: auto;">java -jar sdk-local-service.jar</pre>
+                        <pre class="help-code">java -jar sdk-local-service.jar</pre>
 
                         <h4 style="font-size: 14px; color: var(--text-primary); margin-bottom: 12px;">Step 2: Create
                             Terminal Sessions</h4>
@@ -1119,22 +1064,22 @@
                             Documentation</h4>
                         <div style="display: flex; flex-wrap: wrap; gap: 12px;">
                             <a href="https://github.com/HaithamMubarak/messaging-platform-sdk" target="_blank"
-                               style="color: var(--accent-purple); text-decoration: none; font-size: 13px; display: inline-flex; align-items: center; gap: 6px; padding: 8px 12px; background: var(--bg-panel); border-radius: 6px; border: 1px solid var(--border-color);">
+                               class="help-link help-link--purple">
                                 <svg class="icon icon--sm" aria-hidden="true"><use href="#i-github"></use></svg> View on GitHub
                             </a>
                             <a href="https://github.com/HaithamMubarak/messaging-platform-sdk/blob/main/README.md"
                                target="_blank"
-                               style="color: var(--accent-blue); text-decoration: none; font-size: 13px; display: inline-flex; align-items: center; gap: 6px; padding: 8px 12px; background: var(--bg-panel); border-radius: 6px; border: 1px solid var(--border-color);">
+                               class="help-link">
                                 <svg class="icon icon--sm" aria-hidden="true"><use href="#i-book"></use></svg> README
                             </a>
                             <a href="https://github.com/HaithamMubarak/messaging-platform-sdk/blob/main/DEVELOPER-GUIDE.md"
                                target="_blank"
-                               style="color: var(--accent-blue); text-decoration: none; font-size: 13px; display: inline-flex; align-items: center; gap: 6px; padding: 8px 12px; background: var(--bg-panel); border-radius: 6px; border: 1px solid var(--border-color);">
+                               class="help-link">
                                 <svg class="icon icon--sm" aria-hidden="true"><use href="#i-code"></use></svg> Dev Guide
                             </a>
                             <a href="https://github.com/HaithamMubarak/messaging-platform-sdk/blob/main/WEB-AGENT-GUIDE.md"
                                target="_blank"
-                               style="color: var(--accent-blue); text-decoration: none; font-size: 13px; display: inline-flex; align-items: center; gap: 6px; padding: 8px 12px; background: var(--bg-panel); border-radius: 6px; border: 1px solid var(--border-color);">
+                               class="help-link">
                                 <svg class="icon icon--sm" aria-hidden="true"><use href="#i-globe"></use></svg> Web Guide
                             </a>
                         </div>
@@ -1964,9 +1909,6 @@
             }
         });
     </script>
-<script src="../../js/active-channel.js"></script>
-<script src="../../js/room-defaults.js"></script>
-<script>RoomDefaults.apply({ prefix: 'terminal_', channelPrefix: 'terminal-', channelId: 'cloudChannelName', passwordId: 'cloudChannelPassword', sharedDefaults: ['terminal-share', 'terminal123'] });</script>
 <script src="../../js/app-chrome.js"></script>
 </body>
 </html>
