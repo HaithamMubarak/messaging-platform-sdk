@@ -20,7 +20,7 @@ const pages = Object.entries(shell.PAGES).map(([rel, section]) => {
 });
 
 check('every shell page wears the current header and footer (run node tools/site-shell.cjs)', () => {
-    const stale = pages.filter((p) => shell.apply(p.html, p.section, shell.pairFor(p.rel)) !== p.html).map((p) => p.rel);
+    const stale = pages.filter((p) => shell.apply(p.html, p.section, shell.pairFor(p.rel), p.rel) !== p.html).map((p) => p.rel);
     assert.deepStrictEqual(stale, []);
 });
 
@@ -37,6 +37,45 @@ check('each page lights its own section, and only one', () => {
         const lit = (p.html.match(/<nav class="site-nav"[\s\S]*?<\/nav>/)[0].match(/aria-current="page"/g) || []).length;
         assert.strictEqual(lit, p.section ? 1 : 0, p.rel);
     }
+});
+
+/*
+ * One head, one skip link, no footer headings (2026-10-26). The hub's own pages (not the demos
+ * under apps/) carry the shell's head block; every shell page opens with exactly one skip link,
+ * and its target exists.
+ */
+const own = pages.filter((p) => !p.rel.startsWith('apps/'));
+
+check('every hub page has one head block: canonical, og:url, twitter:card, a root favicon, dark only', () => {
+    for (const p of own) {
+        const head = p.html.slice(0, p.html.indexOf('</head>'));
+        for (const tag of ['<link rel="canonical"', '<meta property="og:url"', '<meta property="og:title"', '<meta property="og:description"',
+            '<meta name="twitter:card"', '<link rel="icon" type="image/svg+xml" href="/messaging-platform/hub/favicon.svg">',
+            '<meta name="color-scheme" content="dark">', 'content="https://hmdevonline.com/messaging-platform/hub/images/og-image.png"']) {
+            assert.strictEqual(head.split(tag).length - 1, 1, p.rel + ' should have exactly one ' + tag);
+        }
+        assert.ok(!/\/sdk\/images\/og-image/.test(head), p.rel + ' still names the /sdk/ og image');
+        const title = head.match(/<title>([^<]*)<\/title>/)[1];
+        assert.ok(/ \| Messaging Platform$|^Messaging Platform \| /.test(title) || p.rel === 'profile.html', p.rel + ' title separator: ' + title);
+    }
+    assert.ok(fs.existsSync(path.join(shell.STATIC, 'images', 'og-image.png')), 'the og image is missing');
+});
+
+check('every shell page opens with one skip link whose target exists', () => {
+    for (const p of pages) {
+        const body = p.html.slice(p.html.indexOf('<body')).replace(/<body[^>]*>\s*/, '').replace(/^<!--[^>]*-->\s*/, '');
+        const m = body.match(/^<a class="skip-link" href="#([\w-]+)">/);
+        assert.ok(m, p.rel + ' does not open with the skip link');
+        assert.strictEqual((p.html.match(/<a [^>]*>Skip[^<]*<\/a>/g) || []).length, 1, p.rel + ' has more than one skip link');
+        assert.ok(p.html.includes('id="' + m[1] + '"'), p.rel + ' skip target #' + m[1] + ' does not exist');
+    }
+});
+
+check('the footer labels its columns without headings, and links Contact', () => {
+    const f = shell.footer();
+    assert.ok(!/<h[1-6]/.test(f), 'the footer has a heading');
+    assert.ok(f.includes('href="/messaging-platform/hub/contact.html"'), 'the footer does not link Contact');
+    assert.ok(fs.readFileSync(path.join(shell.STATIC, 'pricing.html'), 'utf8').includes('contact.html'), 'pricing does not link Contact');
 });
 
 check('the shell nav has the six sections and one call to action', () => {

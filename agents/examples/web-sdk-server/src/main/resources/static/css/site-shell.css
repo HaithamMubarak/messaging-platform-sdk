@@ -7,6 +7,13 @@
  */
 @import url('/messaging-platform/hub/css/fonts.css');
 
+/* The one skip link (tools/site-shell.cjs writes it first in <body>): off screen until focused. */
+.skip-link {
+    position: absolute; left: 16px; top: -100px; z-index: 200; padding: 10px 16px; border-radius: 8px;
+    background: var(--brand, #2dd4bf); color: var(--on-brand, #04201c); font-weight: 700; text-decoration: none;
+}
+.skip-link:focus { top: 8px; }
+
 .site-header {
     position: sticky; top: 0; z-index: 50;
     background: color-mix(in srgb, var(--bg, #0b1120) 88%, transparent);
@@ -86,7 +93,9 @@
 .site-shell-footer .brand svg { width: 26px; height: 26px; flex: 0 0 26px; }
 .site-shell-footer .site-shell-footer__about p { margin: 12px 0 0; max-width: 32ch; line-height: 1.55; }
 .site-shell-footer .site-shell-footer__about ul { margin-top: 8px; }
-.site-shell-footer h2 {
+/* Column labels, not headings: five <h2>s in every footer made the outline read "Product, Developers,
+   Explore, Legal" after each page's own sections (2026-10-26). */
+.site-shell-footer .site-shell-footer__label {
     margin: 0 0 10px; font-size: 12px; font-weight: 700; letter-spacing: 1.2px; text-transform: uppercase;
     color: var(--text, #eef2f8);
 }

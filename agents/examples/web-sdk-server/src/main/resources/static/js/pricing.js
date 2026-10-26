@@ -4,83 +4,82 @@
  * data/plans.json only when the service cannot be reached. Anything a plan is not sure of says so: 'planned' plans are
  * labelled as not on sale, and only limits listed in a plan's `enforced`
  * array are marked as enforced today.
+ *
+ * The same functions write the plans into pricing.html at build time
+ * (tools/prerender-pricing.cjs, 2026-10-26), so a visitor without script, and
+ * a crawler, sees the prices; in the browser this only refreshes them.
  */
 (function () {
     'use strict';
 
-    function el(tag, cls, text) {
-        var n = document.createElement(tag);
-        if (cls) n.className = cls;
-        if (text !== undefined) n.textContent = text;
-        return n;
+    function esc(s) {
+        return String(s === undefined || s === null ? '' : s).replace(/[&<>"]/g, function (c) {
+            return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c];
+        });
     }
 
+    var STATUS = { available: 'Available now', contact: 'By agreement' };
+
     function statusLabel(plan) {
-        return plan.status === 'available' ? 'Available now' : 'Planned — not on sale yet';
+        return STATUS[plan.status] || 'Planned — not on sale yet';
     }
 
     function card(plan, rows) {
-        var c = el('article', 'mp-plan' + (plan.featured ? ' mp-plan--featured' : ''));
-        c.append(el('span', 'mp-status mp-status--' + plan.status, statusLabel(plan)), el('h3', '', plan.name));
-        var price = el('div', 'mp-plan-price', plan.priceLabel);
-        price.append(el('small', '', plan.period));
-        c.append(price, el('p', '', plan.audience));
-        var list = el('ul');
-        ['connections', 'messages', 'channels', 'turn'].forEach(function (key) {
+        var items = ['connections', 'messages', 'channels', 'turn'].map(function (key) {
             var row = rows.find(function (r) { return r.key === key; });
-            var li = el('li');
-            li.append(el('b', '', plan.limits[key]), document.createTextNode(' ' + (row.card || row.label)));
-            list.append(li);
-        });
-        var cta = el('a', 'mp-btn' + (plan.featured || plan.status === 'available' ? ' mp-btn--primary' : ''), plan.cta.label);
-        cta.href = plan.cta.href;
-        c.append(list, cta);
-        return c;
+            return '<li><b>' + esc(plan.limits[key]) + '</b> ' + esc(row.card || row.label) + '</li>';
+        }).join('');
+        var primary = plan.featured || plan.status === 'available' ? ' mp-btn--primary' : '';
+        return '<article class="mp-plan' + (plan.featured ? ' mp-plan--featured' : '') + '">'
+            + '<span class="mp-status mp-status--' + esc(plan.status) + '">' + esc(statusLabel(plan)) + '</span>'
+            + '<h3>' + esc(plan.name) + '</h3>'
+            + '<div class="mp-plan-price">' + esc(plan.priceLabel) + '<small>' + esc(plan.period) + '</small></div>'
+            + '<p>' + esc(plan.audience) + '</p><ul>' + items + '</ul>'
+            + '<a class="mp-btn' + primary + '" href="' + esc(plan.cta.href) + '">' + esc(plan.cta.label) + '</a></article>';
     }
 
     function table(data) {
-        var t = el('table', 'mp-caps');
-        var head = el('tr');
-        head.append(el('th', '', 'Limit'));
-        data.plans.forEach(function (p) { head.append(el('th', '', p.name)); });
-        var thead = el('thead');
-        thead.append(head);
-        var tbody = el('tbody');
-        data.rows.forEach(function (row) {
-            var tr = el('tr');
-            tr.append(el('td', '', row.label));
-            data.plans.forEach(function (p) {
-                var td = el('td', '', p.limits[row.key]);
-                if ((p.enforced || []).indexOf(row.key) >= 0) {
-                    var mark = el('span', 'mp-enforced', '●');
-                    mark.title = 'Enforced today';
-                    mark.setAttribute('aria-label', 'enforced today');
-                    td.append(mark);
-                }
-                tr.append(td);
-            });
-            tbody.append(tr);
-        });
-        t.append(thead, tbody);
-        return t;
+        var head = '<tr><th>Limit</th>' + data.plans.map(function (p) { return '<th>' + esc(p.name) + '</th>'; }).join('') + '</tr>';
+        var body = data.rows.map(function (row) {
+            return '<tr><td>' + esc(row.label) + '</td>' + data.plans.map(function (p) {
+                var mark = (p.enforced || []).indexOf(row.key) >= 0
+                    ? '<span class="mp-enforced" title="Enforced today" aria-label="enforced today">●</span>' : '';
+                return '<td>' + esc(p.limits[row.key]) + mark + '</td>';
+            }).join('') + '</tr>';
+        }).join('');
+        return '<table class="mp-caps"><thead>' + head + '</thead><tbody>' + body + '</tbody></table>';
+    }
+
+    /** The page's four regions as markup: {notice, plans, enforced, compare}. */
+    function regions(data) {
+        return {
+            notice: esc(data.notice),
+            plans: data.plans.map(function (p) { return card(p, data.rows); }).join(''),
+            enforced: esc(data.enforcedToday),
+            compare: table(data)
+        };
+    }
+
+    if (typeof module === 'object' && module.exports) {
+        module.exports = { regions: regions, statusLabel: statusLabel };
+        return;
     }
 
     function render(data) {
-        document.getElementById('plansNotice').textContent = data.notice;
-        document.getElementById('plansEnforced').textContent = data.enforcedToday;
-        document.getElementById('plans').replaceChildren.apply(
-            document.getElementById('plans'), data.plans.map(function (p) { return card(p, data.rows); }));
-        document.getElementById('compare').replaceChildren(table(data));
+        var r = regions(data);
+        document.getElementById('plansNotice').innerHTML = r.notice;
+        document.getElementById('plansEnforced').innerHTML = r.enforced;
+        document.getElementById('plans').innerHTML = r.plans;
+        document.getElementById('compare').innerHTML = r.compare;
         if (data.source === 'snapshot') {
             document.getElementById('plansEnforced').textContent +=
                 ' (Showing a saved copy of the plans: the live list could not be loaded.)';
         }
     }
 
-    window.PlanFormat.load('')
-        .then(render)
-        .catch(function () {
-            document.getElementById('plans').textContent =
-                'Pricing could not be loaded. Every plan is free during the public beta.';
-        });
+    // The page already shows the snapshot; a failed refresh leaves it, and says so once.
+    window.PlanFormat.load('').then(render).catch(function () {
+        document.getElementById('plansEnforced').textContent +=
+            ' (Showing a saved copy of the plans: the live list could not be loaded.)';
+    });
 })();

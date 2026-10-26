@@ -3,18 +3,22 @@
 <head>
 <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Messaging Platform | Realtime apps without realtime infrastructure</title>
-<meta name="description" content="One SDK and a managed backend for messaging, presence, shared state and WebRTC. Connect browsers, servers, AI agents and games in minutes. Free during beta.">
+<!-- site-shell:head (tools/site-shell.cjs; do not edit here) -->
 <link rel="canonical" href="https://hmdevonline.com/messaging-platform/hub/">
-<meta name="robots" content="index,follow">
-<meta name="color-scheme" content="dark">
 <meta property="og:type" content="website">
 <meta property="og:site_name" content="Messaging Platform">
 <meta property="og:title" content="Messaging Platform | Realtime apps without realtime infrastructure">
 <meta property="og:description" content="One SDK and a managed backend for messaging, presence, shared state and WebRTC.">
 <meta property="og:url" content="https://hmdevonline.com/messaging-platform/hub/">
-<meta property="og:image" content="https://hmdevonline.com/messaging-platform/sdk/images/og-image.png">
+<meta property="og:image" content="https://hmdevonline.com/messaging-platform/hub/images/og-image.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
 <meta name="twitter:card" content="summary_large_image">
+<meta name="color-scheme" content="dark">
 <link rel="icon" type="image/svg+xml" href="/messaging-platform/hub/favicon.svg">
+<!-- /site-shell:head -->
+<meta name="description" content="One SDK and a managed backend for messaging, presence, shared state and WebRTC. Connect browsers, servers, AI agents and games in minutes. Free during beta.">
+<meta name="robots" content="index,follow">
 <script>
 // The old hub opened its demo and app views at #demos and #apps; those links still arrive (2026-09-26 rule).
 (function(){var h=location.hash;if(h==='#demos')location.replace('playground.html');else if(h==='#apps')location.replace('/messaging-platform/apps/');})();
@@ -26,6 +30,7 @@
 </head>
 <body class="mp-page">
 <!-- site-shell:header (tools/site-shell.cjs; do not edit here) -->
+<a class="skip-link" href="#main">Skip to content</a>
 <header class="site-header" id="siteHeader">
     <div class="site-header__inner">
         <a class="brand" href="/messaging-platform/hub/"><svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><rect width="24" height="24" rx="6" fill="#14b8a6"/><path d="M6 9.5A2.5 2.5 0 0 1 8.5 7h7A2.5 2.5 0 0 1 18 9.5v3a2.5 2.5 0 0 1-2.5 2.5H11l-3.2 2.4A.5.5 0 0 1 7 17V15h-.5A.5.5 0 0 1 6 14.5z" fill="#fff"/><circle cx="9.6" cy="11" r="1" fill="#0b1120"/><circle cx="12" cy="11" r="1" fill="#0b1120"/><circle cx="14.4" cy="11" r="1" fill="#0b1120"/></svg><span>Messaging Platform</span></a>
@@ -42,46 +47,73 @@
     </div>
 </header>
 <!-- /site-shell:header -->
-<a class="sr-only" href="#main">Skip to content</a>
 <main class="mp-main" id="main">
 
 <section class="home-hero" aria-labelledby="page-title">
 <div>
-<p class="home-badge"><i aria-hidden="true"></i>Public beta · free while it lasts</p>
+<p class="home-badge"><i aria-hidden="true"></i>Public beta: free, no card required</p>
 <h1 id="page-title">Build realtime apps<br><em>without building realtime infrastructure.</em></h1>
 <p class="mp-lead">Messaging, presence, shared state and WebRTC through one SDK and a managed backend. Browsers, servers, AI agents and games on one channel.</p>
 <div class="mp-actions"><a class="mp-btn mp-btn--primary" href="developer/index.html?start=free">Start free</a><a class="mp-btn" href="playground.html">Try a live demo</a></div>
 <div class="mp-langs"><span>SDKs for</span><a class="mp-lang" href="quickstart.html#js">JavaScript</a><a class="mp-lang" href="quickstart.html#python">Python</a><a class="mp-lang" href="quickstart.html#java">Java</a><a class="mp-lang" href="quickstart.html#cpp">C++ <small>experimental</small></a></div>
 <p class="home-presence" id="homePresence" aria-live="polite"><span class="home-presence__faces" data-presence-faces></span><span class="home-presence__count" data-presence-count>This page joins one live channel; whoever else is reading it appears here.</span><span class="home-presence__rtt" data-presence-rtt></span></p>
 </div>
-<figure class="home-mock" aria-label="A live room: three people, one of them an AI agent, on one channel">
-<figcaption><i></i><i></i><i></i><span>room-123 · 3 here</span><b>live</b></figcaption>
-<div class="home-mock__body">
-<ol class="home-mock__chat">
-<li><span class="home-mock__who">AN</span><p>Board is saved, joining the call now</p></li>
-<li class="is-agent"><span class="home-mock__who">AI</span><p>Summary ready: 3 decisions, 2 owners</p></li>
-<li class="is-me"><p>ship it</p></li>
-</ol>
-<aside class="home-mock__here"><p>Here now</p><ul><li><span>AN</span>Ana <small>host</small></li><li><span>BO</span>Bo</li><li><span>AI</span>assistant.py</li></ul></aside>
+<figure class="home-code" data-tabs data-code-sample>
+<div class="home-code__bar">
+<div class="home-code__tabs" role="tablist" aria-label="Language">
+<button role="tab" id="hc-tab-js" aria-controls="hc-js" aria-selected="true">JavaScript</button>
+<button role="tab" id="hc-tab-python" aria-controls="hc-python" aria-selected="false">Python</button>
+<button role="tab" id="hc-tab-java" aria-controls="hc-java" aria-selected="false">Java</button>
 </div>
-<pre class="home-mock__code"><span class="c">// that whole room is</span>
-agent.connect({ channelName: <span class="s">'room-123'</span>, apiKey });</pre>
+<button class="home-code__copy" type="button" data-copy>Copy</button>
+</div>
+<pre class="home-code__pane" role="tabpanel" id="hc-js" aria-labelledby="hc-tab-js" tabindex="0" data-source="quickstart.js"><span class="c">// install: the two &lt;script&gt; tags in the quickstart, no build step</span>
+<span class="k">const</span> API = <span class="s">'https://hmdevonline.com/messaging-platform/api/v1/messaging-service'</span>;
+<span class="k">const</span> agent = <span class="k">new</span> AgentConnection();
+agent.addEventListener(<span class="s">'message'</span>, e =&gt; e.response.data
+  .filter(m =&gt; m.type === <span class="s">'chat-text'</span>)
+  .forEach(m =&gt; console.log(m.from, <span class="s">'says'</span>, m.content)));
+agent.addEventListener(<span class="s">'connect'</span>, e =&gt; e.response.status === <span class="s">'success'</span>
+  &amp;&amp; agent.sendMessage({ content: <span class="s">'Hello from the browser!'</span> }));
+agent.connect({ api: API, apiKey, channelName: <span class="s">'quickstart-room'</span>,
+  channelPassword: <span class="s">'channel-password'</span>, agentName: <span class="s">'browser-user'</span>,
+  autoReceive: <span class="k">true</span> });</pre>
+<pre class="home-code__pane" role="tabpanel" id="hc-python" aria-labelledby="hc-tab-python" tabindex="0" data-source="quickstart.py" hidden><span class="c"># pip install "git+https://github.com/HaithamMubarak/messaging-platform-sdk.git@develop#subdirectory=agents/python-agent"</span>
+API = <span class="s">"https://hmdevonline.com/messaging-platform/api/v1/messaging-service"</span>
+agent = AgentConnection.with_api_key(API, os.environ[<span class="s">"MESSAGING_PLATFORM_API_KEY"</span>])
+agent.connect(<span class="s">"quickstart-room"</span>, <span class="s">"channel-password"</span>, <span class="s">"python-agent"</span>)
+<span class="k">class</span> Printer(AgentConnectionEventHandler):
+    <span class="k">def</span> on_message_events(self, events):
+        <span class="k">for</span> e <span class="k">in</span> events:
+            <span class="k">if</span> e.get(<span class="s">"type"</span>) == <span class="s">"chat-text"</span>: print(e.get(<span class="s">"from"</span>), <span class="s">"says"</span>, e.get(<span class="s">"content"</span>))
+agent.receive_async(Printer())
+agent.send_message(<span class="s">"Hello from Python!"</span>)</pre>
+<pre class="home-code__pane" role="tabpanel" id="hc-java" aria-labelledby="hc-tab-java" tabindex="0" data-source="Quickstart.java" hidden><span class="c">// implementation project(':agents:java-agent'), built from source (see the quickstart)</span>
+AgentConnection agent = <span class="k">new</span> AgentConnection(
+        <span class="s">"https://hmdevonline.com/messaging-platform/api/v1/messaging-service"</span>,
+        System.getenv(<span class="s">"MESSAGING_PLATFORM_API_KEY"</span>));
+agent.connect(ConnectConfig.of(<span class="s">"quickstart-room"</span>, <span class="s">"channel-password"</span>, <span class="s">"java-agent"</span>));
+agent.receiveAsync(events -&gt; events.stream()
+        .filter(e -&gt; e.getType() == EventMessage.EventType.CHAT_TEXT)
+        .forEach(e -&gt; System.out.println(e.getFrom() + <span class="s">" says "</span> + e.getContent())));
+agent.sendMessage(<span class="s">"Hello from Java!"</span>);</pre>
+<figcaption>Install, connect, listen, send: run it twice and the two copies talk. <a class="mp-link" href="quickstart.html">The full quickstart &rarr;</a></figcaption>
 </figure>
 </section>
 
-<ul class="home-trust" aria-label="What the platform handles">
-<li>WebSocket, with HTTP fallback</li>
-<li>Channels encrypted by their password</li>
-<li>Peer-to-peer media, TURN handled</li>
-<li>SDKs in four languages</li>
+<ul class="home-trust" aria-label="The platform, checked live">
+<li><a href="/messaging-platform/apps/status/"><i class="home-trust__dot" data-health-dot aria-hidden="true"></i><span data-health>Platform status</span></a></li>
+<li><a href="/messaging-platform/apps/"><span data-runs>The apps on this site run on it</span></a></li>
+<li><a href="https://github.com/HaithamMubarak/messaging-platform-sdk">SDK source on GitHub</a></li>
+<li><a href="privacy.html">How we handle data</a></li>
 </ul>
 
-<section class="mp-section" aria-labelledby="doors-h"><div class="mp-section-head"><p class="mp-eyebrow">Where do you want to start?</p><h2 id="doors-h">Pick the door that fits.</h2></div>
+<section class="mp-section" aria-labelledby="doors-h"><div class="mp-section-head"><p class="mp-eyebrow">Get started</p><h2 id="doors-h">Choose where to start.</h2></div>
 <nav class="home-doors" aria-label="Where to start">
 <a class="home-door" href="quickstart.html"><span class="home-door__icon" aria-hidden="true">&lt;/&gt;</span><p class="mp-eyebrow">Build</p><h3>Ship your first realtime feature</h3><p>An API key to two clients talking, in five steps.</p><span class="home-door__go">Quickstart &rarr;</span></a>
-<a class="home-door" href="playground.html"><span class="home-door__icon" aria-hidden="true">&#9673;</span><p class="mp-eyebrow">Learn</p><h3>See each primitive work</h3><p>One idea per demo, its source one click away.</p><span class="home-door__go"><span data-count="learn">7</span> demos &rarr;</span></a>
-<a class="home-door" href="/messaging-platform/apps/"><span class="home-door__icon" aria-hidden="true">&#9638;</span><p class="mp-eyebrow">Use</p><h3>Open a finished app</h3><p>Rooms, Drop Pro, Proof and more, ready today.</p><span class="home-door__go">9 products &rarr;</span></a>
-<a class="home-door" href="games.html"><span class="home-door__icon" aria-hidden="true">&#9654;</span><p class="mp-eyebrow">Play</p><h3>Start a game night</h3><p>One party code, everyone on their own phone.</p><span class="home-door__go">16 games &rarr;</span></a>
+<a class="home-door" href="playground.html"><span class="home-door__icon" aria-hidden="true">&#9673;</span><p class="mp-eyebrow">Learn</p><h3>See each primitive work</h3><p>One idea per demo, its source one click away.</p><span class="home-door__go" data-count="learn">See the demos &rarr;</span></a>
+<a class="home-door" href="/messaging-platform/apps/"><span class="home-door__icon" aria-hidden="true">&#9638;</span><p class="mp-eyebrow">Use</p><h3>Open a finished app</h3><p>Rooms, Drop Pro, Proof and more, ready today.</p><span class="home-door__go" data-count="products">See the apps &rarr;</span></a>
+<a class="home-door" href="games.html"><span class="home-door__icon" aria-hidden="true">&#9654;</span><p class="mp-eyebrow">Play</p><h3>Start a game night</h3><p>One party code, everyone on their own phone.</p><span class="home-door__go" data-count="games">See the games &rarr;</span></a>
 </nav></section>
 
 <section class="mp-section" aria-labelledby="build-h"><div class="mp-section-head"><p class="mp-eyebrow">What you can build</p><h2 id="build-h">Six primitives. One connection.</h2><p class="mp-lead">Pick one to see the call, then open the demo that teaches it.</p></div>
@@ -134,11 +166,11 @@ agent.connect({ channelName: <span class="s">'room-123'</span>, apiKey });</pre>
         <div class="site-shell-footer__cols">
             <div class="site-shell-footer__about"><a class="brand" href="/messaging-platform/hub/"><svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><rect width="24" height="24" rx="6" fill="#14b8a6"/><path d="M6 9.5A2.5 2.5 0 0 1 8.5 7h7A2.5 2.5 0 0 1 18 9.5v3a2.5 2.5 0 0 1-2.5 2.5H11l-3.2 2.4A.5.5 0 0 1 7 17V15h-.5A.5.5 0 0 1 6 14.5z" fill="#fff"/><circle cx="9.6" cy="11" r="1" fill="#0b1120"/><circle cx="12" cy="11" r="1" fill="#0b1120"/><circle cx="14.4" cy="11" r="1" fill="#0b1120"/></svg><span>Messaging Platform</span></a>
                 <p>Realtime infrastructure for developers: messaging, presence, shared state and WebRTC through one SDK.</p>
-                <ul><li><a href="/about/">About HMDev</a></li></ul></div>
-            <div><h2>Product</h2><ul><li><a href="/messaging-platform/hub/">Overview</a></li><li><a href="/messaging-platform/hub/pricing.html">Pricing</a></li><li><a href="/messaging-platform/hub/quickstart.html">Quickstart</a></li><li><a href="/messaging-platform/apps/status/">Status</a></li></ul></div>
-            <div><h2>Developers</h2><ul><li><a href="/messaging-platform/hub/docs.html">Documentation</a></li><li><a href="/messaging-platform/hub/sdk-guide.html">SDK guide</a></li><li><a href="/messaging-platform/hub/developer/index.html">Developer portal</a></li><li><a href="/messaging-platform/hub/changes.html">What changed</a></li><li><a href="https://github.com/HaithamMubarak/messaging-platform-sdk">GitHub</a></li></ul></div>
-            <div><h2>Explore</h2><ul><li><a href="/messaging-platform/hub/playground.html">Demos</a></li><li><a href="/messaging-platform/apps/">Apps</a></li><li><a href="/messaging-platform/hub/games.html">Games</a></li><li><a href="/messaging-platform/apps/proof/">Proof</a></li></ul></div>
-            <div><h2>Legal</h2><ul><li><a href="/messaging-platform/hub/privacy.html">Privacy</a></li><li><a href="/messaging-platform/hub/terms.html">Terms</a></li><li><a href="https://github.com/HaithamMubarak/messaging-platform-sdk/issues">Support</a></li></ul></div>
+                <ul><li><a href="/about/">About HMDev</a></li><li><a href="/messaging-platform/hub/contact.html">Contact</a></li></ul></div>
+            <div><p class="site-shell-footer__label">Product</p><ul><li><a href="/messaging-platform/hub/">Overview</a></li><li><a href="/messaging-platform/hub/pricing.html">Pricing</a></li><li><a href="/messaging-platform/hub/quickstart.html">Quickstart</a></li><li><a href="/messaging-platform/apps/status/">Status</a></li></ul></div>
+            <div><p class="site-shell-footer__label">Developers</p><ul><li><a href="/messaging-platform/hub/docs.html">Documentation</a></li><li><a href="/messaging-platform/hub/sdk-guide.html">SDK guide</a></li><li><a href="/messaging-platform/hub/developer/index.html">Developer portal</a></li><li><a href="/messaging-platform/hub/changes.html">What changed</a></li><li><a href="https://github.com/HaithamMubarak/messaging-platform-sdk">GitHub</a></li></ul></div>
+            <div><p class="site-shell-footer__label">Explore</p><ul><li><a href="/messaging-platform/hub/playground.html">Demos</a></li><li><a href="/messaging-platform/apps/">Apps</a></li><li><a href="/messaging-platform/hub/games.html">Games</a></li><li><a href="/messaging-platform/apps/proof/">Proof</a></li></ul></div>
+            <div><p class="site-shell-footer__label">Legal</p><ul><li><a href="/messaging-platform/hub/privacy.html">Privacy</a></li><li><a href="/messaging-platform/hub/terms.html">Terms</a></li><li><a href="https://github.com/HaithamMubarak/messaging-platform-sdk/issues">Support</a></li></ul></div>
         </div>
         <div class="site-shell-footer__legal"><span>&copy; 2026 Messaging Platform</span>
             <span>Public beta: APIs may still change, and there is no uptime guarantee yet.</span></div>
@@ -162,13 +194,35 @@ Catalogue.load().then(function (cat) {
     [['small', e.category || ''], ['h3', e.name], ['p', e.blurb || '']].forEach(function (p) { var n = document.createElement(p[0]); n.textContent = p[1]; body.appendChild(n); });
     a.appendChild(img); a.appendChild(body); box.appendChild(a);
   });
-  var learn = Catalogue.shelf(cat, 'learn').length;
-  document.querySelectorAll('[data-count="learn"]').forEach(function (n) { if (learn) n.textContent = learn; });
+  // The doors' counts and the trust strip, from the same catalogue: nothing here is a number typed by hand.
+  var products = Catalogue.shelf(cat, 'products');
+  var runs = document.querySelector('[data-runs]');
+  if (runs && products.length) runs.textContent = products.length + ' products and ' + Catalogue.shelf(cat, 'learn').length + ' demos run on it';
+  var games = products.filter(function (e) { return /games/i.test(e.category || ''); }).map(function (e) { return e.name; });
+  var counts = { learn: Catalogue.shelf(cat, 'learn').length + ' demos', products: products.length + ' products',
+    games: games.length > 2 ? games.length + ' games' : games.join(' and ') };
+  document.querySelectorAll('[data-count]').forEach(function (n) {
+    var c = counts[n.getAttribute('data-count')];
+    if (c && !/^0 /.test(c)) n.textContent = c + ' \u2192';
+  });
 }).catch(function () {});
 
-// The primitive tabs: one panel at a time, arrow keys move between tabs.
+// The trust strip's health: the same check the Status app makes (apps/status/js/status.js), from this browser.
 (function () {
-  var box = document.querySelector('[data-tabs]'); if (!box) return;
+  var dot = document.querySelector('[data-health-dot]'), label = document.querySelector('[data-health]');
+  if (!label || !window.fetch) return;
+  var started = Date.now();
+  fetch('/messaging-platform/api/v1/messaging-service/health', { cache: 'no-store' })
+    .then(function (r) { return r.ok ? r.json() : null; })
+    .then(function (d) {
+      var up = !!d && d.status === 'success' && String(d.data).toLowerCase() === 'ok';
+      dot.className = 'home-trust__dot ' + (up ? 'is-up' : 'is-down');
+      label.textContent = up ? 'API responding \u00b7 ' + (Date.now() - started) + ' ms' : 'API not responding: see status';
+    }, function () { dot.className = 'home-trust__dot is-down'; label.textContent = 'API not reachable from here: see status'; });
+})();
+
+// The tab sets (the hero's languages, the primitives): one panel at a time, arrow keys move between tabs.
+document.querySelectorAll('[data-tabs]').forEach(function (box) {
   var tabs = Array.prototype.slice.call(box.querySelectorAll('[role="tab"]'));
   function select(tab, focus) {
     tabs.forEach(function (t) {
@@ -186,6 +240,18 @@ Catalogue.load().then(function (cat) {
     });
   });
   select(tabs[0]);
+});
+
+// The hero sample's copy button copies the language on show.
+(function () {
+  var box = document.querySelector('[data-code-sample]'), button = box && box.querySelector('[data-copy]');
+  if (!button || !navigator.clipboard) { if (button) button.hidden = true; return; }
+  button.addEventListener('click', function () {
+    var pane = box.querySelector('[role="tabpanel"]:not([hidden])');
+    navigator.clipboard.writeText(pane.textContent).then(function () { button.textContent = 'Copied'; },
+      function () { button.textContent = 'Select and copy'; });
+    setTimeout(function () { button.textContent = 'Copy'; }, 1600);
+  });
 })();
 </script>
 <script src="/messaging-platform/hub/js/site-shell.js" defer></script>

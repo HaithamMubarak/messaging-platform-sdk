@@ -48,7 +48,7 @@ const FOOTER = [
 const PAGES = {
     'hub.html': 'product', 'games.html': 'games', 'playground.html': 'demos', 'docs.html': 'docs', 'sdk-guide.html': 'docs', 'quickstart.html': 'docs',
     'pricing.html': 'pricing', 'privacy.html': '', 'terms.html': '',
-    'profile.html': '', 'changes.html': '', 'about.html': '',
+    'profile.html': '', 'changes.html': '', 'about.html': '', 'contact.html': '',
     'apps/evidence-chain/index.html': 'demos', 'apps/terminal/index.html': 'demos',
     'apps/under-the-hood/index.html': 'demos', 'apps/whiteboard/index.html': 'demos',
 };
@@ -61,10 +61,12 @@ const MENU = '<svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><pat
 const MARK = { header: ['<!-- site-shell:header (tools/site-shell.cjs; do not edit here) -->', '<!-- /site-shell:header -->'],
     footer: ['<!-- site-shell:footer (tools/site-shell.cjs; do not edit here) -->', '<!-- /site-shell:footer -->'] };
 
-function header(section) {
+/** The header, led by the page's one skip link (its target: the page's main region, #main by default). */
+function header(section, skip = '#main') {
     const links = NAV.map(([id, label, href]) =>
         `<a href="${href}"${id === section ? ' aria-current="page"' : ''}>${label}</a>`).join('\n            ');
     return `${MARK.header[0]}
+<a class="skip-link" href="${skip}">Skip to content</a>
 <header class="site-header" id="siteHeader">
     <div class="site-header__inner">
         <a class="brand" href="${HUB}">${LOGO}<span>Messaging Platform</span></a>
@@ -79,7 +81,7 @@ ${MARK.header[1]}`;
 }
 
 function footer() {
-    const cols = FOOTER.map(([title, links]) => `<div><h2>${title}</h2><ul>${links.map(([label, href]) =>
+    const cols = FOOTER.map(([title, links]) => `<div><p class="site-shell-footer__label">${title}</p><ul>${links.map(([label, href]) =>
         `<li><a href="${href}">${label}</a></li>`).join('')}</ul></div>`).join('\n            ');
     return `${MARK.footer[0]}
 <footer class="site-shell-footer">
@@ -87,7 +89,7 @@ function footer() {
         <div class="site-shell-footer__cols">
             <div class="site-shell-footer__about"><a class="brand" href="${HUB}">${LOGO}<span>Messaging Platform</span></a>
                 <p>Realtime infrastructure for developers: messaging, presence, shared state and WebRTC through one SDK.</p>
-                <ul><li><a href="/about/">About HMDev</a></li></ul></div>
+                <ul><li><a href="/about/">About HMDev</a></li><li><a href="${HUB}contact.html">Contact</a></li></ul></div>
             ${cols}
         </div>
         <div class="site-shell-footer__legal"><span>&copy; 2026 Messaging Platform</span>
@@ -157,8 +159,56 @@ function pairFor(rel) {
     return e ? { aria: 'The product', lead: `This is the ${e.name} demo. The product built on it:`, label: e.product.name, href: e.product.url } : null;
 }
 
-function apply(html, section, pair) {
-    return placePair(placeAssets(placeBlock(placeBlock(html, 'header', header(section)), 'footer', footer())), pair);
+/*
+ * One head block (2026-10-26): the hub's own pages had drifted into four spellings of the same
+ * meta (some without og:url or twitter:card, a relative favicon, "dark light" beside "dark", an
+ * og:image under the retired /sdk/ path). A page authors only its <title>, description and, when
+ * it differs, its og:description and canonical; the rest is written here from those.
+ */
+const SITE = 'https://hmdevonline.com';
+const HEAD = ['<!-- site-shell:head (tools/site-shell.cjs; do not edit here) -->', '<!-- /site-shell:head -->'];
+/** Tags the head block owns: removed wherever else they appear in a page's <head>. */
+const OWNED = /^[ \t]*<(?:link rel="canonical"|link rel="icon"|meta property="og:[^"]+"|meta name="twitter:[^"]+"|meta name="color-scheme")[^>]*>\n?/gm;
+
+const attr = (html, re) => { const m = html.match(re); return m ? m[1] : null; };
+
+function headBlock(html, rel) {
+    const title = attr(html, /<title>([^<]*)<\/title>/);
+    const description = attr(html, /<meta property="og:description" content="([^"]*)">/) || attr(html, /<meta name="description" content="([^"]*)">/);
+    const canonical = attr(html, /<link rel="canonical" href="([^"]*)">/) || SITE + HUB + (rel === 'hub.html' ? '' : rel);
+    if (!title || !description) throw new Error(`${rel} needs a <title> and a meta description`);
+    return [HEAD[0],
+        `<link rel="canonical" href="${canonical}">`,
+        '<meta property="og:type" content="website">', '<meta property="og:site_name" content="Messaging Platform">',
+        `<meta property="og:title" content="${title}">`, `<meta property="og:description" content="${description}">`,
+        `<meta property="og:url" content="${canonical}">`, `<meta property="og:image" content="${SITE}${HUB}images/og-image.png">`,
+        '<meta property="og:image:width" content="1200">', '<meta property="og:image:height" content="630">',
+        '<meta name="twitter:card" content="summary_large_image">', '<meta name="color-scheme" content="dark">',
+        `<link rel="icon" type="image/svg+xml" href="${HUB}favicon.svg">`, HEAD[1]].join('\n');
+}
+
+/** The head block after <title>; the tags it owns removed from the rest of <head>. */
+function placeHead(html, rel) {
+    const block = headBlock(html, rel);
+    const i = html.indexOf(HEAD[0]);
+    if (i >= 0) html = html.slice(0, i) + html.slice(html.indexOf(HEAD[1], i) + HEAD[1].length).replace(/^\n/, '');
+    const end = html.indexOf('</head>');
+    html = html.slice(0, end).replace(OWNED, '') + html.slice(end);
+    return html.replace(/(<title>[^<]*<\/title>\n?)/, (t) => `${t.trimEnd()}\n${block}\n`);
+}
+
+/** A page's own skip links go: the shell's leads the header. Its target is the page's first one's. */
+function takeSkip(html) {
+    const SKIP = /[ \t]*<a class="(?:skip-link|sr-only)" href="(#[\w-]+)">Skip[^<]*<\/a>\n?/g;
+    const first = SKIP.exec(html);
+    return { html: html.replace(SKIP, ''), skip: first ? first[1] : '#main' };
+}
+
+/** rel: the page's path under STATIC when it is one of this site's own pages (not a demo under apps/), which get the head block. */
+function apply(html, section, pair, rel) {
+    const own = takeSkip(html);
+    const out = placePair(placeAssets(placeBlock(placeBlock(own.html, 'header', header(section, own.skip)), 'footer', footer())), pair);
+    return rel && !rel.startsWith('apps/') && !rel.startsWith('..') ? placeHead(out, rel) : out;
 }
 
 function run(files, check) {
@@ -167,7 +217,8 @@ function run(files, check) {
         const raw = fs.readFileSync(file, 'utf8');
         const crlf = raw.includes('\r\n');
         const lf = raw.replace(/\r\n/g, '\n');
-        const out = apply(lf, section, pairFor(path.relative(STATIC, file).split(path.sep).join('/')));
+        const rel = path.relative(STATIC, file).split(path.sep).join('/');
+        const out = apply(lf, section, pairFor(rel), rel);
         if (out === lf) continue;
         if (check) { bad++; console.log(`  differs from the shell: ${file}`); continue; }
         fs.writeFileSync(file, crlf ? out.replace(/\n/g, '\r\n') : out);
@@ -189,4 +240,4 @@ if (require.main === module) {
     process.exitCode = bad ? 1 : 0;
 }
 
-module.exports = { apply, pairFor, header, footer, PAGES, NAV, STATIC };
+module.exports = { apply, pairFor, header, footer, headBlock, PAGES, NAV, STATIC };
