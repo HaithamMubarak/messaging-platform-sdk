@@ -4944,9 +4944,9 @@ async function checkForAuthUrl() {
         }
 
         // Fill in the connection form with auth URL values
-        document.getElementById('cloudChannelName').value = channelName;
-        document.getElementById('cloudChannelPassword').value = channelPassword;
-        document.getElementById('cloudAgentName').value = agentName;
+        document.getElementById('channelInput').value = channelName;
+        document.getElementById('passwordInput').value = channelPassword;
+        document.getElementById('usernameInput').value = agentName;
 
         console.log('[Terminal] ✅ Auth URL values set:');
         console.log('[Terminal]   Channel:', channelName);
@@ -5230,32 +5230,54 @@ function openCloudModal(sessionToShare = null) {
         console.log('[Messaging] Will share session after connection:', sessionToShare);
     }
 
-    const overlay = document.getElementById('cloudModalOverlay');
-
-    if (!overlay) {
-        console.error('[Messaging] ❌ cloudModalOverlay element not found!');
+    if (!cloudConnected) {
+        if (window.ConnectionModal) window.ConnectionModal.show();
         return;
     }
 
-    console.log('[Messaging] Found overlay element, setting display to flex...');
-    // Use inline style to override inline display:none (inline styles have higher specificity than classes)
-    overlay.style.display = 'flex';
-
-    // Verify it was added
-    console.log('[Messaging] Display style:', window.getComputedStyle(overlay).display);
-
-    // Disable Sharing tab if not connected
-    if (!cloudConnected) {
-        disableSharingTab();
-        // Ensure we're on Connection tab
-        window.switchCloudTab('connection');
+    const overlay = document.getElementById('cloudModalOverlay');
+    if (!overlay) {
+        console.error('[Messaging] cloudModalOverlay element not found');
+        return;
     }
+    // Inline, to win over the overlay's inline display:none.
+    overlay.style.display = 'flex';
 
     // Also support old ID for compatibility
     const cloudBtn = document.getElementById('cloudToolbarBtn');
     if (cloudBtn && cloudConnected) {
         cloudBtn.classList.add('active');
     }
+}
+
+/**
+ * The way into a room: the shared connection modal every demo uses, closed
+ * until asked for, since the terminal is useful without one. Its 12-digit codes
+ * stay off (partyCode: false): such a code IS the room password and never
+ * expires, which is the wrong thing to read out for a shell. The terminal keeps
+ * its own codes, minted by the service, short-lived and spent after a few uses,
+ * and their field goes at the top of the modal's Advanced tab.
+ */
+function initRoomModal() {
+    if (typeof window.loadConnectionModal !== 'function') return;
+    window.loadConnectionModal({
+        localStoragePrefix: 'terminal_',
+        channelPrefix: 'terminal-',
+        title: 'Join a shared terminal',
+        partyCode: false,
+        codeChip: false,
+        onConnect: () => connectToCloud()
+    });
+    window.ConnectionModal.hide();
+
+    const form = document.getElementById('connectionForm');
+    const template = document.getElementById('joinCodeTemplate');
+    if (!form || !template) return;
+    form.prepend(template.content.cloneNode(true));
+    document.getElementById('joinCodeBtn').addEventListener('click', joinByCode);
+    document.getElementById('joinCodeInput').addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') { e.preventDefault(); joinByCode(); }
+    });
 }
 
 // Alias for better naming
@@ -5321,8 +5343,8 @@ function updateCloudHostIndicator() {
 }
 
 function generateShareUrl() {
-    const channelName = document.getElementById('cloudChannelName').value.trim();
-    const channelPassword = document.getElementById('cloudChannelPassword').value.trim();
+    const channelName = document.getElementById('channelInput').value.trim();
+    const channelPassword = document.getElementById('passwordInput').value.trim();
 
     if (!channelName || !channelPassword) {
         showToast('warning', 'Missing Info', 'Please connect to cloud first');
@@ -5380,7 +5402,7 @@ function syncCloudChrome() {
     const group = document.getElementById('cloudIndicatorGroup');
     const joined = !!cloudConnected;
 
-    const channel = document.getElementById('cloudChannelName')?.value?.trim() || '';
+    const channel = document.getElementById('channelInput')?.value?.trim() || '';
     if (label) {
         label.textContent = joined && channel
             ? channel + (cloudAgentName ? ' · ' + cloudAgentName : '')
@@ -5419,8 +5441,8 @@ function sessionCodeUrl(suffix) {
 }
 
 async function mintSessionCode() {
-    const channel = document.getElementById('cloudChannelName')?.value?.trim();
-    const password = document.getElementById('cloudChannelPassword')?.value?.trim();
+    const channel = document.getElementById('channelInput')?.value?.trim();
+    const password = document.getElementById('passwordInput')?.value?.trim();
     const btn = document.getElementById('sessionCodeBtn');
 
     if (!cloudConnected || !channel || !password) {
@@ -5474,8 +5496,8 @@ async function joinByCode() {
     const say = (text, bad) => {
         if (!note) return;
         note.textContent = text;
-        note.style.color = bad ? 'var(--accent-red, #f87171)' : 'var(--text-secondary, #8888aa)';
-        note.style.display = text ? '' : 'none';
+        note.classList.toggle('is-error', !!bad);
+        note.hidden = !text;
     };
 
     if (!code) { say('Type the code you were given.', true); input?.focus(); return; }
@@ -5491,10 +5513,12 @@ async function joinByCode() {
             throw new Error((body && body.message) || 'That code is not valid any more.');
         }
 
-        document.getElementById('cloudChannelName').value = body.data.channel;
-        document.getElementById('cloudChannelPassword').value = body.data.password;
+        document.getElementById('channelInput').value = body.data.channel;
+        document.getElementById('passwordInput').value = body.data.password;
+        const name = document.getElementById('usernameInput');
+        if (name && !name.value.trim()) name.value = generateAgentName();
         say('Found it. Joining ' + body.data.channel + '…');
-        connectToCloud();
+        document.getElementById('connectBtn')?.click();
     } catch (err) {
         say(err.message, true);
     } finally {
@@ -5591,103 +5615,12 @@ function generateAgentName() {
     const name = `${adj}-${noun}-${timestamp}`;
 
     // Only set if field is empty (don't override saved name)
-    const agentNameInput = document.getElementById('cloudAgentName');
+    const agentNameInput = document.getElementById('usernameInput');
     if (agentNameInput && (!agentNameInput.value || agentNameInput.value.trim() === '')) {
         agentNameInput.value = name;
     }
 
     return name;
-}
-
-/**
- * Regenerate agent name (only if empty or not from DB)
- */
-function regenerateAgentName() {
-    const agentNameInput = document.getElementById('cloudAgentName');
-
-    // Only regenerate if empty
-    if (!agentNameInput.value || agentNameInput.value.trim() === '') {
-        const newName = generateAgentName();
-        showToast('success', 'Name Generated', `New agent name: ${newName}`);
-    } else {
-        // Ask user if they want to replace existing name
-        AppDialog.ask({
-            title: 'Replace the agent name?',
-            body: 'The name you have now is discarded and a fresh one generated.',
-            confirmLabel: 'Replace it'
-        }).then((yes) => {
-            if (!yes) return;
-            agentNameInput.value = '';
-            const newName = generateAgentName();
-            showToast('success', 'Name Regenerated', `New agent name: ${newName}`);
-        });
-    }
-}
-
-/**
- * Toggle Channel Password visibility
- */
-function toggleCloudPasswordVisibility() {
-    const passwordInput = document.getElementById('cloudChannelPassword');
-    const toggleButton = document.getElementById('cloudPasswordToggle');
-
-    if (passwordInput.type === 'password') {
-        passwordInput.type = 'text';
-        toggleButton.innerHTML = svgIcon('eye-off');
-        toggleButton.title = 'Hide password';
-    } else {
-        passwordInput.type = 'password';
-        toggleButton.innerHTML = svgIcon('eye');
-        toggleButton.title = 'Show password';
-    }
-}
-
-/**
- * Regenerate connection (channel name, password, and optionally agent name)
- * Same pattern as whiteboard regenerate
- */
-function regenerateConnection() {
-    const channelNameInput = document.getElementById('cloudChannelName');
-    const passwordInput = document.getElementById('cloudChannelPassword');
-    const agentNameInput = document.getElementById('cloudAgentName');
-
-    // Generate random channel name (terminal-XXXXXXXX)
-    const randomDigits = () => Math.floor(Math.random() * 100000000).toString().padStart(8, '0');
-    const newChannelName = `terminal-${randomDigits()}`;
-
-    // Generate random password (8 characters: 4 letters + 4 digits)
-    const randomLowercase = (n) => {
-        const letters = 'abcdefghijklmnopqrstuvwxyz';
-        let s = '';
-        for (let i = 0; i < n; i++) {
-            s += letters.charAt(Math.floor(Math.random() * letters.length));
-        }
-        return s;
-    };
-    const randomNumbers = (n) => {
-        let s = '';
-        for (let i = 0; i < n; i++) s += Math.floor(Math.random() * 10);
-        return s;
-    };
-    const newPassword = randomLowercase(4) + randomNumbers(4);
-
-    // Update channel and password
-    channelNameInput.value = newChannelName;
-    passwordInput.value = newPassword;
-
-    // Only regenerate agent name if it's not saved in localStorage
-    const savedAgentName = localStorage.getItem('cloud_agent_name');
-    if (!savedAgentName || savedAgentName.trim() === '') {
-        if (!agentNameInput.value || agentNameInput.value.trim() === '') {
-            const newName = generateAgentName();
-            agentNameInput.value = newName;
-        }
-    }
-
-    showToast('success', 'Regenerated', 'New channel name and password generated');
-
-    // Save to localStorage
-    saveCloudConfig();
 }
 
 /**
@@ -5794,9 +5727,9 @@ async function decideAndSyncConfig(localStorageConfig, backendConfig) {
  * Populate cloud connection form with config
  */
 function populateCloudForm(config) {
-    document.getElementById('cloudChannelName').value = config.channelName || '';
-    document.getElementById('cloudChannelPassword').value = config.channelPassword || '';
-    document.getElementById('cloudAgentName').value = config.agentName || '';
+    document.getElementById('channelInput').value = config.channelName || '';
+    document.getElementById('passwordInput').value = config.channelPassword || '';
+    document.getElementById('usernameInput').value = config.agentName || '';
     console.log('[Cloud] ✅ Form populated');
 }
 
@@ -5839,9 +5772,9 @@ async function saveBackendCloudConfig(config) {
 async function saveCloudConfig(isConnected = false) {
     try {
         const config = {
-            channelName: document.getElementById('cloudChannelName').value,
-            channelPassword: document.getElementById('cloudChannelPassword').value,
-            agentName: cloudAgentName || document.getElementById('cloudAgentName').value,
+            channelName: document.getElementById('channelInput').value,
+            channelPassword: document.getElementById('passwordInput').value,
+            agentName: cloudAgentName || document.getElementById('usernameInput').value,
             isConnected: isConnected
         };
 
@@ -5860,9 +5793,9 @@ async function saveCloudConfig(isConnected = false) {
  * Connect to cloud using UserConnectionBase (same pattern as air-hockey)
  */
 async function connectToCloud() {
-    const channelName = document.getElementById('cloudChannelName').value.trim();
-    const channelPassword = document.getElementById('cloudChannelPassword').value.trim();
-    let agentName = document.getElementById('cloudAgentName').value.trim();
+    const channelName = document.getElementById('channelInput')?.value.trim() || '';
+    const channelPassword = document.getElementById('passwordInput')?.value.trim() || '';
+    let agentName = document.getElementById('usernameInput')?.value.trim() || '';
 
     if (!channelName || !channelPassword) {
         showToast('warning', 'Missing Info', 'Please enter channel name and password');
@@ -5871,12 +5804,8 @@ async function connectToCloud() {
 
     if (!agentName) {
         agentName = generateAgentName();
-        document.getElementById('cloudAgentName').value = agentName;
+        document.getElementById('usernameInput').value = agentName;
     }
-
-    const connectBtn = document.getElementById('cloudConnectBtn');
-    connectBtn.disabled = true;
-    connectBtn.textContent = 'Connecting...';
 
     try {
         terminalSharing = new TerminalSharing();
@@ -6684,13 +6613,6 @@ terminalSharing.onFileSystemNotification = (sessionId, operation, details, sourc
             if (statusText) statusText.textContent = 'Disconnected (connection lost)';
             if (hostIndicator) hostIndicator.style.display = 'none';
 
-            const connectBtn = document.getElementById('cloudConnectBtn');
-            if (connectBtn) {
-                connectBtn.textContent = 'Reconnect';
-                connectBtn.classList.remove('active');
-                connectBtn.disabled = false;
-            }
-
             // Reset toolbar button title + status dot
             const messagingBtn = document.getElementById('messagingToolbarBtn');
             if (messagingBtn) messagingBtn.title = 'Connect to Messaging Platform for Terminal Sharing';
@@ -6747,80 +6669,10 @@ terminalSharing.onFileSystemNotification = (sessionId, operation, details, sourc
         cloudAgentName = agentName;
         syncCloudChrome();
 
-        // Remove shared terminal loader if it exists
-        const loader = document.getElementById('shared-terminal-loader');
-        if (loader && document.body.contains(loader)) {
-            loader.style.animation = 'fadeOut 0.2s ease-out';
-            setTimeout(() => {
-                if (document.body.contains(loader)) {
-                    document.body.removeChild(loader);
-                }
-            }, 200);
-        }
+        removeSharedTerminalLoader();
+        showRoomJoined(channelName, agentName);
 
-        connectBtn.textContent = 'Connected';
-        connectBtn.classList.add('active');
-        connectBtn.disabled = true;
-        connectBtn.title = `Connected as ${agentName}`;
-
-        // Highlight the messaging toolbar button + update status dot
-        const messagingBtn = document.getElementById('messagingToolbarBtn');
-        if (messagingBtn) {
-            messagingBtn.title = `Messaging Platform Connected as ${agentName}`;
-        }
-        const cloudStatusDot = document.getElementById('cloudStatusDot');
-        if (cloudStatusDot) cloudStatusDot.className = 'top-status-dot online';
-        const cloudStatusLabel = document.getElementById('cloudStatusLabel');
-        // "Remote" told nobody anything. The room and the name you are known by
-        // in it are the two facts you need before you hand the link to someone.
-        if (cloudStatusLabel) cloudStatusLabel.textContent = channelName + ' · ' + agentName;
-        const inviteBtn = document.getElementById('inviteBtn');
-        if (inviteBtn) inviteBtn.style.display = '';
-        const cloudIndicatorGroup = document.getElementById('cloudIndicatorGroup');
-        if (cloudIndicatorGroup) cloudIndicatorGroup.title = `Remote Share: Connected as ${agentName}`;
-        // Also support old ID for compatibility
-        let cloudBtn = document.getElementById('cloudToolbarBtn');
-        if (cloudBtn) {
-            cloudBtn.classList.add('active');
-            cloudBtn.title = `Messaging Platform Connected as ${agentName}`;
-        }
-
-        // Disable regenerate button when connected
-        const regenBtn = document.getElementById('cloudRegenBtn');
-        if (regenBtn) {
-            regenBtn.disabled = true;
-            regenBtn.title = 'Disconnect to regenerate';
-        }
-
-        // Show the horizontal action buttons
-        document.getElementById('cloudActionsRow').style.display = 'flex';
-        document.getElementById('cloudAgentsSection').style.display = 'block';
-
-        // Show share section when connected
-        const shareSection = document.getElementById('cloudShareSection');
-        if (shareSection) {
-            shareSection.style.display = 'block';
-        }
-
-        document.getElementById('cloudChannelName').disabled = true;
-        document.getElementById('cloudChannelPassword').disabled = true;
-        document.getElementById('cloudAgentName').disabled = true;
-
-        // Update status display
-        const statusDot = document.getElementById('cloudStatus');
-        const statusText = document.getElementById('cloudStatusText');
-        const hostIndicator = document.getElementById('cloudHostIndicator');
-
-        if (statusDot) {
-            statusDot.className = 'status-dot online';
-            console.log('[Messaging] Status dot updated to online');
-        }
-        if (statusText) {
-            statusText.textContent = `Connected as ${agentName}`;
-            console.log('[Messaging] Status text updated to Connected');
-        }
-
-        // ✅ Update host indicator based on actual host status (not just connection)
+        // ✅ Update host indicator based on actual host status        // ✅ Update host indicator based on actual host status (not just connection)
         updateCloudHostIndicator();
 
         updateAgentsList();
@@ -6879,26 +6731,52 @@ terminalSharing.onFileSystemNotification = (sessionId, operation, details, sourc
 
     } catch (error) {
         console.error('[Terminal] Connection failed:', error);
-
-        // Remove shared terminal loader if it exists
-        const loader = document.getElementById('shared-terminal-loader');
-        if (loader && document.body.contains(loader)) {
-            loader.style.animation = 'fadeOut 0.2s ease-out';
-            setTimeout(() => {
-                if (document.body.contains(loader)) {
-                    document.body.removeChild(loader);
-                }
-            }, 200);
-        }
-
+        removeSharedTerminalLoader();
         showToast('error', 'Connection Failed', error.message);
+        // The form says so too, where the person pressed Connect.
+        if (window.ConnectionModal) window.ConnectionModal.fail(error);
         terminalSharing = null;
         cloudConnected = false;
         syncCloudChrome();
         pendingSessionToShare = null; // Clear pending session on error
-        connectBtn.textContent = 'Connect to Cloud';
-        connectBtn.disabled = false;
     }
+}
+
+/** The "joining a shared terminal" overlay, if a shared link put one up. */
+function removeSharedTerminalLoader() {
+    const loader = document.getElementById('shared-terminal-loader');
+    if (!loader) return;
+    loader.style.animation = 'fadeOut 0.2s ease-out';
+    setTimeout(() => loader.remove(), 200);
+}
+
+/** Every piece of chrome that says "you are in a room", set once on joining. */
+function showRoomJoined(channelName, agentName) {
+    if (window.ConnectionModal) window.ConnectionModal.hide();
+
+    const messagingBtn = document.getElementById('messagingToolbarBtn');
+    if (messagingBtn) messagingBtn.title = `Messaging Platform Connected as ${agentName}`;
+    const cloudStatusDot = document.getElementById('cloudStatusDot');
+    if (cloudStatusDot) cloudStatusDot.className = 'top-status-dot online';
+    // The room and the name you are known by in it are the two facts you need
+    // before you hand the link to someone.
+    const cloudStatusLabel = document.getElementById('cloudStatusLabel');
+    if (cloudStatusLabel) cloudStatusLabel.textContent = channelName + ' · ' + agentName;
+    const inviteBtn = document.getElementById('inviteBtn');
+    if (inviteBtn) inviteBtn.style.display = '';
+    const cloudIndicatorGroup = document.getElementById('cloudIndicatorGroup');
+    if (cloudIndicatorGroup) cloudIndicatorGroup.title = `Remote Share: Connected as ${agentName}`;
+    const cloudBtn = document.getElementById('cloudToolbarBtn');   // older markup
+    if (cloudBtn) {
+        cloudBtn.classList.add('active');
+        cloudBtn.title = `Messaging Platform Connected as ${agentName}`;
+    }
+
+    document.getElementById('cloudAgentsSection').style.display = 'block';
+    const statusDot = document.getElementById('cloudStatus');
+    if (statusDot) statusDot.className = 'status-dot online';
+    const statusText = document.getElementById('cloudStatusText');
+    if (statusText) statusText.textContent = `Connected as ${agentName}`;
 }
 
 function disconnectFromCloud() {
@@ -6932,12 +6810,6 @@ function disconnectFromCloud() {
     cloudConnected = false;
     cloudAgentName = null;
 
-    const connectBtn = document.getElementById('cloudConnectBtn');
-    connectBtn.textContent = 'Connect';
-    connectBtn.classList.remove('disconnect', 'active');
-    connectBtn.disabled = false;
-    connectBtn.title = 'Connect to Messaging Platform';
-
     // Reset messaging toolbar button + status dot
     const messagingBtn = document.getElementById('messagingToolbarBtn');
     if (messagingBtn) {
@@ -6952,14 +6824,7 @@ function disconnectFromCloud() {
     const cloudIndicatorGrpDisc = document.getElementById('cloudIndicatorGroup');
     if (cloudIndicatorGrpDisc) cloudIndicatorGrpDisc.title = 'Remote Share – Disconnected';
 
-    // Re-enable regenerate button when disconnected
-    const regenBtn = document.getElementById('cloudRegenBtn');
-    if (regenBtn) {
-        regenBtn.disabled = false;
-        regenBtn.title = 'Regenerate channel name and password';
-    }
-
-    document.getElementById('cloudActionsRow').style.display = 'none';
+    closeCloudModal();
     document.getElementById('cloudAgentsSection').style.display = 'none';
     _updateAgentCountBadge(0);
 
@@ -6978,9 +6843,6 @@ function disconnectFromCloud() {
         shareSection.style.display = 'none';
     }
 
-    document.getElementById('cloudChannelName').disabled = false;
-    document.getElementById('cloudChannelPassword').disabled = false;
-    document.getElementById('cloudAgentName').disabled = false;
     document.getElementById('cloudStatus').className = 'status-dot offline';
     document.getElementById('cloudStatusText').textContent = 'Disconnected';
 
@@ -8720,6 +8582,8 @@ window.addEventListener('load', async () => {
     window.addEventListener('sls-online', updateEmptyState);
     window.addEventListener('sls-offline', updateEmptyState);
     updateEmptyState();
+
+    initRoomModal();
 
     // ✅ CRITICAL: Check for auth URL FIRST (before loadCloudConfig)
     // This ensures auth URL values take precedence over saved config

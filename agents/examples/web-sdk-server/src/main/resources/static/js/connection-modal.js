@@ -136,7 +136,7 @@
             <p class="mp-dev-lead">
                 <span class="mp-dev-badge">For developers</span>
                 A channel by its exact name and password, as the platform names it.
-                For everyday use, the Code tab is simpler.
+                <span id="devLeadCodeHint">For everyday use, the Code tab is simpler.</span>
             </p>
 
             <div class="connection-info-note" style="margin-top: 8px;">
@@ -1161,7 +1161,8 @@
         if (config.hostedRoom) {
             hostedOnly(config);
         } else if (!codesOn) {
-            ['tabCode', 'panelCode'].forEach(function (id) { if (el(id)) el(id).hidden = true; });
+            // No Code tab, so nothing to point to.
+            ['tabCode', 'panelCode', 'devLeadCodeHint'].forEach(function (id) { if (el(id)) el(id).hidden = true; });
             showTab('custom');
         } else if (!codeTab.fromRoom()) {
             var badCode = !!urlCode && !hasHashAuth;

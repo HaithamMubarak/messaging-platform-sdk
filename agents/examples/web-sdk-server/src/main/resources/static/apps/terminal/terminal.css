@@ -2980,3 +2980,205 @@ button.cloud-tab) {
 /* 32px minimum target at every width, not only on touch screens (site-audit small rule, 2026-10-05). */
 .terminal-app .menu-item, .menu-item, .top-status-indicator { min-height: 32px; }
 .sidebar-header-btn, .tab-add { min-width: 32px; min-height: 32px; }
+
+/* ========== Room panel (was the cloud modal's inline styles) ========== */
+/* Joining a room is the shared connection modal now; this panel is what you
+   see once you are in one. */
+.cloud-modal {
+    width: 520px;
+    max-height: 90vh;
+    overflow-y: auto;
+}
+
+.cloud-modal__header {
+    padding: 20px;
+    background: linear-gradient(135deg, rgba(74, 158, 255, 0.1), rgba(167, 139, 250, 0.1));
+    border-bottom: 1px solid var(--border-color, #2a2a4a);
+}
+
+.cloud-modal__title {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-size: 18px;
+}
+
+.cloud-modal__header-end {
+    display: flex;
+    align-items: center;
+    gap: 15px;
+}
+
+.cloud-modal__status {
+    gap: 8px;
+    padding: 6px 12px;
+    background: var(--bg-panel, #0f0f1a);
+    border-radius: 20px;
+}
+
+.cloud-modal__status-text {
+    font-weight: 500;
+}
+
+.cloud-modal__close {
+    width: 32px;
+    height: 32px;
+    font-size: 20px;
+}
+
+.cloud-host-badge {
+    align-items: center;
+    gap: 3px;
+    padding: 2px 7px;
+    background: linear-gradient(135deg, rgba(255, 215, 0, 0.15), rgba(255, 165, 0, 0.15));
+    border: 1px solid rgba(255, 215, 0, 0.3);
+    border-radius: 10px;
+    font-size: 12px;
+    font-weight: 700;
+    color: #ffd700;
+    letter-spacing: 0.3px;
+}
+
+.cloud-tabs {
+    display: flex;
+    border-bottom: 1px solid var(--border-color);
+    background: var(--bg-panel);
+}
+
+.cloud-modal__body {
+    padding: 24px;
+}
+
+.cloud-modal .cloud-form-row {
+    margin-bottom: 16px;
+}
+
+.cloud-note {
+    margin: 0 0 20px;
+    padding: 14px;
+    font-size: 13px;
+    line-height: 1.6;
+    color: var(--text-secondary, #d0d0d0);
+    background: rgba(74, 158, 255, 0.08);
+    border-left: 3px solid var(--accent-blue, #4a9eff);
+    border-radius: 6px;
+}
+
+.cloud-label {
+    display: block;
+    margin-bottom: 8px;
+    font-size: 12px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    color: var(--text-secondary, #8888aa);
+}
+
+.cloud-hint {
+    margin-top: 8px;
+    font-size: 12px;
+    line-height: 1.5;
+    color: var(--text-secondary, #8888aa);
+}
+
+.cloud-hint--warn {
+    color: var(--warning, #fbbf24);
+}
+
+.session-code-value {
+    flex: 1;
+    padding: 14px;
+    text-align: center;
+    font-family: monospace;
+    font-size: 20px;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    color: var(--accent-cyan, #22d3ee);
+    background: var(--bg-darker, #08080d);
+    border: 1px solid var(--border-color, #2a2a4a);
+    border-radius: 8px;
+}
+
+.cloud-copy-btn {
+    min-width: 44px;
+    border-radius: 6px;
+    font-size: 16px;
+}
+
+.cloud-modal .share-url-input {
+    padding: 10px 12px;
+    font-family: monospace;
+    font-size: 11px;
+    color: var(--text-primary, #e0e0e0);
+    background: var(--bg-darker, #08080d);
+    border: 1px solid var(--border-color, #2a2a4a);
+    border-radius: 6px;
+}
+
+.cloud-qr-toggle {
+    margin-bottom: 16px;
+    padding: 12px;
+    border-radius: 8px;
+}
+
+.share-qr {
+    max-width: fit-content;
+    margin: 0 auto;
+    padding: 20px;
+    text-align: center;
+    background: white;
+    border-radius: 8px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+}
+
+.cloud-modal .cloud-agents {
+    margin: 0 0 20px;
+    padding: 0 0 20px;
+    border-top: 0;
+    border-bottom: 1px solid var(--border-color, #2a2a4a);
+}
+
+.cloud-agents-list {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+/* The terminal's minted-code field, at the top of the shared modal's Advanced tab. */
+.term-join-code {
+    margin-bottom: 18px;
+    padding-bottom: 18px;
+    border-bottom: 1px solid var(--border-color, #2a2a4a);
+}
+
+.term-join-code .mp-note.is-error {
+    color: var(--accent-red, #f87171);
+}
+
+/* Help and about: a command to copy, and a link to the docs. */
+.help-code {
+    margin-bottom: 14px;
+    padding: 12px;
+    overflow-x: auto;
+    font-size: 12px;
+    color: var(--accent-green);
+    background: var(--bg-dark);
+    border-radius: 6px;
+}
+
+.help-link {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 8px 12px;
+    font-size: 13px;
+    color: var(--accent-blue);
+    text-decoration: none;
+    background: var(--bg-panel);
+    border: 1px solid var(--border-color);
+    border-radius: 6px;
+}
+
+.help-link--purple {
+    color: var(--accent-purple);
+}

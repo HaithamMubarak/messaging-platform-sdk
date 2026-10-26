@@ -29,8 +29,6 @@ before writing a stub).
   only Air Hockey uses the physics and effects in
   `mini-games/shared/game-kit.js`. Settle on one kit for host authority,
   addressed messages and state handover to joiners, and move the games onto it.
-- **Terminal onto the connection modal.** `apps/terminal` still has its own
-  connect flow; every other demo uses `js/connection-modal.js`.
 - **Split the two largest pages.** `apps/chat.html` (~2,700 lines, inline
   script) and `apps/whiteboard/app.html` (~2,800 lines) with
   `whiteboard-client.js` (~7,500 lines) should become a page plus modules, which
