@@ -61,7 +61,8 @@ class StaticSiteTest {
             "developer/index.html",
             "developer/dashboard.html",
             "developer/change-password.html",
-            "apps/test-api-key/index.html");
+            "apps/test-api-key/index.html",
+            "apps/turn-stun-test.html");
     // stress-test.html was retired, so there is no page left to keep private.
     // Party Physics and Race Balls used to sit here as "built but not
     // published" — both are finished now, carry cards in the playground and

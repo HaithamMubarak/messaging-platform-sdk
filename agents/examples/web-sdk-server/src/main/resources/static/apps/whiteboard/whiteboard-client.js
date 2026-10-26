@@ -447,13 +447,11 @@ class DrawStrokesCommand extends Command {
             boardState.push(stroke);
         });
         redrawCanvas();
-        console.log(`[Command] Executed DrawStrokesCommand: +${strokes.length} strokes`);
     }
 
     undo() {
         const removed = removeStrokesOfAction(this.id);
         redrawCanvas();
-        console.log(`[Command] Undone DrawStrokesCommand: -${removed} strokes`);
     }
 }
 
@@ -470,14 +468,12 @@ class ClearCanvasCommand extends Command {
         // Clear is already executed, this is for redo
         boardState = [];
         redrawCanvas();
-        console.log(`[Command] Executed ClearCanvasCommand`);
     }
 
     undo() {
         // Restore the previous state
         boardState = JSON.parse(JSON.stringify(this.data.previousState));
         redrawCanvas();
-        console.log(`[Command] Undone ClearCanvasCommand: restored ${boardState.length} strokes`);
     }
 }
 
@@ -500,14 +496,12 @@ class ImportImageCommand extends Command {
             ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
         };
         img.src = this.data.imageDataUrl;
-        console.log(`[Command] Executed ImportImageCommand`);
     }
 
     undo() {
         // Restore the previous state
         boardState = JSON.parse(JSON.stringify(this.data.previousState));
         redrawCanvas();
-        console.log(`[Command] Undone ImportImageCommand`);
     }
 }
 
@@ -560,7 +554,6 @@ class UndoRedoManager {
         }
 
         this.updateButtons();
-        console.log(`[UndoRedo] Recorded: ${command.type} (id: ${command.id})`);
     }
 
     /**
@@ -570,7 +563,6 @@ class UndoRedoManager {
      */
     undo(broadcast = true) {
         if (this.undoStack.length === 0) {
-            console.log('[UndoRedo] Nothing to undo');
             return null;
         }
 
@@ -593,7 +585,6 @@ class UndoRedoManager {
                 this.broadcastAction('undo', command);
             }
 
-            console.log(`[UndoRedo] Undo: ${command.type} (stack: ${this.undoStack.length} undo, ${this.redoStack.length} redo)`);
             return command;
 
         } finally {
@@ -608,7 +599,6 @@ class UndoRedoManager {
      */
     redo(broadcast = true) {
         if (this.redoStack.length === 0) {
-            console.log('[UndoRedo] Nothing to redo');
             return null;
         }
 
@@ -631,7 +621,6 @@ class UndoRedoManager {
                 this.broadcastAction('redo', command);
             }
 
-            console.log(`[UndoRedo] Redo: ${command.type} (stack: ${this.undoStack.length} undo, ${this.redoStack.length} redo)`);
             return command;
 
         } finally {
@@ -648,7 +637,6 @@ class UndoRedoManager {
      * @param {string} fromAgent - Who sent this action
      */
     applyRemoteAction(action, messageData, fromAgent) {
-        console.log(`[UndoRedo] Received remote ${action} from ${fromAgent}:`, messageData);
 
         // Show toast notification for the remote action
         showUndoRedoToast(fromAgent, action);
@@ -668,7 +656,6 @@ class UndoRedoManager {
                 const removed = removeStrokesOfAction(messageData.commandId, fromAgent);
                 if (removed) {
                     redrawCanvas();
-                    console.log(`[UndoRedo] Applied ${fromAgent}'s undo: -${removed} strokes`);
                 }
             } else if (action === 'redo' && Array.isArray(messageData.strokes) && messageData.strokes.length) {
                 // Stamp the sender's name on what comes back, so a redo cannot
@@ -680,7 +667,6 @@ class UndoRedoManager {
                     boardState.push(stk);
                 });
                 redrawCanvas();
-                console.log(`[UndoRedo] Applied ${fromAgent}'s redo: +${messageData.strokes.length} strokes`);
             }
         } catch (e) {
             console.warn('[UndoRedo] could not apply remote ' + action, e);
@@ -724,7 +710,6 @@ class UndoRedoManager {
      */
     broadcastAction(action, command) {
         if (!webrtcHelper || !connected) {
-            console.log('[UndoRedo] Not connected, skipping broadcast');
             return;
         }
 
@@ -778,7 +763,6 @@ class UndoRedoManager {
         this.undoStack = [];
         this.redoStack = [];
         this.updateButtons();
-        console.log('[UndoRedo] History cleared');
     }
 
     /**
@@ -968,7 +952,6 @@ class WhiteboardCanvas {
         this.magicCanvas.width = CANVAS_CONFIG.WIDTH;
         this.magicCanvas.height = CANVAS_CONFIG.HEIGHT;
 
-        console.log('[WhiteboardCanvas] Initialized:', this.canvas.width, 'x', this.canvas.height);
         return true;
     }
 
@@ -1273,7 +1256,6 @@ class WhiteboardGame extends UserConnectionBase {
      */
     pauseGame(reason) {
         // Whiteboard doesn't support pause - ignore
-        console.log('[WhiteboardGame] Pause not supported - whiteboard is always active');
     }
 
     /**
@@ -1282,7 +1264,6 @@ class WhiteboardGame extends UserConnectionBase {
      */
     resumeGame() {
         // Whiteboard doesn't support resume - ignore
-        console.log('[WhiteboardGame] Resume not supported - whiteboard is always active');
     }
 
     /**
@@ -1348,26 +1329,21 @@ class WhiteboardGame extends UserConnectionBase {
     sendBoardStateToAgent(agentId, actionType = 'sync') {
         // Check if sync is already in progress
         if (connectionState.syncInProgress) {
-            console.log(`[WhiteboardGame] Sync already in progress, skipping send to ${agentId}`);
             return;
         }
 
         if (!connectionState.connected || !this.channel) {
-            console.log(`[WhiteboardGame] Not ready to send to ${agentId} - connected: ${connectionState.connected}, channel: ${!!this.channel}`);
             return;
         }
 
         // Set sync lock
         connectionState.syncInProgress = true;
         connectionState.syncInitiator = 'sender';
-        console.log(`[WhiteboardGame] 🔒 Sync lock acquired for ${agentId}`);
 
-        console.log(`[WhiteboardGame] Syncing canvas to ${agentId} via Channel Storage...`);
 
         // Capture canvas snapshot using canvas instance
         const snapshot = this.whiteboardCanvas.captureSnapshot();
         if (!snapshot) {
-            console.log(`[WhiteboardGame] Canvas is empty, skipping`);
             connectionState.syncInProgress = false;
             connectionState.syncInitiator = null;
             return;
@@ -1383,7 +1359,6 @@ class WhiteboardGame extends UserConnectionBase {
             return;
         }
 
-        console.log(`[WhiteboardGame] Canvas size: ${Math.round(dataSize / 1024)}KB`);
 
         // Prepare board state data using canvas instance
         const boardStateData = {
@@ -1411,13 +1386,11 @@ class WhiteboardGame extends UserConnectionBase {
             boardStateData,
             metadata,
             (response) => {
-                console.log(`[WhiteboardGame] ✓ Saved to channel storage`);
                 this.sendCanvasSyncNotification(agentId, actionType);
 
                 setTimeout(() => {
                     connectionState.syncInProgress = false;
                     connectionState.syncInitiator = null;
-                    console.log(`[WhiteboardGame] 🔓 Sync lock released`);
                 }, 500);
             },
             (response) => {
@@ -1443,14 +1416,12 @@ class WhiteboardGame extends UserConnectionBase {
         };
 
         this.webrtcHelper.sendData(agentId, notification);
-        console.log(`[WhiteboardGame] Sent canvas sync notification to ${agentId}`);
     }
 
     /**
      * Handle connection
      */
     onConnect(detail) {
-        console.log('[WhiteboardGame] Connected via framework:', detail);
 
         // Ensure canvas is initialized (if not already done)
         if (!this.whiteboardCanvas.isInitialized()) {
@@ -1480,14 +1451,12 @@ class WhiteboardGame extends UserConnectionBase {
             boardState = this.whiteboardCanvas.boardState;
             incomingStrokeQueue = this.whiteboardCanvas.incomingStrokeQueue;
 
-            console.log('[WhiteboardGame] Canvas exposed:', canvas.width, 'x', canvas.height);
         } else {
             console.warn('[WhiteboardGame] Canvas not initialized yet');
         }
 
         // Notify about initial agents already in the whiteboard
         if (detail.users && detail.users.length > 0) {
-            console.log('[WhiteboardGame] Initial agents in whiteboard:', detail.users);
 
             detail.users.forEach(agentName => {
                 if (agentName !== this.username) {
@@ -1510,7 +1479,6 @@ class WhiteboardGame extends UserConnectionBase {
         // Lock board for non-host users until DataChannel is established
         if (!this.isHost() && detail.users && detail.users.length > 0) {
             lockBoard('Establishing connection to whiteboard...');
-            console.log('[WhiteboardGame] Board locked for non-host - waiting for DataChannel');
         }
 
         // Show share notification balloon after connection is ready
@@ -1526,7 +1494,6 @@ class WhiteboardGame extends UserConnectionBase {
      * Handle player joining (loading state)
      */
     onUserJoining(detail) {
-        console.log('[WhiteboardGame] User joining:', detail.agentName);
 
         const agentName = detail.agentName;
         if (agentName === this.username) return;
@@ -1542,7 +1509,6 @@ class WhiteboardGame extends UserConnectionBase {
      * Handle user join - integrated whiteboard logic
      */
     onUserJoin(detail) {
-        console.log('[WhiteboardGame] User joined successfully:', detail.agentName);
 
         const agentName = detail.agentName;
         if (agentName === this.username) return;
@@ -1560,14 +1526,12 @@ class WhiteboardGame extends UserConnectionBase {
         // Update UI
         this._updateUserList();
 
-        console.log(`[WhiteboardGame] DataChannel established with ${agentName}`);
     }
 
     /**
      * Handle user leave - integrated whiteboard logic
      */
     onUserLeave(detail) {
-        console.log('[WhiteboardGame] User left:', detail.agentName);
 
         const agentName = detail.agentName;
         if (agentName === this.username) return;
@@ -1604,7 +1568,6 @@ class WhiteboardGame extends UserConnectionBase {
      * Handle chat messages
      */
     onChat(detail) {
-        console.log('[WhiteboardGame] Chat from', detail.from, ':', detail.message);
         this._addChatMessage(detail.from, detail.message, '#333');
         // A guess, if a doodle game is running on this tab.
         if (window.DoodleGame) DoodleGame.heard(this.senderOf(detail) || detail.from, detail.message);
@@ -1614,34 +1577,29 @@ class WhiteboardGame extends UserConnectionBase {
      * Handle DataChannel open - new peer will fetch from storage
      */
     onDataChannelOpen(peerId) {
-        console.log('[WhiteboardGame] DataChannel opened with', peerId);
 
         // Unlock board if it was locked (non-host user waiting for connection)
         if (isBoardLocked) {
             unlockBoard();
             this.showToast('Connected! You can now draw on the whiteboard', 'success', 3000);
-            console.log('[WhiteboardGame] Board unlocked - DataChannel ready');
         }
 
         // NOTE: We DON'T send board state here anymore!
         // The new peer will automatically fetch from channel storage API instead.
         // This prevents duplicate sync operations and ensures single source of truth.
 
-        console.log('[WhiteboardGame] New peer will fetch canvas from storage (no push needed)');
     }
 
     /**
      * Handle DataChannel message - receive P2P drawing events
      */
     onDataChannelMessage(peerId, data) {
-        console.log(`[WhiteboardGame] DataChannel message from ${peerId}:`, data.type);
 
         const type = data.type;
         const syncMode = window.syncMode || 'auto-accept';
 
         // OFFLINE MODE: Block incoming drawing events (except cursor)
         if (syncMode === 'offline' && type !== 'cursor') {
-            console.log(`[WhiteboardGame] ⛔ OFFLINE MODE - Ignoring ${type} from ${peerId}`);
             return;
         }
 
@@ -1669,7 +1627,6 @@ class WhiteboardGame extends UserConnectionBase {
         else if (type === 'clear') {
             this.whiteboardCanvas.clear();
             incomingStrokeQueue.length = 0;  // ✅ Clear local variable
-            console.log(`[WhiteboardGame] Canvas cleared by ${peerId}`);
             showClearToast(peerId);
         }
         // Handle cursor
@@ -1682,7 +1639,6 @@ class WhiteboardGame extends UserConnectionBase {
         }
         // Handle canvas-sync-storage
         else if (type === 'canvas-sync-storage') {
-            console.log(`[WhiteboardGame] Received canvas sync notification from ${peerId}`);
             if (data.sender !== this.username) {
                 fetchCanvasFromStorage(peerId, data.action);
             }
@@ -1693,11 +1649,9 @@ class WhiteboardGame extends UserConnectionBase {
         }
         // Handle undo-redo-action from other agents (lightweight notification)
         else if (type === 'undo-redo-action') {
-            console.log(`[WhiteboardGame] Received ${data.action} notification from ${data.sender} (${data.commandType})`);
 
             // Don't process our own actions
             if (from === this.username) {
-                console.log('[WhiteboardGame] Ignoring own undo-redo notification');
                 return;
             }
 
@@ -1760,7 +1714,6 @@ class WhiteboardGame extends UserConnectionBase {
      * Handle disconnect event
      */
     onDisconnect() {
-        console.log('[WhiteboardGame] Disconnected from channel');
 
         // Reset state
         connectionState.connected = false;
@@ -1805,7 +1758,6 @@ class WhiteboardGame extends UserConnectionBase {
 // Module-level whiteboard game instance (avoids window. assignment)
 let whiteboardGame = null;
 
-console.log('[WhiteboardGame] Framework integration loaded');
 
 // ============================================
 // CANVAS CONFIGURATION - Pan & Zoom System
@@ -1977,7 +1929,6 @@ function redrawCanvas() {
     }
 
     try {
-        console.log(`[Redraw] Redrawing canvas - strokes: ${boardState.length}, snapshot: ${!!canvasSnapshot}`);
 
         // The board is a fixed 1920x1080 coordinate space and strokes are
         // stored in it, so the clear and the snapshot below belong in those
@@ -2003,7 +1954,6 @@ function redrawCanvas() {
                 }
 
                 // Magic pen strokes are now on separate layer, no need to draw here
-                console.log(`[Redraw] Complete - snapshot restored, ${boardState.length} strokes redrawn`);
             };
             img.onerror = function () {
                 console.warn('[Redraw] Failed to restore canvas snapshot, redrawing strokes only');
@@ -2021,7 +1971,6 @@ function redrawCanvas() {
                 for (let i = 0; i < boardState.length; i++) {
                     drawStroke(boardState[i]);
                 }
-                console.log(`[Redraw] Complete - ${boardState.length} strokes redrawn`);
             }
 
             // Magic pen strokes are now on separate layer, no need to draw here
@@ -2372,7 +2321,6 @@ function hideConnectionModal() {
 function saveViewportTransform() {
     try {
         localStorage.setItem('whiteboard_viewport', JSON.stringify(viewportTransform));
-        console.log(`[Viewport] Saved transform - zoom: ${viewportTransform.zoom.toFixed(2)}, pan: (${Math.round(viewportTransform.panX)}, ${Math.round(viewportTransform.panY)})`);
     } catch (e) {
         console.warn('[Viewport] Failed to save transform:', e);
     }
@@ -2411,7 +2359,6 @@ function applyViewportTransform() {
     // Update zoom indicator UI
     updateZoomIndicator();
 
-    console.log(`[Viewport] Transform applied - zoom: ${Math.round(zoom * 100)}%, pan: (${Math.round(panX)}, ${Math.round(panY)})`);
 }
 
 /**
@@ -2437,7 +2384,6 @@ function centerCanvasInViewport() {
 
     applyViewportTransform();
 
-    console.log(`[Viewport] Canvas centered via flexbox - zoom: ${Math.round(viewportTransform.zoom * 100)}%`);
 }
 
 /**
@@ -2510,7 +2456,6 @@ function handleClickOutsideCanvas(canvasX, canvasY) {
         // Switch to hand tool
         setTool('hand');
 
-        console.log(`[Auto Hand Mode] Clicked outside canvas at (${Math.round(canvasX)}, ${Math.round(canvasY)}) - activated hand mode`);
     }
 }
 
@@ -2525,7 +2470,6 @@ function handleClickInsideCanvas(canvasX, canvasY) {
         autoHandModeActive = false;
         setTool(previousTool);
 
-        console.log(`[Auto Hand Mode] Clicked inside canvas - restored ${previousTool} tool`);
     }
 }
 
@@ -2552,7 +2496,6 @@ function calculateAutoFitZoom() {
     // Use the smaller scale to ensure canvas fits, but don't zoom in beyond 100%
     const fitScale = Math.min(scaleX, scaleY, 1.0);
 
-    console.log(`[Zoom] Auto-fit: container ${containerWidth}x${containerHeight}, available ${availableWidth}x${availableHeight}, scale: ${Math.round(fitScale * 100)}%`);
 
     return fitScale;
 }
@@ -2565,7 +2508,6 @@ function zoomIn() {
     viewportTransform.zoom = newZoom;
     centerCanvasInViewport(); // Center after zoom
     updateCanvasCursor(); // Update cursor to reflect new zoom
-    console.log(`[Zoom] Zoomed in to ${Math.round(newZoom * 100)}%`);
 }
 
 /**
@@ -2576,7 +2518,6 @@ function zoomOut() {
     viewportTransform.zoom = newZoom;
     centerCanvasInViewport(); // Center after zoom
     updateCanvasCursor(); // Update cursor to reflect new zoom
-    console.log(`[Zoom] Zoomed out to ${Math.round(newZoom * 100)}%`);
 }
 
 /**
@@ -2595,7 +2536,6 @@ function resetZoom() {
     // Update cursor to reflect new zoom
     updateCanvasCursor();
 
-    console.log(`[Zoom] Reset to auto-fit ${Math.round(viewportTransform.zoom * 100)}% and centered`);
 }
 
 // Expose zoom functions globally for HTML onclick handlers
@@ -2660,7 +2600,6 @@ function lockBoard(message = 'Connecting to whiteboard...') {
         showToast('Connection timeout - Board access restored with limited functionality', 'warning', 5000);
     }, BOARD_LOCK_TIMEOUT_MS);
 
-    console.log('[Whiteboard] Board locked:', message);
 }
 
 /**
@@ -2678,7 +2617,6 @@ function unlockBoard() {
     // Hide overlay notification
     hideBoardLockNotification();
 
-    console.log('[Whiteboard] Board unlocked');
 }
 
 /**
@@ -2756,12 +2694,6 @@ function hideStateLoadingLoader() {
 }
 
 function startInitialStateLoading() {
-    console.log('[Init] Starting initial state loading...');
-
-    // Check if we're the only agent connected
-    const agentCount = users.size;
-
-    console.log(`[Init] ${agentCount} agents connected, will stop on: 1) Timeout (30s) OR 2) Canvas received via DataChannel`);
     isLoadingInitialState = true;
     lastStrokeEventTime = Date.now();
     cachedInitialStrokes = [];
@@ -2770,7 +2702,6 @@ function startInitialStateLoading() {
 
     // Max timeout: 30 seconds - force completion even if not fully synced
     stateLoadingMaxTimeout = setTimeout(() => {
-        console.log('[Init] ⏱️ Max timeout reached (30s), stopping initialization');
         finishInitialStateLoading();
     }, STATE_LOADING_MAX_TIME);
 
@@ -2781,7 +2712,6 @@ function startInitialStateLoading() {
 }
 
 function finishInitialStateLoading() {
-    console.log(`[Init] ✅ Finished initial state loading. Cached ${cachedInitialStrokes.length} strokes`);
 
     // Clear timeout timer
     if (stateLoadingMaxTimeout) {
@@ -2795,7 +2725,6 @@ function finishInitialStateLoading() {
 
     // Draw all cached strokes at once
     if (cachedInitialStrokes.length > 0) {
-        console.log(`[Init] Drawing ${cachedInitialStrokes.length} cached strokes...`);
         cachedInitialStrokes.forEach(stroke => {
             enqueueStroke(stroke);
         });
@@ -2827,7 +2756,6 @@ function recordDrawActivity() {
     autoSaveTimer = setTimeout(() => {
         // Save to storage after idle period (host only)
         if (connected && channel && channel.isHostAgent()) {
-            console.log('[Auto-Save] Idle detected, saving board state...');
             saveBoardStateToStorage();
         }
     }, AUTO_SAVE_IDLE_DELAY);
@@ -2895,7 +2823,6 @@ function drawCanvasImage(img, originalDimensions, onSuccess, onError) {
         const canvasPhysicalWidth = canvas.width;
         const canvasPhysicalHeight = canvas.height;
 
-        console.log(`[Canvas Util] Drawing image at absolute canvas coordinates (${canvasPhysicalWidth}x${canvasPhysicalHeight})`);
 
         // Clear current canvas
         ctx.clearRect(0, 0, canvasPhysicalWidth, canvasPhysicalHeight);
@@ -2913,7 +2840,6 @@ function drawCanvasImage(img, originalDimensions, onSuccess, onError) {
         // Draw image at absolute coordinates (will be same on all agents)
         ctx.drawImage(img, offsetX, offsetY, scaledWidth, scaledHeight);
 
-        console.log(`[Canvas Util] ✓ Image drawn at absolute coords (scale=${scale.toFixed(2)}, offset=${Math.round(offsetX)},${Math.round(offsetY)}, size=${Math.round(scaledWidth)}x${Math.round(scaledHeight)})`);
 
         if (onSuccess) {
             onSuccess({scale, offsetX, offsetY, scaledWidth, scaledHeight});
@@ -3402,7 +3328,6 @@ function restoreOwnHistory(restored) {
             undoRedoManager.undoStack.push(cmd);
         });
         undoRedoManager.updateButtons();
-        console.log(`[UndoRedo] Restored ${keep.length} of your own actions to the undo stack`);
     } catch (e) {
         console.warn('[UndoRedo] could not rebuild history', e);
     }
@@ -3444,7 +3369,6 @@ function compactOldestInk(howMany) {
             boardState.splice(i, 1);
             removed++;
         }
-        console.log(`[Board] Compacted ${removed} of the oldest strokes into the base image`);
     } catch (e) {
         console.warn('[Board] could not compact; leaving the board alone', e);
     }
@@ -3512,7 +3436,6 @@ function restoreBoardFromObjects(data, replace) {
 
             restoreOwnHistory(ink.concat(objects));
 
-            console.log(`[Storage] ✓ Restored ${ink.length} strokes and ${objects.length} objects as objects`);
             addChatMessage('System',
                 `Loaded whiteboard (${ink.length} strokes, ${objects.length} notes)`, '#4CAF50');
         } catch (e) {
@@ -3527,18 +3450,15 @@ function restoreBoardFromObjects(data, replace) {
 
 function saveBoardStateToStorage() {
     if (!connected || !channel || !canvas || !ctx) {
-        console.log('[Storage] Not ready to save - connected:', connected, 'channel:', !!channel, 'canvas:', !!canvas);
         return;
     }
 
     // Only host saves to avoid conflicts
     if (!channel.isHostAgent()) {
-        console.log('[Storage] Not host agent, skipping storage save');
         return;
     }
 
     try {
-        console.log('[Storage] Saving board state to channel storage...');
 
         // Create a temporary canvas to add white background before exporting as JPG
         // (JPG doesn't support transparency, so we need white background)
@@ -3565,7 +3485,6 @@ function saveBoardStateToStorage() {
         const imageSizeBytes = Math.round((canvasImageJPG.length * 3) / 4); // Approximate base64 size
         const imageSizeMB = (imageSizeBytes / 1024 / 1024).toFixed(2);
 
-        console.log(`[Storage] Canvas exported as JPG: ${imageSizeMB} MB (quality: ${jpegQuality * 100}%)`);
 
         // Check if size is approaching limit
         if (imageSizeBytes > 18 * 1024 * 1024) { // 18 MB warning threshold
@@ -3618,7 +3537,6 @@ function saveBoardStateToStorage() {
             boardStateData,
             metadata,
             function(response) {
-                console.log(`[Storage] ✓ Board state saved successfully (${imageSizeMB} MB JPG)`);
             },
             function(response) {
                 console.error('[Storage] Failed to save board state:', response);
@@ -3649,22 +3567,18 @@ function saveBoardStateToStorage() {
  */
 function loadBoardStateFromStorage() {
     if (!connected || !channel) {
-        console.log('[Storage] Not ready to load - connected:', connected, 'channel:', !!channel);
         return;
     }
 
     try {
-        console.log('[Storage] Loading board state from channel storage...');
 
         channel.storageGet({
             storageKey: STORAGE_KEY
         }, function (response) {
-            console.log('[Storage] Get response:', response);
 
             if (response.status === 'success' && response.data) {
                 try {
                     const boardStateData = response.data;
-                    console.log('[Storage] ✓ Loaded board state:', boardStateData);
 
                     // Clear current board
                     if (canvas && ctx) {
@@ -3695,7 +3609,6 @@ function loadBoardStateFromStorage() {
                                 ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
 
                                 const sizeMB = boardStateData.imageSizeMB || (boardStateData.imageSizeBytes / 1024 / 1024).toFixed(2);
-                                console.log(`[Storage] ✓ Loaded JPG image: ${sizeMB} MB`);
                                 addChatMessage('System', `Loaded whiteboard (${sizeMB} MB JPG)`, '#4CAF50');
 
                                 // Mark initial state as loaded
@@ -3727,7 +3640,6 @@ function loadBoardStateFromStorage() {
                         try {
                             const binaryArray = new Float32Array(boardStateData.binaryStrokes);
                             loadedStrokes = decodeStrokesBinary(binaryArray);
-                            console.log(`[Storage] Decoded ${loadedStrokes.length} strokes from binary format (${boardStateData.binaryStrokes.length * 4} bytes)`);
                         } catch (e) {
                             console.error('[Storage] Failed to decode binary strokes, trying JSON fallback:', e);
                             loadedStrokes = boardStateData.strokes || [];
@@ -3735,7 +3647,6 @@ function loadBoardStateFromStorage() {
                     } else if (boardStateData.strokes && Array.isArray(boardStateData.strokes)) {
                         // VERSION_1: JSON format (fallback)
                         loadedStrokes = boardStateData.strokes;
-                        console.log(`[Storage] Loaded ${loadedStrokes.length} strokes from JSON format`);
                     }
 
                     // Restore canvas snapshot if available (for VERSION_2/VERSION_1)
@@ -3744,11 +3655,9 @@ function loadBoardStateFromStorage() {
                         img.onload = function () {
                             try {
                                 ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
-                                console.log('[Storage] Canvas snapshot rendered');
 
                                 // Then restore strokes on top
                                 if (loadedStrokes.length > 0) {
-                                    console.log(`[Storage] Restoring ${loadedStrokes.length} strokes...`);
                                     loadedStrokes.forEach(stroke => {
                                         addStrokeToBoardState(stroke);
                                         drawStroke(stroke);
@@ -3799,7 +3708,6 @@ function loadBoardStateFromStorage() {
                 }
             } else if (response.status === 'error' && response.data && response.data.includes('not found')) {
                 // No saved state yet - this is fine for new boards
-                console.log('[Storage] No saved board state found (new board)');
                 initialStateLoaded = true;
                 finishInitialStateLoading();
             } else {
@@ -4112,14 +4020,6 @@ function _strokeSendLoop(ts) {
         // Apply stroke compression if enabled
         let strokes = USE_STROKE_COMPRESSION ? compressStrokes(strokeBuffer.slice()) : strokeBuffer.slice();
 
-        // Log compression stats
-        if (USE_STROKE_COMPRESSION && compressionStatsTotal > 0) {
-            const savedPercent = ((compressionStatsSaved / compressionStatsTotal) * 100).toFixed(1);
-            if (compressionStatsTotal % 100 === 0) {
-                console.log(`[Compression] Saved ${compressionStatsSaved}/${compressionStatsTotal} strokes (${savedPercent}%)`);
-            }
-        }
-
         // Try binary encoding if enabled
         const binaryData = USE_BINARY_STROKES ? encodeStrokesBinary(strokes) : null;
 
@@ -4214,7 +4114,6 @@ function initializeCredentialInputs() {
         },
         onHideModal: function() {
             // Modal hidden after connection
-            console.log('[Whiteboard] Connection modal hidden');
         }
     });
 }
@@ -4279,7 +4178,6 @@ document.addEventListener('DOMContentLoaded', () => {
     canvas.parentNode.appendChild(magicCanvas);
     magicCtx = magicCanvas.getContext('2d');
 
-    console.log('[Magic Pen] Magic canvas layer created');
 
     // Clear old positioning data (from old system) - force recalculation
     localStorage.removeItem('whiteboard_viewport');
@@ -4291,7 +4189,6 @@ document.addEventListener('DOMContentLoaded', () => {
     // This ensures the board is properly centered initially
     resetZoom();
 
-    console.log(`[Init] Canvas initialized with auto-fit zoom and centered position`);
 
     // Setup canvas event listeners (drawing, pan, zoom)
     setupCanvas();
@@ -4446,7 +4343,6 @@ function resizeCanvas() {
         magicCanvas.style.width = canvasWidth + 'px';
         magicCanvas.style.height = canvasHeight + 'px';
         magicCtx = magicCanvas.getContext('2d');
-        console.log('[Magic Pen] Magic canvas resized to match main canvas');
     }
 
     // Apply viewport transform (zoom and pan)
@@ -4455,7 +4351,6 @@ function resizeCanvas() {
     // Redraw all strokes from boardState at fixed resolution
     redrawCanvas();
 
-    console.log(`[Canvas] Fixed canvas: ${canvasWidth}×${canvasHeight} CSS pixels (${canvas.width}×${canvas.height} buffer pixels, DPR=${dpr} [not applied for sync consistency], zoom=${viewportTransform.zoom.toFixed(2)})`);
 }
 
 
@@ -4481,7 +4376,6 @@ function handleResize() {
         // Update cursor for new zoom level
         updateCanvasCursor();
 
-        console.log(`[Resize] Zoom adjusted from ${(oldZoom * 100).toFixed(1)}% to ${(viewportTransform.zoom * 100).toFixed(1)}% (no redraw)`);
 
         resizeRAF = null;
     });
@@ -4503,7 +4397,6 @@ function setupCanvas() {
         canvasWrapper.addEventListener('mousedown', startDrawing);
         canvasWrapper.addEventListener('mousemove', draw);
         canvasWrapper.addEventListener('mouseup', stopDrawing);
-        console.log('[Setup] ✅ Mouse events attached to canvas AND canvas-wrapper for auto hand mode');
     }
 
 
@@ -4527,7 +4420,6 @@ function setupCanvas() {
         // Update cursor to reflect new zoom scale
         updateCanvasCursor();
 
-        console.log(`[Wheel Zoom] ${Math.round(oldZoom * 100)}% → ${Math.round(newZoom * 100)}%`);
     }, {passive: false});
 
     // Send cursor position immediately via DataChannel (even when not drawing)
@@ -4606,14 +4498,12 @@ function setupCanvas() {
                         e.preventDefault();
                         e.stopPropagation();
 
-                        console.log(`[AUTO HAND MOBILE] 🎯 Touch outside canvas at (${Math.round(pos.x)}, ${Math.round(pos.y)})`);
                         handleClickOutsideCanvas(pos.x, pos.y);
 
                         lastTouchMidX = touch.clientX;
                         lastTouchMidY = touch.clientY;
                         isPanning = true;
 
-                        console.log(`[AUTO HAND MOBILE] ✅ Panning enabled, start: (${lastTouchMidX}, ${lastTouchMidY})`);
                     } else {
                         // Inside canvas - normal drawing
                         e.preventDefault();
@@ -4714,7 +4604,6 @@ function setupCanvas() {
             applyViewportTransform();
             updateCanvasCursor(); // Update cursor for new zoom level
 
-            console.log(`[Pinch Zoom] ${Math.round(touchStartZoom * 100)}% → ${Math.round(newZoom * 100)}%`);
         } else if (e.touches.length === 1) {
             if (isPanning && (currentTool === 'hand' || autoHandModeActive)) {
                 // Single finger pan (hand tool or auto-hand mode)
@@ -4767,7 +4656,6 @@ function setupCanvas() {
             if (autoHandModeActive) {
                 autoHandModeActive = false;
                 setTool(previousTool);
-                console.log(`[AUTO HAND MOBILE] ✅ Touch ended - restored ${previousTool} tool`);
             }
 
             const canvasContainer = canvas.parentElement.parentElement;
@@ -4902,7 +4790,6 @@ function setupCanvasScroll() {
     // - 2 fingers on canvas = pan/zoom
     // - Container scrolling would interfere with drawing gestures
 
-    console.log('[Canvas Scroll] Drag-to-scroll enabled for canvas container (mouse only, touch disabled for drawing)');
 }
 
 // ============================================================================
@@ -4910,7 +4797,6 @@ function setupCanvasScroll() {
 // ============================================================================
 
 async function connect() {
-    console.log('[Whiteboard] Connecting via framework...');
 
     // GUARD: Prevent duplicate connection if already connected
     if (connected) {
@@ -4971,7 +4857,6 @@ async function connect() {
 
     try {
         // Initialize and connect via WhiteboardGame framework
-        console.log('[Whiteboard] Connecting via framework...');
 
         // Create game instance
         const game = new WhiteboardGame();
@@ -5029,7 +4914,6 @@ async function connect() {
 
         updateUserList();
         addChatMessage('System', 'Connected to whiteboard!', '#4CAF50');
-        console.log('[Whiteboard] Connected successfully');
 
         // Update URL hash with connection credentials
         try {
@@ -5038,7 +4922,6 @@ async function connect() {
                     channel: channelName,
                     password: channelPassword
                 });
-                console.log('[Whiteboard] ✓ URL hash updated with auth info');
             }
         } catch (e) {
             console.warn('[Whiteboard] Failed to update URL hash:', e);
@@ -5068,11 +4951,9 @@ async function connect() {
         // Check if we need initial state
         const otherAgents = agentNames.filter(name => name !== username);
         if (otherAgents.length === 0) {
-            console.log('[Whiteboard] First agent - checking channel storage...');
             initialStateLoaded = false;
             loadBoardStateFromStorage();
         } else {
-            console.log(`[Whiteboard] Other agents present (${otherAgents.length}) - checking storage...`);
             initialStateLoaded = false;
             loadBoardStateFromStorage();
 
@@ -5080,7 +4961,6 @@ async function connect() {
             setTimeout(() => {
                 if (!initialStateLoaded) {
                     initialStateLoaded = true;
-                    console.log('[Board State] Timeout - marking as loaded');
                 }
             }, 5000);
         }
@@ -5106,13 +4986,10 @@ function sendWhiteboardEvent(eventType, data) {
     try {
         // 1. Send via WebRTC DataChannel first (instant P2P)
         if (webrtcHelper) {
-            const sent = webrtcHelper.broadcastDataChannel({
+            webrtcHelper.broadcastDataChannel({
                 type: eventType,
                 ...data
             });
-            if (sent > 0) {
-                console.log(`[DataChannel] Sent ${eventType} to ${sent} peer(s)`);
-            }
         }
 
         // 2. Send via Messaging Platform (persistence + fallback)
@@ -5137,11 +5014,9 @@ function sendWhiteboardEvent(eventType, data) {
 function fetchCanvasFromStorage(fromPeer, actionType) {
     // Check if sync is already in progress - silently skip (no toast)
     if (syncInProgress) {
-        console.log(`[Board State] Sync already in progress (${syncInitiator}), skipping fetch request from ${fromPeer}`);
         return; // Silently skip - don't show warning toast
     }
 
-    console.log(`[Board State] Step 2: Fetching from channel storage (notified by ${fromPeer})...`);
 
     if (!connected || !channel) {
         console.error(`[Board State] Not connected - cannot fetch from storage`);
@@ -5151,22 +5026,18 @@ function fetchCanvasFromStorage(fromPeer, actionType) {
     // Set sync lock
     syncInProgress = true;
     syncInitiator = 'receiver';
-    console.log(`[Board State] 🔒 Sync lock acquired (receiver) from ${fromPeer}`);
 
     channel.storageGet({
         storageKey: STORAGE_KEY
     }, function (response) {
         if (response.status === 'success' && response.data) {
             const boardStateData = response.data;
-            console.log(`[Board State] ✓ Step 2 complete: Retrieved from storage`);
 
             // Check if it's from someone else (avoid applying our own canvas)
             if (boardStateData.author === username) {
-                console.log(`[Board State] Skipping - canvas is from self`);
                 // Release sync lock
                 syncInProgress = false;
                 syncInitiator = null;
-                console.log(`[Board State] 🔓 Sync lock released (self-canvas)`);
                 return;
             }
 
@@ -5190,7 +5061,6 @@ function fetchCanvasFromStorage(fromPeer, actionType) {
                             });
                         }
 
-                        console.log(`[Board State] ✅ Canvas synced successfully from ${fromPeer} at ${canvas.width}x${canvas.height}`);
 
                         // Show notification
                         if (actionType === 'sync') {
@@ -5201,14 +5071,12 @@ function fetchCanvasFromStorage(fromPeer, actionType) {
                         // Release sync lock after successful apply
                         syncInProgress = false;
                         syncInitiator = null;
-                        console.log(`[Board State] 🔓 Sync lock released (receiver)`);
 
                     } catch (e) {
                         console.error(`[Board State] Failed to draw synced canvas:`, e);
                         // Release sync lock on error
                         syncInProgress = false;
                         syncInitiator = null;
-                        console.log(`[Board State] 🔓 Sync lock released (error)`);
                     }
                 };
 
@@ -5218,7 +5086,6 @@ function fetchCanvasFromStorage(fromPeer, actionType) {
                     // Release sync lock on error
                     syncInProgress = false;
                     syncInitiator = null;
-                    console.log(`[Board State] 🔓 Sync lock released (image error)`);
                 };
 
                 img.src = boardStateData.canvasSnapshot;
@@ -5227,7 +5094,6 @@ function fetchCanvasFromStorage(fromPeer, actionType) {
                 // Release sync lock
                 syncInProgress = false;
                 syncInitiator = null;
-                console.log(`[Board State] 🔓 Sync lock released (no snapshot)`);
             }
 
         } else if (response.status === 'error' && response.data && response.data.includes('not found')) {
@@ -5235,13 +5101,11 @@ function fetchCanvasFromStorage(fromPeer, actionType) {
             // Release sync lock
             syncInProgress = false;
             syncInitiator = null;
-            console.log(`[Board State] 🔓 Sync lock released (not found)`);
         } else {
             console.error(`[Board State] Failed to fetch from storage:`, response);
             // Release sync lock
             syncInProgress = false;
             syncInitiator = null;
-            console.log(`[Board State] 🔓 Sync lock released (fetch error)`);
         }
     });
 }
@@ -5288,7 +5152,6 @@ function sendCanvasDirectly(agentId, dataUrl, dimensions, actionType) {
     const CHUNK_SIZE = 16000;
     const totalChunks = Math.ceil(dataSize / CHUNK_SIZE);
 
-    console.log(`[Board State] Fallback: Sending ${totalChunks} chunks directly to ${agentId}`);
 
     for (let i = 0; i < totalChunks; i++) {
         const start = i * CHUNK_SIZE;
@@ -5344,13 +5207,11 @@ function handleBoardStateChunk(peerId, data) {
 
         // ENHANCEMENT: Ignore messages from self
         if (sender === username) {
-            console.log(`[Board State] Ignoring board state chunk from self (sender: ${sender})`);
             return;
         }
 
         // ENHANCEMENT: Check if this is a duplicate based on hash (only on first chunk)
         if (chunkIndex === 0 && canvasHash && canvasHash === lastReceivedCanvasHash) {
-            console.log(`[Board State] Ignoring duplicate board state (same hash: ${canvasHash})`);
             return;
         }
 
@@ -5368,7 +5229,6 @@ function handleBoardStateChunk(peerId, data) {
                 canvasHash: canvasHash || null,
                 actionType: actionType || 'sync' // Store action type for toast
             };
-            console.log(`[Board State] Receiving board state from ${peerId} (${totalChunks} chunks expected) [hash: ${canvasHash || 'none'}] [action: ${actionType || 'sync'}]`);
         }
         const state = window._receivingBoardState;
 
@@ -5394,16 +5254,13 @@ function handleBoardStateChunk(peerId, data) {
             state.actionType = actionType;
         }
 
-        console.log(`[Board State] Received chunk ${chunkIndex + 1}/${totalChunks} from ${peerId}`);
 
         // Check if all chunks received
         if (state.receivedChunks === totalChunks || final) {
-            console.log(`[Board State] All chunks received from ${peerId}, reconstructing canvas...`);
 
             // Update last received hash to prevent duplicates
             if (state.canvasHash) {
                 lastReceivedCanvasHash = state.canvasHash;
-                console.log(`[Board State] Updated lastReceivedCanvasHash: ${lastReceivedCanvasHash}`);
             }
 
             // Reconstruct full data URL
@@ -5422,7 +5279,6 @@ function handleBoardStateChunk(peerId, data) {
                     applySyncToCanvas(fullDataUrl, state, peerId);
                 }, () => {
                     // User rejected - discard the sync
-                    console.log(`[Board State] ⛔ User rejected sync from ${peerId}`);
                     MiniGameUtils.showToast(`Sync from ${peerId} rejected`, 'warning');
                     addChatMessage('System', `You rejected sync from ${peerId}`, '#FF9800');
                     window._receivingBoardState = null;
@@ -5445,7 +5301,6 @@ function handleBoardStateChunk(peerId, data) {
 function shouldConfirmSyncOverwrite(peerId, actionType) {
     // OFFLINE MODE: Reject all incoming syncs
     if (syncMode === 'offline') {
-        console.log(`[Board State] ⛔ OFFLINE MODE - Rejecting sync from ${peerId}`);
         MiniGameUtils.showToast(`Sync blocked (Offline Mode)`, 'info');
         window._receivingBoardState = null;
         return 'auto-reject';
@@ -5455,14 +5310,12 @@ function shouldConfirmSyncOverwrite(peerId, actionType) {
     if (syncMode === 'auto-accept') {
         // Still protect during active drawing
         if (drawing) {
-            console.log(`[Board State] ⛔ Auto-rejecting sync from ${peerId} - user is actively drawing`);
             MiniGameUtils.showToast(`Sync from ${peerId} blocked - you're drawing`, 'warning');
             addChatMessage('System', `Sync from ${peerId} auto-rejected (you're drawing)`, '#FF9800');
             window._receivingBoardState = null;
             return 'auto-reject';
         }
         // Auto-accept everything else
-        console.log(`[Board State] ✅ AUTO-ACCEPT MODE - Accepting sync from ${peerId}`);
         return false;
     }
 
@@ -5475,7 +5328,6 @@ function shouldConfirmSyncOverwrite(peerId, actionType) {
 
     // Auto-reject if user is actively drawing (too disruptive)
     if (drawing) {
-        console.log(`[Board State] ⛔ Auto-rejecting sync from ${peerId} - user is actively drawing`);
         MiniGameUtils.showToast(`Sync from ${peerId} blocked - you're drawing`, 'warning');
         addChatMessage('System', `Sync from ${peerId} auto-rejected (you're drawing)`, '#FF9800');
         window._receivingBoardState = null;
@@ -5522,19 +5374,16 @@ function applySyncToCanvas(fullDataUrl, state, peerId) {
         return;
     }
 
-    console.log(`[Board State] Applying sync from ${peerId} (${Math.round(fullDataUrl.length / 1024)}KB)`);
 
     // Use utility function to load and draw image
     loadAndDrawCanvasImage(
         fullDataUrl,
         {cssWidth: state.cssWidth, cssHeight: state.cssHeight},
         (result) => {
-            console.log(`[Board State] ✓ Board state loaded and scaled from ${peerId} (scale=${result.scale.toFixed(2)}) [action: ${state.actionType}]`);
 
             // Save canvas snapshot to preserve received image/canvas on window resize
             try {
                 canvasSnapshot = fullDataUrl; // Use the received data URL directly
-                console.log('[Board State] Canvas snapshot saved for resize preservation');
             } catch (e) {
                 console.warn('[Board State] Failed to save canvas snapshot:', e);
                 MiniGameUtils.showToast('Warning: Image may not persist on resize', 'warning');
@@ -5558,7 +5407,6 @@ function applySyncToCanvas(fullDataUrl, state, peerId) {
 
             // Stop initialization - canvas received via DataChannel!
             if (isLoadingInitialState) {
-                console.log('[Init] 🎨 Canvas received via DataChannel, stopping initialization');
                 finishInitialStateLoading();
             }
 
@@ -5593,7 +5441,6 @@ function startDrawing(e) {
     // AUTO HAND MODE: If clicking outside canvas bounds, automatically activate hand mode
     if (!isTouchEvent && e.button === 0) {
         if (isOutsideCanvas(pos.x, pos.y)) {
-            console.log(`[AUTO HAND] 🎯 Activating hand mode - clicked outside canvas!`);
             e.preventDefault(); // Prevent default browser behavior for dragging
             handleClickOutsideCanvas(pos.x, pos.y);
             // After switching to hand mode, start panning
@@ -5601,7 +5448,6 @@ function startDrawing(e) {
             panStartX = e.clientX;
             panStartY = e.clientY;
             canvas.style.cursor = 'grabbing';
-            console.log(`[AUTO HAND] ✅ isPanning set to true, panStart: (${panStartX}, ${panStartY})`);
             return;
         } else {
             // If inside canvas and auto hand mode was active, restore previous tool
@@ -5743,7 +5589,6 @@ function draw(e) {
             }
         } catch (err) {
             // fallback to simple line
-            console.log('warning', '[Drawing] Smoothing failed, falling back to simple line:', err);
             drawLine(lastX, lastY, x, y, currentColor, currentSize, currentTool === 'erase');
         }
     }
@@ -6008,13 +5853,7 @@ function startMagicPenCleanup() {
         const now = Date.now();
 
         // Remove expired strokes from array
-        const beforeCount = magicStrokes.length;
         magicStrokes = magicStrokes.filter(stroke => now < stroke.expiresAt);
-        const expiredCount = beforeCount - magicStrokes.length;
-
-        if (expiredCount > 0) {
-            console.log(`[Magic Pen] Removed ${expiredCount} expired strokes, ${magicStrokes.length} remaining`);
-        }
 
         // Always redraw magic canvas with fade effect for remaining strokes
         if (magicCanvas && magicCtx) {
@@ -6032,7 +5871,6 @@ function startMagicPenCleanup() {
                 magicCtx.clearRect(0, 0, magicCanvas.width, magicCanvas.height);
             }
 
-            console.log('[Magic Pen] Cleanup stopped, magic canvas cleared');
         }
     }, 1000 / 30); // 30 FPS for smooth fade animation
 }
@@ -6184,11 +6022,9 @@ function clearCanvas() {
 
         // Save cleared state to storage (host only)
         if (connected && channel && channel.isHostAgent()) {
-            console.log('[Clear] Saving cleared state to storage...');
             setTimeout(() => saveBoardStateToStorage(), 500);
         }
 
-        console.log('[Clear] Canvas cleared, previous state saved for undo');
     });
 }
 
@@ -6233,7 +6069,6 @@ async function importImage() {
         });
         if (!yes) return;
     }
-    console.log('[Import] Opening file picker...');
     const fileInput = document.getElementById('imageImportInput');
 
     if (!fileInput) {
@@ -6246,11 +6081,9 @@ async function importImage() {
     fileInput.onchange = function (e) {
         const file = e.target.files[0];
         if (!file) {
-            console.log('[Import] No file selected');
             return;
         }
 
-        console.log(`[Import] Loading file: ${file.name} (${Math.round(file.size / 1024)}KB)`);
         MiniGameUtils.showToast(`Loading ${file.name}...`, 'info');
 
         // Validate it's an image
@@ -6274,7 +6107,6 @@ async function importImage() {
             const img = new Image();
 
             img.onload = function () {
-                console.log(`[Import] Image loaded: ${img.width}x${img.height}`);
 
                 // Validate canvas is ready
                 if (!canvas || !ctx) {
@@ -6303,7 +6135,6 @@ async function importImage() {
                 // Use utility function to draw image with proper scaling
                 drawCanvasImage(img, originalDimensions,
                     (result) => {
-                        console.log(`[Import] ✓ Image drawn on canvas (scale=${result.scale.toFixed(2)}, offset=${Math.round(result.offsetX)},${Math.round(result.offsetY)})`);
 
                         // Show success notification
                         MiniGameUtils.showToast(`Image imported: ${file.name}`, 'success');
@@ -6312,7 +6143,6 @@ async function importImage() {
                         // Save canvas snapshot to preserve image on window resize
                         try {
                             canvasSnapshot = canvas.toDataURL('image/png');
-                            console.log('[Import] Canvas snapshot saved for resize preservation');
                         } catch (e) {
                             console.warn('[Import] Failed to save canvas snapshot:', e);
                             MiniGameUtils.showToast('Warning: Image may not persist on resize', 'warning');
@@ -6323,12 +6153,10 @@ async function importImage() {
 
                         if (otherUsers.length > 0) {
                             // Broadcast canvas to all connected agents via DataChannel
-                            console.log(`[Import] Broadcasting to ${otherUsers.length} users...`);
                             MiniGameUtils.showToast(`Broadcasting to ${otherUsers.length} user(s)...`, 'info');
 
                             try {
                                 broadcastCanvasToAllAgents('import');
-                                console.log('[Import] ✓ Broadcast completed');
                                 MiniGameUtils.showToast('Image shared with others', 'success');
                             } catch (broadcastErr) {
                                 console.error('[Import] ❌ Broadcast failed:', broadcastErr);
@@ -6336,7 +6164,6 @@ async function importImage() {
                                 addChatMessage('System', 'Failed to broadcast image to others', '#FF9800');
                             }
                         } else {
-                            console.log('[Import] No other users to broadcast to');
                             MiniGameUtils.showToast('Image imported — nobody else is here to see it', 'info');
                         }
 
@@ -6351,7 +6178,6 @@ async function importImage() {
 
                         // Save to storage after import (host only)
                         if (connected && channel && channel.isHostAgent()) {
-                            console.log('[Import] Saving imported image to storage...');
                             setTimeout(() => saveBoardStateToStorage(), 1000);
                         }
 
@@ -6409,7 +6235,6 @@ async function importImage() {
 
 function broadcastCanvasToAllAgents(actionType = 'sync') {
     if (!connected || !webrtcHelper) {
-        console.log('[Broadcast] ⚠️ Not connected or no WebRTC helper - skipping broadcast');
         MiniGameUtils.showToast('Not connected - cannot broadcast', 'warning');
         return;
     }
@@ -6417,7 +6242,6 @@ function broadcastCanvasToAllAgents(actionType = 'sync') {
     // Get all connected users (except self)
     const otherAgents = Array.from(users.keys()).filter(name => name !== username);
 
-    console.log(`[Broadcast] 📡 Broadcasting canvas (${actionType}) to ${otherAgents.length} agents: ${otherAgents.join(', ')}`);
 
     let successCount = 0;
     let errorCount = 0;
@@ -6433,9 +6257,7 @@ function broadcastCanvasToAllAgents(actionType = 'sync') {
         }
     });
 
-    if (errorCount === 0) {
-        console.log(`[Broadcast] ✓ Canvas broadcast queued for all ${successCount} agents`);
-    } else {
+    if (errorCount > 0) {
         console.warn(`[Broadcast] ⚠️ Canvas broadcast partial: ${successCount} success, ${errorCount} failed`);
         MiniGameUtils.showToast(`Broadcast to ${errorCount} user(s) failed`, 'warning');
     }
@@ -6524,7 +6346,6 @@ function sendChat() {
             // Use BaseGame's sendChat method
             whiteboardGame.sendChat(message)
                 .then(() => {
-                    console.log('Chat message sent successfully');
                     input.value = '';
                     // Add to own chat display immediately (messages from self won't trigger chat-text event)
                     addChatMessage(username || 'You', message, '#6965db');
@@ -6661,7 +6482,6 @@ document.addEventListener('DOMContentLoaded', () => {
                             const savedUsername = localStorage.getItem('whiteboard_username');
                             if (savedUsername && savedUsername.trim()) {
                                 finalName = savedUsername; // Use saved username
-                                console.log('[Share Link] Using saved username from localStorage:', savedUsername);
                             }
                         } catch (e) {
                             console.warn('[Share Link] Failed to read saved username:', e);
@@ -6670,7 +6490,6 @@ document.addEventListener('DOMContentLoaded', () => {
                     // If still no name, generate random one
                     if (!finalName) {
                         finalName = window.generateRandomAgentName ? window.generateRandomAgentName() : ('User-' + Math.random().toString(36).slice(2, 8));
-                        console.log('[Share Link] Generated random username:', finalName);
                     }
 
                     if (userEl) {
@@ -6707,13 +6526,11 @@ window.addEventListener('resize', () => {
 
     resizeTimeout = setTimeout(() => {
         if (canvas && ctx) {
-            console.log('[Resize] Window resized, redrawing canvas with snapshot...');
 
             // Save current canvas state before resize if we don't have a snapshot
             if (!canvasSnapshot && canvas) {
                 try {
                     canvasSnapshot = canvas.toDataURL('image/png');
-                    console.log('[Resize] Canvas snapshot captured before resize');
                 } catch (e) {
                     console.warn('[Resize] Failed to capture canvas snapshot:', e);
                 }
@@ -6760,7 +6577,6 @@ function showToast(message, type = 'info') {
  * @param {string} username - Username of the user who connected
  */
 function showConnectToast(username) {
-    console.log(`[Toast] 📞 showConnectToast called for: ${username}`);
     showToast(`${username} joined`, 'success');
 }
 
@@ -6769,7 +6585,6 @@ function showConnectToast(username) {
  * @param {string} username - Username of the user who disconnected
  */
 function showDisconnectToast(username) {
-    console.log(`[Toast] 👋 showDisconnectToast called for: ${username}`);
     showToast(`${username} left`, 'info');
 }
 
@@ -6778,7 +6593,6 @@ function showDisconnectToast(username) {
  * @param {string} username - Username of the user who imported
  */
 function showImageImportToast(username) {
-    console.log(`[Toast] 🖼️ showImageImportToast called for: ${username}`);
     showToast(`${username} imported an image`, 'info');
 }
 
@@ -6787,7 +6601,6 @@ function showImageImportToast(username) {
  * @param {string} username - Username of the user who undid
  */
 function showUndoToast(username) {
-    console.log(`[Toast] ⏪ showUndoToast called for: ${username}`);
     showToast(`${username} undid their last action`, 'info');
 }
 
@@ -6796,7 +6609,6 @@ function showUndoToast(username) {
  * @param {string} username - Username of the user who redid
  */
 function showRedoToast(username) {
-    console.log(`[Toast] ⏩ showRedoToast called for: ${username}`);
     showToast(`${username} redid their last action`, 'info');
 }
 
@@ -6805,7 +6617,6 @@ function showRedoToast(username) {
  * @param {string} username - Username of the user who synced
  */
 function showSyncToast(username) {
-    console.log(`[Toast] ✨ showSyncToast called for: ${username}`);
     showToast(`${username} pushed their board to the room`, 'success');
 }
 
@@ -6814,7 +6625,6 @@ function showSyncToast(username) {
  * @param {string} username - Username of the user who cleared
  */
 function showClearToast(username) {
-    console.log(`[Toast] 🗑️ showClearToast called for: ${username}`);
     showToast(`${username} cleared the board`, 'warning');
 }
 
@@ -6868,7 +6678,6 @@ function disconnect() {
         confirmLabel: 'Leave', danger: true
     }).then((yes) => {
         if (!yes) {
-            console.log('Disconnect cancelled by user');
             return;
         }
         doDisconnect();
@@ -6906,7 +6715,6 @@ function doDisconnect() {
         try {
             if (window.location.hash) {
                 window.history.replaceState(null, '', window.location.pathname + window.location.search);
-                console.log('[Whiteboard] ✓ URL hash removed');
             }
         } catch (e) {
             console.warn('[Whiteboard] Failed to remove URL hash:', e);
@@ -6918,7 +6726,6 @@ function doDisconnect() {
             modal.classList.add('active');
         }
 
-        console.log('Disconnected successfully');
     } catch (e) {
         console.error('Error during disconnect:', e);
     }
@@ -6946,7 +6753,6 @@ document.addEventListener('DOMContentLoaded', () => {
             // Always start collapsed, remove any expanded class
             footer.classList.remove('expanded');
             footer.classList.add('collapsed');
-            console.log('[Footer] Chat panel initialized as collapsed (not restored from localStorage)');
         }
 
         // Clear any old footer state from localStorage (cleanup)
@@ -6981,7 +6787,6 @@ async function triggerManualRsync() {
         });
 
         if (!confirmSync) {
-            console.log('[Rsync] User cancelled sync operation');
             return;
         }
 
@@ -7042,7 +6847,6 @@ function captureHistorySnapshot() {
     try {
         // Only capture if we have pending strokes
         if (pendingStrokesForHistory.length === 0) {
-            console.log('[History] No pending strokes to capture');
             return;
         }
 
@@ -7056,7 +6860,6 @@ function captureHistorySnapshot() {
         // Clear pending strokes
         pendingStrokesForHistory = [];
 
-        console.log(`[History] Captured DrawStrokesCommand: +${strokes.length} strokes`);
     } catch (e) {
         console.error('[History] Error capturing snapshot:', e);
     }
@@ -7075,7 +6878,6 @@ function scheduleHistorySnapshot() {
     // Schedule snapshot for 2 seconds later (increased from 1s for better mobile performance)
     historySnapshotTimer = setTimeout(() => {
         try {
-            console.log('[History] Delayed snapshot triggered');
             captureHistorySnapshot();
         } catch (e) {
             console.error('[History] Error in scheduled snapshot:', e);
@@ -7129,7 +6931,6 @@ function captureFullSnapshot() {
 
         updateUndoRedoButtons();
 
-        console.log(`[History] Full snapshot captured (image import)`);
     } catch (e) {
         console.error('[History] Error capturing full snapshot:', e);
     }
@@ -7154,14 +6955,12 @@ function restoreSnapshot(snapshot, isUndo = true) {
                 const strokesToRemove = snapshot.addedStrokes.length;
                 boardState.splice(-strokesToRemove, strokesToRemove);
 
-                console.log(`[History] UNDO: Removed ${strokesToRemove} strokes. New boardState length: ${boardState.length}`);
             } else {
                 // REDO: Re-add the strokes that were removed
                 snapshot.addedStrokes.forEach(stroke => {
                     boardState.push(stroke);
                 });
 
-                console.log(`[History] REDO: Re-added ${snapshot.addedStrokes.length} strokes. New boardState length: ${boardState.length}`);
             }
 
             // Redraw entire canvas from boardState
@@ -7193,14 +6992,12 @@ function restoreFullSnapshot(snapshot) {
         const img = new Image();
         img.onload = function () {
             ctx.drawImage(img, 0, 0);
-            console.log(`[History] ✓ Restored canvas image from full snapshot`);
 
             boardState = JSON.parse(JSON.stringify(snapshot.boardState)); // Deep clone
             boardState.forEach(stroke => {
                 drawStroke(stroke);
             });
 
-            console.log(`[History] Restored full snapshot with ${boardState.length} strokes`);
         };
         img.onerror = function () {
             console.error('[History] Failed to restore canvas image');
@@ -7242,7 +7039,6 @@ function triggerUndo() {
                 setTimeout(() => saveBoardStateToStorage(), 500);
             }
 
-            console.log(`[Undo] ✓ Undone: ${command.type}`);
         }
     } catch (e) {
         console.error('[Undo] Error during undo operation:', e);
@@ -7269,7 +7065,6 @@ function triggerRedo() {
                 setTimeout(() => saveBoardStateToStorage(), 500);
             }
 
-            console.log(`[Redo] ✓ Redone: ${command.type}`);
         }
     } catch (e) {
         console.error('[Redo] Error during redo operation:', e);
@@ -7290,12 +7085,10 @@ function syncCanvasAfterUndoRedo(action) {
         if (channel && channel.isHostAgent()) {
             // Host saves to storage, others will fetch
             saveBoardStateToStorage();
-            console.log(`[UndoRedo] Canvas synced via storage after ${action}`);
         } else {
             // No longer local-only: the action itself is broadcast and applied
             // by every peer. Storage is the host's job, so a guest has nothing
             // more to do here.
-            console.log(`[UndoRedo] ${action} broadcast to the room; storage is the host's`);
         }
     } catch (e) {
         console.error(`[UndoRedo] Error syncing canvas after ${action}:`, e);
@@ -7525,8 +7318,6 @@ function applySyncMode() {
     const selectedRadio = document.querySelector('input[name="syncMode"]:checked');
     if (selectedRadio) {
         const newMode = selectedRadio.value;
-        const oldMode = syncMode;
-
         syncMode = newMode;
         localStorage.setItem('whiteboardSyncMode', newMode);
 
@@ -7541,9 +7332,6 @@ function applySyncMode() {
         };
 
         MiniGameUtils.showToast(`Sync mode changed to: ${modeLabels[newMode]}`, 'success');
-
-        // Log mode change
-        console.log(`[Sync Mode] Changed from ${oldMode} to ${newMode}`);
 
         // Add chat message
         addChatMessage('System', `Sync mode: ${modeLabels[newMode]}`, '#10b981');
@@ -7598,53 +7386,6 @@ if (typeof document !== 'undefined') {
     }
 }
 
-// ============================================
-// DEBUG UTILITIES (exposed to window for console access)
-// ============================================
-
-/**
- * Debug function to verify coordinate system
- * Call from console: window.debugWhiteboard()
- */
-window.debugWhiteboard = function () {
-    console.log('=== Whiteboard Debug Info ===');
-    console.log('Canvas Config:', CANVAS_CONFIG);
-    console.log('Viewport Transform:', viewportTransform);
-    console.log('Canvas Element:', {
-        width: canvas?.width,
-        height: canvas?.height,
-        styleWidth: canvas?.style.width,
-        styleHeight: canvas?.style.height,
-        clientWidth: canvas?.clientWidth,
-        clientHeight: canvas?.clientHeight
-    });
-    console.log('Board State:', {
-        totalStrokes: boardState?.length || 0,
-        lastStroke: boardState?.[boardState.length - 1]
-    });
-    console.log('Connection:', {
-        connected,
-        username,
-        channelName,
-        users: users.size
-    });
-    console.log('Zoom:', `${Math.round(viewportTransform.zoom * 100)}%`);
-    console.log('Canvas Position:', {
-        panX: Math.round(viewportTransform.panX),
-        panY: Math.round(viewportTransform.panY)
-    });
-
-    // Test coordinate conversion
-    if (canvas) {
-        const testViewportPos = {x: 100, y: 100};
-        const canvasPos = viewportToCanvas(testViewportPos.x, testViewportPos.y);
-        const backToViewport = canvasToViewport(canvasPos.x, canvasPos.y);
-        console.log('Coordinate Conversion Test:');
-        console.log('  Viewport (100, 100) →', `Canvas (${canvasPos.x.toFixed(2)}, ${canvasPos.y.toFixed(2)})`);
-        console.log('  Canvas back to Viewport →', `(${backToViewport.x.toFixed(2)}, ${backToViewport.y.toFixed(2)})`);
-    }
-};
-
 /**
  * Debug function to test drawing at specific canvas coordinates
  * Call from console: window.testDrawAtCanvasPos(960, 540, 'red')
@@ -7655,7 +7396,6 @@ window.testDrawAtCanvasPos = function (canvasX, canvasY, color = 'red') {
         return;
     }
 
-    console.log(`Drawing test marker at canvas coordinates (${canvasX}, ${canvasY})`);
 
     // Draw a cross marker
     const size = 20;
@@ -7670,10 +7410,8 @@ window.testDrawAtCanvasPos = function (canvasX, canvasY, color = 'red') {
     ctx.stroke();
     ctx.restore();
 
-    console.log(`✓ Marker drawn. Canvas center is at (960, 540)`);
 };
 
-console.log('[Whiteboard] Debug utilities available: window.debugWhiteboard(), window.testDrawAtCanvasPos(x, y, color)');
 
 // ============================================
 // FRAMEWORK INTEGRATION
@@ -7684,7 +7422,6 @@ console.log('[Whiteboard] Debug utilities available: window.debugWhiteboard(), w
  * Board state sync and other methods are now encapsulated in WhiteboardGame class
  */
 
-console.log('[Whiteboard] Framework integration ready - all methods in WhiteboardGame class');
 
 // ============================================
 // END FRAMEWORK INTEGRATION

@@ -175,26 +175,6 @@ class AirHockeyGame extends UserConnectionBase {
     }
 
     async onInitialize() {
-        console.log('[AirHockey] Initializing...');
-
-        // Log device and browser information for debugging
-        const ua = navigator.userAgent;
-        const deviceInfo = {
-            userAgent: ua,
-            platform: navigator.platform,
-            isMobile: /iPhone|iPad|iPod|Android/i.test(ua),
-            isIOS: /iPhone|iPad|iPod/i.test(ua),
-            isAndroid: /Android/i.test(ua),
-            isSafari: /Safari/i.test(ua) && !/Chrome/i.test(ua),
-            screenWidth: window.screen.width,
-            screenHeight: window.screen.height,
-            windowWidth: window.innerWidth,
-            windowHeight: window.innerHeight,
-            touchSupport: 'ontouchstart' in window || navigator.maxTouchPoints > 0
-        };
-
-        console.log('[AirHockey] Device Info:', deviceInfo);
-
         // Setup canvas
         this.canvas = document.getElementById('gameCanvas');
         this.ctx = this.canvas.getContext('2d');
@@ -235,16 +215,12 @@ class AirHockeyGame extends UserConnectionBase {
 
         // If arena is not visible yet, skip (will be called again on resize)
         if (arenaRect.width < 50 || arenaRect.height < 50) {
-            console.log('[AirHockey] Arena not visible yet, skipping responsive setup');
             return;
         }
 
         const availableWidth = arenaRect.width - 20;
         const availableHeight = arenaRect.height - 20;
 
-        console.log('[AirHockey] setupResponsiveCanvas:', {
-            isMobile, isPortrait, availableWidth, availableHeight
-        });
 
         this.isPortraitMode = isMobile && isPortrait;
 
@@ -265,7 +241,6 @@ class AirHockeyGame extends UserConnectionBase {
             const scaleY = availableHeight / rotatedHeight;
             const scale = Math.min(scaleX, scaleY);
 
-            console.log('[AirHockey] Portrait mode, scale:', scale);
 
             // Apply rotation and scaling
             this.canvas.style.transform = `rotate(90deg) scale(${scale})`;
@@ -278,7 +253,6 @@ class AirHockeyGame extends UserConnectionBase {
             const scaleY = availableHeight / GAME_CONFIG.CANVAS_HEIGHT;
             const scale = Math.min(scaleX, scaleY, 1);
 
-            console.log('[AirHockey] Landscape mode, scale:', scale);
 
             if (scale < 1) {
                 this.canvas.style.transform = `scale(${scale})`;
@@ -298,7 +272,6 @@ class AirHockeyGame extends UserConnectionBase {
     }
 
     onConnect(detail) {
-        console.log('[AirHockey] Connected:', detail);
 
         // Hide connection modal and show game
         setTimeout(() => {
@@ -324,7 +297,6 @@ class AirHockeyGame extends UserConnectionBase {
         const otherPlayers = this.getConnectedUsers().filter(u => u !== this.username);
         if (otherPlayers.length > 0) {
             // Show loader while establishing DataChannel connections with existing players
-            console.log('[AirHockey] Other players present, showing connection loader:', otherPlayers);
             this.showConnectionLoader(`Connecting to ${otherPlayers.length} player${otherPlayers.length > 1 ? 's' : ''}...`);
         }
 
@@ -339,7 +311,6 @@ class AirHockeyGame extends UserConnectionBase {
     }
 
     onUserJoining(detail) {
-        console.log('[AirHockey] Player joining:', detail.agentName);
 
         // Only show joining message if game hasn't started
         if (this.gameStatus !== 'playing') {
@@ -350,7 +321,6 @@ class AirHockeyGame extends UserConnectionBase {
     }
 
     onUserJoin(detail) {
-        console.log('[AirHockey] Player joined successfully:', detail.agentName);
 
         // Hide the connection loader - DataChannel is now open
         this.hideConnectionLoader();
@@ -360,7 +330,6 @@ class AirHockeyGame extends UserConnectionBase {
             this.showToast(`${detail.agentName} joined!`, 'success');
         } else {
             // Game is playing - pause it when a new player joins
-            console.log('[AirHockey] Player joined during game - pausing game');
             this.showToast(`${detail.agentName} joined! Game paused.`, 'info');
 
             if (this.isHost()) {
@@ -406,7 +375,6 @@ class AirHockeyGame extends UserConnectionBase {
     }
 
     onUserLeave(detail) {
-        console.log('[AirHockey] User left:', detail.agentName);
         this.showToast(`${detail.agentName} left`, 'info');
 
         this.removePlayer(detail.agentName);
@@ -415,7 +383,6 @@ class AirHockeyGame extends UserConnectionBase {
 
         // If only one player remains and game is playing, stop the game
         if (this.players.size < 2 && this.gameStatus === 'playing') {
-            console.log('[AirHockey] Not enough players, stopping game');
             this.showToast('Not enough players - game stopped', 'warning');
             this.gameStatus = 'waiting';
             this.resetPuck();
@@ -425,7 +392,6 @@ class AirHockeyGame extends UserConnectionBase {
     }
 
     onBecomeHost() {
-        console.log('[AirHockey] Became host - showing start button');
 
         // Update control panel (control panel handles host indicator)
         this.updateControlPanel();
@@ -450,7 +416,6 @@ class AirHockeyGame extends UserConnectionBase {
     }
 
     onDataChannelOpen(peerId) {
-        console.log('[AirHockey] DataChannel open with', peerId);
         this.connectedPeers.add(peerId);
         this.updatePlayersList();
 
@@ -465,7 +430,6 @@ class AirHockeyGame extends UserConnectionBase {
     }
 
     onDataChannelClose(peerId) {
-        console.log('[AirHockey] DataChannel closed with', peerId);
         this.connectedPeers.delete(peerId);
         this.updatePlayersList();
     }
@@ -689,7 +653,6 @@ class AirHockeyGame extends UserConnectionBase {
         if (!this.playerOrder.includes(playerId)) {
             this.playerOrder.push(playerId);
         }
-        console.log(`[AirHockey] Player added: ${playerId} as ${config.name} (${config.position}, Team: ${config.team})`);
     }
 
     removePlayer(playerId) {
@@ -739,7 +702,6 @@ class AirHockeyGame extends UserConnectionBase {
 
         this.updatePlayersList();
         this.updateScoreBoard();
-        console.log('[AirHockey] Received player assignments:', this.players.size, 'players');
     }
 
     getInitialPaddlePosition(position) {
@@ -842,14 +804,6 @@ class AirHockeyGame extends UserConnectionBase {
      * Update visibility of host-only controls based on game state
      */
     updateHostControls() {
-        console.log('[AirHockey] updateHostControls called:', {
-            isHost: this.isHost(),
-            gameStatus: this.gameStatus,
-            username: this.username,
-            playerOrder: this.playerOrder,
-            controlPanelExists: !!this.controlPanel,
-            controlPanelIsHost: this.controlPanel ? this.controlPanel.config.isHost : 'N/A'
-        });
 
         // Hide sidebar host controls (we're using control panel instead)
         const hostControls = document.getElementById('hostControls');
@@ -867,7 +821,6 @@ class AirHockeyGame extends UserConnectionBase {
         const isHost = this.isHost();
         this.controlPanel.config.isHost = isHost;
 
-        console.log('[AirHockey] Updated control panel isHost to:', isHost);
 
         // Find custom buttons in config
         const resetBallBtn = this.controlPanel.config.customButtons.find(btn => btn.id === 'reset-ball');
@@ -876,21 +829,11 @@ class AirHockeyGame extends UserConnectionBase {
         if (resetBallBtn) {
             // Reset Ball button: show only during active game and if host
             resetBallBtn.visible = isHost && this.gameStatus === 'playing';
-            console.log('[AirHockey] Reset Ball button:', {
-                isHost: isHost,
-                gameStatus: this.gameStatus,
-                visible: resetBallBtn.visible
-            });
         }
 
         if (newGameBtn) {
             // New Game button: show only when game is playing or finished and if host
             newGameBtn.visible = isHost && (this.gameStatus === 'playing' || this.gameStatus === 'finished');
-            console.log('[AirHockey] New Game button:', {
-                isHost: isHost,
-                gameStatus: this.gameStatus,
-                visible: newGameBtn.visible
-            });
         }
 
         // Update control panel UI to reflect changes
@@ -905,10 +848,8 @@ class AirHockeyGame extends UserConnectionBase {
             } else {
                 pauseBtn.style.display = 'none';
             }
-            console.log('[AirHockey] Pause button display:', pauseBtn.style.display);
         }
 
-        console.log('[AirHockey] Control panel UI updated');
     }
 
     /**
@@ -1027,7 +968,6 @@ class AirHockeyGame extends UserConnectionBase {
     pauseGameFromControlPanel() {
         if (!this.isHost() || this.gameStatus !== 'playing') return;
 
-        console.log('[AirHockey] Pausing game (control panel)');
         this.pauseGame('⏸️ Game Paused by Host');
 
         // Broadcast pause to all players
@@ -1049,7 +989,6 @@ class AirHockeyGame extends UserConnectionBase {
     resumeGameFromControlPanel() {
         if (!this.isHost() || this.gameStatus !== 'playing') return;
 
-        console.log('[AirHockey] Resuming game (control panel)');
         this.resumeGame();
 
         // Broadcast resume to all players
@@ -1064,7 +1003,6 @@ class AirHockeyGame extends UserConnectionBase {
 
         // Only show waiting room UI if game is not playing
         if (this.gameStatus === 'playing') {
-            console.log('[AirHockey] Game already playing, skipping waiting room UI');
             return;
         }
 
@@ -1099,7 +1037,6 @@ class AirHockeyGame extends UserConnectionBase {
     startGame() {
         if (!this.isHost()) return;
 
-        console.log('[AirHockey] Starting game...');
 
         const wasPlaying = this.gameStatus === 'playing';
         const wasPaused = this.isPaused();
@@ -1108,7 +1045,6 @@ class AirHockeyGame extends UserConnectionBase {
 
         // If we were already playing and paused, we're resuming - keep scores and positions
         if (wasPlaying && wasPaused) {
-            console.log('[AirHockey] Resuming game after player join');
 
             // Resume the game
             this.resumeGame();
@@ -1132,14 +1068,12 @@ class AirHockeyGame extends UserConnectionBase {
         }
 
         // Otherwise, this is a fresh start - reset everything
-        console.log('[AirHockey] Starting fresh game');
 
         // Read win score from dropdown (in case it wasn't changed but has a different value)
         const winScoreSelect = document.getElementById('winScore');
         if (winScoreSelect) {
             this.winScore = parseInt(winScoreSelect.value) || GAME_CONFIG.DEFAULT_WIN_SCORE;
         }
-        console.log('[AirHockey] Win score:', this.winScore);
         // Guests get this from game-start; the host's own side panel needs it too.
         const winScoreDisplay = document.getElementById('winScoreDisplay');
         if (winScoreDisplay) winScoreDisplay.textContent = this.winScore;
@@ -1215,7 +1149,6 @@ class AirHockeyGame extends UserConnectionBase {
     }
 
     handleGameStart(data) {
-        console.log('[AirHockey] Game starting!');
         this.gameStatus = 'playing';
         this.winScore = data.winScore || GAME_CONFIG.DEFAULT_WIN_SCORE;
 
@@ -1458,7 +1391,6 @@ class AirHockeyGame extends UserConnectionBase {
      * Pause game due to host being idle
      */
     pauseGameDueToIdle() {
-        console.log('[AirHockey] Host idle - pausing game');
         this.pauseGame('⏸️ Host is idle - Game Paused');
 
         // Broadcast pause to all players
@@ -1478,7 +1410,6 @@ class AirHockeyGame extends UserConnectionBase {
      * Resume game when host becomes active
      */
     resumeGameFromIdle() {
-        console.log('[AirHockey] Host active - resuming game');
         this.resumeGame();
 
         // Broadcast resume to all players
@@ -1491,7 +1422,6 @@ class AirHockeyGame extends UserConnectionBase {
      * Pause game when a new player joins during gameplay
      */
     pauseGameForPlayerJoin() {
-        console.log('[AirHockey] Pausing game - new player joined');
         this.pauseGame('New Player Joined - Game Paused');
 
         // Broadcast pause to all players
@@ -1538,7 +1468,6 @@ class AirHockeyGame extends UserConnectionBase {
      * Handle game pause message from host
      */
     handleGamePause(data) {
-        console.log('[AirHockey] Game paused by host:', data.reason);
         this.pauseGame(data.reason || '⏸️ Game Paused');
 
         // Update control panel
@@ -1553,7 +1482,6 @@ class AirHockeyGame extends UserConnectionBase {
      * Handle game pause due to player joining
      */
     handleGamePausePlayerJoin(data) {
-        console.log('[AirHockey] Game paused - player joined:', data.reason);
         this.pauseGame('New Player Joined - Game Paused');
 
         // Stop puck movement
@@ -1601,7 +1529,6 @@ class AirHockeyGame extends UserConnectionBase {
      * Handle game resume message from host
      */
     handleGameResume(data) {
-        console.log('[AirHockey] Game resumed by host');
         this.resumeGame();
 
         // Update control panel
@@ -1612,7 +1539,6 @@ class AirHockeyGame extends UserConnectionBase {
      * Handle game resume after player joined
      */
     handleGameResumeAfterJoin(data) {
-        console.log('[AirHockey] Game resumed after player join');
         this.resumeGame();
 
         // Set puck position from host
@@ -2191,7 +2117,6 @@ class AirHockeyGame extends UserConnectionBase {
     resetBallToCenter() {
         if (!this.isHost()) return;
 
-        console.log('[AirHockey] Host resetting ball to center');
 
         // Reset puck to center with no velocity
         this.puck.x = GAME_CONFIG.CANVAS_WIDTH / 2;
@@ -2223,7 +2148,6 @@ class AirHockeyGame extends UserConnectionBase {
     startNewGame() {
         if (!this.isHost()) return;
 
-        console.log('[AirHockey] Host starting new game');
 
         // Don't stop render loop - it should always run
         // Just reset game state
@@ -2262,7 +2186,6 @@ class AirHockeyGame extends UserConnectionBase {
     }
 
     handleNewGame(data) {
-        console.log('[AirHockey] Received new game command from host');
 
         // Don't stop render loop - it should always run
         // Just reset game state
@@ -3016,7 +2939,6 @@ async function connectAirHockey(username, channel, password) {
             }
         }
 
-        console.log('[AirHockey] Connected and ready!');
     } catch (error) {
         console.error('[AirHockey] Connection failed:', error);
         if (window.ConnectionModal) ConnectionModal.fail(error);
@@ -3069,7 +2991,6 @@ function initSoundToggle() {
 
 // Initialize on DOM load
 document.addEventListener('DOMContentLoaded', () => {
-    console.log('[AirHockey] Page loaded');
     initSoundToggle();
 
     // Initialize connection modal
@@ -3081,7 +3002,6 @@ document.addEventListener('DOMContentLoaded', () => {
             gameName: 'AirHockey',
             storagePrefix: 'airhockey_',
             connectCallback: async function() {
-                console.log('[AirHockey] Auto-connect triggered');
                 const username = document.getElementById('usernameInput')?.value?.trim();
                 const channel = document.getElementById('channelInput')?.value?.trim();
                 const password = document.getElementById('passwordInput')?.value || '';
@@ -3171,7 +3091,6 @@ function toggleFullscreen() {
         }, 50);
     }
 
-    console.log('[AirHockey] Fullscreen mode:', isFullscreen);
 }
 
 
