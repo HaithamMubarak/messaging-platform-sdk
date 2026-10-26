@@ -77,6 +77,14 @@ jobs:
           npm init -y >/dev/null
           npm install --silent "$OLDPWD"/*.tgz
           node -e "const a=require('@messaging-platform/web-agent-js'); if(!a.AgentConnection) throw new Error('package does not export its API'); console.log('installed package imports fine');"
+      # Every unit suite, pack.test.js included (both entry points, declared
+      # names exist at runtime, nothing in "files" missing).
+      - run: npm test
+        working-directory: agents/web-agent-js
+      # index.d.ts against a file that uses every declaration, under --strict.
+      # Kept out of `npm test`, which stays offline; this fetches TypeScript.
+      - run: npm run test:types
+        working-directory: agents/web-agent-js
 
   javascript-syntax:
     name: JavaScript parses
