@@ -111,3 +111,17 @@ Or if you've installed the SDK as a package:
 ```bash
 pip install hmdev-messaging-agent
 ```
+
+## Channel storage example
+
+`storage_example.py` uses the channel's key-value store: it puts an encrypted
+value and reads it back, keeps an append-only log, shows that the log refuses
+a put, lists the keys and deletes one. It runs live and prints PASS or FAIL:
+
+```bash
+python storage_example.py --url <URL> --api-key <KEY>
+```
+
+Each run makes a fresh channel (`parity-storage-py-<time>`); each channel
+counts against your key's channel quota, so delete them when you are done.
+The API is described in [`agents/python-agent/README.md`](../../python-agent/README.md#channel-storage).

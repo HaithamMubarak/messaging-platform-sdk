@@ -85,6 +85,43 @@ From the repository root:
 gradlew.bat :sdk:agents:examples:java-agent-chat:run --args="--channel=system001 --password=12345678 --agent-name=java-agent-example-001"
 ```
 
+### Channel storage (Java)
+
+Each channel has a key-value store on the server, with versions: the same
+store, and the same wire format, as the web agent's `storage*` methods. Once
+connected, `connection.storage()` has the calls:
+
+```java
+AgentConnection agent = new AgentConnection(apiUrl, apiKey);
+agent.connect(ConnectConfig.builder().channelName("my-room").channelPassword("secret-pw").agentName("bot").build());
+ChannelStorage storage = agent.storage();
+
+storage.put("settings", Map.of("theme", "dark"), true);        // replace every version, encrypted
+Optional<StorageEntry> entry = storage.get("settings");        // empty when nothing is stored
+entry.get().getJson().get("theme").asText();                    // "dark"
+entry.get().getWrittenBy();                                     // "bot", stamped by the server
+
+storage.add("audit", Map.of("event", "opened"), false, true);  // append; appendOnly locks a new key
+storage.getList("audit");                                       // every version, newest first
+storage.keys();                                                 // [audit, settings]
+storage.deleteByKey("settings");                                // versions deleted
+
+try {
+    storage.put("audit", "overwrite");
+} catch (StorageException e) {
+    e.isAppendOnly();                                           // true (409): the log is append-only
+}
+```
+
+A String is stored as is; anything else as JSON (`getText()`, `getJson()`,
+`as(Type.class)` read it back). `encrypted` stores the value under the channel
+secret, so the server holds only ciphertext, and the Python, Java and web
+agents read each other's encrypted values. Encrypting without a channel
+secret throws instead of storing the value in clear. Every failure throws
+`StorageException`, so a failed read is never mistaken for an empty one.
+
+Runnable example: `./gradlew :agents:examples:java-agent-chat:storageExample --args="--url=<URL> --api-key=<KEY>"`.
+
 ---
 
 ## C++ Agent

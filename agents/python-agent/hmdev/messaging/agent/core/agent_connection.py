@@ -11,6 +11,7 @@ from hmdev.messaging.agent.util.utils import sleep
 from hmdev.messaging.agent.api.connection_channel_api_factory import ConnectionChannelApiFactory
 from hmdev.messaging.agent.api.models import ConnectResponse, EventMessageResult, AgentInfo, ReceiveConfig
 from hmdev.messaging.agent.api.impl.messaging_channel_api import MessagingChannelApi
+from hmdev.messaging.agent.api.impl.channel_storage import ChannelStorage, StorageError
 from hmdev.messaging.agent.security.my_security import MySecurity
 
 logger = logging.getLogger(__name__)
@@ -47,6 +48,7 @@ class AgentConnection:
         self._channel_name: Optional[str] = None
         self._channel_password: Optional[str] = None
         self._receive_thread: Optional[threading.Thread] = None
+        self._storage: Optional[ChannelStorage] = None
 
         # WebSocket transport (opt-in, see connect(useWebsocket=True)). When
         # active, receive_async() switches from HTTP polling to a one-shot
@@ -618,6 +620,20 @@ class AgentConnection:
         except Exception as e:
             logger.warning("get_active_agents failed: %s", e)
             return None
+
+    @property
+    def storage(self) -> ChannelStorage:
+        """Channel storage for this connection (put/add/get/get_list/keys/values/delete_by_key)."""
+        if self._storage is None:
+            api_url = getattr(self._channel_api, 'remote_url', None)
+            if not api_url:
+                raise StorageError("No API URL on this connection's channel API; storage needs one")
+            self._storage = ChannelStorage(
+                api_url,
+                session_id=lambda: self._session_id if self.is_ready() else None,
+                channel_secret=lambda: self.channel_secret or getattr(self._channel_api, 'channel_secret', None),
+            )
+        return self._storage
 
     def set_check_last_session(self, check: bool) -> None:
         self._check_last_session = check

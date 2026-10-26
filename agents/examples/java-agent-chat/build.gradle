@@ -42,3 +42,13 @@ tasks.register('liveSmokeTest', JavaExec) {
     classpath = sourceSets.main.runtimeClasspath
     mainClass = 'com.hmdev.messaging.agent.example.LiveSmokeTest'
 }
+
+// Channel storage, live: put/get (encrypted), an append-only log, keys, delete.
+//   ./gradlew :agents:examples:java-agent-chat:storageExample \
+//       --args="--url=<URL> --api-key=<KEY>"
+tasks.register('storageExample', JavaExec) {
+    group = 'verification'
+    description = 'Live channel storage example (needs --args="--url=.. --api-key=..")'
+    classpath = sourceSets.main.runtimeClasspath
+    mainClass = 'com.hmdev.messaging.agent.example.StorageExample'
+}
