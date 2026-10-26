@@ -170,7 +170,8 @@ function pairFor(rel) {
 const SITE = 'https://hmdevonline.com';
 const HEAD = ['<!-- site-shell:head (tools/site-shell.cjs; do not edit here) -->', '<!-- /site-shell:head -->'];
 /** Tags the head block owns: removed wherever else they appear in a page's <head>. */
-const OWNED = /^[ \t]*<(?:link rel="canonical"|link rel="icon"|meta property="og:[^"]+"|meta name="twitter:[^"]+"|meta name="color-scheme")[^>]*>\n?/gm;
+/** Anywhere in <head>, not only at a line's start: Party Arcade's built head is one line. */
+const OWNED = /[ \t]*<(?:link rel="canonical"|link rel="icon"|meta property="og:[^"]+"|meta name="twitter:[^"]+"|meta name="color-scheme")[^>]*>\n?/g;
 
 const attr = (html, re) => { const m = html.match(re); return m ? m[1] : null; };
 
