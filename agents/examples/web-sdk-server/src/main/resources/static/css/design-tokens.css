@@ -61,6 +61,7 @@
     --info-bg:       rgba(34, 211, 238, 0.12);
 
     --code-bg:       #0d1526;
+    --code-bg-strong: #070c0a;  /* code set straight on the page ground (hub pages): reads as a block without a border */
 
     /* --- Typography ----------------------------------------------------- */
   --font-display: "Manrope", "Manrope Fallback", ui-sans-serif, system-ui, sans-serif;
