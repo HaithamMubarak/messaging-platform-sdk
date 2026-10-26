@@ -8,8 +8,8 @@ their source is in `web-sdk-server/` below.
 | Folder | What it is | Language |
 |---|---|---|
 | [`quickstart/`](quickstart/) | The five steps of the [quickstart](https://hmdevonline.com/messaging-platform/hub/quickstart.html): connect, join a channel, send, receive. Run it twice and watch the two talk. | JavaScript, Python, Java |
-| [`java-agent-chat/`](java-agent-chat/) | A console chat agent, and an agent that receives a WebRTC video stream. | Java |
-| [`python-agent-chat/`](python-agent-chat/) | A console chat agent. | Python |
+| [`java-agent-chat/`](java-agent-chat/) | A console chat agent, an agent that receives a WebRTC video stream, and a channel storage example. | Java |
+| [`python-agent-chat/`](python-agent-chat/) | A console chat agent, and a channel storage example. | Python |
 | [`web-sdk-server/`](web-sdk-server/) | The demo site itself: the browser demos (chat, presence, storage, polls, whiteboard, files, calls, proof logs), the game templates (Air Hockey, Gavel, Chess) and the shared terminal. A Spring Boot app serving static pages. | JavaScript (browser) |
 | [`sdk-local-service/`](sdk-local-service/) | The local helper the shared terminal talks to: runs shells, SSH sessions and file operations on your machine. | Java |
 

@@ -27,6 +27,8 @@ import com.hmdev.messaging.agent.util.Utils;
 
 import com.hmdev.messaging.agent.api.ConnectionChannelApi;
 import com.hmdev.messaging.agent.api.ConnectionChannelApiFactory;
+import com.hmdev.messaging.agent.storage.ChannelStorage;
+import com.hmdev.messaging.agent.storage.StorageException;
 import com.hmdev.messaging.common.security.MySecurity;
 
 import org.json.JSONObject;
@@ -69,6 +71,8 @@ public class AgentConnection {
     @Getter
     @Setter
     private String channelSecret;
+
+    private ChannelStorage storage;
 
     private boolean readyState = false;
     private Thread receiveThread;
@@ -692,6 +696,20 @@ public class AgentConnection {
         }
 
         return channelApi.udpPull(sessionId, receiveConfig);
+    }
+
+    /**
+     * Channel storage for this connection (put/add/get/getList/keys/values/deleteByKey).
+     * Needs the API URL, so it is not available on the ConnectionChannelApi-injecting constructor.
+     */
+    public synchronized ChannelStorage storage() {
+        if (storage == null) {
+            if (apiUrl == null) {
+                throw new StorageException("No API URL on this connection; storage needs one", 0);
+            }
+            storage = new ChannelStorage(apiUrl, () -> isReady() ? sessionId : null, () -> channelSecret);
+        }
+        return storage;
     }
 
     public boolean isReady() {

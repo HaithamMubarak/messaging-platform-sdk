@@ -54,3 +54,18 @@ Visit the developer portal to create your API key:
 ## Exit Command
 
 Send `/java-agent:exit` in the chat to gracefully disconnect the agent.
+
+## Channel storage example
+
+`StorageExample` uses the channel's key-value store: it puts an encrypted
+value and reads it back, keeps an append-only log, shows that the log refuses
+a put, lists the keys and deletes one. It runs live and prints PASS or FAIL.
+From the repository root:
+
+```bash
+./gradlew :agents:examples:java-agent-chat:storageExample --args="--url=<URL> --api-key=<KEY>"
+```
+
+Each run makes a fresh channel (`parity-storage-java-<time>`); each channel
+counts against your key's channel quota, so delete them when you are done.
+The API is described in [`agents/README.md`](../../README.md#channel-storage-java).
