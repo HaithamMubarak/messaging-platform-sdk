@@ -164,24 +164,31 @@ function pairFor(rel) {
  * meta (some without og:url or twitter:card, a relative favicon, "dark light" beside "dark", an
  * og:image under the retired /sdk/ path). A page authors only its <title>, description and, when
  * it differs, its og:description and canonical; the rest is written here from those.
+ * The app landings and the apps catalogue (2026-10-27) wear it too, through placeHead with no rel:
+ * such a page must name its canonical, and keeps its own og:image (each app has one).
  */
 const SITE = 'https://hmdevonline.com';
 const HEAD = ['<!-- site-shell:head (tools/site-shell.cjs; do not edit here) -->', '<!-- /site-shell:head -->'];
 /** Tags the head block owns: removed wherever else they appear in a page's <head>. */
-const OWNED = /^[ \t]*<(?:link rel="canonical"|link rel="icon"|meta property="og:[^"]+"|meta name="twitter:[^"]+"|meta name="color-scheme")[^>]*>\n?/gm;
+/** Anywhere in <head>, not only at a line's start: Party Arcade's built head is one line. */
+const OWNED = /[ \t]*<(?:link rel="canonical"|link rel="icon"|meta property="og:[^"]+"|meta name="twitter:[^"]+"|meta name="color-scheme")[^>]*>\n?/g;
 
 const attr = (html, re) => { const m = html.match(re); return m ? m[1] : null; };
 
+/** rel: the page's path under STATIC, or null for a page elsewhere (an app landing), which must name its canonical. */
 function headBlock(html, rel) {
     const title = attr(html, /<title>([^<]*)<\/title>/);
     const description = attr(html, /<meta property="og:description" content="([^"]*)">/) || attr(html, /<meta name="description" content="([^"]*)">/);
-    const canonical = attr(html, /<link rel="canonical" href="([^"]*)">/) || SITE + HUB + (rel === 'hub.html' ? '' : rel);
-    if (!title || !description) throw new Error(`${rel} needs a <title> and a meta description`);
+    const named = attr(html, /<link rel="canonical" href="([^"]*)">/);
+    // One spelling per page: a folder's index.html is the folder (half the app landings said one, half the other).
+    const canonical = named ? named.replace(/\/index\.html$/, '/') : rel && SITE + HUB + (rel === 'hub.html' ? '' : rel);
+    const image = attr(html, /<meta property="og:image" content="([^"]*)">/) || `${SITE}${HUB}images/og-image.png`;
+    if (!title || !description || !canonical) throw new Error(`${rel || title} needs a <title>, a meta description and (outside the SDK site) a canonical`);
     return [HEAD[0],
         `<link rel="canonical" href="${canonical}">`,
         '<meta property="og:type" content="website">', '<meta property="og:site_name" content="Messaging Platform">',
         `<meta property="og:title" content="${title}">`, `<meta property="og:description" content="${description}">`,
-        `<meta property="og:url" content="${canonical}">`, `<meta property="og:image" content="${SITE}${HUB}images/og-image.png">`,
+        `<meta property="og:url" content="${canonical}">`, `<meta property="og:image" content="${image}">`,
         '<meta property="og:image:width" content="1200">', '<meta property="og:image:height" content="630">',
         '<meta name="twitter:card" content="summary_large_image">', '<meta name="color-scheme" content="dark">',
         `<link rel="icon" type="image/svg+xml" href="${HUB}favicon.svg">`, HEAD[1]].join('\n');
@@ -218,7 +225,8 @@ function run(files, check) {
         const crlf = raw.includes('\r\n');
         const lf = raw.replace(/\r\n/g, '\n');
         const rel = path.relative(STATIC, file).split(path.sep).join('/');
-        const out = apply(lf, section, pairFor(rel), rel);
+        // A page outside the SDK site (the apps catalogue) gets the head block from its own canonical.
+        const out = rel.startsWith('..') ? placeHead(apply(lf, section, null), null) : apply(lf, section, pairFor(rel), rel);
         if (out === lf) continue;
         if (check) { bad++; console.log(`  differs from the shell: ${file}`); continue; }
         fs.writeFileSync(file, crlf ? out.replace(/\n/g, '\r\n') : out);
@@ -240,4 +248,4 @@ if (require.main === module) {
     process.exitCode = bad ? 1 : 0;
 }
 
-module.exports = { apply, pairFor, header, footer, headBlock, PAGES, NAV, STATIC };
+module.exports = { apply, placeHead, pairFor, header, footer, headBlock, PAGES, NAV, STATIC };
