@@ -58,26 +58,54 @@
 <div class="mp-langs"><span>SDKs for</span><a class="mp-lang" href="quickstart.html#js">JavaScript</a><a class="mp-lang" href="quickstart.html#python">Python</a><a class="mp-lang" href="quickstart.html#java">Java</a><a class="mp-lang" href="quickstart.html#cpp">C++ <small>experimental</small></a></div>
 <p class="home-presence" id="homePresence" aria-live="polite"><span class="home-presence__faces" data-presence-faces></span><span class="home-presence__count" data-presence-count>This page joins one live channel; whoever else is reading it appears here.</span><span class="home-presence__rtt" data-presence-rtt></span></p>
 </div>
-<figure class="home-mock" aria-label="A live room: three people, one of them an AI agent, on one channel">
-<figcaption><i></i><i></i><i></i><span>room-123 · 3 here</span><b>live</b></figcaption>
-<div class="home-mock__body">
-<ol class="home-mock__chat">
-<li><span class="home-mock__who">AN</span><p>Board is saved, joining the call now</p></li>
-<li class="is-agent"><span class="home-mock__who">AI</span><p>Summary ready: 3 decisions, 2 owners</p></li>
-<li class="is-me"><p>ship it</p></li>
-</ol>
-<aside class="home-mock__here"><p>Here now</p><ul><li><span>AN</span>Ana <small>host</small></li><li><span>BO</span>Bo</li><li><span>AI</span>assistant.py</li></ul></aside>
+<figure class="home-code" data-tabs data-code-sample>
+<div class="home-code__bar">
+<div class="home-code__tabs" role="tablist" aria-label="Language">
+<button role="tab" id="hc-tab-js" aria-controls="hc-js" aria-selected="true">JavaScript</button>
+<button role="tab" id="hc-tab-python" aria-controls="hc-python" aria-selected="false">Python</button>
+<button role="tab" id="hc-tab-java" aria-controls="hc-java" aria-selected="false">Java</button>
 </div>
-<pre class="home-mock__code"><span class="c">// that whole room is</span>
-agent.connect({ channelName: <span class="s">'room-123'</span>, apiKey });</pre>
+<button class="home-code__copy" type="button" data-copy>Copy</button>
+</div>
+<pre class="home-code__pane" role="tabpanel" id="hc-js" aria-labelledby="hc-tab-js" tabindex="0" data-source="quickstart.js"><span class="c">// install: the two &lt;script&gt; tags in the quickstart, no build step</span>
+<span class="k">const</span> API = <span class="s">'https://hmdevonline.com/messaging-platform/api/v1/messaging-service'</span>;
+<span class="k">const</span> agent = <span class="k">new</span> AgentConnection();
+agent.addEventListener(<span class="s">'message'</span>, e =&gt; e.response.data
+  .filter(m =&gt; m.type === <span class="s">'chat-text'</span>)
+  .forEach(m =&gt; console.log(m.from, <span class="s">'says'</span>, m.content)));
+agent.addEventListener(<span class="s">'connect'</span>, e =&gt; e.response.status === <span class="s">'success'</span>
+  &amp;&amp; agent.sendMessage({ content: <span class="s">'Hello from the browser!'</span> }));
+agent.connect({ api: API, apiKey, channelName: <span class="s">'quickstart-room'</span>,
+  channelPassword: <span class="s">'channel-password'</span>, agentName: <span class="s">'browser-user'</span>,
+  autoReceive: <span class="k">true</span> });</pre>
+<pre class="home-code__pane" role="tabpanel" id="hc-python" aria-labelledby="hc-tab-python" tabindex="0" data-source="quickstart.py" hidden><span class="c"># pip install "git+https://github.com/HaithamMubarak/messaging-platform-sdk.git@develop#subdirectory=agents/python-agent"</span>
+API = <span class="s">"https://hmdevonline.com/messaging-platform/api/v1/messaging-service"</span>
+agent = AgentConnection.with_api_key(API, os.environ[<span class="s">"MESSAGING_PLATFORM_API_KEY"</span>])
+agent.connect(<span class="s">"quickstart-room"</span>, <span class="s">"channel-password"</span>, <span class="s">"python-agent"</span>)
+<span class="k">class</span> Printer(AgentConnectionEventHandler):
+    <span class="k">def</span> on_message_events(self, events):
+        <span class="k">for</span> e <span class="k">in</span> events:
+            <span class="k">if</span> e.get(<span class="s">"type"</span>) == <span class="s">"chat-text"</span>: print(e.get(<span class="s">"from"</span>), <span class="s">"says"</span>, e.get(<span class="s">"content"</span>))
+agent.receive_async(Printer())
+agent.send_message(<span class="s">"Hello from Python!"</span>)</pre>
+<pre class="home-code__pane" role="tabpanel" id="hc-java" aria-labelledby="hc-tab-java" tabindex="0" data-source="Quickstart.java" hidden><span class="c">// implementation project(':agents:java-agent'), built from source (see the quickstart)</span>
+AgentConnection agent = <span class="k">new</span> AgentConnection(
+        <span class="s">"https://hmdevonline.com/messaging-platform/api/v1/messaging-service"</span>,
+        System.getenv(<span class="s">"MESSAGING_PLATFORM_API_KEY"</span>));
+agent.connect(ConnectConfig.of(<span class="s">"quickstart-room"</span>, <span class="s">"channel-password"</span>, <span class="s">"java-agent"</span>));
+agent.receiveAsync(events -&gt; events.stream()
+        .filter(e -&gt; e.getType() == EventMessage.EventType.CHAT_TEXT)
+        .forEach(e -&gt; System.out.println(e.getFrom() + <span class="s">" says "</span> + e.getContent())));
+agent.sendMessage(<span class="s">"Hello from Java!"</span>);</pre>
+<figcaption>Install, connect, listen, send: run it twice and the two copies talk. <a class="mp-link" href="quickstart.html">The full quickstart &rarr;</a></figcaption>
 </figure>
 </section>
 
-<ul class="home-trust" aria-label="What the platform handles">
-<li>WebSocket, with HTTP fallback</li>
-<li>Channels encrypted by their password</li>
-<li>Peer-to-peer media, TURN handled</li>
-<li>SDKs in four languages</li>
+<ul class="home-trust" aria-label="The platform, checked live">
+<li><a href="/messaging-platform/apps/status/"><i class="home-trust__dot" data-health-dot aria-hidden="true"></i><span data-health>Platform status</span></a></li>
+<li><a href="/messaging-platform/apps/"><span data-runs>The apps on this site run on it</span></a></li>
+<li><a href="https://github.com/HaithamMubarak/messaging-platform-sdk">SDK source on GitHub</a></li>
+<li><a href="privacy.html">How we handle data</a></li>
 </ul>
 
 <section class="mp-section" aria-labelledby="doors-h"><div class="mp-section-head"><p class="mp-eyebrow">Get started</p><h2 id="doors-h">Choose where to start.</h2></div>
@@ -166,8 +194,10 @@ Catalogue.load().then(function (cat) {
     [['small', e.category || ''], ['h3', e.name], ['p', e.blurb || '']].forEach(function (p) { var n = document.createElement(p[0]); n.textContent = p[1]; body.appendChild(n); });
     a.appendChild(img); a.appendChild(body); box.appendChild(a);
   });
-  // The doors' counts, from the same catalogue: nothing on this page is a number typed by hand.
+  // The doors' counts and the trust strip, from the same catalogue: nothing here is a number typed by hand.
   var products = Catalogue.shelf(cat, 'products');
+  var runs = document.querySelector('[data-runs]');
+  if (runs && products.length) runs.textContent = products.length + ' products and ' + Catalogue.shelf(cat, 'learn').length + ' demos run on it';
   var games = products.filter(function (e) { return /games/i.test(e.category || ''); }).map(function (e) { return e.name; });
   var counts = { learn: Catalogue.shelf(cat, 'learn').length + ' demos', products: products.length + ' products',
     games: games.length > 2 ? games.length + ' games' : games.join(' and ') };
@@ -177,9 +207,22 @@ Catalogue.load().then(function (cat) {
   });
 }).catch(function () {});
 
-// The primitive tabs: one panel at a time, arrow keys move between tabs.
+// The trust strip's health: the same check the Status app makes (apps/status/js/status.js), from this browser.
 (function () {
-  var box = document.querySelector('[data-tabs]'); if (!box) return;
+  var dot = document.querySelector('[data-health-dot]'), label = document.querySelector('[data-health]');
+  if (!label || !window.fetch) return;
+  var started = Date.now();
+  fetch('/messaging-platform/api/v1/messaging-service/health', { cache: 'no-store' })
+    .then(function (r) { return r.ok ? r.json() : null; })
+    .then(function (d) {
+      var up = !!d && d.status === 'success' && String(d.data).toLowerCase() === 'ok';
+      dot.className = 'home-trust__dot ' + (up ? 'is-up' : 'is-down');
+      label.textContent = up ? 'API responding \u00b7 ' + (Date.now() - started) + ' ms' : 'API not responding: see status';
+    }, function () { dot.className = 'home-trust__dot is-down'; label.textContent = 'API not reachable from here: see status'; });
+})();
+
+// The tab sets (the hero's languages, the primitives): one panel at a time, arrow keys move between tabs.
+document.querySelectorAll('[data-tabs]').forEach(function (box) {
   var tabs = Array.prototype.slice.call(box.querySelectorAll('[role="tab"]'));
   function select(tab, focus) {
     tabs.forEach(function (t) {
@@ -197,6 +240,18 @@ Catalogue.load().then(function (cat) {
     });
   });
   select(tabs[0]);
+});
+
+// The hero sample's copy button copies the language on show.
+(function () {
+  var box = document.querySelector('[data-code-sample]'), button = box && box.querySelector('[data-copy]');
+  if (!button || !navigator.clipboard) { if (button) button.hidden = true; return; }
+  button.addEventListener('click', function () {
+    var pane = box.querySelector('[role="tabpanel"]:not([hidden])');
+    navigator.clipboard.writeText(pane.textContent).then(function () { button.textContent = 'Copied'; },
+      function () { button.textContent = 'Select and copy'; });
+    setTimeout(function () { button.textContent = 'Copy'; }, 1600);
+  });
 })();
 </script>
 <script src="/messaging-platform/hub/js/site-shell.js" defer></script>

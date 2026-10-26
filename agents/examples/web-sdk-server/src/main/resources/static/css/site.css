@@ -346,8 +346,8 @@ a.mp-card:hover { border-color: var(--green); box-shadow: var(--shadow); }
 }
 
 /* ===== 3. hub home ===== */
-.home-hero { display: grid; grid-template-columns: minmax(0, 1.05fr) minmax(0, 1fr); gap: 48px; align-items: center; padding: 24px 0 8px; }
-.home-hero h1 { font-size: clamp(34px, 5.4vw, 60px); letter-spacing: -1.6px; line-height: 1.04; }
+.home-hero { display: grid; grid-template-columns: minmax(0, .85fr) minmax(0, 1.15fr); gap: 40px; align-items: center; padding: 24px 0 8px; }
+.home-hero h1 { font-size: clamp(34px, 4.4vw, 54px); letter-spacing: -1.6px; line-height: 1.04; }
 .home-hero h1 em { font-style: normal; color: var(--accent, #2dd4bf); }
 .home-hero .mp-lead { margin-top: 18px; max-width: 34rem; font-size: 18px; }
 .home-hero .mp-actions { margin-top: 26px; }
@@ -355,7 +355,6 @@ a.mp-card:hover { border-color: var(--green); box-shadow: var(--shadow); }
 .home-badge { display: inline-flex; align-items: center; gap: 8px; margin: 0 0 18px; padding: 6px 12px; border: 1px solid color-mix(in srgb, var(--brand) 40%, transparent); border-radius: 999px; color: var(--brand-ink); font-size: 13px; font-weight: 600; }
 .home-badge i { width: 8px; height: 8px; border-radius: 50%; background: var(--brand); box-shadow: 0 0 0 4px var(--brand-subtle); }
 
-/* The hero's live room: a still picture of what one channel carries (plan 4.10). */
 /* The hero's live line (js/home-presence.js, plan P3): who else is reading this page, from one
    shared channel. Faces and the join time sit on the first row, the sentence on the second; the
    box holds both rows from the start so connecting never moves the hero. */
@@ -368,32 +367,34 @@ a.mp-card:hover { border-color: var(--green); box-shadow: var(--shadow); }
 .home-presence__face.is-more { background: var(--surface-2); color: var(--text-muted); }
 .home-presence__rtt { grid-row: 1; grid-column: 2; color: var(--brand-ink); font-family: var(--font-mono); font-size: 12px; justify-self: end; }
 .home-presence__count { grid-row: 2; grid-column: 1 / -1; color: var(--text-body); font-size: 14px; line-height: 1.45; }
-.home-mock { position: relative; margin: 0 0 28px; border: 1px solid var(--border-strong); border-radius: 14px; background: var(--surface-1); box-shadow: 0 30px 80px rgba(0, 0, 0, .35); }
-.home-mock figcaption { display: flex; align-items: center; gap: 8px; padding: 10px 14px; font-size: 13px; color: var(--text-muted); border-bottom: 1px solid var(--border); }
-.home-mock figcaption i { width: 9px; height: 9px; border-radius: 50%; background: var(--surface-3); }
-.home-mock figcaption span { margin-left: 6px; font-family: var(--font-mono); font-size: 12px; }
-.home-mock figcaption b { margin-left: auto; color: var(--success); font-size: 12px; font-weight: 600; }
-.home-mock figcaption b::before { content: "● "; }
-.home-mock__body { display: grid; grid-template-columns: minmax(0, 1fr) 150px; min-height: 230px; }
-.home-mock__chat { list-style: none; margin: 0; padding: 18px 18px 56px;   /* room for the code card over the corner */ display: flex; flex-direction: column; justify-content: flex-end; gap: 10px; }
-.home-mock__chat li { display: flex; align-items: center; gap: 8px; }
-.home-mock__chat li.is-me { justify-content: flex-end; }
-.home-mock__chat p { margin: 0; padding: 7px 12px; border: 1px solid var(--border); border-radius: 10px; background: var(--surface-2); color: var(--text-body); font-size: 13px; }
-.home-mock__chat li.is-agent p { border-color: color-mix(in srgb, var(--brand) 45%, var(--border)); }
-.home-mock__chat li.is-me p { background: var(--brand); border-color: var(--brand); color: var(--on-brand); font-weight: 600; }
-.home-mock__who, .home-mock__here span { display: inline-grid; place-items: center; width: 28px; height: 28px; border-radius: 50%; background: var(--surface-3); color: var(--text); font-size: 11px; font-weight: 700; flex: none; }
-.is-agent .home-mock__who, .home-mock__here li:last-child span { background: #f5b94a; color: #2a1a00; }
-.home-mock__here { padding: 14px; border-left: 1px solid var(--border); font-size: 13px; }
-.home-mock__here p { margin: 0 0 10px; color: var(--text-muted); font-size: 11px; font-weight: 700; letter-spacing: .1em; text-transform: uppercase; }
-.home-mock__here ul { list-style: none; margin: 0; padding: 0; display: grid; gap: 10px; color: var(--text); }
-.home-mock__here li { display: flex; align-items: center; gap: 8px; }
-.home-mock__here small { color: var(--brand-ink); font-size: 11px; }
-.home-mock__code { position: absolute; left: -18px; bottom: -26px; margin: 0; padding: 10px 14px; border: 1px solid var(--border-strong); border-radius: 10px; background: var(--code-bg, #060a16); color: #dbe4f3; font-family: var(--font-mono); font-size: 12.5px; line-height: 1.6; box-shadow: 0 16px 40px rgba(0, 0, 0, .45); white-space: pre; }
-.home-mock__code .c { color: var(--text-muted); }
-.home-mock__code .s { color: var(--brand-ink); }
+/* The hero's code (2026-10-26): the quickstart in three languages, one shown at a time. Each line is
+   the quickstart's own (src/test/js/hero-code.test.js holds it to agents/examples/quickstart). The panes
+   share one height (eleven lines), so switching language never moves the page. */
+.home-code { min-width: 0; margin: 0; border: 1px solid var(--border-strong); border-radius: 14px; background: var(--code-bg); box-shadow: var(--shadow-3); overflow: hidden; }
+.home-code__bar { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 6px 8px 0 6px; border-bottom: 1px solid var(--border); }
+.home-code__tabs { display: flex; min-width: 0; overflow-x: auto; scrollbar-width: none; }
+.home-code__tabs [role="tab"] { min-height: 40px; padding: 0 12px; border: 0; border-bottom: 2px solid transparent; background: none; color: var(--text-muted); font: 600 13px var(--font-sans); cursor: pointer; white-space: nowrap; }
+.home-code__tabs [role="tab"][aria-selected="true"] { color: var(--text); border-bottom-color: var(--brand); }
+.home-code__copy { flex: none; min-height: 32px; min-width: 56px; padding: 0 10px; margin-bottom: 6px; border: 1px solid var(--border-strong); border-radius: 6px; background: var(--surface-2); color: var(--text-body); font: 600 12px var(--font-sans); cursor: pointer; }
+.home-code__pane { margin: 0; padding: 16px 18px; min-height: calc(11 * 1.65em + 32px); overflow-x: auto; color: #dbe4f3; font: 12px/1.65 var(--font-mono); font-variant-ligatures: none; white-space: pre; tab-size: 4; }
+.home-code__pane[hidden] { display: none; }
+.home-code__pane .c { color: var(--text-muted); }
+.home-code__pane .k { color: #93c5fd; }
+.home-code__pane .s { color: var(--brand-ink); }
+.home-code figcaption { padding: 10px 18px 12px; border-top: 1px solid var(--border); color: var(--text-muted); font-size: 13px; }
+.home-code figcaption .mp-link { display: inline-flex; align-items: center; min-height: 32px; }
+@media (pointer: coarse) { .home-code__tabs [role="tab"] { min-height: 44px; } .home-code__copy { min-height: 36px; } }
 
-.home-trust { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 10px 28px; list-style: none; margin: 56px 0 0; padding: 16px 0; border-block: 1px solid var(--border); color: var(--text-muted); font-size: 14px; }
-.home-trust li::before { content: "✓"; margin-right: 8px; color: var(--brand); font-weight: 700; }
+/* The trust strip (2026-10-26): signals a visitor can check, each a link to its evidence. The API's
+   health is fetched live (the Status app's check); the counts come from the catalogue. No customer
+   names or numbers that are not measured here. One line per item, so filling them in never moves the page. */
+.home-trust { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 4px 28px; list-style: none; margin: 56px 0 0; padding: 8px 0; border-block: 1px solid var(--border); font-size: 14px; }
+.home-trust a { display: inline-flex; align-items: center; gap: 8px; min-height: 44px; color: var(--text-muted); text-decoration: none; white-space: nowrap; }
+.home-trust a:hover { color: var(--text); text-decoration: underline; text-underline-offset: 4px; }
+.home-trust li:not(:first-child) a::before { content: "✓"; color: var(--brand); font-weight: 700; }
+.home-trust__dot { width: 9px; height: 9px; border-radius: 50%; background: var(--text-faint); flex: none; }
+.home-trust__dot.is-up { background: var(--success); box-shadow: 0 0 0 4px var(--success-bg); }
+.home-trust__dot.is-down { background: var(--warning); box-shadow: 0 0 0 4px var(--warning-bg); }
 
 .home-doors { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 16px; }
 .home-door {
@@ -444,11 +445,7 @@ a.mp-card:hover { border-color: var(--green); box-shadow: var(--shadow); }
 }
 @media (max-width: 680px) {
     .home-doors, .home-products, .home-checks { grid-template-columns: minmax(0, 1fr); }
-    .home-mock__body { grid-template-columns: minmax(0, 1fr); }
-    .home-mock__here { display: none; }
-    .home-mock__code { position: static; margin: 0 12px 12px; white-space: pre-wrap; overflow-wrap: anywhere; }
-    .home-mock__chat { padding-bottom: 18px; }
-    .home-mock { margin-bottom: 0; }
+    .home-code__pane { font-size: 12px; padding: 14px; }
     .home-trust { justify-content: flex-start; }
 }
 

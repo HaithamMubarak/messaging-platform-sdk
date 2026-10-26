@@ -66,7 +66,7 @@ check('every shell page opens with one skip link whose target exists', () => {
         const body = p.html.slice(p.html.indexOf('<body')).replace(/<body[^>]*>\s*/, '').replace(/^<!--[^>]*-->\s*/, '');
         const m = body.match(/^<a class="skip-link" href="#([\w-]+)">/);
         assert.ok(m, p.rel + ' does not open with the skip link');
-        assert.strictEqual((p.html.match(/>Skip to[^<]*<\/a>/g) || []).length, 1, p.rel + ' has more than one skip link');
+        assert.strictEqual((p.html.match(/<a [^>]*>Skip[^<]*<\/a>/g) || []).length, 1, p.rel + ' has more than one skip link');
         assert.ok(p.html.includes('id="' + m[1] + '"'), p.rel + ' skip target #' + m[1] + ' does not exist');
     }
 });
