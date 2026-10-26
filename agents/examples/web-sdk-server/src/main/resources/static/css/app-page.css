@@ -66,8 +66,9 @@
 @media (min-width: 900px) {
     .ap-hero { grid-template-columns: minmax(0, 1fr) minmax(0, 1.05fr); }
 }
-/* The hero headline (2026-10-27): thirteen landings carried this as the same inline style. */
-.ap-hero__title { font-size: var(--fs-hero); margin-bottom: var(--sp-4); text-wrap: balance; }
+/* The hero headline (2026-10-27): thirteen landings carried this as the same inline style.
+   Paired with .hero so it outranks landing.css's .hero h1, as the inline style did. */
+.ap-hero__title, .hero .ap-hero__title { font-size: var(--fs-hero); margin-bottom: var(--sp-4); text-wrap: balance; }
 .ap-hero__title--narrow { max-width: 20ch; }
 
 /* --- A screenshot in a window ------------------------------------------- */
